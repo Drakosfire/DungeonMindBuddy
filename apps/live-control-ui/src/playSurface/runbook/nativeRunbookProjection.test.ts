@@ -156,6 +156,39 @@ describe("slicePlayableBodies", () => {
     expect(slices.get("beat:inside")?.bodyText).not.toContain("Choice prose UNIQUE");
     expect(slices.get("beat:inside")?.bodyText).not.toContain("Option prose UNIQUE");
   });
+
+  it("ends a Beat body at an ordinary unmarked root H2 so later instructions stay outside that Beat", () => {
+    const markdown = [
+      "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+      "## Gate",
+      "",
+      "Scene intro unique.",
+      "",
+      "<!-- dmb-playable-element:v1 kind=beat id=beat:breach -->",
+      "### Beat: Breach",
+      "",
+      "Beat-specific prose",
+      "",
+      "### GM Note",
+      "",
+      "Keep this unmarked H3 inside the Beat.",
+      "",
+      "## Open questions",
+      "",
+      "- Does Tealeaf answer?",
+      "- How much wall falls?",
+      "",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    const slices = slicePlayableBodies(imported.doc);
+    expect(slices.get("beat:breach")?.bodyText).toContain("Beat-specific prose");
+    expect(slices.get("beat:breach")?.bodyText).toContain("Keep this unmarked H3 inside the Beat.");
+    expect(slices.get("beat:breach")?.bodyText).not.toContain("Open questions");
+    expect(slices.get("beat:breach")?.bodyText).not.toContain("Does Tealeaf answer");
+    expect(slices.has("open-questions")).toBe(false);
+    expect([...slices.keys()]).toEqual(["scene:gate", "beat:breach"]);
+  });
 });
 
 describe("admitNativeRunbook", () => {
@@ -177,6 +210,7 @@ describe("admitNativeRunbook", () => {
     expect(admitted.currentIsPreview).toBe(true);
     expect(admitted.displayedSceneId).toBe("scene:gate");
     expect(admitted.previewSceneId).toBe("scene:gate");
+    expect(admitted.importedDoc).toEqual(markdownToTiptapDoc(SIBLING_MARKDOWN).doc);
   });
 
   it("blocks as rebase_required when the workspace revision is newer than the Run binding", () => {
@@ -193,6 +227,7 @@ describe("admitNativeRunbook", () => {
       reason: expect.stringMatching(/revision/i),
     });
     expect(admitted.status === "ready" ? admitted.scenes : []).toEqual([]);
+    expect("importedDoc" in admitted).toBe(false);
   });
 
   it("blocks as rebase_required when the workspace digest differs from the Run binding", () => {
