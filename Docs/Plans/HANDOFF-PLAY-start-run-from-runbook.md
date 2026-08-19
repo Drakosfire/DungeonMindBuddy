@@ -377,6 +377,7 @@ Required: reconcile exact manifest GET; if exact U/R@7/A manifest exists, naviga
 | Modify | `apps/live-control-ui/src/playSurface/playSurface.css` | minimal Play-owned chooser/start presentation |
 | Create | `apps/live-control-ui/src/playSurface/StartRunPanel.tsx` | explicit Runbook chooser + exact start/reconcile workflow |
 | Create | `apps/live-control-ui/src/playSurface/StartRunPanel.test.tsx` | owning UI/workflow adversarial proofs |
+| Modify | `apps/live-control-ui/src/App.test.tsx` | Cycle 1 lease amendment — real PlaySurfacePage composition: Existing Runs remain openable when Start Run discovery fails, and successful start enters `/play?run=<uuid>` READY |
 
 ### Bounded discovery exception
 
@@ -533,6 +534,7 @@ From `apps/live-control-ui`:
 ```bash
 pnpm exec vitest run \
   src/playSurface/StartRunPanel.test.tsx \
+  src/playSurface/startRunAttempt.test.ts \
   src/api/liveApi.test.ts \
   src/App.test.tsx \
   src/playSurface/runbook/nativeRunbookProjection.test.ts \
@@ -542,7 +544,7 @@ pnpm run typecheck
 pnpm run build
 ```
 
-If a bounded Play-local workflow helper/test is created, include its test in the focused command.
+The bounded Play-local workflow helper test `src/playSurface/startRunAttempt.test.ts` is required. Cycle 1 authorized `src/App.test.tsx` as the owning composition and READY-route proof.
 
 ### Existing P2 authority regression
 
@@ -563,7 +565,7 @@ No backend file may change merely to make these tests pass.
 | Guarantee | Owning boundary | Required proof |
 |---|---|---|
 | no implicit Runbook selection | StartRunPanel | multiple candidates; no write until explicit click |
-| active Runbook discovery failure does not break existing Run chooser | PlaySurfacePage composition | workspace list fails while Run list succeeds; existing Run remains openable |
+| active Runbook discovery failure does not break existing Run chooser | App `/play` composition | workspace list fails while Run list succeeds; existing Run remains openable beside Start Run unavailable |
 | exact snapshot revision/SHA sent to P2A | StartRunPanel + liveApi | request capture proof |
 | stale snapshot race blocks | StartRunPanel workflow | injected 409 after snapshot; no manifest call, no navigation |
 | same start attempt keeps one UUID | StartRunPanel workflow | lost create response + reconciliation/replay; generated UUID count stays one |
@@ -573,7 +575,7 @@ No backend file may change merely to make these tests pass.
 | navigation waits for manifest authority | StartRunPanel | Run success + seal failure never navigates |
 | lost manifest response reconciles | StartRunPanel workflow | manifest GET proves exact seal → one navigation |
 | Run created / seal incomplete is truthful | StartRunPanel | 409/failed seal shows exact Run UUID and retry; no new UUID |
-| successful path enters existing P3A exact route | component integration/manual | `/play?run=U`; existing admission renders ready deck |
+| successful path enters existing P3A exact route | App `/play` composition | Start exact Run → `/play?run=U`; existing admission renders ready deck |
 | no backend/new persistence contract | changed-path/diff review | no `apps/live_control_server/**`; only existing API mirrors |
 | P3A predecessor state truth is synchronized | docs diff | exact merge/evidence/review-cycle facts; current roadmap chooses this slice without pre-marking it complete |
 
@@ -595,7 +597,8 @@ git diff --stat 509ad35a0c97aeed146f3a79d0895e430ed1efe7...HEAD -- \
   apps/live-control-ui/src/playSurface/PlaySurfacePage.tsx \
   apps/live-control-ui/src/playSurface/playSurface.css \
   apps/live-control-ui/src/playSurface/StartRunPanel.tsx \
-  apps/live-control-ui/src/playSurface/StartRunPanel.test.tsx
+  apps/live-control-ui/src/playSurface/StartRunPanel.test.tsx \
+  apps/live-control-ui/src/App.test.tsx
 
 git diff --name-only 509ad35a0c97aeed146f3a79d0895e430ed1efe7...HEAD
 ```
