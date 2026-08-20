@@ -100,7 +100,7 @@ Update together in this implementation PR:
    - select this D2 capability as current next;
    - add the D2 review row only when implementation evidence is truthfully known;
    - do **not** pre-mark D2 complete.
-3. `Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md`
+3. `Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md`
    - keep P3B **NON-DISPATCHABLE**;
    - update the sequencing precondition so Start Run is now complete, D2 is current, and live dogfood/re-anchor still precede P3B.
 
@@ -172,7 +172,7 @@ The focused Table view remains the default so Play does not dump a long prep doc
 4. `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md`
 5. `Docs/Plans/HANDOFF-PLAY-start-run-from-runbook.md`
 6. `Docs/Plans/HANDOFF-PLAY-native-runbook-table-deck.md`
-7. `Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md`
+7. `Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md`
 8. `apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.ts`
 9. `apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.test.ts`
 10. `apps/live-control-ui/src/playSurface/runbook/RunbookTableDeck.tsx`
@@ -362,7 +362,7 @@ Required:
 |---|---|---|
 | Create | `Docs/Plans/HANDOFF-PLAY-native-runbook-instructions.md` | checked-in D2 implementation authority |
 | Modify | `Docs/Plans/HANDOFF-PLAY-start-run-from-runbook.md` | atomic backward-looking D1/#621 merged/historical sync |
-| Modify | `Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md` | keep P3B non-dispatchable; advance sequencing facts through completed D1/current D2 |
+| Modify | `Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md` | keep P3B non-dispatchable; advance sequencing facts through completed D1/current D2 |
 | Modify | `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` | record D1 complete + current `a0e03bed...` integration tip + select D2; do not pre-mark D2 complete |
 | Modify | `apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.ts` | carry exact admitted imported document forward and enforce ordinary root H1/H2 body boundary |
 | Modify | `apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.test.ts` | prove exact-document projection + body-boundary semantics + unchanged admission |

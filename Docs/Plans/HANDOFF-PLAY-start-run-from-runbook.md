@@ -95,7 +95,7 @@ Update together:
    - mark P3A complete;
    - select this Start Run slice as current next;
    - keep P3B designed but deferred behind the dogfood bridge sequence.
-3. `Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md`
+3. `Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md`
    - keep P3B **NON-DISPATCHABLE**;
    - replace the stale condition “P3A state sync names P3B next” with the new sequencing truth: Start Run → Runbook briefing/instructions → live dogfood → re-anchor before P3B.
 
@@ -377,7 +377,7 @@ Required: reconcile exact manifest GET; if exact U/R@7/A manifest exists, naviga
 |---|---|---|
 | Create | `Docs/Plans/HANDOFF-PLAY-start-run-from-runbook.md` | checked-in implementation authority |
 | Modify | `Docs/Plans/HANDOFF-PLAY-native-runbook-table-deck.md` | backward-looking P3A merge/review-cycle sync |
-| Modify | `Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md` | keep P3B non-dispatchable under revised dogfood sequence |
+| Modify | `Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md` | keep P3B non-dispatchable under revised dogfood sequence |
 | Modify | `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` | P3A completion ledger + select this dogfood bridge; do not pre-mark this slice complete |
 | Modify | `apps/live-control-ui/src/api/types.ts` | exact TypeScript mirror for existing P2A create request only |
 | Modify | `apps/live-control-ui/src/api/liveApi.ts` | thin clients for existing Run PUT + manifest-seal PUT |
@@ -598,7 +598,7 @@ git diff --check
 git diff --stat 509ad35a0c97aeed146f3a79d0895e430ed1efe7...HEAD -- \
   Docs/Plans/HANDOFF-PLAY-start-run-from-runbook.md \
   Docs/Plans/HANDOFF-PLAY-native-runbook-table-deck.md \
-  Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md \
+  Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md \
   Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md \
   apps/live-control-ui/src/api/types.ts \
   apps/live-control-ui/src/api/liveApi.ts \

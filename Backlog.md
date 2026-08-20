@@ -219,7 +219,7 @@ bounded shared persistence seam if both domains demonstrate one.
 **Depends on:** disposition of the retained `agent/play-command-board-disk-saves`
 worktree (mine/adopt/commit or discard its uncommitted Combat disk-save work);
 then a bounded Lane B handoff. The P4 exact Threat→Combat design
-(`Docs/Plans/HANDOFF-PLAY-add-to-combat.md`) is preserved but deferred until
+(`Docs/Plans/HANDOFF-PLAY-SURFACE-add-to-combat.md`) is preserved but deferred until
 this durable Combat re-anchor.
 
 Operator rank 2. The HTML Combat Tracker was the surface actually used at

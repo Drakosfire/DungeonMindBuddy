@@ -4,8 +4,8 @@ pr_body_template: |
   - Conversation/workstream: PLAY-SURFACE / Playable Architecture Graduation / P4
   - Flow: PLAY-SURFACE
   - Direction: DESIGN → CODE → REVIEW
-  - Handoff: Docs/Plans/HANDOFF-PLAY-add-to-combat.md
-  - Suggested branch / PR: agent/play-add-to-combat / `PLAY: add exact Threat to Combat`
+  - Handoff: Docs/Plans/HANDOFF-PLAY-SURFACE-add-to-combat.md
+  - Suggested branch / PR: agent/play-add-to-combat / `PLAY-SURFACE: add exact Threat to Combat`
 
   ## Verification pointer
   - Design anchor: current main `53aaf9a566cfd40dd09f1a4c9723276cefa2a98a` (merge of PR #608)
@@ -24,7 +24,7 @@ pr_body_template: |
 
 **Created:** 2026-08-16  
 **Status:** DESIGNED — **DEFERRED, not current dispatch authority.** Cycle 4 repair of generation-local Add receipts on save/load. Generation bootstrap, exact-revision model path, binding identity, and predecessor seed mapping remain as Cycles 2–3. The C2 Session 27 dogfood showed Combat state must first become durable and browser/worktree-independent (`Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`); the current sequence is Lane B (durable Combat state / database-backed tracker authority) before this exact Threat→Combat mutation is re-pinned. This handoff is preserved design evidence and is **not** "directly dispatchable when selected" until a durable Combat re-anchor names P4 next. **No prerequisite exists merely because another handoff/document is absent from `main`, and P4 does not require P3A/P3B implementation merely to establish this exact Threat→Combat transition.**
-**Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-add-to-combat.md`  
+**Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-SURFACE-add-to-combat.md`
 **Conversation/workstream:** `PLAY-SURFACE / Playable Architecture Graduation / P4`
 **Flow / owner:** `PLAY-SURFACE`
 **Direction:** DESIGN → CODE → REVIEW  
@@ -33,7 +33,7 @@ pr_body_template: |
 **P3C review cycles:** `2`  
 **Implementation base:** `PIN_AT_DISPATCH`  
 **Suggested branch:** `agent/play-add-to-combat`  
-**PR title:** `PLAY: add exact Threat to Combat`
+**PR title:** `PLAY-SURFACE: add exact Threat to Combat`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
@@ -736,7 +736,7 @@ Pin the exact implementation base at dispatch. These are current expected owners
 
 | Action | Path | Purpose |
 |---|---|---|
-| Create / Modify | `Docs/Plans/HANDOFF-PLAY-add-to-combat.md` | implementation pin + evidence handback |
+| Create / Modify | `Docs/Plans/HANDOFF-PLAY-SURFACE-add-to-combat.md` | implementation pin + evidence handback |
 
 **Do not modify the living roadmap merely to stage this design.** A later implementation/state-authority sync may record P4 evidence when that is the actual workstream transition.
 
@@ -798,7 +798,7 @@ If production code requires more than the named paths above plus **two** direct 
 ### Deliberate non-lease / read only
 
 ```text
-Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md
+Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md
 Docs/Plans/HANDOFF-PLAY-native-runbook-table-deck.md
 Docs/Design/**
 apps/live_control_server/services/play_run_registry.py       # consume only
@@ -1119,7 +1119,7 @@ Record exact commands and exact results. Do not state they passed unless run at 
 
 ```bash
 uv run python scripts/steward_preflight.py \
-  --handoff Docs/Plans/HANDOFF-PLAY-add-to-combat.md \
+  --handoff Docs/Plans/HANDOFF-PLAY-SURFACE-add-to-combat.md \
   --pr <N>
 
 git diff --check

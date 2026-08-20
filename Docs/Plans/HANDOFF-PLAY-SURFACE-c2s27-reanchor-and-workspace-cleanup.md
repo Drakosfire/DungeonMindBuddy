@@ -111,8 +111,8 @@ No production/runtime code changes in this PR. The operator-authorized workspace
 | Modify | `Docs/Design/DESIGN-playable-authoring-and-adoption.md` | Plan authors/adopts the exact Playable material rather than exporting a lossy derivative |
 | Modify | `Docs/Design/ANCHOR-runbook-lantern.md` | Update mnemonic hierarchy and current-table language |
 | Modify | `Docs/Plans/HANDOFF-PLAY-native-runbook-instructions.md` | Mark D2/#622 merged/historical with evidence/review truth |
-| Modify | `Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md` | Keep P3B designed/non-dispatchable behind new roadmap |
-| Modify | `Docs/Plans/HANDOFF-PLAY-add-to-combat.md` | Preserve useful design, remove "directly dispatchable when selected" posture until durable Combat re-anchor |
+| Modify | `Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md` | Keep P3B designed/non-dispatchable behind new roadmap |
+| Modify | `Docs/Plans/HANDOFF-PLAY-SURFACE-add-to-combat.md` | Preserve useful design, remove "directly dispatchable when selected" posture until durable Combat re-anchor |
 | Modify | `Docs/Design/INDEX-design-agent-source-set.md` | Refresh repository authority basis; add current Playable roadmap to the mirrored set |
 | Modify | `Docs/Sources/design-agent/README.md` | Refresh export basis only |
 | Mirror | corresponding `Docs/Sources/design-agent/ACTIVE_AUTHORITY/**` / `ACTIVE_REFERENCE/**` copies | Byte-identical copies of every changed canonical authority/reference, including the newly added Playable roadmap copy |
