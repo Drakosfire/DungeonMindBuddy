@@ -5,12 +5,13 @@ document_class: product_design
 status: active
 version: 1.0
 created_at: "2026-08-15"
-updated_at: "2026-08-15"
+updated_at: "2026-08-20"
 workstream: CON-READY
 architecture_authority: "ARCHITECTURE-playable-material-and-runtime.md"
 companion_design: "DESIGN-play-surface-projection.md"
 evidence:
   - "PR #578 — Canvas block proposal / Of Conks runbook dogfood"
+  - "C2 Session 27 native Play dogfood — BLOCKED / PLAY NOT READY (Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md)"
 supersedes_direction_from:
   - "DESIGN-runbook-roadmap-and-session-ingestion.md"
 ---
@@ -112,36 +113,57 @@ The authoring surface must know:
 
 The user should not supply filesystem paths as write authority.
 
+### 3.1 Plan authors the exact Playable material — no lossy export
+
+C2S27 falsified the derivative-export path: Plan ideas did not enter Play with sufficient semantic fidelity, and the Plan export dropped playable blocks and styling — authored work was lost.
+
+The authoring contract is therefore:
+
+> **Plan authors and adopts the exact Playable work object itself. Playable Material is not produced by exporting a lossy derivative from a separate Plan document.**
+
+Consequences:
+
+- The Plan surface edits the admitted Playable work object through the normal Canvas/document authority and ordinary Save; there is no parallel "export to Runbook" transformation that can drop blocks, styling, or semantics.
+- If a separate free-form Plan document exists, adopting its material into the Playable work object is an explicit, reviewable adoption — not a batch export.
+- What the GM sees while preparing in Plan is what Play will project at the table, up to projection (projection never rewrites the material).
+
+The exact Plan↔Playable composition (one document vs. explicit adoption seams) belongs to the Beat/Scene/Decision + Plan→Playable design task; the no-lossy-derivative rule is settled here.
+
 ## 4. Runbook authoring
 
-### 4.1 Create/organize Scenes
+After C2S27, the Beat is the session-scale organization unit; Scenes are concrete situations inside a Beat. See `ARCHITECTURE-playable-material-and-runtime.md` §5.
 
-The GM can:
-
-- create Scene;
-- title/reorder Scene;
-- set table intent;
-- add pressure/clock definitions;
-- add typed references;
-- add authored choices/transitions;
-- delete/replace Scene with explicit impact on referenced runtime state.
-
-### 4.2 Create/organize Beats
+### 4.1 Create/organize Beats
 
 The GM can:
 
 - create Beat;
 - choose `spine`, `optional`, or `interrupt`;
+- set the table objective / pressure / phase;
 - write At the Table;
 - add Read Aloud;
 - add GM Note;
 - add Rules Now;
 - add Warning;
 - add Consequences;
+- add Decisions with Options and authored transitions;
 - add references/actions;
-- reorder within Scene.
+- title/reorder Beats within the Runbook;
+- delete/replace Beat with explicit impact on referenced runtime state.
 
 Stable identity is preserved through title/prose edits.
+
+### 4.2 Create/organize Scenes inside a Beat
+
+The GM can:
+
+- create Scene inside a Beat;
+- title/reorder Scene within its Beat;
+- set table intent;
+- add pressure/clock definitions;
+- add typed references;
+- add authored choices/transitions;
+- delete/replace Scene with explicit impact on referenced runtime state.
 
 ### 4.3 Consequence authoring
 
@@ -172,14 +194,15 @@ If they choose Fire
 
 "Reward" is a useful presentation/category hint. It does not require `treasure` as a separate Beat field.
 
-### 4.4 Choice authoring
+### 4.4 Choice / Decision authoring
 
-A choice has stable identity and stable options.
+A Choice/Decision has stable identity and stable options.
 
 The GM may connect an option to:
 
-- a next Scene;
+- a next Scene or Beat;
 - one or more consequences;
+- an authored transition that changes which later Scenes/Beats remain possible or relevant;
 - another Playable reference.
 
 The first implementation need not become a general workflow graph.

@@ -3,9 +3,9 @@ document_id: dmb-anchor-runbook-lantern
 title: Runbook Lantern
 document_class: design_anchor
 status: active
-version: 2.0
+version: 2.1
 created_at: "2026-06-18"
-updated_at: "2026-08-15"
+updated_at: "2026-08-20"
 architecture_authority: "ARCHITECTURE-playable-material-and-runtime.md"
 play_design: "DESIGN-play-surface-projection.md"
 authoring_design: "DESIGN-playable-authoring-and-adoption.md"
@@ -56,9 +56,9 @@ exact accepted rules/statblocks
 
 PLAYABLE MATERIAL
 the GM's deliberately prepared version
-Runbook → Scene → Beat
+Runbook → Beats
+Beat → objective/pressure/phase → Scenes, Decisions, consequences
 object-attached prep
-choices and consequences
 
         ↓ projected through Play
 
@@ -68,7 +68,7 @@ the current table-facing light
         ↓ table interaction
 
 PLAYED / RUNTIME STATE
-current Scene/Beat, resolved Beats, selected choices,
+current Beat/Scene, resolved Beats, recorded decisions,
 notes, combat/runtime state
 ```
 
@@ -80,7 +80,8 @@ Ask:
 
 Good candidates:
 
-- current Scene and Beat;
+- the current Beat and its current Scene;
+- pending Decisions in the current Beat;
 - At the Table;
 - Read Aloud;
 - GM Note;
@@ -106,9 +107,9 @@ Play may project any of these. Projection does not transfer ownership.
 
 ## 5. Beat rule
 
-The Beat is the smallest normal focused Runbook unit.
+The Beat is the current table stage: the session-scale objective, pressure, or phase the GM is running now. A Scene is a concrete playable situation inside a Beat; a Decision is an authored branch point whose consequences reshape which later Scenes/Beats remain possible or relevant.
 
-Useful semantics:
+Useful Beat semantics:
 
 ```text
 At the table
@@ -184,4 +185,4 @@ Preserve the interaction. Replace the special-case mechanism.
 
 ## 10. Compact handoff paragraph
 
-> **Runbook Lantern:** DungeonBuddy keeps Original Source, World, exact Mechanics, Playable Material, and Played/Runtime State distinct. Play is the table-facing projection over those authorities. A Runbook is durable Playable Material organized as stable Scenes and Beats. Beats lead with At the Table and may contain Read Aloud, GM Notes, Rules Now, Warnings, Consequences, references, and contexual tools. Rewards/treasure are consequences, not a separate Beat authority. Play Object Sheets are projections, not new object ontology. Runtime state records current/resolved/selected/noted state against stable playable IDs and never rewrites the Runbook. Hermes proposes playable changes; the GM approves; ordinary Save persists.
+> **Runbook Lantern:** DungeonBuddy keeps Original Source, World, exact Mechanics, Playable Material, and Played/Runtime State distinct. Play is the table-facing projection over those authorities. A Runbook is durable Playable Material organized as stable Beats — the session-scale objectives/pressures/phases — with Scenes as concrete situations and Decisions as authored branch points inside them. Beats lead with At the Table and may contain Read Aloud, GM Notes, Rules Now, Warnings, Consequences, references, and contexual tools. Rewards/treasure are consequences, not a separate Beat authority. Play Object Sheets are projections, not new object ontology. Runtime state records current/resolved/selected/noted state against stable playable IDs, resumes the active Run rather than duplicating it, and never rewrites the Runbook. Hermes proposes playable changes; the GM approves; ordinary Save persists.
