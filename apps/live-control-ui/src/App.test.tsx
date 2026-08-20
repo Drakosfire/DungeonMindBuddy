@@ -791,6 +791,77 @@ describe("App inspector integration", () => {
     expect(liveApi.putPlayActiveRun).toHaveBeenCalledTimes(1);
   });
 
+  it("serializes delayed active writes so a newer READY Run remains selected", async () => {
+    const otherRunId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const firstRun = playRunRecord();
+    const secondRun = { ...firstRun, run_id: otherRunId };
+    const activeState = (runId: string) => ({
+      schema_version: "dmb_play_active_run_v1" as const,
+      run_id: runId,
+      selected_at: "2026-08-17T00:00:00Z",
+    });
+    const manifestFor = (run: typeof firstRun) => ({
+      schema_version: "dmb_play_run_reference_manifest_v1" as const,
+      run_id: run.run_id,
+      playable_artifact_id: run.playable_artifact_id,
+      playable_revision: run.playable_revision,
+      playable_content_sha256: run.playable_content_sha256,
+      sealed_at: "2026-08-17T00:00:00Z",
+      elements: [
+        { kind: "beat" as const, element_id: "beat:approach", scene_id: "scene:gate" },
+        { kind: "scene" as const, element_id: "scene:gate" },
+      ],
+    });
+    let releaseFirst: (value: ReturnType<typeof activeState>) => void = () => undefined;
+    const delayedFirst = new Promise<ReturnType<typeof activeState>>((resolve) => {
+      releaseFirst = resolve;
+    });
+
+    vi.mocked(liveApi.getPlayRun).mockImplementation(async (runId) => (
+      runId === PLAY_RUN_ID ? firstRun : secondRun
+    ));
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockImplementation(async (runId) => (
+      manifestFor(runId === PLAY_RUN_ID ? firstRun : secondRun)
+    ));
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      fixtureSnapshot({
+        record: fixtureWorkspaceDocumentRecord({
+          document_id: PLAY_ARTIFACT_ID,
+          title: "North Gate Runbook",
+          kind: "runbook",
+          revision: 3,
+          content_status: "committed",
+        }),
+        markdown: PLAY_MARKDOWN,
+        content_sha256: PLAY_SHA,
+        loaded_revision: 3,
+        file_exists: true,
+        file_fingerprint: "present",
+      }),
+    );
+    vi.mocked(liveApi.putPlayActiveRun).mockImplementation(async (runId) => (
+      runId === PLAY_RUN_ID ? delayedFirst : activeState(runId)
+    ));
+
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+    expect(await screen.findByText(`Run ${PLAY_RUN_ID}`)).toBeInTheDocument();
+    await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
+
+    window.history.pushState({}, "", `/play?run=${otherRunId}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(await screen.findByText(`Run ${otherRunId}`)).toBeInTheDocument();
+    expect(liveApi.putPlayActiveRun).toHaveBeenCalledTimes(1);
+
+    releaseFirst(activeState(PLAY_RUN_ID));
+    await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(otherRunId));
+    expect(liveApi.putPlayActiveRun.mock.calls.map(([runId]) => runId)).toEqual([
+      PLAY_RUN_ID,
+      otherRunId,
+    ]);
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+  });
+
   it("navigates to the exact new Run only after create and seal are confirmed", async () => {
     const user = userEvent.setup();
     vi.spyOn(crypto, "randomUUID").mockReturnValue(PLAY_RUN_ID);

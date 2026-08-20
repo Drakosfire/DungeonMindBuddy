@@ -277,6 +277,7 @@ export function PlaySurfacePage() {
   const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
   const loadSerialRef = useRef(0);
   const activeWriteRunRef = useRef<string | null>(null);
+  const activeWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const loadExactRun = useCallback(async (runId: string) => {
     const serial = loadSerialRef.current + 1;
@@ -326,14 +327,20 @@ export function PlaySurfacePage() {
         setMutationStatus("idle");
         if (activeWriteRunRef.current !== loaded.run_id) {
           activeWriteRunRef.current = loaded.run_id;
-          void putPlayActiveRun(loaded.run_id).catch((error) => {
-            if (loadSerialRef.current !== serial) return;
-            setDetail(
-              error instanceof Error
-                ? `Run is open, but Resume state could not be saved: ${error.message}`
-                : "Run is open, but Resume state could not be saved.",
-            );
-          });
+          activeWriteQueueRef.current = activeWriteQueueRef.current
+            .catch(() => undefined)
+            .then(async () => {
+              try {
+                await putPlayActiveRun(loaded.run_id);
+              } catch (error) {
+                if (loadSerialRef.current !== serial) return;
+                setDetail(
+                  error instanceof Error
+                    ? `Run is open, but Resume state could not be saved: ${error.message}`
+                    : "Run is open, but Resume state could not be saved.",
+                );
+              }
+            });
         }
       } else {
         setLoadStatus(nextAdmission.status);
