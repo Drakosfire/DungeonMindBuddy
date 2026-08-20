@@ -846,6 +846,26 @@ button.danger { border-color: rgba(224, 175, 104, 0.7); color: var(--warn); }
 
 .combat-save-status.saved { color: var(--good); }
 
+.combat-spawn-pool {
+  margin: 0 0 16px;
+}
+
+.combat-spawn-group + .combat-spawn-group {
+  margin-top: 12px;
+}
+
+.combat-spawn-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--fg-mute);
+}
+
+.combat-spawn-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .combat-import-file {
   display: none;
 }

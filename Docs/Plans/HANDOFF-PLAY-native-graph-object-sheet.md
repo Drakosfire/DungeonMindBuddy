@@ -10,7 +10,7 @@ pr_body_template: |
   ## Verification pointer
   - Design anchor: merged PR #603 / current main at `bc442717addb264073a68f7528929ec1aac51b2a`
   - P3A design anchor: `Docs/Plans/HANDOFF-PLAY-native-runbook-table-deck.md` at design commit `b47c66c6a780308ceb2d8720de2f3086aad33cfc`
-  - Required predecessor before dispatch: D2 exact Runbook view → live dogfood → re-anchor; merged Start Run / #621 is not sufficient to dispatch P3B
+  - Required predecessor before dispatch: current-moment table deck + post-deck re-anchor; D3 C2 Session 27 dogfood selected that table repair before graph-object opening; merged D2 / #622 is not sufficient to dispatch P3B
   - Base/head: <PIN_AFTER_P3A_STATE_SYNC> / <implementation head>
   - Changed paths: must remain inside HANDOFF §4
   - Verification: HANDOFF §7 + roadmap review disposition
@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — open native Play graph-object sheets from exact Runbook references
 
 **Created:** 2026-08-16  
-**Status:** DESIGNED — **NON-DISPATCHABLE.** D1 / PR #621 Start Run is merged. Current sequence is D2 exact Runbook instructions (`HANDOFF-PLAY-native-runbook-instructions.md`), then live dogfood / re-anchor, before this P3B capability may be pinned.  
+**Status:** DESIGNED — **NON-DISPATCHABLE.** D2 / PR #622 exact Runbook view is merged. C2 Session 27 native Play dogfood accepted that wiring and rejected the three-column Table UX. Current sequence is the current-Beat table stage (`HANDOFF-PLAY-current-beat-table-stage.md`), then re-anchor, before this P3B capability may be pinned.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P3B`  
 **Flow / owner:** `PLAY`  
@@ -53,17 +53,19 @@ P3A: designed on documents/play-p3a-native-runbook-deck, not dispatchable yet
 P3B: this design, successor only
 ```
 
-P3A is now merged (PR #618). D1 / Start Run is now merged (PR #621). That does **not** make this file current dispatch authority. Product sequence after D1 is:
+P3A is now merged (PR #618). D1 / Start Run is now merged (PR #621). D2 exact Runbook view is now merged (PR #622). That does **not** make this file current dispatch authority. Product sequence after D2 is:
 
 ```text
-Play Runbook instructions (D2; current)
+D2 exact Runbook view (complete; PR #622)
         ↓
-real session dogfood
+real session dogfood (D3; wiring accepted, three-column Table UX rejected)
+        ↓
+current Beat table stage (D4; current)
         ↓
 re-anchor, then pin this P3B handoff
 ```
 
-This handoff remains **NON-DISPATCHABLE** until that dogfood sequence has landed and a later re-anchor names P3B next.
+This handoff remains **NON-DISPATCHABLE** until the current-moment deck has landed and a later re-anchor names P3B next.
 
 Before P3B CODE dispatch, all of the following must be true:
 
@@ -71,7 +73,7 @@ Before P3B CODE dispatch, all of the following must be true:
 2. P3A's handoff is on `main`, pinned to its exact post-P2C base, implemented, merged, and reviewed;
 3. the exact P3A implementation/evidence head, final reviewed head, merge SHA, and formal review-cycle count are known;
 4. a guarded post-P3A state-authority sync marks P3A merged/historical;
-5. D2 exact Runbook view and live dogfood have completed, and `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` then names P3B as the current next slice and this file as the next handoff;
+5. D2 exact Runbook view is complete, D3 C2 Session 27 native Play dogfood has completed, the current-moment table deck has landed, and `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` then names P3B as the current next slice and this file as the next handoff;
 6. this handoff is present on `main`;
 7. every `PIN_AFTER_P3A_STATE_SYNC` is replaced on the implementation branch with that exact synchronized `main` SHA;
 8. the implementation agent re-reads the merged P3A projection/admission/component seams, because those paths do not exist on this design anchor and their final names/shapes are predecessor authority.

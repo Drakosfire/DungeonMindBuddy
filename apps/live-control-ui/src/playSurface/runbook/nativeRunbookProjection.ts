@@ -36,6 +36,8 @@ export type NativeRunbookAuthoredElement = {
   id: string;
   title: string;
   bodyText: string;
+  /** Exact admitted TipTap body fragment; never a second Markdown parse. */
+  bodyDoc: JSONContent;
   sceneId?: string;
   choiceId?: string;
 };
@@ -188,7 +190,17 @@ type AuthoredSlice = {
   id: string;
   title: string;
   bodyText: string;
+  bodyDoc: JSONContent;
 };
+
+function wrapBodyDoc(bodyNodes: unknown[]): JSONContent {
+  return {
+    type: "doc",
+    content: bodyNodes as JSONContent[],
+  };
+}
+
+const EMPTY_BODY_DOC: JSONContent = { type: "doc", content: [] };
 
 /**
  * Disjoint authored bodies: each Playable heading owns nodes until the next
@@ -217,6 +229,7 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
       id: current.id,
       title: current.title,
       bodyText,
+      bodyDoc: wrapBodyDoc(current.bodyNodes),
     });
   };
 
@@ -241,6 +254,62 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
   }
   flush();
   return slices;
+}
+
+const SCENE_LIST_LABEL = /^scenes\.?$/i;
+
+/**
+ * Display listings nested under a Beat body, taken from the admitted TipTap
+ * fragment. Looks for a root paragraph/heading labeled "Scenes" and the
+ * following bullet list. Not a second Markdown parse and not Playable identity.
+ */
+export function extractSceneListingsFromBody(bodyDoc: JSONContent | undefined): string[] {
+  const content = bodyDoc?.content;
+  if (!Array.isArray(content)) return [];
+  for (let index = 0; index < content.length; index += 1) {
+    const node = content[index];
+    if (node == null || typeof node !== "object") continue;
+    const record = node as { type?: unknown };
+    if (record.type !== "paragraph" && record.type !== "heading") continue;
+    if (!SCENE_LIST_LABEL.test(collectNodeText(node).trim())) continue;
+    const next = content[index + 1];
+    if (next == null || typeof next !== "object") return [];
+    const list = next as { type?: unknown; content?: unknown };
+    if (list.type !== "bulletList" || !Array.isArray(list.content)) return [];
+    return list.content
+      .map((item) => collectNodeText(item).replace(/\s+/g, " ").trim())
+      .filter((title) => title.length > 0);
+  }
+  return [];
+}
+
+function isScenesListLabel(node: unknown): boolean {
+  if (node == null || typeof node !== "object") return false;
+  const record = node as { type?: unknown };
+  if (record.type !== "paragraph" && record.type !== "heading") return false;
+  return SCENE_LIST_LABEL.test(collectNodeText(node).trim());
+}
+
+function isBulletList(node: unknown): boolean {
+  return node != null && typeof node === "object" && (node as { type?: unknown }).type === "bulletList";
+}
+
+/**
+ * Drop the hoisted Scenes label + following bullet list from a Beat body so the
+ * strip is the listing and the stage keeps the remaining Beat prose.
+ */
+export function omitHoistedSceneListings(bodyDoc: JSONContent | undefined): JSONContent | undefined {
+  if (bodyDoc == null || !Array.isArray(bodyDoc.content)) return bodyDoc;
+  const next: JSONContent[] = [];
+  for (let index = 0; index < bodyDoc.content.length; index += 1) {
+    const node = bodyDoc.content[index];
+    if (isScenesListLabel(node) && isBulletList(bodyDoc.content[index + 1])) {
+      index += 1;
+      continue;
+    }
+    next.push(node);
+  }
+  return { ...bodyDoc, content: next };
 }
 
 function compareMembership(
@@ -340,6 +409,7 @@ function projectScenes(
         sceneId: scene.sceneId,
         title: slice?.title ?? beatId,
         bodyText: slice?.bodyText ?? "",
+        bodyDoc: slice?.bodyDoc ?? EMPTY_BODY_DOC,
       };
     });
     const choices: NativeRunbookChoice[] = scene.choiceOrder.map((choiceId) => {
@@ -354,6 +424,7 @@ function projectScenes(
           choiceId,
           title: optionSlice?.title ?? optionId,
           bodyText: optionSlice?.bodyText ?? "",
+          bodyDoc: optionSlice?.bodyDoc ?? EMPTY_BODY_DOC,
         };
       });
       return {
@@ -362,6 +433,7 @@ function projectScenes(
         sceneId: scene.sceneId,
         title: slice?.title ?? choiceId,
         bodyText: slice?.bodyText ?? "",
+        bodyDoc: slice?.bodyDoc ?? EMPTY_BODY_DOC,
         options,
       };
     });
@@ -370,6 +442,7 @@ function projectScenes(
       id: scene.sceneId,
       title: sceneSlice?.title ?? scene.sceneId,
       bodyText: sceneSlice?.bodyText ?? "",
+      bodyDoc: sceneSlice?.bodyDoc ?? EMPTY_BODY_DOC,
       beats,
       choices,
     };

@@ -190,13 +190,33 @@ Terminal work leaves this file rather than accumulating under `DONE` / `DROPPED`
 
 # IDEA
 
+## [IDEA] C2S27 table dogfood — persistence, Combat, statblocks, Play board
+**Kind:** PRODUCT / DOGFOOD  
+**Owner:** Steward sequencing (split before dispatch)  
+**Captured:** 2026-08-19  
+**Last verified:** 2026-08-19 @ C2 Session 27 native Play + HTML Combat Tracker dogfood  
+**Operator rank:** 1. durable database persistence; 2. finish Combat Tracker; 3. first-class statblock (and roll-table) viewing; 4. Play board usability.
+
+C2 Session 27 live dogfood. Plan export dropped playable blocks and styling; workspace drafts are checkout-local, so jumping worktrees lost authored work. Combat Tracker is the surface that was actually used, but loading PCs/NPCs/threats and keeping live HP still depends on browser localStorage plus markdown paths. Statblock display is missing as a shared citizen across Plan/Play/Combat. The native Play board was abandoned almost immediately.
+
+**Do not promote this block to READY as one slice.** Ranked residuals, each independently useful after bounding:
+
+1. **Everything durable in the database.** Plan documents, playable blocks/styling, Combat board, Threat drafts, and Run/workspace registries must survive worktree switches. Related spike: *Move durable Buddy runtime state out of checkout-local `out/`*. First slice should name one persistence authority and stop losing GM work.
+2. **Finish Combat Tracker.** Easy add of players, NPCs, and threats with sheets attached; live HP/init/notes persisted in the same durable store, not only `localStorage` / export JSON.
+3. **Statblock (and roll-table) display is first-class.** Load, view, and modify a statblock from any surface (Plan, Play, Combat, Workbench) without a dead path or HTML-only preview. Roll tables have the same gap.
+4. **Native Play board is clunky.** Table-stage repairs landed in this dogfood; the board was still left. Do not treat D4 chrome as the close of Play usability.
+
+**Surfaces when:** Plan export, worktree switch, Combat add-from-pool, statblock click/preview, roll table, `/play` Table, persistence/database, "don't lose work".
+
+**Refs:** this C2S27 dogfood conversation; `evals/c2_live_prep/mireward-prep/combat.html`; `evals/c2_live_prep/mireward-prep/content/tiptap/c2s27-mireward-climax-runbook.md`; `Docs/Plans/HANDOFF-PLAY-current-beat-table-stage.md`; `Docs/Plans/HANDOFF-PLAY-add-to-combat.md`.
+
 ## [IDEA] Move durable Buddy runtime state out of checkout-local `out/`
 **Kind:** ARCHITECTURE SPIKE  
 **Owner:** Buddy persistence  
 **Captured:** 2026-07-24  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`
+**Last verified:** 2026-08-19 @ C2 Session 27 dogfood (Plan export + worktree loss)
 
-Worktree dogfood shows that checkout-local World Graph/run registries/Threat drafts/candidate caches do not compose cleanly with parallel worktrees. Before promotion, inventory current durable `out/` consumers, rank actual contention/corruption pain, and bound one migration target. Keep auditable source Markdown separate from runtime-state storage.
+Worktree dogfood shows that checkout-local World Graph/run registries/Threat drafts/candidate caches do not compose cleanly with parallel worktrees. C2S27 table dogfood made this the operator's rank-1 residual: authored Plan blocks/styling and live Combat state do not follow the GM across worktrees. Before promotion, inventory current durable `out/` consumers, rank actual contention/corruption pain, and bound one migration target. Keep auditable source Markdown separate from runtime-state storage. See *C2S27 table dogfood — persistence, Combat, statblocks, Play board*.
 
 ## [IDEA] Hermes prompt/configuration quality pass
 **Kind:** DOGFOOD / CONFIGURATION  

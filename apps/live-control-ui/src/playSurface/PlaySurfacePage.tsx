@@ -170,7 +170,6 @@ function PlayChooser() {
   return (
     <main className="play-surface play-chooser" data-testid="play-run-chooser">
       <header>
-        <p className="play-kicker">Play</p>
         <h1>Choose a Run</h1>
         <p className="play-muted">Open one exact durable Run, or start a new exact Run from a committed Runbook. Nothing is selected until you choose it.</p>
       </header>
@@ -354,6 +353,7 @@ export function PlaySurfacePage() {
         <main
           className="play-surface"
           data-testid="play-surface-ready"
+          data-play-run-id={readyDeck.run.run_id}
           data-play-campaign-id={publication.campaignId ?? ""}
           data-play-document-id={publication.documentId ?? ""}
         >

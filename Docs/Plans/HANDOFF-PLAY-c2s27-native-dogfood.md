@@ -266,6 +266,8 @@ The document must distinguish:
 
 Do not invent new durable kinds for session intent, pressure, NPC cue, exit ramp, open question, or GM decision.
 
+Do not use plain Markdown blockquotes (`>`). Native `/play` P1 admission treats those import warnings as blocking, and Start Run can succeed while READY still fails.
+
 ### Required playable identities
 
 Use these exact IDs:
@@ -561,10 +563,13 @@ No Choice or Option element may be present.
 | Create | `tests/test_c2s27_native_play_dogfood.py` | setup idempotency/fail-closed + marker-structure proof |
 | Create | `Docs/Dogfood/PLAY-C2S27-NATIVE-RUNBOOK-DOGFOOD.md` | exact operator sequence for real Play dogfood |
 | Create | `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md` | initially NOT RUN; fill with actual observations before review/merge |
+| Create | `Docs/Dogfood/BRIEF-PLAY-native-table-ux-from-c2s27-dogfood.md` | steward brief to Play design agent: redesign native Table UX around Of Conks keepers; not CODE |
+| Create | `Docs/Design/DESIGN-play-native-current-moment-deck.md` | design-agent return; steward-accepted Table redesign; not CODE dispatch |
+| Modify | `apps/live-control-ui/src/playSurface/playSurface.css` | steward-authorized mid-dogfood contrast fix: Play light-background buttons must set dark text instead of inheriting global `#e8eaef` |
 
-No bounded discovery exception.
+No bounded discovery exception beyond the one CSS path above.
 
-If another path is required, stop and report why. In particular, do not edit production UI/backend merely because dogfood setup or the live session reveals friction.
+Do not edit other production UI/backend merely because dogfood setup or the live session reveals friction. The CSS contrast patch is an explicit steward exception so Session 27 can continue; it is not permission to implement P3B or other Play product work.
 
 ---
 
@@ -573,7 +578,7 @@ If another path is required, stop and report why. In particular, do not edit pro
 Do not modify or claim:
 
 ```text
-apps/live-control-ui/src/**
+apps/live-control-ui/src/** except `playSurface/playSurface.css` (contrast lease amendment)
 apps/live_control_server/**
 src/graph_memory/**
 DungeonMind/**

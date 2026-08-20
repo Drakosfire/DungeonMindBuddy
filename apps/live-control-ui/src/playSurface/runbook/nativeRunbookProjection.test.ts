@@ -13,6 +13,8 @@ import { indexPlayableStructure } from "../../tiptap/playable/playableStructureI
 import {
   admitNativeRunbook,
   displayedSceneAndBeat,
+  extractSceneListingsFromBody,
+  omitHoistedSceneListings,
   overlayRuntimeOnDeck,
   slicePlayableBodies,
 } from "./nativeRunbookProjection";
@@ -130,6 +132,61 @@ function manifest(overrides: Partial<PlayRunReferenceManifest> = {}): PlayRunRef
   };
 }
 
+describe("extractSceneListingsFromBody", () => {
+  it("reads the Scenes list from an admitted Beat body without a second Markdown parse", () => {
+    const imported = markdownToTiptapDoc([
+      "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+      "## Gate",
+      "",
+      "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
+      "### Approach",
+      "",
+      "Scenes",
+      "",
+      "- Save the townsman",
+      "- Pull Baergrom",
+      "",
+      "World Tick : the hum begins.",
+      "",
+    ].join("\n"));
+    expect(imported.diagnostics).toEqual([]);
+    const slices = slicePlayableBodies(imported.doc);
+    expect(extractSceneListingsFromBody(slices.get("beat:approach")?.bodyDoc)).toEqual([
+      "Save the townsman",
+      "Pull Baergrom",
+    ]);
+  });
+
+  it("returns no listings when the Beat has no Scenes list", () => {
+    const imported = markdownToTiptapDoc(SIBLING_MARKDOWN);
+    const slices = slicePlayableBodies(imported.doc);
+    expect(extractSceneListingsFromBody(slices.get("beat:approach")?.bodyDoc)).toEqual([]);
+  });
+
+  it("omits the hoisted Scenes list from the remaining Beat body", () => {
+    const imported = markdownToTiptapDoc([
+      "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+      "## Gate",
+      "",
+      "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
+      "### Approach",
+      "",
+      "Scenes",
+      "",
+      "- Save the townsman",
+      "- Pull Baergrom",
+      "",
+      "World Tick : the hum begins.",
+      "",
+    ].join("\n"));
+    const bodyDoc = slicePlayableBodies(imported.doc).get("beat:approach")?.bodyDoc;
+    const remaining = omitHoistedSceneListings(bodyDoc);
+    expect(extractSceneListingsFromBody(remaining)).toEqual([]);
+    expect(JSON.stringify(remaining)).toContain("World Tick");
+    expect(JSON.stringify(remaining)).not.toContain("Save the townsman");
+  });
+});
+
 describe("slicePlayableBodies", () => {
   it("keeps sibling Beat/Choice/Option bodies disjoint through Scene → Beat → Choice → Option → Beat", () => {
     const imported = markdownToTiptapDoc(SIBLING_MARKDOWN);
@@ -188,6 +245,56 @@ describe("slicePlayableBodies", () => {
     expect(slices.get("beat:breach")?.bodyText).not.toContain("Does Tealeaf answer");
     expect(slices.has("open-questions")).toBe(false);
     expect([...slices.keys()]).toEqual(["scene:gate", "beat:breach"]);
+
+    const beatDoc = slices.get("beat:breach")?.bodyDoc;
+    expect(beatDoc?.type).toBe("doc");
+    expect(JSON.stringify(beatDoc)).toContain("Keep this unmarked H3 inside the Beat.");
+    expect(JSON.stringify(beatDoc)).not.toContain("Open questions");
+    expect(beatDoc?.content?.some((node) => node.type === "heading")).toBe(true);
+  });
+
+  it("wraps the admitted importedDoc body nodes without a second parse", () => {
+    const imported = markdownToTiptapDoc(SIBLING_MARKDOWN);
+    expect(imported.diagnostics).toEqual([]);
+    const slices = slicePlayableBodies(imported.doc);
+    const importedContent = (imported.doc as { content?: unknown[] }).content ?? [];
+    const sceneIntro = importedContent.find((node) => JSON.stringify(node).includes("Scene intro unique"));
+    const beatOne = importedContent.find((node) => JSON.stringify(node).includes("Beat one prose UNIQUE"));
+    expect(sceneIntro).toBeDefined();
+    expect(beatOne).toBeDefined();
+    expect(slices.get("scene:gate")?.bodyDoc).not.toBe(imported.doc);
+    expect(slices.get("scene:gate")?.bodyDoc.content?.[0]).toBe(sceneIntro);
+    expect(slices.get("beat:approach")?.bodyDoc.content?.[0]).toBe(beatOne);
+    expect(slices.get("beat:approach")?.bodyText).toBe("Beat one prose UNIQUE.");
+  });
+
+  it("keeps semantic callout nodes inside the Beat fragment in authored order", () => {
+    const markdown = [
+      "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+      "## Gate",
+      "",
+      "Scene intro unique.",
+      "",
+      "<!-- dmb-playable-element:v1 kind=beat id=beat:breach -->",
+      "### Beat: Breach",
+      "",
+      "Beat-specific prose",
+      "",
+      "> [!GM-NOTE]",
+      "> Stay behind the palisade.",
+      "",
+      "Closing sentence.",
+      "",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    const slices = slicePlayableBodies(imported.doc);
+    const types = (slices.get("beat:breach")?.bodyDoc.content ?? []).map((node) => node.type);
+    expect(types).toEqual(["paragraph", "callout", "paragraph"]);
+    expect(slices.get("beat:breach")?.bodyDoc.content?.[1]).toMatchObject({
+      type: "callout",
+      attrs: expect.objectContaining({ kind: "gm-note" }),
+    });
   });
 });
 
@@ -211,6 +318,10 @@ describe("admitNativeRunbook", () => {
     expect(admitted.displayedSceneId).toBe("scene:gate");
     expect(admitted.previewSceneId).toBe("scene:gate");
     expect(admitted.importedDoc).toEqual(markdownToTiptapDoc(SIBLING_MARKDOWN).doc);
+    expect(admitted.scenes[0]?.bodyDoc.type).toBe("doc");
+    expect(admitted.scenes[0]?.beats[0]?.bodyDoc.content?.[0]).toEqual(
+      slicePlayableBodies(admitted.importedDoc).get("beat:approach")?.bodyDoc.content?.[0],
+    );
   });
 
   it("blocks as rebase_required when the workspace revision is newer than the Run binding", () => {

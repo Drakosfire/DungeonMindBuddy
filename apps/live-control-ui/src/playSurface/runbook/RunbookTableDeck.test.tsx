@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import { LiveApiError } from "../../api/liveApi";
-import type { PlayRunProgress, PlayRunRecord } from "../../api/types";
+import type { PlayRunProgress, PlayRunRecord, PlayRunReferenceElement } from "../../api/types";
 import { admitNativeRunbook, overlayRuntimeOnDeck } from "./nativeRunbookProjection";
 import { RunbookTableDeck, type RunbookMutationStatus } from "./RunbookTableDeck";
 
@@ -78,6 +78,70 @@ const INSTRUCTION_MARKDOWN = [
   "",
 ].join("\n");
 
+const TWO_SCENE_MARKDOWN = [
+  "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+  "## Gate",
+  "",
+  "Scene intro.",
+  "",
+  "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
+  "### Approach",
+  "",
+  "Approach body.",
+  "",
+  "<!-- dmb-playable-element:v1 kind=beat id=beat:inside -->",
+  "### Inside",
+  "",
+  "Inside body.",
+  "",
+  "<!-- dmb-playable-element:v1 kind=scene id=scene:hall -->",
+  "## Hall",
+  "",
+  "Hall intro.",
+  "",
+  "<!-- dmb-playable-element:v1 kind=beat id=beat:throne -->",
+  "### Throne",
+  "",
+  "Throne body.",
+  "",
+].join("\n");
+
+const EMPTY_BEATS_MARKDOWN = [
+  "<!-- dmb-playable-element:v1 kind=scene id=scene:empty -->",
+  "## Empty hall",
+  "",
+  "Scene only.",
+  "",
+].join("\n");
+
+const SCENES_IN_BEAT_MARKDOWN = [
+  "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+  "## Gate",
+  "",
+  "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
+  "### Approach",
+  "",
+  "Scenes",
+  "",
+  "- Save the townsman",
+  "- Pull Baergrom",
+  "",
+  "World Tick : the hum begins.",
+  "",
+].join("\n");
+
+const TWO_SCENE_ELEMENTS: PlayRunReferenceElement[] = [
+  { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+  { kind: "beat", element_id: "beat:inside", scene_id: "scene:gate" },
+  { kind: "beat", element_id: "beat:throne", scene_id: "scene:hall" },
+  { kind: "scene", element_id: "scene:gate" },
+  { kind: "scene", element_id: "scene:hall" },
+];
+
+const EMPTY_BEATS_ELEMENTS: PlayRunReferenceElement[] = [
+  { kind: "scene", element_id: "scene:empty" },
+];
+
 vi.mock("../../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api/liveApi")>();
   return {
@@ -114,6 +178,29 @@ function runRecord(overrides: Partial<PlayRunRecord> = {}): PlayRunRecord {
   };
 }
 
+function defaultElements(markdown: string): PlayRunReferenceElement[] {
+  if (markdown === TWO_SCENE_MARKDOWN) return TWO_SCENE_ELEMENTS;
+  if (markdown === EMPTY_BEATS_MARKDOWN) return EMPTY_BEATS_ELEMENTS;
+  if (markdown === SCENES_IN_BEAT_MARKDOWN) {
+    return [
+      { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+      { kind: "scene", element_id: "scene:gate" },
+    ];
+  }
+  return [
+    { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+    { kind: "beat", element_id: "beat:inside", scene_id: "scene:gate" },
+    ...(markdown === MARKDOWN
+      ? [
+          { kind: "choice" as const, element_id: "choice:enter", scene_id: "scene:gate" },
+          { kind: "option" as const, element_id: "option:no", scene_id: "scene:gate", choice_id: "choice:enter" },
+          { kind: "option" as const, element_id: "option:yes", scene_id: "scene:gate", choice_id: "choice:enter" },
+        ]
+      : []),
+    { kind: "scene", element_id: "scene:gate" },
+  ];
+}
+
 function readyDeck(run: PlayRunRecord = runRecord(), markdown: string = MARKDOWN) {
   const admitted = admitNativeRunbook({
     run,
@@ -124,18 +211,7 @@ function readyDeck(run: PlayRunRecord = runRecord(), markdown: string = MARKDOWN
       playable_revision: run.playable_revision,
       playable_content_sha256: run.playable_content_sha256,
       sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "beat", element_id: "beat:inside", scene_id: "scene:gate" },
-        ...(markdown === MARKDOWN
-          ? [
-              { kind: "choice" as const, element_id: "choice:enter", scene_id: "scene:gate" },
-              { kind: "option" as const, element_id: "option:no", scene_id: "scene:gate", choice_id: "choice:enter" },
-              { kind: "option" as const, element_id: "option:yes", scene_id: "scene:gate", choice_id: "choice:enter" },
-            ]
-          : []),
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      elements: defaultElements(markdown),
     },
     snapshot: {
       schema_version: "dmb_workspace_document_snapshot_v1",
@@ -190,10 +266,12 @@ describe("RunbookTableDeck", () => {
     vi.clearAllMocks();
   });
 
-  it("previews the first Scene without writing current_scene_id", async () => {
+  it("opens Table on the first Beat without writing current ids", async () => {
     render(<Harness />);
-    expect(screen.getByTestId("play-preview-flag")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Gate" })).toBeInTheDocument();
+    expect(screen.queryByTestId("play-preview-flag")).not.toBeInTheDocument();
+    expect(screen.getByText("Beat 1 / 2")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Approach" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Make current" })).not.toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
@@ -345,7 +423,7 @@ describe("RunbookTableDeck", () => {
       }),
     );
 
-    expect(await screen.findByRole("button", { name: /Inside/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Inside" })).toBeInTheDocument();
     expect(screen.queryByTestId("play-cas-conflict")).not.toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
   });
@@ -354,7 +432,9 @@ describe("RunbookTableDeck", () => {
     render(<Harness markdown={INSTRUCTION_MARKDOWN} />);
     expect(screen.getByTestId("play-mode-table")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("play-mode-runbook")).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("navigation", { name: "Scenes" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Beats" })).toBeInTheDocument();
+    expect(screen.getByTestId("play-moment")).toBeInTheDocument();
+    expect(document.querySelector(".play-deck-columns")).toBeNull();
     expect(screen.getByTestId("focused-beat")).toHaveTextContent("Approach");
     expect(screen.queryByTestId("play-runbook-document")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Open questions" })).not.toBeInTheDocument();
@@ -378,7 +458,7 @@ describe("RunbookTableDeck", () => {
     expect(documentView).toHaveTextContent("Does Tealeaf answer?");
     expect(documentView).toHaveTextContent("Gate");
     expect(documentView).toHaveTextContent("Approach");
-    expect(screen.queryByRole("navigation", { name: "Scenes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Beats" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save note" })).not.toBeInTheDocument();
     expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
     expect(documentView.querySelector("[contenteditable='true']")).toBeNull();
@@ -389,7 +469,7 @@ describe("RunbookTableDeck", () => {
   it("keeps local Beat focus and writes nothing across Table → Runbook → Table", async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    await user.click(screen.getByRole("button", { name: "Inside" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Jump to beat" }), "beat:inside");
     expect(screen.getByTestId("focused-beat")).toHaveTextContent("Inside");
 
     await user.click(screen.getByTestId("play-mode-runbook"));
@@ -405,9 +485,124 @@ describe("RunbookTableDeck", () => {
   it("keeps Open questions out of the preceding Beat body in Table mode", async () => {
     const user = userEvent.setup();
     render(<Harness markdown={INSTRUCTION_MARKDOWN} />);
-    await user.click(screen.getByRole("button", { name: "Inside" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Jump to beat" }), "beat:inside");
+    await waitFor(() => {
+      expect(screen.getByTestId("play-beat-editor")).toHaveAttribute(
+        "data-markdown-editor-status",
+        "ready",
+      );
+    });
     expect(screen.getByTestId("focused-beat")).toHaveTextContent("Inside body.");
     expect(screen.getByTestId("focused-beat")).not.toHaveTextContent("Open questions");
     expect(screen.getByTestId("focused-beat")).not.toHaveTextContent("Does Tealeaf answer");
+  });
+
+  it("opens READY Table on the Runtime current Beat without writing", () => {
+    render(
+      <Harness
+        initialRun={runRecord({
+          progress: progress({
+            current_scene_id: "scene:gate",
+            current_beat_id: "beat:inside",
+          }),
+        })}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "North Gate Runbook" })).toBeInTheDocument();
+    expect(screen.getByText("Beat 2 / 2")).toBeInTheDocument();
+    expect(screen.getByTestId("focused-beat")).toHaveTextContent("Inside");
+    expect(screen.queryByTestId("play-stage-state")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Make current" })).not.toBeInTheDocument();
+    expect(document.querySelector(".play-deck-columns")).toBeNull();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("does not expose Make current, Preview, Play kicker, or Run details", () => {
+    render(<Harness />);
+    expect(screen.queryByTestId("play-preview-flag")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-stage-state")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Make current" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Make current Scene" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Run details")).not.toBeInTheDocument();
+    expect(document.querySelector(".play-kicker")).toBeNull();
+    expect(screen.queryByText("Preview")).not.toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("lists Scenes from the focused Beat body in the inner strip", async () => {
+    const user = userEvent.setup();
+    render(<Harness markdown={SCENES_IN_BEAT_MARKDOWN} />);
+    expect(screen.getByRole("navigation", { name: "Beats" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Approach" })).toBeInTheDocument();
+    const strip = screen.getByTestId("play-scene-strip");
+    expect(strip).toHaveTextContent("Save the townsman");
+    expect(strip).toHaveTextContent("Pull Baergrom");
+    await user.click(screen.getByRole("button", { name: "Pull Baergrom" }));
+    expect(screen.getByRole("button", { name: "Pull Baergrom" })).toHaveAttribute("aria-current", "true");
+    expect(await screen.findByTestId("play-beat-editor")).toHaveTextContent("World Tick");
+    expect(screen.getByTestId("play-beat-editor")).not.toHaveTextContent("Save the townsman");
+  });
+
+  it("changes local Beat and Scene focus without writing Runtime", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        initialRun={runRecord({
+          progress: progress({
+            current_scene_id: "scene:gate",
+            current_beat_id: "beat:approach",
+          }),
+        })}
+        markdown={TWO_SCENE_MARKDOWN}
+      />,
+    );
+    await user.selectOptions(screen.getByRole("combobox", { name: "Jump to beat" }), "beat:inside");
+    expect(screen.getByTestId("focused-beat")).toHaveTextContent("Inside");
+    expect(screen.getByText("Beat 2 / 3")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Make current" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Next beat" }));
+    expect(screen.getByRole("heading", { name: "Throne" })).toBeInTheDocument();
+    expect(screen.getByTestId("focused-beat")).toHaveTextContent("Throne");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("advances local Beat focus with Next without writing Runtime", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    expect(screen.getByTestId("focused-beat")).toHaveTextContent("Approach");
+    expect(screen.getByRole("button", { name: "Previous beat" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next beat" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Next beat" }));
+    expect(screen.getByTestId("focused-beat")).toHaveTextContent("Inside");
+    expect(screen.getByText("Beat 2 / 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next beat" })).toBeDisabled();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("shows a Beat-less Runbook without Make current Scene", () => {
+    render(<Harness markdown={EMPTY_BEATS_MARKDOWN} />);
+    expect(screen.getByText("This Runbook has no authored Beats.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Make current Scene" })).not.toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps local Beat focus from writing Runtime current", async () => {
+    const user = userEvent.setup();
+    const initial = runRecord({
+      progress: progress({
+        current_scene_id: "scene:gate",
+        current_beat_id: "beat:approach",
+        resolved_beat_ids: ["beat:inside"],
+        selections: { "choice:enter": "option:yes" },
+        notes_by_element_id: { "beat:approach": "keep me" },
+      }),
+    });
+    render(<Harness initialRun={initial} />);
+    await user.selectOptions(screen.getByRole("combobox", { name: "Jump to beat" }), "beat:inside");
+    expect(screen.getByTestId("focused-beat")).toHaveTextContent("Inside");
+    expect(screen.queryByRole("button", { name: "Make current" })).not.toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 });

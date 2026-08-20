@@ -759,7 +759,7 @@ describe("App inspector integration", () => {
     expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID);
     expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(`Run ${PLAY_RUN_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-run-id", PLAY_RUN_ID);
     expect(screen.getByRole("heading", { name: "North Gate Runbook" })).toBeInTheDocument();
     expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-campaign-id", "longmont-c2");
     expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-document-id", PLAY_ARTIFACT_ID);
@@ -897,12 +897,12 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${otherRunId}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
 
-    expect(await screen.findByText(`Run ${otherRunId}`)).toBeInTheDocument();
+    expect(await screen.findByTestId("play-surface-ready")).toHaveAttribute("data-play-run-id", otherRunId);
     resolveFirst(playRunRecord());
     await waitFor(() => {
-      expect(screen.queryByText(`Run ${PLAY_RUN_ID}`)).not.toBeInTheDocument();
+      expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-run-id", otherRunId);
     });
-    expect(screen.getByText(`Run ${otherRunId}`)).toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).toHaveAttribute("data-play-run-id", otherRunId);
   });
 
   it("does not keep R3 authored content READY after a concurrent rebase 409 reconciliation", async () => {
@@ -970,7 +970,7 @@ describe("App inspector integration", () => {
     expect(screen.queryByTestId("play-cas-conflict")).not.toBeInTheDocument();
     expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
     expect(screen.getByText(/R4 replacement beat that must not mix with R3 Approach body/i)).toBeInTheDocument();
-    expect(screen.getByText(/Runbook revision 4/i)).toBeInTheDocument();
+    expect(screen.getByTestId("runbook-table-deck")).toHaveAttribute("data-playable-revision", "4");
   });
 
 });

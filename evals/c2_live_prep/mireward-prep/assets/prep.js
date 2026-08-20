@@ -3,8 +3,15 @@
  */
 (function () {
   const STORAGE_PREFIX = "mireward-prep.";
-  /** Session 26 wall-breach encounter — do not reuse Session 22 northReachGate key. */
-  const COMBAT_STORAGE_KEY = "combat.mirewardWallBreach";
+  /**
+   * Live combat board. v1 (`combat.mirewardWallBreach`) mixed the Session 22
+   * catalog defaults into every load, so old north-gate entities could not be
+   * cleared before a later encounter. v2 stores only the entities actually on
+   * the board. Legacy keys are still read so HP/init from the previous live
+   * board are not stranded.
+   */
+  const COMBAT_STORAGE_KEY = "combat.board.v2";
+  const LEGACY_COMBAT_STORAGE_KEYS = ["combat.mirewardWallBreach", "combat.northReachGate"];
   const COMBAT_STATE_UPDATED_EVENT = "mireward-prep:combat-state-updated";
   const STATBLOCK_DOGFOOD_DRAFT_KEY = "statblockDogfood.lastDraft";
   const STATBLOCK_CORPUS_INDEX_REFRESH_EVENT = "mireward-prep:statblock-corpus-index-refresh";
@@ -3047,6 +3054,166 @@
     "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/";
   const LYSANDRA_STATBLOCK =
     "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md";
+  const LYSANDRO_DOSSIER =
+    "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md";
+  const THRIN_DOSSIER =
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/thrin_branchborn_character_dossier.md";
+  const UNDER_HYMN_STATBLOCK =
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/under_hymn_brood.md";
+  const MIREWARD_LATCHLING_STATBLOCK =
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/mireward_latchling.md";
+
+  const COMBAT_NAMED_PEOPLE = {
+    baergrom: {
+      id: "baergrom",
+      name: "Baergrom",
+      team: "pc",
+      defaultAc: 19,
+      statblockPath: PC_STATBLOCK_ROOT + "baergrom/baergrom_statblock_dnd_beyond_level5.md",
+    },
+    bonogo: {
+      id: "bonogo",
+      name: "Bonogo",
+      team: "pc",
+      defaultAc: 16,
+      statblockPath: PC_STATBLOCK_ROOT + "bonogo/bonogo_statblock_dnd_beyond_level5.md",
+    },
+    caelynn: {
+      id: "caelynn",
+      name: "Caelynn",
+      team: "pc",
+      defaultAc: 12,
+      maxHp: 37,
+      hp: 35,
+      statblockPath: PC_STATBLOCK_ROOT + "caelynn/caelynn_statblock_dnd_beyond_level5.md",
+    },
+    ephanna: {
+      id: "ephanna",
+      name: "Ephanna",
+      team: "pc",
+      defaultAc: 14,
+      statblockPath: PC_STATBLOCK_ROOT + "ephanna/ephanna_statblock_dnd_beyond_level5.md",
+    },
+    karsemine: {
+      id: "karsemine",
+      name: "Karsemine",
+      team: "pc",
+      defaultAc: 16,
+      statblockPath: PC_STATBLOCK_ROOT + "karsemine/karsemine_statblock_dnd_beyond_level5.md",
+    },
+    stafl: {
+      id: "stafl",
+      name: "Stafl",
+      team: "pc",
+      defaultAc: 13,
+      statblockPath: PC_STATBLOCK_ROOT + "stafl/stafl_statblock_dnd_beyond_level5.md",
+    },
+    lysandra: {
+      id: "lysandra",
+      name: "Lysandra",
+      team: "ally",
+      defaultAc: 16,
+      maxHp: 52,
+      hp: 52,
+      statblockPath: LYSANDRA_STATBLOCK,
+    },
+    lysandro: {
+      id: "lysandro",
+      name: "Lysandro",
+      team: "ally",
+      statblockPath: LYSANDRO_DOSSIER,
+    },
+    thrinn: {
+      id: "thrinn",
+      name: "Thrin",
+      team: "ally",
+      maxHp: 44,
+      hp: 20,
+      statblockPath: THRIN_DOSSIER,
+    },
+  };
+  const COMBAT_PARTY_IDS = ["baergrom", "bonogo", "caelynn", "ephanna", "karsemine", "stafl"];
+  const COMBAT_PEOPLE_BUTTONS = [
+    { id: "party", name: "Party" },
+    { id: "lysandra", name: "Lysandra" },
+    { id: "lysandro", name: "Lysandro" },
+    { id: "thrinn", name: "Thrin" },
+  ];
+
+  const COMBAT_SPAWN_POOL = [
+    {
+      id: "under-hymn-brood",
+      name: "Under-Hymn Brood",
+      team: "enemy",
+      maxHp: 110,
+      defaultAc: 14,
+      statblockPath: UNDER_HYMN_STATBLOCK,
+    },
+    {
+      id: "mireward-latchling",
+      name: "Mireward Latchling",
+      team: "enemy",
+      maxHp: 45,
+      defaultAc: 14,
+      statblockPath: MIREWARD_LATCHLING_STATBLOCK,
+    },
+    {
+      id: "fleshborn-hybrid",
+      name: "Fleshborn Hybrid",
+      team: "enemy",
+      maxHp: 45,
+      defaultAc: 13,
+      statblockPath: ENEMY_STATBLOCK_ROOT + "fleshborn_hybrid_statblock_cr3.md",
+    },
+    {
+      id: "aberrant-meatwing",
+      name: "Aberrant Meatwing",
+      team: "enemy",
+      maxHp: 18,
+      defaultAc: 11,
+      statblockPath: ENEMY_STATBLOCK_ROOT + "aberrant_meat_wing_statblock_cr1.md",
+    },
+    {
+      id: "corrupted-meat-golem",
+      name: "Corrupted Meat Golem",
+      team: "enemy",
+      maxHp: 55,
+      defaultAc: 12,
+      statblockPath: ENEMY_STATBLOCK_ROOT + "corrupted_meat_golem_statblock_cr3.md",
+    },
+    {
+      id: "sewer-meat-creature",
+      name: "Sewer Meat Creature",
+      team: "enemy",
+      maxHp: 37,
+      defaultAc: 12,
+      statblockPath: ENEMY_STATBLOCK_ROOT + "sewer_meat_creature_statblock_cr3.md",
+    },
+    {
+      id: "tripod-null-calf",
+      name: "Tripod Null-Calf",
+      team: "enemy",
+      maxHp: 95,
+      defaultAc: 15,
+      statblockPath: ENEMY_STATBLOCK_ROOT + "tripod_null_calf_statblock_cr5.md",
+    },
+    {
+      id: "town-guard",
+      name: "Town Guard",
+      team: "ally",
+      maxHp: 11,
+      defaultAc: "",
+      statblockPath: "",
+    },
+    {
+      id: "marked-refugee",
+      name: "Marked Refugee",
+      team: "ally",
+      maxHp: 8,
+      defaultAc: "",
+      statblockPath: "",
+    },
+  ];
 
   function parseArmorClassFromMarkdown(text) {
     if (!text) return null;
@@ -3305,9 +3472,9 @@
     },
   ];
 
-  const LOCKED_COMBAT_ENTITY_IDS = Object.create(null);
+  const COMBAT_CATALOG_BY_ID = Object.create(null);
   COMBAT_DEFAULTS.forEach(function (entity) {
-    LOCKED_COMBAT_ENTITY_IDS[entity.id] = true;
+    COMBAT_CATALOG_BY_ID[entity.id] = entity;
   });
 
   const COMBAT_INIT_BAND_SIZE = 5;
@@ -3411,9 +3578,18 @@
     return memberIds.slice().sort().join("|");
   }
 
+  function parseCombatHp(value) {
+    if (value === null || value === undefined) return null;
+    if (typeof value === "string" && value.trim() === "") return null;
+    const hp = Number(value);
+    return Number.isFinite(hp) ? hp : null;
+  }
+
   function combatEntityDefeated(entity) {
-    const hp = Number(entity.hp);
-    return !!entity.defeated || (Number.isFinite(hp) && hp <= 0);
+    if (!entity) return false;
+    if (entity.defeated) return true;
+    const hp = parseCombatHp(entity.hp);
+    return hp !== null && hp <= 0;
   }
 
   function firstLivingIndexInList(entities) {
@@ -3483,7 +3659,7 @@
     return segments;
   }
 
-  function freshCombatState() {
+  function emptyCombatState() {
     return {
       queueModel: COMBAT_QUEUE_MODEL,
       round: 1,
@@ -3491,90 +3667,216 @@
       roundStartIndex: 0,
       groupCollapsed: {},
       deadBucketCollapsed: false,
-      entities: COMBAT_DEFAULTS.map(function (entity, index) {
-        const hp = entity.maxHp === null ? "" : entity.maxHp;
-        return {
-          id: entity.id,
-          name: entity.name,
-          team: entity.team,
-          order: index,
-          init: "",
-          ac: defaultAcForBase(entity),
-          hp: hp,
-          maxHp: entity.maxHp === null ? "" : entity.maxHp,
-          delta: "",
-          notes: "",
-          defeated: false,
-          statblockPath: entity.statblockPath || "",
-        };
-      }),
+      entities: [],
+    };
+  }
+
+  function freshCombatState() {
+    return emptyCombatState();
+  }
+
+  function copyLetterFromCombatName(name) {
+    const match = String(name || "").match(/\s+([A-Z])\s*$/);
+    return match ? match[1] : "";
+  }
+
+  function isLatchlingCombatant(entity) {
+    return Boolean(entity && entity.statblockPath === "mireward_latchling_group");
+  }
+
+  function applyUnderHymnIdentity(entity) {
+    if (!isLatchlingCombatant(entity)) return entity;
+    const letter = copyLetterFromCombatName(entity.name);
+    entity.name = letter ? "Under-Hymn Brood " + letter : "Under-Hymn Brood";
+    entity.statblockPath = UNDER_HYMN_STATBLOCK;
+    return entity;
+  }
+
+  function nextCombatCopyLetter(baseName, entities) {
+    const escaped = String(baseName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const matcher = new RegExp("^" + escaped + "(?:\\s+([A-Z]))?$");
+    const used = {};
+    (entities || []).forEach(function (entity) {
+      const match = String(entity && entity.name ? entity.name : "").match(matcher);
+      if (!match) return;
+      used[match[1] || "A"] = true;
+    });
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    for (let index = 0; index < alphabet.length; index += 1) {
+      const letter = alphabet.charAt(index);
+      if (!used[letter]) return letter;
+    }
+    return String((entities || []).length + 1);
+  }
+
+  function uniqueCombatEntityId(baseId, entities) {
+    const existing = {};
+    (entities || []).forEach(function (entity) {
+      if (entity && entity.id) existing[entity.id] = true;
+    });
+    if (!existing[baseId]) return baseId;
+    let suffix = 2;
+    while (existing[baseId + "-" + suffix]) suffix += 1;
+    return baseId + "-" + suffix;
+  }
+
+  function combatEntityIdTaken(state, entityId) {
+    return (state.entities || []).some(function (entity) {
+      return entity && entity.id === entityId;
+    });
+  }
+
+  function insertLivingCombatant(state, entity) {
+    let insertAt = state.entities.findIndex(function (row) {
+      return combatEntityDefeated(row);
+    });
+    if (insertAt < 0) insertAt = state.entities.length;
+    state.entities.splice(insertAt, 0, entity);
+    return entity;
+  }
+
+  function addUniqueNamedCombatant(state, template) {
+    if (!state || !template) return null;
+    if (!Array.isArray(state.entities)) state.entities = [];
+    if (combatEntityIdTaken(state, template.id)) return null;
+    const maxHp =
+      template.maxHp === null || template.maxHp === undefined || template.maxHp === ""
+        ? ""
+        : String(template.maxHp);
+    const hp =
+      template.hp === null || template.hp === undefined || template.hp === ""
+        ? maxHp
+        : String(template.hp);
+    const ac =
+      template.defaultAc === null || template.defaultAc === undefined || template.defaultAc === ""
+        ? ""
+        : String(template.defaultAc);
+    return insertLivingCombatant(state, {
+      id: template.id,
+      name: template.name,
+      team: template.team,
+      order: state.entities.length,
+      init: "",
+      ac: ac,
+      hp: hp,
+      maxHp: maxHp,
+      delta: "",
+      notes: "",
+      defeated: false,
+      statblockPath: template.statblockPath || "",
+    });
+  }
+
+  function addCombatantFromPool(state, templateId) {
+    if (!state || !templateId) return null;
+    if (!Array.isArray(state.entities)) state.entities = [];
+    if (templateId === "party") {
+      let last = null;
+      COMBAT_PARTY_IDS.forEach(function (personId) {
+        const added = addUniqueNamedCombatant(state, COMBAT_NAMED_PEOPLE[personId]);
+        if (added) last = added;
+      });
+      return last;
+    }
+    const named = COMBAT_NAMED_PEOPLE[templateId];
+    if (named) return addUniqueNamedCombatant(state, named);
+    const template = COMBAT_SPAWN_POOL.find(function (entry) {
+      return entry.id === templateId;
+    });
+    if (!template) return null;
+    const letter = nextCombatCopyLetter(template.name, state.entities);
+    const hp = template.maxHp === null || template.maxHp === undefined ? "" : String(template.maxHp);
+    const ac =
+      template.defaultAc === null || template.defaultAc === undefined || template.defaultAc === ""
+        ? ""
+        : String(template.defaultAc);
+    return insertLivingCombatant(state, {
+      id: uniqueCombatEntityId(template.id + "-" + String(letter).toLowerCase(), state.entities),
+      name: template.name + " " + letter,
+      team: template.team,
+      order: state.entities.length,
+      init: "",
+      ac: ac,
+      hp: hp,
+      maxHp: hp,
+      delta: "",
+      notes: "",
+      defeated: false,
+      statblockPath: template.statblockPath || "",
+    });
+  }
+
+  function spawnButtonHtml(template) {
+    return (
+      '<button type="button" data-spawn-id="' +
+      escapeHtml(template.id) +
+      '">Add ' +
+      escapeHtml(template.name) +
+      "</button>"
+    );
+  }
+
+  function renderCombatSpawnPool(root) {
+    if (!root) return;
+    root.innerHTML =
+      '<div class="combat-spawn-group">' +
+      '<p class="combat-spawn-label">People</p>' +
+      '<div class="combat-spawn-buttons">' +
+      COMBAT_PEOPLE_BUTTONS.map(spawnButtonHtml).join("") +
+      "</div></div>" +
+      '<div class="combat-spawn-group">' +
+      '<p class="combat-spawn-label">Creature pool</p>' +
+      '<div class="combat-spawn-buttons">' +
+      COMBAT_SPAWN_POOL.map(spawnButtonHtml).join("") +
+      "</div></div>";
+  }
+
+  function normalizeListedEntity(entity, index) {
+    applyUnderHymnIdentity(entity);
+    const base = COMBAT_CATALOG_BY_ID[entity && entity.id] || {};
+    const defaultHp = base.maxHp === null || base.maxHp === undefined ? "" : base.maxHp;
+    const team =
+      entity.team === "pc" || entity.team === "ally" || entity.team === "neutral"
+        ? entity.team
+        : "enemy";
+    return {
+      id: String(entity.id),
+      name: String(entity.name || base.name || entity.id),
+      team: team,
+      order: typeof entity.order === "number" ? entity.order : index,
+      init: entity.init ?? "",
+      ac:
+        entity.ac !== undefined && entity.ac !== null && entity.ac !== ""
+          ? entity.ac
+          : defaultAcForBase(base),
+      hp: entity.hp ?? defaultHp,
+      maxHp: entity.maxHp ?? defaultHp,
+      delta: entity.delta ?? "",
+      notes: entity.notes ?? "",
+      defeated: !!entity.defeated,
+      statblockPath: entity.statblockPath || base.statblockPath || "",
+      generatedArtifactId: entity.generatedArtifactId ?? "",
+      generatedTitle: entity.generatedTitle ?? "",
+      generatedMarkdown: entity.generatedMarkdown ?? "",
     };
   }
 
   function normalizeCombatState(raw) {
-    const state = raw && Array.isArray(raw.entities) ? raw : freshCombatState();
+    if (!raw || !Array.isArray(raw.entities)) return emptyCombatState();
+    const state = raw;
+    const listed = state.entities.filter(function (entity) {
+      return entity && entity.id;
+    });
     const savedTurnIndex =
-      clampNumber(state.turnIndex, 0, Math.max(state.entities.length - 1, 0)) || 0;
-    const activeId =
-      state.entities[savedTurnIndex] && state.entities[savedTurnIndex].id;
-    const byId = {};
-    state.entities.forEach(function (entity) {
-      byId[entity.id] = entity;
-    });
-    const defaultIds = {};
-    COMBAT_DEFAULTS.forEach(function (base) {
-      defaultIds[base.id] = true;
-    });
-    const entities = COMBAT_DEFAULTS.map(function (base, index) {
-      const current = byId[base.id] || {};
-      const defaultHp = base.maxHp === null ? "" : base.maxHp;
-      return {
-        id: base.id,
-        name: base.name,
-        team: base.team,
-        order: typeof current.order === "number" ? current.order : index,
-        init: current.init ?? "",
-        ac:
-          current.ac !== undefined && current.ac !== null && current.ac !== ""
-            ? current.ac
-            : defaultAcForBase(base),
-        hp: current.hp ?? defaultHp,
-        maxHp: current.maxHp ?? defaultHp,
-        delta: current.delta ?? "",
-        notes: current.notes ?? "",
-        defeated: !!current.defeated,
-        statblockPath: base.statblockPath || current.statblockPath || "",
-      };
-    }).concat(
-      state.entities
-        .filter(function (entity) {
-          return entity && entity.id && !defaultIds[entity.id];
-        })
-        .map(function (entity, index) {
-          return {
-            id: String(entity.id),
-            name: String(entity.name || entity.id),
-            team: entity.team === "pc" || entity.team === "ally" ? entity.team : "enemy",
-            order:
-              typeof entity.order === "number"
-                ? entity.order
-                : COMBAT_DEFAULTS.length + index,
-            init: entity.init ?? "",
-            ac: entity.ac ?? "",
-            hp: entity.hp ?? "",
-            maxHp: entity.maxHp ?? entity.hp ?? "",
-            delta: entity.delta ?? "",
-            notes: entity.notes ?? "",
-            defeated: !!entity.defeated,
-            statblockPath: entity.statblockPath ?? "",
-            generatedArtifactId: entity.generatedArtifactId ?? "",
-            generatedTitle: entity.generatedTitle ?? "",
-            generatedMarkdown: entity.generatedMarkdown ?? "",
-          };
-        })
-    ).sort(function (a, b) {
-      return a.order - b.order;
-    });
+      clampNumber(state.turnIndex, 0, Math.max(listed.length - 1, 0)) || 0;
+    const activeId = listed[savedTurnIndex] && listed[savedTurnIndex].id;
+    const entities = listed
+      .map(function (entity, index) {
+        return normalizeListedEntity(entity, index);
+      })
+      .sort(function (a, b) {
+        return a.order - b.order;
+      });
     const migratedQueue = state.queueModel !== COMBAT_QUEUE_MODEL;
     if (migratedQueue) {
       sortEntitiesByInitiative(entities);
@@ -3609,6 +3911,76 @@
       entity.order = index;
     });
     set(COMBAT_STORAGE_KEY, state);
+  }
+
+  function combatStateFromStorageValue(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    if (Array.isArray(raw.entities)) return raw;
+    if (raw.state && typeof raw.state === "object" && Array.isArray(raw.state.entities)) {
+      return raw.state;
+    }
+    return null;
+  }
+
+  function readLegacyCombatStates() {
+    const found = [];
+    LEGACY_COMBAT_STORAGE_KEYS.forEach(function (key) {
+      const state = combatStateFromStorageValue(get(key, null));
+      if (state) found.push(state);
+    });
+    return found;
+  }
+
+  function hpIsTracked(value) {
+    return parseCombatHp(value) !== null;
+  }
+
+  function mergePersistedCombatFields(current, legacy) {
+    if (!current || !Array.isArray(current.entities) || !legacy || !Array.isArray(legacy.entities)) {
+      return current;
+    }
+    const byId = {};
+    legacy.entities.forEach(function (entity) {
+      if (entity && entity.id) byId[entity.id] = entity;
+    });
+    let changed = false;
+    const entities = current.entities.map(function (entity) {
+      const prior = byId[entity.id];
+      if (!prior) return entity;
+      const next = Object.assign({}, entity);
+      if (!hpIsTracked(next.hp) && hpIsTracked(prior.hp)) {
+        next.hp = prior.hp;
+        if (!hpIsTracked(next.maxHp) && hpIsTracked(prior.maxHp)) next.maxHp = prior.maxHp;
+        next.defeated = !!prior.defeated;
+        changed = true;
+      }
+      if ((next.init === "" || next.init === null || next.init === undefined) &&
+          prior.init !== "" && prior.init !== null && prior.init !== undefined) {
+        next.init = prior.init;
+        changed = true;
+      }
+      return next;
+    });
+    if (!changed) return current;
+    return Object.assign({}, current, { entities: entities });
+  }
+
+  function applyLegacyCombatPersistence(state) {
+    let next = state;
+    readLegacyCombatStates().forEach(function (legacy) {
+      next = mergePersistedCombatFields(next, legacy);
+    });
+    return next;
+  }
+
+  function loadPersistedCombatState() {
+    const current = combatStateFromStorageValue(get(COMBAT_STORAGE_KEY, null));
+    const legacies = readLegacyCombatStates();
+    if (current === null) {
+      if (!legacies.length) return { raw: null, source: "missing" };
+      return { raw: legacies[0], source: "migrated" };
+    }
+    return { raw: applyLegacyCombatPersistence(current), source: "local" };
   }
 
   function notifyCombatStateUpdated(detail) {
@@ -3693,11 +4065,11 @@
   }
 
   function bootstrapCombatState(done) {
-    const cached = get(COMBAT_STORAGE_KEY, null);
-    if (cached !== null) {
-      const normalized = normalizeCombatState(cached);
+    const persisted = loadPersistedCombatState();
+    if (persisted.raw !== null) {
+      const normalized = normalizeCombatState(persisted.raw);
       saveCombatState(normalized);
-      done(normalized, "local", null);
+      done(normalized, persisted.source, null);
       return;
     }
     if (isFileProtocol()) {
@@ -3711,7 +4083,9 @@
         return fetchCombatSaveFile(LEGACY_COMBAT_SAVE_BOOTSTRAP);
       })
       .then(function (payload) {
-        const imported = normalizeCombatState(payload && payload.state ? payload.state : payload);
+        const imported = applyLegacyCombatPersistence(
+          normalizeCombatState(payload && payload.state ? payload.state : payload),
+        );
         saveCombatState(imported);
         done(imported, "file", canonicalPath);
       })
@@ -3746,8 +4120,7 @@
     }
 
     function isEntityDefeated(entity) {
-      const hp = Number(entity.hp);
-      return !!entity.defeated || (Number.isFinite(hp) && hp <= 0);
+      return combatEntityDefeated(entity);
     }
 
     function isSegmentCollapsed(segment) {
@@ -3764,7 +4137,7 @@
 
     function removeEntityAt(index) {
       const entity = state.entities[index];
-      if (!entity || LOCKED_COMBAT_ENTITY_IDS[entity.id]) return;
+      if (!entity) return;
       state.entities.splice(index, 1);
       if (state.turnIndex >= state.entities.length) {
         state.turnIndex = Math.max(0, state.entities.length - 1);
@@ -3781,10 +4154,10 @@
     function renderEntityRow(entity, index, options) {
       const opts = options || {};
       const isTurn = index === state.turnIndex;
-      const hpNum = Number(entity.hp);
-      const maxNum = Number(entity.maxHp);
+      const hpNum = parseCombatHp(entity.hp);
+      const maxNum = parseCombatHp(entity.maxHp);
       const hpPct =
-        Number.isFinite(hpNum) && Number.isFinite(maxNum) && maxNum > 0
+        hpNum !== null && maxNum !== null && maxNum > 0
           ? Math.max(0, Math.min(100, Math.round((hpNum / maxNum) * 100)))
           : "";
       const isDefeated = isEntityDefeated(entity);
@@ -3867,9 +4240,7 @@
         '<button type="button" class="dead-toggle" data-row-action="toggle-defeated">' +
         (entity.defeated ? "Revive" : "Dead") +
         "</button>" +
-        (!LOCKED_COMBAT_ENTITY_IDS[entity.id]
-          ? '<button type="button" class="combat-remove" data-row-action="remove" title="Remove from tracker">Remove</button>'
-          : "") +
+        '<button type="button" class="combat-remove" data-row-action="remove" title="Remove from tracker">Remove</button>' +
         "</div>" +
         "</td>" +
         '<td><input class="combat-input combat-notes" type="text" data-field="notes" value="' +
@@ -4561,7 +4932,7 @@
           if (importFile) importFile.click();
           return;
         } else if (action === "reset-all") {
-          if (!window.confirm("Reset initiative, HP, dead/alive flags, notes, and turn state for this combat?")) return;
+          if (!window.confirm("Clear all combat entities and turn state? Import or Accept to combat will then start from this empty board.")) return;
           state = freshCombatState();
         }
         const scrollTurn =
@@ -4572,7 +4943,7 @@
         } else if (action === "reset-turn") {
           setSaveStatus("Turn marker and round reset locally.");
         } else if (action === "reset-all") {
-          setSaveStatus("Combat state reset locally.");
+          setSaveStatus("Combat entities cleared. The board is empty.");
         }
       });
     });
@@ -4580,6 +4951,28 @@
     if (importFile) {
       importFile.addEventListener("change", function () {
         importCombatStateFromFile(importFile.files && importFile.files[0]);
+      });
+    }
+
+    const spawnPool = document.getElementById("combat-spawn-pool");
+    renderCombatSpawnPool(spawnPool);
+    if (spawnPool) {
+      spawnPool.addEventListener("click", function (event) {
+        const button = event.target.closest("[data-spawn-id]");
+        if (!button) return;
+        const spawnId = button.getAttribute("data-spawn-id");
+        const added = addCombatantFromPool(state, spawnId);
+        if (!added) {
+          setSaveStatus(
+            spawnId === "party" ? "Party already on the board." : "Already on the board.",
+          );
+          return;
+        }
+        persistAndRender({ scrollToEntityId: added.id });
+        wireRepoLinks();
+        setSaveStatus(
+          spawnId === "party" ? "Added missing party members." : "Added " + added.name + " to combat.",
+        );
       });
     }
 
@@ -4613,6 +5006,8 @@
           setSaveStatus(
             "Restored combat from " + (savePath || buildCombatSaveRelPath(readCombatSaveProfile())) + "."
           );
+        } else if (source === "migrated") {
+          setSaveStatus("Restored this browser's previous combat board, including HP.");
         } else if (source === "local") {
           setSaveStatus("Loaded saved combat state from this browser.");
         } else if (changed) {
@@ -4640,6 +5035,13 @@
     initToolbox: initToolbox,
     initStatblockGeneratorDogfood: initStatblockGeneratorDogfood,
     initCombatTracker: initCombatTracker,
+    freshCombatState: freshCombatState,
+    normalizeCombatState: normalizeCombatState,
+    combatEntityDefeated: combatEntityDefeated,
+    mergePersistedCombatFields: mergePersistedCombatFields,
+    loadPersistedCombatState: loadPersistedCombatState,
+    saveCombatState: saveCombatState,
+    addCombatantFromPool: addCombatantFromPool,
     openMarkdownViewer: openMarkdownViewer,
     openMarkdownFromText: openMarkdownFromText,
     closeMarkdownViewer: closeMarkdownViewer,
