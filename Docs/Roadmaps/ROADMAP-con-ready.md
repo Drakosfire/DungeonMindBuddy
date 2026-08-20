@@ -452,7 +452,10 @@ The roadmap is sequenced by user-visible capability rather than architecture lay
 
 ## 4.0 Current delivery state — 2026-08-20 post-C2S27 re-anchor
 
-Recorded by `Docs/Plans/HANDOFF-CON-READY-c2s27-reanchor-and-workspace-cleanup.md` against `main` `62f7f9e856327247b8677b4c951801e4c58a826c`. Final dogfood truth: `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
+Recorded by the PLAY-SURFACE handoff
+`Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`
+against `main` `62f7f9e856327247b8677b4c951801e4c58a826c`. Final dogfood
+truth: `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
 
 Merged and proven: CR01–CR04 capabilities through the CUTOVER/Build program; Playable P1/P2/P3A/D1/D2 (durable Runbook identity, exact Run binding, native admission, Start Run, exact Runbook view).
 
@@ -472,16 +475,25 @@ Current story truth after C2S27:
 New delivery priority (supersedes "continue the Play phase ladder"):
 
 ```text
-1. Durable mutable state — one persistence authority for Plan documents, playable
-   blocks/styling, Combat board, Threat drafts, and Run/workspace registries.
+1. Lane A: active-Run continuity — Resume vs Start New; no duplicate-Run churn.
 2. Lane B: durable Combat state — database-backed tracker authority; the C2S27
-   tracker interaction is the proven UX to keep.
-3. Lane A: active-Run continuity — Resume vs Start New; no duplicate-Run churn.
-4. Design task: Beat/Scene/Decision + Plan→Playable authoring model.
-   No native Play table implementation starts until that model is reviewed.
+   tracker interaction is the proven UX to keep. Resolve the retained
+   uncommitted Combat-save worktree before dispatch.
+3. After both domain slices prove their own durability invariants, extract a
+   bounded shared persistence primitive only if the evidence demonstrates a
+   common seam. Do not make one atomic slice span Plan, Playable state, Combat,
+   Threat drafts, Runs, and workspace registries.
+4. Design task: Beat/Scene/Decision + Plan→Playable authoring model, including
+   the required P1/P2 structure, serialization, manifest, current-position,
+   sealed-Run, and migration/rebase redesign. No native Play table
+   implementation starts until that model is reviewed.
 ```
 
-Lanes A and B may proceed in parallel after a fresh re-anchor. P3B (native graph-object sheets) and P4 (exact Threat→Combat mutation) remain designed but **deferred** — they are not current dispatch authority.
+Lanes A and B are separate domain-first slices and may proceed in parallel
+after a fresh re-anchor, except that Lane B is blocked until the retained
+uncommitted Combat-save worktree is mined/adopted/committed or discarded. P3B
+(native graph-object sheets) and P4 (exact Threat→Combat mutation) remain
+designed but **deferred** — they are not current dispatch authority.
 
 ## CR01 — Source Ingress & Reading
 

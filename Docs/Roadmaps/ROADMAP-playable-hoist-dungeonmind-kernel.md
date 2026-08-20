@@ -118,7 +118,14 @@ Rules:
 
 ### Current sequence
 
-Mutable workstream state after merged PR #622 / `62f7f9e` and the C2 Session 27 dogfood re-anchor (2026-08-20). Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync. This block was synchronized by the operator-authorized CON-READY doc-sync exception (`Docs/Plans/HANDOFF-CON-READY-c2s27-reanchor-and-workspace-cleanup.md`); it records completed work and the post-dogfood sequence, and does not pre-mark any in-flight slice complete.
+Mutable workstream state after merged PR #622 / `62f7f9e` and the C2 Session
+27 dogfood re-anchor (2026-08-20). Implementation PRs still add a ledger row;
+they do not rewrite this block except as post-merge state-authority sync. This
+block was synchronized by the operator-authorized PLAY-SURFACE doc-sync
+exception (`Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`)
+under the CON-READY parent acceptance authorities; it records completed work
+and the post-dogfood sequence, and does not pre-mark any in-flight slice
+complete.
 
 | Field | Current truth |
 |---|---|
@@ -130,13 +137,25 @@ Mutable workstream state after merged PR #622 / `62f7f9e` and the C2 Session 27 
 | D2 status | **COMPLETE** — PR #622; evidence `b923117b`; reviewed head `c549611a`; merge `62f7f9e`; **1 review cycle** |
 | D3 status | **COMPLETE — BLOCKED / PLAY NOT READY** — C2 Session 27 real-table dogfood accepted the exact Run admission wiring and rejected the native three-column Table as the table instrument; final report `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md` |
 | D4 status | **RETIRED AS CURRENT SEQUENCE** — the current-Beat table-stage repair (`HANDOFF-PLAY-current-beat-table-stage.md`, PR [#623](https://github.com/Drakosfire/DungeonMindBuddy/pull/623)) was closed unmerged; its evidence is mined, its code is not on `main`, and its Scene-first deck design (`DESIGN-play-native-current-moment-deck.md`) was superseded by the dogfood's Beat-first conclusion and intentionally not promoted |
-| Next dispatch | **Lane A:** active-Run continuity / Resume vs Start New. **Lane B:** durable Combat state / database-backed tracker authority. Lanes may proceed in parallel after a fresh re-anchor |
-| Next design task | Beat/Scene/Decision + Plan→Playable authoring model. **No native Play table implementation starts until that model is reviewed** |
+| Next dispatch | **Lane A:** active-Run continuity / Resume vs Start New. **Lane B:** durable Combat state / database-backed tracker authority, blocked until the retained uncommitted Combat-save worktree is mined/adopted/committed or discarded. These are separate domain-first slices; Lane A can re-anchor for dispatch, and Lane B follows its collision gate |
+| Shared persistence posture | The broad cross-domain persistence item is not an atomic prerequisite. After Lane A and Lane B each prove their own durability invariant, extract a bounded shared persistence primitive only if the evidence demonstrates a common seam; do not span Plan, Playable state, Combat, Threat drafts, Runs, and workspace registries in one slice |
+| Next design task | Beat/Scene/Decision + Plan→Playable authoring model, including the required P1/P2 structure, serialization, manifest, current-position, sealed-Run, and migration/rebase redesign. **No native Play table implementation starts until that model is reviewed** |
 | P3B status | Designed but **NON-DISPATCHABLE** — `Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md` stays parked behind the new sequence |
 | P4 status | Designed but **deferred** — `Docs/Plans/HANDOFF-PLAY-add-to-combat.md` is preserved design evidence and is not "directly dispatchable when selected" until the durable Combat re-anchor |
 | Hoist posture | Runtime remains DungeonMindBuddy Play-owned. Native Runbook projection remains Play-owned. D2 is a second Play-owned projection of the same admitted TipTap document, not a briefing schema or new element kind. `WorkObjectRevisionRef`, `WorkObjectElementRef`, and a generic transaction framework remain not yet justified without an independent non-Play consumer. |
 
-P2 is complete. P3A is complete. D1 Start Run is complete. D2 exact Runbook view is complete. The C2 Session 27 dogfood falsified the shipped native Table as a table instrument and revised the Playable organization direction: the Beat is the larger useful hierarchy over Scenes, and Decisions carry consequences that reshape later Scene/Beat relevance (canonical architecture updated in `Docs/Design/ARCHITECTURE-playable-material-and-runtime.md`). The D4 current-Beat table-stage sequence is retired with PR #623 closed unmerged. Current dispatch authority is the persistence-first pair above, not another Play table slice. This is a sequencing update, not a stable architecture ownership change.
+P2 is complete. P3A is complete. D1 Start Run is complete. D2 exact Runbook
+view is complete. The C2 Session 27 dogfood falsified the shipped native
+Table as a table instrument and revised the Playable organization direction:
+the Beat is the larger useful hierarchy over Scenes, and Decisions carry
+consequences that reshape later Scene/Beat relevance (canonical architecture
+updated in `Docs/Design/ARCHITECTURE-playable-material-and-runtime.md`). The
+D4 current-Beat table-stage sequence is retired with PR #623 closed unmerged.
+Current dispatch authority is the separate domain-first Lane A/Lane B pair,
+with Lane B's retained-worktree collision gate, not a broad persistence slice
+or another Play table slice. The common persistence question follows those
+domain proofs. This is a sequencing update, not a stable architecture
+ownership change.
 
 ---
 

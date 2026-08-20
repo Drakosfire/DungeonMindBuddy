@@ -6,7 +6,7 @@ status: active
 version: 1.0
 created_at: "2026-08-15"
 updated_at: "2026-08-20"
-workstream: CON-READY
+workstream: PLAY-SURFACE
 architecture_authority: "ARCHITECTURE-playable-material-and-runtime.md"
 surface_authority: "ARCHITECTURE-surface-interaction-layer.md"
 evidence:
@@ -77,7 +77,17 @@ The current PR #578 `prep` HTML host proves that these tools can be consolidated
 
 ## 3. Default anchor: the current Beat
 
-The default Play anchor is the current Runbook moment. After C2S27, the table hierarchy is **Beat-first**: the current Beat is the table stage, and Scenes and Decisions live beneath it.
+The default Play anchor is the current Runbook moment. After C2S27, the table
+hierarchy is **Beat-first**: the current Beat is the table stage, and Scenes
+and Decisions live beneath it.
+
+This is the reviewed product direction, not an implementation claim against
+the current P1/P2 wire shape. The shipped structure places Scene at H2 and
+Beat/Choice at H3, requires Beat/Choice membership under Scene, and requires a
+current Beat to belong to the current Scene. Before this projection can be
+implemented as Beat-first, the P1 structure/serialization, P2B1 manifest
+membership/versioning, P2B2 current-position semantics, sealed Run/manifest
+migration, and P2C migration/rebase behavior must be redesigned and reviewed.
 
 A useful hierarchy is:
 

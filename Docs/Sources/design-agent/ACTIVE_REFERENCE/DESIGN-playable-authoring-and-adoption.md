@@ -6,7 +6,7 @@ status: active
 version: 1.0
 created_at: "2026-08-15"
 updated_at: "2026-08-20"
-workstream: CON-READY
+workstream: PLAY-SURFACE
 architecture_authority: "ARCHITECTURE-playable-material-and-runtime.md"
 companion_design: "DESIGN-play-surface-projection.md"
 evidence:
@@ -131,7 +131,17 @@ The exact Plan↔Playable composition (one document vs. explicit adoption seams)
 
 ## 4. Runbook authoring
 
-After C2S27, the Beat is the session-scale organization unit; Scenes are concrete situations inside a Beat. See `ARCHITECTURE-playable-material-and-runtime.md` §5.
+After C2S27, the Beat is the session-scale organization unit; Scenes are
+concrete situations inside a Beat. See
+`ARCHITECTURE-playable-material-and-runtime.md` §5.
+
+This is a design direction, not a claim that the current P1/P2 authoring
+grammar can serialize it. Current `main` fixes Scene at H2 and Beat/Choice at
+H3, requires Beat/Choice membership under Scene, and requires the current Beat
+to belong to the current Scene. The Beat-first authoring model therefore
+requires a reviewed redesign of P1 structure/serialization, P2B1 manifest
+membership/versioning, P2B2 current-position semantics, existing sealed
+Runs/manifests, and P2C migration/rebase behavior before implementation.
 
 ### 4.1 Create/organize Beats
 

@@ -6,7 +6,7 @@ status: active
 version: 1.0
 created_at: "2026-08-15"
 updated_at: "2026-08-20"
-workstream: CON-READY
+workstream: PLAY-SURFACE
 evidence:
   - "PR #578 — Of Conks / Hempholm table-ready dogfood"
   - "C2 Session 27 native Play dogfood — BLOCKED / PLAY NOT READY (Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md)"
@@ -40,7 +40,10 @@ It does not replace:
 - exact mechanics authority such as accepted immutable `StatblockRevision`;
 - the CON-READY product roadmap.
 
-This document turns the CON-READY layer model into a durable design contract after PR #578 proved concrete Playable and Play interactions.
+This document turns the Play-Surface layer model into a durable design
+contract after PR #578 proved concrete Playable and Play interactions.
+`CON-READY` remains the parent acceptance workstream; this document owns the
+Play-specific architecture.
 
 ## 1. Governing model
 
@@ -223,7 +226,25 @@ Choice/Decision
 
 This is a Playable organization model, not an Adventure ontology for the World Graph.
 
-The exact wire grammar for this Beat-first model is deliberately **not** frozen here; it is the next reviewed design task. The merged P1/P2 identity machinery (stable Scene/Beat/Choice/Option IDs and the sealed Run manifest) remains valid product wiring: the identity invariant in §4.2 does not depend on containment direction, and any re-nesting of membership must preserve those stable IDs and existing Run bindings.
+The exact wire grammar for this Beat-first model is deliberately **not** frozen
+here; it is the next reviewed design task. Stable Scene/Beat/Choice/Option IDs
+remain useful identity candidates, but the Beat-first model is **not
+structurally compatible with the shipped P1/P2 wiring** merely because those
+IDs survive. Current `main` places Scene at H2 and Beat/Choice at H3, requires
+every Beat/Choice to belong to a Scene, and rejects a current Beat unless it
+belongs to the current Scene.
+
+Before implementation, a reviewed redesign must specify:
+
+- P1 structure and serialization;
+- P2B1 manifest membership and versioning;
+- P2B2 current-position semantics;
+- migration/reconciliation of existing sealed Runs and manifests;
+- P2C migration/rebase behavior for the changed containment model.
+
+This revision records that redesign gate only. It does not claim compatibility
+with current containment, implement the new grammar, or migrate/rebase sealed
+runtime data.
 
 ### 5.1 Runbook
 
@@ -387,6 +408,9 @@ Two C2S27 findings activate here:
 - A Play run may link to Combat runtime rather than absorbing combat fields.
 - Reload/restart must preserve run state needed to continue the table.
 - If the Playable revision changes, migration/rebase must be explicit when referenced IDs are removed or semantically replaced.
+- The Beat-first redesign must not be implemented against current P1/P2
+  containment, manifest, current-position, sealed-Run, or rebase assumptions
+  until the reviewed redesign and migration behavior exist.
 
 ## 8. Projection architecture
 

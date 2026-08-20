@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE REFERENCE / process index  
 **Created:** 2026-08-02  
-**Repository authority refresh:** 2026-08-20 post-C2S27 CON-READY re-anchor and export refresh, based on `62f7f9e856327247b8677b4c951801e4c58a826c`  
+**Repository authority refresh:** 2026-08-20 post-C2S27 PLAY-SURFACE re-anchor under CON-READY parent acceptance and export refresh, based on `62f7f9e856327247b8677b4c951801e4c58a826c`
 **Project Sources snapshot date:** 2026-08-02 — do not advance this date until the operator actually replaces/re-observes the user-managed Project Sources set  
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)  
 **Document class:** curated source index — **not** architecture, roadmap, or PR-sequence authority
@@ -79,8 +79,8 @@ For Campaign Supergraph implementation order, [`PR-TRACKER-campaign-supergraph.m
 For CR05–CR07 design work, resolve conflicts in this order:
 
 ```text
-CON-READY roadmap + stewardship anchor
-→ ROADMAP-playable-hoist-dungeonmind-kernel (Play sequence / current dispatch state)
+CON-READY roadmap + stewardship anchor (parent acceptance)
+→ ROADMAP-playable-hoist-dungeonmind-kernel (PLAY-SURFACE sequence / current dispatch state)
 → ARCHITECTURE-playable-material-and-runtime
 → DESIGN-play-surface-projection / DESIGN-playable-authoring-and-adoption
 → current implementation contracts/code

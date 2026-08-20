@@ -1,7 +1,7 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies  
-**Source capture basis:** post-C2S27 CON-READY re-anchor based on `62f7f9e856327247b8677b4c951801e4c58a826c`  
+**Source capture basis:** post-C2S27 PLAY-SURFACE re-anchor under CON-READY parent acceptance, based on `62f7f9e856327247b8677b4c951801e4c58a826c`
 **Export refreshed:** 2026-08-20  
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 

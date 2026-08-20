@@ -209,7 +209,10 @@ Do not block CON-READY on completion of the entire Play roadmap.
 
 ### 4.6 Current-state re-anchor — 2026-08-20 (post-C2S27)
 
-Recorded by `Docs/Plans/HANDOFF-CON-READY-c2s27-reanchor-and-workspace-cleanup.md` under the operator-authorized documentation-only exception. Final dogfood truth: `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
+Recorded by the PLAY-SURFACE handoff
+`Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`
+under the operator-authorized documentation-only exception. Final dogfood
+truth: `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
 
 ```text
 main: 62f7f9e856327247b8677b4c951801e4c58a826c (merge of PR #622, D2 exact Runbook view)
@@ -239,14 +242,22 @@ Currently false or fragile user stories (the highest-value falsehoods):
 Current delivery priority (details in `Docs/Roadmaps/ROADMAP-con-ready.md` §4.0):
 
 ```text
-1. durable mutable state — one persistence authority
+1. Lane A: active-Run continuity / Resume vs Start New
 2. Lane B: durable Combat state / database-backed tracker authority
-3. Lane A: active-Run continuity / Resume vs Start New
-4. design task: Beat/Scene/Decision + Plan→Playable authoring model
+   (resolve the retained uncommitted Combat-save worktree first)
+3. after both domain slices prove their own durability invariants, extract a
+   bounded shared persistence primitive only if a common seam is evidenced
+4. design task: Beat/Scene/Decision + Plan→Playable authoring model, including
+   the P1/P2 structure, serialization, manifest, current-position, sealed-Run,
+   and migration/rebase redesign
    (no native Play table implementation until that model is reviewed)
 ```
 
-P3B (native graph-object sheets) and P4 (exact Threat→Combat) remain designed but **deferred**; neither is current dispatch authority.
+Lane A may re-anchor for dispatch. Lane B is blocked until the retained
+`agent/play-command-board-disk-saves` worktree is mined/adopted/committed or
+discarded because it contains uncommitted Combat durability work with no
+remote backup. P3B (native graph-object sheets) and P4 (exact Threat→Combat)
+remain designed but **deferred**; neither is current dispatch authority.
 
 ---
 

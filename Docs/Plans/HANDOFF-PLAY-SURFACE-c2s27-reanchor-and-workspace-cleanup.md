@@ -1,11 +1,11 @@
 ---
 pr_body_template: |
   ## Handoff pointer
-  - Workstream: CON-READY / post-C2S27 steward re-anchor
-  - Flow: CON-READY
+  - Workstream: PLAY-SURFACE / post-C2S27 steward re-anchor
+  - Flow: PLAY-SURFACE
   - Direction: steward-authorized documentation-only state synchronization (explicit exception)
-  - Handoff: Docs/Plans/HANDOFF-CON-READY-c2s27-reanchor-and-workspace-cleanup.md
-  - Branch / PR: con-ready/c2s27-reanchor-workspace-cleanup / `CON-READY: re-anchor C2S27 dogfood and clean steward workspace`
+  - Handoff: Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md
+  - Branch / PR: con-ready/c2s27-reanchor-workspace-cleanup / `PLAY-SURFACE: re-anchor C2S27 dogfood and clean steward workspace`
 
   ## Verification pointer
   - Base: `62f7f9e856327247b8677b4c951801e4c58a826c` (merge of PR #622)
@@ -20,13 +20,13 @@ pr_body_template: |
 
 **Created:** 2026-08-20  
 **Status:** ACTIVE — one exceptional documentation-only synchronization PR plus local steward workspace cleanup; becomes MERGED / HISTORICAL at merge.  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-CON-READY-c2s27-reanchor-and-workspace-cleanup.md`  
-**Workstream:** `CON-READY`  
-**Flow / owner:** `CON-READY` (steward)  
+**Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`
+**Workstream:** `PLAY-SURFACE`
+**Flow / owner:** `PLAY-SURFACE` (steward)
 **Direction:** operator-authorized state-authority sync → REVIEW → MERGE  
 **Implementation base:** `62f7f9e856327247b8677b4c951801e4c58a826c`  
 **Suggested branch:** `con-ready/c2s27-reanchor-workspace-cleanup`  
-**PR title:** `CON-READY: re-anchor C2S27 dogfood and clean steward workspace`
+**PR title:** `PLAY-SURFACE: re-anchor C2S27 dogfood and clean steward workspace`
 
 > Repository law: `AGENTS.md`.
 > Workstream anchor: `Docs/Plans/STEWARDS-ANCHOR-con-ready.md`.
@@ -38,7 +38,10 @@ pr_body_template: |
 
 ## 0. Explicit doc-sync exception
 
-This is deliberately **not** a `DOCUMENTS` flow PR; the owning workstream is **CON-READY**.
+This is deliberately **not** a `DOCUMENTS` flow PR; the owning workstream for
+this Play-specific reset is **PLAY-SURFACE**. `CON-READY` remains the parent
+acceptance authority through `ROADMAP-con-ready.md` and
+`STEWARDS-ANCHOR-con-ready.md`; those parent documents are not being relabeled.
 
 `AGENTS.md` invariant 10 makes documentation-only PRs exceptional. The operator has **explicitly authorized** this exceptional documentation-only synchronization. The exception belongs to this handoff and the PR record. `AGENTS.md` is **not** modified; the general rule is not weakened.
 
@@ -59,12 +62,18 @@ The local coding workspace must also contain only intentionally retained worktre
 
 ## 2. Merge-ready invariant
 
-At one exact `main` base, all mutable CON-READY / Playable state authorities, canonical Playable design documents, sequencing handoffs, backlog entries, and design-agent export mirrors describe the same post-C2S27 truth:
+At one exact `main` base, the parent CON-READY acceptance authorities and the
+PLAY-SURFACE-owned Playable design authorities, sequencing handoffs, backlog
+entries, and design-agent export mirrors describe the same post-C2S27 truth:
 
 - D2 / PR #622 is complete;
 - PR #623 is non-mergeable dogfood/mining evidence;
 - native Play is not product-ready;
-- active-Run continuity, durable Combat, durable mutable state, Beat-first Playable structure, and direct Plan→Playable authoring precede another Play-table implementation;
+- active-Run continuity and durable Combat are separate domain-first slices;
+- the shared persistence question is not a broad atomic prerequisite and is
+  extracted only if both domain slices prove a common invariant;
+- the Beat-first Playable structure and direct Plan→Playable authoring precede
+  another Play-table implementation;
 - P3B and P4 remain deferred.
 
 No production/runtime code changes in this PR. The operator-authorized workspace cleanup removes only safely classified stale local worktrees and preserves any unmerged or dirty work before removal.
@@ -91,7 +100,7 @@ No production/runtime code changes in this PR. The operator-authorized workspace
 
 | Action | Path | Required sync |
 |---|---|---|
-| Create | `Docs/Plans/HANDOFF-CON-READY-c2s27-reanchor-and-workspace-cleanup.md` | This explicit exception/reset authority |
+| Create | `Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md` | This explicit exception/reset authority |
 | Create | `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md` | Mine #623 report, update to final current dogfood truth |
 | Modify | `Backlog.md` | Replace one broad persistence/Play idea with bounded residuals and dependencies |
 | Modify | `Docs/Roadmaps/ROADMAP-con-ready.md` | Re-anchor CR-U11/U13–U17 and new delivery priority |
@@ -144,6 +153,21 @@ Exact wire grammar is **not** designed in this PR.
 
 Keep existing stable Choice / Option identity as the first candidate storage primitive for Decisions.
 
+This Beat-first direction is **not structurally compatible with the shipped
+P1/P2 wiring merely because stable IDs survive**. Current `main` places Scene
+at H2 and Beat/Choice at H3, requires every Beat/Choice to belong to a Scene,
+and rejects a current Beat unless it belongs to the current Scene. Before any
+Beat-first implementation, a reviewed redesign must specify:
+
+- P1 structure and serialization;
+- P2B1 manifest membership and versioning;
+- P2B2 current-position semantics;
+- migration/reconciliation of existing sealed Runs and manifests;
+- P2C migration/rebase behavior for the changed containment model.
+
+This PR records that redesign gate only; it does not implement the new grammar,
+migration, or rebase behavior.
+
 Runtime remains separate and conceptually becomes:
 
 ```text
@@ -194,7 +218,13 @@ For #623 specifically: first mine the report/current design evidence into this s
 
 - This lane's write lease is §4. No other active lane may write those paths while this PR is open.
 - Open PRs at dispatch: #623 (being closed by this reset), #607 (`documents/process-exact-state-sync-set`, disjoint process-docs lane), #578 (historical dogfood/mining branch). No write-lease collision.
-- Dirty/local-only worktrees (`play/s27` primary checkout, `agent/play-command-board-disk-saves`, `agent/hermes-selected-recap-context`, `cutover/post-dnd34-adoption-proof-state-sync`) are classified KEEP and are not touched.
+- Dirty/local-only worktrees (`play/s27` primary checkout,
+  `agent/play-command-board-disk-saves`,
+  `agent/hermes-selected-recap-context`,
+  `cutover/post-dnd34-adoption-proof-state-sync`) are classified KEEP and are
+  not touched. The uncommitted Combat Tracker disk-save work in
+  `agent/play-command-board-disk-saves` has no remote backup and must be
+  mined/adopted/committed or discarded before Lane B is dispatched.
 
 ## 8. Verification
 
@@ -241,8 +271,20 @@ Lane A   Active Run continuity / Resume vs Start New
 Lane B   Durable Combat state / database-backed tracker authority
 ```
 
-Those can proceed in parallel after a fresh re-anchor.
+These are separate domain-first slices; there is no broad cross-domain
+"durable mutable state" prerequisite that blocks both. Lane A may be
+re-anchored for dispatch now. Lane B is blocked until the retained
+`agent/play-command-board-disk-saves` worktree is mined/adopted/committed or
+discarded, because it contains uncommitted Combat durability work with no
+remote backup. After both domain slices prove their own durability
+invariants, extract a bounded shared persistence primitive only if their
+evidence demonstrates a common seam. Do not create one atomic persistence
+slice spanning Plan, Playable state, Combat, Threat drafts, Runs, and
+workspace registries.
 
-The next design task is the Beat/Scene/Decision + Plan→Playable model, but no native Play table implementation starts until that model is reviewed.
+The next design task is the Beat/Scene/Decision + Plan→Playable model,
+including the required P1/P2 structure, serialization, manifest, sealed-Run,
+current-position, and migration/rebase redesign. No native Play table
+implementation starts until that model is reviewed.
 
 This reset protects what P1/P2/P3A/D1/D2 proved, stops investing in the hierarchy C2S27 rejected, makes the useful runtime surfaces durable, and then reconstructs Play around how the GM actually prepares and runs the game.

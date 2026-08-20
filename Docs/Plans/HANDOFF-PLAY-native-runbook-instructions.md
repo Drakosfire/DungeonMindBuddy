@@ -1,8 +1,8 @@
 ---
 pr_body_template: |
   ## Handoff pointer
-  - Workstream: Playable Architecture Graduation / dogfood bridge D2
-  - Flow: PLAY
+  - Workstream: PLAY-SURFACE / Playable Architecture Graduation / dogfood bridge D2
+  - Flow: PLAY-SURFACE
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-PLAY-native-runbook-instructions.md
   - Branch / PR: agent/play-native-runbook-instructions / `PLAY: expose exact Runbook instructions`
@@ -38,8 +38,8 @@ pr_body_template: |
 **Created:** 2026-08-19  
 **Status:** MERGED / HISTORICAL — PR #622 / `main` `62f7f9e856327247b8677b4c951801e4c58a826c` after **1 formal review cycle**. Implementation/evidence head `b923117bd7767884053bbe32f25043c7cfe8dcab`; final reviewed head `c549611a889bc132d385e536ccc675ca695b356c`. This file is not current dispatch authority.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-native-runbook-instructions.md`  
-**Workstream:** `Playable Architecture Graduation / dogfood bridge D2`  
-**Flow / owner:** `PLAY`  
+**Workstream:** `PLAY-SURFACE / Playable Architecture Graduation / dogfood bridge D2`
+**Flow / owner:** `PLAY-SURFACE`
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation base:** `a0e03bed359dce094a18a5a5824d07487fe4b490`  
 **Suggested branch:** `agent/play-native-runbook-instructions`  

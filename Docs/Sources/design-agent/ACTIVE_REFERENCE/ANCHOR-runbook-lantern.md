@@ -109,6 +109,15 @@ Play may project any of these. Projection does not transfer ownership.
 
 The Beat is the current table stage: the session-scale objective, pressure, or phase the GM is running now. A Scene is a concrete playable situation inside a Beat; a Decision is an authored branch point whose consequences reshape which later Scenes/Beats remain possible or relevant.
 
+This Beat-first rule is a reviewed Play-Surface design direction, not a
+compatibility promise against current `main`. The shipped P1/P2 grammar places
+Scene at H2 and Beat/Choice at H3, requires Beat/Choice membership under
+Scene, and requires the current Beat to belong to the current Scene. A
+Beat-first implementation must wait for the reviewed P1 structure and
+serialization redesign, P2B1 manifest membership/versioning, P2B2
+current-position semantics, sealed Run/manifest migration, and P2C
+migration/rebase behavior.
+
 Useful Beat semantics:
 
 ```text

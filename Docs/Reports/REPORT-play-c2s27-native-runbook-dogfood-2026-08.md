@@ -4,7 +4,7 @@
 **Dogfood:** C2 Session 27 (Mireward climax), run at the real table on 2026-08-19  
 **Dispatching handoff:** `Docs/Plans/HANDOFF-PLAY-c2s27-native-dogfood.md` (D3; exists only on the evidence branch, see below)  
 **Evidence branch:** PR [#623](https://github.com/Drakosfire/DungeonMindBuddy/pull/623) `agent/play-current-beat-table-stage` @ `aa6d1119343c6ec4a65fcf3792251d62c466861d` — **closed unmerged**; retained remotely for historical recovery  
-**Re-anchor authority:** `Docs/Plans/HANDOFF-CON-READY-c2s27-reanchor-and-workspace-cleanup.md`
+**Re-anchor authority:** `Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`
 
 ## Result
 
@@ -66,8 +66,8 @@ PR #623 head:        aa6d1119343c6ec4a65fcf3792251d62c466861d
 
 | Severity | Moment | Cost at table | Candidate owner |
 |---|---|---|---|
-| High | Native Table deck vs Of Conks / Hempholm prototype | GM cannot use Play as a refined table instrument; attention stays on chrome and lists instead of the next few minutes | Play surface projection; the deck is an identity browser, not a current-moment instrument |
-| High | READY Table/Runbook + Scene/Beat nav: light text on light button backgrounds | GM cannot read which control is which; Play is unnavigable as a table surface | Play surface chrome vs global dark shell; Play must own its chrome |
+| High | Native Table deck vs Of Conks / Hempholm prototype | GM cannot use Play as a refined table instrument; attention stays on shared chrome and lists instead of the next few minutes | Play surface projection; the deck is an identity browser, not a current-moment instrument |
+| High | READY Table/Runbook + Scene/Beat nav: light text on light button backgrounds | GM cannot read which control is which; Play is unnavigable as a table surface | Shared Surface Interaction / AppChrome plus Play-specific presentation; Play must be legible and prototype-quality within shared AppChrome, not create a second chrome boundary |
 | High | First READY blocked: `bound Runbook Markdown failed P1 admission` (plain `>` blockquotes, lines 33/43) | Session cannot start until the artifact is flattened and recommitted | Playable Markdown admission / authoring UX; Play UI collapsed two line-level warnings into one generic READY error |
 | Medium | First Run remains bound to the rejected SHA/revision | Reloading `/play?run=d71541f1-...` cannot recover; a replacement Run was required | Runtime/start recovery; Run continuity |
 
@@ -81,6 +81,10 @@ PR #623 head:        aa6d1119343c6ec4a65fcf3792251d62c466861d
 3. **Playable authoring controls:** the fixed `Runbook → Scene → Beat` hierarchy is rejected
    by table evidence. Beat is the larger useful hierarchy; Scenes are concrete situations
    inside a Beat; Decisions carry consequences and reshape later Scene/Beat relevance.
+   This is not structurally compatible with the shipped P1/P2 wiring: current
+   Scene/Beat/Choice containment, P2B1 manifest membership/versioning, P2B2
+   current-position semantics, sealed Run/manifests, and P2C migration/rebase
+   behavior all require a reviewed redesign before implementation.
 4. **Runbook storage policy:** durable mutable state is the rank-1 residual. Workspace drafts
    and registries are checkout-local; jumping worktrees lost authored work.
 5. **Combat / P4:** the Combat Tracker proved the interaction; its state must become durable
@@ -88,9 +92,12 @@ PR #623 head:        aa6d1119343c6ec4a65fcf3792251d62c466861d
 6. **Runtime ergonomics:** yes — and worse than the branch report knew. Re-entry forced
    re-selection and duplicate Run creation; active-Run continuity (Resume vs Start New) is a
    precondition for any further Play table work.
-7. **No new capability before re-anchor:** correct. The re-anchor selects: Lane A (active-Run
-   continuity), Lane B (durable Combat state), then the Beat/Scene/Decision + Plan→Playable
-   design. No native Play table implementation starts until that model is reviewed.
+7. **No new capability before re-anchor:** correct. The re-anchor selects separate
+   domain-first slices: Lane A (active-Run continuity) and Lane B (durable Combat
+   state). Lane B must first resolve the retained uncommitted Combat-save worktree.
+   A common persistence primitive is extracted only if both slices prove a bounded
+   common invariant. Then the Beat/Scene/Decision + Plan→Playable design, including
+   the P1/P2 redesign, is reviewed before any native Play table implementation.
 
 ## Disposition of PR #623
 

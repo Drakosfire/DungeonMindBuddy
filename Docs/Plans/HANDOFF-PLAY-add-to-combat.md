@@ -1,8 +1,8 @@
 ---
 pr_body_template: |
   ## Handoff pointer
-  - Conversation/workstream: Playable Architecture Graduation / P4
-  - Flow: PLAY
+  - Conversation/workstream: PLAY-SURFACE / Playable Architecture Graduation / P4
+  - Flow: PLAY-SURFACE
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-PLAY-add-to-combat.md
   - Suggested branch / PR: agent/play-add-to-combat / `PLAY: add exact Threat to Combat`
@@ -25,8 +25,8 @@ pr_body_template: |
 **Created:** 2026-08-16  
 **Status:** DESIGNED — **DEFERRED, not current dispatch authority.** Cycle 4 repair of generation-local Add receipts on save/load. Generation bootstrap, exact-revision model path, binding identity, and predecessor seed mapping remain as Cycles 2–3. The C2 Session 27 dogfood showed Combat state must first become durable and browser/worktree-independent (`Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`); the current sequence is Lane B (durable Combat state / database-backed tracker authority) before this exact Threat→Combat mutation is re-pinned. This handoff is preserved design evidence and is **not** "directly dispatchable when selected" until a durable Combat re-anchor names P4 next. **No prerequisite exists merely because another handoff/document is absent from `main`, and P4 does not require P3A/P3B implementation merely to establish this exact Threat→Combat transition.**
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-add-to-combat.md`  
-**Conversation/workstream:** `Playable Architecture Graduation / P4`  
-**Flow / owner:** `PLAY`  
+**Conversation/workstream:** `PLAY-SURFACE / Playable Architecture Graduation / P4`
+**Flow / owner:** `PLAY-SURFACE`
 **Direction:** DESIGN → CODE → REVIEW  
 **Design anchor:** current `main` `53aaf9a566cfd40dd09f1a4c9723276cefa2a98a` — merge of PR #608  
 **P3C final reviewed head:** `6b0b177f08a09c2b1f8c8ff9a1eb71b450b57087`  
