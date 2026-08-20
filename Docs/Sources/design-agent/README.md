@@ -1,8 +1,8 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies  
-**Source capture basis:** canonical Playable design transaction based on `cc5dc6ddba0750924a46cf13843498c124937e5f`  
-**Export refreshed:** 2026-08-15  
+**Source capture basis:** post-C2S27 CON-READY re-anchor based on `62f7f9e856327247b8677b4c951801e4c58a826c`  
+**Export refreshed:** 2026-08-20  
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate / Project Sources.
@@ -25,29 +25,30 @@ Upload the files in these folders. Classification is useful context, not precede
 6. `STEWARDS-ANCHOR-con-ready.md`
 7. `ROADMAP-con-ready.md`
 8. `ARCHITECTURE-playable-material-and-runtime.md`
+9. `ROADMAP-playable-hoist-dungeonmind-kernel.md`
 
 ### `ACTIVE_REFERENCE/`
 
-9. `STATUS-world-graph-continuity-spine.md`
-10. `ARCHITECTURE-plan-surface-toolbox.md`
-11. `GRAPH-MEMORY-PROJECT-LAYOUT.md`
-12. `PLAN-surface-interaction-hoist-build-first.md`
-13. `INDEX-hermes-campaign-authoring-foundation.md`
-14. `DESIGN-play-surface-projection.md`
-15. `DESIGN-playable-authoring-and-adoption.md`
-16. `ANCHOR-runbook-lantern.md`
-17. `README.md`
-18. `INDEX-design-agent-source-set.md`
+10. `STATUS-world-graph-continuity-spine.md`
+11. `ARCHITECTURE-plan-surface-toolbox.md`
+12. `GRAPH-MEMORY-PROJECT-LAYOUT.md`
+13. `PLAN-surface-interaction-hoist-build-first.md`
+14. `INDEX-hermes-campaign-authoring-foundation.md`
+15. `DESIGN-play-surface-projection.md`
+16. `DESIGN-playable-authoring-and-adoption.md`
+17. `ANCHOR-runbook-lantern.md`
+18. `README.md`
+19. `INDEX-design-agent-source-set.md`
 
 ### `SOURCE_ANCHOR/`
 
-19. `CORPUS-ANCHOR.md`
+20. `CORPUS-ANCHOR.md`
 
 ### `PROCESS/`
 
-20. `AGENTS.md`
-21. `STEWARD-CYCLE.md`
-22. `HANDOFF.template.md`
+21. `AGENTS.md`
+22. `STEWARD-CYCLE.md`
+23. `HANDOFF.template.md`
 
 ## Replace / remove from the older immediate-source set
 
@@ -71,6 +72,7 @@ Do not upload unresolved source-only/historical drafts by default. See the canon
 | `ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md` | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` |
 | `ACTIVE_AUTHORITY/ROADMAP-con-ready.md` | `Docs/Roadmaps/ROADMAP-con-ready.md` |
 | `ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md` | `Docs/Design/ARCHITECTURE-playable-material-and-runtime.md` |
+| `ACTIVE_AUTHORITY/ROADMAP-playable-hoist-dungeonmind-kernel.md` | `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` |
 | `ACTIVE_REFERENCE/STATUS-world-graph-continuity-spine.md` | `Docs/Design/STATUS-world-graph-continuity-spine.md` |
 | `ACTIVE_REFERENCE/ARCHITECTURE-plan-surface-toolbox.md` | `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` |
 | `ACTIVE_REFERENCE/GRAPH-MEMORY-PROJECT-LAYOUT.md` | `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` |

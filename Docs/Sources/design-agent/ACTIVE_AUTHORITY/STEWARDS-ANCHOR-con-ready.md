@@ -207,6 +207,47 @@ CON-READY must define and dogfood the smallest truthful handoff from prepared/kn
 
 Do not block CON-READY on completion of the entire Play roadmap.
 
+### 4.6 Current-state re-anchor — 2026-08-20 (post-C2S27)
+
+Recorded by `Docs/Plans/HANDOFF-CON-READY-c2s27-reanchor-and-workspace-cleanup.md` under the operator-authorized documentation-only exception. Final dogfood truth: `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
+
+```text
+main: 62f7f9e856327247b8677b4c951801e4c58a826c (merge of PR #622, D2 exact Runbook view)
+
+merged and proven:
+  P1/P2/P3A/D1/D2 — durable Runbook identity, exact Run binding + sealed manifest,
+  native /play admission, Start Run, exact Runbook view, Runtime CAS progress
+
+C2 Session 27 real-table dogfood (D3):
+  verdict BLOCKED / PLAY NOT READY
+  exact Run admission worked; the native Table was rejected as the table instrument;
+  the HTML Combat Tracker carried the session
+
+PR #623 (D4 current-Beat table stage):
+  closed unmerged — evidence/mining only; Table implementation, hidden Scenes prose
+  parsing, Combat localStorage changes, and bundled multi-capability code not merged
+```
+
+Currently false or fragile user stories (the highest-value falsehoods):
+
+- **CR-U11** — Plan ideas did not enter Play with sufficient semantic fidelity; the Plan export dropped playable blocks and styling; prep does not survive worktree switches.
+- **CR-U13 / CR-U14** — the Combat Tracker interaction proved out, but its state is browser-`localStorage`/export only; not durable.
+- **CR-U15** — native Play was abandoned at the table; the Combat Tracker was materially more useful.
+- **CR-U16** — statblock/roll-table opening remains a first-class, currently clunky-to-absent table need.
+- **CR-U17** — reload/restart does not preserve the material and prep the GM depends on across browser/worktree boundaries.
+
+Current delivery priority (details in `Docs/Roadmaps/ROADMAP-con-ready.md` §4.0):
+
+```text
+1. durable mutable state — one persistence authority
+2. Lane B: durable Combat state / database-backed tracker authority
+3. Lane A: active-Run continuity / Resume vs Start New
+4. design task: Beat/Scene/Decision + Plan→Playable authoring model
+   (no native Play table implementation until that model is reviewed)
+```
+
+P3B (native graph-object sheets) and P4 (exact Threat→Combat) remain designed but **deferred**; neither is current dispatch authority.
+
 ---
 
 ## 5. Roadmap slices

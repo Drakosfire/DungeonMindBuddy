@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE REFERENCE / process index  
 **Created:** 2026-08-02  
-**Repository authority refresh:** 2026-08-15 canonical Playable design transaction, based on `cc5dc6ddba0750924a46cf13843498c124937e5f`  
+**Repository authority refresh:** 2026-08-20 post-C2S27 CON-READY re-anchor and export refresh, based on `62f7f9e856327247b8677b4c951801e4c58a826c`  
 **Project Sources snapshot date:** 2026-08-02 — do not advance this date until the operator actually replaces/re-observes the user-managed Project Sources set  
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)  
 **Document class:** curated source index — **not** architecture, roadmap, or PR-sequence authority
@@ -43,6 +43,7 @@ For Campaign Supergraph implementation order, [`PR-TRACKER-campaign-supergraph.m
 | CON-READY stewardship anchor | [`Docs/Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md) | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md` |
 | CON-READY product roadmap | [`Docs/Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md) | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-con-ready.md` |
 | Playable Material / Runtime architecture | [`Docs/Design/ARCHITECTURE-playable-material-and-runtime.md`](ARCHITECTURE-playable-material-and-runtime.md) | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md` |
+| Playable architecture graduation roadmap / Play sequence | [`Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md`](../Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md) | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-playable-hoist-dungeonmind-kernel.md` |
 
 ### ACTIVE REFERENCE
 
@@ -79,9 +80,11 @@ For CR05–CR07 design work, resolve conflicts in this order:
 
 ```text
 CON-READY roadmap + stewardship anchor
+→ ROADMAP-playable-hoist-dungeonmind-kernel (Play sequence / current dispatch state)
 → ARCHITECTURE-playable-material-and-runtime
 → DESIGN-play-surface-projection / DESIGN-playable-authoring-and-adoption
 → current implementation contracts/code
+→ C2S27 dogfood report (REPORT-play-c2s27-native-runbook-dogfood-2026-08)
 → PR #578 mining evidence
 → historical runbook direction docs
 ```
