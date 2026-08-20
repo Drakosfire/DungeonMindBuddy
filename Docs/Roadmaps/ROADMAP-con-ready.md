@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-08-15  
+**Re-anchored:** 2026-08-20 (post-C2S27 dogfood re-anchor; `main` `62f7f9e856327247b8677b4c951801e4c58a826c`)  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `main` after merged PR #560, merge commit `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
@@ -84,7 +84,7 @@ The Playable Layer is architecturally bounded by:
 - [`../Design/DESIGN-play-surface-projection.md`](../Design/DESIGN-play-surface-projection.md)
 - [`../Design/DESIGN-playable-authoring-and-adoption.md`](../Design/DESIGN-playable-authoring-and-adoption.md)
 
-Real Of Conks / Hempholm dogfood established enough evidence to make `Runbook → Scene → Beat` useful Playable structure without promoting scenes/beats into World Graph ontology.
+Real Of Conks / Hempholm dogfood established enough evidence to make durable Runbook/Beat/Scene structure useful Playable material without promoting beats/scenes into World Graph ontology. C2 Session 27 dogfood (2026-08-19) then revised the organization direction: the **Beat is the larger useful hierarchy** — a Runbook arranges Beats (table objective / pressure / phase), and a Scene is a concrete playable situation inside a Beat. Choices/Decisions carry Options, consequences, and authored transitions that reshape which later Scenes/Beats remain possible or relevant. Exact wire grammar is the next reviewed design task, not yet frozen.
 
 The canonical outcome concept for a Beat is **consequence**. Rewards/treasure, costs, state changes, relationship changes, clocks, access, information, and branch transitions may all be represented as consequences. This does not create a universal Adventure schema.
 
@@ -308,12 +308,13 @@ If typed import proves substantially larger than expected, a rich rendered/query
 
 The Playable Layer may use ordinary durable documents and typed references.
 
-Real dogfood warrants a session-shaped Playable organization:
+Real dogfood warrants a session-shaped Playable organization. After C2S27, the Beat is the session-scale unit and Scenes live inside it:
 
 ```text
 Runbook
-  Scene
-    Beat
+  Beat (table objective / pressure / phase)
+    Scene (concrete playable situation)
+    Choice/Decision → Options → consequences → authored transitions
 ```
 
 A Beat may contain table-facing material such as:
@@ -448,6 +449,39 @@ No success claim may depend on transient developer state or manual reconstructio
 # 4. Delivery roadmap
 
 The roadmap is sequenced by user-visible capability rather than architecture layer.
+
+## 4.0 Current delivery state — 2026-08-20 post-C2S27 re-anchor
+
+Recorded by `Docs/Plans/HANDOFF-CON-READY-c2s27-reanchor-and-workspace-cleanup.md` against `main` `62f7f9e856327247b8677b4c951801e4c58a826c`. Final dogfood truth: `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
+
+Merged and proven: CR01–CR04 capabilities through the CUTOVER/Build program; Playable P1/P2/P3A/D1/D2 (durable Runbook identity, exact Run binding, native admission, Start Run, exact Runbook view).
+
+C2 Session 27 was a real-table dogfood of native Play. Verdict: **BLOCKED / PLAY NOT READY**. Exact Run admission worked; the native table surface was abandoned almost immediately; the HTML Combat Tracker carried the session.
+
+Current story truth after C2S27:
+
+| Story | State | Evidence |
+|---|---|---|
+| CR-U11 | **Materially false** | Plan ideas did not enter Play with sufficient semantic fidelity; Plan export dropped playable blocks and styling; prep does not survive worktree switches |
+| CR-U13 | Partially true, not durable | The HTML Combat Tracker prepared/ran the expected fight; state lived in browser `localStorage` + export JSON only |
+| CR-U14 | Partially true, not durable | The tracker pool added unplanned combatants quickly at the table; same persistence gap |
+| CR-U15 | **False for native Play** | The GM abandoned native Play; the Combat Tracker was materially more useful |
+| CR-U16 | **False** | Dead/clunky statblock and reference paths; roll tables unreachable |
+| CR-U17 | **False** | Reload/restart does not preserve prep and table state across browser/worktree boundaries |
+
+New delivery priority (supersedes "continue the Play phase ladder"):
+
+```text
+1. Durable mutable state — one persistence authority for Plan documents, playable
+   blocks/styling, Combat board, Threat drafts, and Run/workspace registries.
+2. Lane B: durable Combat state — database-backed tracker authority; the C2S27
+   tracker interaction is the proven UX to keep.
+3. Lane A: active-Run continuity — Resume vs Start New; no duplicate-Run churn.
+4. Design task: Beat/Scene/Decision + Plan→Playable authoring model.
+   No native Play table implementation starts until that model is reviewed.
+```
+
+Lanes A and B may proceed in parallel after a fresh re-anchor. P3B (native graph-object sheets) and P4 (exact Threat→Combat mutation) remain designed but **deferred** — they are not current dispatch authority.
 
 ## CR01 — Source Ingress & Reading
 

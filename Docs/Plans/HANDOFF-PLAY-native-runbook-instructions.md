@@ -21,8 +21,22 @@ pr_body_template: |
 
 # HANDOFF — expose the exact admitted Runbook beside the native Play table deck
 
+> **MERGED / HISTORICAL (2026-08-20 sync):** PR **#622** merged as
+> `62f7f9e856327247b8677b4c951801e4c58a826c` after **1 formal review cycle**.
+> Implementation/evidence head `b923117bd7767884053bbe32f25043c7cfe8dcab`;
+> final reviewed head `c549611a889bc132d385e536ccc675ca695b356c`.
+> D2 proved a full read-only exact Runbook view beside the native `/play` Table deck.
+> The C2 Session 27 real-table dogfood that followed accepted that exact
+> lifecycle/admission/runtime wiring and rejected the native three-column Table
+> presentation as the table instrument (**BLOCKED / PLAY NOT READY** —
+> `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`).
+> The D4 current-Beat table-stage successor (PR #623) was closed unmerged.
+> Current sequence lives in `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md`:
+> Lane A (active-Run continuity) and Lane B (durable Combat state), then the
+> Beat/Scene/Decision + Plan→Playable design task. P3B remains designed but deferred.
+
 **Created:** 2026-08-19  
-**Status:** ACTIVE — dispatch exactly one Play capability while `main` remains anchored at `a0e03bed359dce094a18a5a5824d07487fe4b490`; re-anchor and amend the base before dispatch if `main` moves.  
+**Status:** MERGED / HISTORICAL — PR #622 / `main` `62f7f9e856327247b8677b4c951801e4c58a826c` after **1 formal review cycle**. Implementation/evidence head `b923117bd7767884053bbe32f25043c7cfe8dcab`; final reviewed head `c549611a889bc132d385e536ccc675ca695b356c`. This file is not current dispatch authority.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-native-runbook-instructions.md`  
 **Workstream:** `Playable Architecture Graduation / dogfood bridge D2`  
 **Flow / owner:** `PLAY`  
@@ -199,7 +213,7 @@ The existing admission already imports the exact snapshot Markdown with `markdow
 | Durable writes | **none added**; existing Runtime writes remain Table-only behavior |
 | New durable representation | **none** |
 | New semantic vocabulary | **none** |
-| Named successor | **real-session dogfood** using Start Run + Table/Runbook modes; re-anchor before selecting P3B or Plan-authoring work |
+| Named successor | **occurred:** D3 C2 Session 27 real-session dogfood (verdict BLOCKED / PLAY NOT READY) → post-dogfood re-anchor. The D4 current-Beat table-stage PR #623 was closed unmerged. Re-anchor before selecting any new Play table, P3B, or Plan-authoring work |
 | What remains false | Play does not semantically extract “pressure”, “GM decision”, “open question”, etc.; Runbook mode is read-only; graph references do not open natively; no interactive planning review UI |
 
 ### Lane / collision review
@@ -552,7 +566,7 @@ Confirm:
   switching back returns to the same focused table moment
 ```
 
-The real-session dogfood is the named successor after merge.
+The real-session dogfood was the named successor after merge. It ran as D3 (C2 Session 27); the verdict and re-anchor are recorded in `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md` and `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md`.
 
 ---
 
@@ -626,9 +640,11 @@ Authority/roadmap update needed:
 
 ---
 
-## Named successor — real-session dogfood, then re-anchor
+## Named successor — real-session dogfood, then re-anchor (occurred)
 
-After D2 merges, do not automatically dispatch P3B.
+After D2 merged, the D3 C2 Session 27 real-session dogfood ran. Verdict: **BLOCKED / PLAY NOT READY** — exact Run admission accepted, native Table rejected as the table instrument (`Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`). The D4 current-Beat table-stage successor (PR #623) was closed unmerged. Do not automatically dispatch P3B; the post-C2S27 sequence (Lane A Run continuity, Lane B durable Combat, then the Beat/Scene/Decision + Plan→Playable design task) is owned by `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md`.
+
+Historical dispatch instruction, preserved for the record:
 
 Use the product for a real session with a Runbook shaped like the current Session 27 planning scaffold:
 
