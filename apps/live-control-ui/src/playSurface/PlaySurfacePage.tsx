@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 
 import {
   LiveApiError,
+  getPlayActiveRun,
   getPlayRun,
   getPlayRunReferenceManifest,
   getWorkspaceDocumentSnapshot,
   listPlayRuns,
+  putPlayActiveRun,
 } from "../api/liveApi";
 import type { PlayRunRecord } from "../api/types";
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
@@ -42,14 +44,33 @@ function subscribeLocation(onStoreChange: () => void): () => void {
   return () => window.removeEventListener("popstate", onStoreChange);
 }
 
-function playRunQuery(): string | null {
-  const params = new URLSearchParams(window.location.search);
+function playLocationSearch(): string {
+  return window.location.search;
+}
+
+function playRunQuery(search: string): string | null {
+  const params = new URLSearchParams(search);
   if (!params.has("run")) return null;
   return params.get("run");
 }
 
+function playChooserQuery(search: string): boolean {
+  const params = new URLSearchParams(search);
+  return params.get("choose") === "1" && !params.has("run");
+}
+
 function navigateToRun(runId: string): void {
   window.history.pushState({}, "", `/play?run=${encodeURIComponent(runId)}`);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+function replaceToRun(runId: string): void {
+  window.history.replaceState({}, "", `/play?run=${encodeURIComponent(runId)}`);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+function navigateToChooser(): void {
+  window.history.pushState({}, "", "/play?choose=1");
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
@@ -137,7 +158,7 @@ function PlaySurfacePublisher({
   return null;
 }
 
-function PlayChooser() {
+function PlayChooser({ continuityWarning }: { continuityWarning?: string | null }) {
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable" | "recovery_pending">("loading");
   const [detail, setDetail] = useState<string | null>(null);
   const [records, setRecords] = useState<PlayRunRecord[]>([]);
@@ -173,6 +194,11 @@ function PlayChooser() {
         <p className="play-kicker">Play</p>
         <h1>Choose a Run</h1>
         <p className="play-muted">Open one exact durable Run, or start a new exact Run from a committed Runbook. Nothing is selected until you choose it.</p>
+        {continuityWarning ? (
+          <p role="alert" className="play-continuity-warning" data-testid="play-active-run-warning">
+            {continuityWarning}
+          </p>
+        ) : null}
       </header>
       <section data-testid="play-existing-runs">
         <h2>Existing Runs</h2>
@@ -240,12 +266,17 @@ function statusCopy(status: PlayLoadStatus, detail: string | null): { title: str
 }
 
 export function PlaySurfacePage() {
-  const runQuery = useSyncExternalStore(subscribeLocation, playRunQuery, playRunQuery);
-  const [loadStatus, setLoadStatus] = useState<PlayLoadStatus>(runQuery == null ? "chooser" : "loading");
+  const locationSearch = useSyncExternalStore(subscribeLocation, playLocationSearch, () => "");
+  const runQuery = playRunQuery(locationSearch);
+  const chooserQuery = playChooserQuery(locationSearch);
+  const [loadStatus, setLoadStatus] = useState<PlayLoadStatus>(() => (
+    playChooserQuery(window.location.search) ? "chooser" : "loading"
+  ));
   const [detail, setDetail] = useState<string | null>(null);
   const [admission, setAdmission] = useState<NativeRunbookAdmission | null>(null);
   const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
   const loadSerialRef = useRef(0);
+  const activeWriteRunRef = useRef<string | null>(null);
 
   const loadExactRun = useCallback(async (runId: string) => {
     const serial = loadSerialRef.current + 1;
@@ -293,6 +324,17 @@ export function PlaySurfacePage() {
         setLoadStatus("ready");
         setDetail(null);
         setMutationStatus("idle");
+        if (activeWriteRunRef.current !== loaded.run_id) {
+          activeWriteRunRef.current = loaded.run_id;
+          void putPlayActiveRun(loaded.run_id).catch((error) => {
+            if (loadSerialRef.current !== serial) return;
+            setDetail(
+              error instanceof Error
+                ? `Run is open, but Resume state could not be saved: ${error.message}`
+                : "Run is open, but Resume state could not be saved.",
+            );
+          });
+        }
       } else {
         setLoadStatus(nextAdmission.status);
         setDetail(nextAdmission.reason);
@@ -308,11 +350,45 @@ export function PlaySurfacePage() {
   }, []);
 
   useEffect(() => {
-    if (runQuery == null) {
+    if (chooserQuery) {
       loadSerialRef.current += 1;
       setLoadStatus("chooser");
+      setDetail(null);
       setAdmission(null);
       setMutationStatus("idle");
+      return;
+    }
+    if (runQuery == null) {
+      const serial = loadSerialRef.current + 1;
+      loadSerialRef.current = serial;
+      setLoadStatus("loading");
+      setDetail(null);
+      setAdmission(null);
+      setMutationStatus("idle");
+      void (async () => {
+        try {
+          const active = await getPlayActiveRun();
+          if (loadSerialRef.current !== serial) return;
+          if (active.run_id == null) {
+            setLoadStatus("chooser");
+            return;
+          }
+          if (!isCanonicalUuid(active.run_id)) {
+            setLoadStatus("chooser");
+            setDetail("Resume state is malformed. Choose a Run explicitly.");
+            return;
+          }
+          replaceToRun(active.run_id);
+        } catch (error) {
+          if (loadSerialRef.current !== serial) return;
+          setLoadStatus("chooser");
+          setDetail(
+            error instanceof Error
+              ? `Resume state is unavailable. Choose a Run explicitly. (${error.message})`
+              : "Resume state is unavailable. Choose a Run explicitly.",
+          );
+        }
+      })();
       return;
     }
     if (!isCanonicalUuid(runQuery)) {
@@ -326,7 +402,7 @@ export function PlaySurfacePage() {
     return () => {
       loadSerialRef.current += 1;
     };
-  }, [runQuery, loadExactRun]);
+  }, [chooserQuery, locationSearch, runQuery, loadExactRun]);
 
   const readyDeck: NativeRunbookReadyDeck | null =
     loadStatus === "ready" && admission?.status === "ready" ? admission : null;
@@ -338,7 +414,7 @@ export function PlaySurfacePage() {
     <AppChrome activeRoute="play">
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery} />
       {loadStatus === "chooser" ? (
-        <PlayChooser />
+        <PlayChooser continuityWarning={detail} />
       ) : null}
       {loadStatus === "loading" ? (
         <main
@@ -357,6 +433,11 @@ export function PlaySurfacePage() {
           data-play-campaign-id={publication.campaignId ?? ""}
           data-play-document-id={publication.documentId ?? ""}
         >
+          <div className="play-continuity-actions">
+            <button type="button" data-testid="play-start-new-run" onClick={navigateToChooser}>
+              Start New Run
+            </button>
+          </div>
           <RunbookTableDeck
             key={readyDeck.run.run_id}
             deck={readyDeck}
@@ -372,6 +453,11 @@ export function PlaySurfacePage() {
               setAdmission(overlaid);
             }}
           />
+          {detail ? (
+            <p role="alert" className="play-continuity-warning" data-testid="play-active-run-save-warning">
+              {detail}
+            </p>
+          ) : null}
         </main>
       ) : null}
       {blocked && loadStatus !== "chooser" && loadStatus !== "loading" && loadStatus !== "ready" ? (

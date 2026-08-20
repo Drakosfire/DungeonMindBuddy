@@ -19,7 +19,7 @@ pr_body_template: |
 # HANDOFF — re-anchor C2S27 dogfood and clean steward workspace
 
 **Created:** 2026-08-20  
-**Status:** ACTIVE — one exceptional documentation-only synchronization PR plus local steward workspace cleanup; becomes MERGED / HISTORICAL at merge.  
+**Status:** MERGED / HISTORICAL — PR #624 merged at `850daa75469965fa4306ab05d0920b99d1fa8b03` after 2 formal review cycles.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`
 **Workstream:** `PLAY-SURFACE`
 **Flow / owner:** `PLAY-SURFACE` (steward)
@@ -27,6 +27,14 @@ pr_body_template: |
 **Implementation base:** `62f7f9e856327247b8677b4c951801e4c58a826c`  
 **Suggested branch:** `con-ready/c2s27-reanchor-workspace-cleanup`  
 **PR title:** `PLAY-SURFACE: re-anchor C2S27 dogfood and clean steward workspace`
+
+**Merge record:** final branch head `693ff9062e3518a66ad04feae1fdf64c7c9362c4`;
+merge commit `850daa75469965fa4306ab05d0920b99d1fa8b03`; **2 formal review
+cycles** (`58c20222...` and `91d9af08...`). No Cycle 3 formal reviewer
+judgment was posted before merge; the final naming-only repair head was merged
+without inventing a third cycle. The immediate consuming implementation is
+`Docs/Plans/HANDOFF-PLAY-SURFACE-active-run-continuity.md` (Lane A1), which
+remains ACTIVE until its own review and merge.
 
 > Repository law: `AGENTS.md`.
 > Workstream anchor: `Docs/Plans/STEWARDS-ANCHOR-con-ready.md`.
@@ -80,8 +88,9 @@ No production/runtime code changes in this PR. The operator-authorized workspace
 
 ## 3. Authority facts to record
 
-- `main` is pinned at `62f7f9e856327247b8677b4c951801e4c58a826c`, merge of PR #622.
-- D2's handoff is stale on `main` and still calls itself ACTIVE even though #622 merged.
+- `main` is now pinned at `850daa75469965fa4306ab05d0920b99d1fa8b03`, merge of PR #624; PR #622 remains the D2 predecessor at `62f7f9e856327247b8677b4c951801e4c58a826c`.
+- At reset design time D2's handoff was stale and still called itself ACTIVE;
+  PR #624 recorded D2 / #622 as MERGED / HISTORICAL.
 - PR #623 (`agent/play-current-beat-table-stage`, head `aa6d1119343c6ec4a65fcf3792251d62c466861d`) is evidence/mining, not an implementation candidate. Its useful evidence includes the Session 27 dogfood, the persistence findings, and the prototype comparison. Its Table implementation, hidden Scenes prose parsing, Combat localStorage changes, and bundled multi-capability code are **not** to be merged.
 - The expanded C2S27 dogfood result is recorded as **BLOCKED / PLAY NOT READY**, not the branch report's interim `NOT RUN`. The branch report recorded that exact Run admission worked while the native table experience did not. The subsequent operator observations to record:
   - Leaving Play and returning forced Run selection again.

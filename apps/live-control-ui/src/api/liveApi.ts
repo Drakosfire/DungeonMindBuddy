@@ -54,6 +54,7 @@ import type {
   WorkspaceDocumentRecord,
   WorkspaceDocumentsListResponse,
   WorkspaceDocumentSnapshot,
+  PlayActiveRunState,
   PlayRunRecord,
   PlayRunsListResponse,
   PlayRunReferenceManifest,
@@ -1797,6 +1798,17 @@ export async function saveCurrentCombatAs(
   return apiFetch<CombatSaveSlotResponse>("/api/live/combat/saves", {
     method: "POST",
     body: JSON.stringify(request),
+  });
+}
+
+export async function getPlayActiveRun(): Promise<PlayActiveRunState> {
+  return apiFetch<PlayActiveRunState>("/api/live/play-active-run");
+}
+
+export async function putPlayActiveRun(runId: string): Promise<PlayActiveRunState> {
+  return apiFetch<PlayActiveRunState>("/api/live/play-active-run", {
+    method: "PUT",
+    body: JSON.stringify({ run_id: runId }),
   });
 }
 

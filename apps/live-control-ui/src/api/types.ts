@@ -1437,6 +1437,7 @@ export interface WorkspaceDocumentSnapshot {
 export type PlayRunRecordSchema = "dmb_play_run_record_v1";
 export type PlayRunsListSchema = "dmb_play_runs_list_v1";
 export type PlayRunReferenceManifestSchema = "dmb_play_run_reference_manifest_v1";
+export type PlayActiveRunSchema = "dmb_play_active_run_v1";
 export type PlayableReferenceKind = "scene" | "beat" | "choice" | "option";
 
 export interface PlayRunProgress {
@@ -1464,6 +1465,16 @@ export interface PlayRunRecord {
 export interface PlayRunsListResponse {
   schema_version: PlayRunsListSchema;
   records: PlayRunRecord[];
+}
+
+export interface PlayActiveRunState {
+  schema_version: PlayActiveRunSchema;
+  run_id: string | null;
+  selected_at: string | null;
+}
+
+export interface SetPlayActiveRunRequest {
+  run_id: string;
 }
 
 export interface ReplacePlayRunProgressRequest {

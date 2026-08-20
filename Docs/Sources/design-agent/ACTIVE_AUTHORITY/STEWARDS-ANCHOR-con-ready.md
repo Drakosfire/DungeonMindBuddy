@@ -209,13 +209,15 @@ Do not block CON-READY on completion of the entire Play roadmap.
 
 ### 4.6 Current-state re-anchor — 2026-08-20 (post-C2S27)
 
-Recorded by the PLAY-SURFACE handoff
+Recorded by the merged PLAY-SURFACE handoff
 `Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`
-under the operator-authorized documentation-only exception. Final dogfood
-truth: `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
+under the operator-authorized documentation-only exception. PR #624 merged at
+`850daa75469965fa4306ab05d0920b99d1fa8b03` after 2 formal review cycles; no
+Cycle 3 judgment was posted before merge. Final dogfood truth:
+`Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
 
 ```text
-main: 62f7f9e856327247b8677b4c951801e4c58a826c (merge of PR #622, D2 exact Runbook view)
+main: 850daa75469965fa4306ab05d0920b99d1fa8b03 (merge of PR #624, post-C2S27 PLAY-SURFACE reset)
 
 merged and proven:
   P1/P2/P3A/D1/D2 — durable Runbook identity, exact Run binding + sealed manifest,
@@ -242,7 +244,8 @@ Currently false or fragile user stories (the highest-value falsehoods):
 Current delivery priority (details in `Docs/Roadmaps/ROADMAP-con-ready.md` §4.0):
 
 ```text
-1. Lane A: active-Run continuity / Resume vs Start New
+1. Lane A1: active-Run continuity / Resume vs Start New — the bounded
+   implementation in `HANDOFF-PLAY-SURFACE-active-run-continuity.md`
 2. Lane B: durable Combat state / database-backed tracker authority
    (resolve the retained uncommitted Combat-save worktree first)
 3. after both domain slices prove their own durability invariants, extract a
@@ -253,11 +256,15 @@ Current delivery priority (details in `Docs/Roadmaps/ROADMAP-con-ready.md` §4.0
    (no native Play table implementation until that model is reviewed)
 ```
 
-Lane A may re-anchor for dispatch. Lane B is blocked until the retained
+Lane A1 is the active bounded Play re-entry repair and may proceed. Lane B is
+blocked until the retained
 `agent/play-command-board-disk-saves` worktree is mined/adopted/committed or
 discarded because it contains uncommitted Combat durability work with no
 remote backup. P3B (native graph-object sheets) and P4 (exact Threat→Combat)
 remain designed but **deferred**; neither is current dispatch authority.
+
+CR-U17 remains false overall: Lane A1 does not make cross-worktree Playable,
+workspace, Combat, or other GM state durable.
 
 ---
 

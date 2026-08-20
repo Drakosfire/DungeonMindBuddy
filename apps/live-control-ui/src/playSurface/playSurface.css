@@ -26,6 +26,19 @@
   border-left: 3px solid #8a4b2f;
 }
 
+.play-continuity-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.play-continuity-warning {
+  margin: 0.5rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-left: 3px solid #8a4b2f;
+  background: #f4eee3;
+}
+
 .play-run-list {
   list-style: none;
   margin: 0;
