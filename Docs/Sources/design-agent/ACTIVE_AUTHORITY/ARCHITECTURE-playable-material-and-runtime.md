@@ -5,10 +5,11 @@ document_class: architecture_authority
 status: active
 version: 1.0
 created_at: "2026-08-15"
-updated_at: "2026-08-15"
-workstream: CON-READY
+updated_at: "2026-08-20"
+workstream: PLAY-SURFACE
 evidence:
   - "PR #578 — Of Conks / Hempholm table-ready dogfood"
+  - "C2 Session 27 native Play dogfood — BLOCKED / PLAY NOT READY (Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md)"
 companion_authorities:
   con_ready_anchor: "../Plans/STEWARDS-ANCHOR-con-ready.md"
   con_ready_roadmap: "../Roadmaps/ROADMAP-con-ready.md"
@@ -39,7 +40,10 @@ It does not replace:
 - exact mechanics authority such as accepted immutable `StatblockRevision`;
 - the CON-READY product roadmap.
 
-This document turns the CON-READY layer model into a durable design contract after PR #578 proved concrete Playable and Play interactions.
+This document turns the Play-Surface layer model into a durable design
+contract after PR #578 proved concrete Playable and Play interactions.
+`CON-READY` remains the parent acceptance workstream; this document owns the
+Play-specific architecture.
 
 ## 1. Governing model
 
@@ -196,11 +200,51 @@ The object identity remains World-owned. The attached interpretation is Playable
 
 This is the foundation for Play Object Sheets without requiring universal NPC/location/shop schemas.
 
-## 5. Runbook, Scene, and Beat
+## 5. Runbook, Beat, Scene, and Decision
 
-PR #578 provides sufficient dogfood evidence to make **Runbook → Scene → Beat** first-class Playable structure.
+PR #578 provided sufficient dogfood evidence to make durable Runbook/Beat/Scene structure first-class Playable material. The C2 Session 27 dogfood (2026-08-19, `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`) then revised the organization direction: **the Beat is the larger useful hierarchy, and a Scene is a concrete playable situation inside a Beat.**
+
+```text
+Runbook
+  → Beats
+
+Beat
+  → table objective / pressure / phase
+  → Scenes
+  → Choices/Decisions
+  → consequences
+  → references/tools
+
+Scene
+  → concrete playable situation inside a Beat
+
+Choice/Decision
+  → Options
+  → consequences
+  → authored transitions affecting later Scene/Beat relevance
+```
 
 This is a Playable organization model, not an Adventure ontology for the World Graph.
+
+The exact wire grammar for this Beat-first model is deliberately **not** frozen
+here; it is the next reviewed design task. Stable Scene/Beat/Choice/Option IDs
+remain useful identity candidates, but the Beat-first model is **not
+structurally compatible with the shipped P1/P2 wiring** merely because those
+IDs survive. Current `main` places Scene at H2 and Beat/Choice at H3, requires
+every Beat/Choice to belong to a Scene, and rejects a current Beat unless it
+belongs to the current Scene.
+
+Before implementation, a reviewed redesign must specify:
+
+- P1 structure and serialization;
+- P2B1 manifest membership and versioning;
+- P2B2 current-position semantics;
+- migration/reconciliation of existing sealed Runs and manifests;
+- P2C migration/rebase behavior for the changed containment model.
+
+This revision records that redesign gate only. It does not claim compatibility
+with current containment, implement the new grammar, or migrate/rebase sealed
+runtime data.
 
 ### 5.1 Runbook
 
@@ -208,42 +252,25 @@ A Runbook is a Playable Artifact role that arranges material into a table-runnin
 
 It may contain:
 
-- ordered Scenes;
-- fallback or optional Scenes;
-- choices/transitions;
+- ordered Beats;
+- fallback or optional Beats;
+- choices/decisions and transitions;
 - object references;
 - contextual tools;
-- non-scene reference material where useful.
+- non-beat reference material where useful.
 
 The Runbook is the table-facing projection of prep, not the prep database.
 
-### 5.2 Scene
+### 5.2 Beat
 
-A Scene is an ordered, stable Playable grouping that gives the GM a current table context.
-
-Useful Scene semantics include:
-
-- stable ID;
-- title;
-- order;
-- intent;
-- prepared clocks/pressure definitions;
-- scene-level playable blocks;
-- typed references;
-- Beats;
-- authored choices/transitions.
-
-A Scene does not own live clock values. Prepared clock definition is Playable; current clock value/progress is Runtime.
-
-### 5.3 Beat
-
-A Beat is the smallest normal unit the GM deliberately focuses/resolves while running the Runbook.
+A Beat is the session-scale unit the GM is deliberately running now: a table objective, pressure, or phase.
 
 Useful Beat semantics include:
 
 - stable ID;
 - title;
 - kind;
+- table objective / pressure / phase;
 - summary;
 - At the table;
 - Read aloud;
@@ -251,6 +278,8 @@ Useful Beat semantics include:
 - Rules now;
 - warnings;
 - consequences;
+- the Scenes that concretely realize it;
+- Choices/Decisions;
 - typed references;
 - contextual Play actions.
 
@@ -264,6 +293,25 @@ interrupt
 
 This is a small product vocabulary, not a closed universal event taxonomy.
 
+A Beat does not own live clock values. Prepared clock/pressure definition is Playable; current clock value/progress is Runtime.
+
+### 5.3 Scene
+
+A Scene is a concrete playable situation inside a Beat — the ordered, stable grouping that gives the GM a specific table context within the current objective/phase.
+
+Useful Scene semantics include:
+
+- stable ID;
+- title;
+- order within its Beat;
+- intent;
+- prepared clocks/pressure definitions;
+- scene-level playable blocks;
+- typed references;
+- authored choices/transitions.
+
+A Scene does not own live clock values. Prepared clock definition is Playable; current clock value/progress is Runtime.
+
 ### 5.4 Consequences
 
 `consequences` is the canonical Beat outcome concept.
@@ -271,6 +319,8 @@ This is a small product vocabulary, not a closed universal event taxonomy.
 A consequence answers:
 
 > **What becomes true for this run if a particular table condition/action resolves this way?**
+
+Consequences also attach to Decisions: resolving a Choice/Decision carries consequences and may reshape which later Scenes or Beats remain possible or relevant for this run.
 
 A consequence may optionally express:
 
@@ -296,14 +346,14 @@ search → recover 100 gp of precious metal leaves
 
 Likewise, `ifTheyWait`, `ifTheySucceed`, and `ifTheyFail` are useful UI labels over consequence triggers, not required parallel top-level storage axes.
 
-## 6. Choices and branching
+## 6. Choices, Decisions, and branching
 
-PR #578 proves branch-aware running is useful, but its branch enums are adventure-specific.
+PR #578 proves branch-aware running is useful, but its branch enums are adventure-specific. C2S27 adds the table-side requirement: Decisions must be visible as such at the table, and resolving one must be able to reshape which later Scenes/Beats remain possible or relevant.
 
 Permanent Playable Material defines choices generically:
 
 ```text
-Choice
+Choice/Decision
   stable choiceId
   prompt / meaning
   options[]
@@ -320,6 +370,8 @@ choiceId → selected optionId
 
 Runtime does not know that an option means `celebration`, `fire`, `guild`, or any other adventure-specific concept except through the authored Playable Material.
 
+The existing stable Choice / Option identity (merged in P1C) is the first candidate storage primitive for Decisions. Whether a Decision needs semantics beyond Choice + Options + consequences is a reviewed design question, not something to invent ad hoc during implementation.
+
 ## 7. Runtime State
 
 A **Run** binds mutable table state to one exact or explicitly migrated Playable revision.
@@ -327,20 +379,25 @@ A **Run** binds mutable table state to one exact or explicitly migrated Playable
 Minimum durable runtime concepts:
 
 ```text
-RunState
+Run
   runId
   playableArtifactId
   playableRevisionId
-  currentSceneId?
   currentBeatId?
+  currentSceneId?
   resolvedBeatIds[]
   selections: { choiceId: optionId }
   notesByElementId: { playableElementId: text }
-  linkedRuntimeObjects[]   # e.g. combat encounter/run handles, later as needed
+  linkedCombatRuntime?   # Combat-owned encounter/board handle
   updatedAt
 ```
 
 This is conceptual architecture, not a frozen wire schema.
+
+Two C2S27 findings activate here:
+
+1. **Active-Run continuity is required.** Re-entering Play must offer Resume of the active Run rather than encouraging duplicate Run creation; the Run chooser must not accumulate useless duplicate UUIDs. Resume vs Start New is an explicit, truthful choice.
+2. **Combat is now a real live consumer.** The C2S27 table ran on the Combat Tracker, so a linked Combat runtime is no longer hypothetical. The need is activated now; the eventual wire shape (how a Run references a Combat-owned board/encounter) is intentionally not frozen by this revision. Combat state must become durable and independent of browser/worktree, and remains Combat-owned.
 
 ### 7.1 Runtime invariants
 
@@ -351,6 +408,9 @@ This is conceptual architecture, not a frozen wire schema.
 - A Play run may link to Combat runtime rather than absorbing combat fields.
 - Reload/restart must preserve run state needed to continue the table.
 - If the Playable revision changes, migration/rebase must be explicit when referenced IDs are removed or semantically replaced.
+- The Beat-first redesign must not be implemented against current P1/P2
+  containment, manifest, current-position, sealed-Run, or rebase assumptions
+  until the reviewed redesign and migration behavior exist.
 
 ## 8. Projection architecture
 
@@ -497,6 +557,7 @@ Neither direction is automatic.
 6. Exact mechanics revisions remain immutable and externally referenced.
 7. Source provenance remains source-owned and integrity-checked.
 8. Projection caches, if any, are reconstructable and never become authority.
+9. Durable state the GM depends on must not be checkout-local or browser-local. Plan documents, playable blocks/styling, Combat board state, and Run/workspace registries must survive worktree switches and browser loss (C2S27 rank-1 residual).
 
 ## 12. Surface Interaction Layer boundary
 

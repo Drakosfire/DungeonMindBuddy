@@ -5,12 +5,13 @@ document_class: product_design
 status: active
 version: 1.0
 created_at: "2026-08-15"
-updated_at: "2026-08-15"
-workstream: CON-READY
+updated_at: "2026-08-20"
+workstream: PLAY-SURFACE
 architecture_authority: "ARCHITECTURE-playable-material-and-runtime.md"
 surface_authority: "ARCHITECTURE-surface-interaction-layer.md"
 evidence:
   - "PR #578 — Of Conks / Hempholm table-ready dogfood"
+  - "C2 Session 27 native Play dogfood — BLOCKED / PLAY NOT READY (Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md)"
 supersedes_direction_from:
   - "DESIGN-play-mode-runbook-product-direction.md"
   - "../Plans/DESIGN-session-runbook-command-surface.md"
@@ -74,17 +75,29 @@ This is a capability family, not a requirement that every item be a permanent to
 
 The current PR #578 `prep` HTML host proves that these tools can be consolidated under Play. It is migration scaffolding. Permanent Play panels should become native product capabilities rather than injected legacy HTML/global scripts.
 
-## 3. Default anchor: current Scene and Beat
+## 3. Default anchor: the current Beat
 
-The default Play anchor is the current Runbook moment.
+The default Play anchor is the current Runbook moment. After C2S27, the table
+hierarchy is **Beat-first**: the current Beat is the table stage, and Scenes
+and Decisions live beneath it.
+
+This is the reviewed product direction, not an implementation claim against
+the current P1/P2 wire shape. The shipped structure places Scene at H2 and
+Beat/Choice at H3, requires Beat/Choice membership under Scene, and requires a
+current Beat to belong to the current Scene. Before this projection can be
+implemented as Beat-first, the P1 structure/serialization, P2B1 manifest
+membership/versioning, P2B2 current-position semantics, sealed Run/manifest
+migration, and P2C migration/rebase behavior must be redesigned and reviewed.
 
 A useful hierarchy is:
 
 ```text
 Run title
-Scene deck / position
-Beat strip
-Focused Beat detail
+Beat deck / phase position          ← session-scale orientation
+Current Beat stage                  ← table objective / pressure / phase
+  ├── Scenes inside this Beat       ← concrete playable situations
+  ├── Decisions / Choices           ← options + consequences + transitions
+  └── references / tools
 ```
 
 The GM should always be able to answer:
@@ -95,29 +108,31 @@ The GM should always be able to answer:
 - What pressure should advance if they stall?
 - What can I open without leaving?
 - What happens if this resolves?
+- What did we decide, and what did that decision change?
 
-### 3.1 Scene deck
+### 3.1 Beat deck
 
-Scene navigation provides session-scale orientation.
+Beat navigation provides session-scale orientation across the Runbook's phases.
 
 Expected interactions:
 
-- Previous / Next Scene;
-- select Scene directly;
-- show current position;
-- show branch/choice-selected visibility truthfully;
+- Previous / Next Beat;
+- select Beat directly;
+- show current position and resolved state;
+- show which Beats remain possible/relevant given recorded Decisions;
 - preserve current run state.
 
-### 3.2 Beat strip
+### 3.2 Scenes and Decisions beneath the current Beat
 
-Within the Scene, Beats provide near-term table navigation.
+Within the current Beat, Scenes are the concrete playable situations and Decisions are the authored branch points.
 
 Expected interactions:
 
-- show `spine`, `optional`, `interrupt`;
+- show the current Beat's objective/pressure/phase as the stage;
+- show `spine`, `optional`, `interrupt` character where Beats carry kinds;
+- move between the Beat's Scenes without losing Beat position;
+- surface Decisions with their Options and consequences; recording a Decision reshapes which later Scenes/Beats are shown as possible/relevant;
 - mark Beat resolved/unresolved;
-- focus a Beat without losing Scene position;
-- return to Scene context;
 - show current Beat detail in a wide calm stage.
 
 ## 4. Beat presentation vocabulary
@@ -307,20 +322,27 @@ The eventual Add-to-Combat interaction should support table-useful quantity/team
 
 Exact UI is an implementation decision.
 
-## 9. Run state
+## 9. Run state and Run continuity
 
 Play projects runtime state from the active Run:
 
-- current Scene;
 - current Beat;
+- current Scene;
 - resolved Beats;
-- selected authored choices;
+- selected authored choices/decisions;
 - scratch notes;
 - linked Combat state.
 
 Play does not make runtime state part of the Runbook document.
 
 A reopened Play surface should restore the useful table position.
+
+C2S27 made Run continuity a hard requirement, not a nicety:
+
+- Re-entering Play must offer **Resume** of the active Run. **Resume vs Start New** is an explicit, truthful choice.
+- Ordinary re-entry must not encourage creating a duplicate Run of the same material.
+- The Run chooser must not accumulate useless duplicate UUIDs.
+- Run state must be durable independent of browser session and worktree checkout.
 
 ## 10. Maps and media
 
@@ -406,17 +428,18 @@ Examples:
 
 A conforming Play surface should prove:
 
-1. GM opens a real Runbook and immediately sees current Scene/Beat.
-2. GM moves Scene/Beat without page-navigation context loss.
+1. GM opens a real Runbook and immediately sees the current Beat stage with its current Scene.
+2. GM moves Beat/Scene without page-navigation context loss.
 3. GM opens an NPC/location/item chip and gets a table-useful sheet.
 4. GM opens a Threat and gets exact mechanics when admitted.
 5. GM adds a Threat to Combat from the Threat sheet.
 6. GM records a Beat resolved and reloads without losing that state.
 7. GM records a Scene/Beat scratch note without altering Runbook prose.
-8. GM selects an authored branch option; Play shows the correct Scene path using generic choice IDs.
+8. GM records an authored Decision; Play shows its consequences and which later Scenes/Beats remain possible/relevant, using generic choice IDs.
 9. A reward appears as a consequence, not a special treasure subsystem.
 10. GM can open source/Advanced detail without the default surface becoming an evidence report.
 11. Campaign-specific `ofConks*` code is unnecessary for another real one-shot.
+12. GM leaves Play, returns, and is offered Resume of the active Run; ordinary re-entry creates no duplicate Run.
 
 ## 16. Non-goals
 

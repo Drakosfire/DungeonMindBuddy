@@ -1,16 +1,16 @@
 ---
 pr_body_template: |
   ## Handoff pointer
-  - Conversation/workstream: Playable Architecture Graduation / P3B
-  - Flow: PLAY
+  - Conversation/workstream: PLAY-SURFACE / Playable Architecture Graduation / P3B
+  - Flow: PLAY-SURFACE
   - Direction: DESIGN → CODE → REVIEW
-  - Handoff: Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md
-  - Branch / PR: agent/play-native-graph-object-sheet / `PLAY: open native graph object sheets`
+  - Handoff: Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md
+  - Branch / PR: agent/play-native-graph-object-sheet / `PLAY-SURFACE: open native graph object sheets`
 
   ## Verification pointer
   - Design anchor: merged PR #603 / current main at `bc442717addb264073a68f7528929ec1aac51b2a`
   - P3A design anchor: `Docs/Plans/HANDOFF-PLAY-native-runbook-table-deck.md` at design commit `b47c66c6a780308ceb2d8720de2f3086aad33cfc`
-  - Required predecessor before dispatch: D2 exact Runbook view → live dogfood → re-anchor; merged Start Run / #621 is not sufficient to dispatch P3B
+  - Required predecessor before dispatch: post-C2S27 sequence — separate domain-first Lane A (active-Run continuity) and Lane B (durable Combat), with the retained uncommitted Combat-save worktree resolved before Lane B; any common persistence primitive is extracted only after both slices prove a bounded shared invariant; then the reviewed Beat/Scene/Decision + Plan→Playable design and P1/P2 redesign; merged D2 / #622 and the C2S27 dogfood are not sufficient to dispatch P3B
   - Base/head: <PIN_AFTER_P3A_STATE_SYNC> / <implementation head>
   - Changed paths: must remain inside HANDOFF §4
   - Verification: HANDOFF §7 + roadmap review disposition
@@ -23,17 +23,17 @@ pr_body_template: |
 # HANDOFF — open native Play graph-object sheets from exact Runbook references
 
 **Created:** 2026-08-16  
-**Status:** DESIGNED — **NON-DISPATCHABLE.** D1 / PR #621 Start Run is merged. Current sequence is D2 exact Runbook instructions (`HANDOFF-PLAY-native-runbook-instructions.md`), then live dogfood / re-anchor, before this P3B capability may be pinned.  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md`  
-**Conversation/workstream:** `Playable Architecture Graduation / P3B`  
-**Flow / owner:** `PLAY`  
+**Status:** DESIGNED — **NON-DISPATCHABLE.** D1 / PR #621 and D2 / PR #622 are merged. The D3 C2 Session 27 real-table dogfood ran; verdict **BLOCKED / PLAY NOT READY** (`Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`), and the D4 table-stage PR #623 was closed unmerged. The current sequence (`Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md`) is separate domain-first Lane A (active-Run continuity) and Lane B (durable Combat state), with the retained uncommitted Combat-save worktree resolved before Lane B dispatch; any common persistence primitive is extracted only after both slices prove a bounded shared invariant; then the Beat/Scene/Decision + Plan→Playable design task. This P3B capability may be pinned only by a later re-anchor after that sequence. Note: C2S27 revised the Playable organization to Beat-first (Beat → Scenes/Decisions), but that direction is **not structurally compatible with the shipped P1/P2 wiring merely because stable IDs survive**. Current P1/P2/P3A containment, P2B1 manifest membership/versioning, P2B2 current-position semantics, sealed Runs/manifests, and P2C migration/rebase behavior must be redesigned and reviewed before dispatch. This handoff's Scene→Beat membership test rows describe the merged wiring as historical evidence and must not be treated as an implementation contract.
+**Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md`
+**Conversation/workstream:** `PLAY-SURFACE / Playable Architecture Graduation / P3B`
+**Flow / owner:** `PLAY-SURFACE`
 **Direction:** DESIGN → CODE → REVIEW  
 **Design anchor:** merged PR #603 / `bc442717addb264073a68f7528929ec1aac51b2a`  
 **P3A design anchor:** `b47c66c6a780308ceb2d8720de2f3086aad33cfc` on `documents/play-p3a-native-runbook-deck`  
 **Required predecessor:** P3A — native Runbook table deck over exact P1/P2 authorities  
 **Implementation base:** `PIN_AFTER_P3A_STATE_SYNC`  
 **Suggested branch:** `agent/play-native-graph-object-sheet`  
-**PR title:** `PLAY: open native graph object sheets`
+**PR title:** `PLAY-SURFACE: open native graph object sheets`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
@@ -53,17 +53,25 @@ P3A: designed on documents/play-p3a-native-runbook-deck, not dispatchable yet
 P3B: this design, successor only
 ```
 
-P3A is now merged (PR #618). D1 / Start Run is now merged (PR #621). That does **not** make this file current dispatch authority. Product sequence after D1 is:
+P3A is now merged (PR #618). D1 / Start Run is now merged (PR #621). D2 is now merged (PR #622). That does **not** make this file current dispatch authority. Product sequence after D2 became:
 
 ```text
-Play Runbook instructions (D2; current)
+D3 real session dogfood (C2 Session 27 — BLOCKED / PLAY NOT READY)
         ↓
-real session dogfood
+post-C2S27 re-anchor (2026-08-20)
+        ↓
+Lane A Run continuity + Lane B durable Combat (separate domain-first slices)
+        ↓
+bounded shared persistence seam only if both slices prove one
+        ↓
+Beat/Scene/Decision + Plan→Playable design plus P1/P2 redesign (reviewed)
         ↓
 re-anchor, then pin this P3B handoff
 ```
 
-This handoff remains **NON-DISPATCHABLE** until that dogfood sequence has landed and a later re-anchor names P3B next.
+This handoff remains **NON-DISPATCHABLE** until that sequence has landed and a
+later re-anchor names P3B next. The P1/P2/P3A containment examples below are
+historical evidence, not a current Beat-first implementation contract.
 
 Before P3B CODE dispatch, all of the following must be true:
 
@@ -669,7 +677,7 @@ The exact P3A-created paths must be re-read at dispatch. Expected implementation
 
 | Action | Path | Purpose |
 |---|---|---|
-| Create / Modify | `Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md` | pin base/status + evidence handback |
+| Create / Modify | `Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md` | pin base/status + evidence handback |
 | Modify | `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` | P3B evidence ledger/disposition; record narrow Plan+Play graphReference hoist if proven |
 | Modify | `apps/live-control-ui/src/playSurface/PlaySurfacePage.tsx` | bind admitted Runbook context to Play graph-reference capability/publication |
 | Modify | `apps/live-control-ui/src/playSurface/runbook/RunbookTableDeck.tsx` | provide exact Runbook projection/current Runtime context to ref occurrence/open seam; no new authority |
@@ -1042,7 +1050,7 @@ pnpm run build
 
 ```bash
 uv run python scripts/steward_preflight.py \
-  --handoff Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md \
+  --handoff Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md \
   --pr <N>
 
 git diff --check
