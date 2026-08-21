@@ -1,7 +1,7 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies  
-**Source capture basis:** post-PR #625 PLAY-SURFACE Lane A2 readability/dogfood dispatch under CON-READY parent acceptance, based on `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73`
+**Source capture basis:** 2026-08-21 post-PR #626 PLAY-SURFACE Lane A2 merge under CON-READY parent acceptance, plus Lane A3 current-moment-cockpit design dispatch, based on `1662912b8f878911390df654329631b3cf927590`
 **Export refreshed:** 2026-08-20  
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
@@ -36,9 +36,11 @@ Upload the files in these folders. Classification is useful context, not precede
 14. `INDEX-hermes-campaign-authoring-foundation.md`
 15. `DESIGN-play-surface-projection.md`
 16. `DESIGN-playable-authoring-and-adoption.md`
-17. `ANCHOR-runbook-lantern.md`
-18. `README.md`
-19. `INDEX-design-agent-source-set.md`
+17. `DESIGN-play-current-moment-cockpit.md`
+18. `DESIGN-play-surface-gm-cockpit-target.md`
+19. `ANCHOR-runbook-lantern.md`
+20. `README.md`
+21. `INDEX-design-agent-source-set.md`
 
 ### `SOURCE_ANCHOR/`
 
@@ -80,6 +82,8 @@ Do not upload unresolved source-only/historical drafts by default. See the canon
 | `ACTIVE_REFERENCE/INDEX-hermes-campaign-authoring-foundation.md` | `Docs/Design/INDEX-hermes-campaign-authoring-foundation.md` |
 | `ACTIVE_REFERENCE/DESIGN-play-surface-projection.md` | `Docs/Design/DESIGN-play-surface-projection.md` |
 | `ACTIVE_REFERENCE/DESIGN-playable-authoring-and-adoption.md` | `Docs/Design/DESIGN-playable-authoring-and-adoption.md` |
+| `ACTIVE_REFERENCE/DESIGN-play-current-moment-cockpit.md` | `Docs/Design/DESIGN-play-current-moment-cockpit.md` |
+| `ACTIVE_REFERENCE/DESIGN-play-surface-gm-cockpit-target.md` | `Docs/Design/DESIGN-play-surface-gm-cockpit-target.md` |
 | `ACTIVE_REFERENCE/ANCHOR-runbook-lantern.md` | `Docs/Design/ANCHOR-runbook-lantern.md` |
 | `ACTIVE_REFERENCE/README.md` | `README.md` |
 | `ACTIVE_REFERENCE/INDEX-design-agent-source-set.md` | `Docs/Design/INDEX-design-agent-source-set.md` |

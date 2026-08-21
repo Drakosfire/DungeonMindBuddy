@@ -207,24 +207,27 @@ CON-READY must define and dogfood the smallest truthful handoff from prepared/kn
 
 Do not block CON-READY on completion of the entire Play roadmap.
 
-### 4.6 Current-state re-anchor — 2026-08-20 (post-PR #625 Lane A1 merge)
+### 4.6 Current-state re-anchor — 2026-08-21 (post-PR #626 Lane A2 merge)
 
-Recorded by the merged PLAY-SURFACE handoff
-`Docs/Plans/HANDOFF-PLAY-SURFACE-active-run-continuity.md`. PR #625 merged at
-`d4c6fb365b1e8958f6a1989a9f88fcde1b844e73` after 2 formal review cycles; no
-passing formal judgment was posted before merge. The required U1/U2/U3 proof
-is consumed by the active Lane A2 handoff
-`HANDOFF-PLAY-SURFACE-table-readability-dogfood.md`; the C2S27 dogfood truth
-remains `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
+Recorded by the in-flight PLAY-SURFACE design gate
+`Docs/Plans/HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`. PR #626
+merged at `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6` (final branch head
+`f26e6449927d6a509d8cbb71d8798d8a9197015a`) after **4 formal review cycles**
+(Cycles 1–3 REQUEST-CHANGES-equivalent, Cycle 4 PASS-equivalent). Lane A2
+readability and the same-store U1/U2/U3 active-Run continuity proof are
+complete; the C2S27 dogfooding truth remains
+`Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
 
 ```text
-main: d4c6fb365b1e8958f6a1989a9f88fcde1b844e73 (merge of PR #625, Lane A1 active-Run continuity)
+main: a56cf4ab1ea231164db1f5a30fa3d177d8b328a6 (merge of PR #626, Lane A2 readability + active-Run dogfooding)
 
 merged and proven:
   P1/P2/P3A/D1/D2 — durable Runbook identity, exact Run binding + sealed manifest,
   native /play admission, Start Run, exact Runbook view, Runtime CAS progress
+  Lane A1 — active-Run continuity (Resume vs Start New, no duplicate-Run churn)
+  Lane A2 — Play table readability + same-store U1/U2/U3 continuity dogfooding
 
-C2 Session 27 real-table dogfood (D3):
+C2S27 real-table dogfooding (D3):
   verdict BLOCKED / PLAY NOT READY
   exact Run admission worked; the native Table was rejected as the table instrument;
   the HTML Combat Tracker carried the session
@@ -232,40 +235,42 @@ C2 Session 27 real-table dogfood (D3):
 PR #623 (D4 current-Beat table stage):
   closed unmerged — evidence/mining only; Table implementation, hidden Scenes prose
   parsing, Combat localStorage changes, and bundled multi-capability code not merged
+
+approved design anchor:
+  Docs/Design/DESIGN-play-surface-gm-cockpit-target.md
+  Docs/Design/assets/play-surface-gm-cockpit-target.webp
 ```
 
 Currently false or fragile user stories (the highest-value falsehoods):
 
 - **CR-U11** — Plan ideas did not enter Play with sufficient semantic fidelity; the Plan export dropped playable blocks and styling; prep does not survive worktree switches.
 - **CR-U13 / CR-U14** — the Combat Tracker interaction proved out, but its state is browser-`localStorage`/export only; not durable.
-- **CR-U15** — native Play was abandoned at the table; the Combat Tracker was materially more useful.
+- **CR-U15** — native Play was abandoned at the table; the Combat Tracker was far more useful.
 - **CR-U16** — statblock/roll-table opening remains a first-class, currently clunky-to-absent table need.
 - **CR-U17** — reload/restart does not preserve the material and prep the GM depends on across browser/worktree boundaries.
 
 Current delivery priority (details in `Docs/Roadmaps/ROADMAP-con-ready.md` §4.0):
 
 ```text
-1. Lane A2: Play table readability + required active-Run dogfood —
-   `HANDOFF-PLAY-SURFACE-table-readability-dogfood.md`, preserving merged
-   Lane A1 semantics
+1. Lane A3 (design gate, in flight): the reviewed Beat/Scene/Decision +
+   Plan-to-Playable current-moment cockpit contract
+   (`HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`), producing
+   `DESIGN-play-current-moment-cockpit.md` and selecting the first Beat-first
+   implementation slice (`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`)
 2. Lane B: durable Combat state / database-backed tracker authority
-   (resolve the retained uncommitted Combat-save worktree first)
+   (resolve the retained unmerged Combat-save worktree first)
 3. after both domain slices prove their own durability invariants, extract a
    bounded shared persistence primitive only if a common seam is evidenced
-4. design task: Beat/Scene/Decision + Plan→Playable authoring model, including
-   the P1/P2 structure, serialization, manifest, current-position, sealed-Run,
-   and migration/rebase redesign
-   (no native Play table implementation until that model is reviewed)
 ```
 
-Lane A2 is the active bounded Play presentation/dogfood slice and may proceed. Lane B is
+Lane A3 is a DESIGN → REVIEW gate with zero production code. Lane B is
 blocked until the retained
-`agent/play-command-board-disk-saves` worktree is mined/adopted/committed or
-discarded because it contains uncommitted Combat durability work with no
+`agent/play-command-board-disk-saves` worktree is mined/adopted/landed or
+discarded because it contains unmerged Combat durability work with no
 remote backup. P3B (native graph-object sheets) and P4 (exact Threat→Combat)
 remain designed but **deferred**; neither is current dispatch authority.
 
-CR-U17 remains false overall: merged Lane A1 and active Lane A2 do not make
+CR-U17 remains false overall: merged Lane A1 and Lane A2 do not make
 cross-worktree Playable, workspace, Combat, or other GM state durable.
 
 ---

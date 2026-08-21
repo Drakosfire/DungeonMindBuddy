@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE REFERENCE / process index  
 **Created:** 2026-08-02  
-**Repository authority refresh:** 2026-08-20 post-PR #625 PLAY-SURFACE Lane A2 readability/dogfood dispatch under CON-READY parent acceptance, based on `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73`
+**Repository authority refresh:** 2026-08-21 post-PR #626 PLAY-SURFACE Lane A2 merge under CON-READY parent acceptance, plus Lane A3 current-moment cockpit design dispatch, based on `1662912b8f878911390df654329631b3cf927590`
 **Project Sources snapshot date:** 2026-08-02 — do not advance this date until the operator actually replaces/re-observes the user-managed Project Sources set  
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)  
 **Document class:** curated source index — **not** architecture, roadmap, or PR-sequence authority
@@ -82,7 +82,9 @@ For CR05–CR07 design work, resolve conflicts in this order:
 CON-READY roadmap + stewardship anchor (parent acceptance)
 → ROADMAP-playable-hoist-dungeonmind-kernel (PLAY-SURFACE sequence / current dispatch state)
 → ARCHITECTURE-playable-material-and-runtime
-→ DESIGN-play-surface-projection / DESIGN-playable-authoring-and-adoption
+→ DESIGN-play-current-moment-cockpit (Beat-first contract) /
+  DESIGN-play-surface-projection / DESIGN-playable-authoring-and-adoption /
+  DESIGN-play-surface-gm-cockpit-target (approved target)
 → current implementation contracts/code
 → C2S27 dogfood report (REPORT-play-c2s27-native-runbook-dogfood-2026-08)
 → PR #578 mining evidence

@@ -3,12 +3,15 @@ document_id: dmb-design-play-surface-projection
 title: Play Surface and Table Projections
 document_class: product_design
 status: active
-version: 1.0
+version: 1.1
 created_at: "2026-08-15"
-updated_at: "2026-08-20"
+updated_at: "2026-08-21"
 workstream: PLAY-SURFACE
 architecture_authority: "ARCHITECTURE-playable-material-and-runtime.md"
 surface_authority: "ARCHITECTURE-surface-interaction-layer.md"
+companion_designs:
+  current_moment_cockpit: "DESIGN-play-current-moment-cockpit.md"
+  approved_target: "DESIGN-play-surface-gm-cockpit-target.md"
 evidence:
   - "PR #578 — Of Conks / Hempholm table-ready dogfood"
   - "C2 Session 27 native Play dogfood — BLOCKED / PLAY NOT READY (Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md)"
@@ -81,13 +84,20 @@ The default Play anchor is the current Runbook moment. After C2S27, the table
 hierarchy is **Beat-first**: the current Beat is the table stage, and Scenes
 and Decisions live beneath it.
 
-This is the reviewed product direction, not an implementation claim against
-the current P1/P2 wire shape. The shipped structure places Scene at H2 and
-Beat/Choice at H3, requires Beat/Choice membership under Scene, and requires a
-current Beat to belong to the current Scene. Before this projection can be
-implemented as Beat-first, the P1 structure/serialization, P2B1 manifest
-membership/versioning, P2B2 current-position semantics, sealed Run/manifest
-migration, and P2C migration/rebase behavior must be redesigned and reviewed.
+The reviewed current-moment contract is
+[`DESIGN-play-current-moment-cockpit.md`](DESIGN-play-current-moment-cockpit.md).
+It freezes the containment model (Runbook→Beat→Scene/Decision), the v2 wire
+grammar, the v2 manifest, Runtime current-position semantics, derived
+relevance, migration/rebase posture, and the ten-state interaction contract.
+This document owns the **projection behavior** over that contract; the
+contract owns the durable semantics.
+
+The shipped P1/P2 wire remains Scene-first and incompatible: Scene at H2,
+Beat/Choice at H3, Beat/Choice membership under Scene, and a current Beat
+rejected unless it belongs to the current Scene. The Beat-first projection is
+implemented only through the reviewed slice sequence
+(`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`), not by patching
+v1 containment.
 
 A useful hierarchy is:
 
@@ -121,6 +131,10 @@ Expected interactions:
 - show current position and resolved state;
 - show which Beats remain possible/relevant given recorded Decisions;
 - preserve current run state.
+
+Under the reviewed contract, previous/next walks the durable Beat order and
+relevance changes emphasis only — navigation is never gated by derived
+relevance (`DESIGN-play-current-moment-cockpit.md` §4–§5).
 
 ### 3.2 Scenes and Decisions beneath the current Beat
 
@@ -278,6 +292,12 @@ The projection must distinguish this curated set from "all relationships."
 
 Full adjacency belongs in Advanced or a dedicated graph view.
 
+The approved GM target's `At a Glance` region is governed by the projection
+contract in `DESIGN-play-current-moment-cockpit.md` §10: it is seeded by the
+current Beat/Scene's authored references, may carry small Runtime status and
+exact Mechanics/Combat links, is curated rather than exhaustive, and has a
+truthful empty state. It is not a fixed dashboard schema.
+
 ## 7. References are handles, not copied truth
 
 A typed reference should preserve exact durable identity while allowing Play to choose the right projection.
@@ -326,8 +346,8 @@ Exact UI is an implementation decision.
 
 Play projects runtime state from the active Run:
 
-- current Beat;
-- current Scene;
+- current Beat (required once READY; seeded explicitly at admission);
+- current Scene (optional; always belongs to the current Beat when set);
 - resolved Beats;
 - selected authored choices/decisions;
 - scratch notes;

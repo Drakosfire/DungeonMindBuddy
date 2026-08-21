@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-08-20 (post-PR #625 Lane A1 merge; `main` `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73`)
+**Re-anchored:** 2026-08-21 (post-PR #626 Lane A2 merge; `main` `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6`)
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `main` after merged PR #560, merge commit `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
@@ -450,15 +450,11 @@ No success claim may depend on transient developer state or manual reconstructio
 
 The roadmap is sequenced by user-visible capability rather than architecture layer.
 
-## 4.0 Current delivery state — 2026-08-20 post-C2S27 re-anchor
+## 4.0 Current delivery state — 2026-08-21 post-PR #626
 
-Recorded by the merged PLAY-SURFACE handoff
-`Docs/Plans/HANDOFF-PLAY-SURFACE-active-run-continuity.md`
-at `main` `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73` (PR #625, after 2 formal
-review cycles; no passing formal judgment was posted before merge). The
-required U1/U2/U3 live proof is intentionally consumed by the active
-`HANDOFF-PLAY-SURFACE-table-readability-dogfood.md`; the C2S27 dogfood truth
-remains `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
+Recorded by the in-flight PLAY-SURFACE design gate
+`Docs/Plans/HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`
+at `main` `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6` (PR #626 merge; final branch head `f26e6449927d6a509d8cbb71d8798d8a9197015a`; **4 formal review cycles**, Cycle 4 PASS-equivalent). Lane A2 readability and the same-store U1/U2/U3 active-Run continuity proof are complete; the C2S27 dogfood truth remains `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
 
 Merged and proven: CR01–CR04 capabilities through the CUTOVER/Build program; Playable P1/P2/P3A/D1/D2 (durable Runbook identity, exact Run binding, native admission, Start Run, exact Runbook view).
 
@@ -478,33 +474,32 @@ Current story truth after C2S27:
 New delivery priority (supersedes "continue the Play phase ladder"):
 
 ```text
-1. Lane A2: Play table readability plus the missing active-Run dogfood proof.
-   This is the bounded presentation pass currently dispatched by
-   `HANDOFF-PLAY-SURFACE-table-readability-dogfood.md`; it preserves the
-   merged Lane A1 semantics and does not complete cross-worktree persistence.
+1. Lane A3 (design gate, in flight): the reviewed Beat/Scene/Decision +
+   Plan-to-Playable current-moment cockpit contract
+   (`HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`), producing
+   `DESIGN-play-current-moment-cockpit.md` and selecting the first Beat-first
+   implementation slice (`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`).
+   Lane A1 (active-Run continuity) and Lane A2 (table readability + the
+   U1/U2/U3 dogfood proof) are merged and complete.
 2. Lane B: durable Combat state — database-backed tracker authority; the C2S27
    tracker interaction is the proven UX to keep. Resolve the retained
-   uncommitted Combat-save worktree before dispatch.
+   unmerged Combat-save worktree before dispatch.
 3. After both domain slices prove their own durability invariants, extract a
    bounded shared persistence primitive only if the evidence demonstrates a
    common seam. Do not make one atomic slice span Plan, Playable state, Combat,
    Threat drafts, Runs, and workspace registries.
-4. Design task: Beat/Scene/Decision + Plan→Playable authoring model, including
-   the required P1/P2 structure, serialization, manifest, current-position,
-   sealed-Run, and migration/rebase redesign. No native Play table
-   implementation starts until that model is reviewed.
 ```
 
-Lane A2 and Lane B are separate concerns and may proceed in parallel
-after a fresh re-anchor, except that Lane B is blocked until the retained
-uncommitted Combat-save worktree is mined/adopted/committed or discarded. P3B
-(native graph-object sheets) and P4 (exact Threat→Combat mutation) remain
+Lane A3 is a DESIGN → REVIEW gate with zero production code; Lane B is a
+separate domain concern. Lane B remains blocked until the retained
+unmerged Combat-save worktree is mined/adopted/landed or discarded. P3B
+(native graph-object sheets) and P4 (exact Threat-to-Combat mutation) remain
 designed but **deferred** — they are not current dispatch authority.
 
 CR-U17 remains **false overall**. Merged Lane A1 addresses same-store Play
-re-entry and duplicate-Run churn; Lane A2 only makes that surface readable
-enough to evaluate. Neither claims that Playable material, workspace
-authority, Combat state, or other GM work survives a worktree switch.
+re-entry and duplicate-Run churn; merged Lane A2 makes that surface readable
+and proves the continuity behavior. Neither claims that Playable material,
+workspace authority, Combat state, or other GM work survives a worktree switch.
 
 ## CR01 — Source Ingress & Reading
 
