@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE REFERENCE / process index  
 **Created:** 2026-08-02  
-**Repository authority refresh:** 2026-08-20 post-C2S27 PLAY-SURFACE re-anchor under CON-READY parent acceptance and Lane A1 dispatch, based on `850daa75469965fa4306ab05d0920b99d1fa8b03`
+**Repository authority refresh:** 2026-08-20 post-PR #625 PLAY-SURFACE Lane A2 readability/dogfood dispatch under CON-READY parent acceptance, based on `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73`
 **Project Sources snapshot date:** 2026-08-02 — do not advance this date until the operator actually replaces/re-observes the user-managed Project Sources set  
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)  
 **Document class:** curated source index — **not** architecture, roadmap, or PR-sequence authority

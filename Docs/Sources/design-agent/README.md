@@ -1,7 +1,7 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies  
-**Source capture basis:** post-C2S27 PLAY-SURFACE re-anchor under CON-READY parent acceptance and Lane A1 dispatch, based on `850daa75469965fa4306ab05d0920b99d1fa8b03`
+**Source capture basis:** post-PR #625 PLAY-SURFACE Lane A2 readability/dogfood dispatch under CON-READY parent acceptance, based on `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73`
 **Export refreshed:** 2026-08-20  
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 

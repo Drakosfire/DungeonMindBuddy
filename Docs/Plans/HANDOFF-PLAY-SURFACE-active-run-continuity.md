@@ -10,7 +10,7 @@ pr_body_template: |
   ## Verification pointer
   - Design/base anchor: `850daa75469965fa4306ab05d0920b99d1fa8b03` (merge of PR #624)
   - Predecessor: merged PR #624 / post-C2S27 PLAY-SURFACE re-anchor
-  - Base/head: `850daa75469965fa4306ab05d0920b99d1fa8b03` / <implementation head>
+  - Base/head: `850daa75469965fa4306ab05d0920b99d1fa8b03` / `54ad6fe916122cc594abb7b63a74f527bbac4f64`
   - Changed paths: HANDOFF §4 only
   - Verification: HANDOFF §7 + exact post-merge state sync
 
@@ -22,7 +22,7 @@ pr_body_template: |
 # HANDOFF — resume the active Run without creating another one
 
 **Created:** 2026-08-20  
-**Status:** ACTIVE — dispatch exactly one PLAY-SURFACE capability from current `main` `850daa75469965fa4306ab05d0920b99d1fa8b03`; re-anchor and amend before dispatch if `main` moves.  
+**Status:** MERGED / HISTORICAL — PR #625 merged at `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73`; consumed by the Lane A2 readability + dogfood handoff.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-SURFACE-active-run-continuity.md`  
 **Workstream:** `PLAY-SURFACE / Lane A1 active-Run continuity`  
 **Flow / owner:** `PLAY-SURFACE`  
@@ -43,12 +43,12 @@ pr_body_template: |
 
 ## 0. Re-anchor, predecessor sync, and decomposition
 
-Current repository truth at design time:
+Current repository truth after merge:
 
 ```text
 main:
-  850daa75469965fa4306ab05d0920b99d1fa8b03
-  merge of PR #624
+  d4c6fb365b1e8958f6a1989a9f88fcde1b844e73
+  merge of PR #625
 
 PR #624:
   final branch head:        693ff9062e3518a66ad04feae1fdf64c7c9362c4
@@ -56,6 +56,14 @@ PR #624:
   formal review cycle 1:    REQUEST-CHANGES-equivalent @ 58c20222...
   formal review cycle 2:    REQUEST-CHANGES-equivalent @ 91d9af08...
   final repair head:        693ff906... merged without a posted Cycle 3 judgment
+
+PR #625:
+  final branch head:        54ad6fe916122cc594abb7b63a74f527bbac4f64
+  merge commit:              d4c6fb365b1e8958f6a1989a9f88fcde1b844e73
+  formal review cycle 1:    REQUEST-CHANGES-equivalent @ 8a054e7e...
+  formal review cycle 2:    REQUEST-CHANGES-equivalent @ 54ad6fe...
+  passing formal judgment:   none posted before merge
+  required U1/U2/U3 dogfood: not run before merge; consumed by Lane A2
 ```
 
 Do **not** invent a third review cycle retroactively. The repository definition remains:
@@ -64,29 +72,31 @@ Do **not** invent a third review cycle retroactively. The repository definition 
 one formal reviewer judgment against one distinct head SHA = one review cycle
 ```
 
-The consuming implementation PR records the predecessor truth exactly: PR #624 merged after **2 formal review cycles**, with the final naming-only repair head merged without a third formal reviewer judgment. That is process telemetry, not a reason to rewrite history.
+The consuming implementation PR records the predecessor truth exactly: PR #625 merged after **2 formal review cycles**, with no passing formal judgment posted before merge. Its required live U1/U2/U3 evidence was not waived; the Lane A2 readability + dogfood handoff consumes that missing proof.
 
-### Backward-looking state-authority sync carried by this PR
+### Backward-looking state-authority sync carried by PR #625
 
-This implementation consumes the merged post-C2S27 reset. Update the following together while keeping this in-flight slice ACTIVE/not-complete:
+PR #625 completed the following state-authority sync while keeping the
+active-Run capability bounded. Lane A2 now consumes that merged state and
+supplies the live proof that was missing at the time of the merge:
 
 1. `Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`
-   - mark PR #624 MERGED / HISTORICAL;
+   - record PR #624 as MERGED / HISTORICAL;
    - record final head `693ff906...`, merge `850daa754...`, and **2 formal review cycles**;
    - state explicitly that no Cycle 3 judgment was posted before merge;
-   - name this active-Run continuity slice as the immediate consuming implementation.
+   - name Lane A1 as the merged predecessor to Lane A2.
 2. `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md`
-   - re-anchor integration tip to `850daa754...`;
-   - record #624/reset complete;
-   - select this handoff as the active Lane A implementation slice;
+   - re-anchor integration tip through merged PR #625 at `d4c6fb3...`;
+   - record #624/reset and #625/Lane A1 complete;
+   - select `HANDOFF-PLAY-SURFACE-table-readability-dogfood.md` as the active Lane A2 slice;
    - keep Lane B blocked on the retained Combat-save worktree;
    - keep Beat/Scene/Decision + Plan→Playable redesign and P3B/P4 deferred.
 3. `Docs/Roadmaps/ROADMAP-con-ready.md`
-   - record the reset itself as merged at `850daa754...`;
+   - record the reset and Lane A1 as merged at `d4c6fb3...`;
    - make clear CR-U17 remains false overall;
-   - identify this slice as a bounded repair of Play re-entry / duplicate-Run churn, not completion of cross-worktree persistence.
+   - identify Lane A2 as a bounded readability/dogfood pass, not completion of cross-worktree persistence.
 4. `Docs/Plans/STEWARDS-ANCHOR-con-ready.md`
-   - re-anchor current state to merged #624 and this active PLAY-SURFACE slice;
+   - re-anchor current state to merged #625 and the active PLAY-SURFACE Lane A2 slice;
    - preserve CON-READY as parent acceptance authority.
 5. Repository source-set/export basis only where it claims the pre-merge base:
    - `Docs/Design/INDEX-design-agent-source-set.md` + byte-identical mirror;
