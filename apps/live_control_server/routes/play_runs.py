@@ -7,6 +7,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.services.play_active_run import (
+    PlayActiveRunError,
+    PlayActiveRunState,
+    SetPlayActiveRunRequest,
+    get_play_active_run,
+    set_play_active_run,
+)
 from apps.live_control_server.services.play_run_rebase import (
     PlayRunRebaseError,
     RebasePlayRunRequest,
@@ -35,6 +42,24 @@ router = APIRouter(prefix="/api/live", tags=["play-runs"])
 
 def _record_response(record: PlayRunRecord) -> dict[str, Any]:
     return record.model_dump(mode="json")
+
+
+@router.get("/play-active-run", response_model=PlayActiveRunState)
+def get_play_active_run_route() -> dict[str, Any]:
+    try:
+        state = get_play_active_run(repo_root())
+    except PlayActiveRunError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return state.model_dump(mode="json")
+
+
+@router.put("/play-active-run", response_model=PlayActiveRunState)
+def put_play_active_run_route(body: SetPlayActiveRunRequest) -> dict[str, Any]:
+    try:
+        state = set_play_active_run(repo_root(), run_id=body.run_id)
+    except PlayActiveRunError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return state.model_dump(mode="json")
 
 
 @router.get("/play-runs", response_model=PlayRunsListResponse)

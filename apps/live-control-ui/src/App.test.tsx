@@ -82,6 +82,8 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     listWorkspaceDocuments: vi.fn(),
     getWorkspaceDocument: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
+    getPlayActiveRun: vi.fn(),
+    putPlayActiveRun: vi.fn(),
     createWorkspaceDocument: vi.fn(),
     postWorldGraphProjection: vi.fn(),
     listPlayRuns: vi.fn(),
@@ -215,6 +217,16 @@ describe("App inspector integration", () => {
     vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
       schema_version: "dmb_play_runs_list_v1",
       records: [],
+    });
+    vi.mocked(liveApi.getPlayActiveRun).mockResolvedValue({
+      schema_version: "dmb_play_active_run_v1",
+      run_id: null,
+      selected_at: null,
+    });
+    vi.mocked(liveApi.putPlayActiveRun).mockResolvedValue({
+      schema_version: "dmb_play_active_run_v1",
+      run_id: null,
+      selected_at: null,
     });
     vi.mocked(liveApi.getPlayRun).mockRejectedValue(new liveApi.LiveApiError("not found", 404));
     vi.mocked(liveApi.getPlayRunReferenceManifest).mockRejectedValue(
@@ -670,15 +682,62 @@ describe("App inspector integration", () => {
     expect(screen.getByRole("heading", { name: "Choose a Run" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Existing Runs" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Start a Run" })).toBeInTheDocument();
+    expect(liveApi.getPlayActiveRun).toHaveBeenCalledTimes(1);
     expect(liveApi.getPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+    expect(liveApi.putPlayActiveRun).not.toHaveBeenCalled();
     expect(screen.getByTestId("play-start-run-submit")).toBeDisabled();
-    expect(screen.getByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
       "href",
       `/play?run=${PLAY_RUN_ID}`,
     );
     expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
     expect(screen.queryByText(/ofConks/i)).not.toBeInTheDocument();
+  });
+
+  it("resumes the exact active Run from bare /play without opening the chooser or creating a Run", async () => {
+    mockReadyPlayRun();
+    vi.mocked(liveApi.getPlayActiveRun).mockResolvedValue({
+      schema_version: "dmb_play_active_run_v1",
+      run_id: PLAY_RUN_ID,
+      selected_at: "2026-08-17T00:00:00Z",
+    });
+    window.history.pushState({}, "", "/play");
+    render(<App />);
+
+    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/play");
+    expect(window.location.search).toBe(`?run=${PLAY_RUN_ID}`);
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID);
+    expect(liveApi.listPlayRuns).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+    await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
+    expect(liveApi.putPlayActiveRun).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("play-run-chooser")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the chooser with a warning when active selection cannot be read", async () => {
+    vi.mocked(liveApi.getPlayActiveRun).mockRejectedValue(
+      new liveApi.LiveApiError("active selection unavailable", 503),
+    );
+    vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
+      schema_version: "dmb_play_runs_list_v1",
+      records: [playRunRecord()],
+    });
+    window.history.pushState({}, "", "/play");
+    render(<App />);
+
+    expect(await screen.findByTestId("play-active-run-warning")).toHaveTextContent(
+      /Resume state is unavailable/i,
+    );
+    expect(screen.getByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(liveApi.getPlayRun).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+    expect(liveApi.putPlayActiveRun).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
+      "href",
+      `/play?run=${PLAY_RUN_ID}`,
+    );
   });
 
   it("keeps existing Runs openable when Start Run discovery fails", async () => {
@@ -698,6 +757,108 @@ describe("App inspector integration", () => {
     );
     expect(await screen.findByTestId("play-start-run-unavailable")).toBeInTheDocument();
     expect(screen.getByTestId("play-existing-runs")).toBeInTheDocument();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+  });
+
+  it("exposes Start New as an explicit chooser action without clearing the active Run", async () => {
+    mockReadyPlayRun();
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
+    await userEvent.setup().click(screen.getByTestId("play-start-new-run"));
+
+    expect(window.location.search).toBe("?choose=1");
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Start a Run" })).toBeInTheDocument();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+  });
+
+  it("keeps a READY Run usable when the active-selection write fails", async () => {
+    mockReadyPlayRun();
+    vi.mocked(liveApi.putPlayActiveRun).mockRejectedValue(
+      new liveApi.LiveApiError("active selection unavailable", 503),
+    );
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-active-run-save-warning")).toHaveTextContent(
+      /Run is open, but Resume state could not be saved/i,
+    );
+    expect(screen.getByTestId("play-surface-ready")).toBeInTheDocument();
+    expect(liveApi.putPlayActiveRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("serializes delayed active writes so a newer READY Run remains selected", async () => {
+    const otherRunId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const firstRun = playRunRecord();
+    const secondRun = { ...firstRun, run_id: otherRunId };
+    const activeState = (runId: string) => ({
+      schema_version: "dmb_play_active_run_v1" as const,
+      run_id: runId,
+      selected_at: "2026-08-17T00:00:00Z",
+    });
+    const manifestFor = (run: typeof firstRun) => ({
+      schema_version: "dmb_play_run_reference_manifest_v1" as const,
+      run_id: run.run_id,
+      playable_artifact_id: run.playable_artifact_id,
+      playable_revision: run.playable_revision,
+      playable_content_sha256: run.playable_content_sha256,
+      sealed_at: "2026-08-17T00:00:00Z",
+      elements: [
+        { kind: "beat" as const, element_id: "beat:approach", scene_id: "scene:gate" },
+        { kind: "scene" as const, element_id: "scene:gate" },
+      ],
+    });
+    let releaseFirst: (value: ReturnType<typeof activeState>) => void = () => undefined;
+    const delayedFirst = new Promise<ReturnType<typeof activeState>>((resolve) => {
+      releaseFirst = resolve;
+    });
+
+    vi.mocked(liveApi.getPlayRun).mockImplementation(async (runId) => (
+      runId === PLAY_RUN_ID ? firstRun : secondRun
+    ));
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockImplementation(async (runId) => (
+      manifestFor(runId === PLAY_RUN_ID ? firstRun : secondRun)
+    ));
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      fixtureSnapshot({
+        record: fixtureWorkspaceDocumentRecord({
+          document_id: PLAY_ARTIFACT_ID,
+          title: "North Gate Runbook",
+          kind: "runbook",
+          revision: 3,
+          content_status: "committed",
+        }),
+        markdown: PLAY_MARKDOWN,
+        content_sha256: PLAY_SHA,
+        loaded_revision: 3,
+        file_exists: true,
+        file_fingerprint: "present",
+      }),
+    );
+    vi.mocked(liveApi.putPlayActiveRun).mockImplementation(async (runId) => (
+      runId === PLAY_RUN_ID ? delayedFirst : activeState(runId)
+    ));
+
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+    expect(await screen.findByText(`Run ${PLAY_RUN_ID}`)).toBeInTheDocument();
+    await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
+
+    window.history.pushState({}, "", `/play?run=${otherRunId}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(await screen.findByText(`Run ${otherRunId}`)).toBeInTheDocument();
+    expect(liveApi.putPlayActiveRun).toHaveBeenCalledTimes(1);
+
+    releaseFirst(activeState(PLAY_RUN_ID));
+    await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(otherRunId));
+    expect(liveApi.putPlayActiveRun.mock.calls.map(([runId]) => runId)).toEqual([
+      PLAY_RUN_ID,
+      otherRunId,
+    ]);
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
   });
 
@@ -747,6 +908,8 @@ describe("App inspector integration", () => {
       expected_playable_content_sha256: PLAY_SHA,
     });
     expect(liveApi.putPlayRunReferenceManifest).toHaveBeenCalledWith(PLAY_RUN_ID);
+    await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
+    expect(liveApi.putPlayActiveRun).toHaveBeenCalledTimes(1);
     expect(window.location.pathname).toBe("/play");
     expect(window.location.search).toBe(`?run=${PLAY_RUN_ID}`);
   });

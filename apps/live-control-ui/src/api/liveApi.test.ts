@@ -11,6 +11,7 @@ import {
   createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
   getArtifact,
+  getPlayActiveRun,
   getBuildSourceNavigation,
   getCapabilities,
   getGraphIngestRuns,
@@ -21,6 +22,7 @@ import {
   listWorldContainers,
   listWorkspaceDocuments,
   putPlayRun,
+  putPlayActiveRun,
   putPlayRunReferenceManifest,
   postLiveQuery,
   postThreatQueryHydration,
@@ -2124,5 +2126,26 @@ describe("Play Run start API", () => {
     expect(String(url)).toBe(`/api/live/play-runs/${runId}/reference-manifest`);
     expect(init?.method).toBe("PUT");
     expect(init?.body).toBeUndefined();
+  });
+
+  it("reads and writes the Play active-Run pointer with exact paths and body", async () => {
+    const active = {
+      schema_version: "dmb_play_active_run_v1" as const,
+      run_id: runId,
+      selected_at: "2026-08-17T00:00:00Z",
+    };
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(mockJsonResponse(active))
+      .mockResolvedValueOnce(mockJsonResponse(active));
+
+    await expect(getPlayActiveRun()).resolves.toEqual(active);
+    await expect(putPlayActiveRun(runId)).resolves.toEqual(active);
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/play-active-run");
+    expect(fetchSpy.mock.calls[0]?.[1]?.method).toBeUndefined();
+    expect(String(fetchSpy.mock.calls[1]?.[0])).toBe("/api/live/play-active-run");
+    expect(fetchSpy.mock.calls[1]?.[1]?.method).toBe("PUT");
+    expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toEqual({ run_id: runId });
   });
 });
