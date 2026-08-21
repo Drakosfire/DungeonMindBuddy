@@ -107,6 +107,18 @@
   line-height: 1.5;
 }
 
+.play-start-run > p[role="alert"] {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border: 1px solid #9c7435;
+  border-left-width: 4px;
+  border-radius: 0.4rem;
+  background: var(--play-warning-surface);
+  color: var(--play-warning-text);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
 .play-run-list {
   display: flex;
   flex-direction: column;
