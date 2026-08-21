@@ -146,8 +146,9 @@ concrete situations inside a Beat. See
 The Beat-first authoring model is now frozen by the reviewed current-moment
 cockpit contract (`DESIGN-play-current-moment-cockpit.md` §1–§2, §8): Beats are
 authored as v2 H2 elements, Scenes as v2 H3 elements inside exactly one Beat,
-Decisions as v2 H4 `choice` elements Beat-owned with an optional Scene
-projection association, and Options as marked list items carrying authored
+Decisions as v2 H3 `choice` elements — Beat-owned siblings of Scenes,
+distinguished by directive kind rather than heading level — with an
+optional Scene projection association, and Options as marked list items carrying authored
 consequences and `activates`/`suppresses` edges. The shipped P1/P2 grammar
 remains Scene-first and cannot serialize this; the authoring controls below
 are implemented through the reviewed slice sequence, not by patching v1.

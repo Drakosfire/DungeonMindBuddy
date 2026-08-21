@@ -13,7 +13,7 @@ companion_designs:
   authoring_adoption: "DESIGN-playable-authoring-and-adoption.md"
   approved_target: "DESIGN-play-surface-gm-cockpit-target.md"
 evidence:
-  - "PR #626 — Lane A2 readability + active-Run dogfood (Docs/Reports/REPORT-play-table-readability-dogfood-2026-08.md)"
+  - "PR #626 — Lane A2 readability + active-Run dogfood (Docs/Reports/REPORT-play-readability-dogfood-2026-08.md)"
   - "C2S27 native Play dogfood — BLOCKED / PLAY NOT READY (Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md)"
   - "PR #578 — Of Conks / Hempholm table-ready dogfood"
 ---
@@ -182,24 +182,29 @@ document / Markdown Canvas). No second Playable database is created.
 ### <Scene title>                   ← H3, inside the current Beat
 
 <!-- dmb-playable-element:v2 kind=choice id=choice:<slug> [scene=scene:<slug>] -->
-#### <Decision prompt>              ← H4, inside the current Beat
+### <Decision prompt>               → H3, inside the current Beat
 
 <!-- dmb-playable-element:v2 kind=option id=option:<slug> -->
-- <Option label>                    ← marked list item, inside the current Decision
+- <Option label>                    → marked list item, inside the current choice
 ```
 
 Rules:
 
 - `beat` directives attach to H2 headings.
-- `scene` directives attach to H3 headings and are contained by the nearest
-  preceding Beat.
-- `choice` directives attach to H4 headings and are contained by the nearest
-  preceding Beat; the optional `scene` attribute names the projection
-  association from §1.2(6) and must reference a Scene inside the same Beat.
-- `option` directives attach to list items inside the current Decision's
-  body.
-- Heading level is part of the grammar. A `scene` directive on an H2, or a
-  `beat` directive on an H3, is a validation failure, not a reinterpretation.
+- `scene` and `choice` directives both attach to H3 headings and are
+  contained by the nearest preceding Beat. Scene and Decision are siblings
+  at the same heading level; the directive `kind` — never the heading
+  level — distinguishes them. This is deliberate: heading level must not
+  imply Scene-to-Decision nesting, because Decisions are Beat-owned
+  (§1.2). A `choice` never contains a `scene`; a `scene` never contains a
+  `choice`; each is contained directly by the Beat. The optional `scene`
+  attribute on `choice` names the projection association from §1.2(6) and
+  must reference a Scene inside the same Beat.
+- `option` directives attach to list items inside the current choice body.
+- Heading level is part of the grammar. A `beat` directive on anything but
+  H2, a `scene` or `choice` directive on anything but H3, or an `option`
+  directive anywhere but a marked list item is a validation failure, not a
+  reinterpretation.
 
 ### 2.2 Semantic blocks
 
@@ -334,6 +339,24 @@ derivation integrity-checked against the sealed revision:
   an edge that could drift under the Run would make the same selection mean
   different things on different days.
 
+
+### 3.4 Rollout gate — v2 Runs are not READY-admissible in BF1
+
+The READY invariant ("a READY v2 Run has a seeded `currentBeatId`", §4) and
+the BF1 slice boundary ("no Runtime current-position change", §15) meet here.
+The gate is explicit:
+
+- BF1 ships v2 grammar, structure index, and v2 manifest seal/replay. Run
+  creation against a v2 revision succeeds and seals the v2 manifest, but the
+  new Run holds **no `currentBeatId`** and is **never admitted to READY**:
+  the admission path rejects it fail-closed (`v2 Run admission requires the
+  BF2 current-position slice`). The Run record is truthful about this state,
+  exactly like an incomplete-seal Run.
+- BF2 lands the §4 seeding rule and flips v2 admission on. At no merge point
+  can a v2 Run be READY without a seeded `currentBeatId`.
+- v1 Runs are unaffected: they create, seal, and admit exactly as on current
+  `main`.
+
 ---
 
 ## 4. Runtime current-position semantics (P2B2 replacement)
@@ -357,11 +380,17 @@ Run
 ### 4.2 Explicit answers
 
 - **Is `currentBeatId` required once a Run is READY?** Yes. Admission seeds
-  it deterministically to the first `spine` Beat in durable order (or the
-  first Beat when the Runbook declares no kinds). This is an explicit
-  admission-time durable write, not a read-time "pick first/latest" heuristic;
-  the A1 active-Run rule against inferred selection is preserved because the
-  seed is recorded, CAS-mutated, and replayed like any other progress state.
+  it deterministically: the first `spine` Beat in durable document order;
+  when no `spine` Beat exists (including a fully typed Runbook with only
+  `optional`/`interrupt` Beats), the first Beat in durable document order
+  regardless of kind. A Runbook with zero Beats is not runnable:
+  admission fails closed with a validation error (authoring an empty
+  skeleton remains legal; creating a READY Run against it is not). The
+  seed is an explicit admission-time durable write, not a read-time
+  "pick first/latest" heuristic; the A1 active-Run rule against inferred
+  selection is preserved because the seed is recorded, CAS-mutated, and
+  replayed like any other progress state. Seeding lands in BF2; until
+  then the §3.4 rollout gate keeps v2 Runs out of READY.
 - **Is `currentSceneId` optional?** Yes.
 - **Must `currentSceneId` belong to `currentBeatId`?** Yes. The manifest
   proves membership; a Scene outside the current Beat is rejected fail-closed.
@@ -456,6 +485,26 @@ the owning authority. Consequences never automatically mutate World, Playable,
 or arbitrary Runtime state. This is how the design supports
 Decision→consequence→changed-relevance without growing a general rules
 engine.
+
+
+### 5.5 "Active Decision" is local focus; Decisions are all-visible
+
+The cockpit makes one Decision dominant, but there is intentionally no durable
+`currentDecisionId`. The reviewed rule:
+
+- **All-visible:** every Decision in the current context — the current
+  Scene's associated Decisions plus the current Beat's unassociated Decisions
+  — is visible and operable. None is hidden pending "activation," and none is
+  removed by emphasis.
+- **Local focus:** the dominant Decision is ephemeral UI state
+  (`focusedDecisionId`), in the same class as card expansion and scroll
+  position. It defaults to the first unresolved Decision in the current
+  context in durable document order (falling back to the first unresolved
+  Decision in the Beat, then in the Runbook, when the current context has
+  none unresolved), and changes only on explicit GM interaction.
+- **Never authority:** focus is never persisted, never blocks navigation,
+  never changes relevance derivation, and is never required to make a
+  selection — any visible Decision accepts its selection mutation directly.
 
 ---
 
@@ -570,15 +619,19 @@ exit/return behavior, and what must remain visible for orientation.
 - Orientation: Run title, current Beat, and Beat position in the Runbook
   order are always visible.
 
-### State 3 — READY cockpit with active Decision and Options
+### State 3 — READY cockpit with Decisions in context
 
-- Dominant: the Decision prompt, its Options, each Option's consequence
-  framing, and current selection state.
-- Durable mutation: select/change/clear the Option (one CAS mutation).
-- Local-only: Option hover/peek at consequence detail.
+- Dominant: the focused Decision's prompt, its Options, each Option's
+  consequence framing, and current selection state. "Focused" is the §5.5
+  local-focus rule: all in-context Decisions remain visible and operable; the
+  dominant one is ephemeral `focusedDecisionId`, never durable authority.
+- Durable mutation: select/change/clear the Option (one CAS mutation) on any
+  visible Decision.
+- Local-only: `focusedDecisionId`, Option hover/peek at consequence detail.
 - Exit/return: selection immediately re-derives emphasis (State 4).
-- Orientation: the Decision is visibly inside the current Beat; the current
-  Beat/Scene remain identifiable without scrolling away.
+- Orientation: the focused Decision is visibly inside the current Beat; the
+  current Beat/Scene remain identifiable without scrolling away; unfocused
+  in-context Decisions remain discoverable without navigation.
 
 ### State 4 — Decision selected: consequence and changed relevance visible
 
@@ -649,7 +702,7 @@ exit/return behavior, and what must remain visible for orientation.
 
 ### State 10 — Narrow viewport degradation (conceptual priority)
 
-- Dominant: current Beat first, then current Scene, then active Decision,
+- Dominant: current Beat first, then current Scene, then focused Decision (§5.5),
   then relevant-now support, then navigation.
 - Durable mutation: unchanged.
 - Local-only: stacking/collapse.
@@ -735,7 +788,7 @@ Cockpit projection (derived, not stored):
 Current Beat:  Approach the breach — objective/pressure text
 Current Scene: The mill gate — situation text
 At a Glance:   references authored on beat:approach / scene:gate
-No active Decision
+No Decision in the current context (nothing to focus)
 ```
 
 Durable versus projection-only: the Run fields above are durable; the Beat
@@ -781,7 +834,7 @@ contract, that same moment projects as:
 ```text
 Current Beat:  "Hold the wall" (spine) — pressure: the breach is widening
 Current Scene: "The breach line" — threats referenced here
-Active Decision: "Fall back or hold?"
+Focused Decision (§5.5): "Fall back or hold?"
   Hold  → consequence: "The line holds; the wounded stay in reach."
           suppresses beat:regroup
   Fall back → consequence: "The courtyard is given up."
@@ -827,7 +880,7 @@ The GM authors in Plan, directly in the admitted Playable work object:
 <!-- dmb-playable-element:v2 kind=scene id=scene:gate -->
 ### The mill gate
 <!-- dmb-playable-element:v2 kind=choice id=choice:seal-or-search scene=scene:gate -->
-#### Seal the breach now, or search the mill first?
+### Seal the breach now, or search the mill first?
 <!-- dmb-playable-element:v2 kind=option id=option:seal activates=beat:aftermath -->
 - Seal it now
 ```
@@ -843,7 +896,7 @@ semantic drift between workshop and table.
 
 | Concern | Existing truth | Reviewed decision | Authority updated |
 |---|---|---|---|
-| Beat/Scene containment | Beat-first direction; wire unresolved; shipped P1/P2 Scene-first | §1: Runbook→Beats; Beat owns Scenes/Decisions; Scene has exactly one Beat; Beat runnable without Scene | this document; architecture §5 |
+| Beat/Scene containment | Beat-first direction; wire unresolved; shipped P1/P2 Scene-first | §1: Runbook→Beats; Beat owns Scenes/Decisions; Scene has exactly one Beat; Beat runnable without Scene. §2: Scene and Decision serialize as H3 siblings under the Beat; the directive kind, never heading level, distinguishes them | this document; architecture §5 |
 | Decision ownership | stable Choice/Option primitive (P1C); exact containment unresolved | §1.2: Beat-owned; optional Scene projection association; `choice` stays the wire kind, "Decision" the product word | this document; architecture §6 |
 | Manifest | Scene-first P2B1, identity/membership only | §3: `dmb_play_run_reference_manifest_v2` adds parentage + sealed activate/suppress edges; prose stays in pinned revision bytes | this document; architecture §5/§7 |
 | Current position | Scene-first relationship constraint (Beat must belong to current Scene) | §4: `currentBeatId` required and seeded at admission; `currentSceneId` optional and must belong to current Beat | this document; architecture §7 |
@@ -896,6 +949,8 @@ successor handoff in this design PR.
   membership and edges replay without consulting current workspace state.
 - Expected production write lease: Playable grammar/serialization, structure
   index, manifest service/routes, and their tests.
+- Rollout gate: §3.4 applies — BF1 seals v2 manifests but never admits a
+  v2 Run to READY; BF2 lands the §4 seed and flips admission.
 - Runtime state collisions: none — v1 Runs and manifests untouched.
 - Predecessor: this design PR.
 - Remains false after merge: cockpit UI, v2 current-position semantics,

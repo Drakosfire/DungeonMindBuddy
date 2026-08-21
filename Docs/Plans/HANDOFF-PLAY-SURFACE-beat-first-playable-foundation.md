@@ -2,7 +2,7 @@
 pr_body_template: |
   ## Handoff pointer
   - Workstream: PLAY-SURFACE / Beat-first Playable foundation (BF1)
-  - Flow: PLAY-SURFACE
+  - Owner: PLAY-SURFACE
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md
   - Design contract: Docs/Design/DESIGN-play-current-moment-cockpit.md
@@ -12,7 +12,7 @@ pr_body_template: |
   - Dispatch base: re-anchor current `main` and record the exact SHA in the PR body before editing
   - Predecessor: merged current-moment cockpit design PR
   - Changed paths: HANDOFF §4 only
-  - Verification: HANDOFF §7 + exact-head formal review
+  - Verification: HANDOFF §5 + exact-head formal review
 ---
 
 # HANDOFF — Beat-first Playable grammar and manifest foundation (BF1)
@@ -27,7 +27,7 @@ pr_body_template: |
 **PR title:** `PLAY-SURFACE: beat-first Playable grammar and manifest foundation`
 
 > Operating law: `AGENTS.md`.  
-> Design contract: `Docs/Design/DESIGN-play-current-moment-cockpit.md` (§1 containment, §2 serialization, §3 manifest).  
+> Design contract: `Docs/Design/DESIGN-play-current-moment-cockpit.md` (§1 containment, §2 serialization, §3 manifest, §3.4 rollout gate).  
 > Architecture: `Docs/Design/ARCHITECTURE-playable-material-and-runtime.md`.  
 > Living sequence: `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md`.
 
@@ -41,7 +41,7 @@ Before dispatch:
 2. confirm the current-moment cockpit design PR merged and
    `DESIGN-play-current-moment-cockpit.md` is on `main` unchanged, or amend
    this handoff to the reviewed head;
-3. inspect active PRs/worktrees for overlapping writes to the paths in §4;
+3. inspect active PRs/worktrees for overlapping leases to the paths in §4;
 4. verify Lane B / Combat collision status has not changed the boundary.
 
 The design contract is the authority for grammar and manifest semantics. Where
@@ -64,7 +64,7 @@ relevance projection, and no migration tooling**.
 
 ### Merge-ready invariant
 
-> **A Runbook authored with `dmb-playable-element:v2` round-trips through import, TipTap edit, save, and committed reload with stable Beat/Scene/Decision/Option identity; validation fails closed on illegal containment, duplicate IDs, bad transition edges, and mixed grammar versions; and a Run created against a v2 revision seals a `dmb_play_run_reference_manifest_v2` whose membership, parentage, and transition edges replay without consulting current workspace state. Existing v1 documents, manifests, and Runs behave exactly as before.**
+> **A Runbook authored with `dmb-playable-element:v2` round-trips through import, TipTap edit, save, and committed reload with stable Beat/Scene/Decision/Option identity; validation fails closed on illegal containment, duplicate IDs, bad transition edges, and mixed grammar versions; and a Run created against a v2 revision seals a `dmb_play_run_reference_manifest_v2` whose membership, parentage, and transition edges replay without consulting current workspace state. The §3.4 rollout gate holds: no v2 Run reaches READY in this slice. Existing v1 documents, manifests, and Runs behave exactly as before.**
 
 ### What may be true after merge
 
@@ -80,8 +80,9 @@ true:
 
 ```text
 false:
-  any cockpit/table UI consumes v2
+  any cockpit/table UI consuming v2
   Runtime current-position semantics changed (still v1 P2B2 behavior)
+  any v2 Run admitted to READY (§3.4 rollout gate)
   relevance derivation exists at runtime
   Plan has Beat-first authoring controls
   any v1 document or Run was migrated
@@ -96,9 +97,10 @@ false:
 
 1. **v2 grammar parse/validate/serialize** per design contract §2:
    - `beat` on H2; `scene` on H3 inside the nearest preceding Beat;
-     `choice` on H4 inside the nearest preceding Beat with optional `scene`
-     association into the same Beat; `option` as a marked list item inside the
-     current Decision;
+     `choice` on H3 inside the nearest preceding Beat — Scene and Decision are
+     Beat-owned siblings distinguished by directive `kind`, never by heading
+     level — with optional `scene` association into the same Beat; `option`
+     as a marked list item inside the current choice body;
    - optional `beat_kind=spine|optional|interrupt` on `beat`;
    - `activates` / `suppresses` edge attributes on `option`, targeting IDs in
      the same document;
@@ -109,8 +111,8 @@ false:
    - unmarked headings/prose remain non-semantic; the D2 termination rule for
      preceding playable body slices carries forward.
 2. **Fail-closed validation** per design contract §2.5: duplicate IDs, Scene
-   outside a Beat or nested under a Scene, Decision outside a Beat, Option
-   outside a Decision, cross-Beat or unknown Scene association, edges to
+   outside a Beat or nested under a Scene, choice outside a Beat, Option
+   outside a choice, cross-Beat or unknown Scene association, edges to
    unknown IDs, unknown kind/version, mixed v1+v2 structural directives in one
    document.
 3. **v2 structure index**: the smallest read-only derived index addressing
@@ -124,13 +126,19 @@ false:
    seal derives from the exact still-current bound revision/SHA and fails
    closed if the workspace has advanced; replay uses the immutable sidecar
    only.
-5. **Coexistence**: v1 documents/manifests/Runs are untouched and keep v1
+5. **Rollout gate** per design contract §3.4: Run creation against a v2
+   revision succeeds and seals the v2 manifest, but the new Run holds no
+   `currentBeatId` and the admission path rejects it fail-closed
+   (`v2 Run admission requires the BF2 current-position slice`). v1 Runs
+   create, seal, and admit exactly as on current `main`.
+6. **Coexistence**: v1 documents/manifests/Runs are untouched and keep v1
    semantics; unknown schema versions fail closed.
 
 ### Prohibited
 
 - cockpit/table UI of any kind;
-- Runtime current-position, selection, relevance, or progress changes;
+- Runtime current-position, selection, relevance, or progress changes
+  (including `currentBeatId` seeding — that is BF2);
 - v1→v2 conversion/migration tooling;
 - rebase behavior changes;
 - Plan authoring controls;
@@ -143,11 +151,14 @@ false:
 ## 3. Design decisions already frozen (do not reopen in code)
 
 - Decision is the product word; `choice`/`option` remain the wire kinds.
+- Scene and Decision serialize as H3 siblings under the Beat; the directive
+  `kind` distinguishes them (design contract §2.1).
 - Consequences attach to Beats and Options only.
 - Transition vocabulary is exactly `activates` / `suppresses`.
 - Manifest stores identity/membership/parentage/edges; prose, titles, and
   rendering order come from the pinned revision bytes.
 - All sealed edges are immutable for the Run's revision.
+- The §3.4 rollout gate: v2 Runs never reach READY in this slice.
 
 If implementation discovers these are unimplementable as written, stop and
 hand back to stewardship with the concrete blocker; do not improvise a new
@@ -157,16 +168,28 @@ containment model in code.
 
 ## 4. Exclusive write lease
 
-Expected production write lease (exact paths confirmed at dispatch re-anchor):
+Concrete expected paths (verified against the repo at design time):
 
-| Area | Paths (expected) |
+| Area | Paths |
 |---|---|
-| Playable grammar | `apps/live-control-ui/src/**/playable*` v2 grammar module(s); semantic Markdown directive parse/serialize |
-| Structure index | v2 membership derivation alongside the merged P1B index |
-| Manifest service/routes | `apps/live_control_server/services/play_run_reference_manifest*` v2 schema + seal/replay; route admission |
-| Tests | focused unit/service/route tests for grammar, validation, index, seal, replay, coexistence |
+| v2 grammar parse/serialize | `apps/live-control-ui/src/tiptap/extensions/SemanticMarkdownPaste.ts`, `apps/live-control-ui/src/tiptap/extensions/SemanticMarkdownPaste.test.ts`, `apps/live-control-ui/src/tiptap/extensions/PlayableElementHeadingAttributes.ts` |
+| Playable identity | `apps/live-control-ui/src/tiptap/playable/playableElementIdentity.ts`, `apps/live-control-ui/src/tiptap/playable/playableChoiceOptionIdentity.test.ts`, `apps/live-control-ui/src/tiptap/playable/playableChoiceOptionClipboard.test.tsx` |
+| v2 structure index | `apps/live-control-ui/src/tiptap/playable/playableStructureIndex.ts`, `apps/live-control-ui/src/tiptap/playable/playableStructureIndex.test.ts` |
+| Runbook descriptor / admission | `apps/live-control-ui/src/tiptap/descriptors/tiptapRunbookDescriptors.ts`, `apps/live-control-ui/src/tiptap/descriptors/tiptapRunbookDescriptors.test.ts`, `apps/live-control-ui/src/tiptap/markdown/markdownAdmission.ts` |
+| Choice authoring integration test | `apps/live-control-ui/src/workspaceDocument/useWorkspaceDocumentAuthoring.playableChoice.test.tsx` |
+| v2 manifest service | `apps/live_control_server/services/play_run_reference_manifest.py` |
+| Run creation / admission routes | `apps/live_control_server/routes/play_runs.py` |
+| Run registry (gate flag) | `apps/live_control_server/services/play_run_registry.py` |
+| Backend tests | `tests/test_play_run_reference_manifest.py`, `tests/test_live_play_run_reference_manifest.py`, `tests/test_live_play_runs.py` |
 
-No changes to: Runtime progress services, Play surface UI, Plan surface UI,
+**Bounded discovery exception:** if a listed concern is cleaner as a new
+module, the implementation may create new sibling files **inside the same
+directories** (e.g. a version-scoped `*V2*` module beside the listed file).
+Anything outside the listed files and their same-directory siblings requires
+amending this handoff first.
+
+No changes to: Runtime progress services (`play_run_progress*`,
+`play_run_rebase*`), Play surface UI (`src/playSurface/**`), Plan surface UI,
 Combat, migration tooling, or documentation authorities (except the roadmap
 ledger row required by the living-roadmap contract).
 
@@ -175,9 +198,12 @@ ledger row required by the living-roadmap contract).
 ## 5. Verification
 
 1. Focused backend tests: v2 seal/replay, fail-closed validation matrix,
-   coexistence with v1 fixtures, workspace-advanced seal refusal.
-2. Focused frontend tests: v2 parse/serialize round-trip, stable identity
-   through rename, fence-literal treatment, D2 termination rule.
+   coexistence with v1 fixtures, workspace-advanced seal refusal, and the
+   §3.4 gate (v2 Run created + sealed but never READY-admitted; v1 admission
+   unchanged).
+2. Focused frontend tests: v2 parse/serialize round trip, stable identity
+   through rename, Scene/Decision H3-sibling disambiguation, fence-literal
+   treatment, D2 termination rule.
 3. `git diff --check`; changed paths inside §4.
 4. Living-roadmap disposition row naming the implementation/evidence head.
 
@@ -189,14 +215,15 @@ states on the same account). Any repair commit creates a new head and another
 review cycle.
 
 The reviewer must independently verify: the design contract was implemented as
-frozen; nothing from §2-Prohibited shipped; v1 behavior is byte-stable; and
-the roadmap ledger row names the evidence head.
+frozen; nothing from §2-Prohibited shipped; the §3.4 gate holds (no READY v2
+Run); v1 behavior is byte-stable; and the roadmap ledger row names the
+evidence head.
 
 ---
 
 ## 7. Post-merge successor posture
 
 After BF1 merges, re-anchor and let evidence choose between BF2 (Runtime
-current-position v2 + relevance derivation) and BF4 (Plan Beat-first authoring
-composition). BF3 (cockpit projection) requires BF2. Do not pre-authorize the
-second slice here.
+current-position v2 + relevance derivation — lands the §4 seed and flips v2
+admission) and BF4 (Plan Beat-first authoring composition). BF3 (cockpit
+projection) requires BF2. Do not pre-authorize the second slice here.

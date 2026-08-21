@@ -235,9 +235,11 @@ current-moment cockpit contract
   exactly one Beat; a Beat is runnable with zero Scenes; Decisions are
   Beat-owned with an optional Scene projection association; consequences
   attach to Beats and Options only.
-- **Serialization:** `dmb-playable-element:v2` — Beat at H2, Scene at H3,
-  Decision (wire kind `choice`) at H4, Option as a marked list item, with
-  authored `activates`/`suppresses` transition edges on Options.
+- **Serialization:** `dmb-playable-element:v2` — Beat at H2, Scene and
+  Decision (wire kind `choice`) both at H3 as Beat-owned siblings
+  distinguished by directive kind, Option as a marked list item, with
+  authored consequence blocks and `activates`/`suppresses` transition
+  edges on Options.
 - **Manifest:** `dmb_play_run_reference_manifest_v2` seals identity,
   membership, parentage, and transition edges; prose/titles remain in the
   pinned revision bytes.

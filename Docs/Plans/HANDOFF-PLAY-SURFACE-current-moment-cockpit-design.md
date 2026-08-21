@@ -579,9 +579,16 @@ Do not pre-authorize UI implementation around an unresolved wire shape.
 | Modify | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-con-ready.md` | byte-identical mirror |
 | Modify | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md` | byte-identical mirror |
 | Modify | `Docs/Sources/design-agent/ACTIVE_REFERENCE/INDEX-design-agent-source-set.md` | byte-identical mirror when canonical index changes |
+| Modify | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md` | byte-identical mirror |
+| Modify | `Docs/Sources/design-agent/ACTIVE_REFERENCE/DESIGN-play-surface-projection.md` | byte-identical mirror |
+| Modify | `Docs/Sources/design-agent/ACTIVE_REFERENCE/DESIGN-playable-authoring-and-adoption.md` | byte-identical mirror |
+| Create | `Docs/Sources/design-agent/ACTIVE_REFERENCE/DESIGN-play-current-moment-cockpit.md` | byte-identical mirror of the new contract |
+| Create | `Docs/Sources/design-agent/ACTIVE_REFERENCE/DESIGN-play-surface-gm-cockpit-target.md` | byte-identical mirror of the approved target |
 
 Project Sources snapshot date remains operator-managed. Do not advance it merely
 because repo-resident mirrors change.
+
+**Lease amendment (Review Cycle 1, PR #627):** the five mirror rows above were added after review found the original §4.3 list incomplete — §4.1 requires touching the canonical architecture/projection/authoring documents and §7.1 requires their mirrors stay byte-identical, so the exclusive allowlist must name those mirror paths explicitly. Recorded here so the amendment is visible in the same PR that exercises it.
 
 ### 4.4 This handoff
 
