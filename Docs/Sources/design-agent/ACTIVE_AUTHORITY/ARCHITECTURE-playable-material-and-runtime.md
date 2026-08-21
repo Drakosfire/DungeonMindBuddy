@@ -248,9 +248,9 @@ current-moment cockpit contract
   the current Beat.
 - **Relevance:** derived from sealed edges plus durable selections; never
   persisted separately.
-- **Migration/rebase:** v1 sealed Runs remain under a legacy reader;
+- **Migration/rebase:** v1 sealed Runs remain openable under v1 semantics only while their bound revision/digest is still the current workspace revision (the existing admission rule; no historical revision archive exists or is created);
   v1→v2 adoption is an explicit one-way authoring action producing a new
-  revision; cross-grammar Run rebase is fail-closed in the first
+  revision; a v1 Run whose Runbook advanced to v2 is `rebase_required` and terminally so, because cross-grammar Run rebase is fail-closed in the first
   implementation; same-grammar rebase stays preserve-only with parent-Beat
   changes treated as semantic incompatibility.
 
@@ -439,7 +439,8 @@ Two C2S27 findings activate here:
 - If the Playable revision changes, migration/rebase must be explicit when referenced IDs are removed or semantically replaced.
 - The Beat-first model is implemented only through the reviewed slice sequence
   selected by `HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`; v1
-  sealed Runs remain under the legacy reader, v1→v2 adoption is an explicit
+  sealed Runs remain openable under v1 semantics while their bound revision
+  stays current (no historical revision archive), v1→v2 adoption is an explicit
   one-way authoring action producing a new revision, and cross-grammar Run
   rebase fails closed (see `DESIGN-play-current-moment-cockpit.md` §6–§7).
 

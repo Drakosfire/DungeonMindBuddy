@@ -307,7 +307,7 @@ playable_artifact_id
 playable_revision
 playable_content_sha256
 sealed_at
-beats:    [{ beat_id, beat_kind }]                 # document order retained
+beats:    [{ beat_id, beat_kind }]                 # membership set (see order rule below)
 scenes:   [{ scene_id, beat_id }]                  # parent Beat required
 choices:  [{ choice_id, beat_id, scene_id? }]      # scene_id = projection association
 options:  [{ option_id, choice_id }]               # parent Decision required
@@ -321,8 +321,17 @@ derivation integrity-checked against the sealed revision:
 - `edges` are sealed because Runtime derives relevance from them (§5); they
   are the one piece of authored content Runtime interprets rather than
   renders, so they belong inside the integrity boundary.
-- Display titles, prose, semantic blocks, and rendering order are **not**
-  stored; they come from the pinned revision bytes, exactly as in P2B1/P3A.
+- Display titles, prose, semantic blocks, and **all document order** are
+  **not** stored; they come from the pinned revision bytes, exactly as in
+  P2B1/P3A. **Document order has exactly one authority: the bound
+  revision bytes.** Manifest arrays are membership sets whose
+  serialization order mirrors the document for human inspection only;
+  no consumer may treat manifest array order as order authority. The
+  admission rule (bound revision/digest must equal the current workspace
+  revision) guarantees those bytes are available whenever a Run is
+  admitted, so §4 seeding ("first Beat in durable document order") and
+  previous/next navigation both read order from the bound revision
+  bytes — never from the manifest.
 
 ### 3.3 Seal and replay rules
 
@@ -383,7 +392,7 @@ Run
   it deterministically: the first `spine` Beat in durable document order;
   when no `spine` Beat exists (including a fully typed Runbook with only
   `optional`/`interrupt` Beats), the first Beat in durable document order
-  regardless of kind. A Runbook with zero Beats is not runnable:
+  regardless of kind (read from the bound revision bytes, the sole order authority — §3.2). A Runbook with zero Beats is not runnable:
   admission fails closed with a validation error (authoring an empty
   skeleton remains legal; creating a READY Run against it is not). The
   seed is an explicit admission-time durable write, not a read-time
@@ -498,10 +507,14 @@ The cockpit makes one Decision dominant, but there is intentionally no durable
   removed by emphasis.
 - **Local focus:** the dominant Decision is ephemeral UI state
   (`focusedDecisionId`), in the same class as card expansion and scroll
-  position. It defaults to the first unresolved Decision in the current
-  context in durable document order (falling back to the first unresolved
-  Decision in the Beat, then in the Runbook, when the current context has
-  none unresolved), and changes only on explicit GM interaction.
+  position. It defaults to the first unresolved Decision **in the current
+  context** in durable document order, and changes only on explicit GM
+  interaction with a visible in-context Decision. Focus never escapes the
+  current context: when the current context has no unresolved Decision,
+  `focusedDecisionId` is **null** (State 2), even if unresolved Decisions
+  exist in other Scenes or Beats — reaching those is navigation, not
+  focus. This keeps focus coherent with the all-visible rule: focus can
+  only name a Decision the GM can already see and operate.
 - **Never authority:** focus is never persisted, never blocks navigation,
   never changes relevance derivation, and is never required to make a
   selection — any visible Decision accepts its selection mutation directly.
@@ -517,9 +530,9 @@ Runs. The posture is explicit and conservative:
 
 | Situation | Posture |
 |---|---|
-| Old Playable revision + old (v1) manifest + old Run | **Legacy reader.** The Run remains openable, inspectable, and runnable under v1 semantics. Nothing is silently rewritten. |
+| Old Playable revision + old (v1) manifest + old Run | **Legacy reader, bounded by the existing admission rule.** The Run remains openable, inspectable, and runnable under v1 semantics **only while its bound revision/digest is still the current workspace revision**. When the Runbook advances to any newer revision, admission returns the existing `rebase_required` state. There is no historical Playable revision archive today, and this contract does not create one. Nothing is silently migrated. |
 | Old Playable revision reopened after v2 code ships | **Stays v1.** Editing continues under v1 grammar. An explicit one-way authoring action ("adopt Beat-first structure") creates a new v2 revision; it never rewrites in place. |
-| Old Run rebased to a new Beat-first (v2) revision | **Not supported in the first implementation.** The grammar boundary is a semantic break, not an ID change; the operator starts a new Run against the v2 revision. The old Run remains inspectable. |
+| Old Run whose Runbook advanced to a Beat-first (v2) revision | **Rebase-blocked terminal state.** Admission already returns `rebase_required` (bound revision no longer current), and the only rebase target is now a v2 revision, which is refused fail-closed — the grammar boundary is a semantic break, not an ID change. The Run record and its sealed manifest remain stored and inspectable as records; they are never deleted or remapped. The operator starts a new Run against the v2 revision. |
 | New v2 revision + new v2 manifest + new Run | **The normal new path.** |
 | Partially/incompletely sealed Run | Existing truthful incomplete handling (A1/A2) is unchanged; incomplete Runs are never "repaired" by migration. |
 
@@ -529,6 +542,10 @@ Runs. The posture is explicit and conservative:
 - No "pick newest/first" fallback, ever.
 - No destructive cleanup of historical Runs as a migration strategy.
 - v1→v2 document conversion is an authoring event that produces a new
+- "Legacy reader" never implies a historical revision archive: it means the
+  existing v1 admission path, bounded by the existing bound-revision rule.
+  A v1 Run whose Runbook has advanced is `rebase_required`; when the current
+  revision is v2, that state is terminal (cross-grammar rebase is refused).
   revision with new content; it is not a Runtime operation.
 
 ---
@@ -862,13 +879,17 @@ rewrite.
 
 Behavior:
 
-- `R-old` stays bound to revision 12 and opens under the legacy v1 reader.
+- Once revision 13 is committed, `R-old` admission returns the existing
+  `rebase_required` state: its bound revision is no longer the current
+  workspace revision, and no historical revision archive exists to serve
+  revision 12 bytes.
 - Rebase of `R-old` to revision 13 is refused fail-closed: the receipt lists
-  that containment itself changed (v1→v2), so no preserve-only proof is
-  possible.
+  that containment itself changed (v1-to-v2), so no preserve-only proof is
+  possible. `R-old` is now in a truthful rebase-blocked terminal state.
 - The operator starts a new Run against revision 13, which seals a v2
   manifest.
-- Nothing about `R-old` is deleted, remapped, or reinterpreted.
+- Nothing about `R-old` is deleted, remapped, or reinterpreted; the Run
+  record and sealed manifest remain stored and inspectable as records.
 
 ### Example E — Plan authors what Play will run
 
@@ -898,7 +919,7 @@ semantic drift between workshop and table.
 |---|---|---|---|
 | Beat/Scene containment | Beat-first direction; wire unresolved; shipped P1/P2 Scene-first | §1: Runbook→Beats; Beat owns Scenes/Decisions; Scene has exactly one Beat; Beat runnable without Scene. §2: Scene and Decision serialize as H3 siblings under the Beat; the directive kind, never heading level, distinguishes them | this document; architecture §5 |
 | Decision ownership | stable Choice/Option primitive (P1C); exact containment unresolved | §1.2: Beat-owned; optional Scene projection association; `choice` stays the wire kind, "Decision" the product word | this document; architecture §6 |
-| Manifest | Scene-first P2B1, identity/membership only | §3: `dmb_play_run_reference_manifest_v2` adds parentage + sealed activate/suppress edges; prose stays in pinned revision bytes | this document; architecture §5/§7 |
+| Manifest | Scene-first P2B1, identity/membership only | §3: `dmb_play_run_reference_manifest_v2` adds parentage + sealed activate/suppress edges; prose and all document order stay in the pinned revision bytes (sole order authority) | this document; architecture §5/§7 |
 | Current position | Scene-first relationship constraint (Beat must belong to current Scene) | §4: `currentBeatId` required and seeded at admission; `currentSceneId` optional and must belong to current Beat | this document; architecture §7 |
 | Relevance | product requirement; persistence unresolved | §5: derived from sealed edges + selections; never persisted; two-effect vocabulary; navigation never gated | this document; architecture §6/§7 |
 | Old Runs | v1 manifests/Runs exist | §6: legacy reader; explicit one-way v2 adoption at authoring; no cross-grammar rebase; no silent remapping | this document; architecture §7/§11 |
