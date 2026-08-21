@@ -8,8 +8,10 @@ The Play-local readability implementation passed the normal-viewport rehearsal
 and the active-Run continuity scenarios required by Lane A2. The corrected
 replacement attempt was made through the actual StartRunPanel flow with a
 deterministic transient seal failure: U2 was allocated, its manifest seal
-failed, and the previous active U1 remained active. A later U3 was created
-through the normal StartRunPanel flow and reached READY before replacing U1.
+failed, and the previous active U1 remained active. The final continuity
+correction then exercised bare `/play` while U2 was incomplete: the active
+pointer resolved U1 without creating a Run. A later U3 was created through the
+normal StartRunPanel flow and reached READY before replacing U1.
 No structural Play, Run lifecycle, or chooser-status repair was made here.
 
 ## Implementation head
@@ -43,24 +45,27 @@ No structural Play, Run lifecycle, or chooser-status repair was made here.
 
 - U1: `11111111-1111-4111-8111-111111111111`
   - previous active READY baseline; it remained active through the incomplete replacement
-- U2: `b21008e6-178b-4624-8c1a-bf28552c9d26`
+- U2: `d757598c-9cf3-4d01-87e6-521f8bd8c094`
   - fresh Run created through Start New → StartRunPanel
   - deterministic transient content mismatch during manifest seal returned the
     truthful incomplete state; the Run record exists, the reference manifest
     is absent (`GET` 404), and U1 remained active
-- U3: `def930de-302e-4b94-81ee-a12a9c4adb2b`
+- U3: `e4c2829a-d9ee-4644-92a5-04a87a1f3dea`
   - fresh successful explicit replacement created through StartRunPanel and READY
   - final active Run after the rehearsal
 
 Runbook under test: **Lane A1 Dogfood Runbook**, artifact
 `77aa2879-77c7-4787-8267-b36f895235d7`, committed revision `2`.
 
-The existing `22222222-2222-4222-8222-222222222222` incomplete Run,
+The prior Cycle 3 U2
+`b21008e6-178b-4624-8c1a-bf28552c9d26` and U3
+`def930de-302e-4b94-81ee-a12a9c4adb2b`, plus the existing
+`22222222-2222-4222-8222-222222222222` incomplete Run,
 `7ae97d9a-9dc0-46a9-bdfd-6362708785b8` READY Run, and
 `2487dd8f-df0f-4a4b-abd1-ae4df44dc4ad` READY Run are retained as historical
-artifacts from the superseded rehearsals. A preliminary timing probe also
-retained `360758f7-2d4a-467e-a9a6-3a1443d4ab18`; its seal completed before a
-revision bump and it is not the corrected U2 identity above.
+artifacts from superseded rehearsals. A preliminary timing probe also retained
+`360758f7-2d4a-467e-a9a6-3a1443d4ab18`; its seal completed before a revision
+bump and it is not the corrected U2 identity above.
 
 ## Before/after Run-store inventory
 
@@ -75,7 +80,7 @@ the prior historical artifacts:
 7ae97d9a-9dc0-46a9-bdfd-6362708785b8.json
 ```
 
-After the corrected U2 and successful U3:
+After the corrected U2, bare `/play` resume, and successful U3:
 
 ```text
 11111111-1111-4111-8111-111111111111.json
@@ -84,7 +89,9 @@ After the corrected U2 and successful U3:
 360758f7-2d4a-467e-a9a6-3a1443d4ab18.json
 7ae97d9a-9dc0-46a9-bdfd-6362708785b8.json
 b21008e6-178b-4624-8c1a-bf28552c9d26.json
+d757598c-9cf3-4d01-87e6-521f8bd8c094.json
 def930de-302e-4b94-81ee-a12a9c4adb2b.json
+e4c2829a-d9ee-4644-92a5-04a87a1f3dea.json
 ```
 
 The final `GET /api/live/play-active-run` returned:
@@ -92,21 +99,20 @@ The final `GET /api/live/play-active-run` returned:
 ```json
 {
   "schema_version": "dmb_play_active_run_v1",
-  "run_id": "def930de-302e-4b94-81ee-a12a9c4adb2b"
+  "run_id": "e4c2829a-d9ee-4644-92a5-04a87a1f3dea"
 }
 ```
 
 The final U2 has no reference-manifest file; final U3 has one. The Runbook
 remained active/committed at revision `2` after the transient content was
-restored. Navigation, reload, chooser entry, and ordinary re-entry created no
-additional Run UUID.
+restored. The bare `/play` resume created no additional Run UUID.
 
 ## Screenshot evidence
 
 All listed artifacts were captured from the repaired candidate UI at
 implementation head `58e1e7bc42e687672c39b454fa401111602cc8be`, at 100% zoom,
-with the shared AppChrome visible where applicable. The final Cycle 3 work
-changed only dogfood/report/roadmap evidence, so these accepted readability
+with the shared AppChrome visible where applicable. The Cycle 3 and Cycle 4
+corrections changed only dogfood/report/roadmap evidence, so these accepted readability
 captures did not require cosmetic recapture; their READY fixture is the
 historical `2487dd8f-df0f-4a4b-abd1-ae4df44dc4ad` Run.
 
@@ -142,17 +148,21 @@ Observed sequence:
    request, then restored the original bytes.
 4. StartRunPanel displayed the repaired Play-local incomplete warning with
    `Retry setup`. U2
-   `b21008e6-178b-4624-8c1a-bf28552c9d26` existed in the Run store, its
+   `d757598c-9cf3-4d01-87e6-521f8bd8c094` existed in the Run store, its
    manifest GET returned 404, and the active pointer remained U1.
-5. Direct `/play?run=U1` resumed the exact READY U1 after the failed seal.
+5. While U2 was still incomplete, bare `/play` was opened—not the exact U1
+   URL. The page resolved the server-side active pointer and redirected to
+   `/play?run=11111111-1111-4111-8111-111111111111`, displaying the exact READY
+   U1. The active pointer remained U1 and the Run-store inventory did not
+   change.
 6. Start New → chooser → selected committed Runbook → Start exact Run created
-   fresh U3 `def930de-302e-4b94-81ee-a12a9c4adb2b`; it reached READY before
+   fresh U3 `e4c2829a-d9ee-4644-92a5-04a87a1f3dea`; it reached READY before
    the active pointer changed.
 7. The final active pointer was U3; U2 remained incomplete and historical,
    while the transient Runbook content was restored to revision 2.
 
-The active pointer remained U1 until successful U3 admission, then remained
-U3 after the incomplete U2, reload, and chooser re-entry.
+The active pointer remained U1 through the incomplete U2 and the required bare
+`/play` re-entry, then changed to U3 only after successful U3 admission.
 
 ## Readability result
 
