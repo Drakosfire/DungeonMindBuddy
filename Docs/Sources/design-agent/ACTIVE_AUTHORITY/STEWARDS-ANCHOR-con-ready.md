@@ -207,17 +207,18 @@ CON-READY must define and dogfood the smallest truthful handoff from prepared/kn
 
 Do not block CON-READY on completion of the entire Play roadmap.
 
-### 4.6 Current-state re-anchor — 2026-08-20 (post-C2S27)
+### 4.6 Current-state re-anchor — 2026-08-20 (post-PR #625 Lane A1 merge)
 
 Recorded by the merged PLAY-SURFACE handoff
-`Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`
-under the operator-authorized documentation-only exception. PR #624 merged at
-`850daa75469965fa4306ab05d0920b99d1fa8b03` after 2 formal review cycles; no
-Cycle 3 judgment was posted before merge. Final dogfood truth:
-`Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
+`Docs/Plans/HANDOFF-PLAY-SURFACE-active-run-continuity.md`. PR #625 merged at
+`d4c6fb365b1e8958f6a1989a9f88fcde1b844e73` after 2 formal review cycles; no
+passing formal judgment was posted before merge. The required U1/U2/U3 proof
+is consumed by the active Lane A2 handoff
+`HANDOFF-PLAY-SURFACE-table-readability-dogfood.md`; the C2S27 dogfood truth
+remains `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
 
 ```text
-main: 850daa75469965fa4306ab05d0920b99d1fa8b03 (merge of PR #624, post-C2S27 PLAY-SURFACE reset)
+main: d4c6fb365b1e8958f6a1989a9f88fcde1b844e73 (merge of PR #625, Lane A1 active-Run continuity)
 
 merged and proven:
   P1/P2/P3A/D1/D2 — durable Runbook identity, exact Run binding + sealed manifest,
@@ -244,8 +245,9 @@ Currently false or fragile user stories (the highest-value falsehoods):
 Current delivery priority (details in `Docs/Roadmaps/ROADMAP-con-ready.md` §4.0):
 
 ```text
-1. Lane A1: active-Run continuity / Resume vs Start New — the bounded
-   implementation in `HANDOFF-PLAY-SURFACE-active-run-continuity.md`
+1. Lane A2: Play table readability + required active-Run dogfood —
+   `HANDOFF-PLAY-SURFACE-table-readability-dogfood.md`, preserving merged
+   Lane A1 semantics
 2. Lane B: durable Combat state / database-backed tracker authority
    (resolve the retained uncommitted Combat-save worktree first)
 3. after both domain slices prove their own durability invariants, extract a
@@ -256,15 +258,15 @@ Current delivery priority (details in `Docs/Roadmaps/ROADMAP-con-ready.md` §4.0
    (no native Play table implementation until that model is reviewed)
 ```
 
-Lane A1 is the active bounded Play re-entry repair and may proceed. Lane B is
+Lane A2 is the active bounded Play presentation/dogfood slice and may proceed. Lane B is
 blocked until the retained
 `agent/play-command-board-disk-saves` worktree is mined/adopted/committed or
 discarded because it contains uncommitted Combat durability work with no
 remote backup. P3B (native graph-object sheets) and P4 (exact Threat→Combat)
 remain designed but **deferred**; neither is current dispatch authority.
 
-CR-U17 remains false overall: Lane A1 does not make cross-worktree Playable,
-workspace, Combat, or other GM state durable.
+CR-U17 remains false overall: merged Lane A1 and active Lane A2 do not make
+cross-worktree Playable, workspace, Combat, or other GM state durable.
 
 ---
 

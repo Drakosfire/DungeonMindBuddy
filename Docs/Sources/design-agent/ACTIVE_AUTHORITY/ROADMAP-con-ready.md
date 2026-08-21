@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-08-20 (post-C2S27 dogfood re-anchor; `main` `850daa75469965fa4306ab05d0920b99d1fa8b03`)  
+**Re-anchored:** 2026-08-20 (post-PR #625 Lane A1 merge; `main` `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73`)
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `main` after merged PR #560, merge commit `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
@@ -453,10 +453,12 @@ The roadmap is sequenced by user-visible capability rather than architecture lay
 ## 4.0 Current delivery state — 2026-08-20 post-C2S27 re-anchor
 
 Recorded by the merged PLAY-SURFACE handoff
-`Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`
-at `main` `850daa75469965fa4306ab05d0920b99d1fa8b03` (PR #624, after 2 formal
-review cycles; no Cycle 3 judgment was posted before merge). Final dogfood
-truth: `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
+`Docs/Plans/HANDOFF-PLAY-SURFACE-active-run-continuity.md`
+at `main` `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73` (PR #625, after 2 formal
+review cycles; no passing formal judgment was posted before merge). The
+required U1/U2/U3 live proof is intentionally consumed by the active
+`HANDOFF-PLAY-SURFACE-table-readability-dogfood.md`; the C2S27 dogfood truth
+remains `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
 
 Merged and proven: CR01–CR04 capabilities through the CUTOVER/Build program; Playable P1/P2/P3A/D1/D2 (durable Runbook identity, exact Run binding, native admission, Start Run, exact Runbook view).
 
@@ -476,10 +478,10 @@ Current story truth after C2S27:
 New delivery priority (supersedes "continue the Play phase ladder"):
 
 ```text
-1. Lane A1: active-Run continuity — Resume vs Start New; no duplicate-Run
-   churn. This is the bounded repair currently dispatched by
-   `HANDOFF-PLAY-SURFACE-active-run-continuity.md`; it does not complete
-   cross-worktree persistence.
+1. Lane A2: Play table readability plus the missing active-Run dogfood proof.
+   This is the bounded presentation pass currently dispatched by
+   `HANDOFF-PLAY-SURFACE-table-readability-dogfood.md`; it preserves the
+   merged Lane A1 semantics and does not complete cross-worktree persistence.
 2. Lane B: durable Combat state — database-backed tracker authority; the C2S27
    tracker interaction is the proven UX to keep. Resolve the retained
    uncommitted Combat-save worktree before dispatch.
@@ -493,15 +495,16 @@ New delivery priority (supersedes "continue the Play phase ladder"):
    implementation starts until that model is reviewed.
 ```
 
-Lane A1 and Lane B are separate domain-first slices and may proceed in parallel
+Lane A2 and Lane B are separate concerns and may proceed in parallel
 after a fresh re-anchor, except that Lane B is blocked until the retained
 uncommitted Combat-save worktree is mined/adopted/committed or discarded. P3B
 (native graph-object sheets) and P4 (exact Threat→Combat mutation) remain
 designed but **deferred** — they are not current dispatch authority.
 
-CR-U17 remains **false overall**. Lane A1 addresses same-store Play re-entry
-and duplicate-Run churn only; it does not claim that Playable material,
-workspace authority, Combat state, or other GM work survives a worktree switch.
+CR-U17 remains **false overall**. Merged Lane A1 addresses same-store Play
+re-entry and duplicate-Run churn; Lane A2 only makes that surface readable
+enough to evaluate. Neither claims that Playable material, workspace
+authority, Combat state, or other GM work survives a worktree switch.
 
 ## CR01 — Source Ingress & Reading
 
