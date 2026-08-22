@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE REFERENCE / process index  
 **Created:** 2026-08-02  
-**Repository authority refresh:** 2026-08-21 post-PR #626 PLAY-SURFACE Lane A2 merge under CON-READY parent acceptance, plus Lane A3 current-moment cockpit design dispatch, based on `1662912b8f878911390df654329631b3cf927590`
+**Repository authority refresh:** 2026-08-22 post-PR #627 PLAY-SURFACE Lane A3 current-moment cockpit design merge under CON-READY parent acceptance, plus BF1 beat-first Playable foundation dispatch, based on `f8354f5659f5ff5188ad549419dffa4bbf3ed2ba`
 **Project Sources snapshot date:** 2026-08-02 — do not advance this date until the operator actually replaces/re-observes the user-managed Project Sources set  
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)  
 **Document class:** curated source index — **not** architecture, roadmap, or PR-sequence authority

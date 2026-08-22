@@ -13,7 +13,10 @@ from apps.live_control_server.services.play_run_registry import (
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
     PlayRunReferenceManifestError,
+    PlayRunReferenceManifestV2,
     derive_play_run_reference_elements,
+    derive_play_run_reference_elements_v2,
+    detect_playable_grammar_version,
     get_play_run_reference_manifest,
     play_run_reference_manifest_path,
     play_run_reference_manifests_dir,
@@ -566,3 +569,307 @@ def test_seal_holds_runbook_mutation_lock_through_atomic_write(
     assert len(sealed) == 1
     assert sealed[0].playable_revision == record.playable_revision
     assert sealed[0].playable_content_sha256 == record.playable_content_sha256
+
+
+# ---------------------------------------------------------------------------
+# Beat-first (v2) grammar and manifest evidence
+# ---------------------------------------------------------------------------
+
+# Representative C2S27-shaped Beat/Scene/Decision/Option document (HANDOFF
+# BF1 section 6.3): spine Beat with a Scene and a Decision whose Options carry
+# activates/suppresses edges, an optional Beat with its own Scene, and an
+# interrupt Beat.
+C2S27_SHAPED_V2_MARKDOWN = "\n".join(
+    [
+        "# Session 27 North Gate Runbook",
+        "",
+        "Ordinary prose before any structural directive stays non-semantic.",
+        "",
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:hold-the-gate beat_kind=spine -->",
+        "## Hold the gate",
+        "",
+        "Triage at the gate line while the refugee crush builds.",
+        "",
+        "<!-- dmb-playable-element:v2 kind=scene id=scene:gate-line -->",
+        "### The gate line",
+        "",
+        "Guards waver while Lysandro works the crowd.",
+        "",
+        "<!-- dmb-playable-element:v2 kind=choice id=choice:who-gets-through scene=scene:gate-line -->",
+        "### Who gets through first?",
+        "",
+        "<!-- dmb-playable-element:v2 kind=option id=option:cure-line-first activates=beat:panic-breaks -->",
+        "- Prioritize the cure line",
+        "",
+        "<!-- dmb-playable-element:v2 kind=option id=option:families-first suppresses=beat:meat-flank -->",
+        "- Keep families together",
+        "",
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:panic-breaks beat_kind=optional -->",
+        "## Panic breaks",
+        "",
+        "<!-- dmb-playable-element:v2 kind=scene id=scene:the-crush -->",
+        "### The crush",
+        "",
+        "The line surges against the wagons.",
+        "",
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:meat-flank beat_kind=interrupt -->",
+        "## Meat flank",
+        "",
+        "The sewer meat creature hits the last wagon.",
+        "",
+    ]
+)
+
+
+def test_v2_representative_document_membership_and_edges() -> None:
+    assert detect_playable_grammar_version(C2S27_SHAPED_V2_MARKDOWN) == 2
+    membership = derive_play_run_reference_elements_v2(C2S27_SHAPED_V2_MARKDOWN)
+    assert [beat.beat_id for beat in membership.beats] == [
+        "beat:hold-the-gate",
+        "beat:meat-flank",
+        "beat:panic-breaks",
+    ]
+    assert {beat.beat_id: beat.beat_kind for beat in membership.beats} == {
+        "beat:hold-the-gate": "spine",
+        "beat:panic-breaks": "optional",
+        "beat:meat-flank": "interrupt",
+    }
+    assert {scene.scene_id: scene.beat_id for scene in membership.scenes} == {
+        "scene:gate-line": "beat:hold-the-gate",
+        "scene:the-crush": "beat:panic-breaks",
+    }
+    choices = {choice.choice_id: choice for choice in membership.choices}
+    assert choices["choice:who-gets-through"].beat_id == "beat:hold-the-gate"
+    assert choices["choice:who-gets-through"].scene_id == "scene:gate-line"
+    assert {option.option_id: option.choice_id for option in membership.options} == {
+        "option:cure-line-first": "choice:who-gets-through",
+        "option:families-first": "choice:who-gets-through",
+    }
+    assert [
+        (edge.option_id, edge.effect, edge.target_kind, edge.target_id)
+        for edge in membership.edges
+    ] == [
+        ("option:cure-line-first", "activate", "beat", "beat:panic-breaks"),
+        ("option:families-first", "suppress", "beat", "beat:meat-flank"),
+    ]
+
+
+def test_v2_fail_closed_validation() -> None:
+    cases = {
+        "duplicate id": "\n".join(
+            [
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+                "## A",
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+                "## A2",
+            ]
+        ),
+        "scene outside beat": (
+            "<!-- dmb-playable-element:v2 kind=scene id=scene:s -->\n### S\n"
+        ),
+        "choice outside beat": (
+            "<!-- dmb-playable-element:v2 kind=choice id=choice:c -->\n### C\n"
+        ),
+        "option outside choice": "\n".join(
+            [
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+                "## A",
+                "<!-- dmb-playable-element:v2 kind=option id=option:o -->",
+                "- go",
+            ]
+        ),
+        "option not a list item": "\n".join(
+            [
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+                "## A",
+                "<!-- dmb-playable-element:v2 kind=choice id=choice:c -->",
+                "### C",
+                "<!-- dmb-playable-element:v2 kind=option id=option:o -->",
+                "plain paragraph",
+            ]
+        ),
+        "scene association unknown": "\n".join(
+            [
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+                "## A",
+                "<!-- dmb-playable-element:v2 kind=choice id=choice:c scene=scene:ghost -->",
+                "### C",
+            ]
+        ),
+        "scene association across beats": "\n".join(
+            [
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+                "## A",
+                "<!-- dmb-playable-element:v2 kind=scene id=scene:s -->",
+                "### S",
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:b -->",
+                "## B",
+                "<!-- dmb-playable-element:v2 kind=choice id=choice:c scene=scene:s -->",
+                "### C",
+            ]
+        ),
+        "edge to unknown id": "\n".join(
+            [
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+                "## A",
+                "<!-- dmb-playable-element:v2 kind=choice id=choice:c -->",
+                "### C",
+                "<!-- dmb-playable-element:v2 kind=option id=option:o activates=beat:ghost -->",
+                "- go",
+            ]
+        ),
+        "edge to unsupported target kind": "\n".join(
+            [
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+                "## A",
+                "<!-- dmb-playable-element:v2 kind=choice id=choice:c -->",
+                "### C",
+                "<!-- dmb-playable-element:v2 kind=option id=option:o activates=choice:c -->",
+                "- go",
+            ]
+        ),
+        "mixed v1 and v2 directives": "\n".join(
+            [
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+                "## A",
+                "<!-- dmb-playable-element:v1 kind=scene id=scene:s -->",
+                "## S",
+            ]
+        ),
+        "unknown beat_kind": (
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:a beat_kind=weird -->\n## A\n"
+        ),
+        "unknown marker version": (
+            "<!-- dmb-playable-element:v3 kind=beat id=beat:a -->\n## A\n"
+        ),
+        "activate and suppress same target": "\n".join(
+            [
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+                "## A",
+                "<!-- dmb-playable-element:v2 kind=choice id=choice:c -->",
+                "### C",
+                "<!-- dmb-playable-element:v2 kind=option id=option:o activates=beat:a suppresses=beat:a -->",
+                "- go",
+            ]
+        ),
+        "scene heading at wrong level": "\n".join(
+            [
+                "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+                "## A",
+                "<!-- dmb-playable-element:v2 kind=scene id=scene:s -->",
+                "#### S",
+            ]
+        ),
+    }
+    for name, markdown in cases.items():
+        with pytest.raises(PlayRunReferenceManifestError) as excinfo:
+            derive_play_run_reference_elements_v2(markdown)
+        assert excinfo.value.status_code == 409, name
+
+
+def test_v2_fenced_code_interiors_stay_literal() -> None:
+    markdown = "\n".join(
+        [
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+            "## A",
+            "",
+            "~~~",
+            "<!-- dmb-playable-element:v2 kind=scene id=scene:fake -->",
+            "### Fake",
+            "~~~",
+            "",
+            "````",
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:also-fake -->",
+            "## Also fake",
+            "````",
+            "",
+        ]
+    )
+    membership = derive_play_run_reference_elements_v2(markdown)
+    assert [beat.beat_id for beat in membership.beats] == ["beat:a"]
+    assert membership.scenes == []
+
+
+def test_v2_seal_replay_and_binding(tmp_path: Path) -> None:
+    snapshot = _create_committed_runbook(
+        tmp_path, name="v2-seal", markdown=C2S27_SHAPED_V2_MARKDOWN
+    )
+    record = _create_run(tmp_path, snapshot)
+    manifest = seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
+    assert isinstance(manifest, PlayRunReferenceManifestV2)
+    assert manifest.schema_version == "dmb_play_run_reference_manifest_v2"
+    assert manifest.run_id == record.run_id
+    assert manifest.playable_revision == snapshot.loaded_revision
+    assert manifest.playable_content_sha256 == snapshot.content_sha256
+    assert len(manifest.beats) == 3
+    assert len(manifest.scenes) == 2
+    assert len(manifest.choices) == 1
+    assert len(manifest.options) == 2
+    assert len(manifest.edges) == 2
+
+    # Replay returns the identical sealed manifest.
+    replayed = seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
+    assert replayed == manifest
+
+    # Immutable replay: advancing the workspace after seal must not change the
+    # sealed sidecar, and replay must not consult current workspace state.
+    _advance_runbook(tmp_path, snapshot, ADVANCED_MARKDOWN)
+    loaded = get_play_run_reference_manifest(tmp_path, record.run_id)
+    assert loaded == manifest
+
+
+def test_v2_first_seal_refuses_when_workspace_advanced(tmp_path: Path) -> None:
+    snapshot = _create_committed_runbook(
+        tmp_path, name="v2-stale", markdown=C2S27_SHAPED_V2_MARKDOWN
+    )
+    record = _create_run(tmp_path, snapshot)
+    _advance_runbook(tmp_path, snapshot, ADVANCED_MARKDOWN)
+    with pytest.raises(PlayRunReferenceManifestError) as excinfo:
+        seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
+    assert excinfo.value.status_code == 409
+    assert not play_run_reference_manifest_path(tmp_path, record.run_id).exists()
+
+
+def test_v2_seal_fails_closed_on_invalid_document(tmp_path: Path) -> None:
+    snapshot = _create_committed_runbook(
+        tmp_path,
+        name="v2-invalid",
+        markdown=(
+            "<!-- dmb-playable-element:v2 kind=scene id=scene:orphan -->\n"
+            "### Orphan scene outside any Beat\n"
+        ),
+    )
+    record = _create_run(tmp_path, snapshot)
+    with pytest.raises(PlayRunReferenceManifestError) as excinfo:
+        seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
+    assert excinfo.value.status_code == 409
+    assert not play_run_reference_manifest_path(tmp_path, record.run_id).exists()
+
+
+def test_unknown_manifest_schema_version_fails_closed(tmp_path: Path) -> None:
+    snapshot = _create_committed_runbook(tmp_path, name="v1-unknown-schema")
+    record = _create_run(tmp_path, snapshot)
+    manifest = seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
+    path = play_run_reference_manifest_path(tmp_path, record.run_id)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["schema_version"] = "dmb_play_run_reference_manifest_v99"
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    assert manifest.run_id == record.run_id
+    with pytest.raises(PlayRunReferenceManifestError):
+        get_play_run_reference_manifest(tmp_path, record.run_id)
+
+
+def test_v2_run_creation_and_seal_leave_progress_untouched(tmp_path: Path) -> None:
+    snapshot = _create_committed_runbook(
+        tmp_path, name="v2-progress", markdown=C2S27_SHAPED_V2_MARKDOWN
+    )
+    record = _create_run(tmp_path, snapshot)
+    before = record.model_dump(mode="json")
+    manifest = seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
+    assert isinstance(manifest, PlayRunReferenceManifestV2)
+    after = get_play_run_reference_manifest(tmp_path, record.run_id)
+    assert after == manifest
+    from apps.live_control_server.services.play_run_registry import get_play_run
+
+    reloaded = get_play_run(tmp_path, record.run_id)
+    assert reloaded.model_dump(mode="json") == before

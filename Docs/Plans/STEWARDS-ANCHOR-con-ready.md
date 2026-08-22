@@ -207,25 +207,29 @@ CON-READY must define and dogfood the smallest truthful handoff from prepared/kn
 
 Do not block CON-READY on completion of the entire Play roadmap.
 
-### 4.6 Current-state re-anchor — 2026-08-21 (post-PR #626 Lane A2 merge)
+### 4.6 Current-state re-anchor — 2026-08-22 (post-PR #627 Lane A3 merge)
 
-Recorded by the in-flight PLAY-SURFACE design gate
-`Docs/Plans/HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`. PR #626
-merged at `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6` (final branch head
-`f26e6449927d6a509d8cbb71d8798d8a9197015a`) after **4 formal review cycles**
-(Cycles 1–3 REQUEST-CHANGES-equivalent, Cycle 4 PASS-equivalent). Lane A2
-readability and the same-store U1/U2/U3 active-Run continuity proof are
+Synchronized by the in-flight BF1 implementation
+(`Docs/Plans/HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`). PR #627
+merged at `0975ebcfb714b1a664dfb57362d7cd13351aa077` (final reviewed head
+`71901b60e6c90779c11b6ca3f1b8a91493b2967f`) after **5 formal review cycles**
+(Cycles 1–4 REQUEST-CHANGES-equivalent, Cycle 5 PASS). The Lane A3
+current-moment cockpit design gate is complete; the reviewed Beat-first
+contract lives in `Docs/Design/DESIGN-play-current-moment-cockpit.md`. Lane A2
+readability and the same-store U1/U2/U3 active-Run continuity proof remain
 complete; the C2S27 dogfooding truth remains
 `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
 
 ```text
-main: a56cf4ab1ea231164db1f5a30fa3d177d8b328a6 (merge of PR #626, Lane A2 readability + active-Run dogfooding)
+main: 0975ebcfb714b1a664dfb57362d7cd13351aa077 (merge of PR #627, Lane A3 current-moment cockpit design gate)
 
 merged and proven:
   P1/P2/P3A/D1/D2 — durable Runbook identity, exact Run binding + sealed manifest,
   native /play admission, Start Run, exact Runbook view, Runtime CAS progress
   Lane A1 — active-Run continuity (Resume vs Start New, no duplicate-Run churn)
   Lane A2 — Play table readability + same-store U1/U2/U3 continuity dogfooding
+  Lane A3 — current-moment cockpit design gate (Beat-first Playable contract,
+  v2 manifest schema, Runtime current-position semantics, BF1/BF2 rollout gate)
 
 C2S27 real-table dogfooding (D3):
   verdict BLOCKED / PLAY NOT READY
@@ -252,18 +256,19 @@ Currently false or fragile user stories (the highest-value falsehoods):
 Current delivery priority (details in `Docs/Roadmaps/ROADMAP-con-ready.md` §4.0):
 
 ```text
-1. Lane A3 (design gate, in flight): the reviewed Beat/Scene/Decision +
-   Plan-to-Playable current-moment cockpit contract
-   (`HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`), producing
-   `DESIGN-play-current-moment-cockpit.md` and selecting the first Beat-first
-   implementation slice (`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`)
+1. BF1 (implementation, in flight): beat-first Playable grammar and manifest
+   foundation (`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`),
+   the first structural slice under the merged Lane A3 contract
+   (`DESIGN-play-current-moment-cockpit.md`); v2 Runs stay blocked from READY
+   until BF2
 2. Lane B: durable Combat state / database-backed tracker authority
    (resolve the retained unmerged Combat-save worktree first)
 3. after both domain slices prove their own durability invariants, extract a
    bounded shared persistence primitive only if a common seam is evidenced
 ```
 
-Lane A3 is a DESIGN → REVIEW gate with zero production code. Lane B is
+Lane A3 was a DESIGN → REVIEW gate with zero production code and is now
+merged in PR #627; BF1 is its first implementation slice. Lane B is
 blocked until the retained
 `agent/play-command-board-disk-saves` worktree is mined/adopted/landed or
 discarded because it contains unmerged Combat durability work with no

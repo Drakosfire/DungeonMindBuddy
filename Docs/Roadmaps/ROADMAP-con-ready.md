@@ -450,11 +450,11 @@ No success claim may depend on transient developer state or manual reconstructio
 
 The roadmap is sequenced by user-visible capability rather than architecture layer.
 
-## 4.0 Current delivery state — 2026-08-21 post-PR #626
+## 4.0 Current delivery state — 2026-08-22 post-PR #627
 
-Recorded by the in-flight PLAY-SURFACE design gate
-`Docs/Plans/HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`
-at `main` `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6` (PR #626 merge; final branch head `f26e6449927d6a509d8cbb71d8798d8a9197015a`; **4 formal review cycles**, Cycle 4 PASS-equivalent). Lane A2 readability and the same-store U1/U2/U3 active-Run continuity proof are complete; the C2S27 dogfood truth remains `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
+Synchronized by the in-flight BF1 implementation
+(`Docs/Plans/HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`)
+at `main` `0975ebcfb714b1a664dfb57362d7cd13351aa077` (PR #627 merge of the Lane A3 current-moment cockpit design gate; final reviewed head `71901b60e6c90779c11b6ca3f1b8a91493b2967f`; **5 formal review cycles**, Cycle 5 PASS). Lane A3 is complete: the reviewed Beat-first contract lives in `Docs/Design/DESIGN-play-current-moment-cockpit.md`. Lane A2 readability and the same-store U1/U2/U3 active-Run continuity proof remain complete; the C2S27 dogfood truth remains `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
 
 Merged and proven: CR01–CR04 capabilities through the CUTOVER/Build program; Playable P1/P2/P3A/D1/D2 (durable Runbook identity, exact Run binding, native admission, Start Run, exact Runbook view).
 
@@ -474,13 +474,13 @@ Current story truth after C2S27:
 New delivery priority (supersedes "continue the Play phase ladder"):
 
 ```text
-1. Lane A3 (design gate, in flight): the reviewed Beat/Scene/Decision +
-   Plan-to-Playable current-moment cockpit contract
-   (`HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`), producing
-   `DESIGN-play-current-moment-cockpit.md` and selecting the first Beat-first
-   implementation slice (`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`).
-   Lane A1 (active-Run continuity) and Lane A2 (table readability + the
-   U1/U2/U3 dogfood proof) are merged and complete.
+1. BF1 (implementation, in flight): beat-first Playable grammar and manifest
+   foundation (`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`),
+   making the reviewed Lane A3 contract executable and durable against CR-U11
+   while v2 Runs stay blocked from READY until BF2. Lane A3 (the
+   Beat/Scene/Decision + Plan-to-Playable cockpit design gate) is merged and
+   complete in PR #627. Lane A1 (active-Run continuity) and Lane A2 (table
+   readability + the U1/U2/U3 dogfood proof) are merged and complete.
 2. Lane B: durable Combat state — database-backed tracker authority; the C2S27
    tracker interaction is the proven UX to keep. Resolve the retained
    unmerged Combat-save worktree before dispatch.
@@ -490,8 +490,9 @@ New delivery priority (supersedes "continue the Play phase ladder"):
    Threat drafts, Runs, and workspace registries.
 ```
 
-Lane A3 is a DESIGN → REVIEW gate with zero production code; Lane B is a
-separate domain concern. Lane B remains blocked until the retained
+Lane A3 was a DESIGN → REVIEW gate with zero production code and is now
+merged; BF1 is the first structural implementation slice under that contract.
+Lane B is a separate domain concern. Lane B remains blocked until the retained
 unmerged Combat-save worktree is mined/adopted/landed or discarded. P3B
 (native graph-object sheets) and P4 (exact Threat-to-Combat mutation) remain
 designed but **deferred** — they are not current dispatch authority.

@@ -10,7 +10,7 @@ import {
 import type { WorkspaceDocumentSnapshot } from "../api/types";
 import { fixtureWorkspaceDocumentRecord } from "../planSurface/config/planSessionDescriptor";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
-import { indexPlayableStructure } from "../tiptap/playable/playableStructureIndex";
+import { indexPlayableStructure, indexPlayableStructureV2 } from "../tiptap/playable/playableStructureIndex";
 import { useWorkspaceDocumentAuthoring } from "./useWorkspaceDocumentAuthoring";
 
 vi.mock("../api/liveApi", () => ({
@@ -249,5 +249,190 @@ describe("workspace Save/reload for Choice/Option identity", () => {
     expect(result.current.phase).toBe("save_error");
     expect(result.current.error).toContain("cannot be represented safely as Markdown");
     expect(result.current.error).toContain("document-root heading");
+  });
+});
+// ---------------------------------------------------------------------------
+// Beat-first (v2) committed-Runbook round trip
+// ---------------------------------------------------------------------------
+
+const v2SourceMarkdown = [
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:hold-the-gate beat_kind=spine -->",
+  "## Hold the gate",
+  "",
+  "Triage at the gate line.",
+  "",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:gate-line -->",
+  "### The gate line",
+  "",
+  "<!-- dmb-playable-element:v2 kind=choice id=choice:who-gets-through scene=scene:gate-line -->",
+  "### Who gets through first?",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:cure-line-first activates=beat:panic-breaks -->",
+  "- Prioritize the cure line",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:families-first suppresses=beat:meat-flank -->",
+  "- Keep families together",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:panic-breaks beat_kind=optional -->",
+  "## Panic breaks",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:meat-flank beat_kind=interrupt -->",
+  "## Meat flank",
+  "",
+].join("\n");
+
+const v2RenamedMarkdown = v2SourceMarkdown.replace(
+  "## Hold the gate",
+  "## Hold the gate renamed",
+);
+
+const v2SourceSnapshot = snapshot({
+  markdown: v2SourceMarkdown,
+  revision: 1,
+  contentSha: "sha-v2-source",
+  fingerprint: "fp-v2-source",
+  contentStatus: "draft",
+});
+
+const v2CommittedSnapshot = snapshot({
+  markdown: v2RenamedMarkdown,
+  revision: 2,
+  contentSha: "sha-v2-committed",
+  fingerprint: "fp-v2-committed",
+  contentStatus: "committed",
+});
+
+describe("workspace Save/reload for Beat-first (v2) structure", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("commits a renamed v2 Runbook while preserving Beat/Scene/Decision/Option identity and edges", async () => {
+    vi.mocked(getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(v2SourceSnapshot)
+      .mockResolvedValue(v2CommittedSnapshot);
+    vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_ID,
+      title: "Hold the gate",
+      target_relpath: "corpus/gate.md",
+      target_display_path: "corpus/gate.md",
+      registry_revision: 1,
+      file_exists: true,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "confirm-token",
+      writer_diff: "+Hold the gate renamed",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_ID,
+      title: "Hold the gate",
+      target_relpath: "corpus/gate.md",
+      target_display_path: "corpus/gate.md",
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: fixtureWorkspaceDocumentRecord({
+        document_id: DOC_ID,
+        kind: "worldbuilding_source",
+        revision: 2,
+        content_status: "committed",
+      }),
+      normalized_content_sha256: "sha-v2-committed",
+      writer_ok: true,
+      bytes_written: v2RenamedMarkdown.length,
+      file_fingerprint: "fp-v2-committed",
+      diagnostics: [],
+    });
+
+    const imported = markdownToTiptapDoc(v2SourceMarkdown);
+    expect(imported.diagnostics).toEqual([]);
+    const renamedJson = {
+      ...imported.doc,
+      content: (imported.doc.content ?? []).map((node) => {
+        if (node.type !== "heading") return node;
+        const id = (node.attrs as { playableElementId?: string } | undefined)?.playableElementId;
+        if (id === "beat:hold-the-gate") {
+          return { ...node, content: [{ type: "text", text: "Hold the gate renamed" }] };
+        }
+        return node;
+      }),
+    };
+
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+
+    act(() => {
+      result.current.setEditor(editorWithJson(renamedJson));
+      result.current.markDirty();
+    });
+    await act(async () => {
+      await result.current.saveMarkdown();
+    });
+
+    // The committed bytes carry every v2 marker, including Option list items
+    // with their transition edges.
+    expect(prepareTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({
+      markdown: v2RenamedMarkdown,
+    }));
+    expect(commitTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({
+      markdown: v2RenamedMarkdown,
+    }));
+    expect(result.current.phase).toBe("ready_clean");
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await result.current.reloadFromSnapshot();
+    });
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+
+    const index = indexPlayableStructureV2(result.current.editorContent);
+    expect(index.status).toBe("ready");
+    if (index.status !== "ready") throw new Error("expected ready");
+    expect(index.index.beatOrder).toEqual([
+      "beat:hold-the-gate",
+      "beat:panic-breaks",
+      "beat:meat-flank",
+    ]);
+    expect(index.index.beats.map((beat) => [beat.beatId, beat.beatKind])).toEqual([
+      ["beat:hold-the-gate", "spine"],
+      ["beat:panic-breaks", "optional"],
+      ["beat:meat-flank", "interrupt"],
+    ]);
+    expect(index.index.scenes).toEqual([
+      { sceneId: "scene:gate-line", beatId: "beat:hold-the-gate", order: 0 },
+    ]);
+    expect(index.index.choices).toEqual([
+      {
+        choiceId: "choice:who-gets-through",
+        beatId: "beat:hold-the-gate",
+        sceneId: "scene:gate-line",
+        order: 0,
+        optionOrder: ["option:cure-line-first", "option:families-first"],
+      },
+    ]);
+    expect(index.index.options).toEqual([
+      {
+        optionId: "option:cure-line-first",
+        choiceId: "choice:who-gets-through",
+        order: 0,
+        activates: ["beat:panic-breaks"],
+        suppresses: [],
+      },
+      {
+        optionId: "option:families-first",
+        choiceId: "choice:who-gets-through",
+        order: 1,
+        activates: [],
+        suppresses: ["beat:meat-flank"],
+      },
+    ]);
   });
 });

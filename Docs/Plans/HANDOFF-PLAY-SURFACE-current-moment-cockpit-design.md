@@ -24,7 +24,7 @@ pr_body_template: |
 # HANDOFF — define the current-moment GM cockpit contract
 
 **Created:** 2026-08-20  
-**Status:** ACTIVE DESIGN HANDOFF — re-anchor current `main` immediately before dispatch.  
+**Status:** **COMPLETE — MERGED as PR [#627](https://github.com/Drakosfire/DungeonMindBuddy/pull/627)** at `0975ebcfb714b1a664dfb57362d7cd13351aa077` (final reviewed head `71901b60e6c90779c11b6ca3f1b8a91493b2967f`; **5 formal review cycles**, Cycles 1–4 REQUEST-CHANGES-equivalent, Cycle 5 PASS). The reviewed contract lives in `Docs/Design/DESIGN-play-current-moment-cockpit.md`; the selected first implementation slice BF1 (`Docs/Plans/HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`) is the in-flight dispatch.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`  
 **Workstream:** `PLAY-SURFACE / Lane A3 current-moment cockpit contract`  
 **Flow / owner:** `PLAY-SURFACE`  
