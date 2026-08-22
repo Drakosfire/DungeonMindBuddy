@@ -22,7 +22,7 @@ pr_body_template: |
 # HANDOFF — make Play readable enough to dogfood at the table
 
 **Created:** 2026-08-20  
-**Status:** ACTIVE — dispatch one bounded PLAY-SURFACE presentation capability from current `main` `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73`; re-anchor and amend before dispatch if `main` moves.  
+**Status:** MERGED / HISTORICAL — PR #626 merged at `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6`; final branch head `f26e6449927d6a509d8cbb71d8798d8a9197015a`; **4 formal review cycles** (Cycles 1–3 REQUEST-CHANGES-equivalent, Cycle 4 PASS-equivalent); readability and same-store active-Run continuity dogfooding PASS (see the Lane A2 report under `Docs/Reports/`); consumed by the current-moment cockpit design gate (`Docs/Plans/HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`).  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-SURFACE-table-readability-dogfood.md`  
 **Workstream:** `PLAY-SURFACE / Lane A2 table readability + dogfood`  
 **Flow / owner:** `PLAY-SURFACE`  

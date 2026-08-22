@@ -3,12 +3,14 @@ document_id: dmb-design-playable-authoring-and-adoption
 title: Playable Authoring and Adoption
 document_class: product_design
 status: active
-version: 1.0
+version: 1.1
 created_at: "2026-08-15"
-updated_at: "2026-08-20"
+updated_at: "2026-08-21"
 workstream: PLAY-SURFACE
 architecture_authority: "ARCHITECTURE-playable-material-and-runtime.md"
-companion_design: "DESIGN-play-surface-projection.md"
+companion_designs:
+  play_projection: "DESIGN-play-surface-projection.md"
+  current_moment_cockpit: "DESIGN-play-current-moment-cockpit.md"
 evidence:
   - "PR #578 — Canvas block proposal / Of Conks runbook dogfood"
   - "C2 Session 27 native Play dogfood — BLOCKED / PLAY NOT READY (Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md)"
@@ -127,7 +129,13 @@ Consequences:
 - If a separate free-form Plan document exists, adopting its material into the Playable work object is an explicit, reviewable adoption — not a batch export.
 - What the GM sees while preparing in Plan is what Play will project at the table, up to projection (projection never rewrites the material).
 
-The exact Plan↔Playable composition (one document vs. explicit adoption seams) belongs to the Beat/Scene/Decision + Plan→Playable design task; the no-lossy-derivative rule is settled here.
+The exact Plan↔Playable composition is frozen by the reviewed current-moment
+cockpit contract (`DESIGN-play-current-moment-cockpit.md` §8): Plan edits the same
+admitted Playable work object directly; free-form planning documents adopt
+material through the explicit, reviewable adoption seam; Beat/Scene/Decision
+authoring uses structure-aware controls over the same document rather than a
+graph editor; and the Plan preview and Play projection read the same committed
+revision. The no-lossy-derivative rule is settled here and there.
 
 ## 4. Runbook authoring
 
@@ -135,13 +143,15 @@ After C2S27, the Beat is the session-scale organization unit; Scenes are
 concrete situations inside a Beat. See
 `ARCHITECTURE-playable-material-and-runtime.md` §5.
 
-This is a design direction, not a claim that the current P1/P2 authoring
-grammar can serialize it. Current `main` fixes Scene at H2 and Beat/Choice at
-H3, requires Beat/Choice membership under Scene, and requires the current Beat
-to belong to the current Scene. The Beat-first authoring model therefore
-requires a reviewed redesign of P1 structure/serialization, P2B1 manifest
-membership/versioning, P2B2 current-position semantics, existing sealed
-Runs/manifests, and P2C migration/rebase behavior before implementation.
+The Beat-first authoring model is now frozen by the reviewed current-moment
+cockpit contract (`DESIGN-play-current-moment-cockpit.md` §1–§2, §8): Beats are
+authored as v2 H2 elements, Scenes as v2 H3 elements inside exactly one Beat,
+Decisions as v2 H3 `choice` elements — Beat-owned siblings of Scenes,
+distinguished by directive kind rather than heading level — with an
+optional Scene projection association, and Options as marked list items carrying authored
+consequences and `activates`/`suppresses` edges. The shipped P1/P2 grammar
+remains Scene-first and cannot serialize this; the authoring controls below
+are implemented through the reviewed slice sequence, not by patching v1.
 
 ### 4.1 Create/organize Beats
 

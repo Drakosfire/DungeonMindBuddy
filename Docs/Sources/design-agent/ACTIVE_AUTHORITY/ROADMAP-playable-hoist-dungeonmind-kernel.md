@@ -1,7 +1,7 @@
 # ROADMAP — Playable Architecture → Shared Buddy Primitives → DungeonMind Kernel
 
 **Status:** ACTIVE DESIGN ROADMAP — evidence-driven; review on every implementation PR
-**Date:** 2026-08-15 (state re-anchored 2026-08-20 after PR #625; `main` `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73`)
+**Date:** 2026-08-15 (state re-anchored 2026-08-21 after PR #626; `main` `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6`)
 **Scope:** DungeonMindBuddy Playable/Play implementation, internal hoisting, and evidence-driven promotion into DungeonMind / DungeonMindDnD
 
 ## 0. North star
@@ -121,7 +121,7 @@ Rules:
 
 ### Current sequence
 
-Mutable workstream state after merged PR #625 / `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73`
+Mutable workstream state after merged PR #626 / `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6`
 and the C2 Session 27 dogfood re-anchor (2026-08-20). Implementation PRs still add a ledger row;
 they do not rewrite this block except as post-merge state-authority sync. This
 block was synchronized by the operator-authorized PLAY-SURFACE doc-sync
@@ -132,7 +132,7 @@ complete.
 
 | Field | Current truth |
 |---|---|
-| Integration tip | `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73` — [PR #625](https://github.com/Drakosfire/DungeonMindBuddy/pull/625) merge of Lane A1 active-Run continuity |
+| Integration tip | `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6` — [PR #626](https://github.com/Drakosfire/DungeonMindBuddy/pull/626) merge of Lane A2 table readability + active-Run dogfood |
 | Merged capability | P2 complete. P3A native `/play` table deck merged. D1 Start Run merged. D2 exact Runbook view merged. P3C landed early as a partial P3 sibling. |
 | P2 status | **COMPLETE** — P2A/P2B1/P2B2/P2C merged |
 | P3A status | **COMPLETE** — PR #618; evidence `196144bb`; reviewed head `a907e623`; merge `03252d51`; **3 review cycles** |
@@ -140,9 +140,9 @@ complete.
 | D2 status | **COMPLETE** — PR #622; evidence `b923117b`; reviewed head `c549611a`; merge `62f7f9e`; **1 review cycle** |
 | D3 status | **COMPLETE — BLOCKED / PLAY NOT READY** — C2 Session 27 real-table dogfood accepted the exact Run admission wiring and rejected the native three-column Table as the table instrument; final report `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md` |
 | D4 status | **RETIRED AS CURRENT SEQUENCE** — the current-Beat table-stage repair (`HANDOFF-PLAY-current-beat-table-stage.md`, PR [#623](https://github.com/Drakosfire/DungeonMindBuddy/pull/623)) was closed unmerged; its evidence is mined, its code is not on `main`, and its Scene-first deck design (`DESIGN-play-native-current-moment-deck.md`) was superseded by the dogfood's Beat-first conclusion and intentionally not promoted |
-| Next dispatch | **Lane A2:** `HANDOFF-PLAY-SURFACE-table-readability-dogfood.md` — Play-local readability plus the missing U1/U2/U3 continuity proof, currently ACTIVE. **Lane B:** durable Combat state / database-backed tracker authority, blocked until the retained uncommitted Combat-save worktree is mined/adopted/committed or discarded. These remain separate domain-first concerns; Lane B follows its collision gate |
+| Next dispatch | **Lane A3 (design gate, in flight):** `HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md` — the reviewed Beat/Scene/Decision + Plan→Playable contract over the approved GM target (`DESIGN-play-surface-gm-cockpit-target.md`), producing `DESIGN-play-current-moment-cockpit.md` and the BF1 successor handoff. Lane A2 is **COMPLETE** (PR #626 merged `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6`, 4 formal review cycles, Cycle 4 PASS-equivalent). **Lane B:** durable Combat state / database-backed tracker authority, blocked until the retained unmerged Combat-save worktree is mined/adopted/landed or discarded. These remain separate domain-first concerns; Lane B follows its collision gate |
 | Shared persistence posture | The broad cross-domain persistence item is not an atomic prerequisite. After Lane A and Lane B each prove their own durability invariant, extract a bounded shared persistence primitive only if the evidence demonstrates a common seam; do not span Plan, Playable state, Combat, Threat drafts, Runs, and workspace registries in one slice |
-| Next design task | Beat/Scene/Decision + Plan→Playable authoring model, including the required P1/P2 structure, serialization, manifest, current-position, sealed-Run, and migration/rebase redesign. **No native Play table implementation starts until that model is reviewed** |
+| Next design task | **DISPATCHED as Lane A3** — the Beat/Scene/Decision + Plan→Playable model (including P1/P2 structure, serialization, manifest, current-position, sealed-Run, and migration/rebase redesign) is the in-flight design gate above. **No native Play table implementation starts until that model is reviewed and merged** |
 | P3B status | Designed but **NON-DISPATCHABLE** — `Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md` stays parked behind the new sequence |
 | P4 status | Designed but **deferred** — `Docs/Plans/HANDOFF-PLAY-SURFACE-add-to-combat.md` is preserved design evidence and is not "directly dispatchable when selected" until the durable Combat re-anchor |
 | Hoist posture | Runtime remains DungeonMindBuddy Play-owned. Native Runbook projection remains Play-owned. D2 is a second Play-owned projection of the same admitted TipTap document, not a briefing schema or new element kind. `WorkObjectRevisionRef`, `WorkObjectElementRef`, and a generic transaction framework remain not yet justified without an independent non-Play consumer. |
@@ -154,10 +154,15 @@ the Beat is the larger useful hierarchy over Scenes, and Decisions carry
 consequences that reshape later Scene/Beat relevance (canonical architecture
 updated in `Docs/Design/ARCHITECTURE-playable-material-and-runtime.md`). The
 D4 current-Beat table-stage sequence is retired with PR #623 closed unmerged.
-Current dispatch authority is the separate domain-first Lane A2/Lane B pair,
-with Lane B's retained-worktree collision gate, not a broad persistence slice
-or another Play table slice. The common persistence question follows those
-domain proofs. This is a sequencing update, not a stable architecture
+Lane A1 active-Run continuity and Lane A2 table readability are merged and
+live-validated. Current dispatch authority is the Lane A3 design gate
+(`HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`): the reviewed
+Beat/Scene/Decision + Plan-to-Playable contract over the approved GM target,
+which selects the first Beat-first implementation slice (BF1,
+`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`). Lane B (durable
+Combat state) remains separately sequenced behind its retained-worktree
+collision gate. The common persistence question still follows those domain
+slices. This is a sequencing update, not a stable architecture
 ownership change.
 
 ---

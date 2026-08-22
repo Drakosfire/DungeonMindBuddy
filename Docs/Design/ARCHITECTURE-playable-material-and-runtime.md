@@ -3,9 +3,9 @@ document_id: dmb-architecture-playable-material-and-runtime
 title: Playable Material and Runtime — Architecture Authority
 document_class: architecture_authority
 status: active
-version: 1.0
+version: 1.1
 created_at: "2026-08-15"
-updated_at: "2026-08-20"
+updated_at: "2026-08-21"
 workstream: PLAY-SURFACE
 evidence:
   - "PR #578 — Of Conks / Hempholm table-ready dogfood"
@@ -18,6 +18,7 @@ companion_authorities:
 companion_designs:
   play_projection: "DESIGN-play-surface-projection.md"
   authoring_adoption: "DESIGN-playable-authoring-and-adoption.md"
+  current_moment_cockpit: "DESIGN-play-current-moment-cockpit.md"
 ---
 
 # Playable Material and Runtime — Architecture Authority
@@ -226,25 +227,41 @@ Choice/Decision
 
 This is a Playable organization model, not an Adventure ontology for the World Graph.
 
-The exact wire grammar for this Beat-first model is deliberately **not** frozen
-here; it is the next reviewed design task. Stable Scene/Beat/Choice/Option IDs
-remain useful identity candidates, but the Beat-first model is **not
-structurally compatible with the shipped P1/P2 wiring** merely because those
-IDs survive. Current `main` places Scene at H2 and Beat/Choice at H3, requires
-every Beat/Choice to belong to a Scene, and rejects a current Beat unless it
-belongs to the current Scene.
+The wire grammar for this Beat-first model is now frozen by the reviewed
+current-moment cockpit contract
+(`DESIGN-play-current-moment-cockpit.md` §1–§2):
 
-Before implementation, a reviewed redesign must specify:
+- **Containment:** a Runbook owns ordered Beats directly; a Scene belongs to
+  exactly one Beat; a Beat is runnable with zero Scenes; Decisions are
+  Beat-owned with an optional Scene projection association; consequences
+  attach to Beats and Options only.
+- **Serialization:** `dmb-playable-element:v2` — Beat at H2, Scene and
+  Decision (wire kind `choice`) both at H3 as Beat-owned siblings
+  distinguished by directive kind, Option as a marked list item, with
+  authored consequence blocks and `activates`/`suppresses` transition
+  edges on Options.
+- **Manifest:** `dmb_play_run_reference_manifest_v2` seals identity,
+  membership, parentage, and transition edges; prose/titles remain in the
+  pinned revision bytes.
+- **Current position:** `currentBeatId` is required once READY (seeded
+  explicitly at admission); `currentSceneId` is optional and must belong to
+  the current Beat.
+- **Relevance:** derived from sealed edges plus durable selections; never
+  persisted separately.
+- **Migration/rebase:** v1 sealed Runs remain openable under v1 semantics only while their bound revision/digest is still the current workspace revision (the existing admission rule; no historical revision archive exists or is created);
+  v1→v2 adoption is an explicit one-way authoring action producing a new
+  revision; a v1 Run whose Runbook advanced to v2 is `rebase_required` and terminally so, because cross-grammar Run rebase is fail-closed in the first
+  implementation; same-grammar rebase stays preserve-only with parent-Beat
+  changes treated as semantic incompatibility.
 
-- P1 structure and serialization;
-- P2B1 manifest membership and versioning;
-- P2B2 current-position semantics;
-- migration/reconciliation of existing sealed Runs and manifests;
-- P2C migration/rebase behavior for the changed containment model.
-
-This revision records that redesign gate only. It does not claim compatibility
-with current containment, implement the new grammar, or migrate/rebase sealed
-runtime data.
+The shipped P1/P2 wiring remains Scene-first and **not structurally
+compatible** with this model: current `main` places Scene at H2 and
+Beat/Choice at H3, requires every Beat/Choice to belong to a Scene, and
+rejects a current Beat unless it belongs to the current Scene. The frozen
+contract above is therefore implemented only through the reviewed slice
+sequence selected by
+`Docs/Plans/HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md` — not by
+patching v1 containment.
 
 ### 5.1 Runbook
 
@@ -370,7 +387,15 @@ choiceId → selected optionId
 
 Runtime does not know that an option means `celebration`, `fire`, `guild`, or any other adventure-specific concept except through the authored Playable Material.
 
-The existing stable Choice / Option identity (merged in P1C) is the first candidate storage primitive for Decisions. Whether a Decision needs semantics beyond Choice + Options + consequences is a reviewed design question, not something to invent ad hoc during implementation.
+The existing stable Choice / Option identity (merged in P1C) is the durable
+storage primitive for Decisions: `choice` remains the wire kind and "Decision"
+is the product word. The reviewed contract
+(`DESIGN-play-current-moment-cockpit.md` §1, §5) freezes the rest: Decisions
+are Beat-owned with an optional Scene projection association; Options carry
+authored consequences and a two-effect transition vocabulary
+(`activates`/`suppresses`); Runtime records only the selection; relevance is
+derived, never persisted; consequences are informational first and never
+automatically mutate World/Runtime state.
 
 ## 7. Runtime State
 
@@ -383,8 +408,8 @@ Run
   runId
   playableArtifactId
   playableRevisionId
-  currentBeatId?
-  currentSceneId?
+  currentBeatId        # required once READY; seeded explicitly at admission
+  currentSceneId?      # optional; must belong to currentBeatId when present
   resolvedBeatIds[]
   selections: { choiceId: optionId }
   notesByElementId: { playableElementId: text }
@@ -392,7 +417,11 @@ Run
   updatedAt
 ```
 
-This is conceptual architecture, not a frozen wire schema.
+This is conceptual architecture, not a frozen wire schema. The reviewed
+current-position, selection, and relevance semantics are frozen by
+`DESIGN-play-current-moment-cockpit.md` §4–§5; relevance is derived from
+sealed manifest edges plus selections and is never persisted as a second
+copy.
 
 Two C2S27 findings activate here:
 
@@ -408,9 +437,12 @@ Two C2S27 findings activate here:
 - A Play run may link to Combat runtime rather than absorbing combat fields.
 - Reload/restart must preserve run state needed to continue the table.
 - If the Playable revision changes, migration/rebase must be explicit when referenced IDs are removed or semantically replaced.
-- The Beat-first redesign must not be implemented against current P1/P2
-  containment, manifest, current-position, sealed-Run, or rebase assumptions
-  until the reviewed redesign and migration behavior exist.
+- The Beat-first model is implemented only through the reviewed slice sequence
+  selected by `HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`; v1
+  sealed Runs remain openable under v1 semantics while their bound revision
+  stays current (no historical revision archive), v1→v2 adoption is an explicit
+  one-way authoring action producing a new revision, and cross-grammar Run
+  rebase fails closed (see `DESIGN-play-current-moment-cockpit.md` §6–§7).
 
 ## 8. Projection architecture
 
