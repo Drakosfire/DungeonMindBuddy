@@ -5,6 +5,7 @@ import type {
   PlayRunRecord,
   PlayRunReferenceElement,
   PlayRunReferenceManifest,
+  PlayRunReferenceManifestV2,
   WorkspaceDocumentRecord,
   WorkspaceDocumentSnapshot,
 } from "../../api/types";
@@ -251,41 +252,38 @@ describe("admitNativeRunbook", () => {
 
   it("BF1 rollout gate: refuses a sealed v2 manifest even when binding fields agree", () => {
     // BF1 allows v2 Runs to be created and sealed, but native Runbook
-    // admission stays v1-only until BF2 seeds currentBeatId. A sealed v2
-    // manifest must therefore fail closed here, at the owning boundary.
-    const v2Manifest = {
+    // admission stays v1-only until BF2 seeds currentBeatId. A genuinely
+    // sealed BF1 v2 manifest — typed against the canonical wire contract so
+    // the compiler rejects any drift from the backend schema — must fail
+    // closed here, at the owning boundary.
+    const v2Manifest: PlayRunReferenceManifestV2 = {
       schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: RUN_ID,
       playable_artifact_id: ARTIFACT_ID,
       playable_revision: 3,
       playable_content_sha256: CONTENT_SHA,
-      beats: [{
-        beat_id: "beat:hold-the-gate",
-        beat_kind: "spine",
-        scene_ids: ["scene:gate-line"],
-        choice_ids: ["choice:who-gets-through"],
-      }],
+      sealed_at: "2026-08-17T00:00:00Z",
+      beats: [
+        { beat_id: "beat:hold-the-gate", beat_kind: "spine" },
+        { beat_id: "beat:panic-breaks", beat_kind: "optional" },
+      ],
       scenes: [{ scene_id: "scene:gate-line", beat_id: "beat:hold-the-gate" }],
       choices: [{
         choice_id: "choice:who-gets-through",
         beat_id: "beat:hold-the-gate",
         scene_id: "scene:gate-line",
-        option_ids: ["option:cure-line-first"],
       }],
       options: [{
         option_id: "option:cure-line-first",
         choice_id: "choice:who-gets-through",
-        activates: ["beat:panic-breaks"],
-        suppresses: [],
       }],
       edges: [{
         option_id: "option:cure-line-first",
-        effect: "activates",
+        effect: "activate",
         target_kind: "beat",
         target_id: "beat:panic-breaks",
       }],
-      sealed_at: "2026-08-17T00:00:00Z",
-    } as const;
+    };
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: v2Manifest,

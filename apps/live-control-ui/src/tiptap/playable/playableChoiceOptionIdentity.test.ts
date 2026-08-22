@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../markdown/markdownToTiptap";
+import { indexPlayableStructureV2 } from "./playableStructureIndex";
 import { PLAYABLE_ELEMENT_DIAGNOSTIC, PlayableIdentitySerializationError } from "./playableElementIdentity";
 import { indexPlayableStructure } from "./playableStructureIndex";
 
@@ -316,6 +317,114 @@ describe("v2 Beat-first grammar", () => {
     const json = JSON.stringify(reimported.doc);
     expect(json).toContain("option:cure-line-first");
     expect(json).toContain("option:families-first");
+  });
+
+  it("preserves every Option identity when ordinary editing puts two marked Options in one list", () => {
+    // Editor JSON state after e.g. merging two option lists: both items carry
+    // canonical v2 option identity inside a single list. Save must not drop
+    // the second Option's ID/edges.
+    const edited = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: {
+            level: 2,
+            playableElementKind: "beat",
+            playableElementId: "beat:hold-the-gate",
+            playableElementVersion: "v2",
+            playableBeatKind: "spine",
+          },
+          content: [{ type: "text", text: "Hold the gate" }],
+        },
+        {
+          type: "heading",
+          attrs: {
+            level: 3,
+            playableElementKind: "choice",
+            playableElementId: "choice:who-gets-through",
+            playableElementVersion: "v2",
+          },
+          content: [{ type: "text", text: "Who gets through first?" }],
+        },
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              attrs: {
+                playableElementKind: "option",
+                playableElementId: "option:cure-line-first",
+                playableElementVersion: "v2",
+                playableActivates: ["beat:panic-breaks"],
+              },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Prioritize the cure line" }] }],
+            },
+            {
+              type: "listItem",
+              attrs: {
+                playableElementKind: "option",
+                playableElementId: "option:families-first",
+                playableElementVersion: "v2",
+                playableSuppresses: ["beat:meat-flank"],
+              },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Keep families together" }] }],
+            },
+          ],
+        },
+        {
+          type: "heading",
+          attrs: {
+            level: 2,
+            playableElementKind: "beat",
+            playableElementId: "beat:panic-breaks",
+            playableElementVersion: "v2",
+            playableBeatKind: "optional",
+          },
+          content: [{ type: "text", text: "Panic breaks" }],
+        },
+        {
+          type: "heading",
+          attrs: {
+            level: 2,
+            playableElementKind: "beat",
+            playableElementId: "beat:meat-flank",
+            playableElementVersion: "v2",
+            playableBeatKind: "interrupt",
+          },
+          content: [{ type: "text", text: "Meat flank" }],
+        },
+      ],
+    };
+
+    const exported = tiptapJsonToSemanticMarkdown(edited);
+    expect(exported).toContain(
+      "<!-- dmb-playable-element:v2 kind=option id=option:cure-line-first activates=beat:panic-breaks -->",
+    );
+    expect(exported).toContain(
+      "<!-- dmb-playable-element:v2 kind=option id=option:families-first suppresses=beat:meat-flank -->",
+    );
+
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    const json = JSON.stringify(reimported.doc);
+    expect(json).toContain("option:cure-line-first");
+    expect(json).toContain("option:families-first");
+    expect(json).toContain('"playableActivates":["beat:panic-breaks"]');
+    expect(json).toContain('"playableSuppresses":["beat:meat-flank"]');
+
+    // The re-imported structure indexes with both Options under the Decision.
+    const indexed = indexPlayableStructureV2(reimported.doc);
+    expect(indexed.status).toBe("ready");
+    if (indexed.status !== "ready") throw new Error("expected ready");
+    expect(indexed.index.choices[0]?.optionOrder).toEqual([
+      "option:cure-line-first",
+      "option:families-first",
+    ]);
+    expect(indexed.index.options.map((option) => option.optionId)).toEqual([
+      "option:cure-line-first",
+      "option:families-first",
+    ]);
   });
 
   it("fails closed on mixed v1/v2 structural directives", () => {
