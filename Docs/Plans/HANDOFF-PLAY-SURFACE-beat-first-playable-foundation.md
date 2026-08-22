@@ -126,6 +126,12 @@ false:
    seal derives from the exact still-current bound revision/SHA and fails
    closed if the workspace has advanced; replay uses the immutable sidecar
    only.
+   The frontend manifest contract moves with it: `api/types.ts` gains a
+   `PlayRunReferenceManifestV2` interface and `PlayRunReferenceManifest`
+   becomes a discriminated union `V1 | V2` keyed on `schema_version`, so
+   `getPlayRunReferenceManifest()` can return either version truthfully.
+   Existing v1 consumers narrow on the discriminator and are otherwise
+   unchanged.
 5. **Rollout gate** per design contract §3.4: Run creation against a v2
    revision succeeds and seals the v2 manifest, but the new Run never reaches
    a READY cockpit. The gate lives at the boundary that decides Play
@@ -164,6 +170,10 @@ false:
   rendering order come from the pinned revision bytes.
 - All sealed edges are immutable for the Run's revision.
 - The §3.4 rollout gate: v2 Runs never reach READY in this slice.
+- The client manifest contract is a discriminated union on
+  `schema_version` (`"dmb_play_run_reference_manifest_v1"` |
+  `"dmb_play_run_reference_manifest_v2"`); no `as any`, no optional-everything
+  bag, and no silent widening of the v1 literal type.
 
 If implementation discovers these are unimplementable as written, stop and
 hand back to stewardship with the concrete blocker; do not improvise a new
@@ -183,6 +193,7 @@ Concrete expected paths (verified against the repo at design time):
 | Runbook descriptor / admission | `apps/live-control-ui/src/tiptap/descriptors/tiptapRunbookDescriptors.ts`, `apps/live-control-ui/src/tiptap/descriptors/tiptapRunbookDescriptors.test.ts`, `apps/live-control-ui/src/tiptap/markdown/markdownAdmission.ts` |
 | Choice authoring integration test | `apps/live-control-ui/src/workspaceDocument/useWorkspaceDocumentAuthoring.playableChoice.test.tsx` |
 | Native admission gate | `apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.ts`, `apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.test.ts` |
+| Client manifest type contract | `apps/live-control-ui/src/api/types.ts` (v1/v2 discriminated union on `schema_version`; posture in §3) |
 | v2 manifest service | `apps/live_control_server/services/play_run_reference_manifest.py` |
 | Run creation / admission routes | `apps/live_control_server/routes/play_runs.py` |
 | Run registry (gate flag) | `apps/live_control_server/services/play_run_registry.py` |
@@ -195,9 +206,13 @@ Anything outside the listed files and their same-directory siblings requires
 amending this handoff first.
 
 No changes to: Runtime progress services (`play_run_progress*`,
-`play_run_rebase*`), Play surface UI (`src/playSurface/**`), Plan surface UI,
-Combat, migration tooling, or documentation authorities (except the roadmap
-ledger row required by the living-roadmap contract).
+`play_run_rebase*`), Plan surface UI, Combat, migration tooling, or
+documentation authorities (except the roadmap ledger row required by the
+living-roadmap contract). Play surface UI (`src/playSurface/**`) is also
+off-limits **except** the two native-admission gate files explicitly named
+in the lease table (`nativeRunbookProjection.ts` and its test) — the
+rollout gate lives at that boundary, so those files are required, not
+forbidden.
 
 ---
 
