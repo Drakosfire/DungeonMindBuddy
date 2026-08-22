@@ -353,18 +353,26 @@ derivation integrity-checked against the sealed revision:
 
 The READY invariant ("a READY v2 Run has a seeded `currentBeatId`", §4) and
 the BF1 slice boundary ("no Runtime current-position change", §15) meet here.
-The gate is explicit:
+The gate is explicit, and it lives at the boundary that actually decides Play
+readiness:
 
-- BF1 ships v2 grammar, structure index, and v2 manifest seal/replay. Run
-  creation against a v2 revision succeeds and seals the v2 manifest, but the
-  new Run holds **no `currentBeatId`** and is **never admitted to READY**:
-  the admission path rejects it fail-closed (`v2 Run admission requires the
-  BF2 current-position slice`). The Run record is truthful about this state,
-  exactly like an incomplete-seal Run.
-- BF2 lands the §4 seeding rule and flips v2 admission on. At no merge point
-  can a v2 Run be READY without a seeded `currentBeatId`.
-- v1 Runs are unaffected: they create, seal, and admit exactly as on current
-  `main`.
+- **Two different "ready" signals must not be conflated.** Run create+seal
+  returning `outcome: "ready"` is a Run-record outcome only; actual Play
+  readiness is decided later, by native Runbook admission
+  (`nativeRunbookProjection`), which is also where `rebase_required` and the
+  other failure statuses come from.
+- **The gate is the existing v1-only admission guard.** Native admission
+  today fails closed when the sealed manifest's `schema_version` is not
+  `dmb_play_run_reference_manifest_v1`. BF1 keeps that guard exactly v1-only:
+  a v2 Run can be created and can seal a v2 manifest (proving §3 seal/replay),
+  but native admission refuses it, so no v2 Run ever projects as a READY
+  cockpit in this slice. BF1's evidence must exercise that admission boundary
+  directly — a created-and-sealed v2 Run blocked at native admission — not
+  merely the create+seal outcome.
+- BF2 lands the §4 seeding rule and extends native admission to v2. At no
+  merge point can a v2 Run be READY without a seeded `currentBeatId`.
+- v1 Runs are unaffected: they create, seal, admit, and project exactly as on
+  current `main`.
 
 ---
 
@@ -515,6 +523,16 @@ The cockpit makes one Decision dominant, but there is intentionally no durable
   exist in other Scenes or Beats — reaching those is navigation, not
   focus. This keeps focus coherent with the all-visible rule: focus can
   only name a Decision the GM can already see and operate.
+- **"Unresolved" defined:** a Decision is unresolved exactly when
+  `selections[choiceId]` has no entry — there is no separate
+  Decision-resolution state, and none is added. Selecting an Option
+  resolves the Decision; clearing the selection makes it unresolved
+  again. Neither selecting nor clearing moves focus by itself: focus
+  stays where the GM put it, so a just-selected Decision remains focused
+  while its consequences are visible (State 4). Focus is recomputed to
+  the first unresolved in-context Decision only when the current context
+  changes (Beat/Scene navigation) or the focused Decision leaves the
+  context; if none is unresolved at that point, focus is null.
 - **Never authority:** focus is never persisted, never blocks navigation,
   never changes relevance derivation, and is never required to make a
   selection — any visible Decision accepts its selection mutation directly.
@@ -542,11 +560,11 @@ Runs. The posture is explicit and conservative:
 - No "pick newest/first" fallback, ever.
 - No destructive cleanup of historical Runs as a migration strategy.
 - v1→v2 document conversion is an authoring event that produces a new
+  revision with new content; it is not a Runtime operation.
 - "Legacy reader" never implies a historical revision archive: it means the
   existing v1 admission path, bounded by the existing bound-revision rule.
   A v1 Run whose Runbook has advanced is `rebase_required`; when the current
   revision is v2, that state is terminal (cross-grammar rebase is refused).
-  revision with new content; it is not a Runtime operation.
 
 ---
 
@@ -970,8 +988,9 @@ successor handoff in this design PR.
   membership and edges replay without consulting current workspace state.
 - Expected production write lease: Playable grammar/serialization, structure
   index, manifest service/routes, and their tests.
-- Rollout gate: §3.4 applies — BF1 seals v2 manifests but never admits a
-  v2 Run to READY; BF2 lands the §4 seed and flips admission.
+- Rollout gate: §3.4 applies — BF1 seals v2 manifests but native Runbook
+  admission stays v1-only, so no v2 Run reaches a READY cockpit; BF2
+  lands the §4 seed and extends admission to v2.
 - Runtime state collisions: none — v1 Runs and manifests untouched.
 - Predecessor: this design PR.
 - Remains false after merge: cockpit UI, v2 current-position semantics,

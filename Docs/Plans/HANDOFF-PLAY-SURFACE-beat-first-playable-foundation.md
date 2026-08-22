@@ -64,7 +64,7 @@ relevance projection, and no migration tooling**.
 
 ### Merge-ready invariant
 
-> **A Runbook authored with `dmb-playable-element:v2` round-trips through import, TipTap edit, save, and committed reload with stable Beat/Scene/Decision/Option identity; validation fails closed on illegal containment, duplicate IDs, bad transition edges, and mixed grammar versions; and a Run created against a v2 revision seals a `dmb_play_run_reference_manifest_v2` whose membership, parentage, and transition edges replay without consulting current workspace state. The §3.4 rollout gate holds: no v2 Run reaches READY in this slice. Existing v1 documents, manifests, and Runs behave exactly as before.**
+> **A Runbook authored with `dmb-playable-element:v2` round-trips through import, TipTap edit, save, and committed reload with stable Beat/Scene/Decision/Option identity; validation fails closed on illegal containment, duplicate IDs, bad transition edges, and mixed grammar versions; and a Run created against a v2 revision seals a `dmb_play_run_reference_manifest_v2` whose membership, parentage, and transition edges replay without consulting current workspace state. The §3.4 rollout gate holds at the owning boundary: native Runbook admission stays v1-only, so no v2 Run reaches a READY cockpit in this slice. Existing v1 documents, manifests, and Runs behave exactly as before.**
 
 ### What may be true after merge
 
@@ -127,10 +127,15 @@ false:
    closed if the workspace has advanced; replay uses the immutable sidecar
    only.
 5. **Rollout gate** per design contract §3.4: Run creation against a v2
-   revision succeeds and seals the v2 manifest, but the new Run holds no
-   `currentBeatId` and the admission path rejects it fail-closed
-   (`v2 Run admission requires the BF2 current-position slice`). v1 Runs
-   create, seal, and admit exactly as on current `main`.
+   revision succeeds and seals the v2 manifest, but the new Run never reaches
+   a READY cockpit. The gate lives at the boundary that decides Play
+   readiness — native Runbook admission (`nativeRunbookProjection`), whose
+   existing guard fails closed unless the sealed manifest is
+   `dmb_play_run_reference_manifest_v1`. This slice keeps that guard exactly
+   v1-only and tests it as the gate. Note the two distinct "ready" signals:
+   create+seal `outcome: "ready"` is a Run-record outcome, not Play
+   readiness. v1 Runs create, seal, admit, and project exactly as on current
+   `main`.
 6. **Coexistence**: v1 documents/manifests/Runs are untouched and keep v1
    semantics; unknown schema versions fail closed.
 
@@ -177,6 +182,7 @@ Concrete expected paths (verified against the repo at design time):
 | v2 structure index | `apps/live-control-ui/src/tiptap/playable/playableStructureIndex.ts`, `apps/live-control-ui/src/tiptap/playable/playableStructureIndex.test.ts` |
 | Runbook descriptor / admission | `apps/live-control-ui/src/tiptap/descriptors/tiptapRunbookDescriptors.ts`, `apps/live-control-ui/src/tiptap/descriptors/tiptapRunbookDescriptors.test.ts`, `apps/live-control-ui/src/tiptap/markdown/markdownAdmission.ts` |
 | Choice authoring integration test | `apps/live-control-ui/src/workspaceDocument/useWorkspaceDocumentAuthoring.playableChoice.test.tsx` |
+| Native admission gate | `apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.ts`, `apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.test.ts` |
 | v2 manifest service | `apps/live_control_server/services/play_run_reference_manifest.py` |
 | Run creation / admission routes | `apps/live_control_server/routes/play_runs.py` |
 | Run registry (gate flag) | `apps/live_control_server/services/play_run_registry.py` |
@@ -199,8 +205,9 @@ ledger row required by the living-roadmap contract).
 
 1. Focused backend tests: v2 seal/replay, fail-closed validation matrix,
    coexistence with v1 fixtures, workspace-advanced seal refusal, and the
-   §3.4 gate (v2 Run created + sealed but never READY-admitted; v1 admission
-   unchanged).
+   §3.4 gate at the owning boundary: a created-and-sealed v2 Run is refused
+   by native Runbook admission (schema guard stays v1-only), proving no
+   READY cockpit is reachable; v1 admission unchanged.
 2. Focused frontend tests: v2 parse/serialize round trip, stable identity
    through rename, Scene/Decision H3-sibling disambiguation, fence-literal
    treatment, D2 termination rule.
