@@ -228,3 +228,78 @@ def test_invalid_and_unknown_runs_fail_closed_over_http(
     corrupt = client.get(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
     assert corrupt.status_code == 500
     assert path.read_text(encoding="utf-8") == "{nope"
+V2_MARKDOWN = (
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:hold-the-gate beat_kind=spine -->\n"
+    "## Hold the gate\n"
+    "\n"
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:gate-line -->\n"
+    "### The gate line\n"
+    "\n"
+    "<!-- dmb-playable-element:v2 kind=choice id=choice:who-gets-through scene=scene:gate-line -->\n"
+    "### Who gets through first?\n"
+    "\n"
+    "<!-- dmb-playable-element:v2 kind=option id=option:cure-line-first activates=beat:panic-breaks -->\n"
+    "- Prioritize the cure line\n"
+    "\n"
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:panic-breaks beat_kind=optional -->\n"
+    "## Panic breaks\n"
+)
+
+
+def test_v2_seal_and_replay_over_http(client: TestClient, root: Path) -> None:
+    snapshot = _create_committed_runbook(root, name="v2-live-manifest", markdown=V2_MARKDOWN)
+    created = _create_run(client, snapshot)
+
+    sealed = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
+    assert sealed.status_code == 200
+    body = sealed.json()
+    assert body["schema_version"] == "dmb_play_run_reference_manifest_v2"
+    assert body["run_id"] == RUN_ID_A
+    assert body["playable_revision"] == created["playable_revision"]
+    assert body["playable_content_sha256"] == created["playable_content_sha256"]
+    assert body["beats"] == [
+        {"beat_id": "beat:hold-the-gate", "beat_kind": "spine"},
+        {"beat_id": "beat:panic-breaks", "beat_kind": "optional"},
+    ]
+    assert body["scenes"] == [
+        {"scene_id": "scene:gate-line", "beat_id": "beat:hold-the-gate"},
+    ]
+    assert body["choices"] == [
+        {
+            "choice_id": "choice:who-gets-through",
+            "beat_id": "beat:hold-the-gate",
+            "scene_id": "scene:gate-line",
+        },
+    ]
+    assert body["options"] == [
+        {"option_id": "option:cure-line-first", "choice_id": "choice:who-gets-through"},
+    ]
+    assert body["edges"] == [
+        {
+            "option_id": "option:cure-line-first",
+            "effect": "activate",
+            "target_kind": "beat",
+            "target_id": "beat:panic-breaks",
+        },
+    ]
+    assert "elements" not in body
+
+    fetched = client.get(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
+    assert fetched.status_code == 200
+    assert fetched.json() == body
+
+
+def test_v2_invalid_document_seal_returns_409_over_http(
+    client: TestClient, root: Path
+) -> None:
+    snapshot = _create_committed_runbook(
+        root,
+        name="v2-live-invalid",
+        markdown=(
+            "<!-- dmb-playable-element:v2 kind=choice id=choice:orphan -->\n### Orphan\n"
+        ),
+    )
+    _create_run(client, snapshot)
+    response = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
+    assert response.status_code == 409
+    assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()

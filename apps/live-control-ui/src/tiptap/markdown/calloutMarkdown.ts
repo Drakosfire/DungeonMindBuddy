@@ -8,6 +8,7 @@ import {
   playableSerializationFailures,
   validatePlayableHeadingAttrs,
 } from "../playable/playableElementIdentity";
+import { formatPlayableOptionListItemMarker } from "./playableOptionMarker";
 
 export const CALLOUT_KINDS = ["read-aloud", "gm-note", "rules", "warning"] as const;
 
@@ -297,12 +298,20 @@ function serializeNode(node: JsonNode): string {
     case "horizontalRule":
       return "---";
     case "bulletList":
-      return childNodes(node).map((child) => serializeListItem(child, "- ")).join("\n");
+      return childNodes(node).map((child) => {
+        const optionMarker = formatPlayableOptionListItemMarker(child);
+        const item = serializeListItem(child, "- ");
+        return optionMarker ? `${optionMarker}\n${item}` : item;
+      }).join("\n");
     case "orderedList": {
       const start = Number(node.attrs?.start);
       const first = Number.isInteger(start) ? start : 1;
       return childNodes(node)
-        .map((child, index) => serializeListItem(child, `${first + index}. `))
+        .map((child, index) => {
+          const optionMarker = formatPlayableOptionListItemMarker(child);
+          const item = serializeListItem(child, `${first + index}. `);
+          return optionMarker ? `${optionMarker}\n${item}` : item;
+        })
         .join("\n");
     }
     case "listItem":

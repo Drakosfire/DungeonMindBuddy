@@ -5,6 +5,7 @@ import type {
   PlayRunRecord,
   PlayRunReferenceElement,
   PlayRunReferenceManifest,
+  PlayRunReferenceManifestV1,
   WorkspaceDocumentSnapshot,
 } from "../../api/types";
 import {
@@ -66,7 +67,7 @@ export type NativeRunbookScene = NativeRunbookAuthoredElement & {
 export type NativeRunbookReadyDeck = {
   status: "ready";
   run: PlayRunRecord;
-  manifest: PlayRunReferenceManifest;
+  manifest: PlayRunReferenceManifestV1;
   snapshot: WorkspaceDocumentSnapshot;
   importedDoc: JSONContent;
   structure: PlayableStructureIndex;
@@ -245,7 +246,7 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
 
 function compareMembership(
   structure: PlayableStructureIndex,
-  manifest: PlayRunReferenceManifest,
+  manifest: PlayRunReferenceManifestV1,
 ): string | null {
   const fromStructure = new Set(structure.elements.map(structureMembershipKey));
   const fromManifest = new Set(manifest.elements.map((element) => membershipKey(element)));
@@ -262,11 +263,8 @@ function compareMembership(
 
 function bindingMismatch(
   run: PlayRunRecord,
-  manifest: PlayRunReferenceManifest,
+  manifest: PlayRunReferenceManifestV1,
 ): string | null {
-  if (manifest.schema_version !== "dmb_play_run_reference_manifest_v1") {
-    return "sealed reference manifest schema_version is not dmb_play_run_reference_manifest_v1";
-  }
   if (manifest.run_id !== run.run_id) {
     return "sealed reference manifest run_id does not match the Run";
   }
@@ -447,6 +445,15 @@ export function admitNativeRunbook(input: {
 
   const workspaceFailure = workspaceBindingFailure(run, snapshot);
   if (workspaceFailure) return workspaceFailure;
+
+  // Rollout gate (BF1): native Runbook admission is v1-only. A created+sealed
+  // v2 Run is refused here until BF2 lands v2 current-position semantics.
+  if (manifest.schema_version !== "dmb_play_run_reference_manifest_v1") {
+    return failed(
+      "integrity_failure",
+      "sealed reference manifest schema_version is not dmb_play_run_reference_manifest_v1",
+    );
+  }
 
   const manifestFailure = bindingMismatch(run, manifest);
   if (manifestFailure) return failed("integrity_failure", manifestFailure);

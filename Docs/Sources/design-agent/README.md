@@ -1,8 +1,8 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies  
-**Source capture basis:** 2026-08-21 post-PR #626 PLAY-SURFACE Lane A2 merge under CON-READY parent acceptance, plus Lane A3 current-moment-cockpit design dispatch, based on `1662912b8f878911390df654329631b3cf927590`
-**Export refreshed:** 2026-08-20  
+**Source capture basis:** 2026-08-22 post-PR #627 PLAY-SURFACE Lane A3 current-moment cockpit design merge under CON-READY parent acceptance, plus BF1 beat-first Playable foundation dispatch, based on `f8354f5659f5ff5188ad549419dffa4bbf3ed2ba`
+**Export refreshed:** 2026-08-22  
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate / Project Sources.

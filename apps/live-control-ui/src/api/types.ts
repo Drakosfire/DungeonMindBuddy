@@ -1436,7 +1436,11 @@ export interface WorkspaceDocumentSnapshot {
 
 export type PlayRunRecordSchema = "dmb_play_run_record_v1";
 export type PlayRunsListSchema = "dmb_play_runs_list_v1";
-export type PlayRunReferenceManifestSchema = "dmb_play_run_reference_manifest_v1";
+export type PlayRunReferenceManifestV1Schema = "dmb_play_run_reference_manifest_v1";
+export type PlayRunReferenceManifestV2Schema = "dmb_play_run_reference_manifest_v2";
+export type PlayRunReferenceManifestSchema =
+  | PlayRunReferenceManifestV1Schema
+  | PlayRunReferenceManifestV2Schema;
 export type PlayActiveRunSchema = "dmb_play_active_run_v1";
 export type PlayableReferenceKind = "scene" | "beat" | "choice" | "option";
 
@@ -1495,8 +1499,8 @@ export interface PlayRunReferenceElement {
   choice_id?: string | null;
 }
 
-export interface PlayRunReferenceManifest {
-  schema_version: PlayRunReferenceManifestSchema;
+export interface PlayRunReferenceManifestV1 {
+  schema_version: PlayRunReferenceManifestV1Schema;
   run_id: string;
   playable_artifact_id: string;
   playable_revision: number;
@@ -1504,6 +1508,62 @@ export interface PlayRunReferenceManifest {
   elements: PlayRunReferenceElement[];
   sealed_at: string;
 }
+
+export type PlayRunManifestV2BeatKind = "spine" | "optional" | "interrupt";
+export type PlayRunManifestV2EdgeEffect = "activate" | "suppress";
+export type PlayRunManifestV2EdgeTargetKind = "beat" | "scene";
+
+export interface PlayRunManifestV2Beat {
+  beat_id: string;
+  beat_kind?: PlayRunManifestV2BeatKind | null;
+}
+
+export interface PlayRunManifestV2Scene {
+  scene_id: string;
+  beat_id: string;
+}
+
+export interface PlayRunManifestV2Choice {
+  choice_id: string;
+  beat_id: string;
+  scene_id?: string | null;
+}
+
+export interface PlayRunManifestV2Option {
+  option_id: string;
+  choice_id: string;
+}
+
+export interface PlayRunManifestV2Edge {
+  option_id: string;
+  effect: PlayRunManifestV2EdgeEffect;
+  target_kind: PlayRunManifestV2EdgeTargetKind;
+  target_id: string;
+}
+
+export interface PlayRunReferenceManifestV2 {
+  schema_version: PlayRunReferenceManifestV2Schema;
+  run_id: string;
+  playable_artifact_id: string;
+  playable_revision: number;
+  playable_content_sha256: string;
+  sealed_at: string;
+  beats: PlayRunManifestV2Beat[];
+  scenes: PlayRunManifestV2Scene[];
+  choices: PlayRunManifestV2Choice[];
+  options: PlayRunManifestV2Option[];
+  edges: PlayRunManifestV2Edge[];
+}
+
+/**
+ * Run-bound reference manifest wire contract. `schema_version` discriminates:
+ * v1 is the Scene-first flat element list; v2 is the Beat-first
+ * Beat/Scene/Choice/Option membership plus sealed transition edges. Consumers
+ * must narrow on `schema_version` before touching version-specific payloads.
+ */
+export type PlayRunReferenceManifest =
+  | PlayRunReferenceManifestV1
+  | PlayRunReferenceManifestV2;
 
 export interface TiptapMarkdownWritePrepareRequest {
   document_id: string;

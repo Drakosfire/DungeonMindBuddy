@@ -5,6 +5,7 @@ import type {
   PlayRunRecord,
   PlayRunReferenceElement,
   PlayRunReferenceManifest,
+  PlayRunReferenceManifestV2,
   WorkspaceDocumentRecord,
   WorkspaceDocumentSnapshot,
 } from "../../api/types";
@@ -247,6 +248,50 @@ describe("admitNativeRunbook", () => {
       snapshot: snapshot(),
     });
     expect(admitted.status).toBe("integrity_failure");
+  });
+
+  it("BF1 rollout gate: refuses a sealed v2 manifest even when binding fields agree", () => {
+    // BF1 allows v2 Runs to be created and sealed, but native Runbook
+    // admission stays v1-only until BF2 seeds currentBeatId. A genuinely
+    // sealed BF1 v2 manifest — typed against the canonical wire contract so
+    // the compiler rejects any drift from the backend schema — must fail
+    // closed here, at the owning boundary.
+    const v2Manifest: PlayRunReferenceManifestV2 = {
+      schema_version: "dmb_play_run_reference_manifest_v2",
+      run_id: RUN_ID,
+      playable_artifact_id: ARTIFACT_ID,
+      playable_revision: 3,
+      playable_content_sha256: CONTENT_SHA,
+      sealed_at: "2026-08-17T00:00:00Z",
+      beats: [
+        { beat_id: "beat:hold-the-gate", beat_kind: "spine" },
+        { beat_id: "beat:panic-breaks", beat_kind: "optional" },
+      ],
+      scenes: [{ scene_id: "scene:gate-line", beat_id: "beat:hold-the-gate" }],
+      choices: [{
+        choice_id: "choice:who-gets-through",
+        beat_id: "beat:hold-the-gate",
+        scene_id: "scene:gate-line",
+      }],
+      options: [{
+        option_id: "option:cure-line-first",
+        choice_id: "choice:who-gets-through",
+      }],
+      edges: [{
+        option_id: "option:cure-line-first",
+        effect: "activate",
+        target_kind: "beat",
+        target_id: "beat:panic-breaks",
+      }],
+    };
+    const admitted = admitNativeRunbook({
+      run: runRecord(),
+      manifest: v2Manifest,
+      snapshot: snapshot(),
+    });
+    expect(admitted.status).toBe("integrity_failure");
+    if (admitted.status !== "integrity_failure") throw new Error("v2 must not reach READY in BF1");
+    expect(admitted.reason).toMatch(/schema|version|v1/i);
   });
 
   it("fails closed when client P1 structure disagrees with the sealed manifest", () => {

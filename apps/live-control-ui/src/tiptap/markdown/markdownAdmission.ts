@@ -22,6 +22,7 @@ import {
 import {
   duplicatePlayableIds,
   headingLevelForPlayableKind,
+  headingLevelForPlayableKindV2,
   parsePlayableHtmlComment,
   PLAYABLE_ELEMENT_DIAGNOSTIC,
   type PlayableElementIdentity,
@@ -411,6 +412,21 @@ function visitPlayableHeading(
   state: VisitorState,
 ): TiptapNode {
   const heading = visitHeading(node, context, state);
+  if (identity.version === "v2") {
+    const level = headingLevelForPlayableKindV2(identity.kind);
+    return {
+      ...heading,
+      attrs: {
+        ...heading.attrs,
+        level: level ?? heading.attrs?.level,
+        playableElementKind: identity.kind,
+        playableElementId: identity.id,
+        playableElementVersion: "v2",
+        ...(identity.beatKind ? { playableBeatKind: identity.beatKind } : {}),
+        ...(identity.sceneId ? { playableSceneId: identity.sceneId } : {}),
+      },
+    };
+  }
   return {
     ...heading,
     attrs: {
@@ -422,11 +438,37 @@ function visitPlayableHeading(
   };
 }
 
+/** Attach a v2 Option identity to the first item of the following list. */
+function visitPlayableOptionList(
+  node: List,
+  identity: PlayableElementIdentity,
+  state: VisitorState,
+): TiptapNode[] {
+  const projected = visitList(node, "document", state);
+  const firstList = projected[0];
+  const firstItem = firstList?.content?.[0] as TiptapNode | undefined;
+  if (firstList && firstItem && typeof firstItem === "object") {
+    firstItem.attrs = {
+      ...(firstItem.attrs ?? {}),
+      playableElementKind: "option",
+      playableElementId: identity.id,
+      playableElementVersion: "v2",
+      ...(identity.activates?.length ? { playableActivates: [...identity.activates] } : {}),
+      ...(identity.suppresses?.length ? { playableSuppresses: [...identity.suppresses] } : {}),
+    };
+  }
+  return projected;
+}
+
 function htmlImmediatelyPrecedesHeading(html: Html, heading: Heading): boolean {
+  return htmlImmediatelyPrecedesBlock(html, heading);
+}
+
+function htmlImmediatelyPrecedesBlock(html: Html, block: RootContent): boolean {
   const htmlEnd = nodeEndLine(html);
-  const headingStart = nodeStartLine(heading);
-  if (headingStart === htmlEnd + 1) return true;
-  return headingStart === htmlEnd && (html.position?.end.column ?? 1) <= 1;
+  const blockStart = nodeStartLine(block);
+  if (blockStart === htmlEnd + 1) return true;
+  return blockStart === htmlEnd && (html.position?.end.column ?? 1) <= 1;
 }
 
 function visitDocumentBlocks(nodes: RootContent[], state: VisitorState): TiptapNode[] {
@@ -437,6 +479,10 @@ function visitDocumentBlocks(nodes: RootContent[], state: VisitorState): TiptapN
     if (parsed.status === "canonical") canonicalByIndex.set(index, parsed.identity);
   });
   const duplicates = duplicatePlayableIds(canonicalByIndex.values());
+  const versionsPresent = new Set(
+    [...canonicalByIndex.values()].map((identity) => identity.version ?? "v1"),
+  );
+  const mixedVersions = versionsPresent.size > 1;
 
   const projected: TiptapNode[] = [];
   for (let index = 0; index < nodes.length; index += 1) {
@@ -457,17 +503,43 @@ function visitDocumentBlocks(nodes: RootContent[], state: VisitorState): TiptapN
       continue;
     }
 
+    const identity = parsed.identity;
     const next = nodes[index + 1];
-    const duplicate = duplicates.has(parsed.identity.id);
+    const duplicate = duplicates.has(identity.id);
     if (duplicate) {
       warn(state, PLAYABLE_ELEMENT_DIAGNOSTIC.duplicate, nodeStartLine(node));
     }
+    if (mixedVersions) {
+      // Mixed v1/v2 structural directives fail closed: no identity attaches.
+      warn(state, PLAYABLE_ELEMENT_DIAGNOSTIC.mixedVersions, nodeStartLine(node));
+      projected.push(paragraphFromText(sourceSlice(node, state)));
+      continue;
+    }
+
+    if (identity.version === "v2" && identity.kind === "option") {
+      if (!next || next.type !== "list" || !htmlImmediatelyPrecedesBlock(node, next)) {
+        if (!duplicate) warn(state, PLAYABLE_ELEMENT_DIAGNOSTIC.orphanOption, nodeStartLine(node));
+        projected.push(paragraphFromText(sourceSlice(node, state)));
+        continue;
+      }
+      if (duplicate) {
+        projected.push(paragraphFromText(sourceSlice(node, state)));
+        continue;
+      }
+      projected.push(...visitPlayableOptionList(next, identity, state));
+      index += 1;
+      continue;
+    }
+
+    const expectedLevel = identity.version === "v2"
+      ? headingLevelForPlayableKindV2(identity.kind)
+      : headingLevelForPlayableKind(identity.kind);
     if (!next || next.type !== "heading" || !htmlImmediatelyPrecedesHeading(node, next)) {
       if (!duplicate) warn(state, PLAYABLE_ELEMENT_DIAGNOSTIC.orphan, nodeStartLine(node));
       projected.push(paragraphFromText(sourceSlice(node, state)));
       continue;
     }
-    if (next.depth !== headingLevelForPlayableKind(parsed.identity.kind)) {
+    if (expectedLevel === null || next.depth !== expectedLevel) {
       if (!duplicate) warn(state, PLAYABLE_ELEMENT_DIAGNOSTIC.levelMismatch, nodeStartLine(node));
       projected.push(paragraphFromText(sourceSlice(node, state)));
       continue;
@@ -477,7 +549,7 @@ function visitDocumentBlocks(nodes: RootContent[], state: VisitorState): TiptapN
       continue;
     }
 
-    projected.push(visitPlayableHeading(next, parsed.identity, "document", state));
+    projected.push(visitPlayableHeading(next, identity, "document", state));
     index += 1;
   }
   return projected;

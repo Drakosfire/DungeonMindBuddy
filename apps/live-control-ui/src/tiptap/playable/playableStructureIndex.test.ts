@@ -5,7 +5,9 @@ import { PLAYABLE_ELEMENT_DIAGNOSTIC } from "./playableElementIdentity";
 import {
   PLAYABLE_STRUCTURE_DIAGNOSTIC,
   indexPlayableStructure,
+  indexPlayableStructureV2,
   type PlayableStructureIndexResult,
+  type PlayableStructureIndexV2Result,
 } from "./playableStructureIndex";
 
 function heading(
@@ -412,5 +414,326 @@ describe("indexPlayableStructure", () => {
     expect(index.choices).toEqual([
       { choiceId: "choice:route", sceneId: "scene:a", order: 0, optionOrder: ["option:fire"] },
     ]);
+  });
+});
+// ---------------------------------------------------------------------------
+// Beat-first (v2) structure index
+// ---------------------------------------------------------------------------
+
+const V2_REPRESENTATIVE = [
+  "# Session 27 North Gate Runbook",
+  "",
+  "Ordinary prose before any structural directive stays non-semantic.",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:hold-the-gate beat_kind=spine -->",
+  "## Hold the gate",
+  "",
+  "Triage at the gate line while the refugee crush builds.",
+  "",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:gate-line -->",
+  "### The gate line",
+  "",
+  "Guards waver while Lysandro works the crowd.",
+  "",
+  "<!-- dmb-playable-element:v2 kind=choice id=choice:who-gets-through scene=scene:gate-line -->",
+  "### Who gets through first?",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:cure-line-first activates=beat:panic-breaks -->",
+  "- Prioritize the cure line",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:families-first suppresses=beat:meat-flank -->",
+  "- Keep families together",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:panic-breaks beat_kind=optional -->",
+  "## Panic breaks",
+  "",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:the-crush -->",
+  "### The crush",
+  "",
+  "The line surges against the wagons.",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:meat-flank beat_kind=interrupt -->",
+  "## Meat flank",
+  "",
+  "The sewer meat creature hits the last wagon.",
+  "",
+].join("\n");
+
+function expectReadyV2(result: PlayableStructureIndexV2Result) {
+  if (result.status !== "ready") {
+    throw new Error(`expected ready, got blocked: ${JSON.stringify(result.diagnostics)}`);
+  }
+  return result.index;
+}
+
+function expectBlockedV2(result: PlayableStructureIndexV2Result, code: string) {
+  expect(result.status).toBe("blocked");
+  if (result.status !== "blocked") throw new Error("expected blocked");
+  expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain(code);
+}
+
+describe("indexPlayableStructureV2", () => {
+  it("indexes a representative C2S27-shaped Beat/Scene/Decision/Option document", () => {
+    const imported = markdownToTiptapDoc(V2_REPRESENTATIVE);
+    expect(imported.diagnostics).toEqual([]);
+    const index = expectReadyV2(indexPlayableStructureV2(imported.doc));
+
+    expect(index.beatOrder).toEqual([
+      "beat:hold-the-gate",
+      "beat:panic-breaks",
+      "beat:meat-flank",
+    ]);
+    expect(index.beats.map((beat) => [beat.beatId, beat.beatKind])).toEqual([
+      ["beat:hold-the-gate", "spine"],
+      ["beat:panic-breaks", "optional"],
+      ["beat:meat-flank", "interrupt"],
+    ]);
+    expect(index.beats[0]).toMatchObject({
+      beatId: "beat:hold-the-gate",
+      sceneOrder: ["scene:gate-line"],
+      choiceOrder: ["choice:who-gets-through"],
+    });
+    expect(index.scenes).toEqual([
+      { sceneId: "scene:gate-line", beatId: "beat:hold-the-gate", order: 0 },
+      { sceneId: "scene:the-crush", beatId: "beat:panic-breaks", order: 1 },
+    ]);
+    expect(index.choices).toEqual([
+      {
+        choiceId: "choice:who-gets-through",
+        beatId: "beat:hold-the-gate",
+        sceneId: "scene:gate-line",
+        order: 0,
+        optionOrder: ["option:cure-line-first", "option:families-first"],
+      },
+    ]);
+    expect(index.options).toEqual([
+      {
+        optionId: "option:cure-line-first",
+        choiceId: "choice:who-gets-through",
+        order: 0,
+        activates: ["beat:panic-breaks"],
+        suppresses: [],
+      },
+      {
+        optionId: "option:families-first",
+        choiceId: "choice:who-gets-through",
+        order: 1,
+        activates: [],
+        suppresses: ["beat:meat-flank"],
+      },
+    ]);
+    // Flat element projection preserves document order across all four kinds.
+    expect(index.elements.map((element) => element.id)).toEqual([
+      "beat:hold-the-gate",
+      "scene:gate-line",
+      "choice:who-gets-through",
+      "option:cure-line-first",
+      "option:families-first",
+      "beat:panic-breaks",
+      "scene:the-crush",
+      "beat:meat-flank",
+    ]);
+  });
+
+  it("keeps Scene and Decision as distinguishable Beat-owned H3 siblings", () => {
+    const imported = markdownToTiptapDoc(V2_REPRESENTATIVE);
+    const headings = (imported.doc.content ?? []).filter(
+      (node) => node.type === "heading"
+        && (node.attrs as { playableElementKind?: string } | undefined)?.playableElementKind,
+    );
+    const byId = new Map(
+      headings.map((node) => {
+        const attrs = node.attrs as {
+          playableElementId: string;
+          playableElementKind: string;
+          level: number;
+        };
+        return [attrs.playableElementId, attrs];
+      }),
+    );
+    // Both H3, both owned by the same Beat; only the directive kind differs.
+    expect(byId.get("scene:gate-line")).toMatchObject({ level: 3, playableElementKind: "scene" });
+    expect(byId.get("choice:who-gets-through")).toMatchObject({ level: 3, playableElementKind: "choice" });
+    const index = expectReadyV2(indexPlayableStructureV2(imported.doc));
+    expect(index.scenes[0]?.beatId).toBe("beat:hold-the-gate");
+    expect(index.choices[0]?.beatId).toBe("beat:hold-the-gate");
+  });
+
+  it("blocks orphan Scene/Choice/Option containment violations", () => {
+    expectBlockedV2(
+      indexPlayableStructureV2(markdownToTiptapDoc(
+        "<!-- dmb-playable-element:v2 kind=scene id=scene:x -->\n### X\n",
+      ).doc),
+      "orphan_scene",
+    );
+    expectBlockedV2(
+      indexPlayableStructureV2(markdownToTiptapDoc(
+        "<!-- dmb-playable-element:v2 kind=choice id=choice:c -->\n### C\n",
+      ).doc),
+      "orphan_choice",
+    );
+    expectBlockedV2(
+      indexPlayableStructureV2(markdownToTiptapDoc(
+        [
+          "<!-- dmb-playable-element:v2 kind=beat id=beat:b -->",
+          "## B",
+          "<!-- dmb-playable-element:v2 kind=option id=option:o -->",
+          "- go",
+        ].join("\n"),
+      ).doc),
+      "orphan_option",
+    );
+  });
+
+  it("blocks cross-Beat and unknown Scene associations", () => {
+    expectBlockedV2(
+      indexPlayableStructureV2(markdownToTiptapDoc(
+        [
+          "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+          "## A",
+          "<!-- dmb-playable-element:v2 kind=scene id=scene:s -->",
+          "### S",
+          "<!-- dmb-playable-element:v2 kind=beat id=beat:b -->",
+          "## B",
+          "<!-- dmb-playable-element:v2 kind=choice id=choice:c scene=scene:s -->",
+          "### C",
+        ].join("\n"),
+      ).doc),
+      "bad_scene_association",
+    );
+    expectBlockedV2(
+      indexPlayableStructureV2(markdownToTiptapDoc(
+        [
+          "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+          "## A",
+          "<!-- dmb-playable-element:v2 kind=choice id=choice:c scene=scene:ghost -->",
+          "### C",
+        ].join("\n"),
+      ).doc),
+      "bad_scene_association",
+    );
+  });
+
+  it("blocks transition edges to unknown targets", () => {
+    expectBlockedV2(
+      indexPlayableStructureV2(markdownToTiptapDoc(
+        [
+          "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+          "## A",
+          "<!-- dmb-playable-element:v2 kind=choice id=choice:c -->",
+          "### C",
+          "<!-- dmb-playable-element:v2 kind=option id=option:o activates=beat:ghost -->",
+          "- go",
+        ].join("\n"),
+      ).doc),
+      "bad_edge",
+    );
+  });
+
+  it("blocks duplicate ids across all four kinds", () => {
+    // Import-level duplicates are sealed as text with a warning; the index
+    // must still defend against duplicates constructed inside the editor.
+    const duplicated = markdownToTiptapDoc(
+      [
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:a -->",
+        "## A",
+        "<!-- dmb-playable-element:v2 kind=choice id=choice:c -->",
+        "### C",
+        "<!-- dmb-playable-element:v2 kind=option id=option:o -->",
+        "- one",
+        "<!-- dmb-playable-element:v2 kind=option id=option:o -->",
+        "- two",
+      ].join("\n"),
+    );
+    expect(duplicated.diagnostics.length).toBeGreaterThan(0);
+
+    const crafted = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 2, playableElementKind: "beat", playableElementId: "beat:a", playableElementVersion: "v2" },
+          content: [{ type: "text", text: "A" }],
+        },
+        {
+          type: "heading",
+          attrs: { level: 3, playableElementKind: "choice", playableElementId: "choice:c", playableElementVersion: "v2" },
+          content: [{ type: "text", text: "C" }],
+        },
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              attrs: { playableElementKind: "option", playableElementId: "option:o", playableElementVersion: "v2" },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "one" }] }],
+            },
+          ],
+        },
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              attrs: { playableElementKind: "option", playableElementId: "option:o", playableElementVersion: "v2" },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "two" }] }],
+            },
+          ],
+        },
+      ],
+    };
+    expectBlockedV2(indexPlayableStructureV2(crafted), "duplicate_identity");
+  });
+
+  it("ignores ordinary unmarked headings without disturbing v2 structure", () => {
+    // D2 ordinary-heading termination: unmarked headings are prose, not
+    // structure; they neither join nor break Beat ownership.
+    const withOrdinaryHeadings = [
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:a beat_kind=spine -->",
+      "## Beat A",
+      "",
+      "### Ordinary H3 note",
+      "",
+      "GM prose under an unmarked heading.",
+      "",
+      "<!-- dmb-playable-element:v2 kind=scene id=scene:s -->",
+      "### S",
+      "",
+      "## Ordinary H2 interlude",
+      "",
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:b beat_kind=optional -->",
+      "## Beat B",
+      "",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(withOrdinaryHeadings);
+    expect(imported.diagnostics).toEqual([]);
+    const index = expectReadyV2(indexPlayableStructureV2(imported.doc));
+    expect(index.beatOrder).toEqual(["beat:a", "beat:b"]);
+    expect(index.beats[0]?.sceneOrder).toEqual(["scene:s"]);
+    expect(index.beats[1]?.sceneOrder).toEqual([]);
+    expect(index.elements.map((element) => element.id)).toEqual([
+      "beat:a",
+      "scene:s",
+      "beat:b",
+    ]);
+  });
+
+  it("fails closed on mixed v1/v2 documents in both index directions", () => {
+    const mixed = [
+      "<!-- dmb-playable-element:v1 kind=scene id=scene:s -->",
+      "## S",
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:b -->",
+      "## B",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(mixed);
+    // Import itself fails closed: no identity attaches under mixed versions.
+    expect(imported.diagnostics.length).toBeGreaterThan(0);
+    expect(JSON.stringify(imported.doc)).not.toContain("playableElementId");
+
+    const v2Only = markdownToTiptapDoc(V2_REPRESENTATIVE);
+    expectBlockedV2(
+      indexPlayableStructure(v2Only.doc) as never,
+      "unsupported_version",
+    );
   });
 });

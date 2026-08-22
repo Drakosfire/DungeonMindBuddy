@@ -31,7 +31,7 @@ from apps.live_control_server.services.play_run_registry import (
     replace_play_run_progress,
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
-    PlayRunReferenceManifest,
+    AnyPlayRunReferenceManifest,
     PlayRunReferenceManifestError,
     get_play_run_reference_manifest,
     seal_or_replay_play_run_reference_manifest,
@@ -95,7 +95,7 @@ def put_play_run(run_id: str, body: CreatePlayRunRequest) -> dict[str, Any]:
 
 @router.put(
     "/play-runs/{run_id}/reference-manifest",
-    response_model=PlayRunReferenceManifest,
+    response_model=AnyPlayRunReferenceManifest,
     response_model_exclude_none=True,
 )
 async def put_play_run_reference_manifest(run_id: str, request: Request) -> dict[str, Any]:
@@ -116,7 +116,7 @@ async def put_play_run_reference_manifest(run_id: str, request: Request) -> dict
 
 @router.get(
     "/play-runs/{run_id}/reference-manifest",
-    response_model=PlayRunReferenceManifest,
+    response_model=AnyPlayRunReferenceManifest,
     response_model_exclude_none=True,
 )
 def get_play_run_reference_manifest_route(run_id: str) -> dict[str, Any]:

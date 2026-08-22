@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../markdown/markdownToTiptap";
+import { indexPlayableStructureV2 } from "./playableStructureIndex";
 import { PLAYABLE_ELEMENT_DIAGNOSTIC, PlayableIdentitySerializationError } from "./playableElementIdentity";
 import { indexPlayableStructure } from "./playableStructureIndex";
 
@@ -189,5 +190,309 @@ describe("P1C Choice/Option identity", () => {
         choices: [],
       },
     });
+  });
+});
+// ---------------------------------------------------------------------------
+// Beat-first (v2) grammar round trips
+// ---------------------------------------------------------------------------
+
+const v2BeatSceneChoice = [
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:hold-the-gate beat_kind=spine -->",
+  "## Hold the gate",
+  "",
+  "Triage at the gate line.",
+  "",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:gate-line -->",
+  "### The gate line",
+  "",
+  "<!-- dmb-playable-element:v2 kind=choice id=choice:who-gets-through scene=scene:gate-line -->",
+  "### Who gets through first?",
+  "",
+].join("\n");
+
+const v2WithOptions = [
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:hold-the-gate beat_kind=spine -->",
+  "## Hold the gate",
+  "",
+  "<!-- dmb-playable-element:v2 kind=choice id=choice:who-gets-through -->",
+  "### Who gets through first?",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:cure-line-first activates=beat:panic-breaks -->",
+  "- Prioritize the cure line",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:families-first suppresses=beat:meat-flank -->",
+  "- Keep families together",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:panic-breaks beat_kind=optional -->",
+  "## Panic breaks",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:meat-flank beat_kind=interrupt -->",
+  "## Meat flank",
+  "",
+].join("\n");
+
+describe("v2 Beat-first grammar", () => {
+  it("imports versioned Beat/Scene/Decision attrs and Option list items", () => {
+    const imported = markdownToTiptapDoc(v2WithOptions);
+    expect(imported.diagnostics).toEqual([]);
+    const json = JSON.stringify(imported.doc);
+    expect(json).toContain('"playableElementVersion":"v2"');
+    expect(json).toContain('"playableBeatKind":"spine"');
+
+    const headings = (imported.doc.content ?? []).filter((node) => node.type === "heading");
+    const beat = headings.find(
+      (node) => (node.attrs as { playableElementId?: string }).playableElementId === "beat:hold-the-gate",
+    );
+    expect(beat?.attrs).toMatchObject({
+      level: 2,
+      playableElementKind: "beat",
+      playableElementVersion: "v2",
+      playableBeatKind: "spine",
+    });
+    const choice = headings.find(
+      (node) => (node.attrs as { playableElementId?: string }).playableElementId === "choice:who-gets-through",
+    );
+    expect(choice?.attrs).toMatchObject({ level: 3, playableElementKind: "choice" });
+
+    const listItems: unknown[] = [];
+    for (const node of imported.doc.content ?? []) {
+      if (node.type !== "bulletList") continue;
+      for (const item of (node as { content?: unknown[] }).content ?? []) {
+        listItems.push(item);
+      }
+    }
+    const option = listItems.find(
+      (item) => ((item as { attrs?: { playableElementId?: string } }).attrs?.playableElementId)
+        === "option:cure-line-first",
+    ) as { attrs?: Record<string, unknown> } | undefined;
+    expect(option?.attrs).toMatchObject({
+      playableElementKind: "option",
+      playableElementVersion: "v2",
+      playableActivates: ["beat:panic-breaks"],
+    });
+  });
+
+  it("round-trips v2 Beat/Scene/Decision headings with beat_kind and scene association", () => {
+    const imported = markdownToTiptapDoc(v2BeatSceneChoice);
+    expect(imported.diagnostics).toEqual([]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(exported).toBe(v2BeatSceneChoice);
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+  });
+
+  it("keeps v2 identity stable through heading rename", () => {
+    const imported = markdownToTiptapDoc(v2BeatSceneChoice);
+    const renamed = {
+      ...imported.doc,
+      content: (imported.doc.content ?? []).map((node) => {
+        if (node.type !== "heading") return node;
+        const id = (node.attrs as { playableElementId?: string } | undefined)?.playableElementId;
+        if (id === "beat:hold-the-gate") {
+          return { ...node, content: [{ type: "text", text: "Hold the gate renamed" }] };
+        }
+        return node;
+      }),
+    };
+    const exported = tiptapJsonToSemanticMarkdown(renamed);
+    expect(exported).toContain(
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:hold-the-gate beat_kind=spine -->",
+    );
+    expect(exported).toContain("## Hold the gate renamed");
+  });
+
+  it("round-trips v2 Options as marked list items with activates/suppresses edges", () => {
+    const imported = markdownToTiptapDoc(v2WithOptions);
+    expect(imported.diagnostics).toEqual([]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(exported).toContain(
+      "<!-- dmb-playable-element:v2 kind=option id=option:cure-line-first activates=beat:panic-breaks -->",
+    );
+    expect(exported).toContain(
+      "<!-- dmb-playable-element:v2 kind=option id=option:families-first suppresses=beat:meat-flank -->",
+    );
+    expect(exported).toContain("- Prioritize the cure line");
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    const json = JSON.stringify(reimported.doc);
+    expect(json).toContain("option:cure-line-first");
+    expect(json).toContain("option:families-first");
+  });
+
+  it("preserves every Option identity when ordinary editing puts two marked Options in one list", () => {
+    // Editor JSON state after e.g. merging two option lists: both items carry
+    // canonical v2 option identity inside a single list. Save must not drop
+    // the second Option's ID/edges.
+    const edited = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: {
+            level: 2,
+            playableElementKind: "beat",
+            playableElementId: "beat:hold-the-gate",
+            playableElementVersion: "v2",
+            playableBeatKind: "spine",
+          },
+          content: [{ type: "text", text: "Hold the gate" }],
+        },
+        {
+          type: "heading",
+          attrs: {
+            level: 3,
+            playableElementKind: "choice",
+            playableElementId: "choice:who-gets-through",
+            playableElementVersion: "v2",
+          },
+          content: [{ type: "text", text: "Who gets through first?" }],
+        },
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              attrs: {
+                playableElementKind: "option",
+                playableElementId: "option:cure-line-first",
+                playableElementVersion: "v2",
+                playableActivates: ["beat:panic-breaks"],
+              },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Prioritize the cure line" }] }],
+            },
+            {
+              type: "listItem",
+              attrs: {
+                playableElementKind: "option",
+                playableElementId: "option:families-first",
+                playableElementVersion: "v2",
+                playableSuppresses: ["beat:meat-flank"],
+              },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Keep families together" }] }],
+            },
+          ],
+        },
+        {
+          type: "heading",
+          attrs: {
+            level: 2,
+            playableElementKind: "beat",
+            playableElementId: "beat:panic-breaks",
+            playableElementVersion: "v2",
+            playableBeatKind: "optional",
+          },
+          content: [{ type: "text", text: "Panic breaks" }],
+        },
+        {
+          type: "heading",
+          attrs: {
+            level: 2,
+            playableElementKind: "beat",
+            playableElementId: "beat:meat-flank",
+            playableElementVersion: "v2",
+            playableBeatKind: "interrupt",
+          },
+          content: [{ type: "text", text: "Meat flank" }],
+        },
+      ],
+    };
+
+    const exported = tiptapJsonToSemanticMarkdown(edited);
+    expect(exported).toContain(
+      "<!-- dmb-playable-element:v2 kind=option id=option:cure-line-first activates=beat:panic-breaks -->",
+    );
+    expect(exported).toContain(
+      "<!-- dmb-playable-element:v2 kind=option id=option:families-first suppresses=beat:meat-flank -->",
+    );
+
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    const json = JSON.stringify(reimported.doc);
+    expect(json).toContain("option:cure-line-first");
+    expect(json).toContain("option:families-first");
+    expect(json).toContain('"playableActivates":["beat:panic-breaks"]');
+    expect(json).toContain('"playableSuppresses":["beat:meat-flank"]');
+
+    // The re-imported structure indexes with both Options under the Decision.
+    const indexed = indexPlayableStructureV2(reimported.doc);
+    expect(indexed.status).toBe("ready");
+    if (indexed.status !== "ready") throw new Error("expected ready");
+    expect(indexed.index.choices[0]?.optionOrder).toEqual([
+      "option:cure-line-first",
+      "option:families-first",
+    ]);
+    expect(indexed.index.options.map((option) => option.optionId)).toEqual([
+      "option:cure-line-first",
+      "option:families-first",
+    ]);
+  });
+
+  it("fails closed on mixed v1/v2 structural directives", () => {
+    const mixed = [
+      "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
+      "## Arrival",
+      "",
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:gate beat_kind=spine -->",
+      "## Gate",
+      "",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(mixed);
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: PLAYABLE_ELEMENT_DIAGNOSTIC.mixedVersions }),
+    ]));
+    expect(JSON.stringify(imported.doc)).not.toContain("playableElementId");
+  });
+
+  it("keeps v2 markers inside fenced code literal", () => {
+    const fenced = [
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:real -->",
+      "## Real",
+      "",
+      "~~~",
+      "<!-- dmb-playable-element:v2 kind=scene id=scene:fake -->",
+      "### Fake",
+      "~~~",
+      "",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(fenced);
+    // The pre-existing fence warning is unrelated to playable admission; the
+    // v2 requirement is that the fenced marker stays literal and non-semantic.
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: expect.stringContaining("Fenced code") }),
+    ]));
+    expect(imported.diagnostics).toHaveLength(1);
+    const json = JSON.stringify(imported.doc);
+    expect(json).toContain("beat:real");
+    // The fenced marker survives as literal code text but attaches no identity.
+    expect(json).toContain("scene:fake");
+    expect(json).not.toContain('"playableElementKind":"scene"');
+  });
+
+  it("fails closed on malformed v2 markers and wrong levels", () => {
+    const wrongLevel = markdownToTiptapDoc(
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:x -->\n### Not H2\n",
+    );
+    expect(wrongLevel.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: PLAYABLE_ELEMENT_DIAGNOSTIC.levelMismatch }),
+    ]));
+
+    const badBeatKind = markdownToTiptapDoc(
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:x beat_kind=weird -->\n## X\n",
+    );
+    expect(badBeatKind.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: PLAYABLE_ELEMENT_DIAGNOSTIC.malformed }),
+    ]));
+
+    const optionBeforeHeading = markdownToTiptapDoc(
+      [
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:b -->",
+        "## B",
+        "<!-- dmb-playable-element:v2 kind=option id=option:o -->",
+        "### Not a list item",
+      ].join("\n"),
+    );
+    expect(optionBeforeHeading.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: PLAYABLE_ELEMENT_DIAGNOSTIC.orphanOption }),
+    ]));
   });
 });
