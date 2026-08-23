@@ -844,3 +844,174 @@ def test_api_contract_fixture_matches_real_generated_operations(tmp_path: Path) 
     generated = build_retrieval_api_contract(tmp_path)
     fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     assert fixture == generated
+
+
+# --- CUTOVER R.3: mounted direct DungeonMind read path ----------------------
+#
+# In ``dungeonmind`` authority mode the HTTP routes dispatch to the direct
+# DungeonMind read adapter. These tests mount the app against in-memory
+# DungeonMind repositories and prove the legacy kernel/hydration machinery is
+# never invoked (explosion stubs).
+
+
+@pytest.fixture
+def direct_services():
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        NOW,
+        _FakeBundle,
+        _payload,
+        _receipt,
+        _seed_sources,
+    )
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        WORLD_ID as DIRECT_WORLD_ID,
+    )
+
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
+
+    world_graph = InMemoryWorldGraphRepository()
+    published = world_graph.publish_revision(
+        PublishRevisionCommand(
+            world_id=DIRECT_WORLD_ID,
+            parent_revision_id=None,
+            expected_parent_revision_id=None,
+            operation_ids=["op:mounted-r3"],
+            graph_schema="dm_union_graph_v6",
+            graph_payload=_payload(),
+            created_at=NOW,
+        )
+    )
+    bundle = _FakeBundle(
+        world_graph,
+        _seed_sources(),
+        _receipt(DIRECT_WORLD_ID, published.revision_id),
+    )
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+
+    return direct.direct_services_from_bundle(bundle, DIRECT_WORLD_ID)
+
+
+@pytest.fixture
+def direct_client(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, direct_services
+) -> TestClient:
+    from graph_memory.world_supergraph import storage
+
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
+    monkeypatch.setenv(
+        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
+    storage.clear_world_graph_cache_roots()
+
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+
+    monkeypatch.setattr(
+        direct, "direct_services_from_config", lambda world_id: direct_services
+    )
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("legacy kernel must not run on the direct read path")
+
+    monkeypatch.setattr(kernel, "search_campaign_graph", _explode)
+    monkeypatch.setattr(kernel, "get_campaign_object", _explode)
+    monkeypatch.setattr(kernel, "get_object_neighborhood", _explode)
+    monkeypatch.setattr(kernel, "get_object_evidence", _explode)
+    monkeypatch.setattr(kernel, "resolve_admitted_anchor_match", _explode)
+    return TestClient(create_app())
+
+
+def _direct_base_request(**overrides) -> dict:
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        CAMPAIGN_ONE,
+    )
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        WORLD_ID as DIRECT_WORLD_ID,
+    )
+
+    payload = {"worldId": DIRECT_WORLD_ID, "campaignId": CAMPAIGN_ONE}
+    payload.update(overrides)
+    return payload
+
+
+def test_direct_search_route_returns_200_with_results(direct_client: TestClient) -> None:
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/search",
+        json={
+            "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+            **_direct_base_request(queryText="tavern"),
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    labels = [node["label"] for node in body["nodes"]]
+    assert "The Prancing Tavern" in labels
+
+
+def test_direct_object_route_returns_200(direct_client: TestClient) -> None:
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/object",
+        json={
+            "schema": RETRIEVAL_OBJECT_REQUEST_SCHEMA,
+            **_direct_base_request(nodeId="obj:tavern"),
+        },
+    )
+    assert response.status_code == 200
+    assert [n["nodeId"] for n in response.json()["nodes"]] == ["obj:tavern"]
+
+
+def test_direct_unknown_revision_pin_is_404_envelope(direct_client: TestClient) -> None:
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/search",
+        json={
+            "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+            **_direct_base_request(queryText="tavern", revisionPin="rev:never-existed"),
+        },
+    )
+    assert response.status_code == 404
+    payload = response.json()
+    assert payload["schema"] == "dmb_world_graph_retrieval_error_v1"
+    assert payload["code"] == "revision_not_bridged"
+
+
+def test_direct_non_gm_admissibility_is_422_envelope(direct_client: TestClient) -> None:
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/search",
+        json={
+            "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+            **_direct_base_request(queryText="tavern", admissibility="player"),
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "unsupported_admissibility"
+
+
+def test_direct_anchor_read_route_revalidates(direct_client: TestClient) -> None:
+    evidence = direct_client.post(
+        f"{RETRIEVAL_URL}/evidence",
+        json={
+            "schema": RETRIEVAL_EVIDENCE_REQUEST_SCHEMA,
+            **_direct_base_request(target={"kind": "node", "id": "obj:tavern"}),
+        },
+    )
+    assert evidence.status_code == 200
+    anchors = evidence.json()["sourceAnchors"]
+    assert anchors
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/source-anchor/read",
+        json={
+            "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+            **_direct_base_request(anchorId=anchors[0]["anchorId"]),
+        },
+    )
+    assert response.status_code == 200
+    # The anchor revalidates against DungeonMind authority; the product-local
+    # content join degrades because no repo files exist in this fixture.
+    assert response.json()["outcome"] in {"enough", "partial", "unavailable"}

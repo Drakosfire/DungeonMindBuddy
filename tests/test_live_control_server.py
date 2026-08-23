@@ -1891,3 +1891,100 @@ def test_live_backend_allows_null_or_empty_history(
         response = client.post("/api/live/query", json=payload)
         assert response.status_code == 200
     assert calls["n"] == 2
+
+
+# --- CUTOVER R.3: live-agent query context on the direct read path ----------
+
+
+def test_live_agent_query_context_executes_via_direct_dungeonmind_read(
+    tmp_path, monkeypatch
+):
+    """The live-agent graph preflight dispatches to DungeonMind in cutover mode.
+
+    ``resolve_agent_world_graph_query_context`` projects through the projection
+    service with the production root; in ``dungeonmind`` authority mode that
+    executes natively in DungeonMind. Kernel/hydration explosion stubs prove
+    the legacy graph read machinery never runs.
+    """
+    import graph_memory.kernel as kernel
+
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority,
+    )
+    from apps.live_control_server.services.agent_world_graph_query_context import (
+        AgentWorldGraphQueryContextRequest,
+        resolve_agent_world_graph_query_context,
+    )
+    from graph_memory.world_supergraph import storage
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        CAMPAIGN_ONE,
+        NOW,
+        _FakeBundle,
+        _payload,
+        _receipt,
+        _seed_sources,
+    )
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        WORLD_ID as DIRECT_WORLD_ID,
+    )
+
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
+
+    world_graph = InMemoryWorldGraphRepository()
+    published = world_graph.publish_revision(
+        PublishRevisionCommand(
+            world_id=DIRECT_WORLD_ID,
+            parent_revision_id=None,
+            expected_parent_revision_id=None,
+            operation_ids=["op:live-agent-r3"],
+            graph_schema="dm_union_graph_v6",
+            graph_payload=_payload(),
+            created_at=NOW,
+        )
+    )
+    bundle = _FakeBundle(
+        world_graph,
+        _seed_sources(),
+        _receipt(DIRECT_WORLD_ID, published.revision_id),
+    )
+    services = direct.direct_services_from_bundle(bundle, DIRECT_WORLD_ID)
+
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
+    monkeypatch.setenv(
+        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
+    storage.clear_world_graph_cache_roots()
+    monkeypatch.setattr(
+        direct, "direct_services_from_config", lambda world_id: services
+    )
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("legacy kernel must not run on the direct read path")
+
+    monkeypatch.setattr(kernel, "project_world_graph_from_context", _explode)
+    monkeypatch.setattr(kernel, "resolve_projection_read_context", _explode)
+    monkeypatch.setattr(world_graph_authority, "route_read_request", _explode)
+
+    envelope = resolve_agent_world_graph_query_context(
+        AgentWorldGraphQueryContextRequest(
+            **{
+                "schema": "dmb_agent_world_graph_query_context_request_v1",
+                "world_id": DIRECT_WORLD_ID,
+                "campaign_id": CAMPAIGN_ONE,
+                "focus": {"kind": "none"},
+                "admissibility": "gm",
+            }
+        ),
+        outer_text="Where is the tavern?",
+        outer_campaign_id=CAMPAIGN_ONE,
+    )
+    assert envelope["status"] == "ready"
+    assert envelope["revision_id"] == published.revision_id
+    assert envelope["is_head"] is True

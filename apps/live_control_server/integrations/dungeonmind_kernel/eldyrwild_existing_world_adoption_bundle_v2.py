@@ -1122,7 +1122,10 @@ def _store_artifact_v2(
         uri=uri if uri is not None else artifact.uri,
         current_revision_id=current_revision_id,
         authority=None,
-        visibility=None,
+        # Adopted Buddy content is GM-classified: Buddy's kernel serves
+        # GM-only reads, and DungeonMind's fail-closed scope gate excludes
+        # v2 artifacts whose access-granting visibility is unset.
+        visibility=Visibility.GM,
         artifact_kind=artifact.artifact_kind,
         document_class=artifact.document_class,
         review_state=review_state,
@@ -1362,7 +1365,8 @@ def _map_source_authority(
                 uri=locator,
                 current_revision_id=dm_rev,
                 authority=None,
-                visibility=None,
+                # GM-classified like every adopted Buddy source (see above).
+                visibility=Visibility.GM,
                 artifact_kind=None,
                 document_class=None,
                 review_state=None,

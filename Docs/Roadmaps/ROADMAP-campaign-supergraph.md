@@ -177,6 +177,34 @@ DEFERRED pinned exact-snapshot catch-up
         pre-switch correspondence check (result was CORRESPONDING). The
         parked design handoff on branch cutover/design-pinned-snapshot-catchup
         stays unmerged.
+
+IN REVIEW cutover/direct-dungeonmind-production-reads (R.3)
+        Product graph reads execute natively in DungeonMind. In
+        `dungeonmind` authority mode the projection service and all five
+        retrieval operations dispatch to a thin DTO adapter
+        (`apps/live_control_server/integrations/dungeonmind/`); Buddy
+        never reconstructs a graph, replays contributions, or opens the
+        frozen store on the read path. The A→D_A bridge derives from the
+        DungeonMind adoption receipt. Prewarm/projection recipes are
+        no-ops in `dungeonmind` mode. Session-focus presentation is
+        recomputed from admitted provenance (the Plan world-scope +
+        campaign-qualified-session-focus seam is supported without
+        narrowing scope). Two data migrations landed with the slice:
+        adopted-artifact visibility NULL→gm and world-owning two
+        session-less worldbuilding corpus docs (both with receipt
+        membership digest recompute; applied to the live database).
+        Semantic + performance witness:
+        Docs/Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md.
+        The performance witness triggered the handoff's §7 decision
+        rule (direct scope_projection ≈ 20s vs legacy ≈ 1.6s on the
+        real world): the production environment switch waits for R.3a.
+
+READY   cutover/direct-read-optimization (R.3a)
+        Named successor. Reusable World Graph read context / parsed
+        immutable revision reuse + batched source-provenance reads.
+        Regression oracle is the frozen R.3 witness: R.3 direct result
+        == R.3a optimized direct result. Buddy hydration is not required
+        to remain live to preserve the oracle.
 ```
 
 Historical correction/heal slices (integrity heal, Lysandra, Session-24, closure, #566) remain `DONE` and are not current dispatch. The tracker, not this roadmap, decides which `READY` slice is dispatched next.

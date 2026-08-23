@@ -2361,3 +2361,110 @@ def test_expired_binding_recovers_without_cross_thread_reuse(tmp_path: Path) -> 
     assert host.calls[0].session_id is None
     assert response["agent_trace"]["conversation_context"]["hermes_session_pointer_status"] == "recovered"
     assert response["hermes_session"]["sessionId"] != binding.pointer_id
+
+
+# --- CUTOVER R.3: Hermes graph tools execute on the direct read path --------
+
+
+def test_hermes_expansion_tool_executes_via_direct_dungeonmind_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The Hermes ``expand_graph_retrieval`` tool path dispatches to DungeonMind.
+
+    The interaction executor calls the retrieval *service* with the production
+    root; in ``dungeonmind`` authority mode that dispatch executes natively in
+    DungeonMind. Kernel/hydration explosion stubs prove the legacy graph read
+    machinery never runs.
+    """
+    import graph_memory.kernel as kernel
+
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+    from graph_memory.interaction.expansion_executor import (
+        execute_expand_graph_retrieval,
+    )
+    from graph_memory.interaction.initial_resolve import create_session_from_preflight
+    from graph_memory.world_supergraph import storage
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        CAMPAIGN_ONE,
+        NOW,
+        _FakeBundle,
+        _payload,
+        _receipt,
+        _seed_sources,
+    )
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        WORLD_ID as DIRECT_WORLD_ID,
+    )
+
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
+
+    world_graph = InMemoryWorldGraphRepository()
+    published = world_graph.publish_revision(
+        PublishRevisionCommand(
+            world_id=DIRECT_WORLD_ID,
+            parent_revision_id=None,
+            expected_parent_revision_id=None,
+            operation_ids=["op:hermes-r3"],
+            graph_schema="dm_union_graph_v6",
+            graph_payload=_payload(),
+            created_at=NOW,
+        )
+    )
+    bundle = _FakeBundle(
+        world_graph,
+        _seed_sources(),
+        _receipt(DIRECT_WORLD_ID, published.revision_id),
+    )
+    services = direct.direct_services_from_bundle(bundle, DIRECT_WORLD_ID)
+
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
+    monkeypatch.setenv(
+        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
+    storage.clear_world_graph_cache_roots()
+    monkeypatch.setattr(
+        direct, "direct_services_from_config", lambda world_id: services
+    )
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("legacy kernel must not run on the direct read path")
+
+    monkeypatch.setattr(kernel, "search_campaign_graph", _explode)
+    monkeypatch.setattr(kernel, "get_campaign_object", _explode)
+    monkeypatch.setattr(kernel, "get_object_neighborhood", _explode)
+    monkeypatch.setattr(kernel, "get_object_evidence", _explode)
+
+    session = create_session_from_preflight(
+        {
+            "schema": "dmb_agent_world_graph_query_context_v1",
+            "status": "ready",
+            "world_id": DIRECT_WORLD_ID,
+            "campaign_id": CAMPAIGN_ONE,
+            "revision_id": published.revision_id,
+            "is_head": True,
+            "focus": {"kind": "none"},
+            "admissibility": "gm",
+            "query_text": "Where is the tavern?",
+            "matched_node_ids": [],
+            "nodes": [],
+            "warning_codes": [],
+        },
+        question="Where is the tavern?",
+    )
+    result = execute_expand_graph_retrieval(
+        {
+            "operation": "search",
+            "queryText": "tavern",
+            "targets": [],
+            "retrievalSessionId": session.id,
+        }
+    )
+    assert result["schema"] == "dmb_world_graph_retrieval_result_v1"
+    labels = [node["label"] for node in result["nodes"]]
+    assert "The Prancing Tavern" in labels

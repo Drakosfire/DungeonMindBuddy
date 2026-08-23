@@ -1,12 +1,12 @@
 # STEWARD'S ANCHOR — CUTOVER
 
-**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority  
+**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; R.3 retires Buddy graph hydration from production reads (direct DungeonMind read path implemented; production switch gated on R.3a read optimization — see §2.5)  
 **Line of work:** `CUTOVER`  
 **Created:** 2026-08-17  
 **Completed:** 2026-08-18 (live D_A→D_B)  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Buddy integration tip at completion:** `18bcb18475ac30679ebec84bec17c4e81390f674` (merge of Buddy PR #620)  
-**DungeonMind authority anchor:** `2edc07ff27a21b1c83aed847edf95b77d297910e` (merge of DungeonMind PR #37 — governed review publication: v2 finalize + v6 materialization + head CAS publication)  
+**DungeonMind authority anchor:** `b3f419b08676eaca763c8a75c374be6e96ee624e` (merge of DungeonMind PR #41 — R.1/R.2 native reads + R.2a observability/benchmark seam; Buddy runtime pin as of R.3)  
 **Completed implementation handoffs:** Buddy PR #619 (`6c2fe9d37dcecf34e025db8373fce072de30b62e`) + Buddy PR #620 (`18bcb18475ac30679ebec84bec17c4e81390f674`; 4 review cycles; final PASS review `4966969478`) + parent [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md)  
 **Live authority:** DungeonMind PostgreSQL (`dungeonmind_cutover_live@127.0.0.1:54329`); head `D_B = rev:680c246047d67f9fe0293ee90526f670`; parent `D_A = rev:34b1f8e2625d5ba693fc726a2a1a4720`; Buddy local World Graph writer fail-closed under `DUNGEONMIND_WORLD_GRAPH_AUTHORITY=dungeonmind`  
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)  
@@ -140,6 +140,34 @@ Docs/Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md
 ```
 
 Architecture changes only if its claims truly changed.
+
+### 2.5 R.3 direct-read cutover truth
+
+R.3 (`cutover/direct-dungeonmind-production-reads`) retired Buddy graph hydration from the production read path. In `dungeonmind` authority mode:
+
+```text
+DungeonMind authority
+        ↓
+DungeonMind native projection/retrieval (R.1/R.2)
+        ↓
+thin product DTO adapter (apps/live_control_server/integrations/dungeonmind/)
+        ↓
+Buddy product
+```
+
+Settled facts a successor steward should not re-litigate:
+
+- **Reads are pure consumers of one exact DungeonMind published revision.** The projection service and all five retrieval operations dispatch to the direct adapter when authority mode is `dungeonmind` and no explicit non-production root override is in play. The adapter never reconstructs a graph, replays contributions, or opens the frozen Buddy store.
+- **The A→D_A bridge is receipt-derived.** `ExistingWorldAdoptionReceiptV3.source_provenance.source_world_revision_id` (Buddy A) maps to `published_revision_id` (D_A) from the receipt alone; `head.json` is never read on the direct path. Proven by `test_direct_reads_succeed_with_frozen_buddy_store_missing`.
+- **Hydration is reclassified as legacy/write compatibility.** `integrations/dungeonmind_kernel/world_graph_authority.py` remains only for the governed-write/review path and the R.3 comparison oracle. It has no production-read consumer.
+- **Prewarm and projection recipes are no-ops in `dungeonmind` mode.** The Buddy resident runtime and projection cache have no consumer on the read path; the coordinator lifecycle stays intact so app startup is authority-mode agnostic.
+- **Focus is presentation, not admission.** Session focus flags (`anchored_to_focus_session`, `is_focus_session_evidence`) are recomputed by the adapter from admitted DungeonMind provenance (evidence session id + artifact campaign), matching the legacy kernel's rule. The Plan seam (world scope + campaign-qualified session focus) is therefore supported without narrowing scope or dropping focus.
+- **Adopted artifacts are GM-classified.** Two data migrations landed with R.3: `migrate_adopted_source_artifact_visibility.py` (adopted artifacts `visibility NULL → gm`, plus receipt membership digest recompute) and `world_own_worldbuilding_source_artifacts.py` (two session-less worldbuilding corpus docs re-assigned to world ownership, plus receipt digest recompute). Both are idempotent and were applied to `dungeonmind_cutover_live`.
+- **The performance witness triggered the §7 decision rule.** The direct path's `scope_projection` phase against PostgreSQL is ~20s on the real world (99.6% of read time; evidence-chain admission does per-row source-repository round-trips). Per HANDOFF §7 this is not an R.3 failure: the semantic witness is preserved, and **R.3a (reusable World Graph read context / parsed immutable revision reuse + batched source reads) is the named successor that must land before the production switch flips**. The dispatch is env-gated; merging R.3 does not change production behavior unless `DUNGEONMIND_WORLD_GRAPH_AUTHORITY=dungeonmind` is set.
+
+The R.3 semantic witness harness (`scripts/compare_direct_dungeonmind_world_graph_reads.py`) is the post-cutover regression oracle: future R.3a optimization compares `R.3 direct result == R.3a optimized direct result`. Buddy hydration is not required to remain live to preserve the oracle.
+
+The durable witness record is [`../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md`](../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md): 0 blocking semantic differences after classification, with all divergences classified per the handoff's §6.3 vocabulary (representation-only, retired legacy-only, accepted admission tightening, unrepresented property assertions, search ranking, data integrity, presentation join).
 
 ---
 

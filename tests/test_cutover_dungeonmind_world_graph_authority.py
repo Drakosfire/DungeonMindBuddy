@@ -12,6 +12,14 @@ Two layers:
   pre-switch Eldyrwild store at ``DMB_CUTOVER_FROZEN_ROOT`` (default:
   the conventional operator ``out/`` root when present). Proves the §10
   evidence rows against the real sealed bundle and the real frozen snapshot.
+
+CUTOVER R.3 reclassification: the hydration/read-routing machinery exercised
+here is now **legacy/write compatibility** only. In ``dungeonmind`` authority
+mode, production reads dispatch to the direct DungeonMind adapter (see
+``tests/test_cutover_direct_dungeonmind_world_graph_reads.py``); the hydrated
+Buddy graph remains solely as the governed-write/review compatibility path
+until its own successor retires it. The write-side proofs in this module are
+preserved unchanged.
 """
 
 from __future__ import annotations
