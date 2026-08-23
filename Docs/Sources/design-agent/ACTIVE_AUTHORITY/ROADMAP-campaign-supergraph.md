@@ -1,10 +1,10 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-18 — CUTOVER_COMPLETE: Buddy #620 merged and live D_A→D_B committed; DungeonMind is living Eldyrwild World Graph authority
+**Updated:** 2026-08-23 — DungeonMind R.2b / PR #43 merged; Buddy V4 hydrated compatibility prerequisite is the active CUTOVER slice; R.3 / #629 remains frozen  
 **Repository anchor:** `18bcb18475ac30679ebec84bec17c4e81390f674` (Buddy `main` at #620 merge / live cutover base)
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
-**DungeonMind pin:** `2edc07ff27a21b1c83aed847edf95b77d297910e` (PR #37 merge / current DungeonMind `main`)
+**DungeonMind pin:** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (PR #43 merge / governed V3→V4 adopted-source classification repair)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)  
@@ -160,6 +160,18 @@ DONE    cutover/whole-world-authority-transfer (Buddy #619 + #620 + live)
         Buddy local World Graph writer remains fail-closed.
         Parent handoff status: CUTOVER_COMPLETE.
 
+DONE    DungeonMind R.2b / PR #43
+        Merge 519b2c96fc42d22f3113cc9ca0d48bc70b6780e5; 4 formal review
+        cycles. Governed V3→V4 adopted-source classification repair
+        (ExistingWorldAdoptionReceiptV4, membership manifest, effective M1).
+        Live Eldyrwild repair is not yet applied.
+
+DOING   cutover/v4-hydrated-authority-compatibility
+        Land typed V3/V4 receipt binding and V4 manifest/M1 membership
+        verification on the existing hydrated DungeonMind-authority path.
+        Direct reads stay off. Buddy R.3 / PR #629 remains frozen until this
+        prerequisite merges and the live V4 repair succeeds.
+
 DEFERRED pinned exact-snapshot catch-up
         Still conditional only — no STALE observed during the live
         pre-switch correspondence check (result was CORRESPONDING). The
@@ -217,7 +229,7 @@ READY   PR009 Play projection migration
         Consume the same projection and admissibility contracts for encounter/play lenses.
 ```
 
-The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to the exact adopted-membership receipt V3 implementation, before any product-authority cutover.
+The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to the V4 hydrated compatibility prerequisite, with Buddy R.3 / PR #629 frozen until that lands and the live repair succeeds.
 
 ## Phase 8 exit criteria
 
