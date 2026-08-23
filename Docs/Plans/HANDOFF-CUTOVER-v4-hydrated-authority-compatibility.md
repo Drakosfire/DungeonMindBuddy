@@ -171,7 +171,7 @@ At exact merge `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5`:
   - one authenticated source-classification repair record.
 - V1/V2/V3 semantics remain frozen in DungeonMind.
 - Live Eldyrwild has **not** yet been repaired to V4.
-- Buddy `main` still pins DungeonMind PR #41 merge `b3f419b...` and only accepts V3.
+- Buddy `main` still pins DungeonMind PR #37 merge `2edc07ff...` and only accepts V3.
 - Buddy PR #629 is paused and direct reads are default-off.
 - PR #629 head `c3e57d9f...` contains one provisional V4 compatibility edit using
   `getattr(receipt, "effective_membership_sha256", ...)`. Treat it as discovery
@@ -327,10 +327,10 @@ receipt mutation. No source-artifact mutation. No generic repair code in Buddy.
 
 ### 8.1 Exact dependency pin
 
-Change Buddy from DungeonMind PR #41 merge:
+Change Buddy from DungeonMind PR #37 merge:
 
 ```text
-b3f419b08676eaca763c8a75c374be6e96ee624e
+2edc07ff27a21b1c83aed847edf95b77d297910e
 ```
 
 to exactly DungeonMind PR #43 merge:
@@ -527,12 +527,17 @@ No hydration should proceed after any failure.
 
 ### 9.7 Route behavior with direct reads off
 
-At the mounted authority-read seam, prove that a valid V4 receipt does not
-require or trigger the R.3 direct-read adapter. The legacy hydrated path remains
-selected when the direct-read gate is absent/off.
+At the mounted authority-read seam, prove that a valid V4 receipt hydrates
+through the real `_ensure_hydrated_revision` / `hydrate_world_graph` path —
+membership verification, frozen replay-metadata loading, contribution replay,
+rebuild, snapshot coverage, and cache publication — and returns a servable
+`HydrationHandle`. Direct reads stay absent/off. Do not stub the hydration
+machinery; a routing-only fake that replaces `_ensure_hydrated_revision` is not
+this proof.
 
 If the direct-read gate does not exist on `main`, prove this by keeping the test
-strictly on existing hydrated routing rather than importing #629 code.
+strictly on existing hydrated routing rather than importing #629 code. A
+portable fake repository plus a minimal frozen store is sufficient.
 
 ### 9.8 Full repository gates
 

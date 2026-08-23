@@ -415,7 +415,7 @@ def _hex64(label: str) -> str:
     return hashlib.sha256(label.encode()).hexdigest()
 
 
-def _compat_provenance():
+def _compat_provenance(*, source_world_revision_id: str = FROZEN_HEAD_REVISION):
     from dungeonmind.contracts.existing_world_adoption import (
         ExistingWorldAdoptionSourceProvenanceV1,
     )
@@ -423,7 +423,7 @@ def _compat_provenance():
     return ExistingWorldAdoptionSourceProvenanceV1(
         producer_id="dungeonmindbuddy",
         producer_revision="test",
-        source_world_revision_id=FROZEN_HEAD_REVISION,
+        source_world_revision_id=source_world_revision_id,
         source_graph_payload_sha256=_hex64("payload"),
     )
 
@@ -619,11 +619,15 @@ class _FakeAdoptions:
 
 
 class _FakeGraph:
-    def __init__(self, head_revision_id: str):
+    def __init__(self, head_revision_id: str, stored_revisions: dict | None = None):
         self._head_revision_id = head_revision_id
+        self._stored_revisions = dict(stored_revisions or {})
 
     def get_head(self, world_id: str):
         return type("Head", (), {"head_revision_id": self._head_revision_id})()
+
+    def get_revision(self, world_id: str, revision_id: str):
+        return self._stored_revisions.get(revision_id)
 
 
 class _FakeContributions:
@@ -659,9 +663,19 @@ class _FakeSources:
 
 
 class _FakeBundle:
-    def __init__(self, *, receipt, artifacts, revisions, contributions, decisions, head_id=_HEAD):
+    def __init__(
+        self,
+        *,
+        receipt,
+        artifacts,
+        revisions,
+        contributions,
+        decisions,
+        head_id=_HEAD,
+        stored_revisions: dict | None = None,
+    ):
         self.existing_world_adoptions = _FakeAdoptions(receipt)
-        self.world_graph = _FakeGraph(head_id)
+        self.world_graph = _FakeGraph(head_id, stored_revisions)
         self.contributions = _FakeContributions(contributions)
         self.identity_decisions = _FakeIdentity(decisions)
         self.sources = _FakeSources(artifacts, revisions)
@@ -687,6 +701,171 @@ def _write_frozen_store(root: Path, *, contribution_ids: list[str], decision_ids
         json.dumps({"world_id": WORLD_ID, "all_decision_ids": decision_ids})
     )
     return root
+
+
+_HYDRATE_ART = "src:hydrate-adopted"
+_HYDRATE_REV = "srcrev:hydrate-adopted"
+_HYDRATE_CONTRIB = "contribution:" + "c" * 16
+_HYDRATE_NODE = "obj:college"
+
+
+def _hydratable_assertion_id() -> str:
+    from graph_memory.kernel.contributions import compute_assertion_id
+
+    return compute_assertion_id(
+        assertion_kind="node",
+        subject_node_id=_HYDRATE_NODE,
+        target_node_id=None,
+        predicate=None,
+        label="College",
+        value={},
+        campaign_scope=CAMPAIGN_ID,
+        temporal_scope=None,
+        epistemic_kind="asserted",
+        visibility="gm",
+    )
+
+
+def _hydratable_contribution():
+    from dungeonmind.contracts.contribution import (
+        AcceptanceState,
+        ContributionSourceKind,
+        GraphContributionAssertionV2,
+        GraphContributionV2,
+    )
+
+    return GraphContributionV2(
+        contribution_id=_HYDRATE_CONTRIB,
+        world_id=WORLD_ID,
+        source_kind=ContributionSourceKind.MANUAL_IMPORT,
+        source_artifact_id=_HYDRATE_ART,
+        source_revision_id=_HYDRATE_REV,
+        produced_at=_COMPAT_NOW,
+        campaign_scope=CAMPAIGN_ID,
+        assertions=[
+            GraphContributionAssertionV2(
+                assertion_id=_hydratable_assertion_id(),
+                assertion_kind="node",
+                subject_object_id=_HYDRATE_NODE,
+                label="College",
+                source_artifact_id=_HYDRATE_ART,
+                source_revision_id=_HYDRATE_REV,
+                campaign_scope=CAMPAIGN_ID,
+                acceptance_state=AcceptanceState.ACCEPTED,
+            )
+        ],
+    )
+
+
+def _hydratable_v4_receipt(
+    *,
+    membership_sha256: str,
+    effective_membership_sha256: str,
+    source_world_revision_id: str,
+):
+    from dungeonmind.contracts.existing_world_adoption import (
+        ExistingWorldAdoptionMembershipManifestV1,
+        ExistingWorldAdoptionReceiptV4,
+        ExistingWorldAdoptionSourceArtifactClassificationCorrectionV1,
+        ExistingWorldAdoptionSourceClassificationRepairV1,
+    )
+
+    return ExistingWorldAdoptionReceiptV4(
+        adoption_id="adopt:compat-v4-hydrate",
+        world_id=WORLD_ID,
+        bundle_sha256=_hex64("bundle"),
+        source_provenance=_compat_provenance(
+            source_world_revision_id=source_world_revision_id
+        ),
+        published_revision_id=_D_A,
+        graph_schema="dm_union_graph_v6",
+        graph_payload_sha256=_hex64("graph"),
+        adopted_at=_COMPAT_NOW,
+        source_artifact_count=1,
+        source_revision_count=1,
+        contribution_count=1,
+        identity_decision_count=0,
+        membership_sha256=membership_sha256,
+        effective_membership_sha256=effective_membership_sha256,
+        membership_manifest=ExistingWorldAdoptionMembershipManifestV1(
+            source_artifact_ids=sorted([_HYDRATE_ART]),
+            source_revision_ids=sorted([_HYDRATE_REV]),
+            contribution_ids=sorted([_HYDRATE_CONTRIB]),
+            identity_decision_ids=[],
+        ),
+        source_classification_repair=ExistingWorldAdoptionSourceClassificationRepairV1(
+            repair_id="repair:compat-v4-hydrate",
+            repaired_at=_COMPAT_NOW,
+            observed_pre_repair_membership_sha256=membership_sha256,
+            effective_membership_sha256=effective_membership_sha256,
+            corrections=[
+                ExistingWorldAdoptionSourceArtifactClassificationCorrectionV1(
+                    source_artifact_id=_HYDRATE_ART,
+                    original_record_fingerprint=_hex64("original-fp"),
+                    effective_record_fingerprint=_hex64("effective-fp"),
+                    changed_fields=["campaign_id"],
+                    original_visibility=None,
+                    effective_visibility=None,
+                    original_campaign_id=CAMPAIGN_ID,
+                    effective_campaign_id=None,
+                )
+            ],
+        ),
+    )
+
+
+def _stored_adoption_revision(*, graph_payload: dict):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        graph_payload=graph_payload,
+        revision=SimpleNamespace(
+            revision_id=_D_A,
+            parent_revision_id=None,
+            operation_ids=[],
+        ),
+    )
+
+
+def _write_hydratable_frozen_store(root: Path, *, contribution_id: str) -> tuple[Path, str]:
+    """Publish a minimal frozen Buddy head with a real replay manifest."""
+    from graph_memory.union_supergraph.model import ContributionReplayManifestEntry
+
+    store = _minimal_store()
+    store = store.model_copy(
+        update={
+            "campaign_id": CAMPAIGN_ID,
+            "focus_session_id": "compat-session",
+            "contribution_replay_manifest": [
+                ContributionReplayManifestEntry(
+                    contribution_id=contribution_id,
+                    status="active",
+                    source_payload_sha256=_hex64("hydrate-source"),
+                )
+            ],
+        }
+    )
+    result = storage.publish_world_graph_revision(
+        root, WORLD_ID, store, operation_ids=["compat:hydrate-frozen"]
+    )
+    frozen_head = result.revision.revision_id
+    world = root / "graph_memory/worlds" / WORLD_ID
+    (world / "contribution_index.json").write_text(
+        json.dumps(
+            {
+                "world_id": WORLD_ID,
+                "all_contribution_ids": [contribution_id],
+                "active_contribution_ids": [contribution_id],
+                "superseded_contribution_ids": [],
+                "retracted_contribution_ids": [],
+                "failed_contribution_ids": [],
+            }
+        )
+    )
+    (world / "identity_decision_index.json").write_text(
+        json.dumps({"world_id": WORLD_ID, "all_decision_ids": []})
+    )
+    return root, frozen_head
 
 
 def _compat_world_rows(*, include_descendants: bool = True, omit_adopted_artifact: bool = False):
@@ -998,34 +1177,50 @@ def test_v4_missing_or_mutated_member_or_wrong_checkpoint_fails_closed(tmp_path)
 def test_v4_hydrated_route_stays_on_legacy_path_when_direct_read_absent(
     tmp_path, monkeypatch
 ):
-    """§9.7: valid V4 still selects the existing hydrated route; direct reads stay off."""
+    """§9.7: valid V4 hydrates through the real cache/replay path; direct reads stay off."""
     import sys
 
     from apps.live_control_server.integrations.dungeonmind_kernel import (
         world_graph_authority as wga,
     )
 
-    rows = _compat_world_rows()
-    adopted = rows["adopted"]
-    m1 = _compat_membership_digest(
-        artifacts=[adopted[0]],
-        revisions=[adopted[1]],
-        contributions=[adopted[2]],
-        decisions=[adopted[3]],
+    frozen, frozen_head = _write_hydratable_frozen_store(
+        tmp_path / "frozen", contribution_id=_HYDRATE_CONTRIB
     )
-    receipt = _compat_v4_receipt(
+    adopted_artifact = _compat_artifact(_HYDRATE_ART, _HYDRATE_REV)
+    adopted_revision = _compat_revision(_HYDRATE_REV, _HYDRATE_ART)
+    adopted_contribution = _hydratable_contribution()
+    descendant_artifact = _compat_artifact(_COMPAT_DESCENDANT_ART, _COMPAT_DESCENDANT_REV)
+    descendant_revision = _compat_revision(_COMPAT_DESCENDANT_REV, _COMPAT_DESCENDANT_ART)
+    descendant_contribution = _compat_contribution(
+        _COMPAT_DESCENDANT_CONTRIB, _COMPAT_DESCENDANT_ART, _COMPAT_DESCENDANT_REV
+    )
+    m1 = _compat_membership_digest(
+        artifacts=[adopted_artifact],
+        revisions=[adopted_revision],
+        contributions=[adopted_contribution],
+        decisions=[],
+    )
+    receipt = _hydratable_v4_receipt(
         membership_sha256=_hex64("historical-m0"),
         effective_membership_sha256=m1,
-    )
-    frozen = _write_frozen_store(
-        tmp_path, contribution_ids=[_COMPAT_CONTRIB], decision_ids=[_COMPAT_DECISION]
+        source_world_revision_id=frozen_head,
     )
     bundle = _FakeBundle(
         receipt=receipt,
-        artifacts=rows["artifacts"],
-        revisions=rows["revisions"],
-        contributions=rows["contributions"],
-        decisions=rows["decisions"],
+        artifacts=[adopted_artifact, descendant_artifact],
+        revisions=[adopted_revision, descendant_revision],
+        contributions=[adopted_contribution, descendant_contribution],
+        decisions=[],
+        head_id=_D_A,
+        stored_revisions={
+            _D_A: _stored_adoption_revision(
+                graph_payload={
+                    "objects": [{"object_id": _HYDRATE_NODE}],
+                    "relationships": [],
+                }
+            )
+        },
     )
     cache_root = tmp_path / "authority-cache"
     monkeypatch.setenv(
@@ -1039,26 +1234,22 @@ def test_v4_hydrated_route_stays_on_legacy_path_when_direct_read_absent(
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT", str(cache_root))
     monkeypatch.delenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", raising=False)
     monkeypatch.setattr(wga, "_open_repository_bundle", lambda database_url: bundle)
-    seen: dict[str, object] = {}
 
-    def _fake_ensure(bundle_arg, world_id, **kwargs):
-        seen["binding"] = kwargs["binding"]
-        seen["revision_id"] = kwargs["revision_id"]
-        return wga.HydrationHandle(
-            world_id=world_id,
-            cache_world_root=cache_root / world_id,
-            buddy_revision_id="rev:" + "c" * 32,
-            selected_revision_id=kwargs["revision_id"],
-            head_revision_id=kwargs["binding"].dungeonmind_head_revision_id,
-        )
-
-    monkeypatch.setattr(wga, "_ensure_hydrated_revision", _fake_ensure)
     route = wga.route_service_read(_projection_request(), None, default_root=frozen)
-    assert seen["binding"].membership_sha256 == receipt.effective_membership_sha256
-    assert seen["binding"].membership_manifest is receipt.membership_manifest
-    assert seen["revision_id"] == _HEAD
-    assert route.graph_root == cache_root / WORLD_ID
-    assert route.public_revision_id == _HEAD
+    metadata = wga.read_hydration_metadata(route.graph_root)
+    assert metadata is not None
+    assert metadata["translation_version"] == wga.HYDRATION_TRANSLATION_VERSION
+    assert metadata["membership_sha256"] == receipt.effective_membership_sha256
+    assert metadata["dungeonmind_revision_id"] == _D_A
+    buddy_revision_id = metadata["buddy_hydrated_revision_id"]
+    assert str(buddy_revision_id).startswith("rev:")
+    hydrated = storage.load_world_graph_revision(
+        route.graph_root, WORLD_ID, str(buddy_revision_id)
+    )
+    assert _HYDRATE_NODE in hydrated.nodes
+    assert route.graph_root.is_relative_to(cache_root.resolve())
+    assert route.public_revision_id == _D_A
+    assert route.public_head_revision_id == _D_A
     assert "apps.live_control_server.integrations.dungeonmind.world_graph_reads" not in (
         sys.modules
     )
