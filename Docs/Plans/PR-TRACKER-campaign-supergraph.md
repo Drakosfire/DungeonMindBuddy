@@ -1,12 +1,12 @@
 # PR Tracker — Campaign Supergraph
 
 **Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices
-**Updated:** 2026-08-18 — CUTOVER_COMPLETE: Buddy #620 merged (4 review cycles; PASS `4966969478`); live D_A→D_B published; DungeonMind is living Eldyrwild World Graph authority
+**Updated:** 2026-08-23 — DungeonMind R.2b / PR #43 merged; Buddy V4 hydrated compatibility prerequisite is the active CUTOVER slice; R.3 / #629 remains frozen until that prerequisite merges and the live V4 repair succeeds
 **Repository anchor:** `18bcb18475ac30679ebec84bec17c4e81390f674` (Buddy `main` at #620 merge / live cutover base)
-**Dispatch gate:** none for CUTOVER — whole-world authority transfer is `CUTOVER_COMPLETE`. Do not redispatch #614/#619/#620, DungeonMind #34–#37, or the parked catch-up handoff absent a newly observed reproducible failure.
+**Dispatch gate:** V4 hydrated compatibility is the active CUTOVER write lease. Do not edit paused Buddy PR #629 (`cutover/direct-dungeonmind-production-reads`) in parallel. Do not redispatch #614/#619/#620, DungeonMind #34–#37, or the parked catch-up handoff absent a newly observed reproducible failure.
 **#538 design predecessor / docs base:** PR #538 merge
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`)
-**DungeonMind pin:** `2edc07ff27a21b1c83aed847edf95b77d297910e` (PR #37 merge / Buddy runtime pin)
+**DungeonMind pin:** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (PR #43 merge / governed V3→V4 adopted-source classification repair)
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)
@@ -114,6 +114,9 @@ PR #566 is merged and non-publishing: canonical bytes remain unchanged, while it
 | `cutover/whole-world-authority-transfer` / Buddy #619 | DONE — predecessor | DungeonMind #36 `DONE` | Buddy PR #619 merged at `6c2fe9d37dcecf34e025db8373fce072de30b62e`; 2 review cycles. Landed the DungeonMind authority adapter, hydration, read routing, and quiescence guard with known repair debt later closed by #620. |
 | `dungeonmind-world-graph-authority-completion` / Buddy #620 | DONE | DungeonMind #37 `DONE` + Buddy #619 merged | Buddy PR #620; title `CUTOVER: complete DungeonMind World Graph authority`; merge `18bcb18475ac30679ebec84bec17c4e81390f674`; 4 review cycles; final PASS review `4966969478` on head `8b9e5e8a68b8a5b766c7684234807c3df4944141`. Closed the #619 repair debt and made the live cutover operable. Handoff: [`HANDOFF-CUTOVER-dungeonmind-authority-completion.md`](HANDOFF-CUTOVER-dungeonmind-authority-completion.md). |
 | `whole-world-authority-transfer` live cutover | CUTOVER_COMPLETE | Buddy #620 `DONE` | Live Eldyrwild cutover on designated PostgreSQL `dungeonmind_cutover_live@127.0.0.1:54329`: exact A adopted at V3 (`membership_sha256=538195e399158bfb4fafce01f9c5af3c63e2137f70694fdead7a26e5800e0890`), correspondence `CORRESPONDING`, product reads switched to DungeonMind, first GM-approved canary published through the normal Buddy confirmation path as `D_B=rev:680c246047d67f9fe0293ee90526f670` from parent `D_A=rev:34b1f8e2625d5ba693fc726a2a1a4720` (`node:cutover-canary` / `Cutover Canary`). Frozen Buddy digests unchanged; local Buddy writer fail-closed. Parent handoff: [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md). |
+| DungeonMind R.2b / #43 adopted-source classification repair | DONE | living DungeonMind authority | DungeonMind PR #43; title governed V3→V4 adopted-source classification repair; merge `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5`; 4 formal review cycles. Introduces `ExistingWorldAdoptionReceiptV4` (`membership_sha256` = sealed M0, `effective_membership_sha256` = sanctioned M1, exact membership manifest, one authenticated source-classification repair). Live Eldyrwild repair is **not yet applied**. Historical handoff lives in DungeonMind: `HANDOFF-cutover-adoption-source-classification-repair.md`. |
+| `cutover/v4-hydrated-authority-compatibility` | DOING | DungeonMind #43 `DONE` | Land typed V3/V4 receipt binding and V4 manifest/M1 membership verification on the existing hydrated DungeonMind-authority path so the live R.2b repair can be applied without merging R.3 direct reads. Handoff: [`HANDOFF-CUTOVER-v4-hydrated-authority-compatibility.md`](HANDOFF-CUTOVER-v4-hydrated-authority-compatibility.md). Not marked done in this PR. |
+| `cutover/direct-dungeonmind-production-reads` / Buddy #629 | BLOCKED | this V4 compatibility prerequisite merged **and** live V4 repair succeeded | R.3 direct-read cutover remains paused/frozen while the overlapping authority-adapter/dependency seam is owned by the V4 compatibility PR. After both predecessors land, rebase #629 onto new main and drop duplicate `c3e57d9f…` as already-landed work. |
 
 ### Parallel product backlog retained from the July sequence
 
@@ -133,9 +136,10 @@ These remain valid product capabilities, but they do **not** override the active
 
 ## Immediate dispatch order
 
-1. CUTOVER is complete for Eldyrwild World Graph authority. Do not redispatch [`HANDOFF-CUTOVER-dungeonmind-authority-completion.md`](HANDOFF-CUTOVER-dungeonmind-authority-completion.md), [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md), the #614 design, or DungeonMind #34–#37. Do not dispatch the parked catch-up handoff unless a newly observed correspondence check returns `STALE`.
-2. Fix-forward only: concrete post-cutover failures become bounded repairs under living DungeonMind authority. Do not re-enable Buddy World Graph writers as an emergency shortcut after `D_B`.
-3. Confirm PR #577 remains closed unmerged. Do not rescue or extend that branch.
+1. Active CUTOVER slice: [`HANDOFF-CUTOVER-v4-hydrated-authority-compatibility.md`](HANDOFF-CUTOVER-v4-hydrated-authority-compatibility.md). Freeze Buddy PR #629 until this prerequisite merges and the steward-run live V4 repair succeeds.
+2. CUTOVER remains complete for Eldyrwild World Graph authority transfer. Do not redispatch [`HANDOFF-CUTOVER-dungeonmind-authority-completion.md`](HANDOFF-CUTOVER-dungeonmind-authority-completion.md), [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md), the #614 design, or DungeonMind #34–#37. Do not dispatch the parked catch-up handoff unless a newly observed correspondence check returns `STALE`.
+3. Fix-forward only: concrete post-cutover failures become bounded repairs under living DungeonMind authority. Do not re-enable Buddy World Graph writers as an emergency shortcut after `D_B`.
+4. Confirm PR #577 remains closed unmerged. Do not rescue or extend that branch.
 
 ## Current acceptance debt
 
@@ -149,7 +153,9 @@ The following remain true after DungeonMind PR #35 and the direct Buddy authorit
 - #35 proved read-only classification of an exact Buddy snapshot against the adopted world, but did not close exact adopted-membership checkpointing: under unpromoted V2 receipts, same-cardinality adopted-history substitution can still hide behind `STALE`. That residual is closed by DungeonMind #36 (`DONE`): exact adopted-membership receipt V3 with `membership_sha256`, steward-supervised Eldyrwild V2→V3 promotion, and membership recomputation before any `STALE`. Neither #34, #35, nor #36 proved snapshot drift/catch-up, living-world writer ownership, production read switch, rollback operator workflow, first post-cutover mutation, or old-authority demolition — those are the whole-world authority transfer's live attempt/repair loop.
 - Buddy PR #619 (whole-world authority transfer adapter) merged at `6c2fe9d3…` with known repair debt later closed by Buddy PR #620 (`18bcb184…`; 4 review cycles; final PASS `4966969478`).
 - Live cutover completed on designated PostgreSQL: exact A V3 membership intact, correspondence `CORRESPONDING`, product reads on DungeonMind, first DungeonMind-owned child `D_B=rev:680c246047d67f9fe0293ee90526f670` from `D_A=rev:34b1f8e2625d5ba693fc726a2a1a4720`.
-- Disposition: `CUTOVER_COMPLETE`. DungeonMind is living Eldyrwild World Graph authority; Buddy local writer authority is fail-closed. Pinned exact-snapshot catch-up remains `DEFERRED` (no `STALE` observed).
+- DungeonMind R.2b / PR #43 is `DONE` at merge `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (4 formal review cycles): governed V3→V4 adopted-source classification repair. Live Eldyrwild repair is **not yet applied**; the living authority remains on the corrupted V3 adopted-source state until the V4 hydrated compatibility prerequisite merges and the steward-run repair sequence succeeds.
+- Buddy V4 hydrated compatibility (`cutover/v4-hydrated-authority-compatibility`) is `DOING`. Buddy R.3 / PR #629 remains paused/frozen pending that landed compatibility and the live repair. Do not mark the compatibility PR done, invent its merge SHA, or resume R.3 in this slice.
+- Disposition: Eldyrwild World Graph authority transfer remains `CUTOVER_COMPLETE`. DungeonMind is living Eldyrwild World Graph authority; Buddy local writer authority is fail-closed. Pinned exact-snapshot catch-up remains `DEFERRED` (no `STALE` observed). Runtime retirement continues through V4 compatibility → live repair → R.3.
 - The pre-confirm catalog/live lane still relies on preview-union-era materialization.
 - The human confirm path needs a fresh bounded end-to-end acceptance run after the reconstituted PR380A/B/C sequence.
 - Browser-reload receipt rehydration is deferred; post-confirm authority is currently an in-session transition.

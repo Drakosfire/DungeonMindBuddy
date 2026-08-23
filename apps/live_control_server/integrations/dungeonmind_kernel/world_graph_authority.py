@@ -13,7 +13,8 @@ and the campaign/focus bindings are read from the frozen pre-switch Buddy store
 (the retained rollback snapshot). DungeonMind's v2 adoption ledger deliberately
 does not carry Buddy's replay-order or initialization-receipt decoration, and
 the adopted records are membership-digest-frozen (mutating them would break the
-V3 receipt). Graph *content* — every node, edge, evidence row, alias, and
+served V3 ``membership_sha256`` or V4 ``effective_membership_sha256``
+checkpoint). Graph *content* — every node, edge, evidence row, alias, and
 assertion — always comes from DungeonMind's ledger.
 
 Write architecture: the GM-confirmed publication path is routed here in
@@ -153,7 +154,13 @@ def _open_repository_bundle(database_url: str) -> Any:
 
 @dataclass(frozen=True)
 class AuthorityBinding:
-    """The verified adoption binding between Buddy snapshot A and DungeonMind."""
+    """The verified adoption binding between Buddy snapshot A and DungeonMind.
+
+    ``membership_sha256`` is the *served* adopted-membership checkpoint:
+    V3 ``membership_sha256`` (M0) or V4 ``effective_membership_sha256`` (M1).
+    ``membership_manifest`` is the exact V4 adopted-member selector; it is
+    ``None`` for V3, which keeps frozen-store membership selection.
+    """
 
     world_id: str
     adoption_id: str
@@ -166,6 +173,7 @@ class AuthorityBinding:
     source_revision_count: int
     contribution_count: int
     identity_decision_count: int
+    membership_manifest: Any | None = None
 
 
 def _load_frozen_head_revision_id(frozen_root: Path, world_id: str) -> str:
@@ -195,12 +203,15 @@ def bind_world_authority(
 ) -> AuthorityBinding:
     """Verify the adoption receipt and bind Buddy A to DungeonMind D_A.
 
-    Fail-closed: no receipt, a non-V3 receipt, a missing head, or a frozen
-    store whose head is not the adopted snapshot all raise. A wrong frozen
-    store can never be silently treated as the adopted snapshot.
+    Fail-closed: no receipt, an unsupported receipt schema, a missing head, or
+    a frozen store whose head is not the adopted snapshot all raise. V3 and V4
+    are the only accepted typed contracts; attribute presence is not a
+    discriminator. A wrong frozen store can never be silently treated as the
+    adopted snapshot.
     """
     from dungeonmind.contracts.existing_world_adoption import (
         ExistingWorldAdoptionReceiptV3,
+        ExistingWorldAdoptionReceiptV4,
     )
 
     try:
@@ -218,11 +229,22 @@ def bind_world_authority(
             code="adoption_receipt_missing",
             details={"world_id": world_id},
         )
-    if not isinstance(receipt, ExistingWorldAdoptionReceiptV3):
+    # V4 subclasses V3; check the repaired contract first so M1/manifest bind.
+    if isinstance(receipt, ExistingWorldAdoptionReceiptV4):
+        served_checkpoint = receipt.effective_membership_sha256
+        membership_manifest = receipt.membership_manifest
+    elif isinstance(receipt, ExistingWorldAdoptionReceiptV3):
+        served_checkpoint = receipt.membership_sha256
+        membership_manifest = None
+    else:
         raise WorldGraphAuthorityError(
-            f"world {world_id!r} adoption receipt is not a V3 membership receipt",
+            f"world {world_id!r} adoption receipt is not a V3 or V4 "
+            "membership receipt",
             code="adoption_receipt_not_v3",
-            details={"world_id": world_id, "schema": receipt.schema_version},
+            details={
+                "world_id": world_id,
+                "schema": getattr(receipt, "schema_version", type(receipt).__name__),
+            },
         )
     if head is None:
         raise WorldGraphAuthorityError(
@@ -245,7 +267,7 @@ def bind_world_authority(
     return AuthorityBinding(
         world_id=world_id,
         adoption_id=receipt.adoption_id,
-        membership_sha256=receipt.membership_sha256,
+        membership_sha256=served_checkpoint,
         legacy_buddy_revision_id=adopted_source,
         dungeonmind_first_revision_id=receipt.published_revision_id,
         dungeonmind_head_revision_id=head.head_revision_id,
@@ -254,6 +276,7 @@ def bind_world_authority(
         source_revision_count=receipt.source_revision_count,
         contribution_count=receipt.contribution_count,
         identity_decision_count=receipt.identity_decision_count,
+        membership_manifest=membership_manifest,
     )
 
 
@@ -305,7 +328,7 @@ def check_world_correspondence(
 
 
 # ---------------------------------------------------------------------------
-# Adopted-membership integrity (V3 receipt enforcement at serve time)
+# Adopted-membership integrity (V3/V4 receipt enforcement at serve time)
 # ---------------------------------------------------------------------------
 
 
@@ -347,14 +370,14 @@ def _verify_adopted_membership(
     binding: AuthorityBinding,
     frozen_root: Path,
 ) -> None:
-    """Recompute the exact adopted V3 membership and fail closed on any drift.
+    """Recompute the exact adopted membership and fail closed on any drift.
 
-    The adopted id sets come from the frozen pre-switch Buddy store (the
-    authoritative record of what was adopted); the current payloads come from
-    DungeonMind. Deletion, mutation, and same-cardinality substitution of any
-    adopted row change the digest and refuse service. Post-adoption records
-    (review states, publications, revisions) are not members and never
-    weaken the check.
+    V3 keeps frozen-store adopted-id selection and compares the digest to the
+    V3 ``membership_sha256``. V4 selects exactly the receipt manifest IDs and
+    compares the digest to the served ``effective_membership_sha256`` (M1).
+    Post-adoption descendants are not members: V3 ignores them because they
+    are absent from the frozen store; V4 ignores them because they are absent
+    from the manifest. Frozen Buddy data never overrides a V4 manifest.
     """
     from dungeonmind.domain.existing_world_membership import (
         existing_world_adoption_membership_sha256,
@@ -366,12 +389,21 @@ def _verify_adopted_membership(
         load_identity_decision_index,
     )
 
-    adopted_contribution_ids = set(
-        load_contribution_index(frozen_root, world_id).all_contribution_ids
-    )
-    adopted_decision_ids = set(
-        load_identity_decision_index(frozen_root, world_id).all_decision_ids
-    )
+    manifest = binding.membership_manifest
+    if manifest is not None:
+        adopted_contribution_ids = set(manifest.contribution_ids)
+        adopted_decision_ids = set(manifest.identity_decision_ids)
+        adopted_artifact_ids = set(manifest.source_artifact_ids)
+        adopted_revision_ids = set(manifest.source_revision_ids)
+    else:
+        adopted_contribution_ids = set(
+            load_contribution_index(frozen_root, world_id).all_contribution_ids
+        )
+        adopted_decision_ids = set(
+            load_identity_decision_index(frozen_root, world_id).all_decision_ids
+        )
+        adopted_artifact_ids = set()
+        adopted_revision_ids = set()
 
     try:
         all_contributions = bundle.contributions.list_for_world(world_id)
@@ -388,7 +420,10 @@ def _verify_adopted_membership(
         c for c in all_contributions if c.contribution_id in adopted_contribution_ids
     ]
     decisions = [d for d in all_decisions if d.decision_id in adopted_decision_ids]
-    adopted_artifact_ids, adopted_revision_ids = _adopted_source_identity(contributions)
+    if manifest is None:
+        adopted_artifact_ids, adopted_revision_ids = _adopted_source_identity(
+            contributions
+        )
     artifacts = [
         a for a in all_artifacts if a.source_artifact_id in adopted_artifact_ids
     ]
@@ -406,6 +441,35 @@ def _verify_adopted_membership(
             code="authority_unavailable",
             details={"world_id": world_id, "reason": type(exc).__name__},
         ) from exc
+
+    if manifest is not None:
+        observed_ids = {
+            "source_artifacts": {a.source_artifact_id for a in artifacts},
+            "source_revisions": {r.source_revision_id for r in revisions},
+            "contributions": {c.contribution_id for c in contributions},
+            "identity_decisions": {d.decision_id for d in decisions},
+        }
+        expected_ids = {
+            "source_artifacts": adopted_artifact_ids,
+            "source_revisions": adopted_revision_ids,
+            "contributions": adopted_contribution_ids,
+            "identity_decisions": adopted_decision_ids,
+        }
+        if observed_ids != expected_ids:
+            raise WorldGraphAuthorityError(
+                "adopted DungeonMind membership is incomplete",
+                code="adopted_membership_incomplete",
+                details={
+                    "world_id": world_id,
+                    "adoption_id": binding.adoption_id,
+                    "expected_counts": {
+                        family: len(ids) for family, ids in expected_ids.items()
+                    },
+                    "observed_counts": {
+                        family: len(ids) for family, ids in observed_ids.items()
+                    },
+                },
+            )
 
     observed_counts = {
         "source_artifacts": len(artifacts),
@@ -438,8 +502,13 @@ def _verify_adopted_membership(
         identity_decisions=decisions,
     )
     if digest != binding.membership_sha256:
+        checkpoint_label = (
+            "V4 effective membership checkpoint"
+            if manifest is not None
+            else "V3 receipt"
+        )
         raise WorldGraphAuthorityError(
-            "adopted DungeonMind membership does not match the V3 receipt",
+            f"adopted DungeonMind membership does not match the {checkpoint_label}",
             code="adopted_membership_mismatch",
             details={
                 "world_id": world_id,
@@ -1257,9 +1326,11 @@ def _ensure_hydrated_revision(
     translation version matches); otherwise re-hydrates from DungeonMind
     durable state alone — the derivative cache is expendable.
 
-    The exact V3 adopted-membership verification runs on every call, cache
-    hit or rebuild: the cache is derivative, so a warm cache must never
-    certify durable adopted rows it did not re-check. Tampering with adopted
+    The exact adopted-membership verification runs on every call, cache
+    hit or rebuild: V3 against ``membership_sha256`` via frozen-store
+    selection, V4 against ``effective_membership_sha256`` via the receipt
+    manifest. The cache is derivative, so a warm cache must never certify
+    durable adopted rows it did not re-check. Tampering with adopted
     DungeonMind rows after hydration therefore fails closed on the next read
     instead of remaining invisible behind the cache.
     """

@@ -2,9 +2,10 @@
 
 Two layers:
 
-- **Unit layer (portable)** — no PostgreSQL, no frozen store. Proves the
+- **Unit layer (portable)** — no PostgreSQL, no live frozen store. Proves the
   quiescence guard, the translation content-addressing round-trip, replay
-  ordering, read routing in the passthrough modes, and error mapping.
+  ordering, read routing in the passthrough modes, error mapping, and typed
+  V3/V4 receipt binding plus V4 manifest/M1 membership verification.
 - **Integration layer (env-gated)** — requires
   ``DMB_CUTOVER_TEST_DATABASE_URL`` (a migrated, disposable PostgreSQL
   database; every table is truncated by the fixture) and the frozen
@@ -20,6 +21,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -389,6 +391,868 @@ def test_projection_service_unreachable_authority_fails_closed(tmp_path, monkeyp
         project_world_graph(_projection_request())
     assert excinfo.value.code == "authority_unavailable"
     assert excinfo.value.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# V3/V4 hydrated-authority compatibility (portable; no live DB)
+# ---------------------------------------------------------------------------
+
+_COMPAT_NOW = datetime(2026, 8, 23, 18, 0, tzinfo=UTC)
+_COMPAT_ART = "src:adopted"
+_COMPAT_REV = "srcrev:adopted"
+_COMPAT_CONTRIB = "contrib:adopted"
+_COMPAT_DECISION = "iddec:adopted"
+_COMPAT_DESCENDANT_ART = "src:descendant"
+_COMPAT_DESCENDANT_REV = "srcrev:descendant"
+_COMPAT_DESCENDANT_ON_ADOPTED_REV = "srcrev:post-adoption-on-adopted"
+_COMPAT_DESCENDANT_CONTRIB = "contrib:descendant"
+_COMPAT_DESCENDANT_DECISION = "iddec:descendant"
+_D_A = "rev:" + "a" * 32
+_HEAD = "rev:" + "b" * 32
+
+
+def _hex64(label: str) -> str:
+    return hashlib.sha256(label.encode()).hexdigest()
+
+
+def _compat_provenance(*, source_world_revision_id: str = FROZEN_HEAD_REVISION):
+    from dungeonmind.contracts.existing_world_adoption import (
+        ExistingWorldAdoptionSourceProvenanceV1,
+    )
+
+    return ExistingWorldAdoptionSourceProvenanceV1(
+        producer_id="dungeonmindbuddy",
+        producer_revision="test",
+        source_world_revision_id=source_world_revision_id,
+        source_graph_payload_sha256=_hex64("payload"),
+    )
+
+
+def _compat_artifact(source_artifact_id: str, revision_id: str, *, campaign_id: str | None = None):
+    from dungeonmind.contracts.evidence import (
+        SourceArtifactV2,
+        SourceAuthority,
+        SourceDomain,
+        SourceStatus,
+    )
+    from dungeonmind.contracts.vocabulary import Visibility
+
+    return SourceArtifactV2(
+        source_artifact_id=source_artifact_id,
+        source_domain_key="producer.worldbuilding",
+        source_domain=SourceDomain.WORLDBUILDING,
+        world_id=WORLD_ID,
+        campaign_id=campaign_id,
+        session_id=None,
+        uri=None,
+        current_revision_id=revision_id,
+        authority=SourceAuthority.PRIMARY,
+        visibility=Visibility.GM,
+        artifact_kind="note",
+        document_class=None,
+        review_state=None,
+        source_visibility_state=None,
+        workspace_document_ref=None,
+        lineage={},
+        status=SourceStatus.ACTIVE,
+        created_at=_COMPAT_NOW,
+        updated_at=_COMPAT_NOW,
+    )
+
+
+def _compat_revision(source_revision_id: str, source_artifact_id: str):
+    from dungeonmind.contracts.evidence import SourceRevision
+
+    return SourceRevision(
+        source_revision_id=source_revision_id,
+        source_artifact_id=source_artifact_id,
+        content_sha256=_hex64(source_revision_id),
+        body_storage="object_store",
+        locator=f"object://{source_revision_id}",
+        created_at=_COMPAT_NOW,
+    )
+
+
+def _compat_contribution(
+    contribution_id: str, artifact_id: str, revision_id: str, *, authored_by: str | None = None
+):
+    from dungeonmind.contracts.contribution import (
+        AcceptanceState,
+        ContributionSourceKind,
+        GraphContributionAssertionV2,
+        GraphContributionV2,
+    )
+
+    return GraphContributionV2(
+        contribution_id=contribution_id,
+        world_id=WORLD_ID,
+        source_kind=ContributionSourceKind.MANUAL_IMPORT,
+        source_artifact_id=artifact_id,
+        source_revision_id=revision_id,
+        produced_at=_COMPAT_NOW,
+        campaign_scope=CAMPAIGN_ID,
+        authored_by=authored_by,
+        assertions=[
+            GraphContributionAssertionV2(
+                assertion_id=f"asrt:{contribution_id}",
+                assertion_kind="attribute",
+                subject_object_id="obj:college",
+                label="imported",
+                source_artifact_id=artifact_id,
+                source_revision_id=revision_id,
+                campaign_scope=CAMPAIGN_ID,
+                acceptance_state=AcceptanceState.ACCEPTED,
+            )
+        ],
+    )
+
+
+def _compat_decision(decision_id: str):
+    from dungeonmind.contracts.identity import (
+        IdentityDecisionKind,
+        IdentityDecisionRecordV2,
+        IdentityDecisionStatus,
+    )
+
+    return IdentityDecisionRecordV2(
+        decision_id=decision_id,
+        world_id=WORLD_ID,
+        decision_kind=IdentityDecisionKind.ALIAS_ADD,
+        subject_object_ids=["obj:college"],
+        alias="College",
+        status=IdentityDecisionStatus.ACTIVE,
+        created_at=_COMPAT_NOW,
+    )
+
+
+def _compat_membership_digest(*, artifacts, revisions, contributions, decisions):
+    from dungeonmind.domain.existing_world_membership import (
+        existing_world_adoption_membership_sha256,
+    )
+
+    return existing_world_adoption_membership_sha256(
+        source_artifacts=artifacts,
+        source_revisions=revisions,
+        contributions=contributions,
+        identity_decisions=decisions,
+    )
+
+
+def _compat_v3_receipt(*, membership_sha256: str):
+    from dungeonmind.contracts.existing_world_adoption import (
+        ExistingWorldAdoptionReceiptV3,
+    )
+
+    return ExistingWorldAdoptionReceiptV3(
+        adoption_id="adopt:compat-v3",
+        world_id=WORLD_ID,
+        bundle_sha256=_hex64("bundle"),
+        source_provenance=_compat_provenance(),
+        published_revision_id=_D_A,
+        graph_schema="dm_union_graph_v6",
+        graph_payload_sha256=_hex64("graph"),
+        adopted_at=_COMPAT_NOW,
+        source_artifact_count=1,
+        source_revision_count=1,
+        contribution_count=1,
+        identity_decision_count=1,
+        membership_sha256=membership_sha256,
+    )
+
+
+def _compat_v4_receipt(*, membership_sha256: str, effective_membership_sha256: str):
+    from dungeonmind.contracts.existing_world_adoption import (
+        ExistingWorldAdoptionMembershipManifestV1,
+        ExistingWorldAdoptionReceiptV4,
+        ExistingWorldAdoptionSourceArtifactClassificationCorrectionV1,
+        ExistingWorldAdoptionSourceClassificationRepairV1,
+    )
+
+    return ExistingWorldAdoptionReceiptV4(
+        adoption_id="adopt:compat-v4",
+        world_id=WORLD_ID,
+        bundle_sha256=_hex64("bundle"),
+        source_provenance=_compat_provenance(),
+        published_revision_id=_D_A,
+        graph_schema="dm_union_graph_v6",
+        graph_payload_sha256=_hex64("graph"),
+        adopted_at=_COMPAT_NOW,
+        source_artifact_count=1,
+        source_revision_count=1,
+        contribution_count=1,
+        identity_decision_count=1,
+        membership_sha256=membership_sha256,
+        effective_membership_sha256=effective_membership_sha256,
+        membership_manifest=ExistingWorldAdoptionMembershipManifestV1(
+            source_artifact_ids=sorted([_COMPAT_ART]),
+            source_revision_ids=sorted([_COMPAT_REV]),
+            contribution_ids=sorted([_COMPAT_CONTRIB]),
+            identity_decision_ids=sorted([_COMPAT_DECISION]),
+        ),
+        source_classification_repair=ExistingWorldAdoptionSourceClassificationRepairV1(
+            repair_id="repair:compat-v4",
+            repaired_at=_COMPAT_NOW,
+            observed_pre_repair_membership_sha256=membership_sha256,
+            effective_membership_sha256=effective_membership_sha256,
+            corrections=[
+                ExistingWorldAdoptionSourceArtifactClassificationCorrectionV1(
+                    source_artifact_id=_COMPAT_ART,
+                    original_record_fingerprint=_hex64("original-fp"),
+                    effective_record_fingerprint=_hex64("effective-fp"),
+                    changed_fields=["campaign_id"],
+                    original_visibility=None,
+                    effective_visibility=None,
+                    original_campaign_id=CAMPAIGN_ID,
+                    effective_campaign_id=None,
+                )
+            ],
+        ),
+    )
+
+
+class _FakeAdoptions:
+    def __init__(self, receipt):
+        self._receipt = receipt
+
+    def get_for_world(self, world_id: str):
+        return self._receipt
+
+
+class _FakeGraph:
+    def __init__(self, head_revision_id: str, stored_revisions: dict | None = None):
+        self._head_revision_id = head_revision_id
+        self._stored_revisions = dict(stored_revisions or {})
+
+    def get_head(self, world_id: str):
+        return type("Head", (), {"head_revision_id": self._head_revision_id})()
+
+    def get_revision(self, world_id: str, revision_id: str):
+        return self._stored_revisions.get(revision_id)
+
+
+class _FakeContributions:
+    def __init__(self, rows):
+        self._rows = list(rows)
+
+    def list_for_world(self, world_id: str):
+        return list(self._rows)
+
+
+class _FakeIdentity:
+    def __init__(self, rows):
+        self._rows = list(rows)
+
+    def list_for_world(self, world_id: str):
+        return list(self._rows)
+
+
+class _FakeSources:
+    def __init__(self, artifacts, revisions):
+        self._artifacts = list(artifacts)
+        self._revisions_by_artifact: dict[str, list] = {}
+        for revision in revisions:
+            self._revisions_by_artifact.setdefault(revision.source_artifact_id, []).append(
+                revision
+            )
+
+    def list_artifacts_for_world(self, world_id: str):
+        return list(self._artifacts)
+
+    def list_revisions(self, artifact_id: str):
+        return list(self._revisions_by_artifact.get(artifact_id, []))
+
+
+class _FakeBundle:
+    def __init__(
+        self,
+        *,
+        receipt,
+        artifacts,
+        revisions,
+        contributions,
+        decisions,
+        head_id=_HEAD,
+        stored_revisions: dict | None = None,
+    ):
+        self.existing_world_adoptions = _FakeAdoptions(receipt)
+        self.world_graph = _FakeGraph(head_id, stored_revisions)
+        self.contributions = _FakeContributions(contributions)
+        self.identity_decisions = _FakeIdentity(decisions)
+        self.sources = _FakeSources(artifacts, revisions)
+
+
+def _write_frozen_store(root: Path, *, contribution_ids: list[str], decision_ids: list[str]) -> Path:
+    world = root / "graph_memory/worlds" / WORLD_ID
+    world.mkdir(parents=True)
+    (world / "head.json").write_text(json.dumps({"head_revision_id": FROZEN_HEAD_REVISION}))
+    (world / "contribution_index.json").write_text(
+        json.dumps(
+            {
+                "world_id": WORLD_ID,
+                "all_contribution_ids": contribution_ids,
+                "active_contribution_ids": contribution_ids,
+                "superseded_contribution_ids": [],
+                "retracted_contribution_ids": [],
+                "failed_contribution_ids": [],
+            }
+        )
+    )
+    (world / "identity_decision_index.json").write_text(
+        json.dumps({"world_id": WORLD_ID, "all_decision_ids": decision_ids})
+    )
+    return root
+
+
+_HYDRATE_ART = "src:hydrate-adopted"
+_HYDRATE_REV = "srcrev:hydrate-adopted"
+_HYDRATE_CONTRIB = "contribution:" + "c" * 16
+_HYDRATE_NODE = "obj:college"
+
+
+def _hydratable_assertion_id() -> str:
+    from graph_memory.kernel.contributions import compute_assertion_id
+
+    return compute_assertion_id(
+        assertion_kind="node",
+        subject_node_id=_HYDRATE_NODE,
+        target_node_id=None,
+        predicate=None,
+        label="College",
+        value={},
+        campaign_scope=CAMPAIGN_ID,
+        temporal_scope=None,
+        epistemic_kind="asserted",
+        visibility="gm",
+    )
+
+
+def _hydratable_contribution():
+    from dungeonmind.contracts.contribution import (
+        AcceptanceState,
+        ContributionSourceKind,
+        GraphContributionAssertionV2,
+        GraphContributionV2,
+    )
+
+    return GraphContributionV2(
+        contribution_id=_HYDRATE_CONTRIB,
+        world_id=WORLD_ID,
+        source_kind=ContributionSourceKind.MANUAL_IMPORT,
+        source_artifact_id=_HYDRATE_ART,
+        source_revision_id=_HYDRATE_REV,
+        produced_at=_COMPAT_NOW,
+        campaign_scope=CAMPAIGN_ID,
+        assertions=[
+            GraphContributionAssertionV2(
+                assertion_id=_hydratable_assertion_id(),
+                assertion_kind="node",
+                subject_object_id=_HYDRATE_NODE,
+                label="College",
+                source_artifact_id=_HYDRATE_ART,
+                source_revision_id=_HYDRATE_REV,
+                campaign_scope=CAMPAIGN_ID,
+                acceptance_state=AcceptanceState.ACCEPTED,
+            )
+        ],
+    )
+
+
+def _hydratable_v4_receipt(
+    *,
+    membership_sha256: str,
+    effective_membership_sha256: str,
+    source_world_revision_id: str,
+):
+    from dungeonmind.contracts.existing_world_adoption import (
+        ExistingWorldAdoptionMembershipManifestV1,
+        ExistingWorldAdoptionReceiptV4,
+        ExistingWorldAdoptionSourceArtifactClassificationCorrectionV1,
+        ExistingWorldAdoptionSourceClassificationRepairV1,
+    )
+
+    return ExistingWorldAdoptionReceiptV4(
+        adoption_id="adopt:compat-v4-hydrate",
+        world_id=WORLD_ID,
+        bundle_sha256=_hex64("bundle"),
+        source_provenance=_compat_provenance(
+            source_world_revision_id=source_world_revision_id
+        ),
+        published_revision_id=_D_A,
+        graph_schema="dm_union_graph_v6",
+        graph_payload_sha256=_hex64("graph"),
+        adopted_at=_COMPAT_NOW,
+        source_artifact_count=1,
+        source_revision_count=1,
+        contribution_count=1,
+        identity_decision_count=0,
+        membership_sha256=membership_sha256,
+        effective_membership_sha256=effective_membership_sha256,
+        membership_manifest=ExistingWorldAdoptionMembershipManifestV1(
+            source_artifact_ids=sorted([_HYDRATE_ART]),
+            source_revision_ids=sorted([_HYDRATE_REV]),
+            contribution_ids=sorted([_HYDRATE_CONTRIB]),
+            identity_decision_ids=[],
+        ),
+        source_classification_repair=ExistingWorldAdoptionSourceClassificationRepairV1(
+            repair_id="repair:compat-v4-hydrate",
+            repaired_at=_COMPAT_NOW,
+            observed_pre_repair_membership_sha256=membership_sha256,
+            effective_membership_sha256=effective_membership_sha256,
+            corrections=[
+                ExistingWorldAdoptionSourceArtifactClassificationCorrectionV1(
+                    source_artifact_id=_HYDRATE_ART,
+                    original_record_fingerprint=_hex64("original-fp"),
+                    effective_record_fingerprint=_hex64("effective-fp"),
+                    changed_fields=["campaign_id"],
+                    original_visibility=None,
+                    effective_visibility=None,
+                    original_campaign_id=CAMPAIGN_ID,
+                    effective_campaign_id=None,
+                )
+            ],
+        ),
+    )
+
+
+def _stored_adoption_revision(*, graph_payload: dict):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        graph_payload=graph_payload,
+        revision=SimpleNamespace(
+            revision_id=_D_A,
+            parent_revision_id=None,
+            operation_ids=[],
+        ),
+    )
+
+
+def _write_hydratable_frozen_store(root: Path, *, contribution_id: str) -> tuple[Path, str]:
+    """Publish a minimal frozen Buddy head with a real replay manifest."""
+    from graph_memory.union_supergraph.model import ContributionReplayManifestEntry
+
+    store = _minimal_store()
+    store = store.model_copy(
+        update={
+            "campaign_id": CAMPAIGN_ID,
+            "focus_session_id": "compat-session",
+            "contribution_replay_manifest": [
+                ContributionReplayManifestEntry(
+                    contribution_id=contribution_id,
+                    status="active",
+                    source_payload_sha256=_hex64("hydrate-source"),
+                )
+            ],
+        }
+    )
+    result = storage.publish_world_graph_revision(
+        root, WORLD_ID, store, operation_ids=["compat:hydrate-frozen"]
+    )
+    frozen_head = result.revision.revision_id
+    world = root / "graph_memory/worlds" / WORLD_ID
+    (world / "contribution_index.json").write_text(
+        json.dumps(
+            {
+                "world_id": WORLD_ID,
+                "all_contribution_ids": [contribution_id],
+                "active_contribution_ids": [contribution_id],
+                "superseded_contribution_ids": [],
+                "retracted_contribution_ids": [],
+                "failed_contribution_ids": [],
+            }
+        )
+    )
+    (world / "identity_decision_index.json").write_text(
+        json.dumps({"world_id": WORLD_ID, "all_decision_ids": []})
+    )
+    return root, frozen_head
+
+
+def _compat_world_rows(*, include_descendants: bool = True, omit_adopted_artifact: bool = False):
+    adopted_artifact = _compat_artifact(_COMPAT_ART, _COMPAT_REV)
+    adopted_revision = _compat_revision(_COMPAT_REV, _COMPAT_ART)
+    adopted_contribution = _compat_contribution(_COMPAT_CONTRIB, _COMPAT_ART, _COMPAT_REV)
+    adopted_decision = _compat_decision(_COMPAT_DECISION)
+    artifacts = [] if omit_adopted_artifact else [adopted_artifact]
+    revisions = [adopted_revision]
+    contributions = [adopted_contribution]
+    decisions = [adopted_decision]
+    if include_descendants:
+        artifacts.append(_compat_artifact(_COMPAT_DESCENDANT_ART, _COMPAT_DESCENDANT_REV))
+        revisions.extend(
+            [
+                _compat_revision(_COMPAT_DESCENDANT_REV, _COMPAT_DESCENDANT_ART),
+                _compat_revision(_COMPAT_DESCENDANT_ON_ADOPTED_REV, _COMPAT_ART),
+            ]
+        )
+        contributions.append(
+            _compat_contribution(
+                _COMPAT_DESCENDANT_CONTRIB, _COMPAT_DESCENDANT_ART, _COMPAT_DESCENDANT_REV
+            )
+        )
+        decisions.append(_compat_decision(_COMPAT_DESCENDANT_DECISION))
+    return {
+        "adopted": (adopted_artifact, adopted_revision, adopted_contribution, adopted_decision),
+        "artifacts": artifacts,
+        "revisions": revisions,
+        "contributions": contributions,
+        "decisions": decisions,
+    }
+
+
+def test_dungeonmind_pin_exposes_typed_v4_receipt_contract():
+    """§9.1: exact #43 pin and public V4/manifest types."""
+    from dungeonmind.contracts.existing_world_adoption import (
+        EXISTING_WORLD_ADOPTION_RECEIPT_V4_SCHEMA,
+        ExistingWorldAdoptionMembershipManifestV1,
+        ExistingWorldAdoptionReceiptV4,
+    )
+
+    pin = "519b2c96fc42d22f3113cc9ca0d48bc70b6780e5"
+    assert pin in (REPO_ROOT / "pyproject.toml").read_text()
+    assert pin in (REPO_ROOT / "uv.lock").read_text()
+    assert ExistingWorldAdoptionReceiptV4.model_fields["schema_version"].default == (
+        EXISTING_WORLD_ADOPTION_RECEIPT_V4_SCHEMA
+    )
+    assert "source_artifact_ids" in ExistingWorldAdoptionMembershipManifestV1.model_fields
+    assert "effective_membership_sha256" in ExistingWorldAdoptionReceiptV4.model_fields
+
+
+def test_v3_binder_uses_membership_sha256_and_no_manifest(tmp_path):
+    """§9.2: typed V3 bind still serves membership_sha256 and keeps V3 selection."""
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    rows = _compat_world_rows()
+    adopted = rows["adopted"]
+    m0 = _compat_membership_digest(
+        artifacts=[adopted[0]],
+        revisions=[adopted[1]],
+        contributions=[adopted[2]],
+        decisions=[adopted[3]],
+    )
+    receipt = _compat_v3_receipt(membership_sha256=m0)
+    frozen = _write_frozen_store(
+        tmp_path, contribution_ids=[_COMPAT_CONTRIB], decision_ids=[_COMPAT_DECISION]
+    )
+    bundle = _FakeBundle(
+        receipt=receipt,
+        artifacts=rows["artifacts"],
+        revisions=rows["revisions"],
+        contributions=rows["contributions"],
+        decisions=rows["decisions"],
+    )
+    binding = wga.bind_world_authority(bundle, WORLD_ID, frozen_root=frozen)
+    assert binding.membership_sha256 == receipt.membership_sha256
+    assert binding.membership_manifest is None
+    wga._verify_adopted_membership(bundle, WORLD_ID, binding=binding, frozen_root=frozen)
+
+
+def test_v4_binder_uses_effective_checkpoint_and_exact_manifest(tmp_path):
+    """§9.3: typed V4 bind serves M1 and carries the receipt manifest."""
+    from dungeonmind.contracts.existing_world_adoption import ExistingWorldAdoptionReceiptV4
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    rows = _compat_world_rows()
+    adopted = rows["adopted"]
+    m0 = _hex64("historical-m0")
+    m1 = _compat_membership_digest(
+        artifacts=[adopted[0]],
+        revisions=[adopted[1]],
+        contributions=[adopted[2]],
+        decisions=[adopted[3]],
+    )
+    receipt = _compat_v4_receipt(membership_sha256=m0, effective_membership_sha256=m1)
+    assert isinstance(receipt, ExistingWorldAdoptionReceiptV4)
+    frozen = _write_frozen_store(
+        tmp_path,
+        contribution_ids=[_COMPAT_CONTRIB, _COMPAT_DESCENDANT_CONTRIB],
+        decision_ids=[_COMPAT_DECISION, _COMPAT_DESCENDANT_DECISION],
+    )
+    bundle = _FakeBundle(
+        receipt=receipt,
+        artifacts=rows["artifacts"],
+        revisions=rows["revisions"],
+        contributions=rows["contributions"],
+        decisions=rows["decisions"],
+    )
+    binding = wga.bind_world_authority(bundle, WORLD_ID, frozen_root=frozen)
+    assert binding.membership_sha256 == receipt.effective_membership_sha256
+    assert binding.membership_sha256 != receipt.membership_sha256
+    assert binding.membership_manifest is receipt.membership_manifest
+    assert list(binding.membership_manifest.source_artifact_ids) == [_COMPAT_ART]
+
+
+def test_unsupported_receipt_with_effective_checkpoint_is_rejected(tmp_path):
+    """§9.4: getattr/lookalike objects and pre-V3 receipts fail closed."""
+    from types import SimpleNamespace
+
+    from dungeonmind.contracts.existing_world_adoption import ExistingWorldAdoptionReceiptV2
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    frozen = _write_frozen_store(
+        tmp_path, contribution_ids=[_COMPAT_CONTRIB], decision_ids=[_COMPAT_DECISION]
+    )
+    lookalike = SimpleNamespace(
+        schema_version="dm_existing_world_adoption_receipt_lookalike",
+        membership_sha256=_hex64("m0"),
+        effective_membership_sha256=_hex64("m1"),
+        membership_manifest=object(),
+        source_provenance=_compat_provenance(),
+        adoption_id="adopt:lookalike",
+        published_revision_id=_D_A,
+        graph_schema="dm_union_graph_v6",
+        source_artifact_count=1,
+        source_revision_count=1,
+        contribution_count=1,
+        identity_decision_count=1,
+    )
+    with pytest.raises(wga.WorldGraphAuthorityError) as lookalike_exc:
+        wga.bind_world_authority(
+            _FakeBundle(
+                receipt=lookalike,
+                artifacts=[],
+                revisions=[],
+                contributions=[],
+                decisions=[],
+            ),
+            WORLD_ID,
+            frozen_root=frozen,
+        )
+    assert lookalike_exc.value.code == "adoption_receipt_not_v3"
+
+    v2 = ExistingWorldAdoptionReceiptV2(
+        adoption_id="adopt:compat-v2",
+        world_id=WORLD_ID,
+        bundle_sha256=_hex64("bundle"),
+        source_provenance=_compat_provenance(),
+        published_revision_id=_D_A,
+        graph_schema="dm_union_graph_v6",
+        graph_payload_sha256=_hex64("graph"),
+        adopted_at=_COMPAT_NOW,
+        source_artifact_count=1,
+        source_revision_count=1,
+        contribution_count=1,
+        identity_decision_count=1,
+    )
+    with pytest.raises(wga.WorldGraphAuthorityError) as v2_exc:
+        wga.bind_world_authority(
+            _FakeBundle(
+                receipt=v2,
+                artifacts=[],
+                revisions=[],
+                contributions=[],
+                decisions=[],
+            ),
+            WORLD_ID,
+            frozen_root=frozen,
+        )
+    assert v2_exc.value.code == "adoption_receipt_not_v3"
+
+
+def test_v4_membership_ignores_descendants_and_frozen_store_extras(tmp_path):
+    """§9.5: V4 M1 is manifest-selected; descendants and frozen extras do not join."""
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    rows = _compat_world_rows()
+    adopted = rows["adopted"]
+    descendant_inclusive = _compat_membership_digest(
+        artifacts=rows["artifacts"],
+        revisions=rows["revisions"],
+        contributions=rows["contributions"],
+        decisions=rows["decisions"],
+    )
+    m1 = _compat_membership_digest(
+        artifacts=[adopted[0]],
+        revisions=[adopted[1]],
+        contributions=[adopted[2]],
+        decisions=[adopted[3]],
+    )
+    assert m1 != descendant_inclusive
+    receipt = _compat_v4_receipt(
+        membership_sha256=_hex64("historical-m0"),
+        effective_membership_sha256=m1,
+    )
+    frozen = _write_frozen_store(
+        tmp_path,
+        contribution_ids=[_COMPAT_CONTRIB, _COMPAT_DESCENDANT_CONTRIB],
+        decision_ids=[_COMPAT_DECISION, _COMPAT_DESCENDANT_DECISION],
+    )
+    bundle = _FakeBundle(
+        receipt=receipt,
+        artifacts=rows["artifacts"],
+        revisions=rows["revisions"],
+        contributions=rows["contributions"],
+        decisions=rows["decisions"],
+    )
+    binding = wga.bind_world_authority(bundle, WORLD_ID, frozen_root=frozen)
+    wga._verify_adopted_membership(bundle, WORLD_ID, binding=binding, frozen_root=frozen)
+
+
+def test_v4_missing_or_mutated_member_or_wrong_checkpoint_fails_closed(tmp_path):
+    """§9.6: missing member, mutated member, and wrong M1 all refuse service."""
+    from dataclasses import replace
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    rows = _compat_world_rows()
+    adopted = rows["adopted"]
+    m1 = _compat_membership_digest(
+        artifacts=[adopted[0]],
+        revisions=[adopted[1]],
+        contributions=[adopted[2]],
+        decisions=[adopted[3]],
+    )
+    receipt = _compat_v4_receipt(
+        membership_sha256=_hex64("historical-m0"),
+        effective_membership_sha256=m1,
+    )
+    frozen = _write_frozen_store(
+        tmp_path, contribution_ids=[_COMPAT_CONTRIB], decision_ids=[_COMPAT_DECISION]
+    )
+
+    missing_rows = _compat_world_rows(omit_adopted_artifact=True)
+    missing_bundle = _FakeBundle(
+        receipt=receipt,
+        artifacts=missing_rows["artifacts"],
+        revisions=missing_rows["revisions"],
+        contributions=missing_rows["contributions"],
+        decisions=missing_rows["decisions"],
+    )
+    missing_binding = wga.bind_world_authority(
+        missing_bundle, WORLD_ID, frozen_root=frozen
+    )
+    with pytest.raises(wga.WorldGraphAuthorityError) as missing_exc:
+        wga._verify_adopted_membership(
+            missing_bundle, WORLD_ID, binding=missing_binding, frozen_root=frozen
+        )
+    assert missing_exc.value.code == "adopted_membership_incomplete"
+
+    mutated_contribution = _compat_contribution(
+        _COMPAT_CONTRIB, _COMPAT_ART, _COMPAT_REV, authored_by="tampered:intruder"
+    )
+    mutated_bundle = _FakeBundle(
+        receipt=receipt,
+        artifacts=rows["artifacts"],
+        revisions=rows["revisions"],
+        contributions=[mutated_contribution, rows["contributions"][1]],
+        decisions=rows["decisions"],
+    )
+    mutated_binding = wga.bind_world_authority(
+        mutated_bundle, WORLD_ID, frozen_root=frozen
+    )
+    with pytest.raises(wga.WorldGraphAuthorityError) as mutated_exc:
+        wga._verify_adopted_membership(
+            mutated_bundle, WORLD_ID, binding=mutated_binding, frozen_root=frozen
+        )
+    assert mutated_exc.value.code == "adopted_membership_mismatch"
+
+    valid_bundle = _FakeBundle(
+        receipt=receipt,
+        artifacts=rows["artifacts"],
+        revisions=rows["revisions"],
+        contributions=rows["contributions"],
+        decisions=rows["decisions"],
+    )
+    valid_binding = wga.bind_world_authority(valid_bundle, WORLD_ID, frozen_root=frozen)
+    wrong_binding = replace(valid_binding, membership_sha256=_hex64("wrong-m1"))
+    with pytest.raises(wga.WorldGraphAuthorityError) as wrong_exc:
+        wga._verify_adopted_membership(
+            valid_bundle, WORLD_ID, binding=wrong_binding, frozen_root=frozen
+        )
+    assert wrong_exc.value.code == "adopted_membership_mismatch"
+
+
+def test_v4_hydrated_route_stays_on_legacy_path_when_direct_read_absent(
+    tmp_path, monkeypatch
+):
+    """§9.7: valid V4 hydrates through the real cache/replay path; direct reads stay off."""
+    import sys
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    frozen, frozen_head = _write_hydratable_frozen_store(
+        tmp_path / "frozen", contribution_id=_HYDRATE_CONTRIB
+    )
+    adopted_artifact = _compat_artifact(_HYDRATE_ART, _HYDRATE_REV)
+    adopted_revision = _compat_revision(_HYDRATE_REV, _HYDRATE_ART)
+    adopted_contribution = _hydratable_contribution()
+    descendant_artifact = _compat_artifact(_COMPAT_DESCENDANT_ART, _COMPAT_DESCENDANT_REV)
+    descendant_revision = _compat_revision(_COMPAT_DESCENDANT_REV, _COMPAT_DESCENDANT_ART)
+    descendant_contribution = _compat_contribution(
+        _COMPAT_DESCENDANT_CONTRIB, _COMPAT_DESCENDANT_ART, _COMPAT_DESCENDANT_REV
+    )
+    m1 = _compat_membership_digest(
+        artifacts=[adopted_artifact],
+        revisions=[adopted_revision],
+        contributions=[adopted_contribution],
+        decisions=[],
+    )
+    receipt = _hydratable_v4_receipt(
+        membership_sha256=_hex64("historical-m0"),
+        effective_membership_sha256=m1,
+        source_world_revision_id=frozen_head,
+    )
+    bundle = _FakeBundle(
+        receipt=receipt,
+        artifacts=[adopted_artifact, descendant_artifact],
+        revisions=[adopted_revision, descendant_revision],
+        contributions=[adopted_contribution, descendant_contribution],
+        decisions=[],
+        head_id=_D_A,
+        stored_revisions={
+            _D_A: _stored_adoption_revision(
+                graph_payload={
+                    "objects": [{"object_id": _HYDRATE_NODE}],
+                    "relationships": [],
+                }
+            )
+        },
+    )
+    cache_root = tmp_path / "authority-cache"
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
+    monkeypatch.setenv(
+        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL",
+        "postgresql://dungeonmind:test@127.0.0.1:1/test",
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(frozen))
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT", str(cache_root))
+    monkeypatch.delenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", raising=False)
+    monkeypatch.setattr(wga, "_open_repository_bundle", lambda database_url: bundle)
+
+    route = wga.route_service_read(_projection_request(), None, default_root=frozen)
+    metadata = wga.read_hydration_metadata(route.graph_root)
+    assert metadata is not None
+    assert metadata["translation_version"] == wga.HYDRATION_TRANSLATION_VERSION
+    assert metadata["membership_sha256"] == receipt.effective_membership_sha256
+    assert metadata["dungeonmind_revision_id"] == _D_A
+    buddy_revision_id = metadata["buddy_hydrated_revision_id"]
+    assert str(buddy_revision_id).startswith("rev:")
+    hydrated = storage.load_world_graph_revision(
+        route.graph_root, WORLD_ID, str(buddy_revision_id)
+    )
+    assert _HYDRATE_NODE in hydrated.nodes
+    assert route.graph_root.is_relative_to(cache_root.resolve())
+    assert route.public_revision_id == _D_A
+    assert route.public_head_revision_id == _D_A
+    assert "apps.live_control_server.integrations.dungeonmind.world_graph_reads" not in (
+        sys.modules
+    )
 
 
 def test_derive_confirm_operation_id_is_deterministic_and_selection_bound():
