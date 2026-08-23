@@ -856,6 +856,144 @@ def test_source_span_anchor_composes_registry_backed_opener(monkeypatch, service
     assert captured["source_artifact_id"] == "src:one-recap"
 
 
+def test_source_span_anchor_cross_campaign_world_scope(monkeypatch, services):
+    """R.3: cross-campaign world-scope reads open campaign-owned source spans.
+
+    A campaign-owned source artifact (e.g. campaign_id=longmont-c2) may be
+    correctly admitted by DND's cross-campaign projection. The product opener
+    must not reject it because the snapshot represents cross-campaign scope
+    with campaign_id="".
+    """
+    svc, _ = services
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda world_id: svc)
+
+    # Mock the registry-backed opener to prove it is composed.
+    captured: dict = {}
+
+    def _fake_open(**kwargs):
+        captured.update(kwargs)
+        from graph_memory.retrieval.models import (
+            WorldGraphRetrievalTrustBoundary,
+            WorldGraphSourceAnchorReadResult,
+        )
+
+        return WorldGraphSourceAnchorReadResult(
+            outcome="enough",
+            snapshot=kwargs.get("snapshot"),
+            anchor_id=kwargs["anchor_id"],
+            evidence_ref_id=kwargs.get("evidence_ref_id"),
+            source_artifact_id=kwargs["source_artifact_id"],
+            source_domain="worldbuilding",
+            source_span_ref_id=kwargs["source_span_ref_id"],
+            locator_kind="source_span",
+            media_type="text/markdown",
+            content="span content",
+            content_sha256=kwargs.get("graph_content_sha256"),
+            line_start=None,
+            line_end=None,
+            truncated=False,
+            trust_boundary=WorldGraphRetrievalTrustBoundary(
+                can_trust=[], cannot_trust=[]
+            ),
+            diagnostics=[],
+        )
+
+    # Patch the adapter's lazy import of the opener.
+    import apps.live_control_server.services.worldbuilding_source_span_read as span_mod
+
+    monkeypatch.setattr(span_mod, "read_admitted_worldbuilding_span", _fake_open)
+
+    # Build a source_span anchor resolution directly.
+    from dungeonmind.application.world_graph_retrieval import (
+        SourceAnchorMetadata,
+        SourceAnchorResolution,
+    )
+    from dungeonmind.contracts.evidence import EvidenceRefV2
+
+    span_evidence = EvidenceRefV2(
+        schema_version="dm_evidence_ref_v2",
+        evidence_ref_id="ev:span-anchor",
+        source_artifact_id="src:one-recap",
+        source_revision_id="srcrev:one-recap-v1",
+        source_domain_key="buddy.worldbuilding",
+        source_domain="worldbuilding",
+        evidence_role="support",
+        can_open_source=True,
+        can_highlight_span=True,
+        session_id=None,
+        source_span_ref_id="span:para-1",
+        locator=None,
+        uri=None,
+        source_locator=None,
+        line_ref=None,
+    )
+
+    # Get the artifact from the seeded repository.
+    artifact = svc.bundle.sources.get_artifact("src:one-recap")
+
+    anchor_meta = SourceAnchorMetadata(
+        anchor_id="dm-source-anchor:v1:test",
+        evidence_ref_id="ev:span-anchor",
+        source_artifact_id="src:one-recap",
+        source_revision_id="srcrev:one-recap-v1",
+        locator_identity="span:para-1",
+        source_span_ref_id="span:para-1",
+        can_open_source=True,
+        can_highlight_span=True,
+        supporting_object_ids=(),
+        supporting_relationship_ids=(),
+        supporting_assertion_ids=(),
+        evidence=span_evidence,
+        artifact=artifact,
+    )
+    # Build a cross-campaign world-scope snapshot for the resolution.
+    from datetime import datetime, timezone
+
+    from dungeonmind.contracts.projection import ProjectionFocus
+    from dungeonmind.contracts.projection_v2 import (
+        Admissibility,
+        ProjectionSnapshotV2,
+        ScopeModeV2,
+    )
+
+    snapshot = ProjectionSnapshotV2(
+        world_id="eldyrwild",
+        campaign_id=None,  # Cross-campaign world scope
+        focus=ProjectionFocus(kind="none"),
+        admissibility=Admissibility.GM,
+        scope_mode=ScopeModeV2.WORLD_CROSS_CAMPAIGN,
+        revision_id="rev:test",
+        head_revision_id="rev:test",
+        is_head=True,
+        projected_at=datetime.now(timezone.utc),
+    )
+
+    resolution = SourceAnchorResolution(
+        snapshot=snapshot,
+        found=True,
+        anchor_id="dm-source-anchor:v1:test",
+        anchor=anchor_meta,
+    )
+
+    result = direct._anchor_read_view(
+        svc,
+        resolution,
+        request=WorldGraphSourceAnchorReadRequest(
+            schema="dmb_world_graph_source_anchor_read_request_v1",
+            anchorId="source-anchor:v1:test",
+            **_retrieval_context(scopeMode="world"),
+        ),
+        repo_root=Path("/nonexistent-r3-repo-root"),
+    )
+    assert result.outcome == "enough"
+    assert result.content == "span content"
+    assert captured["source_span_ref_id"] == "span:para-1"
+    assert captured["source_artifact_id"] == "src:one-recap"
+    # The snapshot passed to the opener must represent cross-campaign scope.
+    assert captured["snapshot"].scope_mode == "world"
+    assert captured["snapshot"].campaign_id == ""
+
+
 @pytest.mark.usefixtures("_dungeonmind_mode")
 def test_explicit_nonproduction_root_bypasses_direct(monkeypatch, services, tmp_path):
     """Tests/tooling with an explicit non-production root stay on the file path."""

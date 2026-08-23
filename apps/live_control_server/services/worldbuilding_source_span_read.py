@@ -116,7 +116,13 @@ def _reconcile_graph_registry_scope(
                 code="workspace_lineage_mismatch",
                 status_code=409,
             )
-        if artifact_campaign and artifact_campaign != snapshot.campaign_id:
+        # Cross-campaign (world-scope) reads admit campaign-owned artifacts;
+        # the campaign lineage check only applies to campaign-scoped reads.
+        if (
+            snapshot.scope_mode != "world"
+            and artifact_campaign
+            and artifact_campaign != snapshot.campaign_id
+        ):
             _raise(
                 "Registry SourceArtifact campaign_id disagrees with the graph snapshot.",
                 code="workspace_lineage_mismatch",

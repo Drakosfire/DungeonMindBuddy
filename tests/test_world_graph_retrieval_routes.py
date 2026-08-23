@@ -1023,3 +1023,149 @@ def test_direct_anchor_read_route_revalidates(direct_client: TestClient) -> None
     # The anchor revalidates against DungeonMind authority; the product-local
     # content join degrades because no repo files exist in this fixture.
     assert response.json()["outcome"] in {"enough", "partial", "unavailable"}
+
+
+def test_direct_source_span_anchor_cross_campaign_world_scope(
+    direct_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R.3: cross-campaign world-scope reads open campaign-owned source spans.
+
+    A campaign-owned source artifact may be correctly admitted by DND's
+    cross-campaign projection. The product opener must not reject it because
+    the snapshot represents cross-campaign scope with campaign_id="".
+    """
+    from graph_memory.retrieval.models import (
+        WorldGraphRetrievalTrustBoundary,
+        WorldGraphSourceAnchorReadResult,
+    )
+
+    # Mock the registry-backed opener to prove it is composed.
+    captured: dict = {}
+
+    def _fake_open(**kwargs):
+        captured.update(kwargs)
+        return WorldGraphSourceAnchorReadResult(
+            outcome="enough",
+            snapshot=kwargs.get("snapshot"),
+            anchor_id=kwargs["anchor_id"],
+            evidence_ref_id=kwargs.get("evidence_ref_id"),
+            source_artifact_id=kwargs["source_artifact_id"],
+            source_domain="worldbuilding",
+            source_span_ref_id=kwargs["source_span_ref_id"],
+            locator_kind="source_span",
+            media_type="text/markdown",
+            content="span content",
+            content_sha256=kwargs.get("graph_content_sha256"),
+            line_start=None,
+            line_end=None,
+            truncated=False,
+            trust_boundary=WorldGraphRetrievalTrustBoundary(
+                can_trust=[], cannot_trust=[]
+            ),
+            diagnostics=[],
+        )
+
+    # Patch the adapter's lazy import of the opener.
+    import apps.live_control_server.services.worldbuilding_source_span_read as span_mod
+
+    monkeypatch.setattr(span_mod, "read_admitted_worldbuilding_span", _fake_open)
+
+    # Mock the DND revalidation to return a source_span anchor resolution.
+    from dungeonmind.application.world_graph_retrieval import (
+        SourceAnchorMetadata,
+        SourceAnchorResolution,
+    )
+    from dungeonmind.contracts.evidence import EvidenceRefV2
+    from dungeonmind.contracts.projection import ProjectionFocus
+    from dungeonmind.contracts.projection_v2 import (
+        Admissibility,
+        ProjectionSnapshotV2,
+        ScopeModeV2,
+    )
+    from datetime import datetime, timezone
+
+    span_evidence = EvidenceRefV2(
+        schema_version="dm_evidence_ref_v2",
+        evidence_ref_id="ev:span-anchor",
+        source_artifact_id="src:one-recap",
+        source_revision_id="srcrev:one-recap-v1",
+        source_domain_key="buddy.worldbuilding",
+        source_domain="worldbuilding",
+        evidence_role="support",
+        can_open_source=True,
+        can_highlight_span=True,
+        session_id=None,
+        source_span_ref_id="span:para-1",
+        locator=None,
+        uri=None,
+        source_locator=None,
+        line_ref=None,
+    )
+
+    # Get the artifact from the seeded repository.
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+
+    svc = direct.direct_services_from_config("eldyrwild")
+    artifact = svc.bundle.sources.get_artifact("src:one-recap")
+
+    anchor_meta = SourceAnchorMetadata(
+        anchor_id="dm-source-anchor:v1:test",
+        evidence_ref_id="ev:span-anchor",
+        source_artifact_id="src:one-recap",
+        source_revision_id="srcrev:one-recap-v1",
+        locator_identity="span:para-1",
+        source_span_ref_id="span:para-1",
+        can_open_source=True,
+        can_highlight_span=True,
+        supporting_object_ids=(),
+        supporting_relationship_ids=(),
+        supporting_assertion_ids=(),
+        evidence=span_evidence,
+        artifact=artifact,
+    )
+
+    # Build a cross-campaign world-scope snapshot for the resolution.
+    snapshot = ProjectionSnapshotV2(
+        world_id="eldyrwild",
+        campaign_id=None,  # Cross-campaign world scope
+        focus=ProjectionFocus(kind="none"),
+        admissibility=Admissibility.GM,
+        scope_mode=ScopeModeV2.WORLD_CROSS_CAMPAIGN,
+        revision_id="rev:test",
+        head_revision_id="rev:test",
+        is_head=True,
+        projected_at=datetime.now(timezone.utc),
+    )
+
+    resolution = SourceAnchorResolution(
+        snapshot=snapshot,
+        found=True,
+        anchor_id="dm-source-anchor:v1:test",
+        anchor=anchor_meta,
+    )
+
+    # Mock the DND revalidation to return the source_span anchor resolution.
+    monkeypatch.setattr(
+        svc.retrieval, "resolve_source_anchor", lambda *args, **kwargs: resolution
+    )
+
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/source-anchor/read",
+        json={
+            "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+            **_direct_base_request(
+                anchorId="source-anchor:v1:test", scopeMode="world"
+            ),
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["outcome"] == "enough"
+    assert body["content"] == "span content"
+    assert captured["source_span_ref_id"] == "span:para-1"
+    assert captured["source_artifact_id"] == "src:one-recap"
+    # The snapshot passed to the opener must represent cross-campaign scope.
+    assert captured["snapshot"].scope_mode == "world"
+    assert captured["snapshot"].campaign_id == ""

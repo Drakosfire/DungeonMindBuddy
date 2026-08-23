@@ -52,6 +52,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--apply", action="store_true", help="Write changes (default: dry-run).")
     args = parser.parse_args(argv)
+
+    # R.3 Review Cycle 2: the --apply path directly mutates sealed
+    # source_artifacts and rewrites the V3 receipt's membership_sha256,
+    # violating the V3 contract's tamper-evident history. The mutation path
+    # is hard-disabled pending the DungeonMind fix-forward prerequisite.
+    if args.apply:
+        print(
+            "error: --apply is hard-disabled. The V3 contract violation requires "
+            "a governed repair mechanism designed by the DungeonMind fix-forward "
+            "prerequisite. See Docs/Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md §3.4.",
+            file=sys.stderr,
+        )
+        return 2
+
     if not args.database_url:
         print("error: --database-url or DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL required", file=sys.stderr)
         return 2

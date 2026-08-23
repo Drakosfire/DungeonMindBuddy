@@ -116,11 +116,25 @@ checkpoint over the exact sealed bundle's durable history. The migrations were
 applied to the live database before the contract violation was identified.
 
 **Fix-forward plan:** Repair the adoption history through DungeonMind
-authority. The sealed bundle's durable history was mutated; a new adoption
-receipt must be created that reflects the current state. This requires a
-bounded DungeonMind prerequisite (handoff stop condition 11).
+authority. The sealed bundle's durable history was mutated; the correct
+governed repair mechanism is exactly what the DungeonMind fix-forward
+prerequisite needs to design. The migration scripts' `--apply` paths are
+hard-disabled pending that prerequisite.
 
-### 3.4 Representation-only differences (wire-visible, non-blocking)
+### 3.5 Stop condition: 199 blocking semantic differences
+
+The witness reports **199 blocking semantic differences** (169 provenance/scope,
+27 missing property-assertion, 3 broken-evidence-chain). The handoff's
+semantic cutover gate has not been satisfied. These divergences require either
+authoritative-data correction or an explicit design decision that changes what
+"parity" means. Implementation cannot expand its own acceptance vocabulary.
+
+**R.3 is paused pending:**
+1. The DungeonMind fix-forward prerequisite for the corrupted V3 adoption
+   history/source classification.
+2. Resolution—or explicit redesign around—the 199 remaining semantic blockers.
+
+### 3.6 Representation-only differences (wire-visible, non-blocking)
 
 - **Vocabulary prefix:** the v6 adoption namespaced every kind/predicate
   (`dnd5e:located_in`); the adapter strips the prefix so mounted consumers see
@@ -138,7 +152,7 @@ bounded DungeonMind prerequisite (handoff stop condition 11).
   No read-path product surface consumes the echo (alias consumers are all
   write-side authoring services).
 
-### 3.5 Known legacy oracle defect surfaced
+### 3.7 Known legacy oracle defect surfaced
 
 `neighborhood:depth-2` on the legacy path raises
 `KeyError: 'item_enormous_boulder'` — the legacy kernel selects a node its own
@@ -146,7 +160,7 @@ projection does not contain. Recorded as witness data; the direct path serves
 the case normally. This is one more instance of the legacy kernel's
 consistency gaps the cutover retires.
 
-### 3.6 Property assertions not represented in the v6 payload
+### 3.8 Property assertions not represented in the v6 payload
 
 The v6 adoption bundle producer
 (`integrations/dungeonmind_kernel/eldyrwild_existing_world_adoption_bundle_v2.py`)
@@ -163,7 +177,7 @@ rather than blocking. If product surfaces need these attributes, the fix is a
 successor adoption-bundle revision that populates `properties` from the
 contribution payloads, not an adapter change.
 
-### 3.7 Data integrity issue surfaced
+### 3.9 Data integrity issue surfaced
 
 `node:cutover-canary` is present in the DungeonMind authority payload but its
 evidence chain references a source artifact
@@ -279,3 +293,20 @@ uv run python scripts/compare_direct_dungeonmind_world_graph_reads.py \
 Expect ~15–20 minutes, dominated by per-read projection cost on both paths.
 Exit code is non-zero iff any unclassified (blocking) divergence remains.
 **Current status: 199 blocking divergences remain; the witness exits non-zero.**
+
+## 8. Stop condition
+
+R.3 is paused pending:
+
+1. **The DungeonMind fix-forward prerequisite** for the corrupted V3 adoption
+   history/source classification. The migration scripts' `--apply` paths are
+   hard-disabled; the correct governed repair mechanism is exactly what that
+   prerequisite needs to design.
+2. **Resolution—or explicit redesign around—the 199 remaining semantic
+   blockers.** These divergences require either authoritative-data correction
+   or an explicit design decision that changes what "parity" means.
+   Implementation cannot expand its own acceptance vocabulary.
+
+The next work should be the DungeonMind history/source-classification
+prerequisite; then return to R.3 with authoritative state repaired and rerun
+the real-current semantic witness.

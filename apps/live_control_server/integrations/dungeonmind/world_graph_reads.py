@@ -53,10 +53,10 @@ Field classification (handoff §5.7)
 
 Admissibility parity
 --------------------
-The legacy Buddy kernel rejects every non-GM admissibility with
-``unsupported_admissibility``. DungeonMind R.1/R.2 natively supports PLAYER,
-but enabling it on Buddy's wire is a product decision outside R.3 — this
-adapter preserves the legacy fail-closed behavior exactly.
+The adapter maps Buddy admissibility through the closed DungeonMind
+``GM`` / ``PLAYER`` vocabulary. Unknown values fail closed. PLAYER requests
+rely on DungeonMind's fail-closed visibility gate to hide GM-only material;
+the adapter does not reject PLAYER outright.
 """
 
 from __future__ import annotations
