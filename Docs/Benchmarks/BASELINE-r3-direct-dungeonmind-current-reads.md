@@ -67,16 +67,16 @@ fail-closed.
 
 | §6.3 class | count | meaning |
 |---|---|---|
-| blocking semantic difference | **0** | — |
+| blocking semantic difference | **199** | evidence-chain scope tightening (169); property assertions not represented in v6 payload (27); data integrity issue (3) |
 | representation only | 2,345 | `dnd5e:` vocabulary prefix strip, v6 predicate/kind normalization, dual-sense direction canonicalization, legacy label-echo alias default retired, direct-path outcome strictly more complete than legacy |
 | intentionally retired legacy-only field | 1,056 | `session_observation` history-only attribute rows; legacy kernel dangling edges; kernel projectability-filtered nodes; `external_resource` statblock-external nodes and their `uses_statblock` edges (handoff §D) |
-| successor_admission_semantics_accepted | 169 | evidence-chain scope tightening residual (see §3.3); cross-campaign evidence chains excluded by DungeonMind's fail-closed per-evidence-chain admission |
-| property assertions not represented in v6 payload | 27 | v6 adoption set `properties=[]` for every object; legacy reconstructs threat attributes from contributions (§3.6) |
 | new deterministic R.2 search ranking | 2 | search node-set selection differs within the same admitted projection |
-| data integrity issue (broken evidence chain) | 3 | `node:cutover-canary` references a source artifact that does not exist in the repository; direct path correctly excludes, legacy kernel serves because it never validates evidence chains |
 | product-local presentation join | 1 | anchor content-join availability (revalidation identity itself compares exactly) |
 
-No blocking semantic differences remain after classification.
+**199 blocking semantic differences remain.** The handoff prohibits normalizing
+away visibility, provenance, scope, identity, or missing-data differences.
+These divergences require either correction or an explicit design-review
+change; implementation cannot expand its own acceptance vocabulary.
 
 ### 3.2 What compares exactly
 
@@ -88,25 +88,37 @@ and admitted provenance, visibility/admissibility outcomes, exact seed
 preservation, missing/denied behavior, and historical pin behavior all compare
 equal between the paths.
 
-### 3.3 The accepted residual (reviewed during R.3)
+### 3.3 Blocking divergences (require correction or design-review change)
 
-DungeonMind's native read path validates **every evidence chain** under the
-read's campaign scope; Buddy's legacy kernel scoped objects but never evidence
-chains. Under the c1 campaign lens this excludes a small set of
-world-universal objects whose supporting artifacts were adopted with a c2
-campaign assignment. The reviewed resolution:
+**Evidence-chain scope tightening (169 divergences).** DungeonMind's native
+read path validates **every evidence chain** under the read's campaign scope;
+Buddy's legacy kernel scoped objects but never evidence chains. Under the c1
+campaign lens this excludes world-universal objects whose supporting artifacts
+were adopted with a c2 campaign assignment. The handoff prohibits normalizing
+away provenance/scope differences, so these are blocking semantic differences.
 
-- The two session-less worldbuilding corpus documents were world-owned by
-  migration (§2), which restored the genuinely world-universal objects they
-  support (e.g. the primary city location) under c1 reads.
-- One object whose remaining evidence is genuine c2 session chronology stays
-  excluded under c1 (`location:mireward`, with its dependent edges/evidence —
-  the 15 accepted-residual divergences). This is the intended fail-closed
-  successor semantics, explicitly accepted in review.
+**Property assertions not represented in v6 payload (27 divergences).** The
+v6 adoption set `properties=[]` for every object; legacy reconstructs threat
+attributes from contributions. The handoff prohibits normalizing away
+missing-data differences, so these are blocking semantic differences.
 
-The same tightening also retired a legacy kernel inconsistency the witness
-surfaced: the legacy c1 projection served edges whose endpoints it did not
-itself admit (dangling edges, e.g. to player characters it had excluded).
+**Data integrity issue (3 divergences).** `node:cutover-canary` references a
+source artifact that does not exist in the repository; direct path correctly
+excludes, legacy kernel serves because it never validates evidence chains.
+The handoff prohibits normalizing away missing-data differences, so these are
+blocking semantic differences.
+
+### 3.4 V3 contract violation (fix-forward plan required)
+
+The data migrations directly mutated `source_artifacts` and rewrote the V3
+receipt's `membership_sha256`. The V3 contract defines that digest as the
+checkpoint over the exact sealed bundle's durable history. The migrations were
+applied to the live database before the contract violation was identified.
+
+**Fix-forward plan:** Repair the adoption history through DungeonMind
+authority. The sealed bundle's durable history was mutated; a new adoption
+receipt must be created that reflects the current state. This requires a
+bounded DungeonMind prerequisite (handoff stop condition 11).
 
 ### 3.4 Representation-only differences (wire-visible, non-blocking)
 
@@ -194,9 +206,10 @@ run of the process):
   also pays full projection cost. Per the handoff:
 
   ```text
-  semantic parity proven
+  semantic parity NOT proven (199 blocking divergences)
   → preserve R.3 witness (this document + the harness)
   → dispatch R.3a optimization before the production switch
+  → fix blocking divergences before treating the witness as trustworthy
   ```
 
   R.3a (reusable World Graph read context / parsed immutable revision reuse +
@@ -265,3 +278,4 @@ uv run python scripts/compare_direct_dungeonmind_world_graph_reads.py \
 
 Expect ~15–20 minutes, dominated by per-read projection cost on both paths.
 Exit code is non-zero iff any unclassified (blocking) divergence remains.
+**Current status: 199 blocking divergences remain; the witness exits non-zero.**

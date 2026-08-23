@@ -63,11 +63,18 @@ def _direct_read_active(root: Path | None) -> bool:
     the configured production World Graph root is a test/tooling override and
     stays on the file-store path. In ``dungeonmind`` authority mode the
     configured production root is not an override.
+
+    The direct-read rollout gate (``DUNGEONMIND_WORLD_GRAPH_DIRECT_READ=1``)
+    is a separate opt-in on top of authority mode: the R.3 performance
+    witness found the direct path product-breaking on the warm-projection
+    surface, so the production switch waits for R.3a read optimization.
     """
     from apps.live_control_server import config
     from graph_memory.world_supergraph import storage
 
     if config.world_graph_authority_mode() != storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND:
+        return False
+    if not config.world_graph_direct_read_enabled():
         return False
     if root is not None and (
         Path(root).resolve() != Path(config.world_graph_root()).resolve()

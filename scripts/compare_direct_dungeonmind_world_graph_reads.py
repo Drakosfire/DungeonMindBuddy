@@ -69,23 +69,6 @@ CLASS_SEARCH_RANKING = "new deterministic R.2 search ranking"
 CLASS_PRESENTATION_JOIN = "product-local presentation join"
 CLASS_RETIRED_LEGACY = "intentionally retired legacy-only field"
 CLASS_BLOCKING = "blocking semantic difference"
-CLASS_ADMISSION_ACCEPTED = "successor_admission_semantics_accepted"
-CLASS_UNREPRESENTED_PROPERTY = "property assertions not represented in v6 payload"
-CLASS_DATA_INTEGRITY = "data integrity issue (broken evidence chain)"
-
-# Review-accepted residual: world-universal objects whose remaining evidence
-# is genuine campaign chronology (c2 recap) are excluded from c1 reads by
-# DungeonMind's fail-closed per-evidence-chain admission. The legacy kernel
-# scoped objects but never evidence chains. Accepted in the R.3 review of the
-# campaign-lens divergence after the world-owning data fix landed.
-EXPECTED_ADMISSION_RESIDUAL: dict[str, set[str]] = {
-    # case name → node ids legacy serves that direct excludes
-    "projection:campaign:c1": {"location:mireward"},
-    # The pin variants read the same c1 scope through different revision
-    # pins; the same accepted residual applies.
-    "projection:pin:exact-dnd-head": {"location:mireward"},
-    "projection:pin:legacy-bridge": {"location:mireward"},
-}
 
 
 @dataclass
@@ -266,20 +249,9 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
 
     legacy_nodes = {_node_key(n): n for n in legacy.nodes}
     direct_nodes = {_node_key(n): n for n in direct.nodes}
-    expected_residual = EXPECTED_ADMISSION_RESIDUAL.get(case, set())
 
     for node_id in sorted(legacy_nodes.keys() - direct_nodes.keys()):
-        if node_id in expected_residual:
-            report.divergences.append(
-                Divergence(
-                    case,
-                    "node_only_in_legacy",
-                    node_id,
-                    CLASS_ADMISSION_ACCEPTED,
-                    "evidence-chain scope tightening; review-accepted residual",
-                )
-            )
-        elif legacy_nodes[node_id].kind == "external_resource":
+        if legacy_nodes[node_id].kind == "external_resource":
             # Handoff §D: external_resource is a Buddy-only hydration-era
             # payload the DungeonMind authority snapshot intentionally omits.
             report.divergences.append(
@@ -292,23 +264,6 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
                     "DungeonMind authority snapshot (handoff §D)",
                 )
             )
-        elif node_id == "node:cutover-canary":
-            # The cutover-canary's evidence chain references a source artifact
-            # (artifact:recap:longmont-c2:session-26-cutover-live-canary) that
-            # does not exist in the source repository. DungeonMind's fail-closed
-            # admission correctly excludes it; the legacy kernel serves it
-            # because it never validates evidence chains.
-            report.divergences.append(
-                Divergence(
-                    case,
-                    "node_only_in_legacy",
-                    node_id,
-                    CLASS_DATA_INTEGRITY,
-                    "evidence chain references a non-existent source artifact; "
-                    "direct path correctly excludes, legacy kernel serves "
-                    "because it never validates evidence chains",
-                )
-            )
         else:
             report.divergences.append(
                 Divergence(
@@ -316,8 +271,7 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
                     "node_only_in_legacy",
                     node_id,
                     CLASS_BLOCKING,
-                    "legacy admits an object the direct path excludes; not a "
-                    "registered residual",
+                    "legacy admits an object the direct path excludes",
                 )
             )
     for node_id in sorted(direct_nodes.keys() - legacy_nodes.keys()):
@@ -449,16 +403,6 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
                     "admit (dangling-edge inconsistency retired)",
                 )
             )
-        elif eps[0] in expected_residual or eps[1] in expected_residual:
-            report.divergences.append(
-                Divergence(
-                    case,
-                    "relationship_only_in_legacy",
-                    f"{eps[0]} -> {eps[1]} ({rel.predicate})",
-                    CLASS_ADMISSION_ACCEPTED,
-                    "endpoint excluded by the accepted evidence-chain tightening",
-                )
-            )
         elif (
             legacy_nodes[eps[0]].kind == "external_resource"
             or legacy_nodes[eps[1]].kind == "external_resource"
@@ -532,15 +476,14 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
         else:
             # The v6 adoption set properties=[] for every object — property
             # assertions are not represented in the DND authority payload.
-            # Handoff §6.2: "property assertion identity/value/metadata
-            # where represented" — unrepresented assertions have nothing to
-            # compare against.
+            # The handoff prohibits normalizing away missing-data differences,
+            # so this is a blocking semantic difference.
             report.divergences.append(
                 Divergence(
                     case,
                     "attribute_only_in_legacy",
                     f"{key[0]}:{attr.label} ({kind})",
-                    CLASS_UNREPRESENTED_PROPERTY,
+                    CLASS_BLOCKING,
                     "v6 adoption set properties=[] for all objects; legacy "
                     "reconstructs from contributions",
                 )
@@ -560,33 +503,23 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
     legacy_ev = {e.evidence_ref_id for e in legacy.evidence}
     direct_ev = {e.evidence_ref_id for e in direct.evidence}
     for ev_id in sorted(legacy_ev - direct_ev):
-        if expected_residual:
-            report.divergences.append(
-                Divergence(
-                    case,
-                    "evidence_only_in_legacy",
-                    ev_id,
-                    CLASS_ADMISSION_ACCEPTED,
-                    "evidence rows for objects excluded by the accepted tightening",
-                )
+        # The legacy kernel scoped objects but never evidence chains; it
+        # serves cross-campaign evidence for admitted objects. DungeonMind's
+        # fail-closed per-evidence-chain admission excludes evidence whose
+        # source artifact belongs to another campaign. The handoff prohibits
+        # normalizing away provenance/scope differences, so this is a
+        # blocking semantic difference.
+        report.divergences.append(
+            Divergence(
+                case,
+                "evidence_only_in_legacy",
+                ev_id,
+                CLASS_BLOCKING,
+                "cross-campaign evidence chain excluded by DungeonMind's "
+                "fail-closed per-evidence-chain admission (legacy kernel "
+                "scoped objects, never evidence chains)",
             )
-        else:
-            # The legacy kernel scoped objects but never evidence chains; it
-            # serves cross-campaign evidence for admitted objects. DungeonMind's
-            # fail-closed per-evidence-chain admission excludes evidence whose
-            # source artifact belongs to another campaign. This is the handoff's
-            # "successor admission semantics (scope/provenance tightening)".
-            report.divergences.append(
-                Divergence(
-                    case,
-                    "evidence_only_in_legacy",
-                    ev_id,
-                    CLASS_ADMISSION_ACCEPTED,
-                    "cross-campaign evidence chain excluded by DungeonMind's "
-                    "fail-closed per-evidence-chain admission (legacy kernel "
-                    "scoped objects, never evidence chains)",
-                )
-            )
+        )
     for ev_id in sorted(direct_ev - legacy_ev):
         report.divergences.append(
             Divergence(
@@ -705,6 +638,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     os.environ["DUNGEONMIND_WORLD_GRAPH_AUTHORITY"] = "dungeonmind"
+    os.environ["DUNGEONMIND_WORLD_GRAPH_DIRECT_READ"] = "1"
     os.environ["DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"] = args.database_url
     os.environ["DUNGEONMIND_WORLD_GRAPH_ROOT"] = str(args.frozen_root)
 

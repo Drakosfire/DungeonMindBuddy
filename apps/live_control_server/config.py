@@ -26,6 +26,13 @@ WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV = (
 # derivative of DungeonMind durable state keyed by head revision; it never
 # chooses authority and is never consulted when DungeonMind is unavailable.
 WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT"
+# Direct-read rollout gate (R.3). When unset/empty, ``dungeonmind`` authority
+# mode keeps reads on the legacy hydrated path; the direct DungeonMind read
+# path activates only when this is explicitly set to ``1``. The gate exists
+# because the R.3 performance witness found the direct path product-breaking
+# on the warm-projection surface (~20s vs ~1.6s); the production switch waits
+# for R.3a read optimization.
+WORLD_GRAPH_DIRECT_READ_ENV = "DUNGEONMIND_WORLD_GRAPH_DIRECT_READ"
 
 
 def repo_root() -> Path:
@@ -90,3 +97,14 @@ def world_graph_authority_cache_root() -> Path:
     return (
         repo_root() / "out" / "cache" / "dungeonmind_world_graph_authority"
     ).resolve()
+
+
+def world_graph_direct_read_enabled() -> bool:
+    """R.3 direct-read rollout gate (default off until R.3a lands).
+
+    The direct DungeonMind read path activates only when this is explicitly
+    set to ``1`` AND authority mode is ``dungeonmind``. Default off: the R.3
+    performance witness found the direct path product-breaking on the
+    warm-projection surface, so the production switch waits for R.3a.
+    """
+    return os.environ.get(WORLD_GRAPH_DIRECT_READ_ENV, "").strip() == "1"

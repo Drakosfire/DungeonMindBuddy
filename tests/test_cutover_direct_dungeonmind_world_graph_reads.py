@@ -385,13 +385,44 @@ def test_direct_projection_world_scope_is_cross_campaign(services):
     }
 
 
-def test_direct_projection_rejects_non_gm_admissibility(services):
-    """Legacy parity: the Buddy kernel fail-closed on every non-GM policy."""
+def test_direct_projection_maps_player_admissibility(services):
+    """R.3: PLAYER maps through the closed DND GM/PLAYER vocabulary.
+
+    DungeonMind's fail-closed visibility gate hides GM-only material; the
+    adapter must not reject PLAYER outright.
+    """
+    svc, _ = services
+    projection = direct.project_world_graph_direct(
+        svc, _projection_request(admissibility="player")
+    )
+    # All seeded artifacts are visibility=GM, so PLAYER admits nothing.
+    assert projection.nodes == []
+    assert projection.snapshot.admissibility == "player"
+
+
+def test_direct_projection_rejects_unknown_admissibility(services):
+    """Unknown admissibility values fail closed."""
     svc, _ = services
     with pytest.raises(direct.DirectWorldGraphReadError) as excinfo:
-        direct.project_world_graph_direct(svc, _projection_request(admissibility="player"))
+        direct.project_world_graph_direct(svc, _projection_request(admissibility="unknown"))
     assert excinfo.value.code == "unsupported_admissibility"
     assert excinfo.value.status_code == 422
+
+
+def test_direct_projection_cross_campaign_player_hides_gm_only(services):
+    """R.3: cross-campaign PLAYER still does not leak GM-only rows.
+
+    The handoff requires that PLAYER under the cross-campaign world lens
+    does not expose GM-only material. All seeded artifacts are
+    visibility=GM, so PLAYER admits nothing under any scope.
+    """
+    svc, _ = services
+    projection = direct.project_world_graph_direct(
+        svc, _projection_request(admissibility="player", scope_mode="world")
+    )
+    assert projection.nodes == []
+    assert projection.snapshot.admissibility == "player"
+    assert projection.snapshot.scope_mode == "world"
 
 
 def test_revision_pin_bridge_legacy_to_adoption(services):
@@ -424,7 +455,7 @@ def test_revision_pin_unknown_fails_closed(services):
 
 def test_missing_receipt_fails_closed():
     world_graph = InMemoryWorldGraphRepository()
-    published = world_graph.publish_revision(
+    world_graph.publish_revision(
         PublishRevisionCommand(
             world_id=WORLD_ID,
             parent_revision_id=None,
@@ -591,6 +622,7 @@ def test_focus_presentation_recomputed_from_admitted_provenance(services):
 @pytest.fixture()
 def _dungeonmind_mode(monkeypatch, tmp_path):
     monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, "dungeonmind")
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", "1")
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
     )
@@ -691,6 +723,140 @@ def test_retrieval_service_dispatches_all_operations_direct(monkeypatch, service
 
 
 @pytest.mark.usefixtures("_dungeonmind_mode")
+def test_source_span_anchor_composes_registry_backed_opener(monkeypatch, services):
+    """R.3: source_span anchors compose the registry-backed opener end-to-end.
+
+    The direct adapter revalidates admission via DungeonMind, then delegates
+    to the same product-local registry-backed opener the legacy path uses.
+    """
+    svc, _ = services
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda world_id: svc)
+
+    # Mock the registry-backed opener to prove it is composed.
+    captured: dict = {}
+
+    def _fake_open(**kwargs):
+        captured.update(kwargs)
+        from graph_memory.retrieval.models import (
+            WorldGraphRetrievalTrustBoundary,
+            WorldGraphSourceAnchorReadResult,
+        )
+
+        return WorldGraphSourceAnchorReadResult(
+            outcome="enough",
+            snapshot=kwargs.get("snapshot"),
+            anchor_id=kwargs["anchor_id"],
+            evidence_ref_id=kwargs.get("evidence_ref_id"),
+            source_artifact_id=kwargs["source_artifact_id"],
+            source_domain="worldbuilding",
+            source_span_ref_id=kwargs["source_span_ref_id"],
+            locator_kind="source_span",
+            media_type="text/markdown",
+            content="span content",
+            content_sha256=kwargs.get("graph_content_sha256"),
+            line_start=None,
+            line_end=None,
+            truncated=False,
+            trust_boundary=WorldGraphRetrievalTrustBoundary(
+                can_trust=[], cannot_trust=[]
+            ),
+            diagnostics=[],
+        )
+
+    # Patch the adapter's lazy import of the opener.
+    import apps.live_control_server.services.worldbuilding_source_span_read as span_mod
+
+    monkeypatch.setattr(span_mod, "read_admitted_worldbuilding_span", _fake_open)
+
+    # Build a source_span anchor resolution directly.
+    from dungeonmind.application.world_graph_retrieval import (
+        SourceAnchorMetadata,
+        SourceAnchorResolution,
+    )
+    from dungeonmind.contracts.evidence import EvidenceRefV2
+
+    span_evidence = EvidenceRefV2(
+        schema_version="dm_evidence_ref_v2",
+        evidence_ref_id="ev:span-anchor",
+        source_artifact_id="src:one-recap",
+        source_revision_id="srcrev:one-recap-v1",
+        source_domain_key="buddy.worldbuilding",
+        source_domain="worldbuilding",
+        evidence_role="support",
+        can_open_source=True,
+        can_highlight_span=True,
+        session_id=None,
+        source_span_ref_id="span:para-1",
+        locator=None,
+        uri=None,
+        source_locator=None,
+        line_ref=None,
+    )
+
+    # Get the artifact from the seeded repository.
+    artifact = svc.bundle.sources.get_artifact("src:one-recap")
+
+    anchor_meta = SourceAnchorMetadata(
+        anchor_id="dm-source-anchor:v1:test",
+        evidence_ref_id="ev:span-anchor",
+        source_artifact_id="src:one-recap",
+        source_revision_id="srcrev:one-recap-v1",
+        locator_identity="span:para-1",
+        source_span_ref_id="span:para-1",
+        can_open_source=True,
+        can_highlight_span=True,
+        supporting_object_ids=(),
+        supporting_relationship_ids=(),
+        supporting_assertion_ids=(),
+        evidence=span_evidence,
+        artifact=artifact,
+    )
+    # Build a minimal valid snapshot for the resolution.
+    from datetime import datetime, timezone
+
+    from dungeonmind.contracts.projection import ProjectionFocus
+    from dungeonmind.contracts.projection_v2 import (
+        Admissibility,
+        ProjectionSnapshotV2,
+        ScopeModeV2,
+    )
+
+    snapshot = ProjectionSnapshotV2(
+        world_id="eldyrwild",
+        campaign_id="longmont-c1",
+        focus=ProjectionFocus(kind="none"),
+        admissibility=Admissibility.GM,
+        scope_mode=ScopeModeV2.CAMPAIGN,
+        revision_id="rev:test",
+        head_revision_id="rev:test",
+        is_head=True,
+        projected_at=datetime.now(timezone.utc),
+    )
+
+    resolution = SourceAnchorResolution(
+        snapshot=snapshot,
+        found=True,
+        anchor_id="dm-source-anchor:v1:test",
+        anchor=anchor_meta,
+    )
+
+    result = direct._anchor_read_view(
+        svc,
+        resolution,
+        request=WorldGraphSourceAnchorReadRequest(
+            schema="dmb_world_graph_source_anchor_read_request_v1",
+            anchorId="source-anchor:v1:test",
+            **_retrieval_context(),
+        ),
+        repo_root=Path("/nonexistent-r3-repo-root"),
+    )
+    assert result.outcome == "enough"
+    assert result.content == "span content"
+    assert captured["source_span_ref_id"] == "span:para-1"
+    assert captured["source_artifact_id"] == "src:one-recap"
+
+
+@pytest.mark.usefixtures("_dungeonmind_mode")
 def test_explicit_nonproduction_root_bypasses_direct(monkeypatch, services, tmp_path):
     """Tests/tooling with an explicit non-production root stay on the file path."""
     svc, _ = services
@@ -720,6 +886,34 @@ def test_buddy_files_mode_never_dispatches_direct(monkeypatch, services, tmp_pat
         ),
     )
     with pytest.raises(projection_service.WorldGraphProjectionServiceError):
+        projection_service.project_world_graph(_projection_request())
+
+
+def test_direct_read_gate_off_by_default(monkeypatch, services, tmp_path):
+    """R.3: the direct-read rollout gate is off by default.
+
+    Authority mode ``dungeonmind`` alone does not activate the direct read
+    path; the separate ``DUNGEONMIND_WORLD_GRAPH_DIRECT_READ=1`` opt-in is
+    required. The gate exists because the R.3 performance witness found the
+    direct path product-breaking on the warm-projection surface.
+    """
+    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, "dungeonmind")
+    monkeypatch.delenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", raising=False)
+    monkeypatch.setenv(
+        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
+    storage.clear_world_graph_cache_roots()
+    monkeypatch.setattr(
+        direct,
+        "direct_services_from_config",
+        lambda world_id: (_ for _ in ()).throw(
+            AssertionError("direct path must not run when the rollout gate is off")
+        ),
+    )
+    with pytest.raises(projection_service.WorldGraphProjectionServiceError):
+        # No graph store under tmp_path → legacy path fails closed, proving
+        # the read did not dispatch to DungeonMind.
         projection_service.project_world_graph(_projection_request())
 
 

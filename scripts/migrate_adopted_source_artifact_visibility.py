@@ -12,6 +12,13 @@ visibility is JSON null) and recomputes the tamper-evident
 ``record_fingerprint`` with DungeonMind's own serializer. It is idempotent and
 dry-run by default; pass ``--apply`` to write.
 
+⚠️  V3 CONTRACT VIOLATION: This migration directly mutates ``source_artifacts``
+and rewrites the V3 receipt's ``membership_sha256``. The V3 contract defines
+that digest as the checkpoint over the exact sealed bundle's durable history.
+This migration was applied to the live database before the contract violation
+was identified. A fix-forward plan is required to repair the adoption history
+through DungeonMind authority.
+
 Usage:
     uv run python scripts/migrate_adopted_source_artifact_visibility.py \
         --database-url postgresql://... --world-id eldyrwild --apply

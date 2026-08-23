@@ -903,6 +903,7 @@ def direct_client(
     monkeypatch.setenv(
         storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
     )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", "1")
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
     )
@@ -981,7 +982,12 @@ def test_direct_unknown_revision_pin_is_404_envelope(direct_client: TestClient) 
     assert payload["code"] == "revision_not_bridged"
 
 
-def test_direct_non_gm_admissibility_is_422_envelope(direct_client: TestClient) -> None:
+def test_direct_player_admissibility_hides_gm_only(direct_client: TestClient) -> None:
+    """R.3: PLAYER maps through the closed DND GM/PLAYER vocabulary.
+
+    DungeonMind's fail-closed visibility gate hides GM-only material; the
+    route must not reject PLAYER outright.
+    """
     response = direct_client.post(
         f"{RETRIEVAL_URL}/search",
         json={
@@ -989,8 +995,10 @@ def test_direct_non_gm_admissibility_is_422_envelope(direct_client: TestClient) 
             **_direct_base_request(queryText="tavern", admissibility="player"),
         },
     )
-    assert response.status_code == 422
-    assert response.json()["code"] == "unsupported_admissibility"
+    assert response.status_code == 200
+    # All seeded artifacts are visibility=GM, so PLAYER admits nothing.
+    assert response.json()["nodes"] == []
+    assert response.json()["snapshot"]["admissibility"] == "player"
 
 
 def test_direct_anchor_read_route_revalidates(direct_client: TestClient) -> None:

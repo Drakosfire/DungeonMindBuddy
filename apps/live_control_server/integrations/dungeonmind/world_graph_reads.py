@@ -383,9 +383,15 @@ def direct_services_from_config(world_id: str) -> DirectWorldGraphReadServices:
 
 
 def _map_admissibility(value: str) -> Admissibility:
-    """Legacy parity: the Buddy wire fails closed on every non-GM policy."""
+    """Map Buddy admissibility through the closed DND GM/PLAYER vocabulary.
+
+    Unknown values fail closed. PLAYER requests rely on DungeonMind's
+    fail-closed visibility gate to hide GM-only material.
+    """
     if value == "gm":
         return Admissibility.GM
+    if value == "player":
+        return Admissibility.PLAYER
     raise DirectWorldGraphReadError(
         f"Unsupported admissibility policy: {value!r}.",
         code="unsupported_admissibility",
@@ -1696,20 +1702,24 @@ def _anchor_read_view(
     if locator_kind == "source_span":
         # Registry-backed worldbuilding SourceSpan reads are composed by the
         # live_control retrieval service, exactly as on the legacy path.
-        return WorldGraphSourceAnchorReadResult(
-            outcome="unavailable",
-            diagnostics=[
-                WorldGraphRetrievalDiagnostic(
-                    code="requires_registry_source_span_read",
-                    message=(
-                        "Worldbuilding source-span anchors require the registry-"
-                        "backed live retrieval reader."
-                    ),
-                    severity="info",
-                )
-            ],
-            truncated=False,
-            **base,
+        # The adapter delegates to the same product-local opener; the DND
+        # revalidation above (resolve_source_anchor) has already proven
+        # admission and anchor identity.
+        from apps.live_control_server.services.worldbuilding_source_span_read import (
+            read_admitted_worldbuilding_span,
+        )
+
+        digest = _source_revision_digest(services, anchor.source_revision_id)
+        return read_admitted_worldbuilding_span(
+            root=repo_root,
+            source_artifact_id=anchor.source_artifact_id,
+            source_span_ref_id=str(anchor.source_span_ref_id),
+            graph_content_sha256=digest,
+            max_chars=request.max_chars,
+            anchor_id=request.anchor_id,
+            evidence_ref_id=anchor.evidence_ref_id,
+            snapshot=snapshot,
+            graph_artifact=None,
         )
     digest = _source_revision_digest(services, anchor.source_revision_id)
     if digest is None:
