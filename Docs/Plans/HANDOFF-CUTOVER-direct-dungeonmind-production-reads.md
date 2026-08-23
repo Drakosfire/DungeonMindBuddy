@@ -24,12 +24,14 @@ pr_body_template: |
 # HANDOFF — R.3: direct DungeonMind production reads
 
 **Created:** 2026-08-22  
-**Status:** READY FOR IMPLEMENTATION  
+**Status:** IMPLEMENTATION IN PROGRESS — rebased onto Buddy `main` after #630 and the live Eldyrwild V4 repair  
 **Workstream:** CUTOVER / World Graph runtime retirement  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
-**Exact Buddy base:** `b850b9f8126a8c8488d17b3bdb6f99a60a162338`  
-**Required DungeonMind pin:** `b3f419b08676eaca763c8a75c374be6e96ee624e` (merge of DungeonMind PR #41)  
+**Exact Buddy base at original dispatch:** `b850b9f8126a8c8488d17b3bdb6f99a60a162338`  
+**Current rebase base:** Buddy `origin/main` `3b25dbd89664b5a148ad76e0f5780b5ddc742f9a` (#630 merge)  
+**Required DungeonMind pin:** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (merge of DungeonMind PR #43; separately reviewed V4 repair predecessor on top of #41 R.1/R.2/R.2a)  
+**Original dispatch pin (historical):** `b3f419b08676eaca763c8a75c374be6e96ee624e` (DungeonMind PR #41)  
 **Suggested branch:** `cutover/direct-dungeonmind-production-reads`  
 **Suggested PR title:** `CUTOVER: retire Buddy graph hydration from production reads`  
 **Predecessor:** DungeonMind R.2a — World Graph read observability + cutover benchmark baseline  
@@ -346,14 +348,16 @@ search, LLM fallback, vector retrieval, or a new durable store.
 
 ### 5.2 Dependency pin
 
-Buddy currently pins DungeonMind PR #37. R.3 must repin to exactly:
+Buddy currently pins DungeonMind PR #43 (the reviewed V4 repair
+predecessor). R.3 must remain pinned to exactly:
 
 ```text
-b3f419b08676eaca763c8a75c374be6e96ee624e
+519b2c96fc42d22f3113cc9ca0d48bc70b6780e5
 ```
 
-unless a separately reviewed DungeonMind prerequisite is required by a proven
-stop condition.
+That pin is a descendant of the original dispatch pin
+`b3f419b08676eaca763c8a75c374be6e96ee624e` (#41) and still exposes the
+reviewed R.1/R.2/R.2a contracts plus V4 receipt/manifest types.
 
 Do not float the dependency to `main`.
 
@@ -759,7 +763,7 @@ pyproject.toml
 uv.lock
 ```
 
-to exact PR #41 merge `b3f419b08676eaca763c8a75c374be6e96ee624e`.
+to exact PR #43 merge `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5`.
 
 ### 8.2 Add direct DungeonMind read adapter
 
@@ -1110,10 +1114,11 @@ If implementation pressure points toward one of these, stop/split.
 
 Stop and return to design/review if any of the following occurs:
 
-1. Buddy branch is not based on `b850b9f8126a8c8488d17b3bdb6f99a60a162338`
-   or relevant main read seams changed materially after dispatch.
-2. DungeonMind pin `b3f419b08676eaca763c8a75c374be6e96ee624e` no
-   longer exposes the reviewed R.1/R.2/R.2a contracts.
+1. Buddy branch is not based on current `main` after #630
+   (`3b25dbd89664b5a148ad76e0f5780b5ddc742f9a`) or relevant main read seams
+   changed materially after this rebase.
+2. DungeonMind pin `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` no
+   longer exposes the reviewed R.1/R.2/R.2a contracts plus V4 receipt types.
 3. A mounted product projection requires graph-semantic information absent
    from DND direct projection/retrieval and cannot be represented from admitted
    DND facts plus clearly non-authoritative product data.
@@ -1144,7 +1149,7 @@ Stop and return to design/review if any of the following occurs:
 
 R.3 is merge-ready only when all are true:
 
-1. Buddy is pinned to DND PR #41 merge `b3f419b...`.
+1. Buddy is pinned to DND PR #43 merge `519b2c96...`.
 2. DungeonMind authority projection calls R.1 directly.
 3. DungeonMind authority retrieval calls R.2 directly for all five operations.
 4. DND-mode production reads construct no `UnionSupergraphStore`.

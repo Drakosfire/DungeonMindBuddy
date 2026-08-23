@@ -1,7 +1,7 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-23 — DungeonMind R.2b / PR #43 merged; Buddy V4 hydrated compatibility prerequisite is the active CUTOVER slice; R.3 / #629 remains frozen  
+**Updated:** 2026-08-23 — Live Eldyrwild V4 repair applied; Buddy #630 merged; R.3 / #629 is the active CUTOVER slice against repaired V4 authority  
 **Repository anchor:** `18bcb18475ac30679ebec84bec17c4e81390f674` (Buddy `main` at #620 merge / live cutover base)
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (PR #43 merge / governed V3→V4 adopted-source classification repair)
@@ -164,13 +164,14 @@ DONE    DungeonMind R.2b / PR #43
         Merge 519b2c96fc42d22f3113cc9ca0d48bc70b6780e5; 4 formal review
         cycles. Governed V3→V4 adopted-source classification repair
         (ExistingWorldAdoptionReceiptV4, membership manifest, effective M1).
-        Live Eldyrwild repair is not yet applied.
+        Live Eldyrwild repair applied 2026-08-23: receipt V4, historical M0
+        preserved, M1 16d3161d…, manifest 83/83/93/13, D_A and current head
+        unchanged.
 
-DOING   cutover/v4-hydrated-authority-compatibility
-        Land typed V3/V4 receipt binding and V4 manifest/M1 membership
-        verification on the existing hydrated DungeonMind-authority path.
-        Direct reads stay off. Buddy R.3 / PR #629 remains frozen until this
-        prerequisite merges and the live V4 repair succeeds.
+DONE    cutover/v4-hydrated-authority-compatibility / Buddy #630
+        Merge 3b25dbd89664b5a148ad76e0f5780b5ddc742f9a. Landed typed V3/V4
+        receipt binding and V4 manifest/M1 membership verification on the
+        existing hydrated DungeonMind-authority path. Direct reads stay off.
 
 DEFERRED pinned exact-snapshot catch-up
         Still conditional only — no STALE observed during the live
@@ -178,26 +179,25 @@ DEFERRED pinned exact-snapshot catch-up
         parked design handoff on branch cutover/design-pinned-snapshot-catchup
         stays unmerged.
 
-IN REVIEW cutover/direct-dungeonmind-production-reads (R.3)
-        Product graph reads execute natively in DungeonMind. In
-        `dungeonmind` authority mode the projection service and all five
-        retrieval operations dispatch to a thin DTO adapter
-        (`apps/live_control_server/integrations/dungeonmind/`); Buddy
-        never reconstructs a graph, replays contributions, or opens the
-        frozen store on the read path. The A→D_A bridge derives from the
-        DungeonMind adoption receipt. Prewarm/projection recipes are
+DOING   cutover/direct-dungeonmind-production-reads (R.3) / Buddy #629
+        Product graph reads execute natively in DungeonMind behind
+        `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` (default off until R.3a).
+        In `dungeonmind` authority mode with the gate on, the projection
+        service and all five retrieval operations dispatch to a thin DTO
+        adapter (`apps/live_control_server/integrations/dungeonmind/`);
+        Buddy never reconstructs a graph, replays contributions, or opens
+        the frozen store on the read path. The A→D_A bridge derives from
+        the DungeonMind adoption receipt. Prewarm/projection recipes are
         no-ops in `dungeonmind` mode. Session-focus presentation is
-        recomputed from admitted provenance (the Plan world-scope +
-        campaign-qualified-session-focus seam is supported without
-        narrowing scope). Two data migrations landed with the slice:
-        adopted-artifact visibility NULL→gm and world-owning two
-        session-less worldbuilding corpus docs (both with receipt
-        membership digest recompute; applied to the live database).
+        recomputed from admitted provenance. Dormant Buddy source/receipt
+        mutation scripts are deleted; classification truth is the governed
+        V4 repair. Fresh V4 semantic witness against repaired authority is
+        the stop point; the old 199-blocker tally is historical V3 evidence.
         Semantic + performance witness:
         Docs/Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md.
-        The performance witness triggered the handoff's §7 decision
-        rule (direct scope_projection ≈ 20s vs legacy ≈ 1.6s on the
-        real world): the production environment switch waits for R.3a.
+        The prior performance witness triggered the handoff's §7 decision
+        rule (direct scope_projection ≈ 20s vs legacy ≈ 1.6s): the
+        production environment switch waits for R.3a.
 
 READY   cutover/direct-read-optimization (R.3a)
         Named successor. Reusable World Graph read context / parsed
@@ -257,7 +257,7 @@ READY   PR009 Play projection migration
         Consume the same projection and admissibility contracts for encounter/play lenses.
 ```
 
-The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to the V4 hydrated compatibility prerequisite, with Buddy R.3 / PR #629 frozen until that lands and the live repair succeeds.
+The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to R.3 / PR #629 against repaired V4 authority. Direct reads stay default-off. R.3a is the named successor after R.3 is semantically closed.
 
 ## Phase 8 exit criteria
 

@@ -27,9 +27,9 @@ intentionally retired legacy-only field
 blocking semantic difference
 ```
 
-plus one explicit extension, ``successor_admission_semantics_accepted``, used
-solely for the review-accepted evidence-chain scope tightening residual
-(see Docs/Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md).
+plus the frozen handoff §6.3 vocabulary only. Do not invent extra classes
+to normalize away visibility, provenance, scope, identity, or missing-data
+differences.
 
 Usage:
 
@@ -656,9 +656,47 @@ def main(argv: list[str] | None = None) -> int:
 
     services = direct.direct_services_from_config(args.world_id)
     binding = services.binding
+    receipt = services.bundle.existing_world_adoptions.get_for_world(args.world_id)
+    expected_m0 = "538195e399158bfb4fafce01f9c5af3c63e2137f70694fdead7a26e5800e0890"
+    expected_m1 = "16d3161d270691460ccbf6d183055ad9f29f00bdbecf5c26dfe0189da2b9914e"
+    expected_da = "rev:34b1f8e2625d5ba693fc726a2a1a4720"
+    expected_head = "rev:680c246047d67f9fe0293ee90526f670"
+    served_membership = getattr(receipt, "effective_membership_sha256", None) or getattr(
+        receipt, "membership_sha256", None
+    )
+    historical_m0 = getattr(receipt, "membership_sha256", None)
     print(f"world={args.world_id}")
+    print(f"  receipt schema: {getattr(receipt, 'schema_version', None)}")
     print(f"  legacy Buddy A revision: {binding.legacy_buddy_revision_id}")
     print(f"  DungeonMind D_A revision: {binding.dungeonmind_first_revision_id}")
+    print(f"  DungeonMind head revision: {binding.dungeonmind_head_revision_id}")
+    print(f"  historical membership_sha256 (M0): {historical_m0}")
+    print(f"  served membership_sha256 (M1 or V3): {served_membership}")
+    identity_failures: list[str] = []
+    if getattr(receipt, "schema_version", None) != "dm_existing_world_adoption_receipt_v4":
+        identity_failures.append(
+            f"receipt schema {getattr(receipt, 'schema_version', None)!r} is not V4"
+        )
+    if binding.dungeonmind_first_revision_id != expected_da:
+        identity_failures.append(
+            f"D_A {binding.dungeonmind_first_revision_id!r} != {expected_da}"
+        )
+    if binding.dungeonmind_head_revision_id != expected_head:
+        identity_failures.append(
+            f"head {binding.dungeonmind_head_revision_id!r} != {expected_head}"
+        )
+    if historical_m0 != expected_m0:
+        identity_failures.append(f"M0 {historical_m0!r} != {expected_m0}")
+    if served_membership != expected_m1:
+        identity_failures.append(f"served membership {served_membership!r} != M1")
+    if identity_failures:
+        print(
+            "error: repaired V4 identity mismatch:",
+            *identity_failures,
+            sep="\n  ",
+            file=sys.stderr,
+        )
+        return 2
 
     reports: list[CaseReport] = []
     perf: dict[str, dict[str, Any]] = {}

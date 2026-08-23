@@ -1,10 +1,16 @@
 # BASELINE — R.3 direct DungeonMind current-world read witness
 
-**Date:** 2026-08-22
+**Date:** 2026-08-22 (historical V3 witness) / 2026-08-23 (fresh V4 witness)
 **Branch:** `cutover/direct-dungeonmind-production-reads`
 **Handoff:** [`../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md`](../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md)
 **Harness:** `scripts/compare_direct_dungeonmind_world_graph_reads.py` (local runner; private JSON output is never committed)
-**Status:** characterization witness, not an SLO and not a merge gate
+**Status:** fresh V4 witness recorded; **stop and inspect** — do not treat the historical 199 as current, and do not pre-authorize remaining-parity implementation from this document
+
+> **Historical 199 is obsolete.** It was measured against corrupted V3
+> adopted-source state. The current acceptance number is the 2026-08-23 V4
+> witness below: **200 blocking semantic differences**, same two dominant
+> classes as before the repair, plus two errored cases. The V4 repair did
+> not collapse R.3 to semantic cleanliness.
 
 ---
 
@@ -32,28 +38,89 @@ PostgreSQL.
 
 ```text
 world:                    eldyrwild (real adopted world)
-DungeonMind revision:     D_A = rev:34b1f8e2625d5ba693fc726a2a1a4720 (head)
+DungeonMind first rev:    D_A = rev:34b1f8e2625d5ba693fc726a2a1a4720
+DungeonMind head:         D_B = rev:680c246047d67f9fe0293ee90526f670
 legacy Buddy revision:    A  = rev:0c644e56b45bcaac709012206e3e41c2
-graph shape (parsed):     470 objects / 323 relationships / 185 evidence rows
+receipt:                  V4; M0 538195e3… preserved; M1 16d3161d… served
+manifest:                 83 / 83 / 93 / 13
 authority store:          PostgreSQL dungeonmind_cutover_live @ localhost dev container
-legacy store:             frozen Buddy store + hydrated cache (out/)
+legacy store:             frozen Buddy store + hydrated cache
 host:                     Linux dev machine, uv-managed Python 3.13
-runs per operation:       3 (median reported; cold = first run)
+direct-read gate:         default off in production; witness process opts in
 ```
 
-Data migrations applied to the live database as part of R.3 (both idempotent,
-both recompute the tamper-evident artifact fingerprints and the adoption
-receipt's `membership_sha256`):
+## 2A. Fresh V4 witness — 2026-08-23 stop point
 
-- `scripts/migrate_adopted_source_artifact_visibility.py` — adopted source
-  artifacts `visibility NULL → gm`. DungeonMind's fail-closed scope gate
-  excludes v2 artifacts with unset visibility; Buddy's legacy kernel only ever
-  served GM reads, so GM is the faithful classification.
-- `scripts/world_own_worldbuilding_source_artifacts.py` — two session-less
-  worldbuilding corpus documents re-assigned from `longmont-c2` to world
-  ownership (`campaign_id = NULL`), their correct semantic classification.
+Identity preflight (same live authority for both paths):
 
-## 3. Semantic parity witness
+```text
+receipt schema:     dm_existing_world_adoption_receipt_v4
+M0:                 538195e399158bfb4fafce01f9c5af3c63e2137f70694fdead7a26e5800e0890
+M1 (served):        16d3161d270691460ccbf6d183055ad9f29f00bdbecf5c26dfe0189da2b9914e
+D_A:                rev:34b1f8e2625d5ba693fc726a2a1a4720
+head D_B:           rev:680c246047d67f9fe0293ee90526f670
+Buddy A:            rev:0c644e56b45bcaac709012206e3e41c2
+```
+
+17 cases. 2 errored. No invented classification classes.
+
+| §6.3 class | count | meaning |
+|---|---|---|
+| blocking semantic difference | **200** | see breakdown below |
+| representation only | 2,345 | same class as the historical V3 witness |
+| intentionally retired legacy-only field | 1,056 | same class as the historical V3 witness |
+| new deterministic R.2 search ranking | 2 | search node-set selection |
+| product-local presentation join | *(absent)* | the historical 1-row anchor case errored before classification |
+
+### Blocking breakdown (frozen vocabulary only)
+
+| kind | rows | unique ids | class |
+|---|---|---|---|
+| `evidence_only_in_legacy` | 166 | 99 | **blocking** — DungeonMind fail-closed per-evidence-chain admission vs Buddy kernel object-only scoping |
+| `attribute_only_in_legacy` | 27 | 9 threat subjects | **blocking** — v6 adoption `properties=[]`; legacy reconstructs threat attributes from contributions |
+| `node_only_in_legacy` | 6 | 2 objects | **blocking** — `location:mireward` (c1/pin lenses); `node:cutover-canary` (c2/world lenses; missing source artifact) |
+| `error_envelope` | 1 | PLAYER case | **blocking** — legacy `unsupported_admissibility`, direct `served` |
+
+The 200 is **not** a new semantic universe. It is the historical 199-class residual, re-measured against repaired V4:
+
+- Evidence-chain tightening remains the bulk (was 169 rows; now 166). Unique evidence is 99 ids, mostly c1 recap chains plus mixed corpus / tpub / graph-review / two c2 recap rows.
+- Unrepresented v6 properties remain exactly 27.
+- `node:cutover-canary` remains a data-integrity exclusion on the direct path (3 lenses).
+- `location:mireward` is newly counted as a node exclusion under c1/pin (3 lenses). That is the same fail-closed evidence-chain rule, now visible as an object drop rather than only as missing evidence rows.
+- PLAYER envelope is newly blocking at 1: review-cycle-1 taught the direct adapter to serve PLAYER; the harness case is still named `player-rejected` and the legacy kernel still rejects PLAYER.
+
+### Errored cases (not classified, not ignored)
+
+1. `neighborhood:depth-2` — **legacy oracle** `KeyError: 'item_enormous_boulder'`. Direct path returned a result. This is a Buddy-kernel oracle failure, not a DungeonMind-read miss.
+2. `anchor:emit-revalidate-open` — **direct path** `DirectWorldGraphReadError: Unexpected failure in the direct DungeonMind read path.` The historical presentation-join row was not produced because this case never compared.
+
+### Performance (1 run; characterization only)
+
+```text
+projection            legacy  1665 ms    direct 20653 ms
+object                legacy 16176 ms    direct 20012 ms
+search                legacy 16352 ms    direct 20400 ms
+neighborhood:depth-1  legacy 18239 ms    direct 20465 ms
+neighborhood:depth-2  legacy ERROR       direct 20133 ms
+evidence              legacy 16419 ms    direct 20275 ms
+```
+
+The §7 decision rule still holds: direct `scope_projection` remains ~20s and product-breaking relative to warm hydrated projection. `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` stays default-off. R.3a remains the named successor for that cost. Do not flip the gate from this witness.
+
+### What this does *not* authorize
+
+The repair did not take 199 → 0 or 199 → a small adapter residue. Remaining blockers are still visibility / provenance / scope / missing-data differences. Implementation must not invent a sixth classification class. Next move is a human decision among:
+
+- continue #629 only for clearly in-contract adapter/harness defects (PLAYER case naming, depth-2 oracle KeyError, anchor unexpected error);
+- dispatch a bounded DungeonMind/adoption prerequisite for evidence-chain scope, v6 `properties=[]`, and the canary's missing artifact;
+- or explicitly redesign what R.3 "parity" means.
+
+Private JSON (never commit): operator-local `r3-v4-parity-witness.json` beside the 2026-08-23 live-repair backup.
+
+## 3. Semantic parity witness (HISTORICAL — corrupted V3 authority)
+
+The tally in this section is the pre-repair witness. It is retained as
+incident evidence, not as the current blocker count.
 
 17 cases (handoff §6.1): head projection under campaign c1 / campaign c2 /
 world-cross-campaign GM lenses, world-scope + campaign-qualified session
@@ -108,31 +175,20 @@ excludes, legacy kernel serves because it never validates evidence chains.
 The handoff prohibits normalizing away missing-data differences, so these are
 blocking semantic differences.
 
-### 3.4 V3 contract violation (fix-forward plan required)
+### 3.4 Historical V3 contract violation (closed by governed repair)
 
-The data migrations directly mutated `source_artifacts` and rewrote the V3
-receipt's `membership_sha256`. The V3 contract defines that digest as the
-checkpoint over the exact sealed bundle's durable history. The migrations were
-applied to the live database before the contract violation was identified.
+The Buddy data migrations directly mutated `source_artifacts` and rewrote the
+V3 receipt's `membership_sha256`. That class of mutation is retired. The
+governed repair is DungeonMind PR #43 plus the 2026-08-23 live Eldyrwild
+apply. The Buddy mutation scripts are deleted.
 
-**Fix-forward plan:** Repair the adoption history through DungeonMind
-authority. The sealed bundle's durable history was mutated; the correct
-governed repair mechanism is exactly what the DungeonMind fix-forward
-prerequisite needs to design. The migration scripts' `--apply` paths are
-hard-disabled pending that prerequisite.
+### 3.5 Historical stop condition: 199 blocking semantic differences
 
-### 3.5 Stop condition: 199 blocking semantic differences
-
-The witness reports **199 blocking semantic differences** (169 provenance/scope,
-27 missing property-assertion, 3 broken-evidence-chain). The handoff's
-semantic cutover gate has not been satisfied. These divergences require either
-authoritative-data correction or an explicit design decision that changes what
-"parity" means. Implementation cannot expand its own acceptance vocabulary.
-
-**R.3 is paused pending:**
-1. The DungeonMind fix-forward prerequisite for the corrupted V3 adoption
-   history/source classification.
-2. Resolution—or explicit redesign around—the 199 remaining semantic blockers.
+The pre-repair witness reported **199 blocking semantic differences** (169
+provenance/scope, 27 missing property-assertion, 3 broken-evidence-chain)
+against corrupted V3 state. That number is not the current acceptance
+baseline. R.3 continuation stops on the fresh V4 witness, then classifies
+whatever remains with the frozen §6.3 vocabulary.
 
 ### 3.6 Representation-only differences (wire-visible, non-blocking)
 
@@ -291,22 +347,21 @@ uv run python scripts/compare_direct_dungeonmind_world_graph_reads.py \
 ```
 
 Expect ~15–20 minutes, dominated by per-read projection cost on both paths.
-Exit code is non-zero iff any unclassified (blocking) divergence remains.
-**Current status: 199 blocking divergences remain; the witness exits non-zero.**
+Exit code is non-zero iff any blocking semantic difference remains.
+**Fresh V4 status (2026-08-23): 200 blocking divergences; 2 errored cases.
+Historical V3 status: 199. Do not carry 199 forward as fact.**
 
 ## 8. Stop condition
 
-R.3 is paused pending:
+R.3 continuation stops on the fresh V4 parity witness against:
 
-1. **The DungeonMind fix-forward prerequisite** for the corrupted V3 adoption
-   history/source classification. The migration scripts' `--apply` paths are
-   hard-disabled; the correct governed repair mechanism is exactly what that
-   prerequisite needs to design.
-2. **Resolution—or explicit redesign around—the 199 remaining semantic
-   blockers.** These divergences require either authoritative-data correction
-   or an explicit design decision that changes what "parity" means.
-   Implementation cannot expand its own acceptance vocabulary.
+- receipt V4
+- M1 `16d3161d270691460ccbf6d183055ad9f29f00bdbecf5c26dfe0189da2b9914e`
+- current D_B `rev:680c246047d67f9fe0293ee90526f670`
+- the same live authority for both hydrated and direct paths
+- `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` default-off in production; the
+  witness process opts in for the direct side only
 
-The next work should be the DungeonMind history/source-classification
-prerequisite; then return to R.3 with authoritative state repaired and rerun
-the real-current semantic witness.
+Classify every remaining divergence with the frozen handoff §6.3 vocabulary.
+Do not pre-authorize implementation to "fix whatever remains" before that
+evidence is inspected.
