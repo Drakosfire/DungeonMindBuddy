@@ -1,12 +1,12 @@
 # STEWARD'S ANCHOR — CUTOVER
 
-**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; R.3 supported-contract continuation is in steward review (direct path implemented, default-off; production switch gated on R.3a — see §2.5)  
+**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; Buddy R.3a pin is in review (`SWITCH_READY`; production direct-read gate remains default-off — see §2.5)  
 **Line of work:** `CUTOVER`  
 **Created:** 2026-08-17  
 **Completed:** 2026-08-18 (live D_A→D_B)  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Buddy integration tip at completion:** `18bcb18475ac30679ebec84bec17c4e81390f674` (merge of Buddy PR #620)  
-**DungeonMind authority anchor:** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (merge of DungeonMind PR #43 — governed V3→V4 adopted-source classification repair on top of the R.1/R.2/R.2a native-read seam; Buddy runtime pin as of R.3 continuation)  
+**DungeonMind authority anchor:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (merge of DungeonMind PR #45 — R.3a native read-context optimization; Buddy runtime pin of this slice. Historical R.3 pin was PR #43 `519b2c96…`)  
 **Completed implementation handoffs:** Buddy PR #619 (`6c2fe9d37dcecf34e025db8373fce072de30b62e`) + Buddy PR #620 (`18bcb18475ac30679ebec84bec17c4e81390f674`; 4 review cycles; final PASS review `4966969478`) + parent [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md)  
 **Live authority:** DungeonMind PostgreSQL (`dungeonmind_cutover_live@127.0.0.1:54329`); head `D_B = rev:680c246047d67f9fe0293ee90526f670`; parent `D_A = rev:34b1f8e2625d5ba693fc726a2a1a4720`; Buddy local World Graph writer fail-closed under `DUNGEONMIND_WORLD_GRAPH_AUTHORITY=dungeonmind`  
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)  
@@ -163,7 +163,7 @@ Settled facts a successor steward should not re-litigate:
 - **Prewarm and projection recipes are no-ops in `dungeonmind` mode.** The Buddy resident runtime and projection cache have no consumer on the read path; the coordinator lifecycle stays intact so app startup is authority-mode agnostic.
 - **Focus is presentation, not admission.** Session focus flags (`anchored_to_focus_session`, `is_focus_session_evidence`) are recomputed by the adapter from admitted DungeonMind provenance (evidence session id + artifact campaign), matching the legacy kernel's rule. The Plan seam (world scope + campaign-qualified session focus) is therefore supported without narrowing scope or dropping focus.
 - **Adopted artifacts are GM-classified by governed V4 repair, not Buddy mutation.** DungeonMind PR #43 plus the 2026-08-23 live Eldyrwild repair transformed the V3 adoption into receipt V4 (historical M0 preserved, sanctioned M1 `16d3161d…`, manifest `83 / 83 / 93 / 13`) without rewriting D_A or the current head. The dormant Buddy scripts that mutated `source_artifacts` and recomputed V3 `membership_sha256` are deleted; they have no recovery role.
-- **The performance witness triggered the §7 decision rule.** The direct path's `scope_projection` phase against PostgreSQL is ~20s on the real world (99.6% of read time; evidence-chain admission does per-row source-repository round-trips). Per HANDOFF §7 this is not an R.3 failure: the semantic witness is preserved, and **R.3a (reusable World Graph read context / parsed immutable revision reuse + batched source reads) is the named successor that must land before the production switch flips**. Direct reads stay behind `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` (default off) until R.3a. Authority mode is already `dungeonmind`; the extra gate is what keeps production on the hydrated path.
+- **The R.3a pin is `SWITCH_READY`.** DungeonMind PR #45 landed the read-context optimization (~20.7s → ~115 ms native). Buddy's adapter rerun of the sealed v2 witness is 0 blocking / 0 errored / 199 approved. Product-path campaign projection is ~0.85s (factory rebuild) / ~0.55–0.75s (reused services); retrievals 120–226 ms. Remaining projection cost is Buddy DTO mapping, not DungeonMind N+1 and not factory rebuild. Direct reads stay behind `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` (default off) until the switch slice removes that flag. Authority mode is already `dungeonmind`; the extra gate is what still keeps production on the hydrated path.
 
 The R.3 semantic witness harness (`scripts/compare_direct_dungeonmind_world_graph_reads.py`) is a **supported-contract checker** under vocabulary v2. Zero-difference against the Buddy kernel is not the merge bar. R.3a compares the supported-contract R.3 direct result to the optimized direct result.
 
