@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-22 (historical V3 witness) / 2026-08-23 (fresh V4 witness)
 **Branch:** `cutover/direct-dungeonmind-production-reads`
-**Handoff:** [`../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md`](../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md)
+**Handoff:** [`../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md`](../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md) (implementation; frozen)
+**Acceptance successor:** [`../Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md`](../Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md)
 **Harness:** `scripts/compare_direct_dungeonmind_world_graph_reads.py` (local runner; private JSON output is never committed)
 **Status:** fresh V4 witness recorded; **stop and inspect** — do not treat the historical 199 as current, and do not pre-authorize remaining-parity implementation from this document
 
@@ -109,11 +110,13 @@ The §7 decision rule still holds: direct `scope_projection` remains ~20s and pr
 
 ### What this does *not* authorize
 
-The repair did not take 199 → 0 or 199 → a small adapter residue. Remaining blockers are still visibility / provenance / scope / missing-data differences. Implementation must not invent a sixth classification class. Next move is a human decision among:
+The repair did not take 199 → 0 or 199 → a small adapter residue. Remaining rows are still visibility / provenance / scope / missing-data differences against the retired Buddy kernel. This baseline does **not** invent a sixth classification class; that versioning belongs to [`../Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md`](../Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md), which redesigns R.3 "parity" into a supported-client API contract.
 
-- continue #629 only for clearly in-contract adapter/harness defects (PLAYER case naming, depth-2 oracle KeyError, anchor unexpected error);
-- dispatch a bounded DungeonMind/adoption prerequisite for evidence-chain scope, v6 `properties=[]`, and the canary's missing artifact;
-- or explicitly redesign what R.3 "parity" means.
+Until that design is accepted, do not:
+
+- reclassify the 200 blocking rows;
+- restore Buddy object-only admission or reconstructed `properties`;
+- enable `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ`.
 
 Private JSON (never commit): operator-local `r3-v4-parity-witness.json` beside the 2026-08-23 live-repair backup.
 

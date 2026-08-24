@@ -24,18 +24,20 @@ pr_body_template: |
 # HANDOFF — R.3: direct DungeonMind production reads
 
 **Created:** 2026-08-22  
-**Status:** IMPLEMENTATION IN PROGRESS — rebased onto Buddy `main` after #630 and the live Eldyrwild V4 repair  
+**Status:** FROZEN — mechanical V4 rebase recorded; waiting on read-contract ratification  
 **Workstream:** CUTOVER / World Graph runtime retirement  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
 **Exact Buddy base at original dispatch:** `b850b9f8126a8c8488d17b3bdb6f99a60a162338`  
 **Current rebase base:** Buddy `origin/main` `3b25dbd89664b5a148ad76e0f5780b5ddc742f9a` (#630 merge)  
+**Local mechanical head:** `24250fb0`  
 **Required DungeonMind pin:** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (merge of DungeonMind PR #43; separately reviewed V4 repair predecessor on top of #41 R.1/R.2/R.2a)  
 **Original dispatch pin (historical):** `b3f419b08676eaca763c8a75c374be6e96ee624e` (DungeonMind PR #41)  
 **Suggested branch:** `cutover/direct-dungeonmind-production-reads`  
 **Suggested PR title:** `CUTOVER: retire Buddy graph hydration from production reads`  
 **Predecessor:** DungeonMind R.2a — World Graph read observability + cutover benchmark baseline  
-**Named successor:** DungeonMind R.3a — reusable World Graph read context / parsed immutable revision reuse
+**Current acceptance successor:** [`HANDOFF-CUTOVER-r3-read-contract-ratification.md`](HANDOFF-CUTOVER-r3-read-contract-ratification.md) — replaces zero-difference Buddy-kernel parity as the merge criterion  
+**Later successor:** DungeonMind R.3a — reusable World Graph read context / parsed immutable revision reuse
 
 > **Dispatch ruling:** authority transfer is finished. This PR is not another
 > migration/readiness exercise. Its job is to remove Buddy's graph engine from
@@ -45,6 +47,12 @@ pr_body_template: |
 >
 > Do not optimize DungeonMind in this PR. Do not delete Buddy's write-side
 > compatibility machinery merely because production reads stop using it.
+
+> **2026-08-23 freeze:** this implementation PR is paused after the repaired-V4
+> mechanical rebase (`24250fb0`) and the fresh 200-row witness. Do not add
+> compatibility fixes here until [`HANDOFF-CUTOVER-r3-read-contract-ratification.md`](HANDOFF-CUTOVER-r3-read-contract-ratification.md)
+> is accepted. That document replaces “zero semantic differences against the
+> Buddy kernel” as the R.3 merge criterion.
 
 ---
 
@@ -1169,7 +1177,7 @@ R.3 is merge-ready only when all are true:
 16. Old Buddy projection recipe/prewarm cannot trigger hidden legacy reads in
     DND mode.
 17. The normal governed write path remains green.
-18. A normalized legacy-vs-direct semantic parity witness exists.
+18. A supported-contract witness exists (see HANDOFF-CUTOVER-r3-read-contract-ratification.md). Legacy-vs-direct comparison remains archaeology; zero Buddy-kernel difference is not the merge bar.
 19. A safe actual-current aggregate performance witness exists or the PR stops
     explicitly on the performance gate.
 20. R.2a synthetic artifacts remain unchanged.
