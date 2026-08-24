@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap  
 **Updated:** 2026-08-24 — Buddy R.3a pin of DungeonMind #45; sealed witness unchanged; `SWITCH_READY`; direct-read gate remains default-off  
-**Repository anchor:** `65405b48` (Buddy `main` after merged R.3)
+**Repository anchor:** `ffc39ab3` (Buddy `main` / #631 merge / #632 base). Reviewed R.3 implementation head: `65405b48`.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (PR #45 merge / R.3a native read-context optimization)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
@@ -185,8 +185,9 @@ DONE    cutover/r3-read-contract-ratification
         Docs/Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md.
 
 DONE    cutover/direct-dungeonmind-production-reads (R.3) / Buddy #631
-        Merged to Buddy main 65405b48. Sealed V4 witness: 0 blocking,
-        0 errored, 199 approved. Direct-read gate stayed default-off.
+        Reviewed/accepted implementation head 65405b48; merge / Buddy
+        main ffc39ab3. Sealed V4 witness: 0 blocking, 0 errored,
+        199 approved. Direct-read gate stayed default-off.
 
 DONE    DungeonMind R.3a / PR #45
         Merge c5d3688587b0f5d506e0f7d64f33eb0628bac896. Native

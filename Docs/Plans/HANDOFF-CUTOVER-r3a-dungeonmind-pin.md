@@ -19,7 +19,8 @@ pr_body_template: |
 **Workstream:** CUTOVER / World Graph runtime retirement
 **Direction:** CODE → REVIEW
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`
-**Buddy base:** `origin/main` `65405b48` (merged R.3)
+**Buddy base:** `origin/main` `ffc39ab394ea55b00dc8b2a0fd41be0448635600` (#631 merge / #632 base)
+**Reviewed R.3 implementation head:** `65405b48ed2d3de917060f41fbb7d69e2eaafe32` (#631 accepted code; second parent of `ffc39ab3`)
 **Required DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896`
 (merge of DungeonMind PR #45 — R.3a read-context optimization)
 **Predecessor pin (historical):** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5`
@@ -106,6 +107,22 @@ Expected: pin SHA present; V4 types importable; sealed witness 0 blocking /
 explicit `SWITCH_NOT_READY` with the remaining cost). Private JSON is never
 committed.
 
+Author-local owning tests on pin head
+`8ad097485ef0f81d52b57ff8b1d441da7086ab97` (pytest 9.0.2; this correction
+successor does not change those files):
+
+```text
+collected 126
+105 passed, 21 skipped, 0 failed, 10 warnings in 12.31s
+```
+
+Per file:
+
+- `tests/test_cutover_direct_dungeonmind_world_graph_reads.py` — 40 passed
+- `tests/test_cutover_dungeonmind_world_graph_authority.py` — 29 passed, 21 skipped (env-gated live integration)
+- `tests/test_world_graph_projection_routes.py` — 4 passed
+- `tests/test_world_graph_retrieval_routes.py` — 32 passed
+
 ## 6. Stop conditions
 
 - Blocking or errored rows vs the sealed R.3 contract.
@@ -116,6 +133,8 @@ committed.
 ## 7. Handback
 
 - Pin: `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (DungeonMind #45)
+- Owning tests: 105 passed / 21 skipped / 0 failed on pin head `8ad09748`
+  (see §5 for the four-file breakdown)
 - Witness: 17 cases, 0 errored, 0 blocking, 199 approved, 2345 representation,
   1056 retired, 2 ranking, 1 presentation join
 - Adapter performance (reused services): projection 548 ms; retrievals
