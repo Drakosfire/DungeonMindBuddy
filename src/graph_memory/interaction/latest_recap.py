@@ -50,6 +50,23 @@ class LatestRecapComparisonBoundary(BaseModel):
     graph_latest_session_id: str | None = None
 
 
+class LatestRecapGraphFacts(BaseModel):
+    """Storage-neutral graph facts for latest-recap comparison.
+
+    Producers may derive these from a file-backed store or from a native
+    ``WorldGraphProjection``. Comparison never requires a hydrated filesystem
+    graph.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    revision_id: str | None = None
+    session_ids: list[str] = Field(default_factory=list)
+    object_or_relationship_ids_by_session: dict[str, list[str]] = Field(
+        default_factory=dict
+    )
+
+
 class LatestRecapChangeContext(BaseModel):
     """Bounded metadata for a latest-recap sensemaking turn.
 
@@ -226,6 +243,113 @@ def _object_ids_for_session(store: Mapping[str, Any], session_id: str) -> list[s
     return sorted(dict.fromkeys(object_ids))
 
 
+def latest_recap_graph_facts_from_store(
+    store: Mapping[str, Any],
+    *,
+    campaign_id: str,
+    revision_id: str | None,
+) -> LatestRecapGraphFacts:
+    """Derive comparison facts from a file-backed World Graph store."""
+    mapping = _as_mapping(store)
+    session_ids = _graph_session_ids(mapping, campaign_id)
+    object_sessions = set(session_ids)
+    for raw_evidence in _as_mapping(mapping.get("evidence")).values():
+        session_id = _normalize_session_id(_as_mapping(raw_evidence).get("session_id"))
+        if session_id is not None:
+            object_sessions.add(session_id)
+    by_session = {
+        session_id: _object_ids_for_session(mapping, session_id)
+        for session_id in sorted(
+            object_sessions,
+            key=lambda value: (_session_number(value) or -1, value),
+        )
+    }
+    return LatestRecapGraphFacts(
+        revision_id=revision_id,
+        session_ids=session_ids,
+        object_or_relationship_ids_by_session=by_session,
+    )
+
+
+def latest_recap_graph_facts_from_projection(
+    projection: Any,
+    *,
+    campaign_id: str,
+) -> LatestRecapGraphFacts:
+    """Derive comparison facts from an admitted native World Graph projection."""
+    source_artifacts = {
+        artifact.source_artifact_id: {
+            "campaign_id": artifact.campaign_id,
+            "session_id": artifact.session_id,
+        }
+        for artifact in getattr(projection, "source_artifacts", ()) or ()
+    }
+    evidence = {
+        record.evidence_ref_id: {
+            "source_artifact_id": record.source_artifact_id,
+            "session_id": record.session_id,
+        }
+        for record in getattr(projection, "evidence", ()) or ()
+    }
+    nodes = {
+        node.node_id: {"evidence_ref_ids": list(node.evidence_ref_ids or [])}
+        for node in getattr(projection, "nodes", ()) or ()
+    }
+    edges = {
+        rel.edge_id: {
+            "session_ids": list(rel.session_ids or []),
+            "evidence_ref_ids": list(rel.evidence_ref_ids or []),
+            "state": {"campaign_scope": rel.campaign_scope},
+        }
+        for rel in getattr(projection, "relationships", ()) or ()
+    }
+    snapshot = getattr(projection, "snapshot", None)
+    revision_id = getattr(snapshot, "revision_id", None) if snapshot is not None else None
+    return latest_recap_graph_facts_from_store(
+        {
+            "source_artifacts": source_artifacts,
+            "evidence": evidence,
+            "nodes": nodes,
+            "edges": edges,
+        },
+        campaign_id=campaign_id,
+        revision_id=str(revision_id) if revision_id else None,
+    )
+
+
+def _facts_from_native_projection(
+    *,
+    world_id: str,
+    campaign_id: str,
+    graph_revision_id: str | None,
+) -> LatestRecapGraphFacts:
+    from apps.live_control_server.services.world_graph_projection import (
+        WorldGraphProjectionServiceError,
+        project_world_graph,
+    )
+    from graph_memory.projection.world_projection import WorldGraphProjectionRequest
+
+    request = WorldGraphProjectionRequest(
+        schema="dmb_world_graph_projection_request_v1",
+        world_id=world_id,
+        campaign_id=campaign_id,
+        admissibility="gm",
+        revision_pin=graph_revision_id,
+        scope_mode="campaign",
+    )
+    projection = project_world_graph(request)
+    summary = getattr(projection, "summary", None)
+    if summary is not None and bool(getattr(summary, "projection_truncated", False)):
+        raise WorldGraphProjectionServiceError(
+            "Latest-recap comparison cannot use a truncated native projection.",
+            code="latest_recap_projection_truncated",
+            status_code=503,
+        )
+    return latest_recap_graph_facts_from_projection(
+        projection, campaign_id=campaign_id
+    )
+
+
 def _unknown_context(
     *,
     campaign_id: str,
@@ -247,8 +371,7 @@ def build_latest_recap_change_context(
     *,
     root: Path,
     campaign_id: str,
-    graph_revision_id: str | None,
-    graph_store: Mapping[str, Any],
+    facts: LatestRecapGraphFacts,
     records: Sequence[RecapArtifactRecord],
 ) -> LatestRecapChangeContext:
     """Build an S1 comparison context without reading or mutating corpus prose."""
@@ -276,7 +399,7 @@ def build_latest_recap_change_context(
 
     recap_session_id = _normalize_session_id(latest.session_id)
     assert recap_session_id is not None
-    graph_sessions = _graph_session_ids(graph_store, campaign_id)
+    graph_sessions = list(facts.session_ids)
     graph_latest_session_id = graph_sessions[-1] if graph_sessions else None
     if graph_latest_session_id is None:
         outcome: LatestRecapOutcome = "unknown"
@@ -306,13 +429,15 @@ def build_latest_recap_change_context(
         ),
         comparison_boundary=LatestRecapComparisonBoundary(
             recap_session_id=recap_session_id,
-            graph_revision_id=graph_revision_id,
+            graph_revision_id=facts.revision_id,
             graph_latest_session_id=graph_latest_session_id,
         ),
         outcome=outcome,
         memory_lag=outcome == "memory_lag",
         graph_session_ids=graph_sessions,
-        graph_object_ids=_object_ids_for_session(graph_store, recap_session_id),
+        graph_object_ids=list(
+            facts.object_or_relationship_ids_by_session.get(recap_session_id, [])
+        ),
         diagnostic_codes=diagnostic_codes,
     )
 
@@ -325,10 +450,50 @@ def resolve_latest_recap_change_context(
     campaign_id: str,
     graph_revision_id: str | None,
 ) -> LatestRecapChangeContext:
-    """Resolve the latest registry record against the immutable graph head."""
+    """Resolve the latest registry record against admitted graph comparison facts.
+
+    In ``dungeonmind`` production the facts come from a native campaign
+    projection. File-backed modes and explicit fixture roots keep deriving
+    facts from the store. Native failure degrades to unknown without reading
+    a hydrated Buddy graph.
+    """
+    from apps.live_control_server import config
+
     repo = (root or repo_root()).resolve()
-    graph_base = (graph_root or world_graph_root()).resolve()
     records = list_recap_artifact_records(repo, campaign_id=campaign_id)
+    if config.world_graph_native_production_read(graph_root):
+        from apps.live_control_server.services.world_graph_projection import (
+            WorldGraphProjectionServiceError,
+        )
+
+        try:
+            facts = _facts_from_native_projection(
+                world_id=world_id,
+                campaign_id=campaign_id,
+                graph_revision_id=graph_revision_id,
+            )
+        except WorldGraphProjectionServiceError:
+            return _unknown_context(
+                campaign_id=campaign_id,
+                outcome="unknown",
+                diagnostic_code="latest_recap_authority_unavailable",
+            )
+        except Exception:
+            return _unknown_context(
+                campaign_id=campaign_id,
+                outcome="unknown",
+                diagnostic_code="latest_recap_authority_unavailable",
+            )
+        if graph_revision_id:
+            facts = facts.model_copy(update={"revision_id": graph_revision_id})
+        return build_latest_recap_change_context(
+            root=repo,
+            campaign_id=campaign_id,
+            facts=facts,
+            records=records,
+        )
+
+    graph_base = (graph_root or world_graph_root()).resolve()
     try:
         _, _, store = load_current_world_graph(graph_base, world_id)
     except Exception:
@@ -340,8 +505,11 @@ def resolve_latest_recap_change_context(
     return build_latest_recap_change_context(
         root=repo,
         campaign_id=campaign_id,
-        graph_revision_id=graph_revision_id,
-        graph_store=_as_mapping(store),
+        facts=latest_recap_graph_facts_from_store(
+            _as_mapping(store),
+            campaign_id=campaign_id,
+            revision_id=graph_revision_id,
+        ),
         records=records,
     )
 
@@ -358,8 +526,11 @@ def is_latest_recap_change_question(question: str) -> bool:
 __all__ = [
     "LATEST_RECAP_CHANGE_SCHEMA",
     "LatestRecapChangeContext",
+    "LatestRecapGraphFacts",
     "build_latest_recap_change_context",
     "is_latest_recap_change_question",
+    "latest_recap_graph_facts_from_projection",
+    "latest_recap_graph_facts_from_store",
     "read_admitted_recap_excerpt",
     "resolve_latest_recap_change_context",
 ]

@@ -903,7 +903,6 @@ def direct_client(
     monkeypatch.setenv(
         storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
     )
-    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", "1")
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
     )
@@ -926,6 +925,11 @@ def direct_client(
     monkeypatch.setattr(kernel, "get_object_neighborhood", _explode)
     monkeypatch.setattr(kernel, "get_object_evidence", _explode)
     monkeypatch.setattr(kernel, "resolve_admitted_anchor_match", _explode)
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority,
+    )
+
+    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
     return TestClient(create_app())
 
 

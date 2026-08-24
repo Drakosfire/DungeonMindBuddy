@@ -660,7 +660,6 @@ def test_focus_presentation_recomputed_from_admitted_provenance(services):
 @pytest.fixture()
 def _dungeonmind_mode(monkeypatch, tmp_path):
     monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, "dungeonmind")
-    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", "1")
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
     )
@@ -687,6 +686,9 @@ def test_projection_service_dispatches_direct_without_kernel(
     )
 
     monkeypatch.setattr(world_graph_authority, "route_read_request", _explode)
+    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
+    monkeypatch.setattr(world_graph_authority, "ensure_hydrated_authority", _explode)
+    monkeypatch.setattr(storage, "load_current_world_graph", _explode)
 
     projection = projection_service.project_world_graph(_projection_request())
     assert {n.node_id for n in projection.nodes} == {
@@ -711,6 +713,9 @@ def test_retrieval_service_dispatches_all_operations_direct(monkeypatch, service
     )
 
     monkeypatch.setattr(world_graph_authority, "route_read_request", _explode)
+    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
+    monkeypatch.setattr(world_graph_authority, "ensure_hydrated_authority", _explode)
+    monkeypatch.setattr(storage, "load_current_world_graph", _explode)
 
     search = retrieval_service.search_campaign_graph(
         WorldGraphSearchRequest(
@@ -1282,41 +1287,83 @@ def test_buddy_files_mode_never_dispatches_direct(monkeypatch, services, tmp_pat
         projection_service.project_world_graph(_projection_request())
 
 
-def test_direct_read_gate_off_by_default(monkeypatch, services, tmp_path):
-    """R.3: the direct-read rollout gate is off by default.
-
-    Authority mode ``dungeonmind`` alone does not activate the direct read
-    path; the separate ``DUNGEONMIND_WORLD_GRAPH_DIRECT_READ=1`` opt-in is
-    required. The gate exists because the R.3 performance witness found the
-    direct path product-breaking on the warm-projection surface.
-    """
+@pytest.mark.parametrize("direct_read_value", [None, "0", "1", "garbage"])
+def test_obsolete_direct_read_env_does_not_control_routing(
+    monkeypatch, services, tmp_path, direct_read_value
+):
+    """Retired ``DUNGEONMIND_WORLD_GRAPH_DIRECT_READ`` has no routing power."""
     monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, "dungeonmind")
-    monkeypatch.delenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", raising=False)
+    if direct_read_value is None:
+        monkeypatch.delenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", raising=False)
+    else:
+        monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", direct_read_value)
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
     )
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
     storage.clear_world_graph_cache_roots()
-    monkeypatch.setattr(
-        direct,
-        "direct_services_from_config",
-        lambda world_id: (_ for _ in ()).throw(
-            AssertionError("direct path must not run when the rollout gate is off")
-        ),
+    svc, _ = services
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda world_id: svc)
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority,
     )
-    with pytest.raises(projection_service.WorldGraphProjectionServiceError):
-        # No graph store under tmp_path → legacy path fails closed, proving
-        # the read did not dispatch to DungeonMind.
-        projection_service.project_world_graph(_projection_request())
+
+    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
+    monkeypatch.setattr(world_graph_authority, "ensure_hydrated_authority", _explode)
+    monkeypatch.setattr(storage, "load_current_world_graph", _explode)
+    projection = projection_service.project_world_graph(_projection_request())
+    assert projection.nodes, "dungeonmind production reads stay native regardless of retired env"
+
+
+@pytest.mark.usefixtures("_dungeonmind_mode")
+def test_explicit_production_root_still_dispatches_native(monkeypatch, services):
+    from apps.live_control_server import config
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority,
+    )
+
+    svc, _ = services
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda world_id: svc)
+    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
+    projection = projection_service.project_world_graph(
+        _projection_request(), root=config.world_graph_root()
+    )
+    assert projection.nodes
 
 
 @pytest.mark.usefixtures("_dungeonmind_mode")
 def test_direct_read_fails_closed_when_database_unconfigured(monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority,
+    )
+
     monkeypatch.delenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL")
+    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
+    monkeypatch.setattr(world_graph_authority, "ensure_hydrated_authority", _explode)
+    monkeypatch.setattr(storage, "load_current_world_graph", _explode)
     with pytest.raises(projection_service.WorldGraphProjectionServiceError) as excinfo:
         projection_service.project_world_graph(_projection_request())
     assert excinfo.value.code == "authority_unavailable"
     assert excinfo.value.status_code == 503
+
+
+@pytest.mark.usefixtures("_dungeonmind_mode")
+def test_unknown_pin_fails_closed_without_hydration(monkeypatch, services):
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority,
+    )
+
+    svc, _ = services
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda world_id: svc)
+    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
+    monkeypatch.setattr(world_graph_authority, "ensure_hydrated_authority", _explode)
+    monkeypatch.setattr(storage, "load_current_world_graph", _explode)
+    with pytest.raises(projection_service.WorldGraphProjectionServiceError) as excinfo:
+        projection_service.project_world_graph(
+            _projection_request(revision_pin="rev:never-existed")
+        )
+    assert excinfo.value.code == "revision_not_bridged"
+    assert excinfo.value.status_code == 404
 
 
 # ---------------------------------------------------------------------------

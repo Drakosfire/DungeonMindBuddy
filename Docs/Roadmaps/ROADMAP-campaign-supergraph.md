@@ -1,8 +1,8 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-24 — Buddy R.3a pin of DungeonMind #45; sealed witness unchanged; `SWITCH_READY`; direct-read gate remains default-off  
-**Repository anchor:** `ffc39ab3` (Buddy `main` / #631 merge / #632 base). Reviewed R.3 implementation head: `65405b48`.
+**Updated:** 2026-08-24 — native-read switch in review; R.3a pin `DONE`; `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` retired, not default-off  
+**Repository anchor / current Buddy `main`:** `87597f406aae2b169bf4addde2a2b34b1b3d7cad` (PR #633 base). **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (PR #45 merge / R.3a native read-context optimization)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
@@ -185,25 +185,30 @@ DONE    cutover/r3-read-contract-ratification
         Docs/Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md.
 
 DONE    cutover/direct-dungeonmind-production-reads (R.3) / Buddy #631
-        Reviewed/accepted implementation head 65405b48; merge / Buddy
-        main ffc39ab3. Sealed V4 witness: 0 blocking, 0 errored,
-        199 approved. Direct-read gate stayed default-off.
+        Reviewed/accepted implementation head 65405b48; merge
+        ffc39ab3 (historical Buddy main at #631; later superseded by
+        #632 merge 54779636 then current main 87597f40). Sealed V4
+        witness: 0 blocking, 0 errored, 199 approved. Direct-read gate
+        stayed default-off at that merge.
 
 DONE    DungeonMind R.3a / PR #45
         Merge c5d3688587b0f5d506e0f7d64f33eb0628bac896. Native
         read-context optimization (~20.7s → ~115 ms warm on Eldyrwild).
 
-DOING   cutover/r3a-dungeonmind-pin
-        Pin Buddy to DungeonMind #45 merge c5d36885…. Sealed R.3
+DONE    cutover/r3a-dungeonmind-pin / Buddy #632
+        Pin Buddy to DungeonMind #45 merge c5d36885…. Merge
+        54779636750ebf7a639aef8a6184cc61ead9c860. Sealed R.3
         witness rerun: 0 blocking, 0 errored, 199 approved.
         Adapter projection ~0.55–0.85s; retrievals 120–226 ms.
-        SWITCH_READY. Direct-read gate remains default-off.
+        SWITCH_READY. Operator dogfood accepted.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-r3a-dungeonmind-pin.md.
 
-READY   native-read switch
-        After dogfood, remove DUNGEONMIND_WORLD_GRAPH_DIRECT_READ
-        rather than defaulting it to 1. Direct DungeonMind reads
-        become the only dungeonmind-authority path.
+DOING   native-read switch
+        Remove DUNGEONMIND_WORLD_GRAPH_DIRECT_READ rather than
+        defaulting it to 1. Native DungeonMind reads become the only
+        dungeonmind-authority production path, including Hermes
+        latest-recap comparison facts.
+        Handoff: Docs/Plans/HANDOFF-CUTOVER-native-read-switch.md.
 
 READY   demolish Buddy graph runtime
         Delete hydration/replay/cache/UnionSupergraph production
@@ -260,7 +265,7 @@ READY   PR009 Play projection migration
         Consume the same projection and admissibility contracts for encounter/play lenses.
 ```
 
-The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor R.3 is in steward review for supported-contract semantic closure. Direct reads stay default-off. R.3a is the named successor after that closure is accepted.
+The tracker, not this roadmap, decides which `READY` slice is dispatched next. Current Buddy `main` is `87597f40…`. Native-read switch is the live CUTOVER lane; `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` is retired. After this PR merges, demolish the hydrated Buddy graph runtime.
 
 ## Phase 8 exit criteria
 

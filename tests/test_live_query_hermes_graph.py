@@ -2423,7 +2423,6 @@ def test_hermes_expansion_tool_executes_via_direct_dungeonmind_read(
     monkeypatch.setenv(
         storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
     )
-    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", "1")
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
     )
@@ -2440,6 +2439,11 @@ def test_hermes_expansion_tool_executes_via_direct_dungeonmind_read(
     monkeypatch.setattr(kernel, "get_campaign_object", _explode)
     monkeypatch.setattr(kernel, "get_object_neighborhood", _explode)
     monkeypatch.setattr(kernel, "get_object_evidence", _explode)
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority,
+    )
+
+    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
 
     session = create_session_from_preflight(
         {
