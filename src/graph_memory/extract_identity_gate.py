@@ -34,11 +34,14 @@ from graph_memory.kernel import (
     GraphContributionAssertion,
     IdentityCandidate,
     create_graph_contribution,
-    open_current_world_graph,
-    resolve_identity,
 )
-from graph_memory.kernel.world_graph import load_world_graph_revision
-from graph_memory.union_supergraph.model import UnionSupergraphStore
+from graph_memory.world_graph_mutation_context import (
+    WorldGraphMutationContext,
+    endpoint_available,
+    mutation_context_from_world_root,
+    mutation_objects_as_match_dicts,
+    resolve_identity_against_context,
+)
 
 _MUTATING_OUTCOMES = frozenset({"resolved_existing", "created_new", "human_override"})
 _CONNECT_EXISTING_OUTCOMES = frozenset({"resolved_existing", "human_override"})
@@ -126,26 +129,14 @@ def _candidate_aliases(node: CandidateNode) -> list[str]:
     return result
 
 
-def _head_nodes_as_match_dicts(store: UnionSupergraphStore) -> list[dict[str, Any]]:
-    return [
-        {
-            "node_id": node.node_id,
-            "label": node.label,
-            "node_type": node.kind,
-            "aliases": list(node.aliases),
-        }
-        for node in store.nodes.values()
-    ]
-
-
 def build_fixed_candidate_scorer_report(
     candidate_nodes: Sequence[CandidateNode],
-    store: UnionSupergraphStore,
+    context: WorldGraphMutationContext,
     *,
     threshold: float = 0.6,
 ) -> dict[str, Any]:
     """Score extract nodes against the fixed head node set (diagnostics only)."""
-    head_nodes = _head_nodes_as_match_dicts(store)
+    head_nodes = mutation_objects_as_match_dicts(context)
     cand_list = [
         {
             "node_id": node.node_id,
@@ -219,7 +210,7 @@ def build_fixed_candidate_scorer_report(
 
 def _infer_object_kind(
     node: CandidateNode,
-    store: UnionSupergraphStore,
+    context: WorldGraphMutationContext,
 ) -> str:
     """Pick Kernel object_kind so same-kind exact match can attach (e.g. pc:caelynn)."""
     base = kernel_kind_for_node_type(node.node_type)
@@ -228,15 +219,15 @@ def _infer_object_kind(
         return base
     raw_type = (node.node_type or "").strip().lower()
     if raw_type in {"character", "pc", "npc"}:
-        for node_obj in store.nodes.values():
-            terms = {node_obj.label.strip().lower(), *[a.strip().lower() for a in node_obj.aliases]}
-            if label in terms and node_obj.kind in {"pc", "npc"}:
-                return node_obj.kind
+        for obj in context.objects.values():
+            terms = {obj.label.strip().lower(), *[a.strip().lower() for a in obj.aliases]}
+            if label in terms and obj.kind in {"pc", "npc"}:
+                return obj.kind
     if raw_type in {"collective", "organization", "party"}:
-        for node_obj in store.nodes.values():
-            terms = {node_obj.label.strip().lower(), *[a.strip().lower() for a in node_obj.aliases]}
-            if label in terms and node_obj.kind in {"party", "faction"}:
-                return node_obj.kind
+        for obj in context.objects.values():
+            terms = {obj.label.strip().lower(), *[a.strip().lower() for a in obj.aliases]}
+            if label in terms and obj.kind in {"party", "faction"}:
+                return obj.kind
     return base
 
 
@@ -254,7 +245,6 @@ def _durable_node_id(resolution: Any, extract_node_id: str) -> str | None:
 def gate_candidate_graph_against_head(
     preview: CandidateGraphPreview,
     *,
-    root: Path,
     world_id: str,
     source_artifact_id: str | None = None,
     source_revision_id: str,
@@ -266,14 +256,25 @@ def gate_candidate_graph_against_head(
     source_kind: str = "source_extraction",
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
+    mutation_context: WorldGraphMutationContext | None = None,
+    root: Path | None = None,
 ) -> IdentityGateResult:
-    """Map + resolve identity against the pinned head; emit review proposals."""
+    """Map + resolve identity against the pinned head; emit review proposals.
+
+    Prefer ``mutation_context``. ``root`` remains a file-mode compatibility
+    seam that opens a Buddy world graph and adapts it into the same context.
+    """
     if not str(source_revision_id or "").strip():
         raise CandidateGraphMappingError("source_revision_id is required")
     kind = (source_kind or "source_extraction").strip() or "source_extraction"
 
-    head, _revision, store = open_current_world_graph(root, world_id)
-    parent_revision_id = head.head_revision_id
+    if mutation_context is None:
+        if root is None:
+            raise CandidateGraphMappingError(
+                "mutation_context or root is required to gate identity"
+            )
+        mutation_context = mutation_context_from_world_root(root, world_id)
+    parent_revision_id = mutation_context.revision_id
 
     allow = set(node_ids) if node_ids is not None else None
     nodes = [
@@ -328,7 +329,7 @@ def gate_candidate_graph_against_head(
     campaign_id = preview.campaign_id
     scope = campaign_scope or campaign_id
 
-    scorer_report = build_fixed_candidate_scorer_report(nodes, store)
+    scorer_report = build_fixed_candidate_scorer_report(nodes, mutation_context)
 
     accepted_proposals: list[GraphContributionAssertion] = []
     unresolved: list[ContributionIdentityMention] = []
@@ -345,7 +346,7 @@ def gate_candidate_graph_against_head(
         extract_id = node.node_id
         label = node.label or extract_id
         node_aliases = _candidate_aliases(node)
-        object_kind = _infer_object_kind(node, store)
+        object_kind = _infer_object_kind(node, mutation_context)
         evidence_refs = [
             str(ref.source_span_ref_id or "")
             for ref in node.evidence_refs
@@ -362,7 +363,9 @@ def gate_candidate_graph_against_head(
             source_artifact_id=artifact_id,
             proposed_node_id=extract_id,
         )
-        resolution = resolve_identity(store, identity_candidate)
+        resolution = resolve_identity_against_context(
+            mutation_context, identity_candidate
+        )
         identity_outcome_snapshot[extract_id] = resolution.outcome
         diagnostics.append(
             f"identity:{extract_id}:{resolution.outcome}:{resolution.target_node_id or resolution.created_node_id or resolution.provisional_node_id}"
@@ -444,7 +447,7 @@ def gate_candidate_graph_against_head(
                     campaign_id=campaign_id,
                     source_uri=source_uri,
                     identity_resolution_outcome=resolution.outcome,
-                    alias_owners=dict(store.aliases),
+                    alias_owners=mutation_context.alias_owner_map(),
                 )
             )
             accepted_proposals.extend(support_assertions)
@@ -529,11 +532,13 @@ def _endpoint_available(
     node_id: str,
     *,
     selected_node_subjects: set[str],
-    pinned_store: UnionSupergraphStore,
+    context: WorldGraphMutationContext,
 ) -> bool:
-    if node_id in selected_node_subjects:
-        return True
-    return node_id in pinned_store.nodes
+    return endpoint_available(
+        node_id,
+        selected_node_subjects=selected_node_subjects,
+        context=context,
+    )
 
 
 def _union_embedded_records_by_key(
@@ -632,7 +637,8 @@ def _order_assertions_nodes_before_edges(
 def build_accepted_contribution_from_proposals(
     gate: IdentityGateResult,
     *,
-    root: Path,
+    mutation_context: WorldGraphMutationContext | None = None,
+    root: Path | None = None,
     accepted_assertion_ids: Sequence[str] | None = None,
     proposal_digest: str | None = None,
     contribution_meta: Mapping[str, Any] | None = None,
@@ -652,9 +658,15 @@ def build_accepted_contribution_from_proposals(
     if not selected:
         raise CandidateGraphMappingError("no accepted proposals selected for merge")
 
-    pinned_store = load_world_graph_revision(
-        root, gate.world_id, gate.parent_revision_id
-    )
+    if mutation_context is None:
+        if root is None:
+            raise CandidateGraphMappingError(
+                "mutation_context or root is required to reconstruct a contribution"
+            )
+        mutation_context = mutation_context_from_world_root(
+            root, gate.world_id, revision_id=gate.parent_revision_id
+        )
+    pinned_context = mutation_context
     node_subjects = {
         a.subject_node_id
         for a in selected
@@ -673,7 +685,7 @@ def build_accepted_contribution_from_proposals(
             if not _endpoint_available(
                 subject,
                 selected_node_subjects=node_subjects,
-                pinned_store=pinned_store,
+                context=pinned_context,
             ):
                 raise CandidateGraphMappingError(
                     f"edge assertion {assertion.assertion_id} subject endpoint "
@@ -683,7 +695,7 @@ def build_accepted_contribution_from_proposals(
             if not _endpoint_available(
                 target,
                 selected_node_subjects=node_subjects,
-                pinned_store=pinned_store,
+                context=pinned_context,
             ):
                 raise CandidateGraphMappingError(
                     f"edge assertion {assertion.assertion_id} target endpoint "
@@ -729,7 +741,8 @@ def build_accepted_contribution_from_multi_slice_proposals(
         tuple[IdentityGateResult, Sequence[str] | None, str]
     ],
     *,
-    root: Path,
+    mutation_context: WorldGraphMutationContext | None = None,
+    root: Path | None = None,
     proposal_digest: str | None = None,
 ) -> GraphContribution:
     """Build ONE merge-ready contribution spanning every verified slice.
@@ -779,7 +792,15 @@ def build_accepted_contribution_from_multi_slice_proposals(
                 "atomic multi-contribution merge requires one shared parent"
             )
 
-    pinned_store = load_world_graph_revision(root, world_id, parent_revision_id)
+    if mutation_context is None:
+        if root is None:
+            raise CandidateGraphMappingError(
+                "mutation_context or root is required to reconstruct a contribution"
+            )
+        mutation_context = mutation_context_from_world_root(
+            root, world_id, revision_id=parent_revision_id
+        )
+    pinned_context = mutation_context
     node_subjects = {
         assertion.subject_node_id
         for _slice_id, _gate, selected in active
@@ -817,7 +838,7 @@ def build_accepted_contribution_from_multi_slice_proposals(
                 if not _endpoint_available(
                     subject,
                     selected_node_subjects=node_subjects,
-                    pinned_store=pinned_store,
+                    context=pinned_context,
                 ):
                     raise CandidateGraphMappingError(
                         f"edge assertion {assertion.assertion_id} subject endpoint "
@@ -827,7 +848,7 @@ def build_accepted_contribution_from_multi_slice_proposals(
                 if not _endpoint_available(
                     target,
                     selected_node_subjects=node_subjects,
-                    pinned_store=pinned_store,
+                    context=pinned_context,
                 ):
                     raise CandidateGraphMappingError(
                         f"edge assertion {assertion.assertion_id} target endpoint "

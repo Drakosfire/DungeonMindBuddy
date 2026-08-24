@@ -13,12 +13,11 @@ Two layers:
   the conventional operator ``out/`` root when present). Proves the §10
   evidence rows against the real sealed bundle and the real frozen snapshot.
 
-CUTOVER native-read switch: production ``dungeonmind`` reads dispatch to the
-direct DungeonMind adapter (see
-``tests/test_cutover_direct_dungeonmind_world_graph_reads.py``). The hydration
-and ``route_service_read`` machinery exercised here is **legacy/write
-compatibility** only until graph-runtime demolition. The write-side proofs in
-this module are preserved unchanged.
+CUTOVER D.1: production ``dungeonmind`` reads and the normal exact-run
+prepare → confirm path are native. Hydration entry points fail closed.
+Write-side proofs below publish through
+``integrations/dungeonmind/world_graph_writes.py`` without opening Buddy's
+World Graph. Remaining kernel writers (Threat commit, worldbuilding) are D.2.
 """
 
 from __future__ import annotations
@@ -1181,6 +1180,7 @@ def test_v4_missing_or_mutated_member_or_wrong_checkpoint_fails_closed(tmp_path)
     assert wrong_exc.value.code == "adopted_membership_mismatch"
 
 
+@pytest.mark.skip(reason="CUTOVER D.1 retired Buddy graph hydration")
 def test_v4_hydrated_route_still_serves_legacy_cache_when_called_directly(
     tmp_path, monkeypatch
 ):
@@ -1931,35 +1931,8 @@ def test_identity_bridge_exact_and_fail_closed(adopted_world, tmp_path):
 
 @pytest.fixture()
 def hydrated(adopted_world, tmp_path, monkeypatch):
-    """A hydrated cache root for the adopted world, with the process fully
-    configured for ``dungeonmind`` authority mode (per-test isolation)."""
-    from apps.live_control_server.integrations.dungeonmind_kernel import (
-        world_graph_authority as wga,
-    )
-
-    monkeypatch.setenv(
-        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
-    )
-    monkeypatch.setenv(
-        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", adopted_world["dsn"]
-    )
-    monkeypatch.setenv(
-        "DUNGEONMIND_WORLD_GRAPH_ROOT", str(adopted_world["frozen_root"])
-    )
-    cache_root = tmp_path / "authority-cache"
-    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT", str(cache_root))
-    handle = wga.ensure_hydrated_authority(
-        WORLD_ID,
-        database_url=adopted_world["dsn"],
-        cache_root=cache_root,
-        frozen_root=adopted_world["frozen_root"],
-    )
-    return {
-        "handle": handle,
-        "cache_root": cache_root,
-        "frozen_root": adopted_world["frozen_root"],
-        "dsn": adopted_world["dsn"],
-    }
+    """Retired: D.1 no longer hydrates DungeonMind into a Buddy cache."""
+    pytest.skip("CUTOVER D.1 retired Buddy graph hydration")
 
 
 @pytest.mark.integration
@@ -2387,7 +2360,7 @@ def _preview_edge(
 
 
 def _seal_tinker_package(
-    cache_world_root: Path,
+    mutation_context,
     tmp_path: Path,
     *,
     preview_slug: str,
@@ -2395,8 +2368,8 @@ def _seal_tinker_package(
     label: str,
     extra_nodes: list[dict] | None = None,
     edges: list[dict] | None = None,
-) -> dict:
-    """Build a real sealed Buddy review package against a hydrated cache."""
+) -> tuple[dict, list[str]]:
+    """Build a real sealed Buddy review package against native DND identity facts."""
     from graph_memory.candidate_graph_preview import (
         CANDIDATE_GRAPH_PREVIEW_SCHEMA,
         CANDIDATE_GRAPH_PREVIEW_VERSION,
@@ -2409,9 +2382,7 @@ def _seal_tinker_package(
         seal_multi_contribution_promote_proposal,
     )
 
-    from graph_memory.world_supergraph.storage import open_world_graph_head
-
-    parent = open_world_graph_head(cache_world_root, WORLD_ID).head_revision_id
+    parent = mutation_context.revision_id
     source = tmp_path / f"{preview_slug}-recap.md"
     source.write_text(f"{label} arrives in Mireward.\n")
     source_revision = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
@@ -2457,7 +2428,7 @@ def _seal_tinker_package(
     }
     gate = gate_candidate_graph_against_head(
         candidate_graph_preview_from_dict(graph),
-        root=cache_world_root,
+        mutation_context=mutation_context,
         world_id=WORLD_ID,
         source_artifact_id=artifact_id,
         source_revision_id=source_revision,
@@ -2487,14 +2458,13 @@ def _seal_tinker_package(
         contribution_slices=[slice_body],
         prepared_by="gm@prepare",
         diagnostics=["cutover_write_test"],
-        world_root=str(cache_world_root),
     )
     return package, [a.assertion_id for a in gate.accepted_proposals]
 
 
 @pytest.mark.integration
 def test_governed_write_publishes_d_a_to_d_b_through_real_confirm_path(
-    write_world,
+    write_world, monkeypatch
 ):
     """§3: a real Buddy confirmation routes through DungeonMind's v2 finalize +
     v6 materialization + head CAS publication; the head advances D_A → D_B;
@@ -2512,20 +2482,31 @@ def test_governed_write_publishes_d_a_to_d_b_through_real_confirm_path(
     frozen_digest_before = _tree_digest(frozen_root)
     revisions_before = _graph_revision_ids(dsn)
 
-    handle = wga.ensure_hydrated_authority(
-        WORLD_ID,
-        database_url=dsn,
-        cache_root=cache_root,
-        frozen_root=frozen_root,
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    import graph_memory.kernel as kernel
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("Buddy graph runtime must not run on D.1 write path")
+
+    monkeypatch.setattr(kernel, "open_current_world_graph", _explode)
+    monkeypatch.setattr(kernel, "load_world_graph_revision", _explode)
+    monkeypatch.setattr(kernel, "rebuild_from_contributions", _explode)
+    monkeypatch.setattr(wga, "hydrate_world_graph", _explode)
+    monkeypatch.setattr(wga, "ensure_hydrated_authority", _explode)
+
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
     )
-    assert handle.selected_revision_id == d_a
+    assert context.revision_id == d_a
     package, _accepted_ids = _seal_tinker_package(
-        handle.cache_world_root,
+        context,
         write_world["tmp_path"],
         preview_slug="session-26-cutover-write",
         node_id="node:cutover-tinker",
         label="Cutover Tinker",
     )
+    assert package["effect"]["parent_revision_id"] == d_a
+    assert not package.get("world_root")
 
     class _Request:
         review_package = package
@@ -2573,21 +2554,11 @@ def test_governed_write_publishes_d_a_to_d_b_through_real_confirm_path(
     assert bundle.world_graph.get_head(WORLD_ID).head_revision_id == d_b  # type: ignore[union-attr]
     assert set(_graph_revision_ids(dsn)) == set(revisions_before) | {d_b}
 
-    # The hydrated read model for D_B contains the confirmed node.
-    storage.clear_world_graph_cache_roots()
-    handle_b = wga.ensure_hydrated_authority(
-        WORLD_ID,
-        database_url=dsn,
-        cache_root=cache_root,
-        frozen_root=frozen_root,
+    child_context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, revision_pin=d_b, database_url=dsn
     )
-    assert handle_b.selected_revision_id == d_b
-    from graph_memory.world_supergraph.storage import load_world_graph_revision
-
-    store_b = load_world_graph_revision(
-        handle_b.cache_world_root, WORLD_ID, handle_b.buddy_revision_id
-    )
-    assert "node:cutover-tinker" in store_b.nodes
+    assert child_context.revision_id == d_b
+    assert "node:cutover-tinker" in child_context.objects
 
     assert _tree_digest(frozen_root) == frozen_digest_before
 
@@ -2603,24 +2574,18 @@ def test_governed_write_through_service_confirm_path(write_world):
         confirm as confirm_extract_promote,
     )
 
-    from apps.live_control_server.integrations.dungeonmind_kernel import (
-        world_graph_authority as wga,
-    )
-
     dsn = write_world["dsn"]
     frozen_root = write_world["frozen_root"]
-    cache_root = write_world["cache_root"]
     d_a = write_world["receipt"].published_revision_id
     frozen_digest_before = _tree_digest(frozen_root)
 
-    handle = wga.ensure_hydrated_authority(
-        WORLD_ID,
-        database_url=dsn,
-        cache_root=cache_root,
-        frozen_root=frozen_root,
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
     )
+    assert context.revision_id == d_a
     package, accepted_ids = _seal_tinker_package(
-        handle.cache_world_root,
+        context,
         write_world["tmp_path"],
         preview_slug="session-26-cutover-service",
         node_id="node:cutover-service-tinker",
@@ -2642,6 +2607,269 @@ def test_governed_write_through_service_confirm_path(write_world):
     head = bundle.world_graph.get_head(WORLD_ID)
     assert head is not None and head.head_revision_id == committed
     assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+@pytest.mark.integration
+def test_governed_write_refuses_legacy_buddy_parent_without_hydration(write_world):
+    """Pre-D.1 packages that seal the Buddy A revision must be re-prepared."""
+    from graph_memory.extract_promote_proposal import (
+        build_contribution_effect_slice,
+        contribution_meta_from_contribution,
+        seal_multi_contribution_promote_proposal,
+    )
+    from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
+    from graph_memory.extract_identity_gate import gate_candidate_graph_against_head
+
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
+    )
+    tmp_path = write_world["tmp_path"]
+    slug = "session-26-cutover-legacy"
+    source = tmp_path / f"{slug}-recap.md"
+    source.write_text("Legacy Tinker arrives in Mireward.\n")
+    source_revision = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+    artifact_id = f"artifact:recap:longmont-c2:{slug}"
+    graph = {
+        "schema": "dmb_candidate_graph_preview_v1",
+        "version": "1",
+        "preview_id": f"preview:{slug}",
+        "session_id": "session-26",
+        "campaign_id": CAMPAIGN_ID,
+        "source_artifact_ids": [artifact_id],
+        "status": "preview",
+        "nodes": [
+            _preview_node(
+                artifact_id,
+                node_id="node:cutover-legacy",
+                label="Legacy Tinker",
+                node_type="npc",
+                span="session-26:recap:paragraph:001",
+            )
+        ],
+        "edges": [],
+        "beats": [],
+        "proposed_writes": [],
+        "ignored_items": [],
+        "deferred_items": [],
+        "diagnostics": {
+            "preview_only": True,
+            "extraction_performed": False,
+            "llm_used": False,
+            "runtime_connected": False,
+            "plan_connected": False,
+            "agent_interaction_connected": False,
+            "corpus_scanned": False,
+            "corpus_mutated": False,
+            "facts_promoted": False,
+            "canon_promoted": False,
+            "unresolved_evidence_refs": 0,
+            "missing_evidence_objects": 0,
+            "warning_count": 0,
+        },
+    }
+    from graph_memory.candidate_graph_preview import (
+        CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        CANDIDATE_GRAPH_PREVIEW_VERSION,
+    )
+
+    graph["schema"] = CANDIDATE_GRAPH_PREVIEW_SCHEMA
+    graph["version"] = CANDIDATE_GRAPH_PREVIEW_VERSION
+    gate = gate_candidate_graph_against_head(
+        candidate_graph_preview_from_dict(graph),
+        mutation_context=context,
+        world_id=WORLD_ID,
+        source_artifact_id=artifact_id,
+        source_revision_id=source_revision,
+        source_uri=str(source),
+        source_kind="source_extraction",
+        source_domain="recap",
+        campaign_scope=CAMPAIGN_ID,
+    )
+    slice_body = build_contribution_effect_slice(
+        source_revision_id=gate.source_revision_id,
+        source_artifact_id=gate.source_artifact_id,
+        verified_source_uri=str(gate.verified_source_uri),
+        candidate_preview_id=gate.candidate_preview_id,
+        candidate_schema=gate.candidate_schema,
+        candidate_version=gate.candidate_version,
+        contribution_meta=contribution_meta_from_contribution(gate.contribution),
+        accepted_proposals=gate.accepted_proposals,
+        rejected_assertions=gate.rejected_assertions,
+        unresolved_mentions=gate.unresolved_mentions,
+        node_id_map=gate.node_id_map,
+        identity_outcome_snapshot=gate.identity_outcome_snapshot,
+    )
+    package = seal_multi_contribution_promote_proposal(
+        world_id=WORLD_ID,
+        parent_revision_id=FROZEN_HEAD_REVISION,
+        contribution_slices=[slice_body],
+        prepared_by="gm@prepare",
+        diagnostics=["cutover_legacy_package_test"],
+    )
+
+    class _Request:
+        review_package = package
+        assertion_ids = None
+
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga.confirm_via_dungeonmind(
+            _Request(),
+            world_root=write_world["frozen_root"],
+            database_url=dsn,
+            cache_root=write_world["cache_root"],
+            frozen_root=write_world["frozen_root"],
+            confirming_principal="gm@confirm",
+            assertion_ids=None,
+            repo_root=tmp_path,
+        )
+    assert excinfo.value.code == "governed_write_legacy_package"
+    head = write_world["bundle"].world_graph.get_head(WORLD_ID)
+    assert head is not None
+    assert head.head_revision_id == write_world["receipt"].published_revision_id
+
+
+@pytest.mark.integration
+def test_governed_write_stale_parent_refuses_without_hydration(
+    write_world, monkeypatch
+):
+    """Prepare on D_parent, independently advance head, then confirm the stale package."""
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("Buddy graph runtime must not run on D.1 write path")
+
+    monkeypatch.setattr(kernel, "open_current_world_graph", _explode)
+    monkeypatch.setattr(kernel, "load_world_graph_revision", _explode)
+    monkeypatch.setattr(kernel, "rebuild_from_contributions", _explode)
+    monkeypatch.setattr(wga, "hydrate_world_graph", _explode)
+    monkeypatch.setattr(wga, "ensure_hydrated_authority", _explode)
+
+    dsn = write_world["dsn"]
+    bundle = write_world["bundle"]
+    d_parent = write_world["receipt"].published_revision_id
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
+    )
+    stale_package, _ = _seal_tinker_package(
+        context,
+        write_world["tmp_path"],
+        preview_slug="session-26-cutover-stale",
+        node_id="node:cutover-stale",
+        label="Cutover Stale",
+    )
+    advance_package, _ = _seal_tinker_package(
+        context,
+        write_world["tmp_path"],
+        preview_slug="session-26-cutover-advance",
+        node_id="node:cutover-advance",
+        label="Cutover Advance",
+    )
+
+    class _Advance:
+        review_package = advance_package
+        assertion_ids = None
+
+    advanced = wga.confirm_via_dungeonmind(
+        _Advance(),
+        world_root=write_world["frozen_root"],
+        database_url=dsn,
+        cache_root=write_world["cache_root"],
+        frozen_root=write_world["frozen_root"],
+        confirming_principal="gm@confirm",
+        assertion_ids=None,
+        repo_root=write_world["tmp_path"],
+    )
+    d_other = advanced["committed_revision_id"]
+    assert d_other != d_parent
+    assert bundle.world_graph.get_head(WORLD_ID).head_revision_id == d_other  # type: ignore[union-attr]
+    revisions_after_advance = set(_graph_revision_ids(dsn))
+
+    class _Stale:
+        review_package = stale_package
+        assertion_ids = None
+
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga.confirm_via_dungeonmind(
+            _Stale(),
+            world_root=write_world["frozen_root"],
+            database_url=dsn,
+            cache_root=write_world["cache_root"],
+            frozen_root=write_world["frozen_root"],
+            confirming_principal="gm@confirm",
+            assertion_ids=None,
+            repo_root=write_world["tmp_path"],
+        )
+    assert excinfo.value.code == "governed_write_stale_parent"
+    assert bundle.world_graph.get_head(WORLD_ID).head_revision_id == d_other  # type: ignore[union-attr]
+    assert set(_graph_revision_ids(dsn)) == revisions_after_advance
+
+
+@pytest.mark.integration
+def test_governed_write_confirm_with_buddy_graph_root_absent(
+    write_world, monkeypatch
+):
+    """Confirm publishes when the configured Buddy graph root does not exist."""
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("Buddy graph runtime must not run on D.1 write path")
+
+    monkeypatch.setattr(kernel, "open_current_world_graph", _explode)
+    monkeypatch.setattr(kernel, "load_world_graph_revision", _explode)
+    monkeypatch.setattr(kernel, "rebuild_from_contributions", _explode)
+    monkeypatch.setattr(wga, "hydrate_world_graph", _explode)
+    monkeypatch.setattr(wga, "ensure_hydrated_authority", _explode)
+
+    dsn = write_world["dsn"]
+    d_parent = write_world["receipt"].published_revision_id
+    absent = write_world["tmp_path"] / "physically-absent-buddy-graph"
+    assert not absent.exists()
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
+    )
+    package, _ = _seal_tinker_package(
+        context,
+        write_world["tmp_path"],
+        preview_slug="session-26-cutover-absent",
+        node_id="node:cutover-absent",
+        label="Cutover Absent",
+    )
+
+    class _Request:
+        review_package = package
+        assertion_ids = None
+
+    payload = wga.confirm_via_dungeonmind(
+        _Request(),
+        world_root=absent,
+        database_url=dsn,
+        cache_root=absent / "cache",
+        frozen_root=absent,
+        confirming_principal="gm@confirm",
+        assertion_ids=None,
+        repo_root=write_world["tmp_path"],
+    )
+    assert payload["outcome"] == "published"
+    assert payload["parent_revision_id"] == d_parent
+    d_child = payload["committed_revision_id"]
+    child_context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, revision_pin=d_child, database_url=dsn
+    )
+    assert child_context.revision_id == d_child
+    assert "node:cutover-absent" in child_context.objects
+    assert not absent.exists()
 
 
 def _finalize_minimal_v2_review(
@@ -2865,6 +3093,7 @@ def _finalize_minimal_v2_review(
 
 
 @pytest.mark.integration
+@pytest.mark.skip(reason="CUTOVER D.1 retired Buddy graph hydration")
 def test_hydration_replays_only_published_ancestry(write_world):
     """§3: two finalized reviews race; one wins the head CAS. Hydration of the
     winning head replays the winner and never the durable-but-unpublished
@@ -2935,31 +3164,25 @@ def test_hydration_replays_only_published_ancestry(write_world):
         is None
     )
 
-    # Hydrate the winning head: winner present, loser absent.
-    handle = wga.ensure_hydrated_authority(
-        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
-    )
-    assert handle.selected_revision_id == d_b
-    from graph_memory.world_supergraph.storage import load_world_graph_revision
+    # Native identity at the winning head: winner present, loser absent.
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
 
-    store = load_world_graph_revision(
-        handle.cache_world_root, WORLD_ID, handle.buddy_revision_id
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, revision_pin=d_b, database_url=dsn
     )
-    assert "node:cas-winner" in store.nodes
-    assert "node:cas-loser" not in store.nodes
+    assert context.revision_id == d_b
+    assert "node:cas-winner" in context.objects
+    assert "node:cas-loser" not in context.objects
 
-    # Derivative-cache deletion: rebuild from DungeonMind durable state alone.
+    # Durable DungeonMind state still reconstructs after cache deletion.
     shutil.rmtree(cache_root)
     storage.clear_world_graph_cache_roots()
-    handle = wga.ensure_hydrated_authority(
-        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    rebuilt = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, revision_pin=d_b, database_url=dsn
     )
-    assert handle.selected_revision_id == d_b
-    store = load_world_graph_revision(
-        handle.cache_world_root, WORLD_ID, handle.buddy_revision_id
-    )
-    assert "node:cas-winner" in store.nodes
-    assert "node:cas-loser" not in store.nodes
+    assert rebuilt.revision_id == d_b
+    assert "node:cas-winner" in rebuilt.objects
+    assert "node:cas-loser" not in rebuilt.objects
 
     # D_B self-repin: a returned DungeonMind revision id is exactly re-pinnable.
     projected = project_world_graph(_projection_request(revision_pin=d_b))
@@ -2985,6 +3208,7 @@ def test_hydration_replays_only_published_ancestry(write_world):
 
 
 @pytest.mark.integration
+@pytest.mark.skip(reason="CUTOVER D.1 retired Buddy graph hydration")
 def test_adopted_membership_tamper_fails_closed(write_world):
     """§3: mutating any adopted DungeonMind row (payload + fingerprint, so the
     row still reads) changes the recomputed V3 membership digest and refuses
@@ -3028,6 +3252,7 @@ def test_adopted_membership_tamper_fails_closed(write_world):
 
 
 @pytest.mark.integration
+@pytest.mark.skip(reason="CUTOVER D.1 retired Buddy graph hydration")
 def test_warm_cache_reverifies_adopted_membership(write_world, monkeypatch):
     """§3 repair: a valid existing hydration cache is never trusted on its
     own — the exact V3 adopted-membership verification reruns on every cache
@@ -3048,15 +3273,14 @@ def test_warm_cache_reverifies_adopted_membership(write_world, monkeypatch):
     cache_root = write_world["cache_root"]
     frozen_root = write_world["frozen_root"]
 
-    handle = wga.ensure_hydrated_authority(
+    first = wga.ensure_hydrated_authority(
         WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
     )
-    # Sanity: the second call is a warm cache hit serving the same revision.
     again = wga.ensure_hydrated_authority(
         WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
     )
-    assert again.buddy_revision_id == handle.buddy_revision_id
-    assert again.selected_revision_id == handle.selected_revision_id
+    assert again.buddy_revision_id == first.buddy_revision_id
+    assert again.selected_revision_id == first.selected_revision_id
 
     # Tamper with an adopted row (payload + fingerprint, so the row still reads).
     victim = bundle.contributions.list_for_world(WORLD_ID)[0]
@@ -3108,13 +3332,14 @@ def test_governed_write_preserves_gm_partition_and_publishes_edges(write_world):
     d_a = write_world["receipt"].published_revision_id
     frozen_digest_before = _tree_digest(frozen_root)
 
-    handle = wga.ensure_hydrated_authority(
-        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
     )
     slug = "session-26-cutover-partition"
     artifact_id = f"artifact:recap:longmont-c2:{slug}"
     package, accepted_ids = _seal_tinker_package(
-        handle.cache_world_root,
+        context,
         write_world["tmp_path"],
         preview_slug=slug,
         node_id="node:cutover-edge-a",
@@ -3276,32 +3501,13 @@ def test_governed_write_preserves_gm_partition_and_publishes_edges(write_world):
     assert reverse["source_object_id"] == "node:cutover-edge-c"
     assert reverse["target_object_id"] == "node:cutover-edge-b"
 
-    # The hydrated Buddy read model recovers the original Buddy edge
-    # orientation and predicate (the inverse translation un-swaps and strips
-    # the derived dm_predicate), and the rejected node stays absent.
-    storage.clear_world_graph_cache_roots()
-    handle_b = wga.ensure_hydrated_authority(
-        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    child_context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, revision_pin=d_b, database_url=dsn
     )
-    assert handle_b.selected_revision_id == d_b
-    from graph_memory.world_supergraph.storage import load_world_graph_revision
-
-    store_b = load_world_graph_revision(
-        handle_b.cache_world_root, WORLD_ID, handle_b.buddy_revision_id
-    )
-    assert "node:cutover-mireward-clash" not in store_b.nodes
-    buddy_direct = store_b.edges[
-        "edge:node:cutover-edge-a:located_in:node:cutover-edge-b"
-    ]
-    assert buddy_direct.predicate == "located_in"
-    assert buddy_direct.source_node_id == "node:cutover-edge-a"
-    assert buddy_direct.target_node_id == "node:cutover-edge-b"
-    buddy_reverse = store_b.edges[
-        "edge:node:cutover-edge-b:belongs_to:node:cutover-edge-c"
-    ]
-    assert buddy_reverse.predicate == "belongs_to"
-    assert buddy_reverse.source_node_id == "node:cutover-edge-b"
-    assert buddy_reverse.target_node_id == "node:cutover-edge-c"
+    assert "node:cutover-mireward-clash" not in child_context.objects
+    assert "node:cutover-edge-a" in child_context.objects
+    assert "node:cutover-edge-b" in child_context.objects
+    assert "node:cutover-edge-c" in child_context.objects
 
     assert _tree_digest(frozen_root) == frozen_digest_before
 
@@ -3325,13 +3531,14 @@ def test_governed_write_unmapped_edge_predicate_fails_closed(write_world):
     frozen_digest_before = _tree_digest(frozen_root)
     revisions_before = _graph_revision_ids(dsn)
 
-    handle = wga.ensure_hydrated_authority(
-        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
     )
     slug = "session-26-cutover-unmapped"
     artifact_id = f"artifact:recap:longmont-c2:{slug}"
     package, accepted_ids = _seal_tinker_package(
-        handle.cache_world_root,
+        context,
         write_world["tmp_path"],
         preview_slug=slug,
         node_id="node:cutover-unmapped-a",
@@ -3412,13 +3619,14 @@ def test_governed_write_endpoint_admission_fails_closed(write_world):
     frozen_digest_before = _tree_digest(frozen_root)
     revisions_before = _graph_revision_ids(dsn)
 
-    handle = wga.ensure_hydrated_authority(
-        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
     )
     slug = "session-26-cutover-admission"
     artifact_id = f"artifact:recap:longmont-c2:{slug}"
     package, accepted_ids = _seal_tinker_package(
-        handle.cache_world_root,
+        context,
         write_world["tmp_path"],
         preview_slug=slug,
         node_id="node:cutover-admit-a",
@@ -3504,13 +3712,14 @@ def test_governed_write_reverse_direction_fails_closed(write_world):
     frozen_digest_before = _tree_digest(frozen_root)
     revisions_before = _graph_revision_ids(dsn)
 
-    handle = wga.ensure_hydrated_authority(
-        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
     )
     slug = "session-26-cutover-direction"
     artifact_id = f"artifact:recap:longmont-c2:{slug}"
     package, accepted_ids = _seal_tinker_package(
-        handle.cache_world_root,
+        context,
         write_world["tmp_path"],
         preview_slug=slug,
         node_id="node:cutover-direction-a",
@@ -3594,13 +3803,14 @@ def test_governed_write_rejected_unmapped_kind_does_not_veto(write_world):
     d_a = write_world["receipt"].published_revision_id
     frozen_digest_before = _tree_digest(frozen_root)
 
-    handle = wga.ensure_hydrated_authority(
-        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
     )
     slug = "session-26-cutover-rejected-veto"
     artifact_id = f"artifact:recap:longmont-c2:{slug}"
     package, accepted_ids = _seal_tinker_package(
-        handle.cache_world_root,
+        context,
         write_world["tmp_path"],
         preview_slug=slug,
         node_id="node:cutover-veto-a",
@@ -3703,6 +3913,10 @@ def test_governed_write_rejected_unmapped_kind_does_not_veto(write_world):
 
 
 @pytest.mark.integration
+@pytest.mark.skip(
+    reason="CUTOVER D.1: latest-recap session comparison is native-read owned; "
+    "hydration no longer injects Buddy session ids"
+)
 def test_hermes_latest_recap_compares_dungeonmind_head_not_frozen_store(
     write_world, monkeypatch
 ):
@@ -3743,13 +3957,14 @@ def test_hermes_latest_recap_compares_dungeonmind_head_not_frozen_store(
 
     # Publish D_B through the real confirm path: a node plus an edge whose
     # value carries session-26 observation provenance.
-    handle = wga.ensure_hydrated_authority(
-        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
     )
     slug = "session-26-cutover-recap-route"
     artifact_id = f"artifact:recap:longmont-c2:{slug}"
     package, _accepted = _seal_tinker_package(
-        handle.cache_world_root,
+        context,
         tmp_path,
         preview_slug=slug,
         node_id="node:cutover-recap-a",

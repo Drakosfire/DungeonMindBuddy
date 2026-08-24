@@ -1,8 +1,8 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-24 — native-read switch in review; R.3a pin `DONE`; `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` retired, not default-off  
-**Repository anchor / current Buddy `main`:** `87597f406aae2b169bf4addde2a2b34b1b3d7cad` (PR #633 base). **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
+**Updated:** 2026-08-24 — #633 native-read switch `DONE`; D.1 native governed write context `DOING`  
+**Repository anchor / current Buddy `main`:** `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c` (merge of PR #633). **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (PR #45 merge / R.3a native read-context optimization)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
@@ -203,16 +203,27 @@ DONE    cutover/r3a-dungeonmind-pin / Buddy #632
         SWITCH_READY. Operator dogfood accepted.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-r3a-dungeonmind-pin.md.
 
-DOING   native-read switch
-        Remove DUNGEONMIND_WORLD_GRAPH_DIRECT_READ rather than
-        defaulting it to 1. Native DungeonMind reads become the only
-        dungeonmind-authority production path, including Hermes
-        latest-recap comparison facts.
+DONE    native-read switch / Buddy #633
+        Remove DUNGEONMIND_WORLD_GRAPH_DIRECT_READ. Native DungeonMind
+        reads are the only dungeonmind-authority production path,
+        including Hermes latest-recap comparison facts.
+        Merge 65d13dcca8162b5eccd0c81dd4235dec93c8cd0c; accepted head
+        ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01; Cycle 2 approval
+        5011598382; DEMOLITION_READY.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-native-read-switch.md.
 
-READY   demolish Buddy graph runtime
-        Delete hydration/replay/cache/UnionSupergraph production
-        machinery and prove Buddy boots with the old graph absent.
+DOING   D.1 native governed write context / hydration retirement
+        Exact-run prepare → confirm seals public DungeonMind parents
+        and publishes DungeonMind children without Buddy hydration.
+        Handoff: Docs/Plans/HANDOFF-CUTOVER-native-governed-write-context.md.
+
+READY   D.2 mounted legacy writer migration/retirement
+        Threat publication commit, worldbuilding/first-world, and any
+        other proven current writer still on the Buddy kernel.
+
+BLOCKED D.3 final Buddy graph-engine deletion
+        Delete kernel/world_supergraph/union_supergraph production
+        imports and prove the old graph is physically absent.
 ```
 
 Historical correction/heal slices (integrity heal, Lysandra, Session-24, closure, #566) remain `DONE` and are not current dispatch. The tracker, not this roadmap, decides which `READY` slice is dispatched next.

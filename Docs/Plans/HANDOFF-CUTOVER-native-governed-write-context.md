@@ -17,7 +17,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.1: native governed write context / hydration retirement
 
 **Created:** 2026-08-24  
-**Status:** READY TO IMPLEMENT  
+**Status:** IMPLEMENTATION IN REVIEW — D.1 `DOING` on `cutover/native-governed-write-context`  
 **Workstream:** CUTOVER / World Graph runtime retirement  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
@@ -1130,41 +1130,302 @@ cleanup debt.
 
 ---
 
-## 18. Required handback
+## 18. Implementation record
 
-Return:
+Recorded on the implementation branch before PR open. Merge SHA is not
+invented here; tracker D.1 stays `DOING` until this PR lands.
 
-1. implementation branch and exact base/head SHAs;
-2. changed-file list;
-3. complete §10 consumer inventory;
-4. exact `WorldGraphMutationContext` contract and why each field exists;
-5. DND-mode prepare flow before/after;
-6. DND-mode confirm flow before/after;
-7. legacy-package disposition and test;
-8. hydration/replay functions/files deleted;
-9. any runtime helpers retained, with named current consumer;
-10. static DND production dependency scan;
-11. owning test commands and exact passed/skipped/failed counts;
-12. isolated DND parent→child publication witness;
-13. exact retry witness;
-14. stale-parent witness;
-15. source/evidence regression proof;
-16. restart + old-Buddy-graph-absent proof;
-17. representative prepare/confirm latency;
-18. atomic roadmap/tracker/anchor sync proof and mirror byte identity;
-19. workspace/branch status;
-20. disposition:
+### 18.1 Branch and ancestry
+
+```text
+branch     cutover/native-governed-write-context
+base       origin/main = 65d13dcca8162b5eccd0c81dd4235dec93c8cd0c
+           (#633 merge; accepted head ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01)
+design     e3d2ee4161063718544514e5955841ce51586168
+           (docs-only; one new file: this handoff)
+impl HEAD  (this implementation commit, atop design)
+pin        DungeonMind c5d3688587b0f5d506e0f7d64f33eb0628bac896
+```
+
+`DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` remains absent from runtime control.
+
+### 18.2 Changed files
+
+New:
+
+- `src/graph_memory/world_graph_mutation_context.py`
+- `apps/live_control_server/integrations/dungeonmind/world_graph_writes.py`
+- `tests/test_cutover_native_governed_write.py`
+
+Production / test:
+
+- `src/graph_memory/kernel/identity.py`
+- `src/graph_memory/extract_identity_gate.py`
+- `src/graph_memory/extract_promote_ops.py`
+- `apps/live_control_server/services/extract_promote.py`
+- `apps/live_control_server/integrations/dungeonmind_kernel/world_graph_authority.py`
+- `apps/live_control_server/integrations/dungeonmind/__init__.py`
+- `apps/live_control_server/config.py`
+- `tests/test_cutover_dungeonmind_world_graph_authority.py`
+
+Atomic current-state docs:
+
+- `Docs/Plans/HANDOFF-CUTOVER-native-governed-write-context.md` (this record)
+- `Docs/Plans/HANDOFF-CUTOVER-native-read-switch.md`
+- `Docs/Plans/PR-TRACKER-campaign-supergraph.md`
+- `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`
+- `Docs/Plans/STEWARDS-ANCHOR-cutover.md`
+- `Docs/Sources/design-agent/ACTIVE_AUTHORITY/PR-TRACKER-campaign-supergraph.md`
+- `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-campaign-supergraph.md`
+
+### 18.3 Consumer inventory
+
+| path / callable | mounted? | current dungeonmind behavior | Buddy graph-runtime dependency | D.1 disposition | successor |
+|---|---|---|---|---|---|
+| `extract_promote.prepare` (exact-run Graph Review) | yes (`routes/extract_promote.py`) | loads `WorldGraphMutationContext` from published DND revision payload; seals public DND head | none | **D.1 native** | — |
+| `extract_promote.confirm` (exact-run Graph Review) | yes | `world_graph_writes.confirm_extract_promote_via_dungeonmind` | none | **D.1 native** | — |
+| Threat identity candidate prepare | yes (`threat_publication_identity_router`) | already native via `project_world_graph` | none for identity reads | retained native (not rewritten) | D.2 if UX changes |
+| Threat publication commit | yes (`threat_publication_commits_router`) | still `open_current_world_graph` + `merge_contribution_to_revision` | kernel / UnionSupergraph | **out of scope** | **D.2** |
+| Threat create-new occupancy / proposals | yes | still kernel | kernel | **out of scope** | **D.2** |
+| `prepare_worldbuilding` / worldbuilding confirm | yes (`post_worldbuilding_write_plan_*`) | still opens Buddy graph head | kernel | **out of scope** | **D.2** |
+| first-world prepare/confirm | yes (`post_first_world_*`) | `world_graph_bootstrap` opens Buddy graph | kernel | **out of scope** | **D.2** |
+| `graph_review_contribution_merge` | not a current product route | historical merge helper | kernel | historical-tests | D.2 if a mounted caller is proven |
+| `world_graph_prewarm` / projection recipes | yes (app lifecycle) | DND mode already no-ops recipes | none on DND read path | retained lifecycle; no hydration | D.3 |
+| Eldyrwild correction services (`eldyrwild_*`) | no current product route | one-shot historical mutators | kernel | historical | D.3 |
+| `c1_world_graph_additive_apply` | no current product route | historical | kernel | historical | D.3 |
+| `route_service_read` / `hydrate_world_graph` / `ensure_hydrated_authority` | not a production DND read | **fail closed** | none reachable | **retired** | D.3 deletes stubs |
+| `bind_world_authority(..., frozen_root=)` | correspondence / tests | not used on D.1 write path | frozen Buddy store for correspondence binding | retained for correspondence tests | D.2/D.3 |
+| `buddy_files` / `quiesced` / explicit fixture roots | tests/tooling | file-store mutation context / kernel confirm | file graph | retained file-mode | not DND fallback |
+| scripts/evals/audits | tooling | various | mixed | not production | D.3 |
+| tests/fixtures that only proved hydration | tests | skipped or rewritten | n/a | skipped with D.1 reason | delete in D.3 |
+
+### 18.4 `WorldGraphMutationContext` contract
+
+Buddy-owned, storage-neutral, not a graph / cache / authority / agent context.
+
+```text
+WorldGraphMutationContext
+  world_id
+  revision_id            # sealed parent
+  head_revision_id       # published head when the context was built
+  objects[object_id]
+    object_id, label, kind, aliases
+    canon_state          # identity classifier reads it
+    memory_state         # file-mode classifier reads it
+  alias_owners           # connect-existing skip diagnostics
+  identity_redirects     # file-mode classifier; empty on DND payload producer
+  identity_decisions     # file-mode classifier; empty on DND payload producer
+```
+
+`kind` is stripped of `dnd5e:` via `wire_kind`. Canon map:
+`provisional` → `noncanonical_provisional`, `retracted` → `rejected`.
+
+**Producer for DND production:** `mutation_context_from_revision_payload`
+(published DungeonMind revision `graph_payload`), not the scoped GM
+projection. Whole-world `WORLD_CROSS_CAMPAIGN` projection excludes adopted
+objects with `campaign_scope=None` (`scope_unknown=True`); that would hide
+the identity set the old durable store had. Projection helper
+`mutation_context_from_native_projection` remains for completeness.
+
+One identity algorithm: `resolve_identity_against_context`.
+`kernel.identity.classify_identity_outcome` is a thin store→context wrapper
+for file mode.
+
+### 18.5 Prepare before / after
+
+Before: `prepare_extract_promote(... world_root=world_graph_root())` →
+`open_current_world_graph` → identity against `UnionSupergraphStore` → seal
+Buddy/private parent.
+
+After (`dungeonmind`): `load_production_mutation_context` at current DND head
+→ identity/endpoints against that context → seal **public DungeonMind head**.
+Package omits Buddy `world_root`. Graph opens are exploded in
+`test_dnd_prepare_does_not_open_buddy_graph`.
+
+### 18.6 Confirm before / after
+
+Before: `confirm_via_dungeonmind` → `_ensure_hydrated_revision` → replay /
+`rebuild_from_contributions` / `UnionSupergraphStore` → verify against
+hydrated Buddy revision → DND v2 finalize/publish.
+
+After: `confirm_extract_promote_via_dungeonmind` → durable operation retry
+from DND publication state → refuse Buddy/private parents
+(`governed_write_legacy_package`) → require head == sealed public parent
+(`governed_write_stale_parent`) → reconstruct against mutation context at
+that parent → v2 finalize + publish → native post-publish head/child check.
+Receipts derive `accepted_assertion_ids` / `affected_object_ids` from the
+reconstructed contribution. `projection_world_root` is not consumed on the
+DND path. `cache_root` / `frozen_root` / `world_root` kwargs are ignored.
+`bind_world_authority(..., frozen_root=)` is not used on this path.
+
+### 18.7 Legacy packages
+
+Uncommitted packages naming Buddy A (`FROZEN_HEAD_REVISION`) or unknown
+private hydrated parents are **re-prepared**, not compatibility-hydrated.
+Witness: `test_governed_write_refuses_legacy_buddy_parent_without_hydration`
+(`governed_write_legacy_package`; head unchanged). Already-published DND
+operations still retry from durable DungeonMind state
+(`already_applied`, same child).
+
+### 18.8 Hydration / replay retirement
+
+Implementation deleted. Public names remain as **fail-closed stubs** so
+existing explosion monkeypatches still `setattr`:
+
+- `hydrate_world_graph`
+- `_ensure_hydrated_revision`
+- `ensure_hydrated_authority`
+- `read_hydration_metadata` → `None`
+- `route_read_request` / `route_service_read` (DND path fail-closed after DSN check)
+
+`HydrationHandle` / `HYDRATION_TRANSLATION_VERSION` remain as import surface
+only. Replay/cache construction is gone. Tests whose sole purpose was the
+deleted hydration implementation are `@pytest.mark.skip` with reason
+`CUTOVER D.1 retired Buddy graph hydration` (including the `hydrated`
+fixture and dependents).
+
+### 18.9 Retained helpers with named consumers
+
+| helper | consumer |
+|---|---|
+| `_derive_confirm_operation_id`, `_build_v2_candidate`, identity/predicate qualification in `world_graph_authority.py` | unit tests + writes module (writes has its own copies of the live path) |
+| `bind_world_authority` / correspondence | observational correspondence tests; **not** D.1 writes |
+| `world_graph_authority.confirm_via_dungeonmind` | thin wrap → writes module; maps `WorldGraphWriteError` |
+| Threat / worldbuilding / first-world kernel calls | **D.2** mounted writers |
+| file-mode `mutation_context_from_store` / `prepare_extract_promote(world_root=)` | `buddy_files` / fixtures |
+| `WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV` | leftover env so D.2/tests that still name it do not crash; no new consumers |
+
+### 18.10 Static DND production dependency scan
+
+AST scan of `world_graph_writes.py`:
+
+```text
+NO graph_memory.kernel
+NO graph_memory.world_supergraph
+NO graph_memory.union_supergraph
+```
+
+Witness: `test_static_write_module_has_no_buddy_graph_runtime_imports`.
+Contribution/proposal value models are imported from `graph_memory.extract_promote_ops`.
+Mapping vocabulary is reused from `dungeonmind_kernel` adoption/conformance with
+duck-typed `_EmptyEvidenceView` so the write module source has no forbidden
+runtime imports. `_map_contributions` type-hints `UnionSupergraphStore` in the
+adoption helper; the write path never constructs one.
+
+DND prepare/confirm call-sites do not reach `open_current_world_graph`,
+`load_world_graph_revision`, `rebuild_from_contributions`,
+`hydrate_world_graph`, or `ensure_hydrated_authority`. Integration tests
+explode those callables.
+
+### 18.11 Owning tests and counts
+
+```text
+env -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY uv run pytest \
+  tests/test_cutover_native_governed_write.py \
+  tests/test_extract_identity_gate.py \
+  tests/test_extract_promote_ops_atomic.py \
+  tests/test_extract_promote_proposal.py \
+  tests/test_cutover_direct_dungeonmind_world_graph_reads.py -q
+→ 91 passed / 0 skipped / 0 failed in 8.82s
+
+env -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY uv run pytest \
+  tests/test_cutover_dungeonmind_world_graph_authority.py -q -m "not integration"
+→ 28 passed / 1 skipped / 24 deselected / 0 failed in 1.19s
+
+DMB_CUTOVER_TEST_DATABASE_URL='postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dmb_cutover_test'
+DMB_CUTOVER_FROZEN_ROOT=$HOME/Projects/DungeonOverMind/DungeonMindBuddy/out
+env -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY uv run pytest \
+  tests/test_cutover_dungeonmind_world_graph_authority.py \
+  tests/test_cutover_native_governed_write.py -q
+→ 51 passed / 12 skipped / 0 failed in 158.89s
+```
+
+Skipped rows are retired hydration tests (`CUTOVER D.1 retired Buddy graph hydration`) plus the one unit skip in the authority file. Ruff on the changed Python files: all checks passed.
+
+### 18.12 Isolated parent→child publication
+
+`test_governed_write_publishes_d_a_to_d_b_through_real_confirm_path` and
+`test_governed_write_through_service_confirm_path` on the truncated test DB:
+package parent == public D_A; child is a DungeonMind revision; frozen Buddy
+tree digest unchanged; native mutation context at the child sees the new
+object. No live Eldyrwild `D_B → D_C`.
+
+### 18.13 Exact retry
+
+Same test: second confirm → `already_applied`, same child, revision set
+unchanged (`set(before) | {d_b}`).
+
+### 18.14 Stale parent
+
+`test_governed_write_stale_parent_refuses_without_hydration`: prepare two
+packages on D_parent; publish one to D_other; confirm the other →
+`governed_write_stale_parent`; head stays D_other; no extra child; hydration
+exploded.
+
+### 18.15 Source / evidence regression
+
+Existing extract-promote identity/proposal/atomic tests remain the source
+digest / URI / span / empty-selection / sealed-proposal contract.
+D.1 prepare still runs `gate_candidate_graph_against_head` and
+`verify_source=True` on confirm reconstruction.
+
+### 18.16 Restart + physical absence
+
+- Prepare: `test_dnd_prepare_does_not_open_buddy_graph` explodes graph open/load.
+- Confirm: write tests explode `open_current_world_graph` /
+  `load_world_graph_revision` / `rebuild_from_contributions` /
+  `hydrate_world_graph` / `ensure_hydrated_authority`.
+- `test_governed_write_confirm_with_buddy_graph_root_absent` publishes while
+  `world_root` / `frozen_root` / `cache_root` point at a path that does not
+  exist, then rereads the child through `load_production_mutation_context`.
+- Authority unavailable: `test_dnd_prepare_fails_closed_when_authority_unavailable`.
+- File-mode: `test_file_mode_producer_still_opens_explicit_root` (must not
+  become a DND fallback).
+
+No live Buddy process replacement was required; the isolated fixture is the
+authorized D.1 witness. No new live Eldyrwild mutation.
+
+### 18.17 Representative latency
+
+Not a new optimization lane. Isolated confirm wall times on the truncated
+test DB (includes DungeonMind v2 finalize + v6 publish): ~19–21s for a first
+child; stale-parent refuse after one independent child ~2.4s; confirm with
+absent Buddy graph root ~2.3s. Native payload identity construction is
+milliseconds once the revision is in PostgreSQL. R.3a already made native
+graph reads fast enough; D.1 does one exact-revision payload read per
+prepare/confirm.
+
+### 18.18 Atomic state-authority sync
+
+- #633 handoff: `LANDED`; merge `65d13dcc…`; successor D.1.
+- Tracker: native-read `DONE`; D.1 `DOING`; D.2 `READY`; D.3 `BLOCKED`;
+  dispatch lease `cutover/native-governed-write-context`.
+- Roadmap: same D.1/D.2/D.3 decomposition; current main is #633 merge.
+- Steward anchor: current main includes #633; native reads unconditional;
+  remaining debt is write-side; D.1 removes governed-write hydration.
+- ACTIVE_AUTHORITY tracker/roadmap copies are byte-identical (`cmp`).
+  There is no ACTIVE_AUTHORITY copy of `STEWARDS-ANCHOR-cutover.md`.
+
+### 18.19 Workspace / branch status
+
+```text
+worktree   /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy-native-governed-write-context
+branch     cutover/native-governed-write-context
+PR         opened from this implementation commit
+base       origin/main = 65d13dcca8162b5eccd0c81dd4235dec93c8cd0c
+```
+
+### 18.20 Disposition
 
 ```text
 D1_DONE
 ```
 
-or
-
-```text
-D1_BLOCKED
-<exact stop condition>
-```
+The §19 acceptance statement is true for the normal exact-run prepare →
+confirm workflow in `dungeonmind` authority mode. Remaining kernel code is an
+explicit D.2 (mounted writers) then D.3 (engine deletion) problem. Tracker
+D.1 stays `DOING` until this PR merges. Threat publication commit was not
+absorbed. No live Eldyrwild mutation.
 
 ---
 

@@ -17,18 +17,20 @@ pr_body_template: |
 # HANDOFF — CUTOVER: native DungeonMind read switch
 
 **Created:** 2026-08-24  
-**Status:** IMPLEMENTATION IN REVIEW — Cycle 1 response  
+**Status:** LANDED — Buddy PR #633 merged; `DEMOLITION_READY`  
 **Workstream:** CUTOVER / World Graph runtime retirement  
 **Direction:** CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
-**Buddy base / current `main`:** `87597f406aae2b169bf4addde2a2b34b1b3d7cad` (PR #633 implementation base; APP-STATE seed)  
+**Buddy base / current `main`:** `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c` (merge of Buddy PR #633)  
+**#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`  
+**Cycle 2 approval:** `5011598382`  
 **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860` (R.3a pin / `SWITCH_READY`)  
 **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600` (R.3; reviewed implementation head `65405b48`)  
 **DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (DungeonMind PR #45 merge / R.3a)  
 **Suggested implementation branch:** `cutover/native-read-switch`  
 **Suggested PR title:** `CUTOVER: make DungeonMind native reads unconditional`  
 **Predecessor:** Buddy PR #632 — R.3a pin + sealed witness + `SWITCH_READY`  
-**Successor:** Buddy graph-runtime demolition / hydrated-runtime retirement
+**Successor:** D.1 native governed write context / hydration retirement (`HANDOFF-CUTOVER-native-governed-write-context.md`)
 
 > **Dispatch ruling:** PIN + VERIFY is complete. Operator dogfood after #632 was
 > acceptable with no noticed read-path issues, including deliberate Buddy
