@@ -167,7 +167,7 @@ Settled facts a successor steward should not re-litigate:
 
 The R.3 semantic witness harness (`scripts/compare_direct_dungeonmind_world_graph_reads.py`) remains the post-cutover regression oracle, but **zero-difference against the Buddy kernel is no longer the merge bar**. After steward acceptance of [`HANDOFF-CUTOVER-r3-read-contract-ratification.md`](HANDOFF-CUTOVER-r3-read-contract-ratification.md), R.3a compares the supported-contract R.3 direct result to the optimized direct result. Buddy hydration is not required to remain live to preserve the oracle.
 
-The previous 199-blocker tally is historical evidence against corrupted V3 state. The durable witness record is [`../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md`](../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md). The current evidence stop point is the fresh V4 witness (**200** blocking rows + 2 errored cases). Classification into `approved semantic divergence` waits on acceptance of the ratification handoff; do not silently relabel. Buddy #629 stays frozen until that acceptance.
+The previous 199-blocker tally is historical evidence against corrupted V3 state. The durable witness record is [`../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md`](../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md). The current evidence stop point is the fresh V4 witness (**200** blocking rows + 2 errored cases). Mechanical predecessor `24250fb0` and Cycle 4-reviewed ratification head `bba098fc9aed68630caadc1e89b4c84639562862` are on the pushed #629 branch. Vocabulary v2 labeling waits on an authorized implementation resume; do not silently relabel. Buddy #629 **implementation** stays frozen.
 
 ---
 

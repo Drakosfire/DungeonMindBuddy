@@ -1,7 +1,7 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-23 — DungeonMind R.2b / PR #43 merged; Buddy V4 hydrated compatibility prerequisite is the active CUTOVER slice; R.3 / #629 remains frozen  
+**Updated:** 2026-08-23 — Live Eldyrwild V4 repair accepted; #630 merged; R.3 / #629 frozen pending read-contract ratification  
 **Repository anchor:** `18bcb18475ac30679ebec84bec17c4e81390f674` (Buddy `main` at #620 merge / live cutover base)
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (PR #43 merge / governed V3→V4 adopted-source classification repair)
@@ -164,19 +164,48 @@ DONE    DungeonMind R.2b / PR #43
         Merge 519b2c96fc42d22f3113cc9ca0d48bc70b6780e5; 4 formal review
         cycles. Governed V3→V4 adopted-source classification repair
         (ExistingWorldAdoptionReceiptV4, membership manifest, effective M1).
-        Live Eldyrwild repair is not yet applied.
+        Live Eldyrwild repair applied 2026-08-23: receipt V4, historical M0
+        preserved, M1 16d3161d…, manifest 83/83/93/13, D_A and current head
+        unchanged.
 
-DOING   cutover/v4-hydrated-authority-compatibility
-        Land typed V3/V4 receipt binding and V4 manifest/M1 membership
-        verification on the existing hydrated DungeonMind-authority path.
-        Direct reads stay off. Buddy R.3 / PR #629 remains frozen until this
-        prerequisite merges and the live V4 repair succeeds.
+DONE    cutover/v4-hydrated-authority-compatibility / Buddy #630
+        Merge 3b25dbd89664b5a148ad76e0f5780b5ddc742f9a. Landed typed V3/V4
+        receipt binding and V4 manifest/M1 membership verification on the
+        existing hydrated DungeonMind-authority path. Direct reads stay off.
 
 DEFERRED pinned exact-snapshot catch-up
         Still conditional only — no STALE observed during the live
         pre-switch correspondence check (result was CORRESPONDING). The
         parked design handoff on branch cutover/design-pinned-snapshot-catchup
         stays unmerged.
+
+DOING   cutover/r3-read-contract-ratification
+        Design/acceptance only. Replace zero-difference Buddy-kernel
+        parity with an explicit supported DungeonMind ↔ Buddy graph-read
+        contract. Fresh V4 witness (200 blocking + 2 errored) is evidence,
+        not a requirement to recreate the retired kernel. Handoff:
+        Docs/Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md.
+
+FROZEN  cutover/direct-dungeonmind-production-reads (R.3) / Buddy #629
+        Mechanical predecessor 24250fb0 is on the pushed #629 branch
+        (not local-only). Cycle 4 reviewed frozen head bba098fc…. Product graph
+        reads execute natively in DungeonMind behind
+        `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` (default off until R.3a).
+        Resume only after the ratification handoff is accepted, and only
+        for genuine defects + witness vocabulary v2. No DungeonMind
+        compatibility mode for object-only admission or reconstructed
+        `properties`. Semantic + performance witness:
+        Docs/Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md.
+        Direct scope_projection ≈ 20s vs hydrated ≈ 1.7s: the production
+        environment switch still waits for R.3a.
+
+READY   cutover/direct-read-optimization (R.3a)
+        Named successor after R.3 semantic closure under the ratified
+        contract. Reusable World Graph read context / parsed immutable
+        revision reuse + batched source-provenance reads. Regression
+        oracle is the supported-contract R.3 direct result == R.3a
+        optimized direct result. Buddy hydration is not required to
+        remain live to preserve the oracle.
 ```
 
 Historical correction/heal slices (integrity heal, Lysandra, Session-24, closure, #566) remain `DONE` and are not current dispatch. The tracker, not this roadmap, decides which `READY` slice is dispatched next.
@@ -229,7 +258,7 @@ READY   PR009 Play projection migration
         Consume the same projection and admissibility contracts for encounter/play lenses.
 ```
 
-The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to the V4 hydrated compatibility prerequisite, with Buddy R.3 / PR #629 frozen until that lands and the live repair succeeds.
+The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to R.3 read-contract ratification. Buddy #629 stays frozen until that design is accepted. Direct reads stay default-off. R.3a is the named successor after R.3 is semantically closed under the ratified contract.
 
 ## Phase 8 exit criteria
 

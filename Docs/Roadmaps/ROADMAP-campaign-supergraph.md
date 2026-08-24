@@ -187,7 +187,8 @@ DOING   cutover/r3-read-contract-ratification
         Docs/Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md.
 
 FROZEN  cutover/direct-dungeonmind-production-reads (R.3) / Buddy #629
-        Mechanical V4 rebase recorded locally at 24250fb0. Product graph
+        Mechanical predecessor 24250fb0 is on the pushed #629 branch
+        (not local-only). Cycle 4 reviewed frozen head bba098fc…. Product graph
         reads execute natively in DungeonMind behind
         `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` (default off until R.3a).
         Resume only after the ratification handoff is accepted, and only

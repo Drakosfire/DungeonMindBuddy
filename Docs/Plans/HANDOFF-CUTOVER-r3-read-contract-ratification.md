@@ -8,7 +8,7 @@ pr_body_template: |
 
   ## Exact predecessor truth
   - Live Eldyrwild authority is governed V4 (M1 `16d3161d…`, head `rev:680c246…`).
-  - Buddy #630 is merged; #629 is rebased onto `main` at local head after `24250fb0`.
+  - Buddy #630 is merged; #629 mechanical predecessor is `24250fb0` (pushed); Cycle 4 reviewed frozen head `bba098fc9aed68630caadc1e89b4c84639562862`.
   - Fresh repaired-authority witness: 200 blocking rows + 2 errored cases.
   - Direct-read gate remains default-off.
 
@@ -72,10 +72,14 @@ Buddy frozen A   rev:0c644e56b45bcaac709012206e3e41c2
 DIRECT_READ      default-off
 ```
 
-#629 mechanical continuation is already committed locally as `24250fb0`
-(rebase onto #630, drop `c3e57d9f`, #43 pin, delete illegal Buddy mutation
-scripts, process-order-safe hydrated-route test, fresh V4 baseline). Direct
-reads stayed off. Do not push until the steward says so.
+#629 mechanical predecessor is `24250fb0` on the **pushed** branch
+`cutover/direct-dungeonmind-production-reads` (rebase onto #630, drop
+`c3e57d9f`, #43 pin, delete illegal Buddy mutation scripts,
+process-order-safe hydrated-route test, fresh V4 baseline). That commit is
+not local-only. The ratification design commit
+`bba098fc9aed68630caadc1e89b4c84639562862` is the Cycle 4-reviewed
+pushed-but-frozen PR head. Direct reads stayed off. Implementation remains
+frozen; do not resume #629 code in this docs cycle.
 
 ---
 

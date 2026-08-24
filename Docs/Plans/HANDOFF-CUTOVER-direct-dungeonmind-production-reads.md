@@ -30,7 +30,8 @@ pr_body_template: |
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
 **Exact Buddy base at original dispatch:** `b850b9f8126a8c8488d17b3bdb6f99a60a162338`  
 **Current rebase base:** Buddy `origin/main` `3b25dbd89664b5a148ad76e0f5780b5ddc742f9a` (#630 merge)  
-**Local mechanical head:** `24250fb0`  
+**Mechanical predecessor:** `24250fb0` (pushed; not local-only)  
+**Cycle 4 reviewed frozen head:** `bba098fc9aed68630caadc1e89b4c84639562862`  
 **Required DungeonMind pin:** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (merge of DungeonMind PR #43; separately reviewed V4 repair predecessor on top of #41 R.1/R.2/R.2a)  
 **Original dispatch pin (historical):** `b3f419b08676eaca763c8a75c374be6e96ee624e` (DungeonMind PR #41)  
 **Suggested branch:** `cutover/direct-dungeonmind-production-reads`  
@@ -49,9 +50,11 @@ pr_body_template: |
 > compatibility machinery merely because production reads stop using it.
 
 > **2026-08-23 freeze:** this implementation PR is paused after the repaired-V4
-> mechanical rebase (`24250fb0`) and the fresh 200-row witness. Do not add
-> compatibility fixes here until [`HANDOFF-CUTOVER-r3-read-contract-ratification.md`](HANDOFF-CUTOVER-r3-read-contract-ratification.md)
-> is accepted. That document replaces “zero semantic differences against the
+> mechanical predecessor `24250fb0` (pushed) and the fresh 200-row witness.
+> Cycle 4 reviewed frozen head `bba098fc9aed68630caadc1e89b4c84639562862`.
+> Do not add compatibility code here. Implementation resumes only after the
+> ratified contract is accepted **and** a steward authorizes the narrow #629
+> continuation. That document replaces “zero semantic differences against the
 > Buddy kernel” as the R.3 merge criterion.
 
 ---
