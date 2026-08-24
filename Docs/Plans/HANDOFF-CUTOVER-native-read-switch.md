@@ -17,11 +17,13 @@ pr_body_template: |
 # HANDOFF — CUTOVER: native DungeonMind read switch
 
 **Created:** 2026-08-24  
-**Status:** IMPLEMENTATION IN REVIEW  
+**Status:** IMPLEMENTATION IN REVIEW — Cycle 1 response  
 **Workstream:** CUTOVER / World Graph runtime retirement  
 **Direction:** CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
-**Buddy base:** `main` `54779636750ebf7a639aef8a6184cc61ead9c860` (merge of Buddy PR #632)  
+**Buddy base / current `main`:** `87597f406aae2b169bf4addde2a2b34b1b3d7cad` (PR #633 implementation base; APP-STATE seed)  
+**#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860` (R.3a pin / `SWITCH_READY`)  
+**Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600` (R.3; reviewed implementation head `65405b48`)  
 **DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (DungeonMind PR #45 merge / R.3a)  
 **Suggested implementation branch:** `cutover/native-read-switch`  
 **Suggested PR title:** `CUTOVER: make DungeonMind native reads unconditional`  
@@ -613,10 +615,182 @@ it as an alternate production implementation.
 
 ---
 
-## 11. Implementation record
+## 11. Implementation record / required handback
 
-**Implementation branch:** `cutover/native-read-switch`  
-**Owning tests (this worktree):** 173 passed / 21 skipped / 0 failed on
+This section is the §10 handback. Cycle 1 review `5011430268` required the
+ancestry/handback completion below plus the real-current latest-recap
+equivalence witness in §11.6.
+
+### 11.1 Exact SHAs
+
+| Role | SHA | Meaning |
+|---|---|---|
+| Buddy base / current `main` | `87597f406aae2b169bf4addde2a2b34b1b3d7cad` | PR #633 implementation base (APP-STATE seed) |
+| Implementation head reviewed in Cycle 1 | `4a403562a810e7fd350dd3f3fb4627869510bca8` | `CUTOVER: make DungeonMind native reads unconditional` |
+| Design commit on this branch | `f105c268897feff8450e6051155d6dcea371deaf` | docs-only native-read switch handoff |
+| #632 merge | `54779636750ebf7a639aef8a6184cc61ead9c860` | R.3a pin / `SWITCH_READY` |
+| Historical #631 merge | `ffc39ab394ea55b00dc8b2a0fd41be0448635600` | R.3; reviewed implementation head `65405b48` |
+| DungeonMind pin | `c5d3688587b0f5d506e0f7d64f33eb0628bac896` | PR #45 / R.3a |
+
+`54779636` is **not** current `main`. `ffc39ab3` is **not** the repository
+anchor. Current `main` / this PR's base is `87597f40`.
+
+### 11.2 Changed-file list (vs `origin/main` `87597f40`)
+
+```text
+Docs/Plans/HANDOFF-CUTOVER-native-read-switch.md
+Docs/Plans/HANDOFF-CUTOVER-r3a-dungeonmind-pin.md
+Docs/Plans/PR-TRACKER-campaign-supergraph.md
+Docs/Plans/STEWARDS-ANCHOR-cutover.md
+Docs/Roadmaps/ROADMAP-campaign-supergraph.md
+Docs/Sources/design-agent/ACTIVE_AUTHORITY/PR-TRACKER-campaign-supergraph.md
+Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-campaign-supergraph.md
+apps/live_control_server/config.py
+apps/live_control_server/services/live_agent_loop.py
+apps/live_control_server/services/world_graph_projection.py
+apps/live_control_server/services/world_graph_retrieval.py
+scripts/compare_direct_dungeonmind_world_graph_reads.py
+src/graph_memory/interaction/latest_recap.py
+tests/test_cutover_direct_dungeonmind_world_graph_reads.py
+tests/test_cutover_dungeonmind_world_graph_authority.py
+tests/test_latest_recap_change.py
+tests/test_live_control_server.py
+tests/test_live_query_hermes_graph.py
+tests/test_world_graph_projection_routes.py
+tests/test_world_graph_retrieval_routes.py
+```
+
+20 files. Cycle 1 response is docs-only on top of that implementation.
+
+### 11.3 Rollout-flag removal code points
+
+Deleted (no replacement flag):
+
+- `apps/live_control_server/config.py` — `WORLD_GRAPH_DIRECT_READ_ENV` and
+  `world_graph_direct_read_enabled()` are gone. Production predicate is
+  `world_graph_native_production_read()` (authority + production root only).
+- `apps/live_control_server/services/world_graph_projection.py:62` —
+  `_direct_read_active` delegates to that predicate; production dispatch at
+  `project_world_graph` ~line 251.
+- `apps/live_control_server/services/world_graph_retrieval.py:59` — same
+  predicate; all five retrieval ops dispatch natively.
+- `scripts/compare_direct_dungeonmind_world_graph_reads.py` — no longer sets
+  `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ`.
+
+Obsolete env values `unset` / `0` / `1` / `garbage` have no routing power
+(`tests/test_cutover_direct_dungeonmind_world_graph_reads.py::test_obsolete_direct_read_env_does_not_control_routing`).
+
+### 11.4 Production routing rule
+
+```text
+authority == dungeonmind
+AND (root is None OR resolved(root) == world_graph_root())
+  -> native DungeonMind projection / five retrieval ops / latest-recap facts
+else
+  -> existing file/kernel path (buddy_files, quiesced, explicit fixture root)
+```
+
+### 11.5 Latest-recap migration
+
+Storage-neutral `LatestRecapGraphFacts` in
+`src/graph_memory/interaction/latest_recap.py`:
+
+- `latest_recap_graph_facts_from_store` — `buddy_files` / explicit fixture roots
+- `latest_recap_graph_facts_from_projection` — `dungeonmind` production
+- `resolve_latest_recap_change_context` uses `world_graph_native_production_read`
+- `apps/live_control_server/services/live_agent_loop.py` no longer defines or
+  calls `_latest_recap_graph_root` / `route_service_read`
+
+Native failure degrades to `latest_recap_authority_unavailable` without
+hydration. Explosion stubs in `tests/test_latest_recap_change.py` prove
+`route_service_read`, `ensure_hydrated_authority`, and
+`load_current_world_graph` are unreachable on the `dungeonmind` path.
+
+### 11.6 Real-current latest-recap equivalence witness (Cycle 1)
+
+Bounded witness on live Eldyrwild at the same exact DungeonMind revision,
+`DIRECT_READ` absent:
+
+```text
+world              eldyrwild
+revision           D_B = rev:680c246047d67f9fe0293ee90526f670
+hydrated Buddy id  rev:89cac048dce6df84ddeb0c00ab06a59e (translation of D_B)
+campaigns          longmont-c1, longmont-c2
+old producer       ensure_hydrated_authority + latest_recap_graph_facts_from_store
+new producer       project_world_graph (native) + latest_recap_graph_facts_from_projection
+```
+
+Surviving product requirement for this feature (not Buddy-kernel parity):
+
+1. `session_ids` decides `graph_latest_session_id` and therefore
+   `changed` / `no_change` / `memory_lag`.
+2. `object_or_relationship_ids_by_session[recap_session_id]` is the admitted
+   object/relationship hint list for that recap session.
+3. Comparison uses campaign-admitted graph facts. Residual Buddy-kernel
+   edges, cross-campaign leakage, and operational cutover history are not
+   surviving product semantics.
+
+**longmont-c1**
+
+```text
+session_ids          identical (session-1..12, session-17)
+latest session       session-17 = session-17
+native projection    390 nodes / 176 rels / 15 artifacts; not truncated
+object IDs           native is a strict subset (0 native-only IDs)
+                     at session-17: 43 shared, 16 hydrated-only edges
+```
+
+The 16 session-17 extras are Buddy-kernel residual edges absent from the
+admitted native projection (`same_as`, combat, inventory). They are the
+already-accepted R.3 residual class, not a missing native library fact.
+Hydrated c1 also materializes object maps for sessions 22–26 by scanning
+unscoped evidence; the product never reads those keys for a c1 recap
+session. Outcome for the surviving comparison is unchanged.
+
+**longmont-c2**
+
+```text
+session_ids          native: session-22..25 (latest 25)
+                     hydrated: session-22..26 (latest 26)
+native projection    80 nodes / 45 rels / 11 artifacts; not truncated
+object IDs           native is a strict subset (0 native-only IDs)
+                     at session-25: 48 shared, 7 hydrated-only edges
+```
+
+The sole extra hydrated session is **not a campaign recap**. It is the
+cutover live canary:
+
+```text
+artifact:recap:longmont-c2:session-26-cutover-live-canary
+node:cutover-canary
+uri /tmp/cutover-live-canary-source/session-26-cutover-live-canary-recap.md
+```
+
+Native world and campaign projections both omit that evidence-less canary
+(world GM 469 nodes). That is the accepted R.3 admission contract, not a
+missing projection field. Hydrated `session-26` would make a session-25
+recap report `changed`; native reports `no_change`. The canary is
+operational cutover history, so the hydrated extra session is obsolete
+Buddy semantics.
+
+The 7 session-25 hydrated-only edges include contradicted current-support
+residuals such as `edge:pc:ephanna:hires:node:thrin-branchborn` (Session-25
+false-hires correction) and `same_as` adapters. Native omitting them is
+current-graph truth.
+
+**STOP check:** no missing native library fact is required to preserve the
+surviving latest-recap feature. Native is not asked to restore Buddy residual
+edges or the canary session. Hydration is not retained.
+
+### 11.7 Fail-closed / explicit-root / other modes
+
+Covered by the owning tests: missing DSN and unknown pin fail closed with
+hydration exploded; explicit different fixture roots stay on the file/kernel
+path; `buddy_files` / `quiesced` keep their file-path behavior.
+
+### 11.8 Owning tests
+
+173 passed / 21 skipped / 0 failed on:
 
 ```text
 tests/test_cutover_direct_dungeonmind_world_graph_reads.py
@@ -627,25 +801,7 @@ tests/test_latest_recap_change.py
 tests/test_live_query_hermes_graph.py
 ```
 
-**Production routing rule after this PR:**
-
-```text
-authority == dungeonmind
-AND (root is None OR resolved(root) == world_graph_root())
-  -> native DungeonMind projection / five retrieval ops / latest-recap facts
-else
-  -> existing file/kernel path (buddy_files, quiesced, explicit fixture root)
-```
-
-Obsolete `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` values (`unset` / `0` / `1` /
-`garbage`) do not affect that rule.
-
-**Latest-recap:** `LatestRecapGraphFacts` is derived from the native campaign
-projection in `dungeonmind` production and from the file store otherwise.
-`live_agent_loop` no longer calls `route_service_read`. Native failure degrades
-to `latest_recap_authority_unavailable` without hydration.
-
-**Sealed R.3 witness** (this branch, `DIRECT_READ` absent):
+### 11.9 Sealed live R.3 witness (`DIRECT_READ` absent)
 
 ```text
 17 cases
@@ -656,14 +812,18 @@ vocabulary v2
 head D_B = rev:680c246047d67f9fe0293ee90526f670
 ```
 
-**Live smoke** (same authority DSN, `DIRECT_READ` absent): campaign projection
-head `D_B` / 80 nodes; Thrin search `enough`; `npc_lysandra` object `enough`;
-Lysandra evidence `enough`; exact pin `D_A` `is_head=false` with head `D_B`.
-Latest-recap native path ran; live recap registry is absent in this checkout
-so the comparison correctly returned `latest_admitted_recap_not_found`
-without hydration.
+### 11.10 Live smoke (`DIRECT_READ` absent)
 
-**Remaining hydrated-runtime consumers** (demolition input, not deleted here):
+Campaign projection head `D_B` / 80 nodes; Thrin search `enough`;
+`npc_lysandra` object `enough`; Lysandra evidence `enough`; exact pin `D_A`
+`is_head=false` with head `D_B`. Latest-recap native path ran; live recap
+registry is absent in this checkout so the comparison correctly returned
+`latest_admitted_recap_not_found` without hydration. The Cycle 1 equivalence
+witness in §11.6 is the missing real-current comparison proof.
+
+### 11.11 Remaining hydrated-runtime consumers
+
+Demolition input, not deleted here:
 
 - write/publication: `extract_promote`, threat publication, first-world-graph,
   graph-review merge, Eldyrwild correction/cutover services, hydration rebuild
@@ -675,4 +835,29 @@ without hydration.
   cache as a read implementation; `route_service_read` as a production
   `dungeonmind` read router; latest-recap hydration
 
-**Disposition:** `DEMOLITION_READY`
+### 11.12 Atomic current-state docs
+
+Canonical tracker/roadmap plus ACTIVE_AUTHORITY mirrors now distinguish
+current `main` `87597f40`, #632 merge `54779636`, and historical #631 merge
+`ffc39ab3`. Roadmap header no longer claims R.3a is current or that the
+direct-read gate remains default-off.
+
+### 11.13 Workspace / branch status
+
+```text
+worktree   /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy-native-read-switch
+branch     cutover/native-read-switch
+tracks     origin/cutover/native-read-switch
+PR         https://github.com/Drakosfire/DungeonMindBuddy/pull/633
+base       origin/main = 87597f406aae2b169bf4addde2a2b34b1b3d7cad
+mergeable  yes at Cycle 1 review
+```
+
+### 11.14 Disposition
+
+```text
+DEMOLITION_READY
+```
+
+The successor deletes the old Buddy graph runtime rather than maintaining it
+as an alternate production implementation.

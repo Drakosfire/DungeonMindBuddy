@@ -19,8 +19,10 @@ pr_body_template: |
 **Workstream:** CUTOVER / World Graph runtime retirement
 **Direction:** CODE → REVIEW
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`
-**Buddy base:** `origin/main` `ffc39ab394ea55b00dc8b2a0fd41be0448635600` (#631 merge / #632 base)
-**Reviewed R.3 implementation head:** `65405b48ed2d3de917060f41fbb7d69e2eaafe32` (#631 accepted code; second parent of `ffc39ab3`)
+**Buddy base (at #632):** `#631 merge` `ffc39ab394ea55b00dc8b2a0fd41be0448635600` (historical; not current `main`)  
+**Reviewed R.3 implementation head:** `65405b48ed2d3de917060f41fbb7d69e2eaafe32` (#631 accepted code; second parent of `ffc39ab3`)  
+**#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`  
+**Current Buddy `main` (after APP-STATE):** `87597f406aae2b169bf4addde2a2b34b1b3d7cad`
 **Required DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896`
 (merge of DungeonMind PR #45 — R.3a read-context optimization)
 **Predecessor pin (historical):** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5`

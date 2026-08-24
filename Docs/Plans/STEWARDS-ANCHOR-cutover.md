@@ -5,6 +5,7 @@
 **Created:** 2026-08-17  
 **Completed:** 2026-08-18 (live D_A→D_B)  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
+**Current Buddy `main`:** `87597f406aae2b169bf4addde2a2b34b1b3d7cad` (PR #633 base). **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`.  
 **Buddy integration tip at completion:** `18bcb18475ac30679ebec84bec17c4e81390f674` (merge of Buddy PR #620)  
 **DungeonMind authority anchor:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (merge of DungeonMind PR #45 — R.3a native read-context optimization; Buddy runtime pin of this slice. Historical R.3 pin was PR #43 `519b2c96…`)  
 **Completed implementation handoffs:** Buddy PR #619 (`6c2fe9d37dcecf34e025db8373fce072de30b62e`) + Buddy PR #620 (`18bcb18475ac30679ebec84bec17c4e81390f674`; 4 review cycles; final PASS review `4966969478`) + parent [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md)  
