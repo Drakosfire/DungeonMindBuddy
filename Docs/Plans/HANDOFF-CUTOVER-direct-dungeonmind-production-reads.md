@@ -24,7 +24,7 @@ pr_body_template: |
 # HANDOFF — R.3: direct DungeonMind production reads
 
 **Created:** 2026-08-22  
-**Status:** IN REVIEW — GitHub #631 Cycle 3 requested; not merge-ready; direct-read gate remains default-off
+**Status:** LANDED — merged to Buddy `main` `65405b48`; direct-read gate remains default-off; successor is [`HANDOFF-CUTOVER-r3a-dungeonmind-pin.md`](HANDOFF-CUTOVER-r3a-dungeonmind-pin.md)
 **Open GitHub PR:** #631 (restoration of accidentally merged #629; same branch)  
 **Workstream:** CUTOVER / World Graph runtime retirement  
 **Direction:** DESIGN → CODE → REVIEW  

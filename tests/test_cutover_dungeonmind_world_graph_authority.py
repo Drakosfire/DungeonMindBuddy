@@ -909,14 +909,14 @@ def _compat_world_rows(*, include_descendants: bool = True, omit_adopted_artifac
 
 
 def test_dungeonmind_pin_exposes_typed_v4_receipt_contract():
-    """§9.1: exact #43 pin and public V4/manifest types."""
+    """Exact current DungeonMind pin still exposes the public V4/manifest types."""
     from dungeonmind.contracts.existing_world_adoption import (
         EXISTING_WORLD_ADOPTION_RECEIPT_V4_SCHEMA,
         ExistingWorldAdoptionMembershipManifestV1,
         ExistingWorldAdoptionReceiptV4,
     )
 
-    pin = "519b2c96fc42d22f3113cc9ca0d48bc70b6780e5"
+    pin = "c5d3688587b0f5d506e0f7d64f33eb0628bac896"
     assert pin in (REPO_ROOT / "pyproject.toml").read_text()
     assert pin in (REPO_ROOT / "uv.lock").read_text()
     assert ExistingWorldAdoptionReceiptV4.model_fields["schema_version"].default == (

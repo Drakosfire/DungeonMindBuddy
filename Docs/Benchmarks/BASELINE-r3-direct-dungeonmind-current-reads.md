@@ -1,11 +1,12 @@
 # BASELINE — R.3 direct DungeonMind current-world read witness
 
-**Date:** 2026-08-22 (historical V3 witness) / 2026-08-23 (frozen V4 vocabulary-v1) / 2026-08-24 (supported-contract vocabulary-v2)
-**Branch:** `cutover/direct-dungeonmind-production-reads`
-**Handoff:** [`../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md`](../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md) (implementation; in review)
+**Date:** 2026-08-22 (historical V3 witness) / 2026-08-23 (frozen V4 vocabulary-v1) / 2026-08-24 (supported-contract vocabulary-v2) / 2026-08-24 (R.3a Buddy pin rerun)
+**Branch:** `cutover/r3a-dungeonmind-pin` (R.3a pin); historical R.3 on `cutover/direct-dungeonmind-production-reads`
+**Handoff:** [`../Plans/HANDOFF-CUTOVER-r3a-dungeonmind-pin.md`](../Plans/HANDOFF-CUTOVER-r3a-dungeonmind-pin.md)
+**R.3 predecessor:** [`../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md`](../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md)
 **Acceptance successor:** [`../Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md`](../Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md)
 **Harness:** `scripts/compare_direct_dungeonmind_world_graph_reads.py` (local runner; private JSON output is never committed)
-**Status:** vocabulary-v2 sealed ledger witness recorded — **0 blocking, 0 errored**; production direct-read gate remains default-off
+**Status:** R.3a pin rerun sealed — **0 blocking, 0 errored, 199 approved**; `SWITCH_READY`; production direct-read gate remains default-off
 
 > **Historical 199 and frozen V4 200 are obsolete as acceptance numbers.**
 > 199 was measured against corrupted V3 adopted-source state. The 2026-08-23
@@ -168,6 +169,54 @@ neighborhood:depth-2  legacy ERROR       direct 20580 ms
 `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` stays default-off. R.3a remains the named successor for that cost.
 
 Private JSON (never commit): operator-local `/tmp/r3-v4-cycle2-sealed-witness.json`.
+
+### 2C. R.3a Buddy pin rerun — 2026-08-24
+
+DungeonMind PR #45 merge `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (R.3a
+read-context optimization). Same live authority, same sealed v2 ledger, same
+17 cases. Private JSON: `/tmp/r3a-buddy-pin-witness.json` (never commit).
+
+Identity preflight unchanged from §2B.
+
+17 cases. **0 errored. 0 blocking semantic difference.**
+
+| class | count | meaning |
+|---|---|---|
+| blocking semantic difference | **0** | sealed R.3 contract unchanged by #43 → #45 |
+| approved semantic divergence | **199** | exact §2B tally |
+| representation only | 2,345 | unchanged |
+| intentionally retired legacy-only field | 1,056 | unchanged |
+| new deterministic R.2 search ranking | 2 | unchanged |
+| product-local presentation join | 1 | unchanged |
+
+Performance through **Buddy's adapter** (`direct_services_from_config` + DTO
+mapping), not DungeonMind's own harness. Witness reuses one service object
+(parsed-revision cache can hit). Medians of 3:
+
+```text
+projection            legacy  1840 ms    direct  548 ms
+object                legacy 17150 ms    direct  142 ms
+search                legacy 17210 ms    direct  155 ms
+neighborhood:depth-1  legacy 17884 ms    direct  226 ms
+neighborhood:depth-2  legacy ERROR       direct  120 ms
+evidence              legacy 17304 ms    direct  161 ms
+```
+
+Product path currently constructs a new service bundle per request. Separate
+lifecycle sample on the same campaign-GM projection (390 nodes):
+
+```text
+factory-only                         72 ms median
+rebuild factory every projection    845 ms median
+reused services                     754 ms median  (cache hits=2 misses=1)
+```
+
+Factory rebuild is not the remaining cost. Parsed-revision reuse saves ~90 ms.
+Buddy DTO mapping of the admitted graph dominates. Sub-second product
+projection vs the previous ~20.7 s direct path is enough to dogfood.
+
+Disposition: `SWITCH_READY`. `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` stays
+default-off in this PR. Local dogfood may set it to `1` after merge.
 
 ## 3. Semantic parity witness (HISTORICAL — corrupted V3 authority)
 

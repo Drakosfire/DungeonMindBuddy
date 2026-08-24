@@ -1,10 +1,10 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-24 — R.3 supported-contract continuation: vocabulary v2, PLAYER serve, Case A recap-span join, 0 blocking / 0 errored V4 witness; direct-read gate remains default-off  
-**Repository anchor:** `18bcb18475ac30679ebec84bec17c4e81390f674` (Buddy `main` at #620 merge / live cutover base)
+**Updated:** 2026-08-24 — Buddy R.3a pin of DungeonMind #45; sealed witness unchanged; `SWITCH_READY`; direct-read gate remains default-off  
+**Repository anchor:** `65405b48` (Buddy `main` after merged R.3)
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
-**DungeonMind pin:** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (PR #43 merge / governed V3→V4 adopted-source classification repair)
+**DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (PR #45 merge / R.3a native read-context optimization)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)  
@@ -184,26 +184,29 @@ DONE    cutover/r3-read-contract-ratification
         the supported DungeonMind ↔ Buddy graph-read contract. Handoff:
         Docs/Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md.
 
-DOING   cutover/direct-dungeonmind-production-reads (R.3) / Buddy #629
-        Narrow continuation after ratification. Vocabulary v2, PLAYER
-        serve + fail-closed hide, native depth-2 independent of the
-        retired kernel KeyError, and Case A recap source-span join
-        (DungeonMind revalidate succeeded; adapter no longer forces
-        recap spans through the worldbuilding registry). Fresh V4
-        supported-contract witness: 0 blocking, 0 errored, 199
-        approved semantic divergence. Direct-read gate remains
-        default-off. Semantic + performance witness:
-        Docs/Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md.
-        Direct scope_projection ≈ 20s vs hydrated ≈ 1.7s: the production
-        environment switch still waits for R.3a.
+DONE    cutover/direct-dungeonmind-production-reads (R.3) / Buddy #631
+        Merged to Buddy main 65405b48. Sealed V4 witness: 0 blocking,
+        0 errored, 199 approved. Direct-read gate stayed default-off.
 
-READY   cutover/direct-read-optimization (R.3a)
-        Named successor after R.3 semantic closure under the ratified
-        contract. Reusable World Graph read context / parsed immutable
-        revision reuse + batched source-provenance reads. Regression
-        oracle is the supported-contract R.3 direct result == R.3a
-        optimized direct result. Buddy hydration is not required to
-        remain live to preserve the oracle.
+DONE    DungeonMind R.3a / PR #45
+        Merge c5d3688587b0f5d506e0f7d64f33eb0628bac896. Native
+        read-context optimization (~20.7s → ~115 ms warm on Eldyrwild).
+
+DOING   cutover/r3a-dungeonmind-pin
+        Pin Buddy to DungeonMind #45 merge c5d36885…. Sealed R.3
+        witness rerun: 0 blocking, 0 errored, 199 approved.
+        Adapter projection ~0.55–0.85s; retrievals 120–226 ms.
+        SWITCH_READY. Direct-read gate remains default-off.
+        Handoff: Docs/Plans/HANDOFF-CUTOVER-r3a-dungeonmind-pin.md.
+
+READY   native-read switch
+        After dogfood, remove DUNGEONMIND_WORLD_GRAPH_DIRECT_READ
+        rather than defaulting it to 1. Direct DungeonMind reads
+        become the only dungeonmind-authority path.
+
+READY   demolish Buddy graph runtime
+        Delete hydration/replay/cache/UnionSupergraph production
+        machinery and prove Buddy boots with the old graph absent.
 ```
 
 Historical correction/heal slices (integrity heal, Lysandra, Session-24, closure, #566) remain `DONE` and are not current dispatch. The tracker, not this roadmap, decides which `READY` slice is dispatched next.
