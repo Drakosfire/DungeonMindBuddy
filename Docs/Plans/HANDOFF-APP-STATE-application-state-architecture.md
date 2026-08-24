@@ -8,7 +8,8 @@ pr_body_template: |
   - Implementation repository: Drakosfire/DungeonMindBuddy
 
   ## Verification pointer
-  - Base: 87597f406aae2b169bf4addde2a2b34b1b3d7cad
+  - Design authority base: 31f2885cc18f96b98a1028304ae98914d1139fa3 (CUTOVER #634 merge)
+  - Dispatch: branch from fresh current main containing this handoff; re-anchor if main advances materially
   - Output: architecture authority + migration roadmap + AS1 implementation handoff
   - Production code: none
 
@@ -24,7 +25,8 @@ pr_body_template: |
 **Conversation/workstream:** `APP-STATE`  
 **Flow / owner:** `APP-STATE`  
 **Direction:** DESIGN → REVIEW  
-**Base revision:** `87597f406aae2b169bf4addde2a2b34b1b3d7cad`  
+**Design authority base:** `31f2885cc18f96b98a1028304ae98914d1139fa3` (merge of CUTOVER PR #634)  
+**Dispatch base rule:** branch from fresh current `main` containing this handoff; if `main` advances after dispatch, use steward preflight and stop only when the advance materially changes AS0 authority, write lease, or evidence.  
 **Suggested branch:** `agent/app-state-application-state-architecture`  
 **Suggested PR title:** `APP-STATE: define application-state architecture and migration contract`
 
@@ -49,7 +51,7 @@ AS0 is successful only if the next implementation worker can execute AS1 without
 | Can one invariant govern every claimed observable path? | Yes, because this slice changes design authority only: one persistence architecture must govern every later Buddy-owned state migration while preserving domain ownership. |
 | Most likely adversarial sequence | The design becomes a generic SQL abstraction, then Play/Combat/Plan must reconstruct their invariants in callers; or the design optimizes Play only and creates a second bespoke persistence stack. |
 | Second likely failure | The design says "Postgres" without freezing deployment/config, migration ownership, transaction/revision semantics, worktree isolation, exact cutover/deletion rules, or unavailable behavior—leaving AS1 to guess. |
-| Easiest owning boundary to under-review | Existing persistence reality: registry+Markdown snapshots, Play Run/manifest/rebase coordination, localStorage/Combat state, and server startup/config may be incompletely inventoried. |
+| Easiest owning boundary to under-review | Existing persistence reality: registry+Markdown snapshots, Play Run/manifest/rebase coordination, browser/local state, Combat state, and server startup/config may be incompletely inventoried. |
 | Fact that forces stop/split | A material target requires production code or a new product/domain semantic contract to resolve. AS0 may design it, but must not implement it. A newly discovered authority that cannot fit the shared substrate without changing its domain contract must be recorded as a successor/reconnaissance question rather than silently absorbed. |
 
 ---
@@ -60,14 +62,15 @@ AS0 is successful only if the next implementation worker can execute AS1 without
 |---|---|
 | Parent authority | `Docs/Plans/STEWARDS-ANCHOR-application-state.md` |
 | Repository law | `AGENTS.md` + `Docs/Process/STEWARD-CYCLE.md` |
-| Base revision | `87597f406aae2b169bf4addde2a2b34b1b3d7cad` |
+| Design authority base | `31f2885cc18f96b98a1028304ae98914d1139fa3` |
+| Dispatch base | Fresh current `main` containing this checked-in handoff. Do not fork from the historical design-authority base if later non-conflicting commits are already on main. |
 | Play predecessor | BF1 / PR #628 merged at `b850b9f8126a8c8488d17b3bdb6f99a60a162338`; Beat-first grammar + v2 manifest foundation are predecessor truth. |
-| World authority predecessor | CUTOVER through PR #632; DungeonMind is living World Graph authority. This design must not create a Buddy World-data store or couple APP-STATE to graph-runtime demolition. |
+| World authority predecessor | CUTOVER through PR #634. Production reads are native DungeonMind and the normal governed write context no longer requires Buddy graph hydration. DungeonMind remains living World Graph authority. APP-STATE must not create a Buddy World-data store or couple its implementation to CUTOVER D.2/D.3 demolition. |
 | Exact input consumed | Current repository persistence implementations and routes/services, existing Play/Playable architecture/design authorities, CON-READY user stories, current server/dependency/runtime configuration. |
 | Named successor | AS1 — `HANDOFF-APP-STATE-postgres-foundation.md`, authored by this PR and only dispatchable after AS0 PASS/merge/re-anchor. |
 | What remains false | No PostgreSQL application-state tables, migrations, runtime wiring, data migration, Play cutover, or filesystem demolition exist after AS0. Play remains on current persistence until implementation slices land. |
 | Branch / isolated checkout | `agent/app-state-application-state-architecture` in an isolated worktree/checkout. |
-| Parallel lanes / collision hotspots | At dispatch there are no open Buddy PRs. Re-check before work. CUTOVER may resume later; root DB config, dependency pins, server bootstrap, Docker/dev lifecycle, and state-authority docs are future collision hotspots but are read-only in AS0. |
+| Parallel lanes / collision hotspots | No open Buddy PRs at the steward re-anchor after #634. Re-check before work. CUTOVER D.2/D.3 may resume; root DB config, dependency pins, server bootstrap, Docker/dev lifecycle, and central state-authority docs are future collision hotspots but are read-only in AS0. |
 | Runtime/state ownership | None. This is design-only; do not mutate live/test databases, `out/`, workspace documents, Play Runs, Combat state, or DungeonMind authority. |
 | Backward state-authority sync | None beyond the design artifacts themselves. The steward seed is already current. AS1 will carry backward-looking sync for the accepted AS0 merge/review truth. |
 
@@ -107,7 +110,7 @@ AS0 may state which prior persistence assumptions are superseded by the new targ
 
 ## §3 Observable design paths and required current-state inventory
 
-AS0 must ground the architecture in the implementation that actually exists on the exact base. Do not design only from filenames in the steward seed.
+AS0 must ground the architecture in the implementation that actually exists on the exact dispatch base. Do not design only from filenames in the steward seed.
 
 ### 3.1 Required persistence inventory
 
@@ -180,6 +183,7 @@ The current handoff (`HANDOFF-APP-STATE-application-state-architecture.md`) is d
 | Docker/compose/service configuration | AS1 or dedicated lifecycle slice after architecture decision. |
 | `out/**` | Current state is evidence only; no migration/mutation. |
 | DungeonMind repository/schema | Separate World authority. APP-STATE must consume stable public references, not modify DungeonMind storage. |
+| CUTOVER D.2/D.3 implementation | Separate graph-runtime retirement line. Shared dependency/config paths must be serialized if later implementation leases overlap. |
 | Play BF2/BF3 semantics | PLAY-SURFACE successor. AS0 may sequence them after persistence, not redesign current Beat/Scene/Decision contracts. |
 | Combat domain schema details | Future Combat-owned migration. AS0 freezes boundary/primitives only. |
 | Event sourcing | Not justified. Current-state authority remains default. Mutation history is a later independent capability if proven useful. |
@@ -417,7 +421,7 @@ AS0 is design work, so evidence is repository-grounded architecture completeness
 
 ### Required repository review inputs
 
-At minimum inspect current exact-base versions of:
+At minimum inspect fresh current versions of:
 
 ```text
 AGENTS.md
@@ -454,8 +458,9 @@ Before requesting review:
 uv run python scripts/steward_preflight.py \
   --handoff Docs/Plans/HANDOFF-APP-STATE-application-state-architecture.md
 
-# No production-code expansion
-git diff --name-only 87597f406aae2b169bf4addde2a2b34b1b3d7cad...HEAD
+# No production-code expansion; compare from actual dispatch base recorded by worker
+# after branching from current main.
+git diff --name-only <DISPATCH_BASE>...HEAD
 
 git diff --check
 ```
