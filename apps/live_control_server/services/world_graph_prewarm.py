@@ -25,6 +25,22 @@ PrewarmStatus = Literal[
     "dropped",
 ]
 
+
+def _dungeonmind_authority_active() -> bool:
+    """R.3: in ``dungeonmind`` mode reads execute natively in DungeonMind.
+
+    The Buddy resident runtime and projection cache have no consumer on the
+    read path, so post-commit prewarming is pure waste. The coordinator
+    lifecycle stays intact (start/stop succeed) but no worker runs.
+    """
+    from apps.live_control_server import config
+    from graph_memory.world_supergraph import storage
+
+    return (
+        config.world_graph_authority_mode()
+        == storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
+
 _DEFAULT_SHUTDOWN_TIMEOUT_S = 5.0
 _POLL_TIMEOUT_S = 0.25
 
@@ -139,6 +155,16 @@ class WorldGraphPrewarmCoordinator:
                 )
                 return False
             if self._active and self.is_running:
+                return True
+            if _dungeonmind_authority_active():
+                # R.3: no worker — the direct DungeonMind read path never
+                # touches the Buddy resident runtime or projection cache.
+                # Lifecycle remains a no-op success so app startup is
+                # authority-mode agnostic.
+                logger.info(
+                    "world graph prewarm coordinator disabled: "
+                    "dungeonmind authority mode serves reads natively"
+                )
                 return True
             mailbox = kernel.get_revision_ready_mailbox()
             lease = mailbox.acquire_consumer()

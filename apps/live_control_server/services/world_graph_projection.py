@@ -59,6 +59,78 @@ def _resolved_root(root: Path | None) -> Path:
     return (root if root is not None else world_graph_root()).resolve()
 
 
+def _direct_read_active(root: Path | None) -> bool:
+    """R.3 dispatch predicate: True when this read executes in DungeonMind.
+
+    Mirrors the legacy router's bypass rule: an explicit root differing from
+    the configured production World Graph root is a test/tooling override and
+    stays on the file-store path. In ``dungeonmind`` authority mode the
+    configured production root is not an override.
+
+    The direct-read rollout gate (``DUNGEONMIND_WORLD_GRAPH_DIRECT_READ=1``)
+    is a separate opt-in on top of authority mode: the R.3 performance
+    witness found the direct path product-breaking on the warm-projection
+    surface, so the production switch waits for R.3a read optimization.
+    """
+    from apps.live_control_server import config
+    from graph_memory.world_supergraph import storage
+
+    if config.world_graph_authority_mode() != storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND:
+        return False
+    if not config.world_graph_direct_read_enabled():
+        return False
+    if root is not None and (
+        Path(root).resolve() != Path(config.world_graph_root()).resolve()
+    ):
+        return False
+    return True
+
+
+def _project_world_graph_direct(
+    request: WorldGraphProjectionRequest,
+) -> WorldGraphProjection:
+    """R.3: execute the projection natively in DungeonMind (no Buddy kernel)."""
+    from apps.live_control_server import config
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+
+    started = time.perf_counter()
+    try:
+        services = direct.direct_services_from_config(request.world_id)
+        projection = direct.project_world_graph_direct(
+            services, request, repo_root=config.repo_root()
+        )
+    except direct.DirectWorldGraphReadError as exc:
+        raise WorldGraphProjectionServiceError(
+            str(exc),
+            code=exc.code,
+            status_code=exc.status_code,
+            diagnostics=[
+                WorldGraphProjectionDiagnostic(
+                    code=str(d.get("code", exc.code)),
+                    message=str(d.get("message", str(exc))),
+                    severity="error",
+                )
+                for d in exc.diagnostics
+            ]
+            or None,
+        ) from None
+    logger.info(
+        "world_graph_projection_direct_observation",
+        extra={
+            "world_id": request.world_id,
+            "campaign_id": request.campaign_id,
+            "read_path": "dungeonmind_direct",
+            "duration_ms": (time.perf_counter() - started) * 1000.0,
+            "nodes_returned": len(projection.nodes),
+            "relationships_returned": len(projection.relationships),
+            "attributes_returned": len(projection.attributes),
+        },
+    )
+    return projection
+
+
 def _route_authority_read(
     request: WorldGraphProjectionRequest,
     root: Path | None,
@@ -190,6 +262,8 @@ def project_world_graph(
     *,
     root: Path | None = None,
 ) -> WorldGraphProjection:
+    if _direct_read_active(root):
+        return _project_world_graph_direct(request)
     route = _route_authority_read(request, root)
     graph_root, request = route.graph_root, route.request
     counters = kernel.begin_request_io()

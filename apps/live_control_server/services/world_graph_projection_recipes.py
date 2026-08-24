@@ -30,6 +30,22 @@ RecipeStatus = Literal[
     "failed",
 ]
 
+
+def _dungeonmind_authority_active() -> bool:
+    """R.3: in ``dungeonmind`` mode reads execute natively in DungeonMind.
+
+    Projection recipes exist only to warm the Buddy projection cache, which
+    has no consumer on the direct read path; registration and replay are
+    no-ops in this mode.
+    """
+    from apps.live_control_server import config
+    from graph_memory.world_supergraph import storage
+
+    return (
+        config.world_graph_authority_mode()
+        == storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
+
 _DEFAULT_MAX_ENTRIES = 16
 _DEFAULT_TTL_S = 900.0
 _DEFAULT_WARM_BATCH = 4
@@ -165,6 +181,8 @@ def register_projection_recipe(
 ) -> None:
     """Best-effort register or refresh one eligible projection recipe."""
     try:
+        if _dungeonmind_authority_active():
+            return
         if not _is_eligible(request):
             return
         key = _recipe_key(root=root, request=request)
@@ -236,6 +254,8 @@ def warm_projection_recipes_for_ready_revision(
 ) -> None:
     """Replay bounded eligible recipes against one exact ready revision."""
     try:
+        if _dungeonmind_authority_active():
+            return
         if not projection_cache_enabled():
             return
         if not still_current():

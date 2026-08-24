@@ -12,6 +12,14 @@ Two layers:
   pre-switch Eldyrwild store at ``DMB_CUTOVER_FROZEN_ROOT`` (default:
   the conventional operator ``out/`` root when present). Proves the §10
   evidence rows against the real sealed bundle and the real frozen snapshot.
+
+CUTOVER R.3 reclassification: the hydration/read-routing machinery exercised
+here is now **legacy/write compatibility** only. In ``dungeonmind`` authority
+mode, production reads dispatch to the direct DungeonMind adapter (see
+``tests/test_cutover_direct_dungeonmind_world_graph_reads.py``); the hydrated
+Buddy graph remains solely as the governed-write/review compatibility path
+until its own successor retires it. The write-side proofs in this module are
+preserved unchanged.
 """
 
 from __future__ import annotations
@@ -1234,6 +1242,13 @@ def test_v4_hydrated_route_stays_on_legacy_path_when_direct_read_absent(
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT", str(cache_root))
     monkeypatch.delenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", raising=False)
     monkeypatch.setattr(wga, "_open_repository_bundle", lambda database_url: bundle)
+    # Other R.3 tests import the direct adapter in-process. Pop it so this
+    # assertion proves *this* hydrated route did not import it, not that the
+    # module has never existed in the pytest session.
+    sys.modules.pop(
+        "apps.live_control_server.integrations.dungeonmind.world_graph_reads",
+        None,
+    )
 
     route = wga.route_service_read(_projection_request(), None, default_root=frozen)
     metadata = wga.read_hydration_metadata(route.graph_root)

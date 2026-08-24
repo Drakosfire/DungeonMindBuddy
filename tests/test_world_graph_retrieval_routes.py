@@ -844,3 +844,328 @@ def test_api_contract_fixture_matches_real_generated_operations(tmp_path: Path) 
     generated = build_retrieval_api_contract(tmp_path)
     fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     assert fixture == generated
+
+
+# --- CUTOVER R.3: mounted direct DungeonMind read path ----------------------
+#
+# In ``dungeonmind`` authority mode the HTTP routes dispatch to the direct
+# DungeonMind read adapter. These tests mount the app against in-memory
+# DungeonMind repositories and prove the legacy kernel/hydration machinery is
+# never invoked (explosion stubs).
+
+
+@pytest.fixture
+def direct_services():
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        NOW,
+        _FakeBundle,
+        _payload,
+        _receipt,
+        _seed_sources,
+    )
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        WORLD_ID as DIRECT_WORLD_ID,
+    )
+
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
+
+    world_graph = InMemoryWorldGraphRepository()
+    published = world_graph.publish_revision(
+        PublishRevisionCommand(
+            world_id=DIRECT_WORLD_ID,
+            parent_revision_id=None,
+            expected_parent_revision_id=None,
+            operation_ids=["op:mounted-r3"],
+            graph_schema="dm_union_graph_v6",
+            graph_payload=_payload(),
+            created_at=NOW,
+        )
+    )
+    bundle = _FakeBundle(
+        world_graph,
+        _seed_sources(),
+        _receipt(DIRECT_WORLD_ID, published.revision_id),
+    )
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+
+    return direct.direct_services_from_bundle(bundle, DIRECT_WORLD_ID)
+
+
+@pytest.fixture
+def direct_client(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, direct_services
+) -> TestClient:
+    from graph_memory.world_supergraph import storage
+
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", "1")
+    monkeypatch.setenv(
+        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
+    storage.clear_world_graph_cache_roots()
+
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+
+    monkeypatch.setattr(
+        direct, "direct_services_from_config", lambda world_id: direct_services
+    )
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("legacy kernel must not run on the direct read path")
+
+    monkeypatch.setattr(kernel, "search_campaign_graph", _explode)
+    monkeypatch.setattr(kernel, "get_campaign_object", _explode)
+    monkeypatch.setattr(kernel, "get_object_neighborhood", _explode)
+    monkeypatch.setattr(kernel, "get_object_evidence", _explode)
+    monkeypatch.setattr(kernel, "resolve_admitted_anchor_match", _explode)
+    return TestClient(create_app())
+
+
+def _direct_base_request(**overrides) -> dict:
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        CAMPAIGN_ONE,
+    )
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        WORLD_ID as DIRECT_WORLD_ID,
+    )
+
+    payload = {"worldId": DIRECT_WORLD_ID, "campaignId": CAMPAIGN_ONE}
+    payload.update(overrides)
+    return payload
+
+
+def test_direct_search_route_returns_200_with_results(direct_client: TestClient) -> None:
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/search",
+        json={
+            "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+            **_direct_base_request(queryText="tavern"),
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    labels = [node["label"] for node in body["nodes"]]
+    assert "The Prancing Tavern" in labels
+
+
+def test_direct_object_route_returns_200(direct_client: TestClient) -> None:
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/object",
+        json={
+            "schema": RETRIEVAL_OBJECT_REQUEST_SCHEMA,
+            **_direct_base_request(nodeId="obj:tavern"),
+        },
+    )
+    assert response.status_code == 200
+    assert [n["nodeId"] for n in response.json()["nodes"]] == ["obj:tavern"]
+
+
+def test_direct_unknown_revision_pin_is_404_envelope(direct_client: TestClient) -> None:
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/search",
+        json={
+            "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+            **_direct_base_request(queryText="tavern", revisionPin="rev:never-existed"),
+        },
+    )
+    assert response.status_code == 404
+    payload = response.json()
+    assert payload["schema"] == "dmb_world_graph_retrieval_error_v1"
+    assert payload["code"] == "revision_not_bridged"
+
+
+def test_direct_player_admissibility_hides_gm_only(direct_client: TestClient) -> None:
+    """R.3: PLAYER maps through the closed DND GM/PLAYER vocabulary.
+
+    DungeonMind's fail-closed visibility gate hides GM-only material; the
+    route must not reject PLAYER outright.
+    """
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/search",
+        json={
+            "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+            **_direct_base_request(queryText="tavern", admissibility="player"),
+        },
+    )
+    assert response.status_code == 200
+    # All seeded artifacts are visibility=GM, so PLAYER admits nothing.
+    assert response.json()["nodes"] == []
+    assert response.json()["snapshot"]["admissibility"] == "player"
+
+
+def test_direct_anchor_read_route_revalidates(direct_client: TestClient) -> None:
+    evidence = direct_client.post(
+        f"{RETRIEVAL_URL}/evidence",
+        json={
+            "schema": RETRIEVAL_EVIDENCE_REQUEST_SCHEMA,
+            **_direct_base_request(target={"kind": "node", "id": "obj:tavern"}),
+        },
+    )
+    assert evidence.status_code == 200
+    anchors = evidence.json()["sourceAnchors"]
+    assert anchors
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/source-anchor/read",
+        json={
+            "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+            **_direct_base_request(anchorId=anchors[0]["anchorId"]),
+        },
+    )
+    assert response.status_code == 200
+    # The anchor revalidates against DungeonMind authority; the product-local
+    # content join degrades because no repo files exist in this fixture.
+    assert response.json()["outcome"] in {"enough", "partial", "unavailable"}
+
+
+def test_direct_source_span_anchor_cross_campaign_world_scope(
+    direct_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R.3: cross-campaign world-scope reads open campaign-owned source spans.
+
+    A campaign-owned source artifact may be correctly admitted by DND's
+    cross-campaign projection. The product opener must not reject it because
+    the snapshot represents cross-campaign scope with campaign_id="".
+    """
+    from graph_memory.retrieval.models import (
+        WorldGraphRetrievalTrustBoundary,
+        WorldGraphSourceAnchorReadResult,
+    )
+
+    # Mock the registry-backed opener to prove it is composed.
+    captured: dict = {}
+
+    def _fake_open(**kwargs):
+        captured.update(kwargs)
+        return WorldGraphSourceAnchorReadResult(
+            outcome="enough",
+            snapshot=kwargs.get("snapshot"),
+            anchor_id=kwargs["anchor_id"],
+            evidence_ref_id=kwargs.get("evidence_ref_id"),
+            source_artifact_id=kwargs["source_artifact_id"],
+            source_domain="worldbuilding",
+            source_span_ref_id=kwargs["source_span_ref_id"],
+            locator_kind="source_span",
+            media_type="text/markdown",
+            content="span content",
+            content_sha256=kwargs.get("graph_content_sha256"),
+            line_start=None,
+            line_end=None,
+            truncated=False,
+            trust_boundary=WorldGraphRetrievalTrustBoundary(
+                can_trust=[], cannot_trust=[]
+            ),
+            diagnostics=[],
+        )
+
+    # Patch the adapter's lazy import of the opener.
+    import apps.live_control_server.services.worldbuilding_source_span_read as span_mod
+
+    monkeypatch.setattr(span_mod, "read_admitted_worldbuilding_span", _fake_open)
+
+    # Mock the DND revalidation to return a source_span anchor resolution.
+    from dungeonmind.application.world_graph_retrieval import (
+        SourceAnchorMetadata,
+        SourceAnchorResolution,
+    )
+    from dungeonmind.contracts.evidence import EvidenceRefV2
+    from dungeonmind.contracts.projection import ProjectionFocus
+    from dungeonmind.contracts.projection_v2 import (
+        Admissibility,
+        ProjectionSnapshotV2,
+        ScopeModeV2,
+    )
+    from datetime import datetime, timezone
+
+    span_evidence = EvidenceRefV2(
+        schema_version="dm_evidence_ref_v2",
+        evidence_ref_id="ev:span-anchor",
+        source_artifact_id="src:one-recap",
+        source_revision_id="srcrev:one-recap-v1",
+        source_domain_key="buddy.worldbuilding",
+        source_domain="worldbuilding",
+        evidence_role="support",
+        can_open_source=True,
+        can_highlight_span=True,
+        session_id=None,
+        source_span_ref_id="span:para-1",
+        locator=None,
+        uri=None,
+        source_locator=None,
+        line_ref=None,
+    )
+
+    # Get the artifact from the seeded repository.
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+
+    svc = direct.direct_services_from_config("eldyrwild")
+    artifact = svc.bundle.sources.get_artifact("src:one-recap")
+
+    anchor_meta = SourceAnchorMetadata(
+        anchor_id="dm-source-anchor:v1:test",
+        evidence_ref_id="ev:span-anchor",
+        source_artifact_id="src:one-recap",
+        source_revision_id="srcrev:one-recap-v1",
+        locator_identity="span:para-1",
+        source_span_ref_id="span:para-1",
+        can_open_source=True,
+        can_highlight_span=True,
+        supporting_object_ids=(),
+        supporting_relationship_ids=(),
+        supporting_assertion_ids=(),
+        evidence=span_evidence,
+        artifact=artifact,
+    )
+
+    # Build a cross-campaign world-scope snapshot for the resolution.
+    snapshot = ProjectionSnapshotV2(
+        world_id="eldyrwild",
+        campaign_id=None,  # Cross-campaign world scope
+        focus=ProjectionFocus(kind="none"),
+        admissibility=Admissibility.GM,
+        scope_mode=ScopeModeV2.WORLD_CROSS_CAMPAIGN,
+        revision_id="rev:test",
+        head_revision_id="rev:test",
+        is_head=True,
+        projected_at=datetime.now(timezone.utc),
+    )
+
+    resolution = SourceAnchorResolution(
+        snapshot=snapshot,
+        found=True,
+        anchor_id="dm-source-anchor:v1:test",
+        anchor=anchor_meta,
+    )
+
+    # Mock the DND revalidation to return the source_span anchor resolution.
+    monkeypatch.setattr(
+        svc.retrieval, "resolve_source_anchor", lambda *args, **kwargs: resolution
+    )
+
+    response = direct_client.post(
+        f"{RETRIEVAL_URL}/source-anchor/read",
+        json={
+            "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+            **_direct_base_request(
+                anchorId="source-anchor:v1:test", scopeMode="world"
+            ),
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["outcome"] == "enough"
+    assert body["content"] == "span content"
+    assert captured["source_span_ref_id"] == "span:para-1"
+    assert captured["source_artifact_id"] == "src:one-recap"
+    # The snapshot passed to the opener must represent cross-campaign scope.
+    assert captured["snapshot"].scope_mode == "world"
+    assert captured["snapshot"].campaign_id == ""

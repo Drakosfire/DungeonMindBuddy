@@ -129,3 +129,94 @@ def test_projection_route_returns_camel_case_graph_after_init(
     assert payload["queryContext"]["matchedNodeIds"][0] == "threat:tripod-null-calf"
     assert "revision_id" not in json.dumps(payload)
     assert "matched_node_ids" not in json.dumps(payload)
+
+
+# --- CUTOVER R.3: mounted direct DungeonMind projection ----------------------
+
+
+def test_projection_route_dispatches_direct_in_dungeonmind_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Mounted proof: the projection HTTP route executes in DungeonMind.
+
+    Kernel/hydration explosion stubs prove the legacy graph read machinery
+    never runs; the response carries the DungeonMind revision identity.
+    """
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority,
+    )
+    from graph_memory.world_supergraph import storage
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        CAMPAIGN_ONE,
+        NOW,
+        _FakeBundle,
+        _payload,
+        _receipt,
+        _seed_sources,
+    )
+    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+        WORLD_ID as DIRECT_WORLD_ID,
+    )
+
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
+
+    world_graph = InMemoryWorldGraphRepository()
+    published = world_graph.publish_revision(
+        PublishRevisionCommand(
+            world_id=DIRECT_WORLD_ID,
+            parent_revision_id=None,
+            expected_parent_revision_id=None,
+            operation_ids=["op:mounted-projection-r3"],
+            graph_schema="dm_union_graph_v6",
+            graph_payload=_payload(),
+            created_at=NOW,
+        )
+    )
+    bundle = _FakeBundle(
+        world_graph,
+        _seed_sources(),
+        _receipt(DIRECT_WORLD_ID, published.revision_id),
+    )
+    services = direct.direct_services_from_bundle(bundle, DIRECT_WORLD_ID)
+
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", "1")
+    monkeypatch.setenv(
+        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
+    storage.clear_world_graph_cache_roots()
+    monkeypatch.setattr(
+        direct, "direct_services_from_config", lambda world_id: services
+    )
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("legacy kernel must not run on the direct read path")
+
+    monkeypatch.setattr(kernel, "project_world_graph_from_context", _explode)
+    monkeypatch.setattr(kernel, "resolve_projection_read_context", _explode)
+    monkeypatch.setattr(world_graph_authority, "route_read_request", _explode)
+
+    client = TestClient(create_app())
+    response = client.post(
+        PROJECTION_URL,
+        json={
+            "schema": "dmb_world_graph_projection_request_v1",
+            "world_id": DIRECT_WORLD_ID,
+            "campaign_id": CAMPAIGN_ONE,
+            "admissibility": "gm",
+            "scope_mode": "campaign",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["snapshot"]["revisionId"] == published.revision_id
+    assert body["snapshot"]["isHead"] is True
+    node_ids = {node["nodeId"] for node in body["nodes"]}
+    assert node_ids == {"obj:tavern", "obj:hidden-cellar", "obj:hero", "obj:road-sign"}
