@@ -1901,6 +1901,49 @@ def test_correspondence_reports_corresponding(adopted_world):
 
 
 @pytest.mark.integration
+def test_native_mutation_context_carries_eldyrwild_merge_redirects(adopted_world):
+    """Current Eldyrwild identity ledger supplies merge redirects natively.
+
+    Frozen Buddy A has 7 active merges / 7 redirects and 0 reject/override
+    records. ``Enormous boulder`` must resolve to the surviving statue-foot
+    identity, not the merged-away source and not a created_new duplicate.
+    """
+    from graph_memory.kernel.identity_models import IdentityCandidate
+    from graph_memory.world_graph_mutation_context import (
+        resolve_identity_against_context,
+    )
+
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=adopted_world["dsn"]
+    )
+    assert context.identity_redirects["item_enormous_boulder"] == "item_foot_of_statue"
+    assert len(context.identity_redirects) == 7
+    assert any(record.decision_kind == "merge" for record in context.identity_decisions)
+    assert not any(
+        record.decision_kind in {"reject_candidate", "human_override"}
+        for record in context.identity_decisions
+    )
+    boulder = context.objects.get("item_enormous_boulder")
+    if boulder is not None:
+        assert boulder.memory_state == "merged_away" or boulder.canon_state == "merged_away"
+    resolution = resolve_identity_against_context(
+        context,
+        IdentityCandidate(
+            world_id=WORLD_ID,
+            candidate_id="extract:enormous-boulder",
+            label="Enormous boulder",
+            object_kind="item",
+            aliases=["Enormous boulder"],
+            evidence_ref_ids=["span:1"],
+        ),
+    )
+    assert resolution.outcome == "resolved_existing"
+    assert resolution.target_node_id == "item_foot_of_statue"
+
+
+@pytest.mark.integration
 def test_identity_bridge_exact_and_fail_closed(adopted_world, tmp_path):
     """§10: only the exact adopted receipt maps legacy Buddy A to D_A."""
     from apps.live_control_server.integrations.dungeonmind_kernel import (
@@ -2603,6 +2646,18 @@ def test_governed_write_through_service_confirm_path(write_world):
     assert receipt.affected_object_ids == ["node:cutover-service-tinker"]
     committed = receipt.committed_revision_id
     assert committed != d_a
+    retry = confirm_extract_promote(
+        ExtractPromoteConfirmRequest(
+            review_package=package,
+            assertion_ids=accepted_ids,
+        )
+    )
+    assert retry.outcome == "already_applied"
+    assert retry.committed_revision_id == receipt.committed_revision_id
+    assert retry.accepted_assertion_ids == receipt.accepted_assertion_ids
+    assert retry.affected_object_ids == receipt.affected_object_ids
+    assert retry.applied_assertion_count == receipt.applied_assertion_count
+    assert retry.parent_revision_id == receipt.parent_revision_id
     bundle = write_world["bundle"]
     head = bundle.world_graph.get_head(WORLD_ID)
     assert head is not None and head.head_revision_id == committed

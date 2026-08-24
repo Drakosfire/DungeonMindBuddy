@@ -45,7 +45,11 @@ def _context(*objects: MutationObject) -> WorldGraphMutationContext:
     )
 
 
-def test_static_write_module_has_no_buddy_graph_runtime_imports():
+def test_static_write_module_has_no_direct_buddy_graph_runtime_imports():
+    """Direct import scan only. Transitive reach into adoption/extract_promote_ops
+    (which import kernel/UnionSupergraph) is recorded D.2/D.3 cleanup, not a D.1
+    runtime construction of those types.
+    """
     tree = ast.parse(WRITES_PATH.read_text())
     imported: list[str] = []
     for node in ast.walk(tree):
@@ -197,6 +201,158 @@ def test_identity_ambiguous_same_kind_fails_closed():
     )
     assert resolution.outcome == "ambiguous"
     assert resolution.requires_human_review is True
+
+
+def test_native_producer_honors_reject_and_human_override():
+    from types import SimpleNamespace
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        mutation_context_from_revision_payload,
+    )
+
+    stored = SimpleNamespace(
+        graph_payload={
+            "objects": [
+                {
+                    "object_id": "npc_hester_b",
+                    "label": "Hester Bright",
+                    "kind": "npc",
+                    "aliases": [{"value": "Hester Bright"}],
+                    "assertion_metadata": {"canon_state": "canonical"},
+                }
+            ]
+        },
+        revision=SimpleNamespace(revision_id="rev:parent"),
+    )
+    reject = SimpleNamespace(
+        decision_id="identity-decision:reject-noise",
+        world_id="eldyrwild",
+        decision_kind="reject_candidate",
+        subject_object_ids=["extract:noise"],
+        target_object_ids=[],
+        alias=None,
+        actor="gm",
+        reason="Not a durable campaign identity",
+        reversible=True,
+        supersedes_decision_ids=[],
+        status="active",
+        created_at="2026-08-01T00:00:00Z",
+        source_candidate_id=None,
+    )
+    override = SimpleNamespace(
+        decision_id="identity-decision:hester-override",
+        world_id="eldyrwild",
+        decision_kind="human_override",
+        subject_object_ids=["extract:hester"],
+        target_object_ids=["npc_hester_b"],
+        alias=None,
+        actor="gm",
+        reason="Hester Bright is the intended match",
+        reversible=True,
+        supersedes_decision_ids=[],
+        status="active",
+        created_at="2026-08-01T00:00:01Z",
+        source_candidate_id=None,
+    )
+    context = mutation_context_from_revision_payload(
+        stored,
+        world_id="eldyrwild",
+        head_revision_id="rev:parent",
+        dungeonmind_decisions=[reject, override],
+    )
+    rejected = resolve_identity_against_context(
+        context,
+        IdentityCandidate(
+            world_id="eldyrwild",
+            candidate_id="extract:noise",
+            label="Background Extra",
+            object_kind="npc",
+            aliases=["Extra"],
+            evidence_ref_ids=["span:1"],
+        ),
+    )
+    assert rejected.outcome == "rejected"
+    assert rejected.decision_id == reject.decision_id
+    overridden = resolve_identity_against_context(
+        context,
+        IdentityCandidate(
+            world_id="eldyrwild",
+            candidate_id="extract:hester",
+            label="Hester",
+            object_kind="npc",
+            aliases=["Hester"],
+            evidence_ref_ids=["span:1"],
+        ),
+    )
+    assert overridden.outcome == "human_override"
+    assert overridden.target_node_id == "npc_hester_b"
+    assert overridden.decision_id == override.decision_id
+
+
+def test_native_producer_follows_merge_redirect_not_merged_away_source():
+    from types import SimpleNamespace
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        mutation_context_from_revision_payload,
+    )
+
+    stored = SimpleNamespace(
+        graph_payload={
+            "objects": [
+                {
+                    "object_id": "item_enormous_boulder",
+                    "label": "Enormous boulder",
+                    "kind": "item",
+                    "aliases": [{"value": "Enormous boulder"}],
+                    "assertion_metadata": {"canon_state": "canonical"},
+                },
+                {
+                    "object_id": "item_foot_of_statue",
+                    "label": "Foot of a once enormous statue",
+                    "kind": "item",
+                    "aliases": [{"value": "Foot of a once enormous statue"}],
+                    "assertion_metadata": {"canon_state": "canonical"},
+                },
+            ]
+        },
+        revision=SimpleNamespace(revision_id="rev:parent"),
+    )
+    merge = SimpleNamespace(
+        decision_id="identity-decision:boulder-merge",
+        world_id="eldyrwild",
+        decision_kind="merge",
+        subject_object_ids=["item_enormous_boulder", "item_foot_of_statue"],
+        target_object_ids=["item_foot_of_statue"],
+        alias=None,
+        actor="gm",
+        reason="boulder resolves into the statue foot",
+        reversible=True,
+        supersedes_decision_ids=[],
+        status="active",
+        created_at="2026-08-12T16:32:34Z",
+        source_candidate_id=None,
+    )
+    context = mutation_context_from_revision_payload(
+        stored,
+        world_id="eldyrwild",
+        head_revision_id="rev:parent",
+        dungeonmind_decisions=[merge],
+    )
+    assert context.identity_redirects["item_enormous_boulder"] == "item_foot_of_statue"
+    assert context.objects["item_enormous_boulder"].memory_state == "merged_away"
+    resolution = resolve_identity_against_context(
+        context,
+        IdentityCandidate(
+            world_id="eldyrwild",
+            candidate_id="extract:boulder",
+            label="Enormous boulder",
+            object_kind="item",
+            aliases=["Enormous boulder"],
+            evidence_ref_ids=["span:1"],
+        ),
+    )
+    assert resolution.outcome == "resolved_existing"
+    assert resolution.target_node_id == "item_foot_of_statue"
 
 
 def test_endpoint_existence_parent_same_batch_and_missing():

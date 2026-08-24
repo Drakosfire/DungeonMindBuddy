@@ -17,7 +17,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.1: native governed write context / hydration retirement
 
 **Created:** 2026-08-24  
-**Status:** IMPLEMENTATION IN REVIEW — D.1 `DOING` on `cutover/native-governed-write-context`  
+**Status:** IMPLEMENTATION IN REVIEW — Cycle 1 (GitHub COMMENT `5012714481`) addressed; D.1 `DOING` on `cutover/native-governed-write-context`  
 **Workstream:** CUTOVER / World Graph runtime retirement  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
@@ -1135,6 +1135,15 @@ cleanup debt.
 Recorded on the implementation branch before PR open. Merge SHA is not
 invented here; tracker D.1 stays `DOING` until this PR lands.
 
+Cycle 1 review (GitHub COMMENT `5012714481`) required two correctness
+fixes and one documentation correction. Hydration was not restored.
+Native producers now carry DungeonMind identity-decision/redirect
+equivalents (reject, human-override, merge redirects, alias rewrites).
+Exact retry reconstructs accepted/affected IDs from the sealed contribution
+at the published parent. The AST scan is recorded as a **direct-import**
+proof only; transitive reach into adoption/`extract_promote_ops` is D.2/D.3
+cleanup.
+
 ### 18.1 Branch and ancestry
 
 ```text
@@ -1144,6 +1153,7 @@ base       origin/main = 65d13dcca8162b5eccd0c81dd4235dec93c8cd0c
 design     e3d2ee4161063718544514e5955841ce51586168
            (docs-only; one new file: this handoff)
 impl HEAD  c2e0cd3d3cfd88ed935300c4dd7816a5a93348e1
+Cycle 1    addressed against COMMENT 5012714481 (SHA recorded after commit)
 pin        DungeonMind c5d3688587b0f5d506e0f7d64f33eb0628bac896
 ```
 
@@ -1213,19 +1223,35 @@ WorldGraphMutationContext
     canon_state          # identity classifier reads it
     memory_state         # file-mode classifier reads it
   alias_owners           # connect-existing skip diagnostics
-  identity_redirects     # file-mode classifier; empty on DND payload producer
-  identity_decisions     # file-mode classifier; empty on DND payload producer
+  identity_redirects     # active merge subjects → surviving target
+  identity_decisions     # durable DND identity ledger (Buddy-shaped)
 ```
 
 `kind` is stripped of `dnd5e:` via `wire_kind`. Canon map:
 `provisional` → `noncanonical_provisional`, `retracted` → `rejected`.
 
 **Producer for DND production:** `mutation_context_from_revision_payload`
-(published DungeonMind revision `graph_payload`), not the scoped GM
-projection. Whole-world `WORLD_CROSS_CAMPAIGN` projection excludes adopted
-objects with `campaign_scope=None` (`scope_unknown=True`); that would hide
-the identity set the old durable store had. Projection helper
-`mutation_context_from_native_projection` remains for completeness.
+(published DungeonMind revision `graph_payload`) plus
+`bundle.identity_decisions.list_for_world`. Graph snapshots do not carry
+identity decisions. The native equivalent is:
+
+- active `merge` decisions → `identity_redirects` and merge-source objects
+  marked `merged_away` (DungeonMind payloads may still list those objects as
+  canonical);
+- `reject_candidate` / `human_override` / `mark_ambiguous` →
+  `source_candidate_id = subject_object_ids[0]` because DungeonMind has no
+  separate candidate-id field.
+
+Current Eldyrwild witness: 7 active merges / 7 redirects, 0 reject/override
+rows (same as frozen Buddy A). `Enormous boulder` resolves to
+`item_foot_of_statue`. Reject/override are covered by native-producer unit
+tests with DND-shaped decisions.
+
+Whole-world `WORLD_CROSS_CAMPAIGN` projection excludes adopted objects with
+`campaign_scope=None` (`scope_unknown=True`); that would hide the identity
+set the old durable store had. Projection helper
+`mutation_context_from_native_projection` remains for completeness and also
+accepts the identity ledger.
 
 One identity algorithm: `resolve_identity_against_context`.
 `kernel.identity.classify_identity_outcome` is a thin store→context wrapper
@@ -1254,8 +1280,11 @@ from DND publication state → refuse Buddy/private parents
 (`governed_write_stale_parent`) → reconstruct against mutation context at
 that parent → v2 finalize + publish → native post-publish head/child check.
 Receipts derive `accepted_assertion_ids` / `affected_object_ids` from the
-reconstructed contribution. `projection_world_root` is not consumed on the
-DND path. `cache_root` / `frozen_root` / `world_root` kwargs are ignored.
+reconstructed contribution on **both** first publish and exact retry.
+Retry reconstructs the sealed contribution against the published parent
+without hydrating; only `outcome` becomes `already_applied`.
+`projection_world_root` is not consumed on the DND path. `cache_root` /
+`frozen_root` / `world_root` kwargs are ignored.
 `bind_world_authority(..., frozen_root=)` is not used on this path.
 
 ### 18.7 Legacy packages
@@ -1297,20 +1326,27 @@ fixture and dependents).
 
 ### 18.10 Static DND production dependency scan
 
-AST scan of `world_graph_writes.py`:
+AST scan of `world_graph_writes.py` proves **no direct imports** of:
 
 ```text
-NO graph_memory.kernel
-NO graph_memory.world_supergraph
-NO graph_memory.union_supergraph
+graph_memory.kernel
+graph_memory.world_supergraph
+graph_memory.union_supergraph
 ```
 
-Witness: `test_static_write_module_has_no_buddy_graph_runtime_imports`.
-Contribution/proposal value models are imported from `graph_memory.extract_promote_ops`.
-Mapping vocabulary is reused from `dungeonmind_kernel` adoption/conformance with
-duck-typed `_EmptyEvidenceView` so the write module source has no forbidden
-runtime imports. `_map_contributions` type-hints `UnionSupergraphStore` in the
-adoption helper; the write path never constructs one.
+Witness: `test_static_write_module_has_no_direct_buddy_graph_runtime_imports`.
+
+This is **not** a transitive zero-dependency boundary. The writer still
+reaches, through helpers it calls:
+
+- `graph_memory.extract_promote_ops` (package verification / reconstruction);
+- `dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2` mapping
+  vocabulary (duck-typed `_EmptyEvidenceView`; `_map_contributions` type-hints
+  `UnionSupergraphStore` in that module).
+
+None of those helpers construct, open, hydrate, or replay a Buddy graph on
+the D.1 runtime path (exploded in integration tests). Removing that
+transitive import surface is **D.2/D.3 cleanup**, not a D.1 blocker.
 
 DND prepare/confirm call-sites do not reach `open_current_world_graph`,
 `load_world_graph_revision`, `rebuild_from_contributions`,
@@ -1326,21 +1362,21 @@ env -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY uv run pytest \
   tests/test_extract_promote_ops_atomic.py \
   tests/test_extract_promote_proposal.py \
   tests/test_cutover_direct_dungeonmind_world_graph_reads.py -q
-→ 91 passed / 0 skipped / 0 failed in 8.82s
+→ 93 passed / 0 skipped / 0 failed in 8.61s
 
 env -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY uv run pytest \
   tests/test_cutover_dungeonmind_world_graph_authority.py -q -m "not integration"
-→ 28 passed / 1 skipped / 24 deselected / 0 failed in 1.19s
+→ 28 passed / 1 skipped / 25 deselected / 0 failed in 1.01s
 
 DMB_CUTOVER_TEST_DATABASE_URL='postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dmb_cutover_test'
 DMB_CUTOVER_FROZEN_ROOT=$HOME/Projects/DungeonOverMind/DungeonMindBuddy/out
 env -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY uv run pytest \
   tests/test_cutover_dungeonmind_world_graph_authority.py \
   tests/test_cutover_native_governed_write.py -q
-→ 51 passed / 12 skipped / 0 failed in 158.89s
+→ 54 passed / 12 skipped / 0 failed in 155.07s
 ```
 
-Skipped rows are retired hydration tests (`CUTOVER D.1 retired Buddy graph hydration`) plus the one unit skip in the authority file. Ruff on the changed Python files: all checks passed.
+Skipped rows are retired hydration tests (`CUTOVER D.1 retired Buddy graph hydration`) plus the one unit skip in the authority file. Cycle 1 added native-producer reject/override/merge unit tests, the current Eldyrwild merge-redirect witness, and the service-level exact-retry receipt assertion. Ruff on the changed Python files: all checks passed.
 
 ### 18.12 Isolated parent→child publication
 
@@ -1352,8 +1388,15 @@ object. No live Eldyrwild `D_B → D_C`.
 
 ### 18.13 Exact retry
 
-Same test: second confirm → `already_applied`, same child, revision set
-unchanged (`set(before) | {d_b}`).
+`test_governed_write_publishes_d_a_to_d_b_through_real_confirm_path`: second
+confirm → `already_applied`, same child, revision set unchanged
+(`set(before) | {d_b}`).
+
+`test_governed_write_through_service_confirm_path`: first and second product
+receipts agree on committed revision, accepted assertion IDs, affected
+object IDs, and applied count; only `outcome` becomes `already_applied`.
+Retry recovers those fields by reconstructing the sealed contribution
+against the published DungeonMind parent (no hydration).
 
 ### 18.14 Stale parent
 

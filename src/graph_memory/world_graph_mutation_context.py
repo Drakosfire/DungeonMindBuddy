@@ -16,8 +16,9 @@ Producers:
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -148,6 +149,132 @@ def mutation_context_from_store(
         identity_redirects=redirects,
         identity_decisions=tuple(decisions),
     )
+
+
+_CANDIDATE_DECISION_KINDS = frozenset(
+    {"reject_candidate", "human_override", "mark_ambiguous"}
+)
+
+
+def _iso_timestamp(value: Any) -> str:
+    if isinstance(value, str) and value.strip():
+        return value
+    if isinstance(value, datetime):
+        return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def identity_facts_from_dungeonmind_decisions(
+    decisions: Sequence[Any],
+) -> tuple[dict[str, str], dict[str, tuple[str, ...]], tuple[IdentityDecisionRecord, ...]]:
+    """Adapt durable DungeonMind identity decisions into classifier facts.
+
+    DungeonMind has no ``source_candidate_id`` field. For reject / override /
+    ambiguous marks, the native equivalent is ``subject_object_ids[0]`` (the
+    candidate id the decision was recorded against). Active merges become
+    identity redirects: every non-target subject maps to the merge target.
+    Merge side-effect alias rewrites are folded into ``alias_owners`` so a
+    merged-away label still resolves to the surviving object.
+    """
+    redirects: dict[str, str] = {}
+    extra_alias_owners: dict[str, tuple[str, ...]] = {}
+    mapped: list[IdentityDecisionRecord] = []
+    for raw in decisions:
+        kind = str(getattr(raw, "decision_kind", "") or "")
+        status = str(getattr(raw, "status", "") or "active")
+        subjects = [
+            str(item)
+            for item in list(getattr(raw, "subject_object_ids", None) or [])
+            if str(item).strip()
+        ]
+        targets = [
+            str(item)
+            for item in list(getattr(raw, "target_object_ids", None) or [])
+            if str(item).strip()
+        ]
+        source_candidate_id = getattr(raw, "source_candidate_id", None)
+        if not source_candidate_id and kind in _CANDIDATE_DECISION_KINDS and subjects:
+            source_candidate_id = subjects[0]
+        record = IdentityDecisionRecord.model_validate(
+            {
+                "decision_id": str(getattr(raw, "decision_id", "") or ""),
+                "world_id": str(getattr(raw, "world_id", "") or ""),
+                "decision_kind": kind,
+                "created_at": _iso_timestamp(getattr(raw, "created_at", None)),
+                "actor": str(getattr(raw, "actor", None) or "system"),
+                "reason": str(
+                    getattr(raw, "reason", None) or "dungeonmind identity decision"
+                ),
+                "source_candidate_id": (
+                    str(source_candidate_id) if source_candidate_id else None
+                ),
+                "subject_node_id": subjects[0] if subjects else None,
+                "target_node_id": targets[0] if targets else None,
+                "affected_node_ids": subjects,
+                "alias": getattr(raw, "alias", None),
+                "reversible": bool(getattr(raw, "reversible", True)),
+                "supersedes_decision_ids": list(
+                    getattr(raw, "supersedes_decision_ids", None) or []
+                ),
+                "status": status,
+                "merge_side_effects": None,
+            }
+        )
+        mapped.append(record)
+        if status != "active" or kind != "merge" or not targets:
+            continue
+        target = targets[0]
+        for subject in subjects:
+            if subject != target:
+                redirects[subject] = target
+        side_effects = getattr(raw, "merge_side_effects", None)
+        if side_effects is None:
+            continue
+        for rewrite in list(getattr(side_effects, "alias_map_rewrites", None) or []):
+            if isinstance(rewrite, dict):
+                key = str(rewrite.get("alias_key") or "").strip()
+                new_owner = str(rewrite.get("new_owner_node_id") or "").strip()
+            else:
+                key = str(getattr(rewrite, "alias_key", "") or "").strip()
+                new_owner = str(getattr(rewrite, "new_owner_node_id", "") or "").strip()
+            if key and new_owner:
+                prior = extra_alias_owners.get(key, ())
+                if new_owner not in prior:
+                    extra_alias_owners[key] = (*prior, new_owner)
+        for alias in list(getattr(side_effects, "aliases_added_to_target", None) or []):
+            key = str(alias).strip()
+            if not key:
+                continue
+            prior = extra_alias_owners.get(key, ())
+            if target not in prior:
+                extra_alias_owners[key] = (*prior, target)
+    return redirects, extra_alias_owners, tuple(mapped)
+
+
+def apply_identity_redirects_to_objects(
+    objects: Mapping[str, MutationObject],
+    redirects: Mapping[str, str],
+) -> dict[str, MutationObject]:
+    """Materialize merge redirects onto object identity state.
+
+    DungeonMind graph payloads may still list merge-source objects as
+    canonical. Classifier matching must treat those sources as merged-away
+    and follow redirects to the surviving identity.
+    """
+    updated = dict(objects)
+    for source in redirects:
+        obj = updated.get(source)
+        if obj is None or _is_merged_away_identity(obj):
+            continue
+        updated[source] = MutationObject(
+            object_id=obj.object_id,
+            label=obj.label,
+            kind=obj.kind,
+            aliases=obj.aliases,
+            canon_state="merged_away",
+            memory_state="merged_away",
+        )
+    return updated
 
 
 def mutation_context_from_world_root(
@@ -315,11 +442,20 @@ def _decision_for_candidate(
     context: WorldGraphMutationContext,
     candidate: IdentityCandidate,
 ) -> IdentityDecisionRecord | None:
-    active = [
-        record
-        for record in context.identity_decisions
-        if record.status == "active" and record.source_candidate_id == candidate.candidate_id
-    ]
+    active = []
+    for record in context.identity_decisions:
+        if record.status != "active":
+            continue
+        if record.decision_kind not in _CANDIDATE_DECISION_KINDS:
+            continue
+        if record.source_candidate_id == candidate.candidate_id:
+            active.append(record)
+            continue
+        if (
+            not record.source_candidate_id
+            and record.subject_node_id == candidate.candidate_id
+        ):
+            active.append(record)
     if not active:
         return None
     active.sort(key=lambda r: (r.created_at, r.decision_id))
@@ -571,7 +707,9 @@ def resolve_identity_against_context(
 __all__ = [
     "MutationObject",
     "WorldGraphMutationContext",
+    "apply_identity_redirects_to_objects",
     "endpoint_available",
+    "identity_facts_from_dungeonmind_decisions",
     "mutation_context_from_store",
     "mutation_context_from_world_root",
     "mutation_objects_as_match_dicts",

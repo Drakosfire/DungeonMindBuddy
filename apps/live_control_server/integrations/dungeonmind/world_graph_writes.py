@@ -22,6 +22,8 @@ from typing import Any
 from graph_memory.world_graph_mutation_context import (
     MutationObject,
     WorldGraphMutationContext,
+    apply_identity_redirects_to_objects,
+    identity_facts_from_dungeonmind_decisions,
     wire_kind,
 )
 
@@ -146,10 +148,82 @@ def _direct_services(database_url: str, world_id: str) -> Any:
         ) from exc
 
 
+def _context_with_dungeonmind_identity(
+    *,
+    world_id: str,
+    revision_id: str,
+    head_revision_id: str,
+    objects: dict[str, MutationObject],
+    alias_owners: dict[str, tuple[str, ...]],
+    dungeonmind_decisions: Sequence[Any] | None,
+) -> WorldGraphMutationContext:
+    redirects: dict[str, str] = {}
+    records: tuple[Any, ...] = ()
+    if dungeonmind_decisions:
+        try:
+            redirects, extra_alias_owners, records = identity_facts_from_dungeonmind_decisions(
+                dungeonmind_decisions
+            )
+        except Exception as exc:
+            raise WorldGraphWriteError(
+                "DungeonMind identity decisions cannot be adapted for mutation",
+                code="governed_write_inexpressible",
+                details={"world_id": world_id, "reason": str(exc)[:500]},
+            ) from exc
+        objects = apply_identity_redirects_to_objects(objects, redirects)
+        for alias, owners in extra_alias_owners.items():
+            prior = alias_owners.get(alias, ())
+            merged_owners = list(prior)
+            for owner in owners:
+                if owner not in merged_owners:
+                    merged_owners.append(owner)
+            alias_owners[alias] = tuple(merged_owners)
+    return WorldGraphMutationContext(
+        world_id=world_id,
+        revision_id=revision_id,
+        head_revision_id=head_revision_id,
+        objects=objects,
+        alias_owners=alias_owners,
+        identity_redirects=redirects,
+        identity_decisions=records,
+    )
+
+
+def _register_object_alias_owners(
+    objects: dict[str, MutationObject],
+    alias_owners: dict[str, tuple[str, ...]],
+) -> dict[str, tuple[str, ...]]:
+    """Register labels and aliases the way Buddy's alias map did."""
+    for obj in objects.values():
+        for key in (obj.label, *obj.aliases):
+            text = str(key or "").strip()
+            if not text:
+                continue
+            prior = alias_owners.get(text, ())
+            if obj.object_id not in prior:
+                alias_owners[text] = (*prior, obj.object_id)
+    return alias_owners
+
+
+def _alias_values(raw_aliases: Any) -> tuple[str, ...]:
+    values: list[str] = []
+    for alias in list(raw_aliases or []):
+        if isinstance(alias, str):
+            text = alias.strip()
+        elif isinstance(alias, dict):
+            text = str(alias.get("value") or "").strip()
+        else:
+            text = str(getattr(alias, "value", "") or "").strip()
+        if text:
+            values.append(text)
+    return tuple(values)
+
+
 def mutation_context_from_native_projection(
     result: Any,
     *,
     world_id: str,
+    dungeonmind_decisions: Sequence[Any] | None = None,
 ) -> WorldGraphMutationContext:
     """Build mutation context from one exact DungeonMind projection result."""
     snapshot = result.snapshot
@@ -169,7 +243,7 @@ def mutation_context_from_native_projection(
             object_id=obj.object_id,
             label=obj.label,
             kind=wire_kind(obj.kind),
-            aliases=tuple(str(alias) for alias in list(obj.aliases or []) if str(alias).strip()),
+            aliases=_alias_values(getattr(obj, "aliases", None)),
             canon_state=canon,
         )
     alias_owners: dict[str, tuple[str, ...]] = {}
@@ -177,17 +251,14 @@ def mutation_context_from_native_projection(
         owners = tuple(str(item) for item in list(ids or []) if str(item).strip())
         if alias and owners:
             alias_owners[str(alias)] = owners
-    for obj in objects.values():
-        for alias in obj.aliases:
-            prior = alias_owners.get(alias, ())
-            if obj.object_id not in prior:
-                alias_owners[alias] = (*prior, obj.object_id)
-    return WorldGraphMutationContext(
+    alias_owners = _register_object_alias_owners(objects, alias_owners)
+    return _context_with_dungeonmind_identity(
         world_id=world_id,
         revision_id=str(snapshot.revision_id),
         head_revision_id=str(snapshot.head_revision_id),
         objects=objects,
         alias_owners=alias_owners,
+        dungeonmind_decisions=dungeonmind_decisions,
     )
 
 
@@ -196,12 +267,15 @@ def mutation_context_from_revision_payload(
     *,
     world_id: str,
     head_revision_id: str,
+    dungeonmind_decisions: Sequence[Any] | None = None,
 ) -> WorldGraphMutationContext:
     """Identity facts from one exact published DungeonMind revision payload.
 
     Scoped projection excludes adopted objects whose campaign_scope is unset
     (``scope_unknown``). The old Buddy store was the full revision; identity
-    therefore reads the published graph payload directly.
+    therefore reads the published graph payload directly. Durable identity
+    decisions come from the DungeonMind identity ledger, not the graph
+    snapshot — they supply reject/override/merge-redirect semantics.
     """
     payload = dict(getattr(stored, "graph_payload", None) or {})
     objects: dict[str, MutationObject] = {}
@@ -225,26 +299,19 @@ def mutation_context_from_revision_payload(
             object_id=object_id,
             label=str(raw.get("label") or ""),
             kind=wire_kind(str(raw.get("kind") or "")),
-            aliases=tuple(
-                str(alias)
-                for alias in list(raw.get("aliases") or [])
-                if str(alias).strip()
-            ),
+            aliases=_alias_values(raw.get("aliases")),
             canon_state=canon,
         )
     alias_owners: dict[str, tuple[str, ...]] = {}
-    for obj in objects.values():
-        for alias in obj.aliases:
-            prior = alias_owners.get(alias, ())
-            if obj.object_id not in prior:
-                alias_owners[alias] = (*prior, obj.object_id)
+    alias_owners = _register_object_alias_owners(objects, alias_owners)
     revision_id = str(getattr(getattr(stored, "revision", None), "revision_id", "") or "")
-    return WorldGraphMutationContext(
+    return _context_with_dungeonmind_identity(
         world_id=world_id,
         revision_id=revision_id,
         head_revision_id=head_revision_id,
         objects=objects,
         alias_owners=alias_owners,
+        dungeonmind_decisions=dungeonmind_decisions,
     )
 
 
@@ -275,6 +342,7 @@ def load_production_mutation_context(
             head.head_revision_id if head is not None else ""
         )
         stored = bundle.world_graph.get_revision(world_id, pinned) if pinned else None
+        identity_decisions = bundle.identity_decisions.list_for_world(world_id)
     except (PersistenceUnavailableError, DungeonMindError) as exc:
         code = "authority_unavailable"
         if isinstance(exc, HeadNotFoundError):
@@ -308,6 +376,7 @@ def load_production_mutation_context(
         stored,
         world_id=world_id,
         head_revision_id=str(head.head_revision_id),
+        dungeonmind_decisions=identity_decisions,
     )
 
 
@@ -798,6 +867,34 @@ def _affected_ids_from_contribution(contribution: Any) -> tuple[list[str], list[
     return accepted_assertion_ids, affected_object_ids
 
 
+def _reconstruct_selected_contribution(
+    *,
+    package: dict[str, Any],
+    world_id: str,
+    parent_revision_id: str,
+    confirming_principal: str,
+    assertion_ids: tuple[str, ...] | None,
+    repo_root: Path,
+    mutation_context: WorldGraphMutationContext,
+) -> tuple[Any, Any]:
+    """Rebuild the sealed contribution against an exact DungeonMind parent."""
+    from graph_memory.extract_promote_ops import (
+        resolve_merged_contribution_from_package,
+    )
+
+    return resolve_merged_contribution_from_package(
+        review_package=package,
+        confirming_principal=confirming_principal,
+        world_id_hint=world_id,
+        mutation_context=mutation_context,
+        expected_parent_revision_id=parent_revision_id,
+        assertion_ids=assertion_ids,
+        repo_root=repo_root,
+        disclose_source_digest=False,
+        verify_source=True,
+    )
+
+
 def _confirm_proof_payload(
     package: dict[str, Any],
     *,
@@ -897,9 +994,6 @@ def confirm_extract_promote_via_dungeonmind(
         DungeonMindError,
         StaleParentRevisionError,
     )
-    from graph_memory.extract_promote_ops import (
-        resolve_merged_contribution_from_package,
-    )
 
     package = dict(request.review_package or {})
     world_id = str((package.get("effect") or {}).get("world_id") or "").strip()
@@ -927,6 +1021,36 @@ def confirm_extract_promote_via_dungeonmind(
             details={"world_id": world_id, "reason": type(exc).__name__},
         ) from exc
     if existing is not None:
+        try:
+            mutation_context = load_production_mutation_context(
+                world_id,
+                revision_pin=existing.expected_parent_revision_id,
+                database_url=dsn,
+            )
+            _verified, contribution = _reconstruct_selected_contribution(
+                package=package,
+                world_id=world_id,
+                parent_revision_id=existing.expected_parent_revision_id,
+                confirming_principal=confirming_principal,
+                assertion_ids=assertion_ids,
+                repo_root=repo_root,
+                mutation_context=mutation_context,
+            )
+        except WorldGraphWriteError:
+            raise
+        except Exception as exc:
+            raise WorldGraphWriteError(
+                "already-published operation could not recover receipt assertion ids",
+                code="governed_write_failed",
+                details={
+                    "world_id": world_id,
+                    "operation_id": operation_id,
+                    "reason": str(exc)[:500],
+                },
+            ) from exc
+        accepted_assertion_ids, affected_object_ids = _affected_ids_from_contribution(
+            contribution
+        )
         return _confirm_proof_payload(
             package,
             world_id=world_id,
@@ -934,6 +1058,8 @@ def confirm_extract_promote_via_dungeonmind(
             parent_revision_id=existing.expected_parent_revision_id,
             committed_revision_id=existing.published_revision_id,
             contribution_id=existing.reviewed_contribution_id,
+            accepted_assertion_ids=accepted_assertion_ids,
+            affected_object_ids=affected_object_ids,
         )
 
     sealed_parent = str(
@@ -984,16 +1110,14 @@ def confirm_extract_promote_via_dungeonmind(
         revision_pin=parent_revision_id,
         database_url=dsn,
     )
-    _verified, contribution = resolve_merged_contribution_from_package(
-        review_package=package,
+    _verified, contribution = _reconstruct_selected_contribution(
+        package=package,
+        world_id=world_id,
+        parent_revision_id=parent_revision_id,
         confirming_principal=confirming_principal,
-        world_id_hint=world_id,
-        mutation_context=mutation_context,
-        expected_parent_revision_id=parent_revision_id,
         assertion_ids=assertion_ids,
         repo_root=repo_root,
-        disclose_source_digest=False,
-        verify_source=True,
+        mutation_context=mutation_context,
     )
     accepted_assertion_ids, affected_object_ids = _affected_ids_from_contribution(
         contribution
