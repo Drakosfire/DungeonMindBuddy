@@ -9,6 +9,8 @@ from apps.live_control_server.services.recap_artifacts import RecapArtifactRecor
 from graph_memory.interaction.latest_recap import (
     build_latest_recap_change_context,
     is_latest_recap_change_question,
+    latest_recap_graph_facts_from_projection,
+    latest_recap_graph_facts_from_store,
 )
 
 
@@ -59,6 +61,14 @@ def _graph_store(*sessions: int) -> dict:
     }
 
 
+def _facts(*sessions: int, revision_id: str | None = "rev:head"):
+    return latest_recap_graph_facts_from_store(
+        _graph_store(*sessions),
+        campaign_id="longmont-c2",
+        revision_id=revision_id,
+    )
+
+
 def test_read_admitted_recap_excerpt_strips_frontmatter_and_truncates(
     tmp_path: Path,
 ) -> None:
@@ -83,8 +93,7 @@ def test_latest_recap_context_discloses_memory_lag(tmp_path: Path) -> None:
     context = build_latest_recap_change_context(
         root=tmp_path,
         campaign_id="longmont-c2",
-        graph_revision_id="rev:head",
-        graph_store=_graph_store(22),
+        facts=_facts(22),
         records=[_record(tmp_path, 22), _record(tmp_path, 23)],
     )
 
@@ -103,8 +112,7 @@ def test_latest_recap_context_distinguishes_completed_no_change(tmp_path: Path) 
     context = build_latest_recap_change_context(
         root=tmp_path,
         campaign_id="longmont-c2",
-        graph_revision_id="rev:head",
-        graph_store=_graph_store(23),
+        facts=_facts(23),
         records=[_record(tmp_path, 23)],
     )
 
@@ -119,15 +127,13 @@ def test_latest_recap_context_distinguishes_unknown_and_source_unavailable(
     unknown = build_latest_recap_change_context(
         root=tmp_path,
         campaign_id="longmont-c2",
-        graph_revision_id="rev:head",
-        graph_store=_graph_store(),
+        facts=_facts(),
         records=[],
     )
     missing_source = build_latest_recap_change_context(
         root=tmp_path,
         campaign_id="longmont-c2",
-        graph_revision_id="rev:head",
-        graph_store=_graph_store(22),
+        facts=_facts(22),
         records=[RecapArtifactRecord(
             **{
                 **_record(tmp_path, 23).model_dump(mode="python"),
@@ -198,3 +204,198 @@ def test_latest_recap_context_is_passed_to_the_hermes_session_packet(
     assert rehydrated.latest_recap_change is not None
     assert rehydrated.latest_recap_change["latest_recap"]["session_id"] == "session-24"
     assert rehydrated.project_for_hermes()["latest_recap_change"]["memory_lag"] is True
+
+
+def _projection(*sessions: int, revision_id: str = "rev:head"):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        snapshot=SimpleNamespace(revision_id=revision_id),
+        summary=SimpleNamespace(projection_truncated=False),
+        source_artifacts=[
+            SimpleNamespace(
+                source_artifact_id=f"source:session-{session}",
+                campaign_id="longmont-c2",
+                session_id=f"session-{session}",
+            )
+            for session in sessions
+        ],
+        evidence=[
+            SimpleNamespace(
+                evidence_ref_id=f"evidence:session-{session}",
+                source_artifact_id=f"source:session-{session}",
+                session_id=f"session-{session}",
+            )
+            for session in sessions
+        ],
+        nodes=[
+            SimpleNamespace(
+                node_id=f"event:session-{session}",
+                evidence_ref_ids=[f"evidence:session-{session}"],
+            )
+            for session in sessions
+        ],
+        relationships=[],
+    )
+
+
+def test_projection_facts_match_store_facts() -> None:
+    store_facts = _facts(22, 23)
+    projection_facts = latest_recap_graph_facts_from_projection(
+        _projection(22, 23), campaign_id="longmont-c2"
+    )
+    assert projection_facts.session_ids == store_facts.session_ids
+    assert (
+        projection_facts.object_or_relationship_ids_by_session
+        == store_facts.object_or_relationship_ids_by_session
+    )
+
+
+def test_latest_recap_context_distinguishes_changed(tmp_path: Path) -> None:
+    context = build_latest_recap_change_context(
+        root=tmp_path,
+        campaign_id="longmont-c2",
+        facts=_facts(22, 23),
+        records=[_record(tmp_path, 22)],
+    )
+    assert context.outcome == "changed"
+    assert "graph_contains_post_recap_session" in context.diagnostic_codes
+
+
+def test_dungeonmind_latest_recap_uses_native_projection_not_hydration(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority,
+    )
+    from apps.live_control_server.services import world_graph_projection as projection_service
+    from graph_memory.interaction import latest_recap as latest_recap_mod
+    from graph_memory.interaction.latest_recap import resolve_latest_recap_change_context
+    from graph_memory.world_supergraph import storage
+
+    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, "dungeonmind")
+    monkeypatch.setenv(
+        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
+    monkeypatch.delenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", raising=False)
+    storage.clear_world_graph_cache_roots()
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("hydrated Buddy graph must not run for latest-recap")
+
+    monkeypatch.setattr(latest_recap_mod, "load_current_world_graph", _explode)
+    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
+    monkeypatch.setattr(world_graph_authority, "ensure_hydrated_authority", _explode)
+    monkeypatch.setattr(
+        projection_service,
+        "project_world_graph",
+        lambda request, root=None: _projection(22),
+    )
+    monkeypatch.setattr(
+        latest_recap_mod,
+        "list_recap_artifact_records",
+        lambda repo, campaign_id=None: [
+            _record(tmp_path, 22),
+            _record(tmp_path, 23),
+        ],
+    )
+
+    context = resolve_latest_recap_change_context(
+        root=tmp_path,
+        world_id="eldyrwild",
+        campaign_id="longmont-c2",
+        graph_revision_id="rev:head",
+    )
+    assert context.outcome == "memory_lag"
+    assert context.comparison_boundary is not None
+    assert context.comparison_boundary.graph_revision_id == "rev:head"
+    assert context.comparison_boundary.graph_latest_session_id == "session-22"
+
+
+def test_dungeonmind_latest_recap_native_failure_does_not_hydrate(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority,
+    )
+    from apps.live_control_server.services import world_graph_projection as projection_service
+    from graph_memory.interaction import latest_recap as latest_recap_mod
+    from graph_memory.interaction.latest_recap import resolve_latest_recap_change_context
+    from graph_memory.world_supergraph import storage
+
+    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, "dungeonmind")
+    monkeypatch.setenv(
+        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
+    storage.clear_world_graph_cache_roots()
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("hydrated Buddy graph must not run after native failure")
+
+    monkeypatch.setattr(latest_recap_mod, "load_current_world_graph", _explode)
+    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
+    monkeypatch.setattr(world_graph_authority, "ensure_hydrated_authority", _explode)
+    monkeypatch.setattr(
+        projection_service,
+        "project_world_graph",
+        lambda request, root=None: (_ for _ in ()).throw(
+            projection_service.WorldGraphProjectionServiceError(
+                "authority unavailable",
+                code="authority_unavailable",
+                status_code=503,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        latest_recap_mod,
+        "list_recap_artifact_records",
+        lambda repo, campaign_id=None: [_record(tmp_path, 23)],
+    )
+
+    context = resolve_latest_recap_change_context(
+        root=tmp_path,
+        world_id="eldyrwild",
+        campaign_id="longmont-c2",
+        graph_revision_id="rev:head",
+    )
+    assert context.outcome == "unknown"
+    assert context.diagnostic_codes == ["latest_recap_authority_unavailable"]
+
+
+def test_explicit_fixture_root_latest_recap_still_uses_file_store(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.services import world_graph_projection as projection_service
+    from graph_memory.interaction import latest_recap as latest_recap_mod
+    from graph_memory.interaction.latest_recap import resolve_latest_recap_change_context
+    from graph_memory.world_supergraph import storage
+
+    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, "dungeonmind")
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
+    storage.clear_world_graph_cache_roots()
+
+    def _explode_native(*_args, **_kwargs):
+        raise AssertionError("explicit fixture roots must not use native projection")
+
+    monkeypatch.setattr(projection_service, "project_world_graph", _explode_native)
+    monkeypatch.setattr(
+        latest_recap_mod,
+        "load_current_world_graph",
+        lambda root, world_id: (None, None, _graph_store(23)),
+    )
+    monkeypatch.setattr(
+        latest_recap_mod,
+        "list_recap_artifact_records",
+        lambda repo, campaign_id=None: [_record(tmp_path, 23)],
+    )
+
+    context = resolve_latest_recap_change_context(
+        root=tmp_path,
+        graph_root=tmp_path / "fixture-graph",
+        world_id="eldyrwild",
+        campaign_id="longmont-c2",
+        graph_revision_id="rev:head",
+    )
+    assert context.outcome == "no_change"

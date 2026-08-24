@@ -17,9 +17,9 @@ pr_body_template: |
 # HANDOFF — CUTOVER: native DungeonMind read switch
 
 **Created:** 2026-08-24  
-**Status:** READY TO IMPLEMENT  
+**Status:** IMPLEMENTATION IN REVIEW  
 **Workstream:** CUTOVER / World Graph runtime retirement  
-**Direction:** DESIGN → CODE → REVIEW  
+**Direction:** CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
 **Buddy base:** `main` `54779636750ebf7a639aef8a6184cc61ead9c860` (merge of Buddy PR #632)  
 **DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (DungeonMind PR #45 merge / R.3a)  
@@ -610,3 +610,69 @@ DEMOLITION_READY
 
 The successor then deletes the old Buddy graph runtime rather than maintaining
 it as an alternate production implementation.
+
+---
+
+## 11. Implementation record
+
+**Implementation branch:** `cutover/native-read-switch`  
+**Owning tests (this worktree):** 173 passed / 21 skipped / 0 failed on
+
+```text
+tests/test_cutover_direct_dungeonmind_world_graph_reads.py
+tests/test_cutover_dungeonmind_world_graph_authority.py
+tests/test_world_graph_projection_routes.py
+tests/test_world_graph_retrieval_routes.py
+tests/test_latest_recap_change.py
+tests/test_live_query_hermes_graph.py
+```
+
+**Production routing rule after this PR:**
+
+```text
+authority == dungeonmind
+AND (root is None OR resolved(root) == world_graph_root())
+  -> native DungeonMind projection / five retrieval ops / latest-recap facts
+else
+  -> existing file/kernel path (buddy_files, quiesced, explicit fixture root)
+```
+
+Obsolete `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` values (`unset` / `0` / `1` /
+`garbage`) do not affect that rule.
+
+**Latest-recap:** `LatestRecapGraphFacts` is derived from the native campaign
+projection in `dungeonmind` production and from the file store otherwise.
+`live_agent_loop` no longer calls `route_service_read`. Native failure degrades
+to `latest_recap_authority_unavailable` without hydration.
+
+**Sealed R.3 witness** (this branch, `DIRECT_READ` absent):
+
+```text
+17 cases
+0 errored
+0 blocking
+199 approved semantic divergence
+vocabulary v2
+head D_B = rev:680c246047d67f9fe0293ee90526f670
+```
+
+**Live smoke** (same authority DSN, `DIRECT_READ` absent): campaign projection
+head `D_B` / 80 nodes; Thrin search `enough`; `npc_lysandra` object `enough`;
+Lysandra evidence `enough`; exact pin `D_A` `is_head=false` with head `D_B`.
+Latest-recap native path ran; live recap registry is absent in this checkout
+so the comparison correctly returned `latest_admitted_recap_not_found`
+without hydration.
+
+**Remaining hydrated-runtime consumers** (demolition input, not deleted here):
+
+- write/publication: `extract_promote`, threat publication, first-world-graph,
+  graph-review merge, Eldyrwild correction/cutover services, hydration rebuild
+  inside `world_graph_authority`
+- `buddy_files` / `quiesced` / explicit fixture roots: projection and retrieval
+  `_route_authority_read`; latest-recap file-store producer
+- test/tooling: digest audit, hermes dogfood scripts, authority tests
+- obsolete for production `dungeonmind` reads and ready for deletion: hydrated
+  cache as a read implementation; `route_service_read` as a production
+  `dungeonmind` read router; latest-recap hydration
+
+**Disposition:** `DEMOLITION_READY`

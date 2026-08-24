@@ -722,7 +722,6 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     os.environ["DUNGEONMIND_WORLD_GRAPH_AUTHORITY"] = "dungeonmind"
-    os.environ["DUNGEONMIND_WORLD_GRAPH_DIRECT_READ"] = "1"
     os.environ["DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"] = args.database_url
     os.environ["DUNGEONMIND_WORLD_GRAPH_ROOT"] = str(args.frozen_root)
 

@@ -1,8 +1,8 @@
 # PR Tracker — Campaign Supergraph
 
 **Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices
-**Updated:** 2026-08-24 — Buddy R.3a pin of DungeonMind #45; sealed witness unchanged; `SWITCH_READY`; direct-read gate remains default-off
-**Dispatch gate:** The active CUTOVER write lease is `cutover/r3a-dungeonmind-pin`. Do not flip `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` in this slice. Do not redispatch #614/#619/#620/#630/#631, DungeonMind #34–#37/#43/#45, or the parked catch-up handoff absent a newly observed reproducible failure.
+**Updated:** 2026-08-24 — native-read switch in review; R.3a pin `DONE`; `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` removed from the production read path
+**Dispatch gate:** The active CUTOVER write lease is `cutover/native-read-switch`. Do not redispatch #614/#619/#620/#630/#631/#632, DungeonMind #34–#37/#43/#45, or the parked catch-up handoff absent a newly observed reproducible failure.
 **Repository anchor:** `ffc39ab3` (Buddy `main` / #631 merge / #632 base). Reviewed R.3 implementation head: `65405b48`.
 **DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (PR #45 merge / R.3a native read-context optimization)
 **#538 design predecessor / docs base:** PR #538 merge
@@ -119,8 +119,8 @@ PR #566 is merged and non-publishing: canonical bytes remain unchanged, while it
 | `cutover/r3-read-contract-ratification` | DONE — design accepted | mechanical predecessor `24250fb0`; Cycle 4 head `bba098fc…` | Supported-client API contract replaces zero-difference Buddy-kernel parity. Handoff: [`HANDOFF-CUTOVER-r3-read-contract-ratification.md`](HANDOFF-CUTOVER-r3-read-contract-ratification.md). |
 | `cutover/direct-dungeonmind-production-reads` / Buddy #631 (R.3) | DONE | ratification accepted | Reviewed/accepted implementation head `65405b48`; merge / Buddy `main` `ffc39ab3`. Sealed V4 vocabulary-v2 witness: **0 blocking, 0 errored, 199 approved semantic divergence**. Direct-read gate remained default-off. Handoff: [`HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md`](HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md). |
 | DungeonMind R.3a / #45 native read-context optimization | DONE | R.3 sealed | DungeonMind PR #45; merge `c5d3688587b0f5d506e0f7d64f33eb0628bac896`. Reusable read context, parsed-revision cache, batched provenance snapshot. Live Eldyrwild native projection ~20.7s → ~115 ms warm. Production gate not flipped here. |
-| `cutover/r3a-dungeonmind-pin` | DOING | DungeonMind #45 `DONE` + Buddy R.3 `DONE` | Pin Buddy to `c5d36885…`, rerun sealed R.3 witness through the product adapter, measure `direct_services_from_config()` lifecycle. Gate stays default-off. Handoff: [`HANDOFF-CUTOVER-r3a-dungeonmind-pin.md`](HANDOFF-CUTOVER-r3a-dungeonmind-pin.md). |
-| native-read switch (remove `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ`) | READY | Buddy R.3a pin `SWITCH_READY` + dogfood interval | Make direct DungeonMind reads the only `dungeonmind`-authority path. Do not keep a permanent toggle. |
+| `cutover/r3a-dungeonmind-pin` / Buddy #632 | DONE | DungeonMind #45 `DONE` + Buddy R.3 `DONE` | Pin Buddy to `c5d36885…`; sealed R.3 witness 0 blocking / 0 errored / 199 approved; `SWITCH_READY`. Dogfood accepted. Handoff: [`HANDOFF-CUTOVER-r3a-dungeonmind-pin.md`](HANDOFF-CUTOVER-r3a-dungeonmind-pin.md). |
+| native-read switch (remove `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ`) | DOING | Buddy R.3a pin `SWITCH_READY` + dogfood interval | Make native DungeonMind reads the only `dungeonmind`-authority production path. Migrate Hermes latest-recap off hydration. Do not keep a permanent toggle. Handoff: [`HANDOFF-CUTOVER-native-read-switch.md`](HANDOFF-CUTOVER-native-read-switch.md). |
 | demolish Buddy graph runtime | READY | native-read switch | Delete hydration/replay/cache/revision-translation/UnionSupergraph production machinery, then prove Buddy boots with the old graph store absent. |
 
 ### Parallel product backlog retained from the July sequence
@@ -142,7 +142,7 @@ These remain valid product capabilities, but they do **not** override the active
 ## Immediate dispatch order
 
 1. CUTOVER is complete for Eldyrwild World Graph authority. Do not redispatch [`HANDOFF-CUTOVER-dungeonmind-authority-completion.md`](HANDOFF-CUTOVER-dungeonmind-authority-completion.md), [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md), the #614 design, DungeonMind #34–#37, DungeonMind #43, or Buddy #630. Do not dispatch the parked catch-up handoff unless a newly observed correspondence check returns `STALE`.
-2. The current CUTOVER lane is **Buddy R.3a pin** (`cutover/r3a-dungeonmind-pin`; [`HANDOFF-CUTOVER-r3a-dungeonmind-pin.md`](HANDOFF-CUTOVER-r3a-dungeonmind-pin.md)). DungeonMind #45 is landed. Direct reads stay default-off in this PR. After `SWITCH_READY`, local dogfood may set `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ=1`; the next code change removes that flag rather than defaulting it to `1`, then demolishes the hydrated runtime.
+2. The current CUTOVER lane is **native-read switch** (`cutover/native-read-switch`; [`HANDOFF-CUTOVER-native-read-switch.md`](HANDOFF-CUTOVER-native-read-switch.md)). Buddy R.3a pin #632 is `DONE` / `SWITCH_READY` and operator dogfood was accepted. This slice removes `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` rather than defaulting it to `1`. After merge, demolish the hydrated runtime.
 3. Fix-forward only: concrete post-cutover failures become bounded repairs under living DungeonMind authority. Do not re-enable Buddy World Graph writers as an emergency shortcut after `D_B`.
 4. Confirm PR #577 remains closed unmerged. Do not rescue or extend that branch.
 
@@ -160,8 +160,9 @@ The following remain true after DungeonMind PR #35 and the direct Buddy authorit
 - Live cutover completed on designated PostgreSQL: exact A V3 membership intact, correspondence `CORRESPONDING`, product reads on DungeonMind, first DungeonMind-owned child `D_B=rev:680c246047d67f9fe0293ee90526f670` from `D_A=rev:34b1f8e2625d5ba693fc726a2a1a4720`.
 - DungeonMind R.2b / PR #43 is `DONE` at merge `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (4 formal review cycles): governed V3→V4 adopted-source classification repair. Live Eldyrwild repair applied 2026-08-23: receipt V4, historical M0 preserved, M1 `16d3161d…`, manifest `83 / 83 / 93 / 13`, D_A and current head unchanged.
 - Buddy V4 hydrated compatibility (`cutover/v4-hydrated-authority-compatibility` / PR #630) is `DONE` at merge `3b25dbd89664b5a148ad76e0f5780b5ddc742f9a`. The previous 199-blocker witness is historical evidence against corrupted V3 state, not the current baseline. The frozen V4 vocabulary-v1 stop point was **200 blocking rows** plus two errored cases. The current supported-contract vocabulary-v2 witness is **0 blocking, 0 errored, 199 approved semantic divergence**.
-- Buddy R.3 (`cutover/direct-dungeonmind-production-reads` / #631) is `DONE` at implementation head `65405b48` / merge `ffc39ab3`. Sealed V4 vocabulary-v2 witness: 0 blocking, 0 errored, 199 approved semantic divergence. Direct-read gate remains default-off until the R.3a pin lands and dogfood proceeds.
-- DungeonMind R.3a / PR #45 is `DONE` at merge `c5d3688587b0f5d506e0f7d64f33eb0628bac896`. Buddy runtime pin is this slice (`cutover/r3a-dungeonmind-pin`).
+- Buddy R.3 (`cutover/direct-dungeonmind-production-reads` / #631) is `DONE` at implementation head `65405b48` / merge `ffc39ab3`. Sealed V4 vocabulary-v2 witness: 0 blocking, 0 errored, 199 approved semantic divergence.
+- DungeonMind R.3a / PR #45 is `DONE` at merge `c5d3688587b0f5d506e0f7d64f33eb0628bac896`. Buddy runtime pin (`cutover/r3a-dungeonmind-pin` / #632) is `DONE` / `SWITCH_READY`.
+- The native-read switch (`cutover/native-read-switch`) is the current CUTOVER lane: native DungeonMind reads are the only `dungeonmind` production path; the retired `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` gate has no routing power.
 - Disposition: Eldyrwild World Graph authority transfer remains `CUTOVER_COMPLETE`. DungeonMind is living Eldyrwild World Graph authority; Buddy local writer authority is fail-closed. Pinned exact-snapshot catch-up remains `DEFERRED` (no `STALE` observed). Runtime retirement continues PIN+VERIFY → DOGFOOD+SWITCH → DEMOLISH+PROVE.
 - The pre-confirm catalog/live lane still relies on preview-union-era materialization.
 - The human confirm path needs a fresh bounded end-to-end acceptance run after the reconstituted PR380A/B/C sequence.

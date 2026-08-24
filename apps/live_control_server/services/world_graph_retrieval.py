@@ -57,30 +57,18 @@ def _resolved_root(root: Path | None) -> Path:
 
 
 def _direct_read_active(root: Path | None) -> bool:
-    """R.3 dispatch predicate: True when this read executes in DungeonMind.
+    """True when this read executes in DungeonMind native services.
 
-    Mirrors the legacy router's bypass rule: an explicit root differing from
-    the configured production World Graph root is a test/tooling override and
-    stays on the file-store path. In ``dungeonmind`` authority mode the
-    configured production root is not an override.
-
-    The direct-read rollout gate (``DUNGEONMIND_WORLD_GRAPH_DIRECT_READ=1``)
-    is a separate opt-in on top of authority mode: the R.3 performance
-    witness found the direct path product-breaking on the warm-projection
-    surface, so the production switch waits for R.3a read optimization.
+    An explicit root differing from the configured production World Graph root
+    is a test/tooling override and stays on the file-store path. In
+    ``dungeonmind`` authority mode the configured production root is not an
+    override: ``root is None`` and ``root == world_graph_root()`` are both
+    native. Native construction/read failure fails closed; this predicate
+    never consults a rollout flag.
     """
     from apps.live_control_server import config
-    from graph_memory.world_supergraph import storage
 
-    if config.world_graph_authority_mode() != storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND:
-        return False
-    if not config.world_graph_direct_read_enabled():
-        return False
-    if root is not None and (
-        Path(root).resolve() != Path(config.world_graph_root()).resolve()
-    ):
-        return False
-    return True
+    return config.world_graph_native_production_read(root)
 
 
 def _map_direct_error(exc: Any) -> WorldGraphRetrievalServiceError:
@@ -104,12 +92,10 @@ def _route_authority_read(
     request: WorldGraphRetrievalRequestContext,
     root: Path | None,
 ) -> Any:
-    """Route the read through the selected World Graph authority.
+    """Route a non-native read through the selected World Graph authority.
 
-    Explicit non-production roots (tests) bypass routing. In ``dungeonmind``
-    authority mode the read is served from the DungeonMind-hydrated cache root,
-    exact revision pins are bridged, and the returned route carries the public
-    DungeonMind revision identity for response normalization.
+    Used for ``buddy_files`` / ``quiesced`` and for explicit test/tooling
+    roots. Production ``dungeonmind`` reads never enter this function.
     """
     from apps.live_control_server.integrations.dungeonmind_kernel import (
         world_graph_authority,

@@ -27,7 +27,6 @@ from src.live_play.classify_live_turn import classify_live_turn
 from src.live_play.live_query_context import run_context_lookup_turn
 from src.live_play.live_turn import LiveTurnResult, handle_live_turn
 from graph_memory.interaction.latest_recap import (
-    LatestRecapChangeContext,
     is_latest_recap_change_question,
     resolve_latest_recap_change_context,
 )
@@ -112,43 +111,6 @@ def build_retrieval_freshness_decision(
     }
 
 
-def _latest_recap_graph_root(
-    *,
-    world_id: str,
-    campaign_id: str,
-    revision_id: str | None,
-) -> Path:
-    """Route the latest-recap comparison root through the World Graph authority.
-
-    In ``dungeonmind`` mode the configured production root is the frozen
-    pre-switch store; the comparison must read the DungeonMind-backed
-    hydration pinned to the envelope's revision instead of comparing frozen
-    Buddy state while labeling it with the DungeonMind revision. Other modes
-    serve the configured root unchanged.
-    """
-    from apps.live_control_server.integrations.dungeonmind_kernel import (
-        world_graph_authority,
-    )
-    from graph_memory.retrieval.models import WorldGraphRetrievalRequestContext
-
-    configured = world_graph_root()
-    if not campaign_id.strip():
-        # The comparison filters every record by campaign; a blank campaign
-        # degrades to "unknown" regardless of which root is read.
-        return configured
-    route = world_graph_authority.route_service_read(
-        # The retrieval request model is wire-shaped: camelCase aliases only.
-        WorldGraphRetrievalRequestContext(
-            worldId=world_id,
-            campaignId=campaign_id,
-            revisionPin=revision_id,
-        ),
-        configured,
-        default_root=configured,
-    )
-    return route.graph_root
-
-
 def _should_route_context_lookup(text: str, event_type: str) -> bool:
     if event_type == "context_question":
         return True
@@ -230,10 +192,6 @@ def process_live_query(
             root=world_graph_root(),
         )
         if is_latest_recap_change_question(text):
-            from apps.live_control_server.integrations.dungeonmind_kernel import (
-                world_graph_authority,
-            )
-
             world_id = str(graph_envelope.get("world_id") or "eldyrwild")
             if world_id.startswith("world:"):
                 world_id = world_id.removeprefix("world:")
@@ -242,29 +200,12 @@ def process_live_query(
                 if graph_envelope.get("revision_id")
                 else None
             )
-            try:
-                recap_graph_root = _latest_recap_graph_root(
-                    world_id=world_id,
-                    campaign_id=campaign_id,
-                    revision_id=graph_revision_id,
-                )
-            except world_graph_authority.WorldGraphAuthorityError:
-                # No silent fallback to the frozen Buddy store: the comparison
-                # degrades to unknown rather than reading non-authoritative state.
-                latest_recap_context = LatestRecapChangeContext(
-                    status="unknown",
-                    campaign_id=campaign_id,
-                    outcome="unknown",
-                    diagnostic_codes=["latest_recap_authority_unavailable"],
-                )
-            else:
-                latest_recap_context = resolve_latest_recap_change_context(
-                    root=repo,
-                    graph_root=recap_graph_root,
-                    world_id=world_id,
-                    campaign_id=campaign_id,
-                    graph_revision_id=graph_revision_id,
-                )
+            latest_recap_context = resolve_latest_recap_change_context(
+                root=repo,
+                world_id=world_id,
+                campaign_id=campaign_id,
+                graph_revision_id=graph_revision_id,
+            )
             graph_envelope = {
                 **graph_envelope,
                 "latest_recap_change": latest_recap_context.model_dump(

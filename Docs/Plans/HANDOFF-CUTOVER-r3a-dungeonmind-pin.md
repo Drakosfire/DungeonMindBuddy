@@ -15,7 +15,7 @@ pr_body_template: |
 # HANDOFF — R.3a: pin optimized DungeonMind native reads
 
 **Created:** 2026-08-24
-**Status:** IN REVIEW
+**Status:** LANDED — dogfood accepted; successor is the native-read switch
 **Workstream:** CUTOVER / World Graph runtime retirement
 **Direction:** CODE → REVIEW
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`
@@ -28,9 +28,10 @@ pr_body_template: |
 **Suggested branch:** `cutover/r3a-dungeonmind-pin`
 **Suggested PR title:** `CUTOVER: pin optimized DungeonMind R.3a native reads`
 **Predecessor:** Buddy R.3 direct production reads (merged) + DungeonMind #45
-**Successor if SWITCH_READY:** local/production dogfood with
-`DUNGEONMIND_WORLD_GRAPH_DIRECT_READ=1`; then remove the gate rather than
-defaulting it to `1`; then demolish the hydrated Buddy graph runtime
+**Successor:** native-read switch — remove `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ`
+and make native DungeonMind reads the only `dungeonmind` production path
+(`Docs/Plans/HANDOFF-CUTOVER-native-read-switch.md`). Then demolish the
+hydrated Buddy graph runtime.
 
 > **Dispatch ruling:** DungeonMind is no longer the cutover blocker. This PR
 > does not flip the production gate, does not delete hydration, and does not
@@ -143,6 +144,6 @@ Per file:
   saves ~90 ms. Do not redesign the factory in this slice.
 - Disposition: **SWITCH_READY**
 - Production gate: still default-off
-- Named next slice: enable direct reads for dogfood, then remove
+- Named next slice: native-read switch — remove
   `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` rather than defaulting it to `1`, then
   demolish the hydrated Buddy graph runtime

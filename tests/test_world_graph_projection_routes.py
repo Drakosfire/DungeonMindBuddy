@@ -186,7 +186,6 @@ def test_projection_route_dispatches_direct_in_dungeonmind_mode(
     monkeypatch.setenv(
         storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
     )
-    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_DIRECT_READ", "1")
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
     )
@@ -202,6 +201,7 @@ def test_projection_route_dispatches_direct_in_dungeonmind_mode(
     monkeypatch.setattr(kernel, "project_world_graph_from_context", _explode)
     monkeypatch.setattr(kernel, "resolve_projection_read_context", _explode)
     monkeypatch.setattr(world_graph_authority, "route_read_request", _explode)
+    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
 
     client = TestClient(create_app())
     response = client.post(

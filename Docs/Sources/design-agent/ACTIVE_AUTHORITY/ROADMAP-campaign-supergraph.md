@@ -193,17 +193,19 @@ DONE    DungeonMind R.3a / PR #45
         Merge c5d3688587b0f5d506e0f7d64f33eb0628bac896. Native
         read-context optimization (~20.7s → ~115 ms warm on Eldyrwild).
 
-DOING   cutover/r3a-dungeonmind-pin
+DONE    cutover/r3a-dungeonmind-pin / Buddy #632
         Pin Buddy to DungeonMind #45 merge c5d36885…. Sealed R.3
         witness rerun: 0 blocking, 0 errored, 199 approved.
         Adapter projection ~0.55–0.85s; retrievals 120–226 ms.
-        SWITCH_READY. Direct-read gate remains default-off.
+        SWITCH_READY. Operator dogfood accepted.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-r3a-dungeonmind-pin.md.
 
-READY   native-read switch
-        After dogfood, remove DUNGEONMIND_WORLD_GRAPH_DIRECT_READ
-        rather than defaulting it to 1. Direct DungeonMind reads
-        become the only dungeonmind-authority path.
+DOING   native-read switch
+        Remove DUNGEONMIND_WORLD_GRAPH_DIRECT_READ rather than
+        defaulting it to 1. Native DungeonMind reads become the only
+        dungeonmind-authority production path, including Hermes
+        latest-recap comparison facts.
+        Handoff: Docs/Plans/HANDOFF-CUTOVER-native-read-switch.md.
 
 READY   demolish Buddy graph runtime
         Delete hydration/replay/cache/UnionSupergraph production
