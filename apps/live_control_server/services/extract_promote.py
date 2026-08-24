@@ -1031,6 +1031,16 @@ def prepare(
                 **prepare_kwargs,
                 mutation_context=mutation_context,
             )
+            from dataclasses import replace
+
+            sealed = world_graph_writes.bind_identity_ledger_to_package(
+                result.review_package, mutation_context
+            )
+            result = replace(
+                result,
+                review_package=sealed,
+                proposal_digest=str(sealed["proposal_digest"]),
+            )
         else:
             result = prepare_extract_promote(
                 **prepare_kwargs,

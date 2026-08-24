@@ -2502,6 +2502,11 @@ def _seal_tinker_package(
         prepared_by="gm@prepare",
         diagnostics=["cutover_write_test"],
     )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        bind_identity_ledger_to_package,
+    )
+
+    package = bind_identity_ledger_to_package(package, mutation_context)
     return package, [a.assertion_id for a in gate.accepted_proposals]
 
 
@@ -2662,6 +2667,144 @@ def test_governed_write_through_service_confirm_path(write_world):
     head = bundle.world_graph.get_head(WORLD_ID)
     assert head is not None and head.head_revision_id == committed
     assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+@pytest.mark.integration
+def test_governed_write_identity_drift_does_not_change_sealed_confirm_or_retry(
+    write_world, monkeypatch
+):
+    """Identity history can change without advancing the graph head.
+
+    Prepare/confirm must keep the sealed identity snapshot. Terminal retry
+    must recover receipt facts from the durable reviewed contribution rather
+    than reconstructing against today's ledger.
+    """
+    from datetime import UTC, datetime
+
+    from dungeonmind.contracts.identity import (
+        IdentityDecisionKind,
+        IdentityDecisionRecordV2,
+        IdentityDecisionStatus,
+    )
+    from graph_memory.kernel.identity_models import IdentityCandidate
+    from graph_memory.world_graph_mutation_context import (
+        resolve_identity_against_context,
+    )
+
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+    from apps.live_control_server.models.extract_promote import (
+        ExtractPromoteConfirmRequest,
+    )
+    from apps.live_control_server.services.extract_promote import (
+        confirm as confirm_extract_promote,
+    )
+
+    dsn = write_world["dsn"]
+    bundle = write_world["bundle"]
+    d_a = write_world["receipt"].published_revision_id
+    node_id = "node:cutover-adversarial-tinker"
+    context = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
+    )
+    package, accepted_ids = _seal_tinker_package(
+        context,
+        write_world["tmp_path"],
+        preview_slug="session-26-cutover-identity-drift",
+        node_id=node_id,
+        label="Adversarial Tinker",
+    )
+    sealed_ids = {
+        item["decision_id"]
+        for item in package["effect"]["identity_ledger"]["decisions"]
+    }
+
+    bundle.identity_decisions.append(
+        IdentityDecisionRecordV2(
+            decision_id="identity-decision:cutover-cycle2-reject-tinker",
+            world_id=WORLD_ID,
+            decision_kind=IdentityDecisionKind.REJECT_CANDIDATE,
+            subject_object_ids=[node_id],
+            target_object_ids=[],
+            actor="gm",
+            reason="Cycle 2 adversarial identity drift after prepare",
+            status=IdentityDecisionStatus.ACTIVE,
+            created_at=datetime.now(UTC),
+            merge_side_effects=None,
+        )
+    )
+    live = world_graph_writes.load_production_mutation_context(
+        WORLD_ID, database_url=dsn
+    )
+    assert live.revision_id == d_a
+    live_resolution = resolve_identity_against_context(
+        live,
+        IdentityCandidate(
+            world_id=WORLD_ID,
+            candidate_id=node_id,
+            label="Adversarial Tinker",
+            object_kind="npc",
+            aliases=["Adversarial Tinker"],
+            evidence_ref_ids=["span:1"],
+        ),
+    )
+    assert live_resolution.outcome == "rejected"
+    assert "identity-decision:cutover-cycle2-reject-tinker" not in sealed_ids
+
+    receipt = confirm_extract_promote(
+        ExtractPromoteConfirmRequest(
+            review_package=package,
+            assertion_ids=accepted_ids,
+        )
+    )
+    assert receipt.outcome == "committed"
+    assert receipt.parent_revision_id == d_a
+    assert receipt.affected_object_ids == [node_id]
+    committed = receipt.committed_revision_id
+    assert committed != d_a
+    child = bundle.world_graph.get_revision(WORLD_ID, committed)
+    assert child is not None
+    assert any(
+        obj.get("object_id") == node_id
+        for obj in child.graph_payload.get("objects") or []
+    )
+
+    bundle.identity_decisions.append(
+        IdentityDecisionRecordV2(
+            decision_id="identity-decision:cutover-cycle2-override-noise",
+            world_id=WORLD_ID,
+            decision_kind=IdentityDecisionKind.HUMAN_OVERRIDE,
+            subject_object_ids=["extract:cycle2-noise"],
+            target_object_ids=["npc_hester_b"],
+            actor="gm",
+            reason="Cycle 2 adversarial identity drift after publication",
+            status=IdentityDecisionStatus.ACTIVE,
+            created_at=datetime.now(UTC),
+            merge_side_effects=None,
+        )
+    )
+
+    def _explode(*_args, **_kwargs):
+        raise AssertionError("already-published retry must not reconstruct")
+
+    monkeypatch.setattr(
+        world_graph_writes, "_reconstruct_selected_contribution", _explode
+    )
+    monkeypatch.setattr(wga, "hydrate_world_graph", _explode)
+    retry = confirm_extract_promote(
+        ExtractPromoteConfirmRequest(
+            review_package=package,
+            assertion_ids=accepted_ids,
+        )
+    )
+    assert retry.outcome == "already_applied"
+    assert retry.committed_revision_id == receipt.committed_revision_id
+    assert retry.accepted_assertion_ids == receipt.accepted_assertion_ids
+    assert retry.affected_object_ids == receipt.affected_object_ids
+    assert retry.applied_assertion_count == receipt.applied_assertion_count
+    assert retry.parent_revision_id == receipt.parent_revision_id
 
 
 @pytest.mark.integration

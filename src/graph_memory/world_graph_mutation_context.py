@@ -74,6 +74,7 @@ class WorldGraphMutationContext:
     alias_owners: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     identity_redirects: Mapping[str, str] = field(default_factory=dict)
     identity_decisions: tuple[IdentityDecisionRecord, ...] = ()
+    identity_ledger_records: tuple[Mapping[str, Any], ...] = ()
 
     def object_ids(self) -> frozenset[str]:
         return frozenset(self.objects)

@@ -17,7 +17,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.1: native governed write context / hydration retirement
 
 **Created:** 2026-08-24  
-**Status:** IMPLEMENTATION IN REVIEW — Cycle 1 (GitHub COMMENT `5012714481`) addressed; D.1 `DOING` on `cutover/native-governed-write-context`  
+**Status:** IMPLEMENTATION IN REVIEW — Cycle 2 (GitHub COMMENT `5013037409`) addressed; D.1 `DOING` on `cutover/native-governed-write-context`  
 **Workstream:** CUTOVER / World Graph runtime retirement  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
@@ -1144,6 +1144,18 @@ at the published parent. The AST scan is recorded as a **direct-import**
 proof only; transitive reach into adoption/`extract_promote_ops` is D.2/D.3
 cleanup.
 
+Cycle 2 review (GitHub COMMENT `5013037409`) required one root invariant:
+exact DungeonMind parent means exact graph **and** identity semantics.
+DungeonMind exposes identity decisions only as append/get/list-for-world —
+there is no revision/as-of identity read — so the proposal now binds an
+identity-ledger snapshot inside the sealed effect. First confirm reconstructs
+against the pinned graph payload plus that snapshot, not `list_for_world`.
+Already-published retry does **not** reconstruct: it recovers accepted /
+affected IDs from the durable reviewed contribution bound by
+`FinalizedReviewPublication`. An adversarial test appends reject/override
+history without advancing the graph head and proves both sealed confirm and
+terminal retry remain correct.
+
 ### 18.1 Branch and ancestry
 
 ```text
@@ -1155,6 +1167,7 @@ design     e3d2ee4161063718544514e5955841ce51586168
 impl HEAD  c2e0cd3d3cfd88ed935300c4dd7816a5a93348e1
 Cycle 1    10543350c49fc14e418cc34159f5e13afcea388e
            (GitHub COMMENT 5012714481)
+Cycle 2    addressed against COMMENT 5013037409 (SHA recorded after commit)
 pin        DungeonMind c5d3688587b0f5d506e0f7d64f33eb0628bac896
 ```
 
@@ -1226,15 +1239,20 @@ WorldGraphMutationContext
   alias_owners           # connect-existing skip diagnostics
   identity_redirects     # active merge subjects → surviving target
   identity_decisions     # durable DND identity ledger (Buddy-shaped)
+  identity_ledger_records  # canonical DND dumps sealed into the package
 ```
 
 `kind` is stripped of `dnd5e:` via `wire_kind`. Canon map:
 `provisional` → `noncanonical_provisional`, `retracted` → `rejected`.
 
 **Producer for DND production:** `mutation_context_from_revision_payload`
-(published DungeonMind revision `graph_payload`) plus
-`bundle.identity_decisions.list_for_world`. Graph snapshots do not carry
-identity decisions. The native equivalent is:
+(published DungeonMind revision `graph_payload`) plus a **pinned** identity
+ledger. Graph snapshots do not carry identity decisions. Prepare reads
+`bundle.identity_decisions.list_for_world` (the live ledger at that moment)
+and `bind_identity_ledger_to_package` writes that exact snapshot into
+`effect.identity_ledger` (`dmb_world_graph_identity_ledger_v1`) so it is
+covered by `proposal_digest`. Confirm never calls `list_for_world`; it
+hydrates the sealed snapshot. The native equivalent is:
 
 - active `merge` decisions → `identity_redirects` and merge-source objects
   marked `merged_away` (DungeonMind payloads may still list those objects as
@@ -1265,7 +1283,8 @@ Before: `prepare_extract_promote(... world_root=world_graph_root())` →
 Buddy/private parent.
 
 After (`dungeonmind`): `load_production_mutation_context` at current DND head
-→ identity/endpoints against that context → seal **public DungeonMind head**.
+→ identity/endpoints against that context → seal **public DungeonMind head**
+and bind `effect.identity_ledger` from the exact live ledger used at prepare.
 Package omits Buddy `world_root`. Graph opens are exploded in
 `test_dnd_prepare_does_not_open_buddy_graph`.
 
@@ -1279,13 +1298,16 @@ After: `confirm_extract_promote_via_dungeonmind` → durable operation retry
 from DND publication state → refuse Buddy/private parents
 (`governed_write_legacy_package`) → require head == sealed public parent
 (`governed_write_stale_parent`) → reconstruct against mutation context at
-that parent → v2 finalize + publish → native post-publish head/child check.
+that parent **using the sealed identity-ledger snapshot** → v2 finalize +
+publish → native post-publish head/child check.
 Receipts derive `accepted_assertion_ids` / `affected_object_ids` from the
-reconstructed contribution on **both** first publish and exact retry.
-Retry reconstructs the sealed contribution against the published parent
-without hydrating; only `outcome` becomes `already_applied`.
-`projection_world_root` is not consumed on the DND path. `cache_root` /
-`frozen_root` / `world_root` kwargs are ignored.
+reconstructed contribution on **first** publish. Exact retry does **not**
+reconstruct: `FinalizedReviewPublication` already binds
+`reviewed_contribution_id` plus `reviewed_contribution_sha256`, and the
+receipt facts are recovered from that durable reviewed contribution.
+Packages that omit `effect.identity_ledger` are `governed_write_legacy_package`
+(`identity_ledger_unsealed`). `projection_world_root` is not consumed on the
+DND path. `cache_root` / `frozen_root` / `world_root` kwargs are ignored.
 `bind_world_authority(..., frozen_root=)` is not used on this path.
 
 ### 18.7 Legacy packages
@@ -1363,21 +1385,21 @@ env -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY uv run pytest \
   tests/test_extract_promote_ops_atomic.py \
   tests/test_extract_promote_proposal.py \
   tests/test_cutover_direct_dungeonmind_world_graph_reads.py -q
-→ 93 passed / 0 skipped / 0 failed in 8.61s
+→ 95 passed / 0 skipped / 0 failed in 8.24s
 
 env -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY uv run pytest \
   tests/test_cutover_dungeonmind_world_graph_authority.py -q -m "not integration"
-→ 28 passed / 1 skipped / 25 deselected / 0 failed in 1.01s
+→ 28 passed / 1 skipped / 26 deselected / 0 failed in 1.21s
 
 DMB_CUTOVER_TEST_DATABASE_URL='postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dmb_cutover_test'
 DMB_CUTOVER_FROZEN_ROOT=$HOME/Projects/DungeonOverMind/DungeonMindBuddy/out
 env -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY uv run pytest \
   tests/test_cutover_dungeonmind_world_graph_authority.py \
   tests/test_cutover_native_governed_write.py -q
-→ 54 passed / 12 skipped / 0 failed in 155.07s
+→ 57 passed / 12 skipped / 0 failed in 162.52s
 ```
 
-Skipped rows are retired hydration tests (`CUTOVER D.1 retired Buddy graph hydration`) plus the one unit skip in the authority file. Cycle 1 added native-producer reject/override/merge unit tests, the current Eldyrwild merge-redirect witness, and the service-level exact-retry receipt assertion. Ruff on the changed Python files: all checks passed.
+Skipped rows are retired hydration tests (`CUTOVER D.1 retired Buddy graph hydration`) plus the one unit skip in the authority file. Cycle 2 added sealed-identity-ledger unit coverage, reviewed-contribution receipt extraction, and the adversarial identity-drift integration witness. Ruff on the changed Python files: all checks passed.
 
 ### 18.12 Isolated parent→child publication
 
@@ -1396,8 +1418,16 @@ confirm → `already_applied`, same child, revision set unchanged
 `test_governed_write_through_service_confirm_path`: first and second product
 receipts agree on committed revision, accepted assertion IDs, affected
 object IDs, and applied count; only `outcome` becomes `already_applied`.
-Retry recovers those fields by reconstructing the sealed contribution
-against the published DungeonMind parent (no hydration).
+Retry recovers those fields from the durable reviewed contribution bound by
+the publication (`reviewed_contribution_id` + hash). It does not reconstruct
+against the parent graph or the live identity ledger.
+
+`test_governed_write_identity_drift_does_not_change_sealed_confirm_or_retry`:
+after prepare, a reject is appended without advancing the graph head; live
+classification of the candidate becomes `rejected`, but sealed confirm still
+publishes the prepared object. After publication, another identity decision
+is appended; retry still returns the original receipt facts and does not
+call contribution reconstruction.
 
 ### 18.14 Stale parent
 

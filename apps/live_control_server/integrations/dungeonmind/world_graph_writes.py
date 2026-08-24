@@ -29,6 +29,8 @@ from graph_memory.world_graph_mutation_context import (
 
 logger = logging.getLogger(__name__)
 
+IDENTITY_LEDGER_SCHEMA = "dmb_world_graph_identity_ledger_v1"
+
 _WRITE_STATUS_CODES = {
     "authority_unavailable": 503,
     "authority_head_missing": 503,
@@ -159,6 +161,7 @@ def _context_with_dungeonmind_identity(
 ) -> WorldGraphMutationContext:
     redirects: dict[str, str] = {}
     records: tuple[Any, ...] = ()
+    ledger_records = tuple(_dump_identity_decision(item) for item in dungeonmind_decisions or ())
     if dungeonmind_decisions:
         try:
             redirects, extra_alias_owners, records = identity_facts_from_dungeonmind_decisions(
@@ -186,7 +189,180 @@ def _context_with_dungeonmind_identity(
         alias_owners=alias_owners,
         identity_redirects=redirects,
         identity_decisions=records,
+        identity_ledger_records=ledger_records,
     )
+
+
+def _iso_json_timestamp(value: Any) -> str:
+    from datetime import UTC, datetime
+
+    if isinstance(value, str) and value.strip():
+        return value
+    if isinstance(value, datetime):
+        return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return ""
+
+
+def _dump_identity_decision(raw: Any) -> dict[str, Any]:
+    if hasattr(raw, "model_dump"):
+        dumped = raw.model_dump(mode="json")
+        if isinstance(dumped, dict):
+            return dumped
+    side = getattr(raw, "merge_side_effects", None)
+    if isinstance(side, dict):
+        side_payload = dict(side)
+    elif side is None:
+        side_payload = None
+    elif hasattr(side, "model_dump"):
+        side_payload = side.model_dump(mode="json")
+    else:
+        rewrites = []
+        for rewrite in list(getattr(side, "alias_map_rewrites", None) or []):
+            if isinstance(rewrite, dict):
+                rewrites.append(dict(rewrite))
+            else:
+                rewrites.append(
+                    {
+                        "alias_key": str(getattr(rewrite, "alias_key", "") or ""),
+                        "prior_owner_node_id": getattr(rewrite, "prior_owner_node_id", None),
+                        "new_owner_node_id": str(
+                            getattr(rewrite, "new_owner_node_id", "") or ""
+                        ),
+                    }
+                )
+        side_payload = {
+            "aliases_added_to_target": list(
+                getattr(side, "aliases_added_to_target", None) or []
+            ),
+            "evidence_ref_ids_added_to_target": list(
+                getattr(side, "evidence_ref_ids_added_to_target", None) or []
+            ),
+            "source_domains_added_to_target": list(
+                getattr(side, "source_domains_added_to_target", None) or []
+            ),
+            "alias_map_rewrites": rewrites,
+        }
+    return {
+        "decision_id": str(getattr(raw, "decision_id", "") or ""),
+        "world_id": str(getattr(raw, "world_id", "") or ""),
+        "decision_kind": str(getattr(raw, "decision_kind", "") or ""),
+        "subject_object_ids": [
+            str(item)
+            for item in list(getattr(raw, "subject_object_ids", None) or [])
+            if str(item).strip()
+        ],
+        "target_object_ids": [
+            str(item)
+            for item in list(getattr(raw, "target_object_ids", None) or [])
+            if str(item).strip()
+        ],
+        "alias": getattr(raw, "alias", None),
+        "actor": str(getattr(raw, "actor", None) or "system"),
+        "reason": getattr(raw, "reason", None),
+        "reversible": bool(getattr(raw, "reversible", True)),
+        "supersedes_decision_ids": list(
+            getattr(raw, "supersedes_decision_ids", None) or []
+        ),
+        "status": str(getattr(raw, "status", "") or "active"),
+        "created_at": _iso_json_timestamp(getattr(raw, "created_at", None)),
+        "merge_side_effects": side_payload,
+        "source_candidate_id": getattr(raw, "source_candidate_id", None),
+    }
+
+
+def _hydrate_identity_decisions(records: Sequence[Mapping[str, Any]]) -> list[Any]:
+    from types import SimpleNamespace
+
+    from dungeonmind.contracts.identity import IdentityDecisionRecordV2
+
+    hydrated: list[Any] = []
+    for item in records:
+        payload = dict(item)
+        try:
+            hydrated.append(IdentityDecisionRecordV2.model_validate(payload))
+            continue
+        except Exception:
+            pass
+        side = payload.get("merge_side_effects")
+        if isinstance(side, dict):
+            rewrites = []
+            for rewrite in list(side.get("alias_map_rewrites") or []):
+                rewrites.append(
+                    SimpleNamespace(**dict(rewrite))
+                    if isinstance(rewrite, dict)
+                    else rewrite
+                )
+            payload["merge_side_effects"] = SimpleNamespace(
+                aliases_added_to_target=list(side.get("aliases_added_to_target") or []),
+                evidence_ref_ids_added_to_target=list(
+                    side.get("evidence_ref_ids_added_to_target") or []
+                ),
+                source_domains_added_to_target=list(
+                    side.get("source_domains_added_to_target") or []
+                ),
+                alias_map_rewrites=rewrites,
+            )
+        hydrated.append(SimpleNamespace(**payload))
+    return hydrated
+
+
+def bind_identity_ledger_to_package(
+    package: Mapping[str, Any],
+    context: WorldGraphMutationContext,
+) -> dict[str, Any]:
+    """Seal the exact identity ledger used at prepare into the proposal effect.
+
+    DungeonMind identity decisions are append-only and have no revision/as-of
+    read. The package therefore binds the snapshot so confirm can reconstruct
+    the same identity semantics against the immutable graph parent.
+    """
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+
+    sealed = dict(package)
+    effect = dict(sealed.get("effect") or {})
+    effect["identity_ledger"] = {
+        "schema": IDENTITY_LEDGER_SCHEMA,
+        "decisions": [dict(item) for item in context.identity_ledger_records],
+    }
+    sealed["effect"] = effect
+    sealed["proposal_digest"] = compute_proposal_digest(effect)
+    return sealed
+
+
+def _require_sealed_identity_ledger(package: Mapping[str, Any]) -> list[Any]:
+    effect = dict(package.get("effect") or {})
+    ledger = effect.get("identity_ledger")
+    if not isinstance(ledger, dict) or "decisions" not in ledger:
+        raise WorldGraphWriteError(
+            "sealed package does not bind an identity-ledger snapshot; "
+            "re-prepare against the current DungeonMind head",
+            code="governed_write_legacy_package",
+            details={"reason": "identity_ledger_unsealed"},
+        )
+    schema = str(ledger.get("schema") or "").strip()
+    if schema and schema != IDENTITY_LEDGER_SCHEMA:
+        raise WorldGraphWriteError(
+            "sealed identity ledger schema is not reconstructable",
+            code="governed_write_inexpressible",
+            details={"schema": schema},
+        )
+    decisions = ledger.get("decisions")
+    if not isinstance(decisions, list):
+        raise WorldGraphWriteError(
+            "sealed identity ledger is not a decision list",
+            code="governed_write_inexpressible",
+            details={"reason": "identity_ledger_malformed"},
+        )
+    try:
+        return _hydrate_identity_decisions(
+            [item for item in decisions if isinstance(item, Mapping)]
+        )
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "sealed identity ledger cannot be reconstructed",
+            code="governed_write_inexpressible",
+            details={"reason": str(exc)[:500]},
+        ) from exc
 
 
 def _register_object_alias_owners(
@@ -845,26 +1021,125 @@ def _confirm_capability_policy(
     )
 
 
+def _subject_id(assertion: Any) -> str:
+    return str(
+        getattr(assertion, "subject_node_id", None)
+        or getattr(assertion, "subject_object_id", None)
+        or ""
+    ).strip()
+
+
+def _target_id(assertion: Any) -> str:
+    return str(
+        getattr(assertion, "target_node_id", None)
+        or getattr(assertion, "object_object_id", None)
+        or ""
+    ).strip()
+
+
+def _accepted_assertions(contribution: Any) -> list[Any]:
+    partition = getattr(contribution, "partition_assertions", None)
+    if callable(partition):
+        from dungeonmind.contracts.contribution import AcceptanceState
+
+        return list(partition(AcceptanceState.ACCEPTED))
+    return list(getattr(contribution, "accepted_assertions", None) or [])
+
+
 def _affected_ids_from_contribution(contribution: Any) -> tuple[list[str], list[str]]:
-    accepted_assertion_ids = [
-        item.assertion_id for item in contribution.accepted_assertions
-    ]
+    accepted = _accepted_assertions(contribution)
+    accepted_assertion_ids = [item.assertion_id for item in accepted]
     affected_object_ids: list[str] = []
     seen: set[str] = set()
-    for assertion in contribution.accepted_assertions:
-        if assertion.assertion_kind == "node" and assertion.subject_node_id:
-            node_id = assertion.subject_node_id
-            if node_id not in seen:
+    for assertion in accepted:
+        if assertion.assertion_kind == "node":
+            node_id = _subject_id(assertion)
+            if node_id and node_id not in seen:
                 seen.add(node_id)
                 affected_object_ids.append(node_id)
-    for assertion in contribution.accepted_assertions:
+    for assertion in accepted:
         if assertion.assertion_kind != "edge":
             continue
-        for node_id in (assertion.subject_node_id, assertion.target_node_id):
+        for node_id in (_subject_id(assertion), _target_id(assertion)):
             if node_id and node_id not in seen:
                 seen.add(node_id)
                 affected_object_ids.append(node_id)
     return accepted_assertion_ids, affected_object_ids
+
+
+def _receipt_ids_from_reviewed_contribution(
+    *,
+    bundle: Any,
+    world_id: str,
+    publication: Any,
+) -> tuple[list[str], list[str]]:
+    """Recover product receipt facts from the durable reviewed contribution.
+
+    Exact retry must not reconstruct against today's identity ledger. The
+    publication already binds ``reviewed_contribution_id`` and its hash.
+    """
+    from dungeonmind.contracts.contribution_review_v2 import (
+        contribution_v2_payload_sha256,
+    )
+
+    contribution_id = str(getattr(publication, "reviewed_contribution_id", "") or "")
+    expected_hash = str(getattr(publication, "reviewed_contribution_sha256", "") or "")
+    if not contribution_id or not expected_hash:
+        raise WorldGraphWriteError(
+            "published operation is missing reviewed-contribution identity",
+            code="governed_write_failed",
+            details={"world_id": world_id, "contribution_id": contribution_id},
+        )
+    try:
+        reviewed = bundle.contributions.get(world_id, contribution_id)
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind authority read failed while recovering reviewed contribution",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+    if reviewed is None:
+        raise WorldGraphWriteError(
+            "published operation's reviewed contribution is unreadable",
+            code="governed_write_failed",
+            details={"world_id": world_id, "contribution_id": contribution_id},
+        )
+    try:
+        actual_hash = contribution_v2_payload_sha256(reviewed)
+    except Exception:
+        from dungeonmind.domain.canonical import canonical_sha256
+
+        actual_hash = canonical_sha256(
+            reviewed.model_dump(mode="json")
+            if hasattr(reviewed, "model_dump")
+            else reviewed
+        )
+    if actual_hash != expected_hash:
+        raise WorldGraphWriteError(
+            "reviewed contribution hash does not match the publication binding",
+            code="governed_write_failed",
+            details={
+                "world_id": world_id,
+                "contribution_id": contribution_id,
+                "reason": "reviewed_contribution_sha256_mismatch",
+            },
+        )
+    return _affected_ids_from_contribution(reviewed)
+
+
+def _mutation_context_from_sealed_package(
+    *,
+    stored: Any,
+    package: Mapping[str, Any],
+    world_id: str,
+    head_revision_id: str,
+) -> WorldGraphMutationContext:
+    return mutation_context_from_revision_payload(
+        stored,
+        world_id=world_id,
+        head_revision_id=head_revision_id,
+        dungeonmind_decisions=_require_sealed_identity_ledger(package),
+    )
 
 
 def _reconstruct_selected_contribution(
@@ -1021,35 +1296,12 @@ def confirm_extract_promote_via_dungeonmind(
             details={"world_id": world_id, "reason": type(exc).__name__},
         ) from exc
     if existing is not None:
-        try:
-            mutation_context = load_production_mutation_context(
-                world_id,
-                revision_pin=existing.expected_parent_revision_id,
-                database_url=dsn,
-            )
-            _verified, contribution = _reconstruct_selected_contribution(
-                package=package,
+        accepted_assertion_ids, affected_object_ids = (
+            _receipt_ids_from_reviewed_contribution(
+                bundle=bundle,
                 world_id=world_id,
-                parent_revision_id=existing.expected_parent_revision_id,
-                confirming_principal=confirming_principal,
-                assertion_ids=assertion_ids,
-                repo_root=repo_root,
-                mutation_context=mutation_context,
+                publication=existing,
             )
-        except WorldGraphWriteError:
-            raise
-        except Exception as exc:
-            raise WorldGraphWriteError(
-                "already-published operation could not recover receipt assertion ids",
-                code="governed_write_failed",
-                details={
-                    "world_id": world_id,
-                    "operation_id": operation_id,
-                    "reason": str(exc)[:500],
-                },
-            ) from exc
-        accepted_assertion_ids, affected_object_ids = _affected_ids_from_contribution(
-            contribution
         )
         return _confirm_proof_payload(
             package,
@@ -1105,10 +1357,11 @@ def confirm_extract_promote_via_dungeonmind(
             },
         )
 
-    mutation_context = load_production_mutation_context(
-        world_id,
-        revision_pin=parent_revision_id,
-        database_url=dsn,
+    mutation_context = _mutation_context_from_sealed_package(
+        stored=parent_stored,
+        package=package,
+        world_id=world_id,
+        head_revision_id=str(head.head_revision_id),
     )
     _verified, contribution = _reconstruct_selected_contribution(
         package=package,
@@ -1343,7 +1596,9 @@ def confirm_extract_promote_via_dungeonmind(
 
 
 __all__ = [
+    "IDENTITY_LEDGER_SCHEMA",
     "WorldGraphWriteError",
+    "bind_identity_ledger_to_package",
     "confirm_extract_promote_via_dungeonmind",
     "load_production_mutation_context",
     "mutation_context_from_native_projection",

@@ -355,6 +355,160 @@ def test_native_producer_follows_merge_redirect_not_merged_away_source():
     assert resolution.target_node_id == "item_foot_of_statue"
 
 
+def test_sealed_identity_ledger_ignores_later_live_decisions():
+    from types import SimpleNamespace
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        bind_identity_ledger_to_package,
+        mutation_context_from_revision_payload,
+        _hydrate_identity_decisions,
+        _require_sealed_identity_ledger,
+    )
+
+    stored = SimpleNamespace(
+        graph_payload={
+            "objects": [
+                {
+                    "object_id": "npc_hester_b",
+                    "label": "Hester Bright",
+                    "kind": "npc",
+                    "aliases": [{"value": "Hester Bright"}],
+                    "assertion_metadata": {"canon_state": "canonical"},
+                }
+            ]
+        },
+        revision=SimpleNamespace(revision_id="rev:parent"),
+    )
+    override = SimpleNamespace(
+        decision_id="identity-decision:hester-override",
+        world_id="eldyrwild",
+        decision_kind="human_override",
+        subject_object_ids=["extract:hester"],
+        target_object_ids=["npc_hester_b"],
+        alias=None,
+        actor="gm",
+        reason="intended match",
+        reversible=True,
+        supersedes_decision_ids=[],
+        status="active",
+        created_at="2026-08-01T00:00:01Z",
+        source_candidate_id=None,
+    )
+    prepared = mutation_context_from_revision_payload(
+        stored,
+        world_id="eldyrwild",
+        head_revision_id="rev:parent",
+        dungeonmind_decisions=[override],
+    )
+    package = bind_identity_ledger_to_package(
+        {"effect": {"world_id": "eldyrwild", "parent_revision_id": "rev:parent"}},
+        prepared,
+    )
+    later_reject = SimpleNamespace(
+        decision_id="identity-decision:hester-reject",
+        world_id="eldyrwild",
+        decision_kind="reject_candidate",
+        subject_object_ids=["extract:hester"],
+        target_object_ids=[],
+        alias=None,
+        actor="gm",
+        reason="later reject without graph advance",
+        reversible=True,
+        supersedes_decision_ids=[],
+        status="active",
+        created_at="2026-08-24T00:00:00Z",
+        source_candidate_id=None,
+    )
+    live = mutation_context_from_revision_payload(
+        stored,
+        world_id="eldyrwild",
+        head_revision_id="rev:parent",
+        dungeonmind_decisions=[override, later_reject],
+    )
+    live_resolution = resolve_identity_against_context(
+        live,
+        IdentityCandidate(
+            world_id="eldyrwild",
+            candidate_id="extract:hester",
+            label="Hester",
+            object_kind="npc",
+            aliases=["Hester"],
+            evidence_ref_ids=["span:1"],
+        ),
+    )
+    assert live_resolution.outcome == "rejected"
+
+    sealed = mutation_context_from_revision_payload(
+        stored,
+        world_id="eldyrwild",
+        head_revision_id="rev:parent",
+        dungeonmind_decisions=_hydrate_identity_decisions(
+            package["effect"]["identity_ledger"]["decisions"]
+        ),
+    )
+    sealed_resolution = resolve_identity_against_context(
+        sealed,
+        IdentityCandidate(
+            world_id="eldyrwild",
+            candidate_id="extract:hester",
+            label="Hester",
+            object_kind="npc",
+            aliases=["Hester"],
+            evidence_ref_ids=["span:1"],
+        ),
+    )
+    assert sealed_resolution.outcome == "human_override"
+    assert sealed_resolution.target_node_id == "npc_hester_b"
+    assert package["proposal_digest"]
+    with pytest.raises(Exception) as excinfo:
+        _require_sealed_identity_ledger({"effect": {"parent_revision_id": "rev:parent"}})
+    assert getattr(excinfo.value, "code", "") == "governed_write_legacy_package"
+
+
+def test_receipt_ids_from_dungeonmind_reviewed_contribution():
+    from types import SimpleNamespace
+
+    from dungeonmind.contracts.contribution import AcceptanceState
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        _affected_ids_from_contribution,
+    )
+
+    reviewed = SimpleNamespace(
+        assertions=[
+            SimpleNamespace(
+                assertion_id="assert:keep",
+                assertion_kind="node",
+                subject_object_id="node:keep",
+                object_object_id=None,
+                acceptance_state=AcceptanceState.ACCEPTED,
+            ),
+            SimpleNamespace(
+                assertion_id="assert:drop",
+                assertion_kind="node",
+                subject_object_id="node:drop",
+                object_object_id=None,
+                acceptance_state=AcceptanceState.REJECTED,
+            ),
+            SimpleNamespace(
+                assertion_id="assert:edge",
+                assertion_kind="edge",
+                subject_object_id="node:keep",
+                object_object_id="node:other",
+                acceptance_state=AcceptanceState.ACCEPTED,
+            ),
+        ]
+    )
+    reviewed.partition_assertions = lambda state: [
+        item
+        for item in reviewed.assertions
+        if item.acceptance_state is state
+    ]
+    accepted, affected = _affected_ids_from_contribution(reviewed)
+    assert accepted == ["assert:keep", "assert:edge"]
+    assert affected == ["node:keep", "node:other"]
+
+
 def test_endpoint_existence_parent_same_batch_and_missing():
     context = _context(
         MutationObject(object_id="node:existing", label="Keep", kind="location")
