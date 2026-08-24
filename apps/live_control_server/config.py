@@ -22,11 +22,10 @@ WORLD_GRAPH_AUTHORITY_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY"
 WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV = (
     "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"
 )
-# Cache root for the DungeonMind-hydrated read model. The cache is a pure
-# derivative of DungeonMind durable state keyed by head revision; it never
-# chooses authority and is never consulted when DungeonMind is unavailable.
-# Production ``dungeonmind`` reads do not use this cache; remaining consumers
-# are write/legacy compatibility until graph-runtime demolition.
+# Cache root leftover from the retired DungeonMind-hydrated read model.
+# Production ``dungeonmind`` reads and exact-run prepare/confirm do not use
+# this cache. The env/function remain so remaining D.2 writers and tests that
+# still name it do not crash; do not introduce new consumers.
 WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT"
 
 
@@ -85,7 +84,7 @@ def world_graph_authority_database_url() -> str | None:
 
 
 def world_graph_authority_cache_root() -> Path:
-    """Root for the DungeonMind-hydrated read-model cache (never authority)."""
+    """Retired hydration-cache path. Not used by D.1 production reads/writes."""
     override = os.environ.get(WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV, "").strip()
     if override:
         return Path(override).expanduser().resolve()

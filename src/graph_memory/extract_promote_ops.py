@@ -22,6 +22,10 @@ from graph_memory.extract_identity_gate import (
     build_accepted_contribution_from_multi_slice_proposals,
     gate_candidate_graph_against_head,
 )
+from graph_memory.world_graph_mutation_context import (
+    WorldGraphMutationContext,
+    mutation_context_from_world_root,
+)
 from graph_memory.extract_promote_proposal import (
     build_contribution_effect_slice,
     contribution_meta_from_contribution,
@@ -249,7 +253,6 @@ def get_extract_promote_status(
 def prepare_extract_promote(
     *,
     candidate_graph: Mapping[str, Any],
-    world_root: Path,
     source_uri: str,
     source_revision_id: str,
     prepared_by: str,
@@ -263,6 +266,8 @@ def prepare_extract_promote(
     repo_root: Path,
     disclose_source_digest: bool = True,
     registry_context_graph: Mapping[str, Any] | None = None,
+    mutation_context: WorldGraphMutationContext | None = None,
+    world_root: Path | None = None,
 ) -> ExtractPromotePrepareResult:
     """Gate + seal a typed candidate graph against the pinned world head.
 
@@ -294,7 +299,17 @@ def prepare_extract_promote(
             payload = recap_payload
 
     preview = load_typed_candidate_graph(payload)
-    root = world_root.resolve()
+    resolved_world_id = world_id or DEFAULT_WORLD_ID
+    if mutation_context is None:
+        if world_root is None:
+            raise CandidateGraphMappingError(
+                "mutation_context or world_root is required to prepare extract promote"
+            )
+        root = world_root.resolve()
+        mutation_context = mutation_context_from_world_root(root, resolved_world_id)
+    else:
+        root = world_root.resolve() if world_root is not None else None
+    package_world_root = str(root) if root is not None else None
     verified_revision = verify_source_revision(
         source_uri=source_uri,
         source_revision_id=source_revision_id,
@@ -303,8 +318,8 @@ def prepare_extract_promote(
     )
     gate = gate_candidate_graph_against_head(
         preview,
-        root=root,
-        world_id=world_id or DEFAULT_WORLD_ID,
+        mutation_context=mutation_context,
+        world_id=resolved_world_id,
         source_artifact_id=source_artifact_id,
         source_revision_id=verified_revision,
         campaign_scope=campaign_scope,
@@ -352,8 +367,8 @@ def prepare_extract_promote(
         )
         standing_gate = gate_candidate_graph_against_head(
             standing_preview,
-            root=root,
-            world_id=world_id or DEFAULT_WORLD_ID,
+            mutation_context=mutation_context,
+            world_id=resolved_world_id,
             source_artifact_id=registry_artifact_id,
             source_revision_id=registry_revision,
             campaign_scope=campaign_id,
@@ -411,13 +426,13 @@ def prepare_extract_promote(
                 *(standing_gate.diagnostics if standing_gate else []),
                 "multi_contribution:standing_context+source_extraction",
             ],
-            world_root=str(root),
+            world_root=package_world_root,
             candidate_graph_path=candidate_graph_path,
         )
     else:
         package = gate.to_review_package(
             prepared_by=prepared_by,
-            world_root=str(root),
+            world_root=package_world_root,
             candidate_graph_path=candidate_graph_path,
         )
 
@@ -473,9 +488,10 @@ def resolve_merged_contribution_from_package(
     review_package: Mapping[str, Any],
     confirming_principal: str,
     world_id_hint: str,
-    root: Path,
     expected_parent_revision_id: str | None,
     assertion_ids: Sequence[str] | None,
+    mutation_context: WorldGraphMutationContext | None = None,
+    root: Path | None = None,
     repo_root: Path | None = None,
     disclose_source_digest: bool = True,
     verify_source: bool = False,
@@ -542,6 +558,7 @@ def resolve_merged_contribution_from_package(
 
     merged_contribution = build_accepted_contribution_from_multi_slice_proposals(
         slice_gates,
+        mutation_context=mutation_context,
         root=root,
         proposal_digest=verified["proposal_digest"],
     )

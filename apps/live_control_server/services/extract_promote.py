@@ -988,24 +988,64 @@ def prepare(
             )
         registry_payload = loaded
 
+    from apps.live_control_server import config as _config
+    from graph_memory.world_supergraph import storage as _wg_storage
+
+    prepare_kwargs = dict(
+        candidate_graph=payload,
+        source_uri=resolved.sealed_source_uri,
+        source_revision_id=resolved.source_revision_id,
+        prepared_by=SERVER_PREPARED_BY,
+        world_id=DEFAULT_WORLD_ID,
+        source_artifact_id=resolved.source_artifact_id,
+        campaign_scope=resolved.campaign_id,
+        extraction_profile=extraction_profile,
+        node_ids=request.node_ids,
+        include_edges=True,
+        candidate_graph_path=str(path),
+        repo_root=repo_root(),
+        disclose_source_digest=False,
+        registry_context_graph=registry_payload,
+    )
     try:
-        result = prepare_extract_promote(
-            candidate_graph=payload,
-            world_root=world_graph_root(),
-            source_uri=resolved.sealed_source_uri,
-            source_revision_id=resolved.source_revision_id,
-            prepared_by=SERVER_PREPARED_BY,
-            world_id=DEFAULT_WORLD_ID,
-            source_artifact_id=resolved.source_artifact_id,
-            campaign_scope=resolved.campaign_id,
-            extraction_profile=extraction_profile,
-            node_ids=request.node_ids,
-            include_edges=True,
-            candidate_graph_path=str(path),
-            repo_root=repo_root(),
-            disclose_source_digest=False,
-            registry_context_graph=registry_payload,
-        )
+        if (
+            _config.world_graph_authority_mode()
+            == _wg_storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+        ):
+            from apps.live_control_server.integrations.dungeonmind import (
+                world_graph_writes,
+            )
+
+            try:
+                mutation_context = world_graph_writes.load_production_mutation_context(
+                    DEFAULT_WORLD_ID
+                )
+            except world_graph_writes.WorldGraphWriteError as exc:
+                raise ExtractPromoteError(
+                    str(exc),
+                    code=exc.code,
+                    status_code=exc.status_code,
+                    diagnostics=[_diagnostic(exc.code, str(exc))],
+                ) from exc
+            result = prepare_extract_promote(
+                **prepare_kwargs,
+                mutation_context=mutation_context,
+            )
+            from dataclasses import replace
+
+            sealed = world_graph_writes.bind_identity_ledger_to_package(
+                result.review_package, mutation_context
+            )
+            result = replace(
+                result,
+                review_package=sealed,
+                proposal_digest=str(sealed["proposal_digest"]),
+            )
+        else:
+            result = prepare_extract_promote(
+                **prepare_kwargs,
+                world_root=world_graph_root(),
+            )
     except CandidateGraphMappingError as exc:
         raise _public_mapping_error(exc) from exc
     except PromoteProposalError as exc:
@@ -1755,19 +1795,28 @@ def _build_confirm_receipt(
     outcome, head_advanced, audit_status, outcome_warnings = _confirm_outcome_from_ops(
         result_ok, payload
     )
-    # In dungeonmind authority mode the adapter names the hydrated cache root
-    # that can resolve the DungeonMind-sealed parent; the frozen store cannot.
-    projection_root = world_root
-    projection_override = str(payload.get("projection_world_root") or "").strip()
-    if projection_override:
-        projection_root = Path(projection_override)
-    accepted_assertion_ids, affected_object_ids, projection_warnings = (
-        _project_assertion_fields(
-            request.review_package,
-            normalized_assertion_ids,
-            world_root=projection_root,
+    if payload.get("accepted_assertion_ids") is not None and payload.get(
+        "affected_object_ids"
+    ) is not None:
+        accepted_assertion_ids = [
+            str(item) for item in list(payload.get("accepted_assertion_ids") or [])
+        ]
+        affected_object_ids = [
+            str(item) for item in list(payload.get("affected_object_ids") or [])
+        ]
+        projection_warnings: list[str] = []
+    else:
+        projection_root = world_root
+        projection_override = str(payload.get("projection_world_root") or "").strip()
+        if projection_override:
+            projection_root = Path(projection_override)
+        accepted_assertion_ids, affected_object_ids, projection_warnings = (
+            _project_assertion_fields(
+                request.review_package,
+                normalized_assertion_ids,
+                world_root=projection_root,
+            )
         )
-    )
     committed_revision_id = str(payload.get("committed_revision_id") or "").strip()
     if not committed_revision_id:
         raise ExtractPromoteError(
@@ -1911,26 +1960,23 @@ def confirm(
         _config.world_graph_authority_mode()
         == _wg_storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
     ):
-        from apps.live_control_server.integrations.dungeonmind_kernel import (
-            world_graph_authority,
+        from apps.live_control_server.integrations.dungeonmind import (
+            world_graph_writes,
         )
 
         try:
-            payload = world_graph_authority.confirm_via_dungeonmind(
+            payload = world_graph_writes.confirm_extract_promote_via_dungeonmind(
                 request,
-                world_root=world_root,
                 database_url=_config.world_graph_authority_database_url() or "",
-                cache_root=_config.world_graph_authority_cache_root(),
-                frozen_root=world_root,
                 confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
                 assertion_ids=normalized_assertion_ids,
                 repo_root=repo_root(),
             )
-        except world_graph_authority.WorldGraphAuthorityError as exc:
+        except world_graph_writes.WorldGraphWriteError as exc:
             raise ExtractPromoteError(
                 str(exc),
                 code=exc.code,
-                status_code=world_graph_authority.authority_error_status_code(exc),
+                status_code=exc.status_code,
                 diagnostics=[_diagnostic(exc.code, str(exc))],
             ) from None
         return _build_confirm_receipt(
