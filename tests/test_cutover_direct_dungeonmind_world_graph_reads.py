@@ -155,6 +155,18 @@ def _payload() -> dict:
             "properties": [],
             "aspects": [],
         },
+        {
+            "object_id": "obj:road-sign",
+            "kind": "dnd5e:location",
+            "label": "Crossroads Sign",
+            "assertion_metadata": _meta(
+                "asrt:obj:sign", evidence=("ev:sign",), visibility="player"
+            ),
+            "aliases": [],
+            "summary": None,
+            "properties": [],
+            "aspects": [],
+        },
     ]
     relationships = [
         {
@@ -180,6 +192,7 @@ def _payload() -> dict:
         _evidence_row("ev:cellar", "src:world-lore", "srcrev:world-lore-v1"),
         _evidence_row("ev:hero", "src:one-notes", "srcrev:one-notes-v1",
                       session_id="session-3"),
+        _evidence_row("ev:sign", "src:player-sign", "srcrev:player-sign-v1"),
     ]
     return {
         "world_id": WORLD_ID,
@@ -232,11 +245,12 @@ class _FakeBundle:
 
 def _seed_sources() -> InMemorySourceRepository:
     sources = InMemorySourceRepository()
-    for artifact_id, revision_id, campaign_id, uri, digest in (
-        ("src:world-lore", "srcrev:world-lore-v1", None, None, DUMMY_DIGEST),
-        ("src:one-notes", "srcrev:one-notes-v1", CAMPAIGN_ONE, None, DUMMY_DIGEST),
+    for artifact_id, revision_id, campaign_id, uri, digest, visibility in (
+        ("src:world-lore", "srcrev:world-lore-v1", None, None, DUMMY_DIGEST, Visibility.GM),
+        ("src:one-notes", "srcrev:one-notes-v1", CAMPAIGN_ONE, None, DUMMY_DIGEST, Visibility.GM),
         ("src:one-recap", "srcrev:one-recap-v1", CAMPAIGN_ONE,
-         "repo://corpus/world_lore.md", ANCHOR_CONTENT_DIGEST),
+         "repo://corpus/world_lore.md", ANCHOR_CONTENT_DIGEST, Visibility.GM),
+        ("src:player-sign", "srcrev:player-sign-v1", None, None, DUMMY_DIGEST, Visibility.PLAYER),
     ):
         sources.put_artifact(
             SourceArtifactV2(
@@ -249,7 +263,7 @@ def _seed_sources() -> InMemorySourceRepository:
                 uri=uri,
                 current_revision_id=revision_id,
                 authority=None,
-                visibility=Visibility.GM,
+                visibility=visibility,
                 artifact_kind=None,
                 document_class=None,
                 review_state=None,
@@ -289,8 +303,8 @@ def _receipt(world_id: str, published_revision_id: str) -> ExistingWorldAdoption
         graph_schema="dm_union_graph_v6",
         graph_payload_sha256=DUMMY_DIGEST,
         adopted_at=NOW,
-        source_artifact_count=3,
-        source_revision_count=3,
+        source_artifact_count=4,
+        source_revision_count=4,
         contribution_count=0,
         identity_decision_count=0,
         membership_sha256=DUMMY_DIGEST,
@@ -353,7 +367,7 @@ def test_direct_projection_admits_expected_objects(services):
     projection = direct.project_world_graph_direct(svc, _projection_request())
     node_ids = {node.node_id for node in projection.nodes}
     # World-owned + campaign-one objects admitted under the campaign lens.
-    assert node_ids == {"obj:tavern", "obj:hidden-cellar", "obj:hero"}
+    assert node_ids == {"obj:tavern", "obj:hidden-cellar", "obj:hero", "obj:road-sign"}
     assert projection.snapshot.revision_id == head_revision
     assert projection.snapshot.head_revision_id == head_revision
     assert projection.snapshot.is_head is True
@@ -382,6 +396,7 @@ def test_direct_projection_world_scope_is_cross_campaign(services):
         "obj:tavern",
         "obj:hidden-cellar",
         "obj:hero",
+        "obj:road-sign",
     }
 
 
@@ -389,14 +404,13 @@ def test_direct_projection_maps_player_admissibility(services):
     """R.3: PLAYER maps through the closed DND GM/PLAYER vocabulary.
 
     DungeonMind's fail-closed visibility gate hides GM-only material; the
-    adapter must not reject PLAYER outright.
+    adapter must not reject PLAYER outright. Player-visible objects are served.
     """
     svc, _ = services
     projection = direct.project_world_graph_direct(
         svc, _projection_request(admissibility="player")
     )
-    # All seeded artifacts are visibility=GM, so PLAYER admits nothing.
-    assert projection.nodes == []
+    assert {node.node_id for node in projection.nodes} == {"obj:road-sign"}
     assert projection.snapshot.admissibility == "player"
 
 
@@ -413,14 +427,14 @@ def test_direct_projection_cross_campaign_player_hides_gm_only(services):
     """R.3: cross-campaign PLAYER still does not leak GM-only rows.
 
     The handoff requires that PLAYER under the cross-campaign world lens
-    does not expose GM-only material. All seeded artifacts are
-    visibility=GM, so PLAYER admits nothing under any scope.
+    does not expose GM-only material. The player-visible road sign is served;
+    GM-only tavern/cellar/hero remain hidden.
     """
     svc, _ = services
     projection = direct.project_world_graph_direct(
         svc, _projection_request(admissibility="player", scope_mode="world")
     )
-    assert projection.nodes == []
+    assert {node.node_id for node in projection.nodes} == {"obj:road-sign"}
     assert projection.snapshot.admissibility == "player"
     assert projection.snapshot.scope_mode == "world"
 
@@ -543,6 +557,29 @@ def test_direct_neighborhood_depth_one(services):
     assert "obj:hero" in node_ids  # via located_in edge
 
 
+def test_direct_neighborhood_depth_two_is_coherent(services):
+    """Native depth-2 neighborhood is independently proven.
+
+    The Buddy kernel's depth-2 KeyError is a retired oracle defect. Native
+    success must not depend on legacy success.
+    """
+    svc, _ = services
+    result = direct.get_neighborhood_direct(
+        svc,
+        WorldGraphNeighborhoodRequest(
+            schema="dmb_world_graph_neighborhood_request_v1",
+            seedNodeIds=["obj:hidden-cellar"],
+            maxDepth=2,
+            **_retrieval_context(),
+        ),
+    )
+    node_ids = {node.node_id for node in result.nodes}
+    assert "obj:hidden-cellar" in node_ids
+    assert "obj:tavern" in node_ids  # depth 1 via contains
+    assert "obj:hero" in node_ids  # depth 2 via tavern
+    assert result.outcome in {"enough", "partial", "truncated"}
+
+
 def test_direct_evidence_lists_source_anchors(services):
     svc, _ = services
     result = direct.get_evidence_direct(
@@ -655,6 +692,7 @@ def test_projection_service_dispatches_direct_without_kernel(
         "obj:tavern",
         "obj:hidden-cellar",
         "obj:hero",
+        "obj:road-sign",
     }
 
 
@@ -994,6 +1032,138 @@ def test_source_span_anchor_cross_campaign_world_scope(monkeypatch, services):
     assert captured["snapshot"].campaign_id == ""
 
 
+def test_recap_source_span_opens_digest_pinned_sidecar(services, tmp_path):
+    """R.3 Case A: recap emit → revalidate → product-local paragraph open.
+
+    Session-recap spans are not worldbuilding registry artifacts. After
+    DungeonMind revalidation, the adapter opens the digest-pinned recap
+    file's ``source_spans/recap_paragraph_NNN.md`` sidecar. The Buddy
+    kernel is not consulted.
+    """
+    svc, _ = services
+    recap_dir = tmp_path / "out" / "graph_memory" / "runs" / "c1" / "session-1"
+    recap_dir.mkdir(parents=True)
+    recap_body = "# Session 1\n\nThe party met Glowkindle and fought rats.\n"
+    recap_path = recap_dir / "normalized_recap_source.md"
+    recap_path.write_text(recap_body, encoding="utf-8")
+    digest = hashlib.sha256(recap_body.encode("utf-8")).hexdigest()
+    paragraph = "Within they met Glowkindle and agreed to clear the rats."
+    (recap_dir / "source_spans").mkdir()
+    (recap_dir / "source_spans" / "recap_paragraph_007.md").write_text(
+        paragraph, encoding="utf-8"
+    )
+
+    svc.bundle.sources.put_artifact(
+        SourceArtifactV2(
+            source_artifact_id="artifact:recap:c1:session-1",
+            source_domain_key="buddy.recap",
+            source_domain=SourceDomain.SESSION_RECAP,
+            world_id=WORLD_ID,
+            campaign_id=CAMPAIGN_ONE,
+            session_id="session-1",
+            uri="repo://out/graph_memory/runs/c1/session-1/normalized_recap_source.md",
+            current_revision_id="srcrev:recap-s1",
+            authority=None,
+            visibility=Visibility.GM,
+            artifact_kind=None,
+            document_class=None,
+            review_state=None,
+            source_visibility_state=None,
+            workspace_document_ref=None,
+            lineage={},
+            status=SourceStatus.ACTIVE,
+            created_at=NOW,
+            updated_at=NOW,
+        )
+    )
+    svc.bundle.sources.put_revision(
+        SourceRevision(
+            source_revision_id="srcrev:recap-s1",
+            source_artifact_id="artifact:recap:c1:session-1",
+            content_sha256=digest,
+            body_storage="external",
+            locator="test://recap-s1",
+            created_at=NOW,
+        )
+    )
+
+    from dungeonmind.application.world_graph_retrieval import (
+        SourceAnchorMetadata,
+        SourceAnchorResolution,
+    )
+    from dungeonmind.contracts.evidence import EvidenceRefV2
+    from dungeonmind.contracts.projection import ProjectionFocus
+    from dungeonmind.contracts.projection_v2 import (
+        Admissibility,
+        ProjectionSnapshotV2,
+        ScopeModeV2,
+    )
+
+    recap_evidence = EvidenceRefV2(
+        schema_version="dm_evidence_ref_v2",
+        evidence_ref_id="ev:recap-span",
+        source_artifact_id="artifact:recap:c1:session-1",
+        source_revision_id="srcrev:recap-s1",
+        source_domain_key="buddy.recap",
+        source_domain="session_recap",
+        evidence_role="support",
+        can_open_source=True,
+        can_highlight_span=True,
+        session_id="session-1",
+        source_span_ref_id="session-1:recap:paragraph:007",
+        locator=None,
+        uri=None,
+        source_locator=None,
+        line_ref=None,
+    )
+    artifact = svc.bundle.sources.get_artifact("artifact:recap:c1:session-1")
+    snapshot = ProjectionSnapshotV2(
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ONE,
+        focus=ProjectionFocus(kind="none"),
+        admissibility=Admissibility.GM,
+        scope_mode=ScopeModeV2.CAMPAIGN,
+        revision_id="rev:test",
+        head_revision_id="rev:test",
+        is_head=True,
+        projected_at=NOW,
+    )
+    resolution = SourceAnchorResolution(
+        snapshot=snapshot,
+        found=True,
+        anchor_id="dm-source-anchor:v1:recap-test",
+        anchor=SourceAnchorMetadata(
+            anchor_id="dm-source-anchor:v1:recap-test",
+            evidence_ref_id="ev:recap-span",
+            source_artifact_id="artifact:recap:c1:session-1",
+            source_revision_id="srcrev:recap-s1",
+            locator_identity="session-1:recap:paragraph:007",
+            source_span_ref_id="session-1:recap:paragraph:007",
+            can_open_source=True,
+            can_highlight_span=True,
+            supporting_object_ids=(),
+            supporting_relationship_ids=(),
+            supporting_assertion_ids=(),
+            evidence=recap_evidence,
+            artifact=artifact,
+        ),
+    )
+    result = direct._anchor_read_view(
+        svc,
+        resolution,
+        request=WorldGraphSourceAnchorReadRequest(
+            schema="dmb_world_graph_source_anchor_read_request_v1",
+            anchorId="source-anchor:v1:recap-test",
+            **_retrieval_context(),
+        ),
+        repo_root=tmp_path,
+    )
+    assert result.outcome == "enough"
+    assert result.locator_kind == "source_span"
+    assert result.content == paragraph
+    assert result.content_sha256 == digest
+
+
 @pytest.mark.usefixtures("_dungeonmind_mode")
 def test_explicit_nonproduction_root_bypasses_direct(monkeypatch, services, tmp_path):
     """Tests/tooling with an explicit non-production root stay on the file path."""
@@ -1131,3 +1301,68 @@ def test_projection_recipes_do_not_register_or_warm(tmp_path):
         )
     finally:
         kernel.open_world_graph_head = monkeypatch_kernel
+
+
+# ---------------------------------------------------------------------------
+# Error mapping observability + witness vocabulary v2
+# ---------------------------------------------------------------------------
+
+
+def test_map_direct_error_preserves_underlying_cause():
+    original = RuntimeError("span opener exploded")
+    mapped = direct._map_direct_error(original)
+    assert mapped.code == "projection_internal_error"
+    assert mapped.cause_type == "RuntimeError"
+    assert mapped.cause_message == "span opener exploded"
+    assert "RuntimeError: span opener exploded" in str(mapped)
+
+
+def test_map_direct_error_preserves_dungeonmind_cause():
+    from dungeonmind.domain.errors import DungeonMindError
+
+    original = DungeonMindError("resolve_source_anchor refused")
+    mapped = direct._map_direct_error(original)
+    assert mapped.cause_type == "DungeonMindError"
+    assert "resolve_source_anchor refused" in str(mapped)
+
+
+def test_witness_vocabulary_v2_ratified_families():
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "r3_compare_witness",
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "compare_direct_dungeonmind_world_graph_reads.py",
+    )
+    witness = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    import sys
+
+    sys.modules[spec.name] = witness
+    spec.loader.exec_module(witness)
+
+    assert witness.VOCABULARY_VERSION == "v2"
+    mireward_cls, _ = witness.classify_legacy_only_node("location:mireward", "location")
+    canary_cls, _ = witness.classify_legacy_only_node("node:cutover-canary", "npc")
+    unexpected_cls, _ = witness.classify_legacy_only_node("location:unexpected", "location")
+    ext_cls, _ = witness.classify_legacy_only_node("res:statblock", "external_resource")
+    desc_cls, _ = witness.classify_legacy_only_attribute("description")
+    threat_cls, _ = witness.classify_legacy_only_attribute("threat_kind")
+    session_cls, _ = witness.classify_legacy_only_attribute("session_observation")
+    unknown_attr_cls, _ = witness.classify_legacy_only_attribute("unratified_field")
+    evidence_cls, _ = witness.classify_legacy_only_evidence()
+
+    assert mireward_cls == witness.CLASS_APPROVED_DIVERGENCE
+    assert canary_cls == witness.CLASS_APPROVED_DIVERGENCE
+    assert unexpected_cls == witness.CLASS_BLOCKING
+    assert ext_cls == witness.CLASS_RETIRED_LEGACY
+    assert desc_cls == witness.CLASS_APPROVED_DIVERGENCE
+    assert threat_cls == witness.CLASS_APPROVED_DIVERGENCE
+    assert session_cls == witness.CLASS_RETIRED_LEGACY
+    assert unknown_attr_cls == witness.CLASS_BLOCKING
+    assert evidence_cls == witness.CLASS_APPROVED_DIVERGENCE
+    assert "player-rejected" not in Path(
+        spec.origin or ""
+    ).read_text(encoding="utf-8")

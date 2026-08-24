@@ -1,6 +1,6 @@
 # STEWARD'S ANCHOR — CUTOVER
 
-**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; R.3 implementation is frozen pending read-contract ratification (direct path implemented, default-off; production switch gated on R.3a — see §2.5)  
+**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; R.3 supported-contract continuation is in steward review (direct path implemented, default-off; production switch gated on R.3a — see §2.5)  
 **Line of work:** `CUTOVER`  
 **Created:** 2026-08-17  
 **Completed:** 2026-08-18 (live D_A→D_B)  
@@ -165,9 +165,9 @@ Settled facts a successor steward should not re-litigate:
 - **Adopted artifacts are GM-classified by governed V4 repair, not Buddy mutation.** DungeonMind PR #43 plus the 2026-08-23 live Eldyrwild repair transformed the V3 adoption into receipt V4 (historical M0 preserved, sanctioned M1 `16d3161d…`, manifest `83 / 83 / 93 / 13`) without rewriting D_A or the current head. The dormant Buddy scripts that mutated `source_artifacts` and recomputed V3 `membership_sha256` are deleted; they have no recovery role.
 - **The performance witness triggered the §7 decision rule.** The direct path's `scope_projection` phase against PostgreSQL is ~20s on the real world (99.6% of read time; evidence-chain admission does per-row source-repository round-trips). Per HANDOFF §7 this is not an R.3 failure: the semantic witness is preserved, and **R.3a (reusable World Graph read context / parsed immutable revision reuse + batched source reads) is the named successor that must land before the production switch flips**. Direct reads stay behind `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` (default off) until R.3a. Authority mode is already `dungeonmind`; the extra gate is what keeps production on the hydrated path.
 
-The R.3 semantic witness harness (`scripts/compare_direct_dungeonmind_world_graph_reads.py`) remains the post-cutover regression oracle, but **zero-difference against the Buddy kernel is no longer the merge bar**. After steward acceptance of [`HANDOFF-CUTOVER-r3-read-contract-ratification.md`](HANDOFF-CUTOVER-r3-read-contract-ratification.md), R.3a compares the supported-contract R.3 direct result to the optimized direct result. Buddy hydration is not required to remain live to preserve the oracle.
+The R.3 semantic witness harness (`scripts/compare_direct_dungeonmind_world_graph_reads.py`) is a **supported-contract checker** under vocabulary v2. Zero-difference against the Buddy kernel is not the merge bar. R.3a compares the supported-contract R.3 direct result to the optimized direct result.
 
-The previous 199-blocker tally is historical evidence against corrupted V3 state. The durable witness record is [`../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md`](../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md). The current evidence stop point is the fresh V4 witness (**200** blocking rows + 2 errored cases). Mechanical predecessor `24250fb0` and Cycle 4-reviewed ratification head `bba098fc9aed68630caadc1e89b4c84639562862` are on the pushed #629 branch. Vocabulary v2 labeling waits on an authorized implementation resume; do not silently relabel. Buddy #629 **implementation** stays frozen.
+The previous 199-blocker tally is historical evidence against corrupted V3 state. The frozen V4 vocabulary-v1 stop point was 200 blocking + 2 errored. The current evidence is the 2026-08-24 vocabulary-v2 witness: **0 blocking, 0 errored, 199 approved semantic divergence**. Durable record: [`../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md`](../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md). Anchor `emit-revalidate-open` was Case A (adapter product-local join): DungeonMind `resolve_source_anchor` succeeded; recap spans now open digest-pinned sidecars instead of the worldbuilding registry. Direct-read gate remains default-off.
 
 ---
 

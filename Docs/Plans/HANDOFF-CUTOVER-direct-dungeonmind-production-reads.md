@@ -24,7 +24,8 @@ pr_body_template: |
 # HANDOFF — R.3: direct DungeonMind production reads
 
 **Created:** 2026-08-22  
-**Status:** FROZEN — mechanical V4 rebase recorded; waiting on read-contract ratification  
+**Status:** IN REVIEW — GitHub #631 Cycle 2 requested; not merge-ready; direct-read gate remains default-off
+**Open GitHub PR:** #631 (restoration of accidentally merged #629; same branch)  
 **Workstream:** CUTOVER / World Graph runtime retirement  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  

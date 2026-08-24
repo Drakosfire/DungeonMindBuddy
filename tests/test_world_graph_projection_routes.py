@@ -219,4 +219,4 @@ def test_projection_route_dispatches_direct_in_dungeonmind_mode(
     assert body["snapshot"]["revisionId"] == published.revision_id
     assert body["snapshot"]["isHead"] is True
     node_ids = {node["nodeId"] for node in body["nodes"]}
-    assert node_ids == {"obj:tavern", "obj:hidden-cellar", "obj:hero"}
+    assert node_ids == {"obj:tavern", "obj:hidden-cellar", "obj:hero", "obj:road-sign"}

@@ -64,6 +64,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Literal, Mapping, Sequence
@@ -156,7 +157,9 @@ from graph_memory.retrieval.source_reader import (
     parse_repo_uri,
     read_graph_data_json_pointer_anchor,
     read_repo_heading_anchor,
+    read_repo_line_span_text,
 )
+from graph_memory.kernel.world_retrieval import WorldGraphRetrievalError
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +223,12 @@ class DirectWorldGraphReadError(Exception):
 
     ``code``/``status_code`` reuse the existing kernel/authority vocabulary
     so consumers see the same envelope shape the legacy path produced.
+
+    ``cause_type`` / ``cause_message`` preserve the underlying exception
+    identity when this wrapper maps an unexpected or DungeonMind failure.
+    Callers that ``raise mapped from exc`` still chain ``__cause__``;
+    these fields make that identity visible in ``str(exc)`` and JSON
+    witnesses without requiring traceback inspection.
     """
 
     def __init__(
@@ -229,11 +238,14 @@ class DirectWorldGraphReadError(Exception):
         code: str,
         status_code: int,
         diagnostics: list[dict[str, str]] | None = None,
+        cause: BaseException | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.status_code = status_code
         self.diagnostics = diagnostics or []
+        self.cause_type = type(cause).__name__ if cause is not None else None
+        self.cause_message = str(cause) if cause is not None else None
 
 
 @dataclass(frozen=True)
@@ -485,47 +497,64 @@ def _map_direct_error(exc: Exception) -> DirectWorldGraphReadError:
             "DungeonMind authority is unavailable.",
             code="world_graph_unavailable",
             status_code=503,
+            cause=exc,
         )
     if isinstance(exc, PersistenceIntegrityError):
         return DirectWorldGraphReadError(
             "DungeonMind authority state failed an integrity check.",
             code="projection_integrity_error",
             status_code=500,
+            cause=exc,
         )
     if isinstance(exc, HeadNotFoundError):
         return DirectWorldGraphReadError(
             "DungeonMind has no published head for the requested world.",
             code="authority_head_missing",
             status_code=503,
+            cause=exc,
         )
     if isinstance(exc, RevisionNotFoundError):
         return DirectWorldGraphReadError(
             "The requested revision pin is not bridged to DungeonMind authority.",
             code="revision_not_bridged",
             status_code=404,
+            cause=exc,
         )
     if isinstance(exc, ScopeResolutionError):
         return DirectWorldGraphReadError(
             "The requested scope cannot be resolved against DungeonMind authority.",
             code="invalid_campaign_scope",
             status_code=422,
+            cause=exc,
         )
     if isinstance(exc, ValueError):
         return DirectWorldGraphReadError(
             str(exc) or "Invalid world graph read request.",
             code="invalid_request",
             status_code=422,
+            cause=exc,
+        )
+    if isinstance(exc, WorldGraphRetrievalError):
+        return DirectWorldGraphReadError(
+            str(exc) or "Product-local source join failed.",
+            code=getattr(exc, "code", None) or "source_unavailable",
+            status_code=int(getattr(exc, "status_code", 404) or 404),
+            cause=exc,
         )
     if isinstance(exc, DungeonMindError):
         return DirectWorldGraphReadError(
-            "DungeonMind authority rejected the read.",
+            "DungeonMind authority rejected the read "
+            f"({type(exc).__name__}: {exc}).",
             code="projection_internal_error",
             status_code=500,
+            cause=exc,
         )
     return DirectWorldGraphReadError(
-        "Unexpected failure in the direct DungeonMind read path.",
+        "Unexpected failure in the direct DungeonMind read path "
+        f"({type(exc).__name__}: {exc}).",
         code="projection_internal_error",
         status_code=500,
+        cause=exc,
     )
 
 
@@ -1354,7 +1383,12 @@ def _retrieval_attribute_views(
 
 
 def _classify_locator_kind(anchor: SourceAnchorMetadata) -> str:
-    if (anchor.source_span_ref_id or "").strip():
+    domain = str(getattr(anchor.evidence, "source_domain", "") or "")
+    span = (anchor.source_span_ref_id or "").strip()
+    # Match the legacy live-control dispatch: only worldbuilding spans use
+    # the registry-backed opener. Recap/other spans with a repo:// URI are
+    # still source_span locators, opened via digest-pinned product files.
+    if domain == "worldbuilding" and span:
         return "source_span"
     uri = getattr(anchor.artifact, "uri", None) or ""
     locator = anchor.locator_identity or ""
@@ -1362,6 +1396,8 @@ def _classify_locator_kind(anchor: SourceAnchorMetadata) -> str:
         return "heading"
     if parse_graph_data_uri(uri) is not None and parse_json_pointer_locator(locator) is not None:
         return "json_pointer"
+    if span and parse_repo_uri(uri) is not None:
+        return "source_span"
     return "unsupported"
 
 
@@ -1644,6 +1680,145 @@ def read_source_anchor_direct(
         raise _map_direct_error(exc) from exc
 
 
+_RECAP_PARAGRAPH_SPAN = re.compile(r"(?:^|:)paragraph:(\d+)$")
+
+
+def _unavailable_anchor_result(
+    *,
+    base: dict[str, Any],
+    code: str,
+    message: str,
+) -> WorldGraphSourceAnchorReadResult:
+    return WorldGraphSourceAnchorReadResult(
+        outcome="unavailable",
+        diagnostics=[
+            WorldGraphRetrievalDiagnostic(code=code, message=message, severity="warning")
+        ],
+        truncated=False,
+        **base,
+    )
+
+
+def _read_admitted_repo_span(
+    services: DirectWorldGraphReadServices,
+    anchor: SourceAnchorMetadata,
+    *,
+    request: WorldGraphSourceAnchorReadRequest,
+    repo_root: Path,
+    base: dict[str, Any],
+) -> WorldGraphSourceAnchorReadResult:
+    """Digest-pinned recap/other repo:// span join after DungeonMind revalidation.
+
+    Recap paragraph identities (`…:paragraph:NNN`) open the sibling
+    ``source_spans/recap_paragraph_NNN.md`` sidecar once the parent recap
+    file matches the DungeonMind source-revision digest. Line-range spans
+    in an adjacent ``source_span_index.json`` use the existing repo line
+    reader. This does not consult the Buddy graph kernel.
+    """
+    uri = getattr(anchor.artifact, "uri", None) or ""
+    relative_path = parse_repo_uri(uri)
+    span_id = (anchor.source_span_ref_id or "").strip()
+    digest = _source_revision_digest(services, anchor.source_revision_id)
+    expected = (digest or "").removeprefix("sha256:").strip().lower()
+    if relative_path is None or not span_id or not expected:
+        return _unavailable_anchor_result(
+            base=base,
+            code="unsupported_locator",
+            message="Admitted recap/repo span is missing a URI, span id, or digest.",
+        )
+    try:
+        resolved_root = repo_root.resolve()
+        parent_path = (resolved_root / relative_path).resolve()
+        parent_path.relative_to(resolved_root)
+        raw = parent_path.read_bytes()
+    except (OSError, ValueError) as exc:
+        return _unavailable_anchor_result(
+            base=base,
+            code="source_unavailable",
+            message=f"source file unavailable: {exc}",
+        )
+    actual = hashlib.sha256(raw).hexdigest().lower()
+    if actual != expected:
+        return _unavailable_anchor_result(
+            base=base,
+            code="source_integrity_error",
+            message="source file content does not match the DungeonMind revision digest",
+        )
+
+    paragraph = _RECAP_PARAGRAPH_SPAN.search(span_id)
+    if paragraph is not None:
+        sidecar = parent_path.parent / "source_spans" / f"recap_paragraph_{int(paragraph.group(1)):03d}.md"
+        if sidecar.is_file():
+            content = sidecar.read_text(encoding="utf-8")
+            truncated = len(content) > request.max_chars
+            return WorldGraphSourceAnchorReadResult(
+                outcome="truncated" if truncated else "enough",
+                diagnostics=[],
+                media_type="text/markdown",
+                content=content[: request.max_chars],
+                content_sha256=actual,
+                line_start=None,
+                line_end=None,
+                truncated=truncated,
+                **base,
+            )
+
+    index_path = parent_path.parent / "source_span_index.json"
+    if index_path.is_file():
+        try:
+            payload = json.loads(index_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            payload = None
+        rows = payload.get("spans") if isinstance(payload, dict) else None
+        if isinstance(rows, list):
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                row_id = (
+                    row.get("source_span_id")
+                    or row.get("span_id")
+                    or row.get("source_span_ref_id")
+                )
+                if row_id != span_id:
+                    continue
+                start_line = row.get("start_line")
+                end_line = row.get("end_line")
+                if not isinstance(start_line, int) or not isinstance(end_line, int):
+                    break
+                try:
+                    outcome = read_repo_line_span_text(
+                        repo_root=repo_root,
+                        relative_path=relative_path,
+                        start_line=start_line,
+                        end_line=end_line,
+                        max_chars=request.max_chars,
+                        expected_content_sha256=expected,
+                    )
+                except SourceReadError as exc:
+                    return _unavailable_anchor_result(
+                        base=base,
+                        code=exc.code,
+                        message=str(exc),
+                    )
+                return WorldGraphSourceAnchorReadResult(
+                    outcome="truncated" if outcome.truncated else "enough",
+                    diagnostics=[],
+                    media_type=outcome.media_type,
+                    content=outcome.content,
+                    content_sha256=outcome.content_sha256,
+                    line_start=outcome.line_start,
+                    line_end=outcome.line_end,
+                    truncated=bool(outcome.truncated),
+                    **base,
+                )
+
+    return _unavailable_anchor_result(
+        base=base,
+        code="source_unavailable",
+        message="No product-local span sidecar or line-range index matched this admitted span.",
+    )
+
+
 def _anchor_read_view(
     services: DirectWorldGraphReadServices,
     resolution: SourceAnchorResolution,
@@ -1700,26 +1875,47 @@ def _anchor_read_view(
             **base,
         )
     if locator_kind == "source_span":
-        # Registry-backed worldbuilding SourceSpan reads are composed by the
-        # live_control retrieval service, exactly as on the legacy path.
-        # The adapter delegates to the same product-local opener; the DND
-        # revalidation above (resolve_source_anchor) has already proven
-        # admission and anchor identity.
-        from apps.live_control_server.services.worldbuilding_source_span_read import (
-            read_admitted_worldbuilding_span,
-        )
+        # Worldbuilding spans compose the registry-backed opener, matching
+        # the legacy live-control dispatch. Recap/other repo:// spans are a
+        # digest-pinned product-local join after DungeonMind revalidation.
+        domain = str(getattr(anchor.evidence, "source_domain", "") or "")
+        if domain == "worldbuilding":
+            from apps.live_control_server.services.worldbuilding_source_span_read import (
+                read_admitted_worldbuilding_span,
+            )
 
-        digest = _source_revision_digest(services, anchor.source_revision_id)
-        return read_admitted_worldbuilding_span(
-            root=repo_root,
-            source_artifact_id=anchor.source_artifact_id,
-            source_span_ref_id=str(anchor.source_span_ref_id),
-            graph_content_sha256=digest,
-            max_chars=request.max_chars,
-            anchor_id=request.anchor_id,
-            evidence_ref_id=anchor.evidence_ref_id,
-            snapshot=snapshot,
-            graph_artifact=None,
+            digest = _source_revision_digest(services, anchor.source_revision_id)
+            try:
+                return read_admitted_worldbuilding_span(
+                    root=repo_root,
+                    source_artifact_id=anchor.source_artifact_id,
+                    source_span_ref_id=str(anchor.source_span_ref_id),
+                    graph_content_sha256=digest,
+                    max_chars=request.max_chars,
+                    anchor_id=request.anchor_id,
+                    evidence_ref_id=anchor.evidence_ref_id,
+                    snapshot=snapshot,
+                    graph_artifact=None,
+                )
+            except WorldGraphRetrievalError as exc:
+                return WorldGraphSourceAnchorReadResult(
+                    outcome="unavailable",
+                    diagnostics=[
+                        WorldGraphRetrievalDiagnostic(
+                            code=getattr(exc, "code", None) or "source_unavailable",
+                            message=str(exc),
+                            severity="warning",
+                        )
+                    ],
+                    truncated=False,
+                    **base,
+                )
+        return _read_admitted_repo_span(
+            services,
+            anchor,
+            request=request,
+            repo_root=repo_root,
+            base=base,
         )
     digest = _source_revision_digest(services, anchor.source_revision_id)
     if digest is None:

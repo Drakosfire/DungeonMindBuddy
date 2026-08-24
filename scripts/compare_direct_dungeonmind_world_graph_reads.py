@@ -17,19 +17,22 @@ never commit it) and prints a safe aggregate summary (counts, timings,
 divergence-class tallies) suitable for transcription into the checked-in
 benchmark summary.
 
-Divergence classification follows HANDOFF §6.3:
+Divergence classification follows the ratified R.3 vocabulary **v2**
+(HANDOFF-CUTOVER-r3-read-contract-ratification.md):
 
 ```text
+blocking semantic difference
+approved semantic divergence
 representation only
+intentionally retired legacy-only field
 new deterministic R.2 search ranking
 product-local presentation join
-intentionally retired legacy-only field
-blocking semantic difference
 ```
 
-plus the frozen handoff §6.3 vocabulary only. Do not invent extra classes
-to normalize away visibility, provenance, scope, identity, or missing-data
-differences.
+Ratified families are counted as ``approved semantic divergence`` and are
+not merge blockers. Genuine leaks, missing supported operations, revision
+drift, and unexpected errors remain ``blocking semantic difference``.
+Do not invent additional ad hoc classes.
 
 Usage:
 
@@ -69,6 +72,21 @@ CLASS_SEARCH_RANKING = "new deterministic R.2 search ranking"
 CLASS_PRESENTATION_JOIN = "product-local presentation join"
 CLASS_RETIRED_LEGACY = "intentionally retired legacy-only field"
 CLASS_BLOCKING = "blocking semantic difference"
+CLASS_APPROVED_DIVERGENCE = "approved semantic divergence"
+VOCABULARY_VERSION = "v2"
+
+# Ratified §5 families — counted, visible, not blocking.
+_MIREWARD_NODE_ID = "location:mireward"
+_CUTOVER_CANARY_NODE_ID = "node:cutover-canary"
+_RATIFIED_RETIRED_PROPERTY_KINDS = frozenset(
+    {
+        "description",
+        "threat_kind",
+        "battlefield_role",
+        "challenge_expectation",
+        "first_appearance",
+    }
+)
 
 
 @dataclass
@@ -96,6 +114,58 @@ class CaseReport:
     legacy_counts: dict[str, int] = field(default_factory=dict)
     direct_counts: dict[str, int] = field(default_factory=dict)
     error: str | None = None
+
+
+def classify_legacy_only_node(node_id: str, kind: str) -> tuple[str, str]:
+    """Classify a node present on the Buddy kernel and absent on direct reads."""
+    if kind == "external_resource":
+        return (
+            CLASS_RETIRED_LEGACY,
+            "external_resource node intentionally omitted from the "
+            "DungeonMind authority snapshot (handoff §D)",
+        )
+    if node_id == _MIREWARD_NODE_ID:
+        return (
+            CLASS_APPROVED_DIVERGENCE,
+            "intended per-evidence-chain admission drops Mireward under "
+            "c1/pin lenses (ratification §5.1)",
+        )
+    if node_id == _CUTOVER_CANARY_NODE_ID:
+        return (
+            CLASS_APPROVED_DIVERGENCE,
+            "cutover-canary is operational history, not supported campaign "
+            "content (ratification §5.3)",
+        )
+    return CLASS_BLOCKING, "legacy admits an object the direct path excludes"
+
+
+def classify_legacy_only_attribute(predicate_or_kind: str) -> tuple[str, str]:
+    """Classify an attribute present on the Buddy kernel and absent on direct."""
+    if predicate_or_kind == "session_observation":
+        return (
+            CLASS_RETIRED_LEGACY,
+            "history-only session_observation rows retired from the "
+            "projection payload",
+        )
+    if predicate_or_kind in _RATIFIED_RETIRED_PROPERTY_KINDS:
+        return (
+            CLASS_APPROVED_DIVERGENCE,
+            "v6 adoption set properties=[]; contribution-reconstructed "
+            "attributes are retired (ratification §5.2)",
+        )
+    return (
+        CLASS_BLOCKING,
+        "legacy reconstructs an attribute the direct path does not serve",
+    )
+
+
+def classify_legacy_only_evidence() -> tuple[str, str]:
+    """Classify evidence present on the Buddy kernel and absent on direct."""
+    return (
+        CLASS_APPROVED_DIVERGENCE,
+        "cross-campaign evidence chain excluded by DungeonMind's "
+        "fail-closed per-evidence-chain admission (ratification §5.1)",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -251,29 +321,18 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
     direct_nodes = {_node_key(n): n for n in direct.nodes}
 
     for node_id in sorted(legacy_nodes.keys() - direct_nodes.keys()):
-        if legacy_nodes[node_id].kind == "external_resource":
-            # Handoff §D: external_resource is a Buddy-only hydration-era
-            # payload the DungeonMind authority snapshot intentionally omits.
-            report.divergences.append(
-                Divergence(
-                    case,
-                    "node_only_in_legacy",
-                    node_id,
-                    CLASS_RETIRED_LEGACY,
-                    "external_resource node intentionally omitted from the "
-                    "DungeonMind authority snapshot (handoff §D)",
-                )
+        classification, detail = classify_legacy_only_node(
+            node_id, legacy_nodes[node_id].kind
+        )
+        report.divergences.append(
+            Divergence(
+                case,
+                "node_only_in_legacy",
+                node_id,
+                classification,
+                detail,
             )
-        else:
-            report.divergences.append(
-                Divergence(
-                    case,
-                    "node_only_in_legacy",
-                    node_id,
-                    CLASS_BLOCKING,
-                    "legacy admits an object the direct path excludes",
-                )
-            )
+        )
     for node_id in sorted(direct_nodes.keys() - legacy_nodes.keys()):
         report.divergences.append(
             Divergence(
@@ -462,32 +521,16 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
     for key in sorted(legacy_attrs.keys() - direct_attrs.keys()):
         attr = legacy_attrs[key]
         kind = getattr(attr, "predicate", None) or getattr(attr, "kind", None) or ""
-        if kind == "session_observation":
-            report.divergences.append(
-                Divergence(
-                    case,
-                    "attribute_only_in_legacy",
-                    f"{key[0]}:{attr.label}",
-                    CLASS_RETIRED_LEGACY,
-                    "history-only session_observation rows retired from the "
-                    "projection payload",
-                )
+        classification, detail = classify_legacy_only_attribute(kind)
+        report.divergences.append(
+            Divergence(
+                case,
+                "attribute_only_in_legacy",
+                f"{key[0]}:{attr.label} ({kind})",
+                classification,
+                detail,
             )
-        else:
-            # The v6 adoption set properties=[] for every object — property
-            # assertions are not represented in the DND authority payload.
-            # The handoff prohibits normalizing away missing-data differences,
-            # so this is a blocking semantic difference.
-            report.divergences.append(
-                Divergence(
-                    case,
-                    "attribute_only_in_legacy",
-                    f"{key[0]}:{attr.label} ({kind})",
-                    CLASS_BLOCKING,
-                    "v6 adoption set properties=[] for all objects; legacy "
-                    "reconstructs from contributions",
-                )
-            )
+        )
     for key in sorted(direct_attrs.keys() - legacy_attrs.keys()):
         report.divergences.append(
             Divergence(
@@ -503,21 +546,14 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
     legacy_ev = {e.evidence_ref_id for e in legacy.evidence}
     direct_ev = {e.evidence_ref_id for e in direct.evidence}
     for ev_id in sorted(legacy_ev - direct_ev):
-        # The legacy kernel scoped objects but never evidence chains; it
-        # serves cross-campaign evidence for admitted objects. DungeonMind's
-        # fail-closed per-evidence-chain admission excludes evidence whose
-        # source artifact belongs to another campaign. The handoff prohibits
-        # normalizing away provenance/scope differences, so this is a
-        # blocking semantic difference.
+        classification, detail = classify_legacy_only_evidence()
         report.divergences.append(
             Divergence(
                 case,
                 "evidence_only_in_legacy",
                 ev_id,
-                CLASS_BLOCKING,
-                "cross-campaign evidence chain excluded by DungeonMind's "
-                "fail-closed per-evidence-chain admission (legacy kernel "
-                "scoped objects, never evidence chains)",
+                classification,
+                detail,
             )
         )
     for ev_id in sorted(direct_ev - legacy_ev):
@@ -745,6 +781,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if not projections:
         print("error: no projection cases ran; aborting", file=sys.stderr)
+        for r in reports:
+            if r.error:
+                print(f"  {r.case}: {r.error}", file=sys.stderr)
         return 2
 
     c1_legacy, c1_direct = projections["campaign:c1"]
@@ -930,17 +969,47 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
 
+    _direct_retrieval = {
+        "object": direct.get_object_direct,
+        "search": direct.search_world_graph_direct,
+        "neighborhood": direct.get_neighborhood_direct,
+        "evidence": direct.get_evidence_direct,
+    }
     for case, op, request in retrieval_cases:
+        direct_fn = _direct_retrieval[op]
+        if case == "neighborhood:depth-2":
+            # Native depth-2 is a supported operation. The Buddy kernel's
+            # KeyError is a retired oracle defect (ratification §5.5) and
+            # must not make native success depend on legacy success.
+            try:
+                direct_result = direct_fn(services, request)
+            except Exception as exc:
+                reports.append(
+                    CaseReport(case=case, error=f"direct {type(exc).__name__}: {exc}")
+                )
+                continue
+            try:
+                legacy = _legacy_retrieval(
+                    op, request, root=args.frozen_root, repo_root=args.repo_root
+                )
+            except Exception as exc:
+                report = CaseReport(case=case)
+                report.direct_counts = {
+                    "nodes": len(direct_result.nodes),
+                    "relationships": len(direct_result.relationships),
+                    "attributes": len(getattr(direct_result, "attributes", []) or []),
+                }
+                report.legacy_counts = {
+                    "oracle_error": f"{type(exc).__name__}: {exc}",
+                }
+                reports.append(report)
+                continue
+            reports.append(compare_retrieval(case, legacy, direct_result))
+            continue
         try:
             legacy = _legacy_retrieval(
                 op, request, root=args.frozen_root, repo_root=args.repo_root
             )
-            direct_fn = {
-                "object": direct.get_object_direct,
-                "search": direct.search_world_graph_direct,
-                "neighborhood": direct.get_neighborhood_direct,
-                "evidence": direct.get_evidence_direct,
-            }[op]
             direct_result = direct_fn(services, request)
             reports.append(compare_retrieval(case, legacy, direct_result))
         except Exception as exc:
@@ -999,32 +1068,69 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:
             reports.append(CaseReport(case=case, error=f"{type(exc).__name__}: {exc}"))
 
-    # Case 15: PLAYER admissibility — both paths fail closed identically.
-    case = "admissibility:player-rejected"
+    # Case 15: PLAYER is a supported API — serve, hide GM-only, fail closed.
+    case = "admissibility:player-served"
     try:
-        request = projection_request("campaign", args.campaign_a, admissibility="player")
-        outcomes = {}
-        for name, fn in (
-            ("legacy", lambda: _legacy_projection(request, root=args.frozen_root)),
-            ("direct", lambda: direct.project_world_graph_direct(services, request)),
-        ):
-            try:
-                fn()
-                outcomes[name] = "served"
-            except Exception as exc:
-                outcomes[name] = f"{getattr(exc, 'code', type(exc).__name__)}"
+        gm_request = projection_request(
+            "campaign", args.campaign_a, admissibility="gm"
+        )
+        player_request = projection_request(
+            "campaign", args.campaign_a, admissibility="player"
+        )
         report = CaseReport(case=case)
-        report.legacy_counts["result"] = outcomes["legacy"]
-        report.direct_counts["result"] = outcomes["direct"]
-        if outcomes["legacy"] != outcomes["direct"]:
+        try:
+            _legacy_projection(player_request, root=args.frozen_root)
+            report.legacy_counts["result"] = "served"
+        except Exception as exc:
+            report.legacy_counts["result"] = getattr(exc, "code", type(exc).__name__)
+        player_direct = direct.project_world_graph_direct(services, player_request)
+        gm_direct = direct.project_world_graph_direct(services, gm_request)
+        report.direct_counts["result"] = "served"
+        report.direct_counts["nodes"] = len(player_direct.nodes)
+        report.direct_counts["gm_nodes"] = len(gm_direct.nodes)
+        player_ids = {n.node_id for n in player_direct.nodes}
+        gm_ids = {n.node_id for n in gm_direct.nodes}
+        leaked = sorted(player_ids - gm_ids)
+        if leaked:
             report.divergences.append(
                 Divergence(
                     case,
-                    "error_envelope",
-                    f"{outcomes['legacy']} != {outcomes['direct']}",
+                    "player_leak",
+                    ",".join(leaked),
                     CLASS_BLOCKING,
+                    "PLAYER served nodes absent from the GM projection",
                 )
             )
+        try:
+            direct.project_world_graph_direct(
+                services,
+                projection_request(
+                    "campaign", args.campaign_a, admissibility="unknown"
+                ),
+            )
+            report.divergences.append(
+                Divergence(
+                    case,
+                    "unknown_admissibility",
+                    "served",
+                    CLASS_BLOCKING,
+                    "unknown admissibility did not fail closed",
+                )
+            )
+        except Exception as exc:
+            code = getattr(exc, "code", "")
+            report.direct_counts["unknown_admissibility"] = code or type(exc).__name__
+            if code != "unsupported_admissibility":
+                report.divergences.append(
+                    Divergence(
+                        case,
+                        "unknown_admissibility",
+                        str(code or type(exc).__name__),
+                        CLASS_BLOCKING,
+                        "unknown admissibility must fail closed as "
+                        "unsupported_admissibility",
+                    )
+                )
         reports.append(report)
     except Exception as exc:
         reports.append(CaseReport(case=case, error=f"{type(exc).__name__}: {exc}"))
@@ -1126,15 +1232,37 @@ def main(argv: list[str] | None = None) -> int:
     for d in all_divergences:
         tally[d.classification] = tally.get(d.classification, 0) + 1
 
-    print("\n=== R.3 parity witness ===")
+    print("\n=== R.3 supported-contract witness ===")
+    print(f"vocabulary: {VOCABULARY_VERSION}")
     print(f"cases run: {len(reports)} ({len(errored)} errored)")
     print("divergence tally:")
+    for cls in (
+        CLASS_BLOCKING,
+        CLASS_APPROVED_DIVERGENCE,
+        CLASS_REPRESENTATION,
+        CLASS_RETIRED_LEGACY,
+        CLASS_SEARCH_RANKING,
+        CLASS_PRESENTATION_JOIN,
+    ):
+        if cls in tally:
+            print(f"  {cls}: {tally[cls]}")
     for cls, count in sorted(tally.items()):
-        print(f"  {cls}: {count}")
+        if cls not in {
+            CLASS_BLOCKING,
+            CLASS_APPROVED_DIVERGENCE,
+            CLASS_REPRESENTATION,
+            CLASS_RETIRED_LEGACY,
+            CLASS_SEARCH_RANKING,
+            CLASS_PRESENTATION_JOIN,
+        }:
+            print(f"  {cls}: {count}")
     if blocking:
         print(f"\nBLOCKING divergences ({len(blocking)}):")
         for d in blocking[:20]:
             print(f"  [{d.case}] {d.kind}: {d.identifier} — {d.detail}")
+    approved = [d for d in all_divergences if d.classification == CLASS_APPROVED_DIVERGENCE]
+    if approved:
+        print(f"\napproved semantic divergence ({len(approved)}; counted, not blocking)")
     if errored:
         print("\nerrored cases:")
         for r in errored:
@@ -1155,9 +1283,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {name:24s} {'   '.join(cells)}")
 
     payload = {
+        "vocabulary_version": VOCABULARY_VERSION,
         "world_id": args.world_id,
         "legacy_buddy_revision": binding.legacy_buddy_revision_id,
         "dungeonmind_revision": binding.dungeonmind_first_revision_id,
+        "dungeonmind_head_revision": binding.dungeonmind_head_revision_id,
         "runs": args.runs,
         "cases": [
             {
@@ -1172,11 +1302,13 @@ def main(argv: list[str] | None = None) -> int:
         "performance": perf,
         "tally": tally,
         "blocking_count": len(blocking),
+        "approved_semantic_divergence_count": tally.get(CLASS_APPROVED_DIVERGENCE, 0),
+        "errored_count": len(errored),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     print(f"\nlocal report (private — do not commit): {args.output}")
-    return 1 if blocking else 0
+    return 1 if blocking or errored else 0
 
 
 if __name__ == "__main__":

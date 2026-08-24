@@ -1,17 +1,19 @@
 # BASELINE — R.3 direct DungeonMind current-world read witness
 
-**Date:** 2026-08-22 (historical V3 witness) / 2026-08-23 (fresh V4 witness)
+**Date:** 2026-08-22 (historical V3 witness) / 2026-08-23 (frozen V4 vocabulary-v1) / 2026-08-24 (supported-contract vocabulary-v2)
 **Branch:** `cutover/direct-dungeonmind-production-reads`
-**Handoff:** [`../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md`](../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md) (implementation; frozen)
+**Handoff:** [`../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md`](../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md) (implementation; in review)
 **Acceptance successor:** [`../Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md`](../Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md)
 **Harness:** `scripts/compare_direct_dungeonmind_world_graph_reads.py` (local runner; private JSON output is never committed)
-**Status:** fresh V4 witness recorded; **stop and inspect** — do not treat the historical 199 as current, and do not pre-authorize remaining-parity implementation from this document
+**Status:** vocabulary-v2 supported-contract witness recorded — **0 blocking, 0 errored**; production direct-read gate remains default-off
 
-> **Historical 199 is obsolete.** It was measured against corrupted V3
-> adopted-source state. The current acceptance number is the 2026-08-23 V4
-> witness below: **200 blocking semantic differences**, same two dominant
-> classes as before the repair, plus two errored cases. The V4 repair did
-> not collapse R.3 to semantic cleanliness.
+> **Historical 199 and frozen V4 200 are obsolete as acceptance numbers.**
+> 199 was measured against corrupted V3 adopted-source state. The 2026-08-23
+> V4 vocabulary-v1 witness in §2A recorded **200 blocking** plus two errored
+> cases against the retired Buddy kernel. The current acceptance record is
+> §2B (2026-08-24 vocabulary v2): **0 blocking, 0 errored**, with remaining
+> Buddy-kernel differences counted as `approved semantic divergence`. The
+> production direct-read gate remains default-off.
 
 ---
 
@@ -119,6 +121,48 @@ Until that design is accepted, do not:
 - enable `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ`.
 
 Private JSON (never commit): operator-local `r3-v4-parity-witness.json` beside the 2026-08-23 live-repair backup.
+
+### 2B. Vocabulary-v2 supported-contract witness — 2026-08-24
+
+Identity preflight (same live authority):
+
+```text
+receipt schema:     dm_existing_world_adoption_receipt_v4
+M0:                 538195e399158bfb4fafce01f9c5af3c63e2137f70694fdead7a26e5800e0890
+M1 (served):        16d3161d270691460ccbf6d183055ad9f29f00bdbecf5c26dfe0189da2b9914e
+D_A:                rev:34b1f8e2625d5ba693fc726a2a1a4720
+head D_B:           rev:680c246047d67f9fe0293ee90526f670
+Buddy A:            rev:0c644e56b45bcaac709012206e3e41c2
+vocabulary:         v2
+```
+
+17 cases. **0 errored. 0 blocking semantic difference.**
+
+| class | count | meaning |
+|---|---|---|
+| blocking semantic difference | **0** | no unresolved supported-contract violation |
+| approved semantic divergence | **199** | ratified evidence-chain admission, Mireward c1/pin drops, 27 retired properties, cutover-canary |
+| representation only | 2,345 | unchanged |
+| intentionally retired legacy-only field | 1,056 | unchanged |
+| new deterministic R.2 search ranking | 2 | unchanged |
+| product-local presentation join | 1 | `anchor:emit-revalidate-open` — direct `enough`, legacy `empty` |
+
+PLAYER (`admissibility:player-served`): direct **served**; 0 PLAYER nodes vs 390 GM nodes (no leak); unknown admissibility `unsupported_admissibility`. Legacy still rejects PLAYER; that envelope is no longer compared as blocking.
+
+Depth-2: native returned 8 nodes / 7 relationships. Legacy oracle `KeyError: 'item_enormous_boulder'` recorded in `legacy_counts`, not as an errored supported operation.
+
+Anchor root cause: **Case A — adapter / product-local join.** DungeonMind `resolve_source_anchor` succeeded. Recap `source_span` locators were incorrectly forced through the worldbuilding registry opener. Direct now digest-pins the recap file and opens `source_spans/recap_paragraph_NNN.md`.
+
+Performance (1 run; characterization only) remains the same shape:
+
+```text
+projection            legacy  1643 ms    direct 20751 ms
+neighborhood:depth-2  legacy ERROR       direct 21084 ms
+```
+
+`DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` stays default-off. R.3a remains the named successor for that cost.
+
+Private JSON (never commit): operator-local `/tmp/r3-v4-supported-contract-witness.json`.
 
 ## 3. Semantic parity witness (HISTORICAL — corrupted V3 authority)
 

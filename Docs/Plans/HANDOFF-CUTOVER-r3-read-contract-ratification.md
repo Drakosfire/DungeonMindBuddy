@@ -20,13 +20,13 @@ pr_body_template: |
 # HANDOFF — R.3: ratify the DungeonMind ↔ DungeonMindBuddy graph-read contract
 
 **Created:** 2026-08-23  
-**Status:** ACTIVE — design/acceptance; not implementation authorization  
+**Status:** ACCEPTED — design/acceptance; narrow #629 continuation recorded 2026-08-24  
 **Workstream:** CUTOVER / World Graph runtime retirement  
 **Direction:** EVIDENCE → DESIGN → CODE  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
-**Active implementation PR (frozen until this is accepted):** Buddy #629  
+**Active implementation PR:** Buddy #629 / open GitHub successor #631 on the same branch  
 **Required DungeonMind pin:** `519b2c96fc42d22f3113cc9ca0d48bc70b6780e5` (#43)  
-**Evidence:** [`Docs/Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md`](../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md) §2A  
+**Evidence:** [`Docs/Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md`](../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md) §2A (frozen v1) / §2B (current v2)  
 **Predecessor implementation handoff:** [`HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md`](HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md)  
 **Named successor after acceptance:** narrow #629 resume (genuine defects + witness vocabulary), then R.3a
 
@@ -319,8 +319,9 @@ direct == R.3a optimized direct**, not “equals Buddy kernel.”
 
 ## 7. Exact conditions that permit #629 to resume
 
-#629 stays frozen until a steward accepts this document. Then it may resume
-**only** for:
+This design is accepted. The authorized resume landed as the 2026-08-24
+supported-contract continuation (open GitHub PR #631 on the same branch).
+That resume was limited to:
 
 1. Version the witness vocabulary to v2 and apply the ratified
    `approved semantic divergence` labels above.
