@@ -17,6 +17,7 @@ Two layers, mirroring the cutover authority test module:
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -1032,27 +1033,16 @@ def test_source_span_anchor_cross_campaign_world_scope(monkeypatch, services):
     assert captured["snapshot"].campaign_id == ""
 
 
-def test_recap_source_span_opens_digest_pinned_sidecar(services, tmp_path):
-    """R.3 Case A: recap emit → revalidate → product-local paragraph open.
-
-    Session-recap spans are not worldbuilding registry artifacts. After
-    DungeonMind revalidation, the adapter opens the digest-pinned recap
-    file's ``source_spans/recap_paragraph_NNN.md`` sidecar. The Buddy
-    kernel is not consulted.
-    """
-    svc, _ = services
+def _write_recap_parent(tmp_path: Path, body: str) -> tuple[Path, str]:
     recap_dir = tmp_path / "out" / "graph_memory" / "runs" / "c1" / "session-1"
     recap_dir.mkdir(parents=True)
-    recap_body = "# Session 1\n\nThe party met Glowkindle and fought rats.\n"
-    recap_path = recap_dir / "normalized_recap_source.md"
-    recap_path.write_text(recap_body, encoding="utf-8")
-    digest = hashlib.sha256(recap_body.encode("utf-8")).hexdigest()
-    paragraph = "Within they met Glowkindle and agreed to clear the rats."
-    (recap_dir / "source_spans").mkdir()
-    (recap_dir / "source_spans" / "recap_paragraph_007.md").write_text(
-        paragraph, encoding="utf-8"
-    )
+    (recap_dir / "normalized_recap_source.md").write_text(body, encoding="utf-8")
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    return recap_dir, digest
 
+
+def _open_recap_span(services, tmp_path: Path, *, digest: str, span_id: str):
+    svc, _ = services
     svc.bundle.sources.put_artifact(
         SourceArtifactV2(
             source_artifact_id="artifact:recap:c1:session-1",
@@ -1086,7 +1076,6 @@ def test_recap_source_span_opens_digest_pinned_sidecar(services, tmp_path):
             created_at=NOW,
         )
     )
-
     from dungeonmind.application.world_graph_retrieval import (
         SourceAnchorMetadata,
         SourceAnchorResolution,
@@ -1110,7 +1099,7 @@ def test_recap_source_span_opens_digest_pinned_sidecar(services, tmp_path):
         can_open_source=True,
         can_highlight_span=True,
         session_id="session-1",
-        source_span_ref_id="session-1:recap:paragraph:007",
+        source_span_ref_id=span_id,
         locator=None,
         uri=None,
         source_locator=None,
@@ -1137,8 +1126,8 @@ def test_recap_source_span_opens_digest_pinned_sidecar(services, tmp_path):
             evidence_ref_id="ev:recap-span",
             source_artifact_id="artifact:recap:c1:session-1",
             source_revision_id="srcrev:recap-s1",
-            locator_identity="session-1:recap:paragraph:007",
-            source_span_ref_id="session-1:recap:paragraph:007",
+            locator_identity=span_id,
+            source_span_ref_id=span_id,
             can_open_source=True,
             can_highlight_span=True,
             supporting_object_ids=(),
@@ -1148,7 +1137,7 @@ def test_recap_source_span_opens_digest_pinned_sidecar(services, tmp_path):
             artifact=artifact,
         ),
     )
-    result = direct._anchor_read_view(
+    return direct._anchor_read_view(
         svc,
         resolution,
         request=WorldGraphSourceAnchorReadRequest(
@@ -1158,9 +1147,105 @@ def test_recap_source_span_opens_digest_pinned_sidecar(services, tmp_path):
         ),
         repo_root=tmp_path,
     )
+
+
+def test_recap_source_span_opens_digest_pinned_parent_paragraph(services, tmp_path):
+    """R.3 Case A: recap emit → revalidate → slice digest-pinned parent bytes.
+
+    Session-recap spans are not worldbuilding registry artifacts. After
+    DungeonMind revalidation, paragraph N is taken from the parent recap
+    whose digest matches DungeonMind. Sidecar files are unbound and ignored.
+    """
+    parent_body = (
+        "---\ntitle: Session 1\n---\n\n"
+        "# Session 1 Recap\n\n"
+        "After traveling together the party reached Stone Bridge.\n\n"
+        "The town is hardly known.\n\n"
+        "They drank at the River's Edge.\n\n"
+        "Directions led west along the river.\n\n"
+        "The trail reached Wizard's Tower Brewing Co.\n\n"
+        "Within they met Glowkindle and agreed to clear the rats.\n\n"
+        "A fine first combat.\n\n"
+        "Finally they found a tiled hallway.\n"
+    )
+    recap_dir, digest = _write_recap_parent(tmp_path, parent_body)
+    tampered = "TAMPERED SIDECAR — must not be served"
+    (recap_dir / "source_spans").mkdir()
+    (recap_dir / "source_spans" / "recap_paragraph_007.md").write_text(
+        tampered, encoding="utf-8"
+    )
+    (recap_dir / "source_span_index.json").write_text(
+        json.dumps(
+            {
+                "content_sha256": digest,
+                "spans": [
+                    {
+                        "source_span_id": "session-1:recap:paragraph:007",
+                        "start_line": 1,
+                        "end_line": 1,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = _open_recap_span(
+        services,
+        tmp_path,
+        digest=digest,
+        span_id="session-1:recap:paragraph:007",
+    )
     assert result.outcome == "enough"
     assert result.locator_kind == "source_span"
-    assert result.content == paragraph
+    assert result.content == "Within they met Glowkindle and agreed to clear the rats."
+    assert result.content_sha256 == digest
+    assert tampered not in (result.content or "")
+
+
+def test_recap_span_refuses_sidecar_content_missing_from_parent(services, tmp_path):
+    """Parent digest is valid, but the paragraph exists only in a sidecar."""
+    parent_body = "---\ntitle: Session 1\n---\n\n# Session 1 Recap\n\nOnly one body paragraph.\n"
+    recap_dir, digest = _write_recap_parent(tmp_path, parent_body)
+    (recap_dir / "source_spans").mkdir()
+    (recap_dir / "source_spans" / "recap_paragraph_007.md").write_text(
+        "Sidecar-only Glowkindle paragraph that is not in the parent.",
+        encoding="utf-8",
+    )
+    result = _open_recap_span(
+        services,
+        tmp_path,
+        digest=digest,
+        span_id="session-1:recap:paragraph:007",
+    )
+    assert result.outcome == "unavailable"
+    assert result.content is None or result.content == ""
+
+
+def test_recap_line_span_fails_closed_on_digest_prefix_mismatch(services, tmp_path):
+    parent_body = "line one\nline two\nline three\n"
+    _, digest = _write_recap_parent(tmp_path, parent_body)
+    result = _open_recap_span(
+        services,
+        tmp_path,
+        digest=digest,
+        span_id=f"artifact:recap:c1:session-1:span:{'0'*12}:1-1",
+    )
+    assert result.outcome == "unavailable"
+
+
+def test_recap_line_span_slices_digest_prefixed_parent_lines(services, tmp_path):
+    parent_body = "alpha\nbeta\ngamma\n"
+    _, digest = _write_recap_parent(tmp_path, parent_body)
+    result = _open_recap_span(
+        services,
+        tmp_path,
+        digest=digest,
+        span_id=f"artifact:recap:c1:session-1:span:{digest[:12]}:2-2",
+    )
+    assert result.outcome == "enough"
+    assert result.content == "beta"
+    assert result.line_start == 2
+    assert result.line_end == 2
     assert result.content_sha256 == digest
 
 
@@ -1326,9 +1411,9 @@ def test_map_direct_error_preserves_dungeonmind_cause():
     assert "resolve_source_anchor refused" in str(mapped)
 
 
-def test_witness_vocabulary_v2_ratified_families():
+def _load_r3_witness():
     import importlib.util
-    from pathlib import Path
+    import sys
 
     spec = importlib.util.spec_from_file_location(
         "r3_compare_witness",
@@ -1338,31 +1423,112 @@ def test_witness_vocabulary_v2_ratified_families():
     )
     witness = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
-    import sys
-
     sys.modules[spec.name] = witness
     spec.loader.exec_module(witness)
+    return witness
 
+
+def test_witness_vocabulary_v2_is_sealed_to_ratified_identities():
+    witness = _load_r3_witness()
     assert witness.VOCABULARY_VERSION == "v2"
-    mireward_cls, _ = witness.classify_legacy_only_node("location:mireward", "location")
-    canary_cls, _ = witness.classify_legacy_only_node("node:cutover-canary", "npc")
-    unexpected_cls, _ = witness.classify_legacy_only_node("location:unexpected", "location")
-    ext_cls, _ = witness.classify_legacy_only_node("res:statblock", "external_resource")
-    desc_cls, _ = witness.classify_legacy_only_attribute("description")
-    threat_cls, _ = witness.classify_legacy_only_attribute("threat_kind")
-    session_cls, _ = witness.classify_legacy_only_attribute("session_observation")
-    unknown_attr_cls, _ = witness.classify_legacy_only_attribute("unratified_field")
-    evidence_cls, _ = witness.classify_legacy_only_evidence()
 
-    assert mireward_cls == witness.CLASS_APPROVED_DIVERGENCE
-    assert canary_cls == witness.CLASS_APPROVED_DIVERGENCE
-    assert unexpected_cls == witness.CLASS_BLOCKING
+    mireward_c1, _ = witness.classify_legacy_only_node(
+        "location:mireward", "location", case="projection:campaign:c1"
+    )
+    canary_c2, _ = witness.classify_legacy_only_node(
+        "node:cutover-canary", "npc", case="projection:campaign:c2"
+    )
+    ext_cls, _ = witness.classify_legacy_only_node(
+        "res:statblock", "external_resource", case="projection:campaign:c1"
+    )
+    latchling_desc, _ = witness.classify_legacy_only_attribute(
+        "threat:authored:d16d43d376833e38caf46dd19b1dd17f", "description"
+    )
+    session_cls, _ = witness.classify_legacy_only_attribute(
+        "obj:anything", "session_observation"
+    )
+    known_evidence, _ = witness.classify_legacy_only_evidence(
+        "evidence:corpus:worldbuilding:mireward",
+        case="projection:campaign:c1",
+    )
+
+    assert mireward_c1 == witness.CLASS_APPROVED_DIVERGENCE
+    assert canary_c2 == witness.CLASS_APPROVED_DIVERGENCE
     assert ext_cls == witness.CLASS_RETIRED_LEGACY
-    assert desc_cls == witness.CLASS_APPROVED_DIVERGENCE
-    assert threat_cls == witness.CLASS_APPROVED_DIVERGENCE
+    assert latchling_desc == witness.CLASS_APPROVED_DIVERGENCE
     assert session_cls == witness.CLASS_RETIRED_LEGACY
-    assert unknown_attr_cls == witness.CLASS_BLOCKING
-    assert evidence_cls == witness.CLASS_APPROVED_DIVERGENCE
-    assert "player-rejected" not in Path(
-        spec.origin or ""
+    assert known_evidence == witness.CLASS_APPROVED_DIVERGENCE
+    assert "player-rejected" not in (
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "compare_direct_dungeonmind_world_graph_reads.py"
     ).read_text(encoding="utf-8")
+
+
+def test_witness_vocabulary_v2_unknown_differences_stay_blocking():
+    witness = _load_r3_witness()
+    mireward_c2, _ = witness.classify_legacy_only_node(
+        "location:mireward", "location", case="projection:campaign:c2"
+    )
+    mireward_world, _ = witness.classify_legacy_only_node(
+        "location:mireward", "location", case="projection:world"
+    )
+    unexpected_node, _ = witness.classify_legacy_only_node(
+        "location:unexpected", "location", case="projection:campaign:c1"
+    )
+    unrelated_description, _ = witness.classify_legacy_only_attribute(
+        "obj:unrelated-subject", "description"
+    )
+    unknown_field, _ = witness.classify_legacy_only_attribute(
+        "threat:tripod-null-calf", "unratified_field"
+    )
+    new_evidence, _ = witness.classify_legacy_only_evidence(
+        "evidence:arbitrary-new-id", case="projection:campaign:c1"
+    )
+    known_id_wrong_case, _ = witness.classify_legacy_only_evidence(
+        "evidence:corpus:worldbuilding:mireward",
+        case="neighborhood:depth-1",
+    )
+
+    assert mireward_c2 == witness.CLASS_BLOCKING
+    assert mireward_world == witness.CLASS_BLOCKING
+    assert unexpected_node == witness.CLASS_BLOCKING
+    assert unrelated_description == witness.CLASS_BLOCKING
+    assert unknown_field == witness.CLASS_BLOCKING
+    assert new_evidence == witness.CLASS_BLOCKING
+    assert known_id_wrong_case == witness.CLASS_BLOCKING
+
+
+def test_player_leak_detector_does_not_treat_subset_as_safe():
+    witness = _load_r3_witness()
+    gm_only = {"obj:tavern", "obj:hidden-cellar", "obj:hero"}
+    # PLAYER returning every GM-only node is a subset of GM and must still leak.
+    assert witness.player_gm_only_leaks(gm_only, gm_only) == sorted(gm_only)
+    assert witness.player_gm_only_leaks(set(), gm_only) == []
+    assert witness.player_gm_only_leaks({"obj:road-sign"}, gm_only) == []
+    assert witness.player_gm_only_leaks({"obj:tavern", "obj:road-sign"}, gm_only) == [
+        "obj:tavern"
+    ]
+
+
+def test_player_witness_excludes_authoritative_gm_only(services):
+    witness = _load_r3_witness()
+    svc, _ = services
+    gm_request = _projection_request(admissibility="gm")
+    player = direct.project_world_graph_direct(
+        svc, _projection_request(admissibility="player")
+    )
+    native_gm = svc.projection.project(
+        direct._map_projection_request(gm_request, svc.binding)
+    )
+    gm_only = witness.gm_only_object_ids_from_native_graph(native_gm.graph)
+    assert "obj:tavern" in gm_only
+    assert "obj:hidden-cellar" in gm_only
+    assert "obj:hero" in gm_only
+    assert "obj:road-sign" not in gm_only
+    player_ids = {node.node_id for node in player.nodes}
+    assert player_ids == {"obj:road-sign"}
+    assert witness.player_gm_only_leaks(player_ids, set(gm_only)) == []
+    assert witness.player_gm_only_leaks(player_ids | {"obj:tavern"}, set(gm_only)) == [
+        "obj:tavern"
+    ]

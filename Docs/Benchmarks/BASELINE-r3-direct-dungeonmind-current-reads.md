@@ -5,7 +5,7 @@
 **Handoff:** [`../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md`](../Plans/HANDOFF-CUTOVER-direct-dungeonmind-production-reads.md) (implementation; in review)
 **Acceptance successor:** [`../Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md`](../Plans/HANDOFF-CUTOVER-r3-read-contract-ratification.md)
 **Harness:** `scripts/compare_direct_dungeonmind_world_graph_reads.py` (local runner; private JSON output is never committed)
-**Status:** vocabulary-v2 supported-contract witness recorded — **0 blocking, 0 errored**; production direct-read gate remains default-off
+**Status:** vocabulary-v2 sealed ledger witness recorded — **0 blocking, 0 errored**; production direct-read gate remains default-off
 
 > **Historical 199 and frozen V4 200 are obsolete as acceptance numbers.**
 > 199 was measured against corrupted V3 adopted-source state. The 2026-08-23
@@ -122,7 +122,12 @@ Until that design is accepted, do not:
 
 Private JSON (never commit): operator-local `r3-v4-parity-witness.json` beside the 2026-08-23 live-repair backup.
 
-### 2B. Vocabulary-v2 supported-contract witness — 2026-08-24
+### 2B. Vocabulary-v2 sealed supported-contract witness — 2026-08-24
+
+The first v2 run on head `23834205…` reported 0 blocking / 0 errored, but Review Cycle 2 rejected that proof: the classifier approved by broad shape. This section is the **sealed-ledger rerun** against the same repaired V4 authority. Unknown identities default blocking.
+
+Ledger: `scripts/r3_v2_ratified_divergence_ledger.json`
+(`dmb_r3_v2_approved_semantic_divergence_ledger_v1`; 6 node-drop contexts, 9 subject/kind properties, 99 evidence ids / 166 case rows).
 
 Identity preflight (same live authority):
 
@@ -133,7 +138,7 @@ M1 (served):        16d3161d270691460ccbf6d183055ad9f29f00bdbecf5c26dfe0189da2b9
 D_A:                rev:34b1f8e2625d5ba693fc726a2a1a4720
 head D_B:           rev:680c246047d67f9fe0293ee90526f670
 Buddy A:            rev:0c644e56b45bcaac709012206e3e41c2
-vocabulary:         v2
+vocabulary:         v2 (sealed identities/contexts)
 ```
 
 17 cases. **0 errored. 0 blocking semantic difference.**
@@ -141,28 +146,28 @@ vocabulary:         v2
 | class | count | meaning |
 |---|---|---|
 | blocking semantic difference | **0** | no unresolved supported-contract violation |
-| approved semantic divergence | **199** | ratified evidence-chain admission, Mireward c1/pin drops, 27 retired properties, cutover-canary |
+| approved semantic divergence | **199** | exact ratified evidence-chain rows, Mireward c1/pin only, 9 retired subject/kind properties, cutover-canary c2/world lenses |
 | representation only | 2,345 | unchanged |
 | intentionally retired legacy-only field | 1,056 | unchanged |
 | new deterministic R.2 search ranking | 2 | unchanged |
 | product-local presentation join | 1 | `anchor:emit-revalidate-open` — direct `enough`, legacy `empty` |
 
-PLAYER (`admissibility:player-served`): direct **served**; 0 PLAYER nodes vs 390 GM nodes (no leak); unknown admissibility `unsupported_admissibility`. Legacy still rejects PLAYER; that envelope is no longer compared as blocking.
+PLAYER (`admissibility:player-served`): direct **served**; 0 PLAYER nodes; DungeonMind existence visibility classifies **390 GM-only** objects; PLAYER ∩ GM-only = ∅; unknown admissibility `unsupported_admissibility`. Legacy still rejects PLAYER; that envelope is not blocking.
 
-Depth-2: native returned 8 nodes / 7 relationships. Legacy oracle `KeyError: 'item_enormous_boulder'` recorded in `legacy_counts`, not as an errored supported operation.
+Depth-2: native returned a coherent neighborhood. Legacy oracle `KeyError: 'item_enormous_boulder'` recorded in `legacy_counts`, not as an errored supported operation.
 
-Anchor root cause: **Case A — adapter / product-local join.** DungeonMind `resolve_source_anchor` succeeded. Recap `source_span` locators were incorrectly forced through the worldbuilding registry opener. Direct now digest-pins the recap file and opens `source_spans/recap_paragraph_NNN.md`.
+Anchor: **Case A — adapter / product-local join.** After DungeonMind revalidation, recap spans are sliced from digest-pinned **parent** bytes (`…:paragraph:NNN` or digest-prefixed line range). Sidecar files and `source_span_index.json` are unbound and are not served.
 
-Performance (1 run; characterization only) remains the same shape:
+Performance (1 run; characterization only):
 
 ```text
-projection            legacy  1643 ms    direct 20751 ms
-neighborhood:depth-2  legacy ERROR       direct 21084 ms
+projection            legacy  1690 ms    direct 20733 ms
+neighborhood:depth-2  legacy ERROR       direct 20580 ms
 ```
 
 `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` stays default-off. R.3a remains the named successor for that cost.
 
-Private JSON (never commit): operator-local `/tmp/r3-v4-supported-contract-witness.json`.
+Private JSON (never commit): operator-local `/tmp/r3-v4-cycle2-sealed-witness.json`.
 
 ## 3. Semantic parity witness (HISTORICAL — corrupted V3 authority)
 

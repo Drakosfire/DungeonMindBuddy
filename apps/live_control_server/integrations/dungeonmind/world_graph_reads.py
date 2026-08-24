@@ -157,7 +157,6 @@ from graph_memory.retrieval.source_reader import (
     parse_repo_uri,
     read_graph_data_json_pointer_anchor,
     read_repo_heading_anchor,
-    read_repo_line_span_text,
 )
 from graph_memory.kernel.world_retrieval import WorldGraphRetrievalError
 
@@ -1681,6 +1680,57 @@ def read_source_anchor_direct(
 
 
 _RECAP_PARAGRAPH_SPAN = re.compile(r"(?:^|:)paragraph:(\d+)$")
+_DIGEST_BOUND_LINE_SPAN = re.compile(r":span:([0-9a-f]{12}):(\d+)-(\d+)$", re.IGNORECASE)
+
+
+def split_recap_body_paragraphs(text: str) -> list[str]:
+    """Split a digest-pinned recap into body paragraphs after YAML frontmatter."""
+    body = text
+    if body.startswith("---"):
+        parts = body.split("---", 2)
+        if len(parts) == 3:
+            body = parts[2].lstrip("\n")
+    return [paragraph.strip() for paragraph in re.split(r"\n\s*\n", body) if paragraph.strip()]
+
+
+def extract_span_from_revision_bound_text(
+    *,
+    text: str,
+    span_id: str,
+    digest: str,
+) -> tuple[str, int | None, int | None] | None:
+    """Resolve a recap span from digest-pinned parent bytes only.
+
+    Supported identities:
+    - ``…:paragraph:NNN`` — Nth body paragraph after frontmatter
+    - ``…:span:<12-hex-digest-prefix>:<start>-<end>`` — 1-based inclusive
+      line range, only when the prefix matches the admitted parent digest
+
+    Sidecar files and ``source_span_index.json`` are not consulted.
+    """
+    paragraph = _RECAP_PARAGRAPH_SPAN.search(span_id)
+    if paragraph is not None:
+        index = int(paragraph.group(1))
+        paragraphs = split_recap_body_paragraphs(text)
+        if 1 <= index <= len(paragraphs):
+            return paragraphs[index - 1], None, None
+        return None
+    line_span = _DIGEST_BOUND_LINE_SPAN.search(span_id)
+    if line_span is not None:
+        prefix, start_line, end_line = (
+            line_span.group(1).lower(),
+            int(line_span.group(2)),
+            int(line_span.group(3)),
+        )
+        if not digest.lower().startswith(prefix):
+            return None
+        if start_line < 1 or end_line < start_line:
+            return None
+        lines = text.splitlines()
+        if end_line > len(lines):
+            return None
+        return "\n".join(lines[start_line - 1 : end_line]), start_line, end_line
+    return None
 
 
 def _unavailable_anchor_result(
@@ -1709,11 +1759,11 @@ def _read_admitted_repo_span(
 ) -> WorldGraphSourceAnchorReadResult:
     """Digest-pinned recap/other repo:// span join after DungeonMind revalidation.
 
-    Recap paragraph identities (`…:paragraph:NNN`) open the sibling
-    ``source_spans/recap_paragraph_NNN.md`` sidecar once the parent recap
-    file matches the DungeonMind source-revision digest. Line-range spans
-    in an adjacent ``source_span_index.json`` use the existing repo line
-    reader. This does not consult the Buddy graph kernel.
+    Span content is sliced from the parent file whose bytes match the
+    DungeonMind source-revision digest. Paragraph identities and
+    digest-prefixed line ranges are resolved from those bound bytes.
+    Sidecar ``source_spans/`` files and ``source_span_index.json`` are
+    unbound mappings and are not read.
     """
     uri = getattr(anchor.artifact, "uri", None) or ""
     relative_path = parse_repo_uri(uri)
@@ -1744,78 +1794,38 @@ def _read_admitted_repo_span(
             code="source_integrity_error",
             message="source file content does not match the DungeonMind revision digest",
         )
-
-    paragraph = _RECAP_PARAGRAPH_SPAN.search(span_id)
-    if paragraph is not None:
-        sidecar = parent_path.parent / "source_spans" / f"recap_paragraph_{int(paragraph.group(1)):03d}.md"
-        if sidecar.is_file():
-            content = sidecar.read_text(encoding="utf-8")
-            truncated = len(content) > request.max_chars
-            return WorldGraphSourceAnchorReadResult(
-                outcome="truncated" if truncated else "enough",
-                diagnostics=[],
-                media_type="text/markdown",
-                content=content[: request.max_chars],
-                content_sha256=actual,
-                line_start=None,
-                line_end=None,
-                truncated=truncated,
-                **base,
-            )
-
-    index_path = parent_path.parent / "source_span_index.json"
-    if index_path.is_file():
-        try:
-            payload = json.loads(index_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-            payload = None
-        rows = payload.get("spans") if isinstance(payload, dict) else None
-        if isinstance(rows, list):
-            for row in rows:
-                if not isinstance(row, dict):
-                    continue
-                row_id = (
-                    row.get("source_span_id")
-                    or row.get("span_id")
-                    or row.get("source_span_ref_id")
-                )
-                if row_id != span_id:
-                    continue
-                start_line = row.get("start_line")
-                end_line = row.get("end_line")
-                if not isinstance(start_line, int) or not isinstance(end_line, int):
-                    break
-                try:
-                    outcome = read_repo_line_span_text(
-                        repo_root=repo_root,
-                        relative_path=relative_path,
-                        start_line=start_line,
-                        end_line=end_line,
-                        max_chars=request.max_chars,
-                        expected_content_sha256=expected,
-                    )
-                except SourceReadError as exc:
-                    return _unavailable_anchor_result(
-                        base=base,
-                        code=exc.code,
-                        message=str(exc),
-                    )
-                return WorldGraphSourceAnchorReadResult(
-                    outcome="truncated" if outcome.truncated else "enough",
-                    diagnostics=[],
-                    media_type=outcome.media_type,
-                    content=outcome.content,
-                    content_sha256=outcome.content_sha256,
-                    line_start=outcome.line_start,
-                    line_end=outcome.line_end,
-                    truncated=bool(outcome.truncated),
-                    **base,
-                )
-
-    return _unavailable_anchor_result(
-        base=base,
-        code="source_unavailable",
-        message="No product-local span sidecar or line-range index matched this admitted span.",
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return _unavailable_anchor_result(
+            base=base,
+            code="source_integrity_error",
+            message="source file is not valid UTF-8 text",
+        )
+    extracted = extract_span_from_revision_bound_text(
+        text=text, span_id=span_id, digest=actual
+    )
+    if extracted is None:
+        return _unavailable_anchor_result(
+            base=base,
+            code="source_unavailable",
+            message=(
+                "Admitted span could not be resolved from digest-pinned parent "
+                "bytes; unbound sidecar/index mappings are not served."
+            ),
+        )
+    content, line_start, line_end = extracted
+    truncated = len(content) > request.max_chars
+    return WorldGraphSourceAnchorReadResult(
+        outcome="truncated" if truncated else "enough",
+        diagnostics=[],
+        media_type="text/markdown",
+        content=content[: request.max_chars],
+        content_sha256=actual,
+        line_start=line_start,
+        line_end=line_end,
+        truncated=truncated,
+        **base,
     )
 
 

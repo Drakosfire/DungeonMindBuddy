@@ -75,18 +75,28 @@ CLASS_BLOCKING = "blocking semantic difference"
 CLASS_APPROVED_DIVERGENCE = "approved semantic divergence"
 VOCABULARY_VERSION = "v2"
 
-# Ratified §5 families — counted, visible, not blocking.
-_MIREWARD_NODE_ID = "location:mireward"
-_CUTOVER_CANARY_NODE_ID = "node:cutover-canary"
-_RATIFIED_RETIRED_PROPERTY_KINDS = frozenset(
-    {
-        "description",
-        "threat_kind",
-        "battlefield_role",
-        "challenge_expectation",
-        "first_appearance",
-    }
+_LEDGER_PATH = Path(__file__).with_name("r3_v2_ratified_divergence_ledger.json")
+
+
+def _load_v2_ledger() -> dict[str, Any]:
+    """Exact ratified identities/contexts. Unknown differences stay blocking."""
+    payload = json.loads(_LEDGER_PATH.read_text(encoding="utf-8"))
+    if payload.get("schema") != "dmb_r3_v2_approved_semantic_divergence_ledger_v1":
+        raise RuntimeError(f"unsupported v2 divergence ledger schema: {payload.get('schema')}")
+    return payload
+
+
+_V2_LEDGER = _load_v2_ledger()
+_RATIFIED_NODE_DROPS = frozenset(
+    (case, node_id) for case, node_id in _V2_LEDGER["node_drops"]
 )
+_RATIFIED_RETIRED_PROPERTIES = frozenset(
+    (subject_id, kind) for subject_id, kind in _V2_LEDGER["retired_properties"]
+)
+_RATIFIED_EVIDENCE_CHAIN_ROWS = frozenset(
+    (case, evidence_id) for case, evidence_id in _V2_LEDGER["evidence_chain_rows"]
+)
+_RATIFIED_EVIDENCE_CHAIN_IDS = frozenset(_V2_LEDGER["evidence_chain_ids"])
 
 
 @dataclass
@@ -116,7 +126,7 @@ class CaseReport:
     error: str | None = None
 
 
-def classify_legacy_only_node(node_id: str, kind: str) -> tuple[str, str]:
+def classify_legacy_only_node(node_id: str, kind: str, *, case: str) -> tuple[str, str]:
     """Classify a node present on the Buddy kernel and absent on direct reads."""
     if kind == "external_resource":
         return (
@@ -124,22 +134,29 @@ def classify_legacy_only_node(node_id: str, kind: str) -> tuple[str, str]:
             "external_resource node intentionally omitted from the "
             "DungeonMind authority snapshot (handoff §D)",
         )
-    if node_id == _MIREWARD_NODE_ID:
+    if (case, node_id) in _RATIFIED_NODE_DROPS:
+        if node_id == "location:mireward":
+            return (
+                CLASS_APPROVED_DIVERGENCE,
+                "intended per-evidence-chain admission drops Mireward under "
+                "c1/pin lenses (ratification §5.1)",
+            )
+        if node_id == "node:cutover-canary":
+            return (
+                CLASS_APPROVED_DIVERGENCE,
+                "cutover-canary is operational history, not supported campaign "
+                "content (ratification §5.3)",
+            )
         return (
             CLASS_APPROVED_DIVERGENCE,
-            "intended per-evidence-chain admission drops Mireward under "
-            "c1/pin lenses (ratification §5.1)",
-        )
-    if node_id == _CUTOVER_CANARY_NODE_ID:
-        return (
-            CLASS_APPROVED_DIVERGENCE,
-            "cutover-canary is operational history, not supported campaign "
-            "content (ratification §5.3)",
+            "exact ratified node drop for this witness case",
         )
     return CLASS_BLOCKING, "legacy admits an object the direct path excludes"
 
 
-def classify_legacy_only_attribute(predicate_or_kind: str) -> tuple[str, str]:
+def classify_legacy_only_attribute(
+    subject_node_id: str, predicate_or_kind: str
+) -> tuple[str, str]:
     """Classify an attribute present on the Buddy kernel and absent on direct."""
     if predicate_or_kind == "session_observation":
         return (
@@ -147,11 +164,11 @@ def classify_legacy_only_attribute(predicate_or_kind: str) -> tuple[str, str]:
             "history-only session_observation rows retired from the "
             "projection payload",
         )
-    if predicate_or_kind in _RATIFIED_RETIRED_PROPERTY_KINDS:
+    if (subject_node_id, predicate_or_kind) in _RATIFIED_RETIRED_PROPERTIES:
         return (
             CLASS_APPROVED_DIVERGENCE,
-            "v6 adoption set properties=[]; contribution-reconstructed "
-            "attributes are retired (ratification §5.2)",
+            "v6 adoption set properties=[]; this exact subject/kind is "
+            "retired reconstruction (ratification §5.2)",
         )
     return (
         CLASS_BLOCKING,
@@ -159,13 +176,44 @@ def classify_legacy_only_attribute(predicate_or_kind: str) -> tuple[str, str]:
     )
 
 
-def classify_legacy_only_evidence() -> tuple[str, str]:
+def classify_legacy_only_evidence(evidence_id: str, *, case: str) -> tuple[str, str]:
     """Classify evidence present on the Buddy kernel and absent on direct."""
+    if evidence_id not in _RATIFIED_EVIDENCE_CHAIN_IDS or (
+        case, evidence_id
+    ) not in _RATIFIED_EVIDENCE_CHAIN_ROWS:
+        return (
+            CLASS_BLOCKING,
+            "legacy-only evidence id/context is not in the ratified v2 ledger",
+        )
     return (
         CLASS_APPROVED_DIVERGENCE,
         "cross-campaign evidence chain excluded by DungeonMind's "
         "fail-closed per-evidence-chain admission (ratification §5.1)",
     )
+
+
+def gm_only_object_ids_from_native_graph(graph: Any) -> frozenset[str]:
+    """Authoritative GM-only object set from DungeonMind existence visibility.
+
+    Missing or non-PLAYER visibility fails closed as GM-only so a PLAYER
+    leak cannot hide behind an empty-wire subset check.
+    """
+    from dungeonmind.contracts.vocabulary import Visibility
+
+    objects = getattr(graph, "objects", {}) or {}
+    values = objects.values() if hasattr(objects, "values") else objects
+    gm_only: set[str] = set()
+    for obj in values:
+        meta = getattr(obj, "existence_assertion_metadata", None)
+        visibility = getattr(meta, "visibility", None) if meta is not None else None
+        if visibility != Visibility.PLAYER:
+            gm_only.add(obj.object_id)
+    return frozenset(gm_only)
+
+
+def player_gm_only_leaks(player_ids: set[str], gm_only_ids: set[str]) -> list[str]:
+    """PLAYER ids that authority classified as GM-only. Empty is the contract."""
+    return sorted(player_ids & set(gm_only_ids))
 
 
 # ---------------------------------------------------------------------------
@@ -322,7 +370,7 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
 
     for node_id in sorted(legacy_nodes.keys() - direct_nodes.keys()):
         classification, detail = classify_legacy_only_node(
-            node_id, legacy_nodes[node_id].kind
+            node_id, legacy_nodes[node_id].kind, case=case
         )
         report.divergences.append(
             Divergence(
@@ -521,7 +569,7 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
     for key in sorted(legacy_attrs.keys() - direct_attrs.keys()):
         attr = legacy_attrs[key]
         kind = getattr(attr, "predicate", None) or getattr(attr, "kind", None) or ""
-        classification, detail = classify_legacy_only_attribute(kind)
+        classification, detail = classify_legacy_only_attribute(key[0], kind)
         report.divergences.append(
             Divergence(
                 case,
@@ -546,7 +594,7 @@ def compare_projections(case: str, legacy, direct) -> CaseReport:
     legacy_ev = {e.evidence_ref_id for e in legacy.evidence}
     direct_ev = {e.evidence_ref_id for e in direct.evidence}
     for ev_id in sorted(legacy_ev - direct_ev):
-        classification, detail = classify_legacy_only_evidence()
+        classification, detail = classify_legacy_only_evidence(ev_id, case=case)
         report.divergences.append(
             Divergence(
                 case,
@@ -1085,12 +1133,25 @@ def main(argv: list[str] | None = None) -> int:
             report.legacy_counts["result"] = getattr(exc, "code", type(exc).__name__)
         player_direct = direct.project_world_graph_direct(services, player_request)
         gm_direct = direct.project_world_graph_direct(services, gm_request)
+        native_gm = services.projection.project(
+            direct._map_projection_request(gm_request, services.binding)
+        )
+        gm_only_ids = gm_only_object_ids_from_native_graph(native_gm.graph)
         report.direct_counts["result"] = "served"
         report.direct_counts["nodes"] = len(player_direct.nodes)
         report.direct_counts["gm_nodes"] = len(gm_direct.nodes)
+        report.direct_counts["gm_only_nodes"] = len(gm_only_ids)
         player_ids = {n.node_id for n in player_direct.nodes}
-        gm_ids = {n.node_id for n in gm_direct.nodes}
-        leaked = sorted(player_ids - gm_ids)
+        leaked = player_gm_only_leaks(player_ids, set(gm_only_ids))
+        leaked_relationships = sorted(
+            {
+                rel.edge_id
+                for rel in player_direct.relationships
+                if (rel.visibility or "").lower().endswith("gm")
+                or rel.source_node_id in gm_only_ids
+                or rel.target_node_id in gm_only_ids
+            }
+        )
         if leaked:
             report.divergences.append(
                 Divergence(
@@ -1098,7 +1159,19 @@ def main(argv: list[str] | None = None) -> int:
                     "player_leak",
                     ",".join(leaked),
                     CLASS_BLOCKING,
-                    "PLAYER served nodes absent from the GM projection",
+                    "PLAYER served objects that DungeonMind existence "
+                    "visibility classifies as GM-only",
+                )
+            )
+        if leaked_relationships:
+            report.divergences.append(
+                Divergence(
+                    case,
+                    "player_relationship_leak",
+                    ",".join(leaked_relationships),
+                    CLASS_BLOCKING,
+                    "PLAYER served relationships that are GM-only by "
+                    "visibility or GM-only endpoints",
                 )
             )
         try:

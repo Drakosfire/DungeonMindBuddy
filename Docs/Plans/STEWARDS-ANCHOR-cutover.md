@@ -167,7 +167,7 @@ Settled facts a successor steward should not re-litigate:
 
 The R.3 semantic witness harness (`scripts/compare_direct_dungeonmind_world_graph_reads.py`) is a **supported-contract checker** under vocabulary v2. Zero-difference against the Buddy kernel is not the merge bar. R.3a compares the supported-contract R.3 direct result to the optimized direct result.
 
-The previous 199-blocker tally is historical evidence against corrupted V3 state. The frozen V4 vocabulary-v1 stop point was 200 blocking + 2 errored. The current evidence is the 2026-08-24 vocabulary-v2 witness: **0 blocking, 0 errored, 199 approved semantic divergence**. Durable record: [`../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md`](../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md). Anchor `emit-revalidate-open` was Case A (adapter product-local join): DungeonMind `resolve_source_anchor` succeeded; recap spans now open digest-pinned sidecars instead of the worldbuilding registry. Direct-read gate remains default-off.
+The previous 199-blocker tally is historical evidence against corrupted V3 state. The frozen V4 vocabulary-v1 stop point was 200 blocking + 2 errored. The current evidence is the 2026-08-24 sealed vocabulary-v2 witness: **0 blocking, 0 errored, 199 approved semantic divergence** (exact-identity ledger; PLAYER ∩ 390 GM-only = ∅). Durable record: [`../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md`](../Benchmarks/BASELINE-r3-direct-dungeonmind-current-reads.md). Anchor `emit-revalidate-open` was Case A (adapter product-local join): DungeonMind `resolve_source_anchor` succeeded; recap spans are sliced from digest-pinned parent bytes. Direct-read gate remains default-off.
 
 ---
 
