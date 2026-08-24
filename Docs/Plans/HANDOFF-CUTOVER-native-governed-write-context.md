@@ -1143,7 +1143,7 @@ base       origin/main = 65d13dcca8162b5eccd0c81dd4235dec93c8cd0c
            (#633 merge; accepted head ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01)
 design     e3d2ee4161063718544514e5955841ce51586168
            (docs-only; one new file: this handoff)
-impl HEAD  (this implementation commit, atop design)
+impl HEAD  c2e0cd3d3cfd88ed935300c4dd7816a5a93348e1
 pin        DungeonMind c5d3688587b0f5d506e0f7d64f33eb0628bac896
 ```
 
@@ -1411,6 +1411,7 @@ prepare/confirm.
 ```text
 worktree   /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy-native-governed-write-context
 branch     cutover/native-governed-write-context
+impl HEAD  c2e0cd3d3cfd88ed935300c4dd7816a5a93348e1
 PR         opened from this implementation commit
 base       origin/main = 65d13dcca8162b5eccd0c81dd4235dec93c8cd0c
 ```
