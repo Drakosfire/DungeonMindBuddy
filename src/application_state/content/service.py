@@ -238,9 +238,18 @@ def snapshot_runbook(document_id: str) -> ContentSnapshot:
     return snap
 
 
-def update_plan_metadata(
+def _require_kind_for_mutation(obj: WorkObject, kind: AdmittedKind) -> WorkObject:
+    if obj.kind != kind:
+        raise ApplicationStateValidationError(
+            f"workspace document kind mismatch: expected {kind}, current {obj.kind}"
+        )
+    return obj
+
+
+def _update_metadata(
     document_id: str,
     *,
+    kind: AdmittedKind,
     title: str | None = None,
     target_session: int | None | object = None,
     expected_revision: int | None = None,
@@ -256,6 +265,7 @@ def update_plan_metadata(
             raise ApplicationStateNotFoundError(
                 f"workspace document not found: {document_id}"
             )
+        _require_kind_for_mutation(obj, kind)
         if expected_revision is not None and obj.object_revision != expected_revision:
             raise ApplicationStateConflictError(
                 f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
@@ -275,14 +285,37 @@ def update_plan_metadata(
             conn, updated, expected_object_revision=expected
         )
         if persisted is None:
-            raise ApplicationStateConflictError("revision mismatch: concurrent Plan update")
+            raise ApplicationStateConflictError(
+                f"revision mismatch: concurrent {kind} update"
+            )
         return persisted
 
 
-def autosave_plan(
+def update_plan_metadata(
+    document_id: str,
+    *,
+    title: str | None = None,
+    target_session: int | None | object = None,
+    expected_revision: int | None = None,
+    status: str | None = None,
+    target_session_set: bool = False,
+) -> WorkObject:
+    return _update_metadata(
+        document_id,
+        kind="plan",
+        title=title,
+        target_session=target_session,
+        expected_revision=expected_revision,
+        status=status,
+        target_session_set=target_session_set,
+    )
+
+
+def _autosave(
     document_id: str,
     markdown: str,
     *,
+    kind: AdmittedKind,
     expected_revision: int | None = None,
 ) -> WorkObject:
     work_object_id = _require_uuid(document_id)
@@ -296,6 +329,7 @@ def autosave_plan(
             raise ApplicationStateNotFoundError(
                 f"workspace document not found: {document_id}"
             )
+        _require_kind_for_mutation(obj, kind)
         if obj.status == "discarded":
             raise ApplicationStateConflictError(
                 f"workspace document is discarded: {document_id}"
@@ -324,7 +358,7 @@ def autosave_plan(
             )
             if persisted_copy is None:
                 raise ApplicationStateConflictError(
-                    "working copy revision mismatch: concurrent Plan autosave"
+                    f"working copy revision mismatch: concurrent {kind} autosave"
                 )
         expected = obj.object_revision
         updated = obj.model_copy(
@@ -338,15 +372,27 @@ def autosave_plan(
         )
         if persisted is None:
             raise ApplicationStateConflictError(
-                "revision mismatch: concurrent Plan autosave"
+                f"revision mismatch: concurrent {kind} autosave"
             )
         return persisted
 
 
-def commit_plan(
+def autosave_plan(
     document_id: str,
     markdown: str,
     *,
+    expected_revision: int | None = None,
+) -> WorkObject:
+    return _autosave(
+        document_id, markdown, kind="plan", expected_revision=expected_revision
+    )
+
+
+def _commit(
+    document_id: str,
+    markdown: str,
+    *,
+    kind: AdmittedKind,
     expected_revision: int | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     work_object_id = _require_uuid(document_id)
@@ -360,6 +406,7 @@ def commit_plan(
             raise ApplicationStateNotFoundError(
                 f"workspace document not found: {document_id}"
             )
+        _require_kind_for_mutation(obj, kind)
         if obj.status == "discarded":
             raise ApplicationStateConflictError(
                 f"workspace document is discarded: {document_id}"
@@ -405,7 +452,9 @@ def commit_plan(
             conn, updated, expected_object_revision=expected
         )
         if persisted is None:
-            raise ApplicationStateConflictError("revision mismatch: concurrent Plan commit")
+            raise ApplicationStateConflictError(
+                f"revision mismatch: concurrent {kind} commit"
+            )
         existing_copy = repo.get_working_copy(conn, work_object_id)
         repo.replace_working_copy(
             conn,
@@ -423,6 +472,17 @@ def commit_plan(
             ),
         )
         return persisted, revision
+
+
+def commit_plan(
+    document_id: str,
+    markdown: str,
+    *,
+    expected_revision: int | None = None,
+) -> tuple[WorkObject, WorkRevision]:
+    return _commit(
+        document_id, markdown, kind="plan", expected_revision=expected_revision
+    )
 
 
 def current_committed_revision(
@@ -508,8 +568,8 @@ def autosave_runbook(
     *,
     expected_revision: int | None = None,
 ) -> WorkObject:
-    return autosave_plan(
-        document_id, markdown, expected_revision=expected_revision
+    return _autosave(
+        document_id, markdown, kind="runbook", expected_revision=expected_revision
     )
 
 
@@ -519,8 +579,8 @@ def commit_runbook(
     *,
     expected_revision: int | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
-    return commit_plan(
-        document_id, markdown, expected_revision=expected_revision
+    return _commit(
+        document_id, markdown, kind="runbook", expected_revision=expected_revision
     )
 
 
@@ -533,8 +593,9 @@ def update_runbook_metadata(
     status: str | None = None,
     target_session_set: bool = False,
 ) -> WorkObject:
-    return update_plan_metadata(
+    return _update_metadata(
         document_id,
+        kind="runbook",
         title=title,
         target_session=target_session,
         expected_revision=expected_revision,
