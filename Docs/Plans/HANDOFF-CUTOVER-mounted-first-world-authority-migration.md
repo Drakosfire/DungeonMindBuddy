@@ -31,23 +31,28 @@ pr_body_template: |
   - native confirm creates one real `D_0`, one head, one reviewed-init receipt, and no Buddy graph files
   - accepted first-world node identity maps to `created_new`; accepted edge maps to DungeonMind-neutral `None`
   - source/evidence closure persists through exact `SourceArtifactV2 + SourceRevision`
-  - exact retry returns the same D_0 with zero second initialization
-  - lost-response/retry returns the same durable receipt/D_0
-  - changed sealed plan/source/contribution fails closed; no hidden re-prepare/repin
-  - native response uses `baselineRevisionId = null`, `committedRevisionId = D_0`
-  - explicit `buddy_files` mode remains supported until D.3
-  - D.2A Threat + D.2B existing-world worldbuilding regression cohorts stay green
-  - mounted native first-world call graph contains no Buddy filesystem World Graph runtime imports
+ - exact-run review eligibility uses the initialization probe, not Buddy graph-directory absence
+ - genesis `semantic_profile` is the builtin worldbuilding descriptor already used by the native reader
+ - exact retry returns the same D_0 with zero second initialization
+ - lost-response/retry returns the same durable receipt/D_0
+ - two synchronized identical confirms yield one D_0 / one receipt and success for both callers
+ - changed sealed plan/source/contribution fails closed; no hidden re-prepare/repin
+ - native response uses `baselineRevisionId = null`, `committedRevisionId = D_0`
+ - explicit `buddy_files` mode remains supported until D.3
+ - D.2A Threat + D.2B existing-world worldbuilding regression cohorts stay green
+ - mounted native first-world call graph contains no Buddy filesystem World Graph runtime imports
 ---
 
 # HANDOFF — CUTOVER D.2C2: mounted first-world authority migration
 
 **Created:** 2026-08-25  
-**Status:** READY FOR IMPLEMENTATION AFTER DESIGN REVIEW  
+**Status:** CYCLE 1 REPAIR — awaiting Review Cycle 2  
 **Workstream / flow:** `CUTOVER`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
 **Buddy design base:** `d80c8688774602972e07593b83e3d8d09d4b0a7b` — merge of Buddy PR #642  
+**Current Buddy `main` (re-anchor before CODE):** `2de68441dd2b0adaf934526236d2c8983f9a7e9e` — AS2 #643 merged; AS3 dispatched, lease disjoint from D.2C2 CUTOVER paths  
+**Cycle 1 reviews (same head `a9e1d713`; not Cycle 2):** REQUEST-CHANGES-equivalent `5025040987`; addendum `5025096047`  
 **DungeonMind provider pin to consume:** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b` — merge of DungeonMind PR #46  
 **DungeonMind accepted provider head:** `bc2800b1d09aa70cf33d92ea6b8fc4a786f4b999`  
 **DungeonMind provider review:** Cycle 3 PASS-equivalent `5024825675`  
@@ -91,11 +96,11 @@ Buddy exact-run review + product/source admission
 The merge-ready invariant is:
 
 > **When `DUNGEONMIND_WORLD_GRAPH_AUTHORITY=dungeonmind`, mounted first-world
-> prepare → confirm obtains World Graph initialization state and durable graph
-> authority only through the reviewed-initialization authority boundary; confirm
-> publishes or exactly replays one DungeonMind `D_0` without opening, creating,
-> hydrating, mutating, replaying, rebuilding, or verifying against Buddy's
-> filesystem World Graph.**
+> eligibility, prepare, and confirm obtain World Graph initialization state and
+> durable graph authority only through the reviewed-initialization authority
+> boundary; confirm publishes or exactly replays one DungeonMind `D_0` without
+> opening, creating, hydrating, mutating, replaying, rebuilding, or verifying
+> against Buddy's filesystem World Graph.**
 
 Buddy still owns the exact-run, source document, workspace lineage, reviewed
 operator decisions, and product response. DungeonMind owns whether the target is
@@ -242,16 +247,31 @@ outcome = initialized | already_initialized
 The port does not expose a SQL connection, repository bundle, DungeonMind model,
 or graph payload.
 
+`semantic_profile` is **not** a product-request field. The native adapter pins it
+per §3.6b. Do not copy it from a parent revision; first-world has none.
+
 ### 3.2 State probe is advisory; DungeonMind's transaction remains pristine authority
 
-Native prepare needs to answer whether first-world publication is plausibly
-available without reading Buddy graph files. The DungeonMind adapter may probe:
+Native exact-run review eligibility and native prepare must answer whether
+first-world publication is plausibly available **without** reading Buddy graph
+files. After native genesis there is deliberately no Buddy graph directory;
+filesystem-absent is therefore not a proxy for uninitialized.
+
+`resolve_first_world_capability` and prepare admission both call
+`WorldGraphInitializationAuthority.probe()`. Confine
+`classify_world_graph_state`, `world_paths.world_dir`, and
+`try_open_world_graph_head` to the named `buddy_files` adapter.
+
+The DungeonMind adapter may probe:
 
 - current DungeonMind head;
 - the durable reviewed-initialization receipt.
 
 A coherent head means `initialized`. A verified reviewed-init receipt is also
 `initialized`. Contradictory receipt/revision state is an integrity failure.
+After a successful native confirm, exact-run review must report
+`first_world_publish_eligible=false` even when the Buddy World Graph directory
+is physically absent.
 
 **No head is not permission to duplicate D.2C1's entire pristine SQL predicate.**
 There may be unexpected source/contribution residue that the lightweight probe
@@ -344,9 +364,34 @@ Rules:
 - source revision belongs to that artifact and binds the committed content
   digest/locator;
 - source/evidence refs on the mapped contribution must close through exactly
-  those command records.
+ those command records.
 
 D.2C1 rejects invented/unreferenced rows. Buddy must not work around that guard.
+
+### 3.6b Genesis semantic_profile is the builtin worldbuilding descriptor
+
+D.2C1 requires `semantic_profile` on the initialization command and hashes it
+into `command_sha256`. Existing-parent publication copies that ref from the
+parent revision payload. First-world has no parent.
+
+The native adapter pins genesis to the **same builtin worldbuilding descriptor**
+already used by the native DungeonMind reader:
+
+```text
+apps/live_control_server/integrations/dungeonmind/world_graph_writes.py
+  _build_graph_reader() → StaticSemanticProfileRegistry([load_builtin_v3_descriptor()])
+```
+
+Rules:
+
+- adapter-owned; not a browser/product-request field;
+- stable across first attempt, exact retry, lost-response, and concurrent confirm;
+- do not look up "current head" profile, invent a second descriptor, or substitute
+  `now()` metadata into the profile ref.
+
+If that predecessor helper is extracted, keep the pin identical. Changing the
+descriptor is a command-hash change and is therefore a conflict, not a silent
+upgrade.
 
 ### 3.7 Stable initialization id is deterministic; no Buddy receipt registry
 
@@ -372,8 +417,25 @@ D.2C1's `command_sha256` binds **every semantic command field**, including
 `requested_initialized_at`. Therefore confirm must not blindly call
 `datetime.now()` on every retry and expect provider replay to succeed.
 
-Do **not** add a browser-authoritative timestamp or weaken D.2C1's digest.
-Instead make the native adapter receipt-aware:
+Do **not** add a browser-authoritative timestamp, a new plan schema, a Buddy
+initialization registry, or weaken D.2C1's digest. Do not use source-artifact
+time as a fake initialization-request time.
+
+Frozen non-timestamp command-hash inputs (reconstruct from sealed server-owned
+facts, never from wall clock or the HTTP caller):
+
+```text
+contribution.produced_at     = existing _FIXED_PRODUCED_AT ("1970-01-01T00:00:00Z")
+actor                        = live_control:graph_review_confirm
+source artifact/revision times = immutable Buddy SourceArtifact record
+semantic_profile             = §3.6b builtin worldbuilding descriptor
+```
+
+A verified receipt for **W** whose `initialization_id` is **not** the derived id
+must never donate `initialized_at`. That is already-initialized / conflict, not
+reconstruction.
+
+Native adapter receipt-aware initialize:
 
 ```text
 initialize(request)
@@ -385,10 +447,31 @@ initialize(request)
       call D.2C1 initialize_reviewed_world(...)
       provider command_sha256 equality decides replay vs conflict
 
+  if receipt exists with a different initialization_id:
+      fail already-initialized / conflict
+      do not reuse that receipt's initialized_at
+
   if no receipt exists:
       requested_initialized_at = one UTC timestamp for this attempt
       call D.2C1 initialize_reviewed_world(...)
+      if provider reports idempotency conflict:
+          re-read the verified reviewed-init receipt for W
+          if receipt.initialization_id != requested initialization_id:
+              preserve already-initialized / conflict
+          else:
+              rebuild the COMPLETE current server-owned command
+                  using receipt.initialized_at
+              call D.2C1 exactly once more
+              identical remaining fields → digest matches → exact replay
+              any changed plan/source/contribution/actor/profile field → conflict
 ```
+
+The idempotency-conflict recovery exists because two identical confirms can both
+observe no receipt, choose `T1` and `T2`, then DungeonMind commits `T1`. The
+second request reaches the world lock with the same `initialization_id` but a
+different `command_sha256` solely because of `T2`. Rebuilding once with
+`receipt.initialized_at` makes the second caller exact-replay instead of a
+timestamp-only conflict.
 
 D.2C1 stores:
 
@@ -397,17 +480,20 @@ receipt.initialized_at = command.requested_initialized_at
 ```
 
 so the durable receipt contains exactly the timestamp needed to reconstruct the
-original command after a lost response or process restart.
+original command after a lost response, process restart, or concurrent first
+confirm.
 
-This gives restart-safe exact replay **without**:
+This gives restart-safe and concurrent-exact replay **without**:
 
 - a new HMAC plan schema;
 - a process-local prepare secret;
 - a hidden Buddy plan/receipt registry;
 - trusting a client-supplied timestamp.
 
-If any rebuilt source/contribution/plan/actor field differs, the provider's
-stored `command_sha256` comparison fails closed. That is the intended behavior.
+If any rebuilt source/contribution/plan/actor/profile field differs, the
+provider's stored `command_sha256` comparison fails closed. That is the intended
+behavior. Do not convert a remaining provider conflict into
+`already_initialized` success.
 
 ### 3.9 Product plan schema can remain v1
 
@@ -418,7 +504,9 @@ for idempotency.
 Keep `dmb_first_world_graph_plan_v1` unless implementation discovers a real
 contract gap. Do not add a schema revision for architecture aesthetics.
 
-This also keeps the current APP-STATE #643 UI/type lease disjoint.
+This also keeps the APP-STATE UI/type lease disjoint (`baselineRevisionId` is
+already optional). AS2 #643 is merged; AS3 is dispatched on a disjoint lease.
+Re-anchor implementation to current `main` before CODE.
 
 ### 3.10 Native product receipt must tell the truth about genesis topology
 
@@ -478,7 +566,7 @@ The DungeonMind adapter may import:
 - `ReviewedWorldInitializationCommandV1`;
 - `initialize_reviewed_world`;
 - `PostgresRepositoryBundle` / reviewed-init repository;
-- pinned semantic profile/v6 graph reader;
+- pinned semantic profile/v6 graph reader using the §3.6b builtin descriptor;
 - the bounded mapping helpers needed to construct source records and
   `GraphContributionV2`.
 
@@ -514,9 +602,10 @@ D.3 owns deletion of this adapter and the legacy reviewed-world initializer.
 
 ---
 
-## 5. Prepare path
+## 5. Prepare path and review eligibility
 
-Native prepare remains inert.
+Native prepare remains inert. Native exact-run review eligibility uses the same
+probe; it does not call `classify_world_graph_state`.
 
 Required order:
 
@@ -531,6 +620,10 @@ resolve exact ExtractionRun
 → pure materialize first-world reviewed plan
 → return sealed product plan
 ```
+
+`resolve_first_world_capability` (wired into exact-run review as
+`first_world_publish_eligible`) follows the same probe gate. Do not keep a
+parallel filesystem classify on the native path.
 
 Prepare must create:
 
@@ -548,6 +641,7 @@ world_paths.world_dir(world_graph_root(), world_id).exists()
 ```
 
 from the mounted native path. DungeonMind's confirm transaction owns the race.
+Filesystem classification remains legal only behind `buddy_files`.
 
 ---
 
@@ -580,6 +674,11 @@ DungeonMind world lock/pristine predicate.
 Exact retry repeats the same rebuild. Native adapter finds the durable receipt,
 uses its `initialized_at` to reconstruct the original provider command, and lets
 D.2C1 verify the full command digest.
+
+Concurrent first confirms that both miss the receipt follow §3.8: the loser of
+the world lock recovers from idempotency conflict by rebuilding once with
+`receipt.initialized_at`. Product result is success for both, not a
+timestamp-only 409.
 
 Expected product result:
 
@@ -664,9 +763,10 @@ existing-world worldbuilding plan semantics
 D.3 broad graph_memory deletion
 ```
 
-Current open APP-STATE PR #643 owns many of those files. D.2C2's intended
-server/CUTOVER lane is disjoint. Re-check its exact accepted/merged lease before
-implementation begins.
+Current APP-STATE AS2 PR #643 is merged. AS3 is dispatched; its lease remains
+disjoint from the D.2C2 CUTOVER paths named above. Re-check the exact
+accepted/merged AS3 lease before implementation begins and re-anchor to Buddy
+`main` `2de68441dd2b0adaf934526236d2c8983f9a7e9e` (or its successor).
 
 ---
 
@@ -725,7 +825,8 @@ Graph directory physically absent.
 
 Prove:
 
-- exact-run review still reports first-world eligibility from native authority;
+- exact-run review reports first-world eligibility from `WorldGraphInitializationAuthority.probe()`, not Buddy graph-directory/head existence;
+- after native confirm, exact-run review reports ineligible even though the Buddy World Graph directory remains absent;
 - managed-world + workspace/source lineage still work;
 - prepare is confirmable for a valid reviewed create-new plan;
 - zero DungeonMind mutations occur;
@@ -776,6 +877,10 @@ rejected fact  → durable rejected history, not D_0 fact
 
 Prove receipt accepted assertion IDs equal the materialized accepted set.
 
+Prove the provider command's `semantic_profile` is the §3.6b builtin
+worldbuilding descriptor (`load_builtin_v3_descriptor()`), not a parent-copied
+or invented ref.
+
 ### 9.5 Source/evidence closure
 
 Prove every D_0 evidence ref resolves through the exact `SourceArtifactV2` and
@@ -813,6 +918,25 @@ same command_sha256
 
 This proof must exercise receipt-seeded `requested_initialized_at`, not a mocked
 constant clock.
+
+### 9.7b Concurrent identical confirms
+
+Two synchronized callers confirm the same sealed plan against an uninitialized
+world (both may observe no receipt and choose distinct UTC timestamps).
+
+Prove:
+
+```text
+one D_0
+one reviewed-init receipt
+one command_sha256
+both callers succeed (initialized / already_initialized)
+neither caller receives a timestamp-only idempotency conflict as the product result
+```
+
+The second caller may take the §3.8 conflict → re-read receipt → rebuild with
+`receipt.initialized_at` → second D.2C1 call path. A third caller that changes
+plan/source/contribution/actor/profile must still conflict.
 
 ### 9.8 Lost-response / restart-safe reconstruction
 
@@ -863,6 +987,8 @@ graph_memory.kernel.reviewed_world_initialization
 graph_memory.kernel.world_initialization
 world_supergraph storage/head APIs for first-world authority
 Buddy filesystem first-world receipts
+classify_world_graph_state / try_open_world_graph_head / world_paths.world_dir
+  on the native eligibility/prepare/confirm path
 ```
 
 Remaining occurrences must be confined to explicitly named `buddy_files`, tests,
@@ -885,7 +1011,14 @@ provider transaction failure     → 5xx first_world_initialization_failed
 workspace/source drift           → existing 409 workspace/plan verification failure
 ```
 
-Do not convert integrity/idempotency conflict into `already_initialized` success.
+Do not convert a **remaining** provider integrity/idempotency conflict (changed
+plan/source/contribution/actor/profile, or mismatched initialization id) into
+`already_initialized` success.
+
+A first-attempt timestamp-only conflict on the **same** initialization id is not
+a product failure: the adapter must apply the §3.8 re-read/`initialized_at`
+rebuild and call D.2C1 once more. After that recovery, identical semantics are
+`already_initialized`; real differences remain conflict.
 
 ---
 
@@ -896,16 +1029,18 @@ are required:
 
 1. DungeonMind #46 cannot consume the real Buddy first-world source/contribution
    shape without changing its public reviewed-init contract.
-2. Exact restart retry cannot be reconstructed from the verified provider
-   receipt plus current server-owned sealed plan/source facts.
+2. Exact restart or concurrent-confirm retry cannot be reconstructed from the
+   verified provider receipt plus current server-owned sealed plan/source facts.
 3. D.2C2 would require persisting a new Buddy initialization/receipt registry.
 4. The only path forward requires a fake expected parent or ExistingWorldAdoption.
-5. APP-STATE #643 or a successor takes ownership of a file D.2C2 genuinely must
-   mutate and the collision cannot be removed by sequencing/rebase.
+5. AS3 or a later APP-STATE successor takes ownership of a file D.2C2 genuinely
+   must mutate and the collision cannot be removed by sequencing/rebase.
 6. Correct native behavior requires broad deletion of graph_memory beyond the
    mounted first-world writer; that belongs to D.3.
 7. Product compatibility requires fabricating a baseline revision instead of
    returning `null`.
+8. Concurrent identical confirms cannot be made exact-replay-safe without a new
+   plan schema, HMAC timestamp, or Buddy initialization registry.
 
 ---
 
