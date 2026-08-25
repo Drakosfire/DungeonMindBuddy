@@ -114,11 +114,17 @@ For a candidate state/object, ask in order:
 | transcript text | Buddy durable Source/processed artifact; Ingest may attach review outputs |
 | IngestRun status/review/provenance | Buddy durable Ingest state |
 | accepted World object/fact | DungeonMind World truth |
-| generated statblock draft | Buddy durable generated artifact / domain state |
-| location/NPC/shop draft before World publication | Buddy durable generated/authored state |
-| card project/specification | Buddy durable state |
+| generated statblock draft | Buddy durable Mechanics/generated-artifact state; not World truth (World may reference mechanics identity) |
+| location/NPC/shop draft | Buddy durable generated/authored state; only reviewed World-bearing facts may publish to DungeonMind |
+| card project/specification | Buddy durable owning-domain state; not World truth |
 | rendered card PNG/PDF | Asset or derived render linked to exact project revision |
 | projection/search index/thumbnail | Derived/cache unless product says otherwise |
+
+DungeonMind publication is not a default promotion. Only reviewed **World-bearing
+facts** cross the governed DungeonMind publication contract. Mechanics/statblock
+artifacts, card projects/renders, assets, and other non-World domains remain in
+their owning Buddy domain; World may reference them without absorbing them as
+World truth.
 
 This document is the persistence/revision/transaction/migration authority for
 Buddy-owned durable application state. After it is reviewed, later

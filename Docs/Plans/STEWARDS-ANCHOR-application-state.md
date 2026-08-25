@@ -757,16 +757,23 @@ Current repository evidence is path-keyed (`recap_ingest.py`,
 (`DESIGN-statblock-lifecycle-agentic-workbench.md`). The correction names the target
 without pre-creating `ingest.*`, `assets.*`, or `statblock.*` tables.
 
-Publication boundary remains:
+World publication is not a default promotion for every durable Buddy artifact:
 
 ```text
-Buddy SourceArtifact (Source) + IngestRun / reviewed proposal (Ingest)
-  → governed publication contract
+reviewed World-bearing facts
+  → governed DungeonMind publication contract
   → DungeonMind World Graph
+
+mechanics/statblock artifacts, card projects/renders, assets,
+and other non-World domains
+  → remain in their owning Buddy domain
+  → World may reference them; they do not become World truth
 ```
 
-Ingest state is not World truth merely because it eventually proposes World truth.
-Generated drafts are Buddy durable state until explicitly published to World.
+Ingest state is not World truth merely because a run may eventually propose
+World-bearing facts. Location/NPC/shop drafts remain Buddy durable state except
+for the reviewed World-bearing facts that actually cross that publication
+boundary.
 
 ---
 
