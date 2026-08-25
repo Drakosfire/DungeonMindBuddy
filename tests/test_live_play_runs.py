@@ -19,8 +19,41 @@ from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentSnapshot,
     create_workspace_document,
     discard_workspace_document,
+    get_committed_playable_revision,
     get_workspace_document_snapshot,
+    WorkspaceDocumentRegistryError,
 )
+
+pytest_plugins = ["tests.application_state.conftest"]
+
+_PLAYABLE_BY_SHA: dict[tuple[str, str], int] = {}
+
+
+@pytest.fixture(autouse=True)
+def _application_state(application_state_dsn: str) -> str:
+    _PLAYABLE_BY_SHA.clear()
+    return application_state_dsn
+
+
+def _remember_playable(snapshot: WorkspaceDocumentSnapshot) -> WorkspaceDocumentSnapshot:
+    if snapshot.record.kind != "runbook":
+        return snapshot
+    committed = get_committed_playable_revision(snapshot.record.document_id, kind=None)
+    if committed.content_sha256 == snapshot.content_sha256:
+        _PLAYABLE_BY_SHA[(snapshot.record.document_id, snapshot.content_sha256)] = (
+            committed.revision_n
+        )
+    return snapshot
+
+
+def _playable(snapshot: WorkspaceDocumentSnapshot) -> tuple[int, str]:
+    key = (snapshot.record.document_id, snapshot.content_sha256)
+    remembered = _PLAYABLE_BY_SHA.get(key)
+    if remembered is not None:
+        return remembered, snapshot.content_sha256
+    committed = get_committed_playable_revision(snapshot.record.document_id, kind=None)
+    return committed.revision_n, committed.content_sha256
+
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
@@ -64,7 +97,7 @@ def _commit_record(
             expected_revision=record.revision,
         ),
     )
-    return get_workspace_document_snapshot(root, record.document_id)
+    return _remember_playable(get_workspace_document_snapshot(root, record.document_id))
 
 
 def _create_committed_runbook(
@@ -87,10 +120,14 @@ def _create_committed_runbook(
 
 
 def _request(snapshot: WorkspaceDocumentSnapshot) -> dict[str, object]:
+    try:
+        revision_n, sha = _playable(snapshot)
+    except WorkspaceDocumentRegistryError:
+        revision_n, sha = snapshot.loaded_revision, snapshot.content_sha256
     return {
         "playable_artifact_id": snapshot.record.document_id,
-        "expected_playable_revision": snapshot.loaded_revision,
-        "expected_playable_content_sha256": snapshot.content_sha256,
+        "expected_playable_revision": revision_n,
+        "expected_playable_content_sha256": sha,
     }
 
 
@@ -108,7 +145,7 @@ def test_real_app_mount_creates_gets_and_lists_exact_binding(
     assert created["run_id"] == RUN_ID_A
     assert created["campaign_id"] == "longmont-c2"
     assert created["playable_artifact_id"] == before.record.document_id
-    assert created["playable_revision"] == before.loaded_revision
+    assert created["playable_revision"] == _playable(before)[0]
     assert created["playable_content_sha256"] == before.content_sha256
     assert created["run_revision"] == 1
     assert created["created_at"] == created["updated_at"]
@@ -217,7 +254,7 @@ def test_stale_revision_after_workspace_advance_returns_409_and_no_file(
         old.record,
         "# Runbook\n\nCurrent revision.\n",
     )
-    assert current.loaded_revision == old.loaded_revision + 1
+    assert _playable(current)[0] == _playable(old)[0] + 1
 
     response = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=_request(old))
 

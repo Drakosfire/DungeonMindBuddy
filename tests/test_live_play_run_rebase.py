@@ -21,9 +21,41 @@ from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
     WorkspaceDocumentSnapshot,
     create_workspace_document,
+    get_committed_playable_revision,
     get_workspace_document_snapshot,
 )
 from src.live_play.live_store import write_json
+
+pytest_plugins = ["tests.application_state.conftest"]
+
+_PLAYABLE_BY_SHA: dict[tuple[str, str], int] = {}
+
+
+@pytest.fixture(autouse=True)
+def _application_state(application_state_dsn: str) -> str:
+    _PLAYABLE_BY_SHA.clear()
+    return application_state_dsn
+
+
+def _remember_playable(snapshot: WorkspaceDocumentSnapshot) -> WorkspaceDocumentSnapshot:
+    if snapshot.record.kind != "runbook":
+        return snapshot
+    committed = get_committed_playable_revision(snapshot.record.document_id, kind=None)
+    if committed.content_sha256 == snapshot.content_sha256:
+        _PLAYABLE_BY_SHA[(snapshot.record.document_id, snapshot.content_sha256)] = (
+            committed.revision_n
+        )
+    return snapshot
+
+
+def _playable(snapshot: WorkspaceDocumentSnapshot) -> tuple[int, str]:
+    key = (snapshot.record.document_id, snapshot.content_sha256)
+    remembered = _PLAYABLE_BY_SHA.get(key)
+    if remembered is not None:
+        return remembered, snapshot.content_sha256
+    committed = get_committed_playable_revision(snapshot.record.document_id, kind=None)
+    return committed.revision_n, committed.content_sha256
+
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
@@ -111,7 +143,7 @@ def _commit_record(
             expected_revision=record.revision,
         ),
     )
-    return get_workspace_document_snapshot(root, record.document_id)
+    return _remember_playable(get_workspace_document_snapshot(root, record.document_id))
 
 
 def _create_committed_runbook(root: Path) -> WorkspaceDocumentSnapshot:
@@ -130,16 +162,16 @@ def _create_committed_runbook(root: Path) -> WorkspaceDocumentSnapshot:
 def _run_request(snapshot: WorkspaceDocumentSnapshot) -> dict[str, object]:
     return {
         "playable_artifact_id": snapshot.record.document_id,
-        "expected_playable_revision": snapshot.loaded_revision,
-        "expected_playable_content_sha256": snapshot.content_sha256,
+        "expected_playable_revision": _playable(snapshot)[0],
+        "expected_playable_content_sha256": _playable(snapshot)[1],
     }
 
 
 def _rebase_body(snapshot: WorkspaceDocumentSnapshot, expected_run_revision: int) -> dict[str, object]:
     return {
         "expected_run_revision": expected_run_revision,
-        "target_playable_revision": snapshot.loaded_revision,
-        "target_playable_content_sha256": snapshot.content_sha256,
+        "target_playable_revision": _playable(snapshot)[0],
+        "target_playable_content_sha256": _playable(snapshot)[1],
     }
 
 
@@ -167,7 +199,7 @@ def test_http_rebase_round_trip_and_replay(client: TestClient, root: Path) -> No
     body = first.json()
     assert body["run_revision"] == 2
     assert body["rebased_from_run_revision"] == 1
-    assert body["playable_revision"] == target.loaded_revision
+    assert body["playable_revision"] == _playable(target)[0]
     assert body["playable_content_sha256"] == target.content_sha256
     assert body["progress"]["current_scene_id"] is None
     assert not play_run_rebase_intent_path(root, RUN_ID_A).exists()

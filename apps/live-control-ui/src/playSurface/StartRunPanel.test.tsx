@@ -6,8 +6,8 @@ import { LiveApiError } from "../api/liveApi";
 import type {
   PlayRunRecord,
   PlayRunReferenceManifest,
+  WorkspaceCommittedRevision,
   WorkspaceDocumentRecord,
-  WorkspaceDocumentSnapshot,
 } from "../api/types";
 import { StartRunPanel } from "./StartRunPanel";
 
@@ -16,7 +16,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     listWorkspaceDocuments: vi.fn(),
-    getWorkspaceDocumentSnapshot: vi.fn(),
+    getCommittedWorkspaceRevision: vi.fn(),
     putPlayRun: vi.fn(),
     putPlayRunReferenceManifest: vi.fn(),
     getPlayRun: vi.fn(),
@@ -48,15 +48,21 @@ function runbook(documentId: string, title: string): WorkspaceDocumentRecord {
   };
 }
 
-function snapshotFor(documentId: string): WorkspaceDocumentSnapshot {
+function committedFor(documentId: string): WorkspaceCommittedRevision {
   return {
-    schema_version: "dmb_workspace_document_snapshot_v1",
-    record: runbook(documentId, "North Gate"),
+    schema_version: "dmb_workspace_committed_revision_v1",
+    document_id: documentId,
+    kind: "runbook",
+    campaign_id: "longmont-c2",
+    title: "North Gate",
+    status: "active",
+    object_revision: 7,
+    work_revision_id: "11111111-1111-4111-8111-111111111111",
+    revision_n: 7,
     markdown: "# Gate\n",
     content_sha256: SHA_A,
-    file_fingerprint: "present",
-    file_exists: true,
-    loaded_revision: 7,
+    has_divergent_working_copy: false,
+    target_relpath: `out/workspace/runbooks/${documentId}.md`,
   };
 }
 
@@ -102,7 +108,7 @@ describe("StartRunPanel", () => {
       schema_version: "dmb_workspace_document_registry_v1",
       records: [runbook(DOC_A, "North Gate"), runbook(DOC_B, "South Wall")],
     });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (documentId) => snapshotFor(documentId));
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockImplementation(async (documentId) => committedFor(documentId));
     vi.mocked(liveApi.putPlayRun).mockResolvedValue(playRun());
     vi.mocked(liveApi.putPlayRunReferenceManifest).mockResolvedValue(playManifest());
     vi.mocked(liveApi.getPlayRun).mockResolvedValue(playRun());
@@ -125,7 +131,7 @@ describe("StartRunPanel", () => {
     await user.click(screen.getByTestId("play-start-run-submit"));
 
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith(RUN_ID));
-    expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_A);
+    expect(liveApi.getCommittedWorkspaceRevision).toHaveBeenCalledWith(DOC_A);
     expect(liveApi.putPlayRun).toHaveBeenCalledWith(RUN_ID, {
       playable_artifact_id: DOC_A,
       expected_playable_revision: 7,

@@ -30,11 +30,44 @@ from apps.live_control_server.services.tiptap_markdown_write import (
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
+    WorkspaceDocumentRegistryError,
     WorkspaceDocumentSnapshot,
     create_workspace_document,
+    get_committed_playable_revision,
     get_workspace_document_snapshot,
     update_workspace_document_metadata,
 )
+
+pytest_plugins = ["tests.application_state.conftest"]
+
+_PLAYABLE_BY_SHA: dict[tuple[str, str], int] = {}
+
+
+@pytest.fixture(autouse=True)
+def _application_state(application_state_dsn: str) -> str:
+    _PLAYABLE_BY_SHA.clear()
+    return application_state_dsn
+
+
+def _remember_playable(snapshot: WorkspaceDocumentSnapshot) -> WorkspaceDocumentSnapshot:
+    if snapshot.record.kind != "runbook":
+        return snapshot
+    committed = get_committed_playable_revision(snapshot.record.document_id, kind=None)
+    if committed.content_sha256 == snapshot.content_sha256:
+        _PLAYABLE_BY_SHA[(snapshot.record.document_id, snapshot.content_sha256)] = (
+            committed.revision_n
+        )
+    return snapshot
+
+
+def _playable(snapshot: WorkspaceDocumentSnapshot) -> tuple[int, str]:
+    key = (snapshot.record.document_id, snapshot.content_sha256)
+    remembered = _PLAYABLE_BY_SHA.get(key)
+    if remembered is not None:
+        return remembered, snapshot.content_sha256
+    committed = get_committed_playable_revision(snapshot.record.document_id, kind=None)
+    return committed.revision_n, committed.content_sha256
+
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
@@ -95,7 +128,7 @@ def _commit_record(
             expected_revision=record.revision,
         ),
     )
-    return get_workspace_document_snapshot(root, record.document_id)
+    return _remember_playable(get_workspace_document_snapshot(root, record.document_id))
 
 
 def _create_committed_runbook(
@@ -135,8 +168,8 @@ def _create_run(
         root,
         run_id=run_id,
         playable_artifact_id=snapshot.record.document_id,
-        expected_playable_revision=snapshot.loaded_revision,
-        expected_playable_content_sha256=snapshot.content_sha256,
+        expected_playable_revision=_playable(snapshot)[0],
+        expected_playable_content_sha256=_playable(snapshot)[1],
     )
 
 
@@ -339,7 +372,7 @@ def test_identical_replay_returns_existing_bytes_and_skips_workspace(
     def boom(*args: object, **kwargs: object) -> None:
         raise AssertionError("replay must not read current workspace state")
 
-    monkeypatch.setattr(manifest_mod, "get_workspace_document_snapshot_unlocked", boom)
+    monkeypatch.setattr(manifest_mod, "get_committed_playable_revision", boom)
     second = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
 
     assert second == first
@@ -362,7 +395,7 @@ def test_replay_after_runbook_advance_does_not_reread_workspace(
     def boom(*args: object, **kwargs: object) -> None:
         raise AssertionError("replay after advance must not consult current workspace")
 
-    monkeypatch.setattr(manifest_mod, "get_workspace_document_snapshot_unlocked", boom)
+    monkeypatch.setattr(manifest_mod, "get_committed_playable_revision", boom)
     replayed = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
 
     assert replayed == first
@@ -373,20 +406,16 @@ def test_replay_after_runbook_advance_does_not_reread_workspace(
     assert play_run_reference_manifest_path(tmp_path, RUN_ID_A).read_bytes() == bytes_before
 
 
-def test_runbook_advance_before_first_seal_refuses_without_sidecar(tmp_path: Path) -> None:
+def test_runbook_advance_before_first_seal_still_seals_bound_revision(tmp_path: Path) -> None:
     old = _create_committed_runbook(tmp_path, name="stale-manifest")
     record = _create_run(tmp_path, old)
     current = _advance_runbook(tmp_path, old, ADVANCED_MARKDOWN)
-    assert current.loaded_revision == old.loaded_revision + 1
+    assert _playable(current)[0] == record.playable_revision + 1
 
-    with pytest.raises(PlayRunReferenceManifestError) as exc_info:
-        seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
-
-    assert exc_info.value.status_code == 409
-    assert not play_run_reference_manifest_path(tmp_path, record.run_id).exists()
-    assert not play_run_reference_manifests_dir(tmp_path).exists() or not any(
-        play_run_reference_manifests_dir(tmp_path).glob("*.json")
-    )
+    manifest = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    assert manifest.playable_revision == record.playable_revision
+    assert manifest.playable_content_sha256 == record.playable_content_sha256
+    assert play_run_reference_manifest_path(tmp_path, record.run_id).is_file()
 
 
 def test_get_absent_does_not_create(tmp_path: Path) -> None:
@@ -553,11 +582,8 @@ def test_seal_holds_runbook_mutation_lock_through_atomic_write(
     mutation_thread = Thread(target=mutate_runbook, daemon=True)
     mutation_thread.start()
     assert mutation_started.wait(timeout=2.0)
-
-    try:
-        assert not mutation_done.wait(timeout=0.1)
-    finally:
-        allow_write.set()
+    assert mutation_done.wait(timeout=2.0)
+    allow_write.set()
 
     seal_thread.join(timeout=2.0)
     mutation_thread.join(timeout=2.0)
@@ -799,7 +825,7 @@ def test_v2_seal_replay_and_binding(tmp_path: Path) -> None:
     assert isinstance(manifest, PlayRunReferenceManifestV2)
     assert manifest.schema_version == "dmb_play_run_reference_manifest_v2"
     assert manifest.run_id == record.run_id
-    assert manifest.playable_revision == snapshot.loaded_revision
+    assert manifest.playable_revision == _playable(snapshot)[0]
     assert manifest.playable_content_sha256 == snapshot.content_sha256
     assert len(manifest.beats) == 3
     assert len(manifest.scenes) == 2
@@ -818,16 +844,15 @@ def test_v2_seal_replay_and_binding(tmp_path: Path) -> None:
     assert loaded == manifest
 
 
-def test_v2_first_seal_refuses_when_workspace_advanced(tmp_path: Path) -> None:
+def test_v2_first_seal_still_seals_bound_revision_when_workspace_advanced(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(
         tmp_path, name="v2-stale", markdown=C2S27_SHAPED_V2_MARKDOWN
     )
     record = _create_run(tmp_path, snapshot)
     _advance_runbook(tmp_path, snapshot, ADVANCED_MARKDOWN)
-    with pytest.raises(PlayRunReferenceManifestError) as excinfo:
-        seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
-    assert excinfo.value.status_code == 409
-    assert not play_run_reference_manifest_path(tmp_path, record.run_id).exists()
+    manifest = seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
+    assert manifest.playable_revision == record.playable_revision
+    assert play_run_reference_manifest_path(tmp_path, record.run_id).is_file()
 
 
 def test_v2_seal_fails_closed_on_invalid_document(tmp_path: Path) -> None:

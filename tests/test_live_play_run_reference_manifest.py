@@ -21,8 +21,40 @@ from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
     WorkspaceDocumentSnapshot,
     create_workspace_document,
+    get_committed_playable_revision,
     get_workspace_document_snapshot,
 )
+
+pytest_plugins = ["tests.application_state.conftest"]
+
+_PLAYABLE_BY_SHA: dict[tuple[str, str], int] = {}
+
+
+@pytest.fixture(autouse=True)
+def _application_state(application_state_dsn: str) -> str:
+    _PLAYABLE_BY_SHA.clear()
+    return application_state_dsn
+
+
+def _remember_playable(snapshot: WorkspaceDocumentSnapshot) -> WorkspaceDocumentSnapshot:
+    if snapshot.record.kind != "runbook":
+        return snapshot
+    committed = get_committed_playable_revision(snapshot.record.document_id, kind=None)
+    if committed.content_sha256 == snapshot.content_sha256:
+        _PLAYABLE_BY_SHA[(snapshot.record.document_id, snapshot.content_sha256)] = (
+            committed.revision_n
+        )
+    return snapshot
+
+
+def _playable(snapshot: WorkspaceDocumentSnapshot) -> tuple[int, str]:
+    key = (snapshot.record.document_id, snapshot.content_sha256)
+    remembered = _PLAYABLE_BY_SHA.get(key)
+    if remembered is not None:
+        return remembered, snapshot.content_sha256
+    committed = get_committed_playable_revision(snapshot.record.document_id, kind=None)
+    return committed.revision_n, committed.content_sha256
+
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
@@ -96,7 +128,7 @@ def _commit_record(
             expected_revision=record.revision,
         ),
     )
-    return get_workspace_document_snapshot(root, record.document_id)
+    return _remember_playable(get_workspace_document_snapshot(root, record.document_id))
 
 
 def _create_committed_runbook(
@@ -123,8 +155,8 @@ def _create_run(client: TestClient, snapshot: WorkspaceDocumentSnapshot) -> dict
         f"/api/live/play-runs/{RUN_ID_A}",
         json={
             "playable_artifact_id": snapshot.record.document_id,
-            "expected_playable_revision": snapshot.loaded_revision,
-            "expected_playable_content_sha256": snapshot.content_sha256,
+            "expected_playable_revision": _playable(snapshot)[0],
+            "expected_playable_content_sha256": _playable(snapshot)[1],
         },
     )
     assert response.status_code == 200
@@ -176,18 +208,18 @@ def test_request_body_is_rejected(client: TestClient, root: Path) -> None:
     assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()
 
 
-def test_stale_bound_version_returns_409_and_no_file(
+def test_first_seal_still_uses_bound_revision_after_newer_commit(
     client: TestClient,
     root: Path,
 ) -> None:
     old = _create_committed_runbook(root, name="stale-live-manifest")
     created = _create_run(client, old)
     advanced = _commit_record(root, old.record, ADVANCED_MARKDOWN)
-    assert advanced.loaded_revision == created["playable_revision"] + 1
+    assert _playable(advanced)[0] == created["playable_revision"] + 1
 
     response = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
-    assert response.status_code == 409
-    assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()
+    assert response.status_code == 200
+    assert play_run_reference_manifest_path(root, RUN_ID_A).is_file()
 
 
 def test_replay_after_advance_returns_exact_sidecar(
