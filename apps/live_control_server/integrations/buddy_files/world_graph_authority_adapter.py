@@ -318,13 +318,19 @@ class BuddyFilesWorldGraphAuthorityAdapter:
                         "requested_contribution_id": contrib_id,
                     },
                 )
+        accepted_ids = ()
+        if contribution is not None:
+            accepted_ids = tuple(
+                str(getattr(item, "assertion_id", "") or "")
+                for item in list(getattr(contribution, "accepted_assertions", None) or [])
+            )
         return WorldGraphPublicationReceipt(
             world_id=world_id,
             authority_operation_id=authority_operation_id,
             parent_revision_id=parent_id,
             published_revision_id=str(getattr(manifest, "revision_id", "") or ""),
             reviewed_contribution_id=authority_operation_id,
-            accepted_assertion_ids=(),
+            accepted_assertion_ids=accepted_ids,
             published=True,
             outcome="already_applied",
         )

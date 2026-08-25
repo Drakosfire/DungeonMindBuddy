@@ -6,6 +6,9 @@ in ``extract_promote.py``. Product code talks only to ``WorldGraphAuthority``.
 
 from __future__ import annotations
 
+import hashlib
+import json
+from pathlib import Path
 from typing import Any, Mapping
 
 from apps.live_control_server import config as live_config
@@ -60,6 +63,9 @@ _PORT_ERROR_MAP: dict[str, tuple[str, int]] = {
     "publication_failed": ("merge_did_not_publish", 409),
 }
 
+_IDENTITY_CHECKPOINT_REL = "out/registries/worldbuilding_identity_checkpoints.json"
+_IDENTITY_CHECKPOINT_SCHEMA = "dmb_worldbuilding_identity_checkpoint_v1"
+
 
 def _promotable_run_error(exc: PromotableIngestRunError) -> ExtractPromoteError:
     from apps.live_control_server.services.extract_promote import (
@@ -106,6 +112,84 @@ def _legacy_reprepare_error() -> ExtractPromoteError:
             )
         ],
     )
+
+
+def _identity_snapshot_digest(snapshot: Mapping[str, Any]) -> str:
+    payload = json.dumps(
+        snapshot,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        default=str,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _identity_checkpoint_path() -> Path:
+    return live_config.repo_root() / _IDENTITY_CHECKPOINT_REL
+
+
+def _load_identity_checkpoints() -> dict[str, Any]:
+    path = _identity_checkpoint_path()
+    if not path.is_file():
+        return {"schema": _IDENTITY_CHECKPOINT_SCHEMA, "checkpoints": []}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"schema": _IDENTITY_CHECKPOINT_SCHEMA, "checkpoints": []}
+    if not isinstance(payload, dict):
+        return {"schema": _IDENTITY_CHECKPOINT_SCHEMA, "checkpoints": []}
+    records = payload.get("checkpoints")
+    if not isinstance(records, list):
+        payload["checkpoints"] = []
+    return payload
+
+
+def _checkpoint_key(record: Mapping[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(record.get("world_id") or ""),
+        str(record.get("parent_revision_id") or ""),
+        str(record.get("digest") or ""),
+    )
+
+
+def _record_identity_checkpoint(
+    *, world_id: str, parent_revision_id: str, digest: str
+) -> None:
+    path = _identity_checkpoint_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = _load_identity_checkpoints()
+    records = [dict(item) for item in list(payload.get("checkpoints") or []) if isinstance(item, dict)]
+    entry = {
+        "world_id": world_id,
+        "parent_revision_id": parent_revision_id,
+        "digest": digest,
+    }
+    if _checkpoint_key(entry) not in {_checkpoint_key(item) for item in records}:
+        records.append(entry)
+    payload["schema"] = _IDENTITY_CHECKPOINT_SCHEMA
+    payload["checkpoints"] = records
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def _require_identity_checkpoint(
+    *, world_id: str, parent_revision_id: str, digest: str
+) -> None:
+    payload = _load_identity_checkpoints()
+    wanted = (world_id, parent_revision_id, digest)
+    records = [item for item in list(payload.get("checkpoints") or []) if isinstance(item, dict)]
+    if wanted not in {_checkpoint_key(item) for item in records}:
+        raise ExtractPromoteError(
+            "identity snapshot was not sealed by prepare on this server",
+            code="identity_snapshot_inexpressible",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "identity_snapshot_inexpressible",
+                    "identity snapshot was not sealed by prepare on this server",
+                )
+            ],
+        )
 
 
 def _relationship_predicate_matches(published: str, expected: str) -> bool:
@@ -182,13 +266,26 @@ def _verify_worldbuilding_child(
     *,
     receipt: WorldGraphPublicationReceipt,
     contribution: Any,
+    verified: Mapping[str, Any],
+    parent: str,
+    materialized_accepted: list[str],
 ) -> tuple[str, list[str]]:
-    """Prove accepted worldbuilding objects/relationships on the published child."""
+    """Prove accepted worldbuilding facts and receipt bindings on the child."""
     codes: list[str] = []
+    if receipt.world_id != str(verified["world_id"]):
+        codes.append("receipt_world_mismatch")
+    if receipt.parent_revision_id != parent:
+        codes.append("receipt_parent_mismatch")
+    if tuple(receipt.accepted_assertion_ids) != tuple(materialized_accepted):
+        codes.append("accepted_assertion_ids_mismatch")
+    if not str(receipt.reviewed_contribution_id or "").strip():
+        codes.append("reviewed_contribution_unbound")
     try:
         child = authority.read_revision(receipt.world_id, receipt.published_revision_id)
     except WorldGraphAuthorityError as exc:
         if exc.code == "authority_unavailable":
+            if codes:
+                return "failed", codes
             return "degraded", [f"child_verification_unavailable:{exc.code}"]
         raise
     if (
@@ -203,8 +300,34 @@ def _verify_worldbuilding_child(
         subject = str(getattr(assertion, "subject_node_id", "") or "")
         target = str(getattr(assertion, "target_node_id", "") or "")
         predicate = str(getattr(assertion, "predicate", "") or "")
+        value = getattr(assertion, "value", None) or {}
+        if not isinstance(value, dict):
+            value = {}
         if kind == "node" and subject and subject not in objects:
             codes.append(f"missing_object:{subject}")
+        elif kind == "attribute":
+            if subject and subject not in objects:
+                codes.append(f"missing_attribute_subject:{subject}")
+            elif subject:
+                obj = objects[subject]
+                terms = tuple(getattr(obj, "property_terms", ()) or ())
+                # DungeonMind v6 materializes attribute assertions as
+                # evidence/provenance only, not object.properties. When the
+                # child does expose property terms, they must include the
+                # accepted predicate. Empty terms are not a dropped assertion
+                # so long as the subject exists and accepted IDs matched.
+                if predicate and terms and not any(
+                    _relationship_predicate_matches(term, predicate) for term in terms
+                ):
+                    codes.append(f"missing_attribute:{subject}:{predicate}")
+        elif kind == "alias":
+            if subject and subject not in objects:
+                codes.append(f"missing_alias_subject:{subject}")
+            elif subject:
+                alias = str(value.get("alias") or getattr(assertion, "label", "") or "")
+                aliases = tuple(getattr(objects[subject], "aliases", ()) or ())
+                if alias and alias not in aliases:
+                    codes.append(f"missing_alias:{subject}:{alias}")
         elif kind == "edge":
             if subject and subject not in objects:
                 codes.append(f"missing_edge_subject:{subject}")
@@ -347,6 +470,12 @@ def prepare_worldbuilding(
             status_code=500,
             diagnostics=[_diagnostic("plan_verification_failed", str(exc))],
         ) from exc
+    snapshot = _identity_snapshot_payload(response)
+    _record_identity_checkpoint(
+        world_id=DEFAULT_WORLD_ID,
+        parent_revision_id=request.expected_parent_revision_id,
+        digest=_identity_snapshot_digest(snapshot),
+    )
     return response
 
 
@@ -394,6 +523,11 @@ def confirm_worldbuilding(
     )
     authority = get_world_graph_authority()
     snapshot = _identity_snapshot_payload(plan)
+    _require_identity_checkpoint(
+        world_id=DEFAULT_WORLD_ID,
+        parent_revision_id=plan.parent_revision_id,
+        digest=_identity_snapshot_digest(snapshot),
+    )
     try:
         mutation_context = authority.mutation_context(
             DEFAULT_WORLD_ID,
@@ -547,7 +681,12 @@ def _receipt_from_publication(
 ) -> WorldbuildingWritePlanConfirmReceipt:
     warnings = list(extra_warnings or [])
     status, codes = _verify_worldbuilding_child(
-        authority, receipt=receipt, contribution=contribution
+        authority,
+        receipt=receipt,
+        contribution=contribution,
+        verified=verified,
+        parent=parent,
+        materialized_accepted=materialized_accepted,
     )
     if status == "failed":
         raise ExtractPromoteError(
@@ -561,7 +700,7 @@ def _receipt_from_publication(
         audit_status = "degraded"
         outcome = "published_audit_degraded"
         warnings.extend(codes)
-    accepted = list(receipt.accepted_assertion_ids or materialized_accepted)
+    accepted = list(materialized_accepted)
     return _confirm_receipt(
         outcome=outcome,
         verified=verified,

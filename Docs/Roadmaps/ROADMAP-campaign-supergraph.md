@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap  
 **Updated:** 2026-08-24 — #637 D.2A Threat authority port `DONE`; D.2B worldbuilding authority-port `DOING`  
-**Repository anchor / current Buddy `main`:** `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c` (merge of PR #633). **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
+**Repository anchor / current Buddy `main`:** `879c1b8c8794d4774cc17f6ec7c91eebf999f77c` (APP-STATE AS1 PostgreSQL Plan foundation; D.2B implementation base). Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (PR #45 merge / R.3a native read-context optimization)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  

@@ -60,6 +60,19 @@ def _finalized_publication_rows(dsn: str) -> list[tuple[str, str]]:
     return [(str(row[0]), str(row[1])) for row in rows]
 
 
+def _source_plan_schemas(dsn: str) -> list[str]:
+    import psycopg
+
+    with psycopg.connect(dsn) as conn:
+        rows = conn.execute(
+            """
+            SELECT payload->'plan_ref'->>'source_plan_schema'
+            FROM dungeonmind.contribution_reviews
+            """
+        ).fetchall()
+    return [str(row[0]) for row in rows if row[0]]
+
+
 def _prefix_candidate_ids(repo: Path, run_id: str, prefix: str) -> tuple[str, str, str]:
     from apps.live_control_server.services.graph_run_registry import (
         extraction_runs_path,
@@ -225,6 +238,9 @@ def test_worldbuilding_authority_port_publishes_d_a_to_d_b_with_retry_recover_an
         for rel in child.relationships.values()
     )
     assert len(_finalized_publication_rows(dsn)) == len(finalized_before) + 1
+    schemas = _source_plan_schemas(dsn)
+    assert "dmb_worldbuilding_publication_contribution_v1" in schemas
+    assert "dmb_threat_publication_contribution_v1" not in schemas
 
     retry = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert retry.outcome == "already_applied"
@@ -245,3 +261,115 @@ def test_worldbuilding_authority_port_publishes_d_a_to_d_b_with_retry_recover_an
     assert not absent.exists()
     head_row = bundle.world_graph.get_head(WORLD_ID)
     assert head_row is not None and head_row.head_revision_id == d_b
+
+
+def _add_node_aliases(repo: Path, run_id: str, node_id: str, aliases: list[str]) -> None:
+    from apps.live_control_server.services.graph_run_registry import (
+        extraction_runs_path,
+        get_extraction_run,
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        _resolve_extraction_component_path,
+    )
+    from src.live_play.live_store import load_json, write_json
+
+    run = get_extraction_run(repo, run_id)
+    candidate_path = _resolve_extraction_component_path(
+        repo,
+        run.components["candidate_graph"].uri,
+        label="candidate_graph",
+    )
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    for node in candidate.get("nodes") or []:
+        if node.get("node_id") == node_id:
+            node["aliases"] = list(aliases)
+            break
+    candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
+    digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+    registry_path = extraction_runs_path(repo)
+    registry = load_json(registry_path)
+    for record in registry["records"]:
+        if record["run_id"] == run_id:
+            record["components"]["candidate_graph"]["sha256"] = digest
+            break
+    write_json(registry_path, registry)
+
+
+@pytest.mark.integration
+def test_worldbuilding_bind_existing_publishes_observation_and_alias(
+    write_world, monkeypatch
+):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
+        DungeonMindWorldGraphAuthorityAdapter,
+    )
+    from apps.live_control_server.models.extract_promote import (
+        WorldbuildingWritePlanConfirmRequest,
+        WorldbuildingWritePlanPrepareRequest,
+    )
+    from apps.live_control_server.services.worldbuilding_graph_publication import (
+        confirm_worldbuilding,
+        prepare_worldbuilding,
+    )
+
+    dsn = write_world["dsn"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_root = write_world["frozen_root"]
+    frozen_before = _tree_digest(frozen_root)
+    absent = write_world["tmp_path"] / "buddy-world-graph-absent"
+    repo = _install_native_worldbuilding_repo(
+        monkeypatch, write_world["tmp_path"], absent
+    )
+    _explode_kernel(monkeypatch)
+
+    adapter = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
+    parent = adapter.read_revision(WORLD_ID, d_a)
+    target = next(
+        obj
+        for obj in parent.objects.values()
+        if obj.kind.lower() in {"npc", "pc"} and obj.object_id
+    )
+
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    node_a, node_b, edge_id = _prefix_candidate_ids(repo, run_id, "d2b-bind:")
+    _add_node_aliases(repo, run_id, node_a, ["Witness Alias"])
+    plan = prepare_worldbuilding(
+        WorldbuildingWritePlanPrepareRequest.model_validate(
+            {
+                "runId": run_id,
+                "expectedParentRevisionId": d_a,
+                "dispositions": [
+                    {
+                        "assertionId": node_a,
+                        "decision": "bind_existing",
+                        "targetNodeId": target.object_id,
+                    },
+                    {"assertionId": node_b, "decision": "create_new"},
+                    {"assertionId": edge_id, "decision": "accept"},
+                ],
+            }
+        )
+    )
+    receipt = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert receipt.outcome == "committed"
+    child = adapter.read_revision(WORLD_ID, receipt.committed_revision_id)
+    assert child.parent_revision_id == d_a
+    bound = child.objects[target.object_id]
+    assert "Witness Alias" in bound.aliases
+    assert node_b in child.objects
+    assert node_a not in child.objects
+    accepted = list(plan.effect.accepted_proposals)
+    attribute_ids = [
+        item.assertion_id for item in accepted if item.assertion_kind == "attribute"
+    ]
+    alias_ids = [
+        item.assertion_id for item in accepted if item.assertion_kind == "alias"
+    ]
+    assert attribute_ids
+    assert alias_ids
+    assert all(assertion_id in receipt.accepted_assertion_ids for assertion_id in attribute_ids)
+    assert all(assertion_id in receipt.accepted_assertion_ids for assertion_id in alias_ids)
+    schemas = _source_plan_schemas(dsn)
+    assert "dmb_worldbuilding_publication_contribution_v1" in schemas
+    assert "dmb_threat_publication_contribution_v1" not in schemas
+    assert _tree_digest(frozen_root) == frozen_before
+    assert not absent.exists()

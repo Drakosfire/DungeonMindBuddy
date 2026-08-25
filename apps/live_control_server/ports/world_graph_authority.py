@@ -59,6 +59,7 @@ class AuthorityObject:
     campaign_scope: str | None = None
     summary: str | None = None
     external_resource: Mapping[str, Any] | None = None
+    property_terms: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

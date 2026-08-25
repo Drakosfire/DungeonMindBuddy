@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -121,10 +122,36 @@ class FakeWorldGraphAuthority:
             objects=objects,
         )
         if sealed_identity_snapshot is not None:
+            from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+                _identity_decision_prefix_key,
+            )
             from graph_memory.world_graph_mutation_context import (
                 mutation_context_with_sealed_identity,
             )
 
+            live_decisions = [
+                dict(item)
+                for item in list((self.identity.get(world_id) or {}).get("decisions") or [])
+                if isinstance(item, dict)
+            ]
+            sealed_decisions = [
+                dict(item)
+                for item in list(sealed_identity_snapshot.get("decisions") or [])
+                if isinstance(item, dict)
+            ]
+            if len(sealed_decisions) > len(live_decisions):
+                raise WorldGraphAuthorityError(
+                    "sealed identity snapshot invents decisions absent from the ledger",
+                    code="inexpressible",
+                )
+            for index, sealed in enumerate(sealed_decisions):
+                if _identity_decision_prefix_key(sealed) != _identity_decision_prefix_key(
+                    live_decisions[index]
+                ):
+                    raise WorldGraphAuthorityError(
+                        "sealed identity snapshot is not the prepare-time ledger prefix",
+                        code="inexpressible",
+                    )
             return mutation_context_with_sealed_identity(base, sealed_identity_snapshot)
         live = dict(self.identity.get(world_id) or {})
         redirects = {
@@ -165,6 +192,7 @@ class FakeWorldGraphAuthority:
         if head.revision_id != request.expected_parent_revision_id:
             raise WorldGraphAuthorityError("stale parent", code="stale_parent")
         child = f"rev:child-{self.publish_calls}"
+        fingerprint = _contribution_fingerprint(request.contribution)
         receipt = WorldGraphPublicationReceipt(
             world_id=request.world_id,
             authority_operation_id=request.authority_operation_id,
@@ -174,6 +202,9 @@ class FakeWorldGraphAuthority:
             accepted_assertion_ids=request.accepted_assertion_ids,
             published=True,
             outcome="published",
+            reviewed_contribution_sha256=hashlib.sha256(
+                fingerprint.encode("utf-8")
+            ).hexdigest(),
         )
         self.publications[key] = receipt
         self._bindings[key] = (
@@ -201,6 +232,23 @@ class FakeWorldGraphAuthority:
                     label=str(value.get("label") or subject),
                     kind=str(value.get("kind") or "object"),
                 )
+            elif kind == "attribute" and subject:
+                existing = objects.get(subject)
+                if existing is None:
+                    continue
+                terms = list(existing.property_terms)
+                if predicate and predicate not in terms:
+                    terms.append(predicate)
+                objects[subject] = replace(existing, property_terms=tuple(terms))
+            elif kind == "alias" and subject:
+                existing = objects.get(subject)
+                if existing is None:
+                    continue
+                alias = str(value.get("alias") or getattr(assertion, "label", "") or "")
+                aliases = list(existing.aliases)
+                if alias and alias not in aliases:
+                    aliases.append(alias)
+                objects[subject] = replace(existing, aliases=tuple(aliases))
             elif kind == "edge" and subject and target:
                 rel_id = assertion_id or f"rel:{subject}:{predicate}:{target}"
                 relationships[rel_id] = AuthorityRelationship(
@@ -863,3 +911,333 @@ def test_native_verify_accepts_dungeonmind_mapped_edge_predicate():
     assert _relationship_predicate_matches("dnd5e:associated_with", "linked_to")
     assert _relationship_predicate_matches("linked_to", "linked_to")
     assert not _relationship_predicate_matches("located_in", "linked_to")
+
+
+_SEED_MERGE = {
+    "decision_id": "identity-decision:d2b-seed-merge",
+    "world_id": DEFAULT_WORLD_ID,
+    "decision_kind": "merge",
+    "subject_object_ids": ["npc:seed-source", "npc:seed-target"],
+    "target_object_ids": ["npc:seed-target"],
+    "status": "active",
+    "actor": "system",
+    "reason": "seeded prepare-time identity",
+    "reversible": True,
+    "supersedes_decision_ids": [],
+    "created_at": "1970-01-01T00:00:00Z",
+    "merge_side_effects": None,
+    "alias": None,
+    "source_candidate_id": None,
+}
+
+
+def _standard_dispositions() -> list[dict[str, str]]:
+    return [
+        {"assertionId": "obj_session22_vial", "decision": "create_new"},
+        {"assertionId": "mystery_puddles", "decision": "create_new"},
+        {"assertionId": "e33", "decision": "accept"},
+    ]
+
+
+def _wrap_built_plan(built) -> object:
+    from apps.live_control_server.models.extract_promote import (
+        WORLD_BUILDING_WRITE_PLAN_SCHEMA,
+        WorldbuildingWritePlanResponse,
+    )
+
+    return WorldbuildingWritePlanResponse(
+        schema=WORLD_BUILDING_WRITE_PLAN_SCHEMA,
+        version=2,
+        plan_id=built.plan_id,
+        plan_digest=built.plan_digest,
+        decision_digest=built.decision_digest,
+        world_id=built.world_id,
+        parent_revision_id=built.parent_revision_id,
+        run_id=built.run_id,
+        source_artifact_id=built.source_artifact_id,
+        source_revision_id=built.source_revision_id,
+        extraction_profile=built.extraction_profile,
+        candidate_preview_id=built.candidate_preview_id,
+        candidate_schema=built.candidate_schema,
+        candidate_version=built.candidate_version,
+        effect=built.effect,
+        summary=built.summary,
+        diagnostics=built.diagnostics,
+    )
+
+
+def test_publication_provenance_keeps_threat_strings_and_splits_worldbuilding():
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        THREAT_PUBLISH_POLICY_ID,
+        THREAT_SOURCE_PLAN_SCHEMA,
+        WORLDBUILDING_PUBLISH_POLICY_ID,
+        WORLDBUILDING_SOURCE_PLAN_SCHEMA,
+        _publication_provenance,
+        _threat_publish_capability_policy,
+    )
+
+    assert THREAT_SOURCE_PLAN_SCHEMA == "dmb_threat_publication_contribution_v1"
+    assert THREAT_PUBLISH_POLICY_ID == "cutover:threat-publication-confirm"
+    assert WORLDBUILDING_SOURCE_PLAN_SCHEMA == (
+        "dmb_worldbuilding_publication_contribution_v1"
+    )
+    assert WORLDBUILDING_PUBLISH_POLICY_ID == "cutover:worldbuilding-publication-confirm"
+    assert _publication_provenance("threat") == (
+        THREAT_SOURCE_PLAN_SCHEMA,
+        THREAT_PUBLISH_POLICY_ID,
+    )
+    assert _publication_provenance("worldbuilding") == (
+        WORLDBUILDING_SOURCE_PLAN_SCHEMA,
+        WORLDBUILDING_PUBLISH_POLICY_ID,
+    )
+    policy = _threat_publish_capability_policy(
+        world_id="eldyrwild",
+        campaign_id=None,
+        parent_revision_id="rev:parent",
+    )
+    assert policy.policy_id == THREAT_PUBLISH_POLICY_ID
+
+
+def test_tampered_identity_snapshot_fails_even_after_recompute(tmp_path, monkeypatch):
+    from apps.live_control_server.models.extract_promote import (
+        WorldbuildingWritePlanConfirmRequest,
+        WorldbuildingWritePlanPrepareRequest,
+    )
+    from apps.live_control_server.services.extract_promote import (
+        _load_typed_worldbuilding_preview_for_run,
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
+    from apps.live_control_server.services.worldbuilding_graph_publication import (
+        _identity_snapshot_payload,
+        confirm_worldbuilding,
+        prepare_worldbuilding,
+    )
+    from graph_memory.world_graph_mutation_context import (
+        mutation_context_with_sealed_identity,
+    )
+    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+
+    parent = "rev:d-a"
+    repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
+    fake = FakeWorldGraphAuthority()
+    fake.heads[DEFAULT_WORLD_ID] = parent
+    fake.revisions[(DEFAULT_WORLD_ID, parent)] = _empty_parent(revision_id=parent)
+    fake.identity[DEFAULT_WORLD_ID] = {
+        "identity_redirects": {"npc:seed-source": "npc:seed-target"},
+        "decisions": [_SEED_MERGE],
+        "alias_owners": {"Seed": ("npc:seed-target",)},
+    }
+    _install_fake_authority(monkeypatch, fake)
+    _explode_buddy_graph_runtime(monkeypatch)
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    honest = prepare_worldbuilding(
+        WorldbuildingWritePlanPrepareRequest.model_validate(
+            {
+                "runId": run_id,
+                "expectedParentRevisionId": parent,
+                "dispositions": _standard_dispositions(),
+            }
+        )
+    )
+    assert honest.effect.identity_authority is not None
+    assert honest.effect.identity_authority.decisions
+
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(resolved)
+    graph_base = fake.mutation_context(DEFAULT_WORLD_ID, parent)
+    snapshot = _identity_snapshot_payload(honest)
+    attacks = {
+        "drop_trailing_merge": {**snapshot, "decisions": []},
+        "modify_merge": {
+            **snapshot,
+            "decisions": [
+                {**dict(snapshot["decisions"][0]), "decision_kind": "split"}
+            ],
+        },
+        "invent_merge": {
+            **snapshot,
+            "decisions": [
+                *list(snapshot["decisions"]),
+                {
+                    **_SEED_MERGE,
+                    "decision_id": "identity-decision:invented",
+                    "subject_object_ids": ["npc:invented-a", "npc:invented-b"],
+                    "target_object_ids": ["npc:invented-b"],
+                },
+            ],
+        },
+        "steal_alias": {
+            **snapshot,
+            "alias_owners": {"Stolen": ["npc:other-owner"]},
+        },
+    }
+    for name, mutated in attacks.items():
+        rebuilt = build_worldbuilding_write_plan(
+            preview=typed_preview,
+            mutation_context=mutation_context_with_sealed_identity(graph_base, mutated),
+            world_id=DEFAULT_WORLD_ID,
+            expected_parent_revision_id=parent,
+            run_id=resolved.run_id,
+            source_artifact_id=resolved.source_artifact_id,
+            source_revision_id=resolved.source_revision_id,
+            source_uri=resolved.sealed_source_uri,
+            extraction_profile=expected_profile,
+            campaign_scope=resolved.campaign_id or None,
+            dispositions=[
+                {"assertion_id": item["assertionId"], "decision": item["decision"]}
+                for item in _standard_dispositions()
+            ],
+            require_current_head=False,
+        )
+        attack_plan = _wrap_built_plan(rebuilt)
+        with pytest.raises(Exception) as exc:
+            confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=attack_plan))
+        code = getattr(exc.value, "code", "")
+        assert code in {
+            "identity_snapshot_inexpressible",
+            "dungeonmind_inexpressible",
+        }, name
+
+
+def test_identity_drift_appends_i1_without_changing_sealed_confirm(
+    tmp_path, monkeypatch
+):
+    from apps.live_control_server.models.extract_promote import (
+        WorldbuildingWritePlanConfirmRequest,
+        WorldbuildingWritePlanPrepareRequest,
+    )
+    from apps.live_control_server.services.worldbuilding_graph_publication import (
+        confirm_worldbuilding,
+        prepare_worldbuilding,
+    )
+    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+
+    parent = "rev:d-a"
+    repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
+    fake = FakeWorldGraphAuthority()
+    fake.heads[DEFAULT_WORLD_ID] = parent
+    fake.revisions[(DEFAULT_WORLD_ID, parent)] = _empty_parent(revision_id=parent)
+    fake.identity[DEFAULT_WORLD_ID] = {
+        "identity_redirects": {},
+        "decisions": [],
+        "alias_owners": {},
+    }
+    _install_fake_authority(monkeypatch, fake)
+    _explode_buddy_graph_runtime(monkeypatch)
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    plan = prepare_worldbuilding(
+        WorldbuildingWritePlanPrepareRequest.model_validate(
+            {
+                "runId": run_id,
+                "expectedParentRevisionId": parent,
+                "dispositions": _standard_dispositions(),
+            }
+        )
+    )
+    fake.identity[DEFAULT_WORLD_ID] = {
+        "identity_redirects": {},
+        "decisions": [
+            {
+                **_SEED_MERGE,
+                "decision_id": "identity-decision:d2b-i1",
+                "subject_object_ids": ["npc:later-a", "npc:later-b"],
+                "target_object_ids": ["npc:later-b"],
+            },
+        ],
+        "alias_owners": {},
+    }
+    receipt = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert receipt.outcome == "committed"
+    assert fake.publish_calls == 1
+
+
+def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkeypatch):
+    import json
+
+    from apps.live_control_server.models.extract_promote import (
+        WorldbuildingWritePlanConfirmRequest,
+        WorldbuildingWritePlanPrepareRequest,
+    )
+    from apps.live_control_server.services.graph_run_registry import (
+        extraction_runs_path,
+        get_extraction_run,
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        _resolve_extraction_component_path,
+    )
+    from apps.live_control_server.services.worldbuilding_graph_publication import (
+        confirm_worldbuilding,
+        prepare_worldbuilding,
+    )
+    from src.live_play.live_store import load_json, write_json
+    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+
+    parent = "rev:d-a"
+    repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
+    target = AuthorityObject(
+        object_id="npc:exact-target",
+        label="Exact",
+        kind="npc",
+        aliases=("Exact",),
+    )
+    fake = FakeWorldGraphAuthority()
+    fake.heads[DEFAULT_WORLD_ID] = parent
+    fake.revisions[(DEFAULT_WORLD_ID, parent)] = WorldGraphRevisionView(
+        world_id=DEFAULT_WORLD_ID,
+        revision_id=parent,
+        parent_revision_id=None,
+        objects={target.object_id: target},
+        relationships={},
+    )
+    fake.identity[DEFAULT_WORLD_ID] = {
+        "identity_redirects": {},
+        "decisions": [],
+        "alias_owners": {"Exact": (target.object_id,)},
+    }
+    _install_fake_authority(monkeypatch, fake)
+    _explode_buddy_graph_runtime(monkeypatch)
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    run = get_extraction_run(repo, run_id)
+    candidate_path = _resolve_extraction_component_path(
+        repo,
+        run.components["candidate_graph"].uri,
+        label="candidate_graph",
+    )
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    candidate["nodes"][0]["aliases"] = ["Witness Alias"]
+    candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
+    digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+    registry_path = extraction_runs_path(repo)
+    registry = load_json(registry_path)
+    for record in registry["records"]:
+        if record["run_id"] == run_id:
+            record["components"]["candidate_graph"]["sha256"] = digest
+            break
+    write_json(registry_path, registry)
+
+    plan = prepare_worldbuilding(
+        WorldbuildingWritePlanPrepareRequest.model_validate(
+            {
+                "runId": run_id,
+                "expectedParentRevisionId": parent,
+                "dispositions": [
+                    {
+                        "assertionId": "obj_session22_vial",
+                        "decision": "bind_existing",
+                        "targetNodeId": target.object_id,
+                    },
+                    {"assertionId": "mystery_puddles", "decision": "create_new"},
+                    {"assertionId": "e33", "decision": "accept"},
+                ],
+            }
+        )
+    )
+    receipt = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert receipt.outcome == "committed"
+    child = fake.read_revision(DEFAULT_WORLD_ID, receipt.committed_revision_id)
+    bound = child.objects[target.object_id]
+    assert "worldbuilding_observation" in bound.property_terms
+    assert "Witness Alias" in bound.aliases
+    assert "mystery_puddles" in child.objects

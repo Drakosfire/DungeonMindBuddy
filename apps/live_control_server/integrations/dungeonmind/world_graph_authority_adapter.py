@@ -18,6 +18,7 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_writes import
     _assert_publication_replay_identity,
     _direct_services,
     _prove_existing_publication_matches_request,
+    _receipt_ids_from_reviewed_contribution,
     _require_database_url,
     derive_authority_review_operation_id,
     load_authority_mutation_context,
@@ -87,10 +88,13 @@ def _object_from_payload(raw: Mapping[str, Any]) -> AuthorityObject | None:
         if campaign_scope is not None:
             campaign_scope = str(campaign_scope)
     external = None
+    property_terms: list[str] = []
     for prop in raw.get("properties") or []:
         if not isinstance(prop, dict):
             continue
         term = str(prop.get("property_term") or prop.get("predicate") or "")
+        if term.strip():
+            property_terms.append(term)
         if term.rsplit(":", 1)[-1] == "external_resource":
             value = prop.get("value")
             if isinstance(value, dict):
@@ -105,6 +109,7 @@ def _object_from_payload(raw: Mapping[str, Any]) -> AuthorityObject | None:
         campaign_scope=campaign_scope,
         summary=str(raw.get("summary") or "") or None,
         external_resource=external,
+        property_terms=tuple(property_terms),
     )
 
 
@@ -349,6 +354,7 @@ class DungeonMindWorldGraphAuthorityAdapter:
                 actor=request.actor,
                 contribution=expressible,
                 database_url=self._database_url,
+                publication_family=namespace,
             )
         except WorldGraphWriteError as exc:
             _raise_port(exc)
@@ -408,6 +414,7 @@ class DungeonMindWorldGraphAuthorityAdapter:
                     operation_id=dm_operation_id,
                     actor=actor,
                     contribution=replay_contribution,
+                    publication_family=operation_namespace or "threat",
                 )
             except WorldGraphWriteError as exc:
                 _raise_port(exc)
@@ -421,13 +428,22 @@ class DungeonMindWorldGraphAuthorityAdapter:
             except WorldGraphWriteError as exc:
                 _raise_port(exc)
                 raise
+        try:
+            accepted_ids, _affected = _receipt_ids_from_reviewed_contribution(
+                bundle=services.bundle,
+                world_id=world_id,
+                publication=existing,
+            )
+        except WorldGraphWriteError as exc:
+            _raise_port(exc)
+            raise
         return WorldGraphPublicationReceipt(
             world_id=world_id,
             authority_operation_id=authority_operation_id,
             parent_revision_id=str(existing.expected_parent_revision_id),
             published_revision_id=str(existing.published_revision_id),
             reviewed_contribution_id=str(existing.reviewed_contribution_id),
-            accepted_assertion_ids=(),
+            accepted_assertion_ids=tuple(accepted_ids),
             published=True,
             outcome="already_applied",
             reviewed_contribution_sha256=getattr(
