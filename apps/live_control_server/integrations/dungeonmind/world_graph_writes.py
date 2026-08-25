@@ -610,6 +610,137 @@ def derive_threat_review_operation_id(*, world_id: str, authority_operation_id: 
     return f"{prefix}{digest[:32]}"
 
 
+def derive_worldbuilding_review_operation_id(
+    *, world_id: str, authority_operation_id: str
+) -> str:
+    """Map a worldbuilding authority operation id onto DungeonMind reviewop.
+
+    Distinct hash schema from Threat. Do not reuse ``dmb_threat_authority_operation_v1``.
+    """
+    from dungeonmind.domain.canonical import canonical_sha256
+
+    prefix = "reviewop:"
+    suffix = (
+        authority_operation_id[len(prefix) :]
+        if authority_operation_id.startswith(prefix)
+        else ""
+    )
+    if (
+        len(suffix) == 32
+        and suffix == suffix.lower()
+        and all(char in "0123456789abcdef" for char in suffix)
+    ):
+        return authority_operation_id
+    digest = canonical_sha256(
+        {
+            "schema": "dmb_worldbuilding_authority_operation_v1",
+            "world_id": world_id,
+            "authority_operation_id": authority_operation_id,
+        }
+    )
+    return f"{prefix}{digest[:32]}"
+
+
+def derive_authority_review_operation_id(
+    *,
+    world_id: str,
+    authority_operation_id: str,
+    operation_namespace: str = "threat",
+) -> str:
+    """Dispatch product-family review-operation mapping.
+
+    Threat keeps the exact D.2A derivation so previously published operations
+    remain recoverable.
+    """
+    if operation_namespace == "worldbuilding":
+        return derive_worldbuilding_review_operation_id(
+            world_id=world_id,
+            authority_operation_id=authority_operation_id,
+        )
+    return derive_threat_review_operation_id(
+        world_id=world_id,
+        authority_operation_id=authority_operation_id,
+    )
+
+
+def worldbuilding_authority_operation_id(
+    *, world_id: str, plan_id: str, plan_digest: str
+) -> str:
+    """Deterministic Buddy-side worldbuilding operation id from sealed plan identity."""
+    import hashlib
+    import json
+
+    payload = json.dumps(
+        {
+            "schema": "dmb_worldbuilding_authority_operation_v1",
+            "world_id": world_id,
+            "plan_id": plan_id,
+            "plan_digest": plan_digest,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return f"wbop:{digest}"
+
+
+def load_authority_mutation_context(
+    world_id: str,
+    revision_id: str,
+    *,
+    sealed_identity_snapshot: Mapping[str, Any] | None = None,
+    database_url: str | None = None,
+) -> WorldGraphMutationContext:
+    """Prepare uses the live ledger; confirm reconstructs from the sealed snapshot."""
+    from graph_memory.world_graph_mutation_context import (
+        mutation_context_with_sealed_identity,
+    )
+
+    if sealed_identity_snapshot is None:
+        return load_production_mutation_context(
+            world_id,
+            revision_pin=revision_id,
+            database_url=database_url,
+        )
+    dsn = _require_database_url(database_url)
+    services = _direct_services(dsn, world_id)
+    bundle = services.bundle
+    try:
+        head = bundle.world_graph.get_head(world_id)
+        stored = bundle.world_graph.get_revision(world_id, revision_id)
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind authority read failed while building mutation context",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+    if stored is None:
+        raise WorldGraphWriteError(
+            "DungeonMind parent revision is unreadable",
+            code="revision_not_bridged",
+            details={"world_id": world_id, "revision_id": revision_id},
+        )
+    graph_context = mutation_context_from_revision_payload(
+        stored,
+        world_id=world_id,
+        head_revision_id=str(
+            getattr(head, "head_revision_id", "") or revision_id
+        ),
+        dungeonmind_decisions=None,
+    )
+    try:
+        return mutation_context_with_sealed_identity(
+            graph_context, sealed_identity_snapshot
+        )
+    except ValueError as exc:
+        raise WorldGraphWriteError(
+            "sealed identity snapshot cannot be reconstructed",
+            code="governed_write_inexpressible",
+            details={"world_id": world_id, "reason": str(exc)[:500]},
+        ) from exc
+
+
 def _reverse_revision_id(dm_revision_id: str, artifact_id: str | None) -> str:
     suffix = f"::{artifact_id}" if artifact_id else ""
     if suffix and dm_revision_id.endswith(suffix):
@@ -2198,10 +2329,14 @@ __all__ = [
     "WorldGraphWriteError",
     "bind_identity_ledger_to_package",
     "confirm_extract_promote_via_dungeonmind",
+    "derive_authority_review_operation_id",
+    "derive_threat_review_operation_id",
+    "derive_worldbuilding_review_operation_id",
+    "load_authority_mutation_context",
     "load_production_mutation_context",
     "mutation_context_from_native_projection",
     "mutation_context_from_revision_payload",
     "publish_contribution_via_dungeonmind",
-    "derive_threat_review_operation_id",
+    "worldbuilding_authority_operation_id",
     "write_error_status_code",
 ]

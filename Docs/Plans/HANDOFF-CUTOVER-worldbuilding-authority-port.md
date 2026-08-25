@@ -37,7 +37,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2B: Worldbuilding publication behind World Graph authority
 
 **Created:** 2026-08-24  
-**Status:** DESIGNED — dispatch after this design is accepted and re-anchored  
+**Status:** IMPLEMENTING — D.2B worldbuilding authority-port migration; do not mark D.2B `DONE` until the implementation PR merges  
 **Workstream / flow:** `CUTOVER`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  

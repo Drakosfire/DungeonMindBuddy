@@ -1735,8 +1735,8 @@ def test_worldbuilding_prepare_returns_deterministic_inert_plan(world_client) ->
     )
     assert first.status_code == 200, first.text
     first_payload = first.json()
-    assert first_payload["schema"] == "dmb_worldbuilding_write_plan_v1"
-    assert first_payload["version"] == 1
+    assert first_payload["schema"] == "dmb_worldbuilding_write_plan_v2"
+    assert first_payload["version"] == 2
     assert first_payload["confirmable"] is False
     assert first_payload["sourceDomain"] == "worldbuilding"
     assert first_payload["extractionProfile"] == "worldbuilding_shepherds_flock_v0@0.1"
@@ -1752,6 +1752,11 @@ def test_worldbuilding_prepare_returns_deterministic_inert_plan(world_client) ->
     }
     assert first_payload["summary"]["acceptedEdgeCount"] == 1
     assert first_payload["effect"]["acceptedProposals"]
+    assert first_payload["effect"]["identityAuthority"]["schema"] == (
+        "dmb_worldbuilding_identity_snapshot_v1"
+    )
+    assert "decisions" in first_payload["effect"]["identityAuthority"]
+    assert "identityRedirects" in first_payload["effect"]["identityAuthority"]
     assert all(
         item["value"]["source_domains"] == ["worldbuilding"]
         for item in first_payload["effect"]["acceptedProposals"]
@@ -1868,24 +1873,29 @@ def test_worldbuilding_prepare_concurrent_head_advancement_returns_409(
     client, world_root, repo, *_rest = world_client
     run_id, _source = _write_bld08_reviewable_run(repo)
     parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
-    real_verify = promote_svc.verify_worldbuilding_write_plan
+    from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
+        BuddyFilesWorldGraphAuthorityAdapter,
+    )
 
-    def _advance_head_then_verify(*args, **kwargs):
+    real_head = BuddyFilesWorldGraphAuthorityAdapter.current_head
+
+    def _advance_then_head(self, world_id: str):
         head, _revision, store = kernel.open_current_world_graph(world_root, WORLD_ID)
-        advanced = kernel.publish_world_graph_revision(
-            world_root,
-            WORLD_ID,
-            store,
-            operation_ids=["op:worldbuilding-prepare-concurrent-head"],
-            expected_parent_revision_id=head.head_revision_id,
-        )
-        assert advanced.revision.revision_id != parent
-        return real_verify(*args, **kwargs)
+        if head.head_revision_id == parent:
+            advanced = kernel.publish_world_graph_revision(
+                world_root,
+                WORLD_ID,
+                store,
+                operation_ids=["op:worldbuilding-prepare-concurrent-head"],
+                expected_parent_revision_id=head.head_revision_id,
+            )
+            assert advanced.revision.revision_id != parent
+        return real_head(self, world_id)
 
     monkeypatch.setattr(
-        promote_svc,
-        "verify_worldbuilding_write_plan",
-        _advance_head_then_verify,
+        BuddyFilesWorldGraphAuthorityAdapter,
+        "current_head",
+        _advance_then_head,
     )
     response = client.post(
         WORLD_BUILDING_PREPARE_URL,
@@ -1948,7 +1958,7 @@ def _default_worldbuilding_dispositions() -> list[dict[str, str]]:
     ]
 
 
-def test_worldbuilding_prepare_then_confirm_commits_once_and_retry_is_stale_parent(
+def test_worldbuilding_prepare_then_confirm_commits_once_and_retry_is_already_applied(
     world_client,
 ) -> None:
     client, world_root, repo, *_rest = world_client
@@ -2080,16 +2090,17 @@ def test_worldbuilding_prepare_then_confirm_commits_once_and_retry_is_stale_pare
         assert first_body["unresolvedMentionIds"] or mentions
 
     second = client.post(WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(plan))
-    assert second.status_code == 409, second.text
+    assert second.status_code == 200, second.text
     second_body = second.json()
-    assert second_body["code"] == "stale_parent_revision"
+    assert second_body["outcome"] == "already_applied"
+    assert second_body["committedRevisionId"] == first_body["committedRevisionId"]
     assert (
         kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
         == head_after
     )
 
 
-def test_worldbuilding_confirm_published_audit_degraded_when_index_save_fails(
+def test_worldbuilding_confirm_published_audit_degraded_when_child_verify_unavailable(
     world_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, world_root, repo, *_rest = world_client
@@ -2106,18 +2117,32 @@ def test_worldbuilding_confirm_published_audit_degraded_when_index_save_fails(
     assert prepared.status_code == 200, prepared.text
     plan = prepared.json()
 
-    from graph_memory.kernel import contribution_merge as contribution_merge_mod
-
-    real_upsert = contribution_merge_mod.upsert_and_save_contribution_index
-
-    def _fail_index_save(*args, **kwargs):
-        raise RuntimeError("simulated index persistence failure")
-
-    monkeypatch.setattr(
-        contribution_merge_mod,
-        "upsert_and_save_contribution_index",
-        _fail_index_save,
+    from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
+        BuddyFilesWorldGraphAuthorityAdapter,
     )
+    from apps.live_control_server.ports.world_graph_authority import (
+        WorldGraphAuthorityError,
+    )
+
+    real_publish = BuddyFilesWorldGraphAuthorityAdapter.publish
+    real_read = BuddyFilesWorldGraphAuthorityAdapter.read_revision
+    published = {"done": False}
+
+    def _publish(self, request):
+        receipt = real_publish(self, request)
+        published["done"] = True
+        return receipt
+
+    def _read(self, world_id: str, revision_id: str):
+        if published["done"]:
+            raise WorldGraphAuthorityError(
+                "authority down after publication",
+                code="authority_unavailable",
+            )
+        return real_read(self, world_id, revision_id)
+
+    monkeypatch.setattr(BuddyFilesWorldGraphAuthorityAdapter, "publish", _publish)
+    monkeypatch.setattr(BuddyFilesWorldGraphAuthorityAdapter, "read_revision", _read)
 
     response = client.post(
         WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(plan)
@@ -2132,14 +2157,8 @@ def test_worldbuilding_confirm_published_audit_degraded_when_index_save_fails(
     head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     assert head_after == body["committedRevisionId"]
 
-    monkeypatch.setattr(
-        contribution_merge_mod,
-        "upsert_and_save_contribution_index",
-        real_upsert,
-    )
 
-
-def test_worldbuilding_confirm_published_audit_degraded_uses_plan_revision_not_later_head(
+def test_worldbuilding_confirm_lost_receipt_recovers_plan_revision_not_later_head(
     world_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, world_root, repo, *_rest = world_client
@@ -2156,33 +2175,38 @@ def test_worldbuilding_confirm_published_audit_degraded_uses_plan_revision_not_l
     assert prepared.status_code == 200, prepared.text
     plan = prepared.json()
 
-    real_merge = kernel.merge_contribution_to_revision
-    plan_merge_revision_id: list[str] = []
+    from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
+        BuddyFilesWorldGraphAuthorityAdapter,
+    )
+    from apps.live_control_server.ports.world_graph_authority import (
+        WorldGraphAuthorityError,
+    )
+
+    real_publish = BuddyFilesWorldGraphAuthorityAdapter.publish
+    plan_revision_id: list[str] = []
     unrelated_head_revision_id: list[str] = []
 
-    def _merge_publish_unrelated_then_fail(*args, **kwargs):
-        result = real_merge(*args, **kwargs)
-        if result.published:
-            assert result.revision_id is not None
-            plan_merge_revision_id.append(result.revision_id)
-            head, _revision, store = kernel.open_current_world_graph(
-                world_root, WORLD_ID
-            )
-            unrelated = kernel.publish_world_graph_revision(
-                world_root,
-                WORLD_ID,
-                store,
-                operation_ids=["op:unrelated-after-plan"],
-                expected_parent_revision_id=head.head_revision_id,
-            )
-            unrelated_head_revision_id.append(unrelated.revision.revision_id)
-            raise RuntimeError("post-publication receipt failure")
-        return result
+    def _publish_then_advance_and_lose(self, request):
+        receipt = real_publish(self, request)
+        plan_revision_id.append(receipt.published_revision_id)
+        head, _revision, store = kernel.open_current_world_graph(world_root, WORLD_ID)
+        unrelated = kernel.publish_world_graph_revision(
+            world_root,
+            WORLD_ID,
+            store,
+            operation_ids=["op:unrelated-after-plan"],
+            expected_parent_revision_id=head.head_revision_id,
+        )
+        unrelated_head_revision_id.append(unrelated.revision.revision_id)
+        raise WorldGraphAuthorityError(
+            "post-publication receipt failure",
+            code="publication_failed",
+        )
 
     monkeypatch.setattr(
-        kernel,
-        "merge_contribution_to_revision",
-        _merge_publish_unrelated_then_fail,
+        BuddyFilesWorldGraphAuthorityAdapter,
+        "publish",
+        _publish_then_advance_and_lose,
     )
 
     response = client.post(
@@ -2190,11 +2214,11 @@ def test_worldbuilding_confirm_published_audit_degraded_uses_plan_revision_not_l
     )
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["outcome"] == "published_audit_degraded"
-    assert body["auditStatus"] == "degraded"
-    assert plan_merge_revision_id
+    assert body["outcome"] == "already_applied"
+    assert body["auditStatus"] == "ok"
+    assert plan_revision_id
     assert unrelated_head_revision_id
-    assert body["committedRevisionId"] == plan_merge_revision_id[0]
+    assert body["committedRevisionId"] == plan_revision_id[0]
     assert body["committedRevisionId"] != unrelated_head_revision_id[0]
     head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     assert head_after == unrelated_head_revision_id[0]
@@ -2382,7 +2406,9 @@ def test_worldbuilding_prepare_has_safe_internal_error_boundary(
     def _boom(*_args, **_kwargs):
         raise RuntimeError("private implementation detail")
 
-    monkeypatch.setattr(promote_svc, "build_worldbuilding_write_plan", _boom)
+    from apps.live_control_server.services import worldbuilding_graph_publication as wb_svc
+
+    monkeypatch.setattr(wb_svc, "build_worldbuilding_write_plan", _boom)
     response = client.post(
         WORLD_BUILDING_PREPARE_URL,
         json=_worldbuilding_prepare_body(

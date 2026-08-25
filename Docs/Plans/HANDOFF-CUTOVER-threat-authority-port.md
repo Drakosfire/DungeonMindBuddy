@@ -25,7 +25,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2A: Threat publication behind a World Graph authority port
 
 **Created:** 2026-08-24  
-**Status:** IMPLEMENTING — D.2A Threat authority-port migration; do not mark D.2A `DONE` until the implementation PR merges  
+**Status:** DONE — D.2A Threat authority-port migration; Buddy PR #637 merge `28daea7e90b396c1b9e9b5fcc12a0b9427674d8c`; accepted head `3c74dc40dbcaf46b316e379e5a703e66570d2dea`; 3 review cycles; Cycle 3 PASS-equivalent  
 **Workstream:** CUTOVER / D.2 mounted legacy writer migration  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  

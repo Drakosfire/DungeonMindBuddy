@@ -27,6 +27,7 @@ from graph_memory.worldbuilding_write_plan import (
 )
 from graph_memory.contribution_bundles import load_contribution_bundle
 from graph_memory.union_supergraph.model import UnionIdentityRedirect
+from graph_memory.world_graph_mutation_context import mutation_context_from_world_root
 from src.graph_memory.extraction.worldbuilding_extraction_profile import (
     DEFAULT_SEMANTIC_STATE,
 )
@@ -73,6 +74,9 @@ def _inputs(tmp_path: Path) -> dict[str, object]:
     parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     return {
         "world_root": world_root,
+        "mutation_context": mutation_context_from_world_root(
+            world_root, WORLD_ID, revision_id=parent
+        ),
         "source_uri": str(source),
         "source_revision": source_revision,
         "parent": parent,
@@ -103,6 +107,25 @@ def _build(
     return plan, used_preview, inputs
 
 
+def _context_from_inputs(inputs: dict[str, object]):
+    """Build mutation context the way prepare used to load the pinned parent.
+
+    Tests monkeypatch ``kernel.load_world_graph_revision``; keep that seam.
+    """
+    from graph_memory.world_graph_mutation_context import mutation_context_from_store
+
+    world_root = inputs["world_root"]
+    parent = str(inputs["parent"])
+    head, _revision, _current = kernel.open_current_world_graph(world_root, WORLD_ID)  # type: ignore[arg-type]
+    store = kernel.load_world_graph_revision(world_root, WORLD_ID, parent)  # type: ignore[arg-type]
+    return mutation_context_from_store(
+        store,
+        world_id=WORLD_ID,
+        revision_id=parent,
+        head_revision_id=head.head_revision_id,
+    )
+
+
 def _build_from_inputs(
     inputs: dict[str, object],
     *,
@@ -112,7 +135,7 @@ def _build_from_inputs(
 ):
     return build_worldbuilding_write_plan(
         preview=preview or _preview(),  # type: ignore[arg-type]
-        world_root=inputs["world_root"],  # type: ignore[arg-type]
+        mutation_context=_context_from_inputs(inputs),
         world_id=WORLD_ID,
         expected_parent_revision_id=inputs["parent"],  # type: ignore[arg-type]
         run_id="extraction-run:worldbuilding-test",
@@ -205,7 +228,7 @@ def _verify(
     return verify_worldbuilding_write_plan(
         package,
         preview=used_preview,
-        world_root=inputs["world_root"],  # type: ignore[arg-type]
+        mutation_context=_context_from_inputs(inputs),
         context=used_context,
     )
 
@@ -758,7 +781,7 @@ def test_create_new_rejects_exact_id_conflict(tmp_path: Path) -> None:
     with pytest.raises(WorldbuildingWritePlanError) as exc:
         build_worldbuilding_write_plan(
             preview=candidate_graph_preview_from_dict(conflict_payload),
-            world_root=inputs["world_root"],  # type: ignore[arg-type]
+            mutation_context=_context_from_inputs(inputs),
             world_id=WORLD_ID,
             expected_parent_revision_id=inputs["parent"],  # type: ignore[arg-type]
             run_id="extraction-run:worldbuilding-conflict",

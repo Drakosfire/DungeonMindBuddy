@@ -34,6 +34,7 @@ from graph_memory.kernel.identity_policy import (
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 _DND_VOCAB_PREFIX = "dnd5e:"
+WORLDBUILDING_IDENTITY_SNAPSHOT_SCHEMA = "dmb_worldbuilding_identity_snapshot_v1"
 
 
 def wire_kind(value: str | None) -> str:
@@ -135,11 +136,14 @@ def mutation_context_from_store(
             redirects[source] = target
 
     decisions: list[IdentityDecisionRecord] = []
+    ledger_records: list[dict[str, Any]] = []
     for raw in list(getattr(store, "identity_decisions", None) or []):
         try:
-            decisions.append(IdentityDecisionRecord.model_validate(raw))
+            record = IdentityDecisionRecord.model_validate(raw)
         except Exception:
             continue
+        decisions.append(record)
+        ledger_records.append(record.model_dump(mode="json"))
 
     return WorldGraphMutationContext(
         world_id=world_id,
@@ -149,6 +153,139 @@ def mutation_context_from_store(
         alias_owners=alias_owners,
         identity_redirects=redirects,
         identity_decisions=tuple(decisions),
+        identity_ledger_records=tuple(ledger_records),
+    )
+
+
+def identity_snapshot_from_context(
+    context: WorldGraphMutationContext,
+) -> dict[str, Any]:
+    """Serializable identity authority sealed into a worldbuilding v2 plan."""
+    decisions = [dict(item) for item in context.identity_ledger_records]
+    if not decisions:
+        for record in context.identity_decisions:
+            dump = getattr(record, "model_dump", None)
+            if callable(dump):
+                decisions.append(dump(mode="json"))
+            elif isinstance(record, Mapping):
+                decisions.append(dict(record))
+        if not decisions:
+            for source, target in sorted(context.identity_redirects.items()):
+                decisions.append(
+                    {
+                        "decision_id": f"identity-redirect:{source}:{target}",
+                        "world_id": context.world_id,
+                        "decision_kind": "merge",
+                        "subject_object_ids": [source, target],
+                        "target_object_ids": [target],
+                        "status": "active",
+                        "actor": "system",
+                        "reason": "sealed worldbuilding identity redirect",
+                        "reversible": True,
+                        "supersedes_decision_ids": [],
+                        "created_at": "1970-01-01T00:00:00Z",
+                        "merge_side_effects": None,
+                        "alias": None,
+                        "source_candidate_id": None,
+                    }
+                )
+    return {
+        "schema": WORLDBUILDING_IDENTITY_SNAPSHOT_SCHEMA,
+        "decisions": decisions,
+        "identity_redirects": dict(sorted(context.identity_redirects.items())),
+        "alias_owners": {
+            key: list(owners)
+            for key, owners in sorted(context.alias_owners.items())
+        },
+    }
+
+
+def _hydrate_snapshot_decisions(records: Sequence[Mapping[str, Any]]) -> list[Any]:
+    from types import SimpleNamespace
+
+    hydrated: list[Any] = []
+    for item in records:
+        payload = dict(item)
+        side = payload.get("merge_side_effects")
+        if isinstance(side, dict):
+            rewrites = []
+            for rewrite in list(side.get("alias_map_rewrites") or []):
+                rewrites.append(
+                    SimpleNamespace(**dict(rewrite))
+                    if isinstance(rewrite, dict)
+                    else rewrite
+                )
+            payload["merge_side_effects"] = SimpleNamespace(
+                aliases_added_to_target=list(side.get("aliases_added_to_target") or []),
+                evidence_ref_ids_added_to_target=list(
+                    side.get("evidence_ref_ids_added_to_target") or []
+                ),
+                source_domains_added_to_target=list(
+                    side.get("source_domains_added_to_target") or []
+                ),
+                alias_map_rewrites=rewrites,
+            )
+        hydrated.append(SimpleNamespace(**payload))
+    return hydrated
+
+
+def mutation_context_with_sealed_identity(
+    base: WorldGraphMutationContext,
+    sealed: Mapping[str, Any],
+) -> WorldGraphMutationContext:
+    """Rebuild identity semantics from a sealed snapshot, not the live ledger."""
+    if not isinstance(sealed, Mapping):
+        raise ValueError("identity snapshot must be an object")
+    schema = str(sealed.get("schema") or "").strip()
+    if schema and schema != WORLDBUILDING_IDENTITY_SNAPSHOT_SCHEMA:
+        raise ValueError(f"unsupported identity snapshot schema: {schema!r}")
+    raw_decisions = sealed.get("decisions")
+    if not isinstance(raw_decisions, list):
+        raise ValueError("identity snapshot decisions must be a list")
+    decisions = [item for item in raw_decisions if isinstance(item, Mapping)]
+    redirects = {
+        str(source): str(target)
+        for source, target in dict(sealed.get("identity_redirects") or {}).items()
+        if str(source).strip() and str(target).strip()
+    }
+    alias_owners: dict[str, tuple[str, ...]] = {
+        str(alias): tuple(str(owner) for owner in list(owners) if str(owner).strip())
+        for alias, owners in dict(sealed.get("alias_owners") or {}).items()
+        if str(alias).strip()
+    }
+    records: tuple[IdentityDecisionRecord, ...] = ()
+    if decisions:
+        hydrated = _hydrate_snapshot_decisions(decisions)
+        extra_redirects, extra_aliases, records = identity_facts_from_dungeonmind_decisions(
+            hydrated
+        )
+        if not redirects:
+            redirects = extra_redirects
+        for alias, owners in extra_aliases.items():
+            prior = alias_owners.get(alias, ())
+            merged = list(prior)
+            for owner in owners:
+                if owner not in merged:
+                    merged.append(owner)
+            alias_owners[alias] = tuple(merged)
+    objects = apply_identity_redirects_to_objects(base.objects, redirects)
+    merged_alias_owners = dict(base.alias_owners)
+    for alias, owners in alias_owners.items():
+        prior = merged_alias_owners.get(alias, ())
+        combined = list(prior)
+        for owner in owners:
+            if owner not in combined:
+                combined.append(owner)
+        merged_alias_owners[alias] = tuple(combined)
+    return WorldGraphMutationContext(
+        world_id=base.world_id,
+        revision_id=base.revision_id,
+        head_revision_id=base.head_revision_id,
+        objects=objects,
+        alias_owners=merged_alias_owners,
+        identity_redirects=redirects,
+        identity_decisions=records,
+        identity_ledger_records=tuple(dict(item) for item in decisions),
     )
 
 
@@ -707,12 +844,15 @@ def resolve_identity_against_context(
 
 __all__ = [
     "MutationObject",
+    "WORLDBUILDING_IDENTITY_SNAPSHOT_SCHEMA",
     "WorldGraphMutationContext",
     "apply_identity_redirects_to_objects",
     "endpoint_available",
     "identity_facts_from_dungeonmind_decisions",
+    "identity_snapshot_from_context",
     "mutation_context_from_store",
     "mutation_context_from_world_root",
+    "mutation_context_with_sealed_identity",
     "mutation_objects_as_match_dicts",
     "resolve_identity_against_context",
     "wire_kind",

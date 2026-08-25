@@ -12,6 +12,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
+from graph_memory.world_graph_mutation_context import WorldGraphMutationContext
+
 WorldGraphAuthorityFailureCode = Literal[
     "authority_unavailable",
     "revision_unavailable",
@@ -20,6 +22,7 @@ WorldGraphAuthorityFailureCode = Literal[
     "inexpressible",
     "publication_failed",
 ]
+WorldGraphOperationNamespace = Literal["threat", "worldbuilding"]
 
 
 class WorldGraphAuthorityError(RuntimeError):
@@ -94,6 +97,7 @@ class WorldGraphPublishRequest:
     accepted_assertion_ids: tuple[str, ...] = ()
     decision: str | None = None
     threat_node_id: str | None = None
+    operation_namespace: WorldGraphOperationNamespace = "threat"
 
 
 @dataclass(frozen=True)
@@ -145,6 +149,20 @@ class WorldGraphAuthority(Protocol):
     def read_revision(self, world_id: str, revision_id: str) -> WorldGraphRevisionView:
         """Immutable storage-neutral revision view for preflight and verification."""
 
+    def mutation_context(
+        self,
+        world_id: str,
+        revision_id: str,
+        *,
+        sealed_identity_snapshot: Mapping[str, Any] | None = None,
+    ) -> WorldGraphMutationContext:
+        """Exact parent graph facts plus identity semantics for prepare/confirm.
+
+        Prepare (no sealed snapshot): adapt the immutable revision plus the
+        current identity ledger. Confirm (sealed snapshot supplied): reconstruct
+        identity from that snapshot and do not substitute today's live ledger.
+        """
+
     def publish(self, request: WorldGraphPublishRequest) -> WorldGraphPublicationReceipt:
         """Publish one exact governed contribution against one expected public parent."""
 
@@ -156,6 +174,7 @@ class WorldGraphAuthority(Protocol):
         expected_parent_revision_id: str | None = None,
         contribution: Any | None = None,
         actor: str | None = None,
+        operation_namespace: WorldGraphOperationNamespace = "threat",
     ) -> WorldGraphPublicationReceipt | None:
         """Recover one terminal publication by durable authority operation id.
 
@@ -163,6 +182,8 @@ class WorldGraphAuthority(Protocol):
         state must raise ``WorldGraphAuthorityError(code="integrity_failure")``.
         When expected parent and/or contribution are supplied, the recovered
         publication must match those bindings or fail closed as integrity.
+        ``operation_namespace`` selects the product family's review-operation
+        mapping. Threat must keep D.2A's historical derivation.
         """
 
     def verify_child(
@@ -205,6 +226,8 @@ __all__ = [
     "WorldGraphAuthorityFailureCode",
     "WorldGraphExpectedChildFacts",
     "WorldGraphHead",
+    "WorldGraphMutationContext",
+    "WorldGraphOperationNamespace",
     "WorldGraphPublicationReceipt",
     "WorldGraphPublishRequest",
     "WorldGraphRevisionView",

@@ -19,8 +19,9 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_writes import
     _direct_services,
     _prove_existing_publication_matches_request,
     _require_database_url,
+    derive_authority_review_operation_id,
+    load_authority_mutation_context,
     publish_contribution_via_dungeonmind,
-    derive_threat_review_operation_id,
 )
 from apps.live_control_server.ports.world_graph_authority import (
     AuthorityObject,
@@ -194,6 +195,59 @@ def _world_graph_expressible(contribution: Any) -> Any:
         return contribution
 
 
+_WORLDBUILDING_IDENTITY_OUTCOMES = {
+    "created_new": "created_new",
+    "human_override": "resolved_existing",
+    "resolved_existing": "resolved_existing",
+    "rejected_by_operator": "rejected",
+    "rejected": "rejected",
+    "accepted_by_operator": None,
+    "deferred_by_operator": None,
+    "": None,
+}
+
+
+def _remap_worldbuilding_identity_outcome(assertion: Any) -> Any:
+    raw = str(getattr(assertion, "identity_resolution_outcome", "") or "")
+    if raw not in _WORLDBUILDING_IDENTITY_OUTCOMES:
+        raise WorldGraphAuthorityError(
+            "worldbuilding assertion identity outcome cannot be expressed in DungeonMind",
+            code="inexpressible",
+            details={"identity_resolution_outcome": raw},
+        )
+    mapped = _WORLDBUILDING_IDENTITY_OUTCOMES[raw]
+    if mapped == (raw or None):
+        return assertion
+    model_copy = getattr(assertion, "model_copy", None)
+    if callable(model_copy):
+        return model_copy(update={"identity_resolution_outcome": mapped})
+    cloned = shallow_copy(assertion)
+    cloned.identity_resolution_outcome = mapped
+    return cloned
+
+
+def _worldbuilding_expressible(contribution: Any) -> Any:
+    """Map worldbuilding identity vocabulary onto DungeonMind without dropping facts."""
+    updates = {}
+    for field in (
+        "accepted_assertions",
+        "rejected_assertions",
+        "candidate_assertions",
+    ):
+        items = list(getattr(contribution, field, None) or [])
+        if items:
+            updates[field] = [_remap_worldbuilding_identity_outcome(item) for item in items]
+    if not updates:
+        return contribution
+    model_copy = getattr(contribution, "model_copy", None)
+    if callable(model_copy):
+        return model_copy(update=updates)
+    cloned = shallow_copy(contribution)
+    for field, value in updates.items():
+        setattr(cloned, field, value)
+    return cloned
+
+
 class DungeonMindWorldGraphAuthorityAdapter:
     """Production World Graph authority. PostgreSQL stays inside this class."""
 
@@ -244,22 +298,48 @@ class DungeonMindWorldGraphAuthorityAdapter:
             )
         return _view_from_stored(world_id=world_id, stored=stored)
 
+    def mutation_context(
+        self,
+        world_id: str,
+        revision_id: str,
+        *,
+        sealed_identity_snapshot: Mapping[str, Any] | None = None,
+    ):
+        try:
+            return load_authority_mutation_context(
+                world_id,
+                revision_id,
+                sealed_identity_snapshot=sealed_identity_snapshot,
+                database_url=self._database_url,
+            )
+        except WorldGraphWriteError as exc:
+            _raise_port(exc)
+            raise
+
     def publish(self, request: WorldGraphPublishRequest) -> WorldGraphPublicationReceipt:
-        expressible = _world_graph_expressible(request.contribution)
+        namespace = request.operation_namespace or "threat"
+        if namespace == "threat":
+            expressible = _world_graph_expressible(request.contribution)
+        elif namespace == "worldbuilding":
+            expressible = _worldbuilding_expressible(request.contribution)
+        else:
+            expressible = request.contribution
         accepted = list(getattr(expressible, "accepted_assertions", None) or [])
         if not accepted:
             raise WorldGraphAuthorityError(
-                "Threat contribution has no DungeonMind-representable World Graph facts",
+                "contribution has no DungeonMind-representable World Graph facts",
                 code="inexpressible",
                 details={
                     "world_id": request.world_id,
                     "authority_operation_id": request.authority_operation_id,
                     "decision": request.decision,
+                    "operation_namespace": namespace,
                 },
             )
-        dm_operation_id = derive_threat_review_operation_id(
+        dm_operation_id = derive_authority_review_operation_id(
             world_id=request.world_id,
             authority_operation_id=request.authority_operation_id,
+            operation_namespace=namespace,
         )
         try:
             payload = publish_contribution_via_dungeonmind(
@@ -293,11 +373,13 @@ class DungeonMindWorldGraphAuthorityAdapter:
         expected_parent_revision_id: str | None = None,
         contribution: Any | None = None,
         actor: str | None = None,
+        operation_namespace: str = "threat",
     ) -> WorldGraphPublicationReceipt | None:
         services = self._services(world_id)
-        dm_operation_id = derive_threat_review_operation_id(
+        dm_operation_id = derive_authority_review_operation_id(
             world_id=world_id,
             authority_operation_id=authority_operation_id,
+            operation_namespace=operation_namespace or "threat",
         )
         try:
             existing = services.bundle.finalized_review_publications.get(
@@ -312,6 +394,11 @@ class DungeonMindWorldGraphAuthorityAdapter:
         if existing is None:
             return None
         if expected_parent_revision_id is not None and contribution is not None and actor:
+            replay_contribution = contribution
+            if (operation_namespace or "threat") == "threat":
+                replay_contribution = _world_graph_expressible(contribution)
+            elif (operation_namespace or "threat") == "worldbuilding":
+                replay_contribution = _worldbuilding_expressible(contribution)
             try:
                 _prove_existing_publication_matches_request(
                     bundle=services.bundle,
@@ -320,7 +407,7 @@ class DungeonMindWorldGraphAuthorityAdapter:
                     expected_parent_revision_id=expected_parent_revision_id,
                     operation_id=dm_operation_id,
                     actor=actor,
-                    contribution=_world_graph_expressible(contribution),
+                    contribution=replay_contribution,
                 )
             except WorldGraphWriteError as exc:
                 _raise_port(exc)

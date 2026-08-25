@@ -1,6 +1,6 @@
 # STEWARD'S ANCHOR — CUTOVER
 
-**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; native DungeonMind reads are production (#633 `DONE`); D.1 native governed writes are `DONE` (#634); remaining debt is D.2 mounted-writer migration then D.3 graph-engine demolition (D.2A `DOING`)  
+**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; native DungeonMind reads are production (#633 `DONE`); D.1 native governed writes are `DONE` (#634); D.2A Threat authority port is `DONE` (#637); remaining debt is D.2B worldbuilding then D.2C first-world/bootstrap then D.3 graph-engine demolition (D.2B `DOING`)  
 **Line of work:** `CUTOVER`  
 **Created:** 2026-08-17  
 **Completed:** 2026-08-18 (live D_A→D_B)  
