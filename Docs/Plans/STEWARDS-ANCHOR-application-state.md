@@ -1,12 +1,17 @@
 # STEWARD'S ANCHOR — APPLICATION STATE
 
-**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
-**Line of work / flow:** `APP-STATE`  
-**Created:** 2026-08-24  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Creation anchor:** `main` `54779636750ebf7a639aef8a6184cc61ead9c860` (merge of CUTOVER PR #632)  
-**Repository law:** [`../../AGENTS.md`](../../AGENTS.md)  
-**Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)  
+**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT
+**Line of work / flow:** `APP-STATE`
+**Created:** 2026-08-24
+**Updated:** 2026-08-24
+**Repository:** `Drakosfire/DungeonMindBuddy`
+**Creation anchor:** `main` `54779636750ebf7a639aef8a6184cc61ead9c860` (merge of CUTOVER PR #632)
+**AS0 merge:** PR #636 @ `4c90df353bfb5d0f6857357e00eb8b2b6e142257`
+**AS0 accepted head:** `605445b3b839b494a82218758c465edbfe59bad9`
+**Current dispatch base:** `9782c05d506ee4be918ed2491ff63d9705ac97c9` (AS0.1 handoff/dispatch base; not a completed correction merge)
+**Next implementation:** AS1 after AS0.1 PASS/merge/re-anchor
+**Repository law:** [`../../AGENTS.md`](../../AGENTS.md)
+**Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)
 **Primary adjacent authorities:**
 [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md),
 [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md),
@@ -60,6 +65,18 @@ The successful end state is not defined by table count. It is defined by product
 authority behavior:
 
 ```text
+stable domain identity for every user-relied-on Buddy object
+  ↓
+PostgreSQL owns durable state + asset metadata/relationships
+  ↓
+DungeonMindServer storage/CDN owns large binary bytes (via Asset service)
+  ↓
+DungeonMind owns World truth
+  ↓
+derived/regenerable representations remain derived unless product says otherwise
+```
+
+```text
 Surface
   ↓
 domain capability / service
@@ -68,7 +85,7 @@ domain invariant + transaction boundary
   ↓
 Buddy Application State Layer
   ↓
-PostgreSQL
+PostgreSQL (+ Asset metadata; bytes external)
 ```
 
 The application state layer is not the World Graph and is not a second knowledge graph.
@@ -119,15 +136,20 @@ WORLD truth → DungeonMind authority
 Buddy product/runtime state → Buddy authority
 ```
 
-### 2.3 Play is the first migration target, not a special database
+### 2.3 Plan is the first implementation consumer; Play is the first demanding acceptance migration
 
-Play exposes the strongest current evidence that filesystem topology has leaked into the
-product model. The project should therefore use Play as the first serious migration and
-acceptance consumer.
+Plan (`kind=plan`) is the smallest real proof of configuration, migrations, unit of
+work, CAS, WorkObject/WorkRevision/WorkingCopy, import, and fail-closed behavior.
+Dispatch AS1 as Plan-only after the storage-topology correction lands.
 
-Do not solve Play by creating a bespoke `play.db` architecture that other surfaces cannot
-reuse. Conversely, do not make the shared substrate so generic that Play loses its exact
-Run/Playable semantics.
+Play exposes the strongest current evidence that filesystem topology has leaked
+into the product model. Use Play as the first **demanding acceptance migration**
+(Run + manifest transactions, historical Playable revisions, rebase, continuity)
+—not as the first implementation slice.
+
+Do not solve Play by creating a bespoke `play.db` architecture that other surfaces
+cannot reuse. Conversely, do not make the shared substrate so generic that Play
+loses its exact Run/Playable semantics.
 
 ### 2.4 Keep the Play domain model unless evidence falsifies it
 
@@ -219,6 +241,40 @@ introduce
 → delete old authority/runtime machinery
 ```
 
+### 2.9 Storage-independent identity law
+
+A product object is addressed by a stable domain-level ID. Filesystem paths, corpus
+paths, CDN URLs, bucket/object keys, database table coordinates, and temporary
+generator output locations are storage locators or projections — not product
+identity. The owning domain service resolves locators.
+
+Do not treat path-keyed ingest staging, location corpus paths, CDN URLs, or
+`out/runtime/play/*.json` filenames as terminal domain identity.
+
+### 2.10 Four state classes and classification
+
+Buddy durable application objects (Plan, Runbook, Run, SourceArtifact,
+IngestRun, generated drafts, card projects, …) → PostgreSQL with domain-owned
+schemas.
+
+Large/binary assets → PostgreSQL metadata + digest + relationships; bytes through
+Asset service to DungeonMindServer storage/CDN.
+
+World truth → DungeonMind only.
+
+Derived/regenerable (indexes, projections, thumbnails, caches) → may persist for
+speed; persistence alone does not make authority.
+
+Before choosing persistence, apply the classification test in
+`ARCHITECTURE-application-state-layer.md` §1 (World? reload-relied-on Buddy
+object? large binary? regenerable? domain lifecycle?).
+
+WorkObject / WorkRevision / WorkingCopy remain **Content-domain** primitives for
+document-like authored material — not a universal `application_object (id, type,
+jsonb)` for every domain. Source owns SourceArtifact identity; Ingest is a
+first-class **future** consumer with its own `ingest.*` schema (IngestRun /
+processing-review) when earned.
+
 ---
 
 ## 3. Current repository truth at project creation
@@ -302,13 +358,13 @@ content bytes in separate filesystem Markdown targets. Playable authoring theref
 relies on coherent file + registry snapshots, file fingerprints, target path authority,
 and mutation locks.
 
-The project should explicitly decide whether the shared substrate replaces this with a
-generic Buddy work-object/revision model rather than carving only Runbooks out into a
-Play-specific content table.
+The project should explicitly decide whether the shared substrate replaces path-keyed
+persistence with domain-owned identity. WorkObject / WorkRevision / WorkingCopy is the
+**Content-domain** primitive for document-like authored material (Plan, Runbook). It is
+not a universal object model for Ingest, generated artifacts, or assets.
 
-The starting recommendation is **yes**: design a generic work-object/revision primitive
-that can serve Runbooks first and later Plan/Build/worldbuilding document state where
-appropriate.
+The starting recommendation is **yes for Content**: use WorkObject primitives for Plan
+and later Runbook. Other domains earn their own schemas when a consumer proves them.
 
 ---
 
@@ -557,24 +613,30 @@ when database integrity is perfect.
 
 ---
 
-## 6. First required design gate
+## 6. Design gate status
 
-Do **not** dispatch a broad PostgreSQL implementation from this anchor alone.
+**AS0 is complete** — merged PR #636 @ `4c90df353bfb5d0f6857357e00eb8b2b6e142257` (accepted head `605445b3b839b494a82218758c465edbfe59bad9`).
 
-The first steward-owned deliverable is a reviewed architecture/migration gate under the
-`APP-STATE` flow.
+**AS0.1 (storage-topology correction) is required before AS1 dispatch.** Update
+the active architecture to v1.1 with storage-independent identity, four state
+classes, Asset boundary concept, and Ingest/generated-artifact scope. Do **not**
+dispatch AS1 from pre-correction architecture text.
 
-Expected artifacts (names may be refined during re-anchor, but keep one canonical owner):
+After AS0.1 PASS/merge/re-anchor, the first implementation slice is AS1
+(Plan-only PostgreSQL foundation).
+
+Expected artifacts (canonical owners):
 
 ```text
-Docs/Design/ARCHITECTURE-application-state-layer.md
+Docs/Design/ARCHITECTURE-application-state-layer.md   (v1.1 after AS0.1)
 Docs/Roadmaps/ROADMAP-application-state.md
 Docs/Plans/HANDOFF-APP-STATE-postgres-foundation.md
+Docs/Plans/STEWARDS-ANCHOR-application-state.md
 ```
 
-A steward-designated design/architecture PR is appropriate because the design itself is
-a durable cross-surface contract. Keep it narrowly documentation/design scoped per
-`AGENTS.md`; do not revive a generic DOCUMENTS flow.
+A steward-designated design/architecture PR is appropriate when the design itself
+is a durable cross-surface contract. Keep it narrowly documentation/design scoped
+per `AGENTS.md`; do not revive a generic DOCUMENTS flow.
 
 ### 6.1 The architecture gate must answer
 
@@ -606,50 +668,28 @@ Unanswered material questions are design work, not implementation-agent discreti
 
 ---
 
-## 7. Initial sequencing hypothesis — steward must re-evaluate
+## 7. Sequencing — living capability families
 
-This is a starting decomposition, not pre-authorized PR scope.
+Re-anchor against `ROADMAP-application-state.md` before dispatch. This is the
+current sequence, not pre-authorized PR scope.
 
 ```text
-AS0  DESIGN
-     Application State architecture + migration roadmap
-
-AS1  FOUNDATION
-     Buddy PostgreSQL lifecycle + migrations + repository/transaction primitive
-     + smallest independently useful durable WorkObject consumer
-
-AS2  PLAYABLE
-     Move Runbook/Playable committed revisions + recoverable working copy onto
-     the shared content substrate; Plan edits the exact same object; historical
-     revisions remain addressable
-
-AS3  PLAY RUNTIME
-     Move Run + sealed manifest + Runtime CAS to PostgreSQL; no new Runs or
-     progress writes under out/runtime/play
-
-AS4  CONTINUITY
-     Move active Run selection; optionally add transaction-coupled mutation
-     history only if independently justified
-
-AS5  EXISTING-STATE CUTOVER
-     Exact/idempotent migration of existing Playable/Run/manifest/selection
-     state; dogfood; switch authority; fail closed on old writes
-
-AS6  PLAY DEMOLITION
-     Delete replaced Play registry writers, file locks/recovery intents, and
-     compatibility fallbacks; prove Play boots/operates with old state paths absent
-
-AS7+ OTHER SURFACES
-     Re-anchor and migrate Combat / remaining workspace document state / other
-     proven consumers as separate domain capabilities
+AS0    DESIGN                      DONE — PR #636 merge 4c90df35
+AS0.1  STORAGE-TOPOLOGY            identity / asset / Ingest scope (this correction)
+AS1    PLAN DOCUMENTS              substrate + kind=plan (NEXT after AS0.1)
+AS2    PLAYABLE                    runbook WorkRevisions historically addressable
+AS3    PLAY RUNTIME                Run + sealed manifest in one transaction
+AS4    PLAY CONTINUITY             active Run + resume/reload
+AS5    PLAY DEMOLITION             delete replaced Play file writers/locks/intents
+AS6+   CANDIDATE FAMILIES          Ingest, Asset, statblock, Combat, card, …
+                                   evidence-driven; not pre-authorized schemas
 ```
 
-Do not combine these merely because one SQL migration could create all tables at once.
-Each slice needs one independently useful invariant and owning-boundary proof.
+Do not combine slices merely because one SQL migration could create all tables at
+once. Each slice needs one independently useful invariant and owning-boundary proof.
 
-The steward may discover that AS1 and AS2 should be split differently—for example a
-small real Plan/Build work-object consumer may be a better first foundation proof. Make
-that decision from repository evidence, not architectural symmetry.
+The steward may discover that AS1 and AS2 should be split differently. Make that
+decision from repository evidence, not architectural symmetry.
 
 ---
 
@@ -699,6 +739,41 @@ substrate while retaining Combat-owned state.
 
 Do not put HP/initiative/conditions into Play Runtime merely to reuse the first migrated
 schema. Play may link to a Combat runtime ID; Combat owns the combat aggregate.
+
+### 8.5 Ingest, Source, and generated artifacts
+
+Source and Ingest are distinct first-class future consumers of the shared
+substrate — not afterthoughts to Plan/Play:
+
+- **Source** owns `SourceArtifact` identity, provenance, and asset reference.
+- **Ingest** owns `IngestRun` identity and the processing/review lifecycle,
+  including reviewed outputs and World-bearing proposals.
+
+Generated game artifacts (statblock, location, NPC, shop, encounter, card drafts)
+are also first-class future consumers of the shared substrate.
+
+Current repository evidence is path-keyed (`recap_ingest.py`,
+`location_corpus_index.py`) or uses durable `artifact_id`
+(`DESIGN-statblock-lifecycle-agentic-workbench.md`). The correction names the target
+without pre-creating `ingest.*`, `assets.*`, or `statblock.*` tables.
+
+World publication is not a default promotion for every durable Buddy artifact:
+
+```text
+reviewed World-bearing facts
+  → governed DungeonMind publication contract
+  → DungeonMind World Graph
+
+mechanics/statblock artifacts, card projects/renders, assets,
+and other non-World domains
+  → remain in their owning Buddy domain
+  → World may reference them; they do not become World truth
+```
+
+Ingest state is not World truth merely because a run may eventually propose
+World-bearing facts. Location/NPC/shop drafts remain Buddy durable state except
+for the reviewed World-bearing facts that actually cross that publication
+boundary.
 
 ---
 
@@ -866,25 +941,28 @@ files physically absent or inaccessible when that is the claimed end state.
 
 The APP-STATE project is successful when:
 
-1. Buddy has one documented, supported PostgreSQL application-state substrate.
+1. Buddy has one documented, supported PostgreSQL application-state substrate with
+   storage-independent domain identity law.
 2. Surfaces consume it through domain services rather than owning persistence mechanics.
-3. Playable committed revisions are immutable, historically addressable, and independent
+3. PostgreSQL owns durable Buddy state and asset metadata; DungeonMindServer
+   storage/CDN owns large bytes via an Asset service boundary.
+4. Playable committed revisions are immutable, historically addressable, and independent
    of checkout/worktree filesystem state.
-4. Recoverable working copies do not blur committed Playable authority.
-5. Play Runs, manifests, Runtime progress, and active selection use transactional durable
+5. Recoverable working copies do not blur committed Playable authority.
+6. Play Runs, manifests, Runtime progress, and active selection use transactional durable
    authority with database-native CAS/concurrency semantics.
-6. Rebase no longer requires a durable application-level multi-file recovery intent when
+7. Rebase no longer requires a durable application-level multi-file recovery intent when
    all owned state is inside one transaction.
-7. Play reload/restart restores the exact current moment without file-backed authority.
-8. Combat can use the same substrate while retaining its own domain authority.
-9. Other surfaces have a proven migration path that reuses shared primitives rather than
-   inventing new registries.
+8. Play reload/restart restores the exact current moment without file-backed authority.
+9. Combat, Ingest, and generated-artifact domains have proven migration paths that reuse
+   shared substrate primitives rather than inventing new registries.
 10. DungeonMind remains the sole World Graph governance authority and no Buddy application
     table becomes a shadow graph.
 11. Replaced filesystem persistence paths are deleted or have an explicitly named,
     reviewed remaining consumer.
 12. Product speed and table usability are measured and do not regress merely to achieve
     architectural cleanliness.
+13. Path/URL/bucket locators are not used as stable cross-domain product identity.
 
 The project is **not** complete merely because Play tables exist in PostgreSQL.
 
@@ -896,19 +974,17 @@ A new steward should be able to begin with this exact sequence:
 
 ```text
 1. Read AGENTS.md and STEWARD-CYCLE.md.
-2. Re-anchor current main and active lanes.
-3. Read this anchor.
+2. Re-anchor current main, AS0 merge (#636 @ 4c90df35), and active lanes.
+3. Read this anchor and ARCHITECTURE-application-state-layer.md v1.1.
 4. Read Playable/Runtime architecture + current-moment cockpit + authoring/adoption.
 5. Read CUTOVER steward anchor so World authority is not accidentally reopened.
 6. Trace current workspace-document + Play Run persistence end to end.
-7. Inventory other obvious Buddy-owned durable state, especially Combat, without
-   prematurely migrating it.
-8. Produce the AS0 architecture critique and candidate decomposition.
-9. Author the reviewed APP-STATE architecture/roadmap + exactly one first
-   implementation handoff.
-10. Dispatch only after write leases, DB isolation, proof, and parent-story outcome are
-    concrete.
+7. Inventory path-keyed Ingest, location index, and generated-artifact durable state.
+8. Confirm AS0.1 storage-topology correction is merged before AS1 dispatch.
+9. Dispatch AS1 (Plan-only) only after write leases, DB isolation, proof, and parent-story
+   outcome are concrete.
 ```
 
 If a fresh steward cannot answer "what remains false after the first implementation
-slice?", AS0 is not ready for dispatch.
+slice?", AS1 is not ready for dispatch. Do not dispatch AS1 from pre-correction
+architecture text.

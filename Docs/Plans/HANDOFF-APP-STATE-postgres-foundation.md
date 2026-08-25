@@ -8,8 +8,8 @@ pr_body_template: |
   - Implementation repository: Drakosfire/DungeonMindBuddy
 
   ## Verification pointer
-  - Architecture: Docs/Design/ARCHITECTURE-application-state-layer.md
-  - Predecessor: AS0 merge on main after re-anchor (do not use this design PR's SHA as the implementation base)
+  - Architecture: Docs/Design/ARCHITECTURE-application-state-layer.md (v1.1)
+  - Predecessor: AS0.1 storage-topology correction merge on main after re-anchor
   - Production consumer: kind=plan workspace documents
   - Empty-table PRs are not this slice
 
@@ -19,13 +19,13 @@ pr_body_template: |
 
 # HANDOFF — AS1: Buddy PostgreSQL foundation with Plan WorkObject consumer
 
-**Created:** 2026-08-24  
-**Status:** BLOCKED ON AS0 — dispatch only after AS0 PASS, merge, and re-anchor  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-APP-STATE-postgres-foundation.md`  
-**Conversation/workstream:** `APP-STATE`  
-**Flow / owner:** `APP-STATE`  
-**Direction:** DESIGN → CODE → REVIEW  
-**Base revision:** the merge commit of the AS0 architecture PR on `main` after steward re-anchor. Do not fork from this design PR's branch tip if later non-conflicting commits landed. Do not invent that merge SHA in AS0.  
+**Created:** 2026-08-24
+**Status:** BLOCKED ON STORAGE-TOPOLOGY CORRECTION — dispatch only after `HANDOFF-APP-STATE-storage-topology-boundary.md` PASS/merge/re-anchor
+**Canonical handoff path:** `Docs/Plans/HANDOFF-APP-STATE-postgres-foundation.md`
+**Conversation/workstream:** `APP-STATE`
+**Flow / owner:** `APP-STATE`
+**Direction:** DESIGN → CODE → REVIEW
+**Base revision:** merge commit of the AS0.1 storage-topology correction on `main` after steward re-anchor. Do not invent that merge SHA. Do not fork from pre-correction architecture text.
 **PR title:** `APP-STATE: persist Plan documents on PostgreSQL`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Architecture: [`../Design/ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md). Roadmap: [`../Roadmaps/ROADMAP-application-state.md`](../Roadmaps/ROADMAP-application-state.md).
@@ -58,19 +58,26 @@ A PR that only adds connection helpers, Alembic scaffolding, and unused `content
 
 | Field | Required content |
 |---|---|
-| Parent authority | `Docs/Design/ARCHITECTURE-application-state-layer.md` (accepted AS0) |
-| Base revision | AS0 merge on `main` after re-anchor |
-| Predecessor contract | AS0 architecture + `CONTRACT-workspace-document-identity-v1.md` identity rules (UUID, discard-not-delete, kind enum) |
+| Parent authority | `Docs/Design/ARCHITECTURE-application-state-layer.md` v1.1 (post AS0.1 correction) |
+| Base revision | AS0.1 storage-topology correction merge on `main` after re-anchor |
+| Predecessor contract | AS0 #636 + AS0.1 identity/asset scope; `CONTRACT-workspace-document-identity-v1.md` identity rules (UUID, discard-not-delete, kind enum) |
 | Exact input consumed | Current `kind=plan` registry records + snapshot Markdown bytes; existing `/api/live/workspace-documents*` and Tiptap prepare/commit for plan |
 | Named successor | AS2 — Playable/`runbook` historical WorkRevisions (`ROADMAP-application-state.md`) |
-| What remains false | runbook/Play Run/manifest/active-run/Combat still file-backed; no historical fabrication; corpus Session Prep not auto-rewritten; World Graph untouched |
-| Explicit non-goals | Play domain semantics; CUTOVER D.2/D.3; `worldbuilding_source`; second Postgres server; migrate-on-boot; generic JSON store |
+| What remains false | runbook/Play Run/manifest/active-run/Combat still file-backed; Ingest/Asset/generated-artifact schemas unimplemented; no historical fabrication; corpus Session Prep not auto-rewritten; World Graph untouched; path/URL not used as shared API identity |
+| Explicit non-goals | Play domain semantics; CUTOVER D.2/D.3; `worldbuilding_source`; second Postgres server; migrate-on-boot; generic JSON store; `ingest.*` / `assets.*` / generated-artifact / Combat / Play Run tables; DungeonMindServer CDN integration; path/URL as domain identity in shared APIs |
 | Branch / isolated checkout | `agent/app-state-postgres-foundation` in an isolated worktree |
-| Parallel lanes / collision hotspots | Re-check at dispatch. `pyproject.toml` / `uv.lock` / server bootstrap are hotspots vs CUTOVER implementation. AS0 authoring saw open CUTOVER PR #635 (handoff-only; no overlap with this lease). |
+| Parallel lanes / collision hotspots | Re-check at dispatch. `pyproject.toml` / `uv.lock` / server bootstrap are hotspots vs CUTOVER implementation. Open CUTOVER PR #638 (handoff-only; no overlap with this lease). |
 | Runtime/state ownership | Isolated Buddy logical database `dungeonbuddy_application_state` (or worktree override). **Never** `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL`, `dungeonmind_cutover_live`, or `DMB_CUTOVER_TEST_DATABASE_URL`. Tests use ephemeral DBs from `DMB_APPLICATION_STATE_TEST_DATABASE_URL`. Do not mutate operator plan files except via documented import against a disposable root. |
-| State-authority sync set after merge | `Docs/Roadmaps/ROADMAP-application-state.md`; `Docs/Plans/HANDOFF-APP-STATE-application-state-architecture.md` (AS0 completion/archive); `Docs/Plans/STEWARDS-ANCHOR-application-state.md` (record AS0 merge/review truth; do **not** mark AS1 DONE). Record AS0 PR/merge SHA and review-cycle count once known. |
+| State-authority sync set after merge | `Docs/Roadmaps/ROADMAP-application-state.md`; `Docs/Plans/HANDOFF-APP-STATE-application-state-architecture.md` (AS0 archive); `Docs/Plans/STEWARDS-ANCHOR-application-state.md` (record AS0.1 merge; AS1 active; do **not** mark AS1 DONE). Record AS0.1 PR/merge SHA and review-cycle count once known. |
 
 Read the architecture before changing code. If base, lease, or consumer differs, stop.
+
+The shared substrate (config, migrations, UoW, CAS, isolation) serves later domain
+services. WorkObject / WorkRevision / WorkingCopy is a **Content-domain** primitive for
+document-like authored material — not a generic `application_object (id, type, jsonb)`
+container. If AS1 seems to need Ingest, Asset, generated-artifact, Combat, or Play Run
+tables, stop — the slice is over-generalized. Source owns SourceArtifact identity;
+Ingest owns IngestRun and processing/review. Neither schema is AS1.
 
 ---
 
@@ -166,6 +173,9 @@ A required path outside this lease is a stop report. Especially: Docker compose,
 | CUTOVER D.2/D.3 modules | Separate demolition line |
 | `kind=runbook` / `worldbuilding_source` switch | AS2 / AS6+ |
 | Event sourcing / `play_run_mutation` | Rejected for AS1 |
+| `ingest.*` / `assets.*` / generated-artifact schemas | AS6+ candidate families; stop if AS1 needs them |
+| DungeonMindServer storage/CDN integration | Asset boundary is named in architecture only |
+| Path/URL/bucket as domain identity in shared APIs | Storage-topology correction forbids |
 | `apps/live_control_server/config.py` World Graph helpers | Keep World config separate; app-state config lives in `src/application_state/config.py`. Touch `config.py` only if a one-line re-export is unavoidable — stop and report if more is required. |
 
 ---
@@ -264,7 +274,7 @@ Commit point: PostgreSQL `COMMIT` of the unit of work. Before commit, files are 
 | Runbook unchanged | existing writer/registry | regression | runbook snapshot still file path | file still authority | accidental kind-all switch |
 | No migrate-on-boot | cli / app startup | contract | boot with behind-head DB | fail closed, schema unchanged | alembic at import of FastAPI app |
 | Performance hypotheses labeled | test or script artifact | measurement | capture file-path baseline vs postgres head for plan load/commit | numbers recorded as baseline/head, not as architecture fiction | "should be fast" only |
-| Lease held | git | regression | `git diff --name-only <AS0_MERGE>...HEAD` | §4 / bounded discovery only | extras |
+| Lease held | git | regression | `git diff --name-only <AS0_1_MERGE_SHA>...HEAD` | §4 / bounded discovery only | extras |
 
 Exact verification commands (implementation fills the pytest node ids if split):
 
@@ -278,10 +288,10 @@ uv run pytest tests/application_state/test_isolation_guards.py \
 uv run pytest tests/application_state -q
 
 git diff --check
-git diff --name-only <AS0_MERGE_SHA>...HEAD
+git diff --name-only <AS0_1_MERGE_SHA>...HEAD
 ```
 
-`<AS0_MERGE_SHA>` is the actual AS0 merge on main after re-anchor.
+`<AS0_1_MERGE_SHA>` is the actual AS0.1 storage-topology correction merge on main after re-anchor.
 
 ### Minimal live / dogfood proof
 
@@ -300,7 +310,7 @@ silently. Repository-only tests cannot replace the route/service proof.
 
 ### Baseline failure handling
 
-Record the same pytest commands on AS0-merge base (expect collection miss / no
+Record the same pytest commands on AS0.1-merge base (expect collection miss / no
 tests) versus head. Do not rename missing tests on base as a product failure.
 
 ---
@@ -327,7 +337,7 @@ Record:
 - [ ] Exactly one independently useful capability from §1 is delivered and proved by §7.
 - [ ] The §1 invariant holds across every claimed §3 path/adversarial sequence.
 - [ ] Exact PR/head, evidence provenance, and review-cycle number are recorded.
-- [ ] No second public/durable contract (runbook switch, Play Run, Combat, World) was silently introduced.
+- [ ] No second public/durable contract was silently introduced (runbook switch, Play Run, Combat, World, Ingest, Asset, generated-artifact).
 - [ ] Applicable §6 state/identity/persistence/predecessor semantics hold.
 - [ ] Actual changed paths stay inside §4 / bounded discovery.
 - [ ] Baseline failures and waivers are truthful.
@@ -336,12 +346,14 @@ Record:
 - [ ] Direct Buddy `psycopg` + `alembic` deps exist; app-state DSN is not the DungeonMind extra.
 - [ ] Ordinary app boot does not mutate schema.
 - [ ] After plan switch, leftover plan files are not read authority.
+- [ ] No CDN integration, path/URL identity in shared APIs, or speculative domain tables.
 
 ## Stop conditions
 
 Stop and report instead of expanding when any of these appears:
 
-- second independently useful outcome (runbook, Play Run, Combat);
+- second independently useful outcome (runbook, Play Run, Combat, Ingest, Asset, generated-artifact);
+- need for `ingest.*`, `assets.*`, generated-artifact, Combat, or Play Run tables;
 - invariant cannot govern every claimed path;
 - owning-boundary evidence cannot be produced without a live operator DB;
 - Docker compose required because `CREATE DATABASE` on existing server is impossible;
@@ -349,7 +361,8 @@ Stop and report instead of expanding when any of these appears:
 - required path outside §4 or another lane's write lease (`pyproject.toml` leased by CUTOVER);
 - unsafe shared runtime/state collision with World Graph DB;
 - migrate-on-boot sneaks in;
-- generic JSON document table without admitted `kind=plan` invariant.
+- generic JSON document table without admitted `kind=plan` invariant;
+- WorkObject generalized into universal object store.
 
 Report:
 
