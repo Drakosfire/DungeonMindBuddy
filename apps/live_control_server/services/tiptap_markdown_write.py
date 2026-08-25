@@ -380,13 +380,29 @@ def _assert_source_import_eligible(
             )
 
 
+def _content_receipt_locator(obj) -> str:
+    """Public Tiptap receipt locator. Not filesystem authority.
+
+    Durable ``target_relpath`` is used when present. Pathless Content uses
+    ``kind:uuid`` so prepare and commit agree and no fake ``out/workspace/``
+    path is invented.
+    """
+    if obj.target_relpath:
+        return obj.target_relpath
+    return f"{obj.kind}:{obj.work_object_id}"
+
+
 def _prepare_plan_postgres(
     *,
     root: Path,
     request: TiptapMarkdownWritePrepareRequest,
     write_mode: WriteMode,
 ) -> TiptapMarkdownWritePrepareResponse | None:
-    from application_state.content.service import autosave_plan, get_content_optional
+    from application_state.content.service import (
+        autosave_plan,
+        autosave_runbook,
+        get_content_optional,
+    )
     from application_state.errors import ApplicationStateError
 
     try:
@@ -396,6 +412,8 @@ def _prepare_plan_postgres(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
         ) from exc
     if obj is None:
+        return None
+    if obj.kind not in ("plan", "runbook"):
         return None
     if write_mode == "source_import":
         raise TiptapMarkdownWriteError("source_import is only valid for worldbuilding_source documents")
@@ -408,9 +426,16 @@ def _prepare_plan_postgres(
         raise TiptapMarkdownWriteConflictError(
             f"workspace document is discarded: {request.document_id}"
         )
+    if obj.target_relpath:
+        from apps.live_control_server.services.workspace_document_registry import (
+            _record_from_work_object,
+        )
+
+        authorize_target_for_record(_record_from_work_object(obj))
     lossy = markdown_lossy_diagnostics(request.markdown)
+    autosave = autosave_plan if obj.kind == "plan" else autosave_runbook
     try:
-        obj = autosave_plan(
+        obj = autosave(
             request.document_id,
             content,
             expected_revision=request.expected_revision,
@@ -419,7 +444,7 @@ def _prepare_plan_postgres(
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
         ) from exc
-    relpath = obj.target_relpath or f"{obj.kind}:{obj.work_object_id}"
+    relpath = _content_receipt_locator(obj)
     return TiptapMarkdownWritePrepareResponse(
         document_id=str(obj.work_object_id),
         title=obj.title,
@@ -460,7 +485,7 @@ def _commit_plan_postgres(
     request: TiptapMarkdownWriteCommitRequest,
     write_mode: WriteMode,
 ) -> TiptapMarkdownWriteCommitResponse | None:
-    from application_state.content.service import commit_plan, get_content_optional
+    from application_state.content.service import commit_plan, commit_runbook, get_content_optional
     from application_state.errors import ApplicationStateError
 
     try:
@@ -471,10 +496,18 @@ def _commit_plan_postgres(
         ) from exc
     if obj is None:
         return None
+    if obj.kind not in ("plan", "runbook"):
+        return None
     if write_mode == "source_import":
         raise TiptapMarkdownWriteError("source_import is only valid for worldbuilding_source documents")
+    if obj.target_relpath:
+        from apps.live_control_server.services.workspace_document_registry import (
+            _record_from_work_object,
+        )
+
+        authorize_target_for_record(_record_from_work_object(obj))
     content = _content_for_write_mode(request.markdown, write_mode)
-    relpath = obj.target_relpath or f"{obj.kind}:{obj.work_object_id}"
+    relpath = _content_receipt_locator(obj)
 
     def _token_for(revision: int) -> str:
         return _confirm_token(
@@ -494,8 +527,9 @@ def _commit_plan_postgres(
                 "stale writer confirm token; prepare file write again"
             )
         expected_revision = prior_revision
+    commit = commit_plan if obj.kind == "plan" else commit_runbook
     try:
-        committed, revision = commit_plan(
+        committed, revision = commit(
             request.document_id,
             content,
             expected_revision=expected_revision,
@@ -509,18 +543,12 @@ def _commit_plan_postgres(
     )
 
     record = _record_from_work_object(committed)
-    display = relpath
-    if not (
-        relpath.startswith("out/")
-        or relpath.startswith("corpus/")
-        or relpath.startswith("evals/")
-    ):
-        display = f"out/workspace/{record.kind}/{record.document_id}.md"
+    locator = _content_receipt_locator(committed)
     return TiptapMarkdownWriteCommitResponse(
         document_id=record.document_id,
         title=record.title,
-        target_relpath=display,
-        target_display_path=display,
+        target_relpath=locator,
+        target_display_path=locator,
         registry_revision=record.revision,
         committed_revision=record.revision,
         committed_record=record,
