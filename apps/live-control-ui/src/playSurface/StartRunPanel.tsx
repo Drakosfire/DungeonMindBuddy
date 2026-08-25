@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getPlayRun,
   getPlayRunReferenceManifest,
-  getWorkspaceDocumentSnapshot,
+  getCommittedWorkspaceRevision,
   listWorkspaceDocuments,
   putPlayRun,
   putPlayRunReferenceManifest,
@@ -18,7 +18,7 @@ import {
 
 const liveStartRunDeps: StartRunDeps = {
   generateRunId: () => crypto.randomUUID(),
-  getSnapshot: getWorkspaceDocumentSnapshot,
+  getCommittedRevision: getCommittedWorkspaceRevision,
   putRun: putPlayRun,
   getRun: getPlayRun,
   putManifest: putPlayRunReferenceManifest,
@@ -102,7 +102,7 @@ export function StartRunPanel({
   return (
     <section className="play-start-run" data-testid="play-start-run">
       <h2>Start a Run</h2>
-      <p className="play-muted">Choose one active Runbook, then start an exact Run from its current committed snapshot.</p>
+      <p className="play-muted">Choose one active Runbook, then start an exact Run from its current committed revision.</p>
       {listStatus === "loading" ? <p>Loading Runbooks…</p> : null}
       {listStatus === "unavailable" ? (
         <p role="alert" data-testid="play-start-run-unavailable">

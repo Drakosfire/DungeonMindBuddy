@@ -16,6 +16,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document,
     discard_workspace_document,
     get_workspace_document,
+    get_workspace_document_snapshot,
     update_workspace_document_metadata,
 )
 
@@ -86,9 +87,10 @@ def test_prepare_create_returns_diff_and_token_without_writing(tmp_path: Path):
     assert response.writer_ok and response.writer_confirm_token
     assert response.title == doc.title
     assert response.target_relpath == TARGET
-    assert response.registry_revision == doc.revision
+    after_prepare = get_workspace_document(tmp_path, doc.document_id)
+    assert response.registry_revision == after_prepare.revision
     assert not response.file_exists
-    assert "# North gate" in (response.writer_diff or "")
+    assert any("Markdown file is not authority" in item for item in response.diagnostics)
     assert not (tmp_path / TARGET).exists()
 
 
@@ -97,31 +99,36 @@ def test_commit_writes_after_prepare(tmp_path: Path):
     preview = prepare(tmp_path, doc.document_id)
     response = commit(tmp_path, doc.document_id, preview.writer_confirm_token or "")
     assert response.writer_ok and response.bytes_written
-    assert response.file_fingerprint
+    assert response.file_fingerprint == "postgres"
     assert response.title == doc.title
     assert response.target_relpath == TARGET
-    assert (tmp_path / TARGET).read_text() == "# North gate\n"
+    assert not (tmp_path / TARGET).exists()
+    assert "WorkRevision committed in PostgreSQL" in response.diagnostics
 
     committed = get_workspace_document(tmp_path, doc.document_id)
     assert committed.content_status == "committed"
-    assert committed.revision == doc.revision + 1
     assert response.registry_revision == committed.revision
     assert response.committed_revision == committed.revision
     assert response.normalized_content_sha256
     assert response.committed_record.revision == committed.revision
-    assert response.file_fingerprint.startswith("present:")
+    snapshot = get_workspace_document_snapshot(tmp_path, doc.document_id)
+    assert snapshot.markdown == "# North gate\n"
+    assert snapshot.file_exists is False
 
 
 def test_stale_token_is_rejected_without_overwrite(tmp_path: Path):
     doc = create_doc(tmp_path)
-    preview = prepare(tmp_path, doc.document_id)
-    target = tmp_path / TARGET
-    target.parent.mkdir(parents=True)
-    target.write_text("changed\n")
+    preview = prepare(tmp_path, doc.document_id, "# North gate\n")
+    prepare(tmp_path, doc.document_id, "# later draft\n")
+    leftover = tmp_path / TARGET
+    leftover.parent.mkdir(parents=True)
+    leftover.write_text("changed\n")
     with pytest.raises(TiptapMarkdownWriteConflictError) as exc:
-        commit(tmp_path, doc.document_id, preview.writer_confirm_token or "")
+        commit(tmp_path, doc.document_id, preview.writer_confirm_token or "", "# North gate\n")
     assert exc.value.status_code == 409
-    assert target.read_text() == "changed\n"
+    assert leftover.read_text() == "changed\n"
+    snapshot = get_workspace_document_snapshot(tmp_path, doc.document_id)
+    assert snapshot.markdown == "# later draft\n"
 
 
 def test_discarded_document_blocks_prepare_and_commit(tmp_path: Path):
@@ -162,18 +169,19 @@ def test_stale_expected_revision_blocks_prepare(tmp_path: Path):
 def test_stale_expected_revision_blocks_commit(tmp_path: Path):
     doc = create_doc(tmp_path)
     preview = prepare(tmp_path, doc.document_id)
+    after_prepare = get_workspace_document(tmp_path, doc.document_id)
     update_workspace_document_metadata(
         tmp_path,
         doc.document_id,
         title="Renamed",
-        expected_revision=1,
+        expected_revision=after_prepare.revision,
     )
     with pytest.raises(TiptapMarkdownWriteConflictError) as exc:
         commit(
             tmp_path,
             doc.document_id,
             preview.writer_confirm_token or "",
-            expected_revision=1,
+            expected_revision=doc.revision,
         )
     assert exc.value.status_code == 409
     assert not (tmp_path / TARGET).exists()
@@ -219,16 +227,18 @@ def test_normalize_rejects_disallowed_paths():
         )
 
 
-def test_overwrite_creates_backup(tmp_path: Path):
+def test_overwrite_does_not_mutate_leftover_file(tmp_path: Path):
     doc = create_doc(tmp_path)
-    target = tmp_path / TARGET
-    target.parent.mkdir(parents=True)
-    target.write_text("old\n")
+    leftover = tmp_path / TARGET
+    leftover.parent.mkdir(parents=True)
+    leftover.write_text("old\n")
     preview = prepare(tmp_path, doc.document_id, "new")
     response = commit(tmp_path, doc.document_id, preview.writer_confirm_token or "", "new")
-    assert response.backup_relpath
-    assert (tmp_path / response.backup_relpath).read_text() == "old\n"
-    assert target.read_text() == "new\n"
+    assert response.backup_relpath is None
+    assert leftover.read_text() == "old\n"
+    assert "WorkRevision committed in PostgreSQL" in response.diagnostics
+    snapshot = get_workspace_document_snapshot(tmp_path, doc.document_id)
+    assert snapshot.markdown == "new\n"
 
 
 def test_prepare_accepts_plan_session_prep_target(tmp_path: Path):
@@ -241,13 +251,17 @@ def test_prepare_accepts_plan_session_prep_target(tmp_path: Path):
     assert not (tmp_path / PLAN_TARGET).exists()
 
 
-def test_commit_creates_plan_session_prep_file(tmp_path: Path):
+def test_commit_persists_plan_session_prep_in_postgres(tmp_path: Path):
     doc = create_doc(tmp_path, target=PLAN_TARGET, title="Session 23 Prep")
     markdown = "# C2 Session 23 Prep\n"
     preview = prepare(tmp_path, doc.document_id, markdown)
     response = commit(tmp_path, doc.document_id, preview.writer_confirm_token or "", markdown)
     assert response.writer_ok
-    assert (tmp_path / PLAN_TARGET).read_text() == markdown
+    assert "WorkRevision committed in PostgreSQL" in response.diagnostics
+    assert not (tmp_path / PLAN_TARGET).exists()
+    snapshot = get_workspace_document_snapshot(tmp_path, doc.document_id)
+    assert snapshot.markdown == markdown
+    assert snapshot.file_exists is False
 
 
 def test_plan_session_prep_prepare_diagnostics_do_not_claim_corpus_untouched(tmp_path: Path):
@@ -263,10 +277,11 @@ def test_plan_session_prep_commit_diagnostics_do_not_claim_corpus_untouched(tmp_
     assert "corpus was not mutated" not in response.diagnostics
 
 
-def test_eval_prepare_diagnostics_still_claim_corpus_untouched(tmp_path: Path):
+def test_eval_prepare_diagnostics_do_not_treat_file_as_authority(tmp_path: Path):
     doc = create_doc(tmp_path)
     response = prepare(tmp_path, doc.document_id)
-    assert "corpus was not mutated" in response.diagnostics
+    assert "corpus was not mutated" not in response.diagnostics
+    assert any("Markdown file is not authority" in item for item in response.diagnostics)
 
 
 def test_omitted_write_mode_remains_authoring_for_worldbuilding(tmp_path: Path):

@@ -32,6 +32,10 @@ from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document,
     get_workspace_document_snapshot,
 )
+from tests.application_state.playable_binding import (
+    playable_binding,
+    remember_committed_playable,
+)
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
@@ -106,7 +110,7 @@ def _commit_record(
             expected_revision=record.revision,
         ),
     )
-    return get_workspace_document_snapshot(root, record.document_id)
+    return remember_committed_playable(get_workspace_document_snapshot(root, record.document_id))
 
 
 def _create_committed_runbook(
@@ -129,12 +133,13 @@ def _create_committed_runbook(
 
 
 def _create_run(root: Path, snapshot: WorkspaceDocumentSnapshot):
+    revision_n, sha = playable_binding(snapshot)
     return create_or_replay_play_run(
         root,
         run_id=RUN_ID_A,
         playable_artifact_id=snapshot.record.document_id,
-        expected_playable_revision=snapshot.loaded_revision,
-        expected_playable_content_sha256=snapshot.content_sha256,
+        expected_playable_revision=revision_n,
+        expected_playable_content_sha256=sha,
     )
 
 
@@ -232,7 +237,7 @@ def test_missing_manifest_is_409_without_auto_seal_or_workspace(
         raise AssertionError("progress mutation must not consult workspace state")
 
     monkeypatch.setattr(
-        "apps.live_control_server.services.play_run_reference_manifest.get_workspace_document_snapshot_unlocked",
+        "apps.live_control_server.services.workspace_document_registry.get_workspace_document_snapshot",
         explode,
     )
 
@@ -279,7 +284,7 @@ def test_runbook_advance_is_irrelevant_after_seal(
         raise AssertionError("progress mutation must not consult current Runbook")
 
     monkeypatch.setattr(
-        "apps.live_control_server.services.play_run_reference_manifest.get_workspace_document_snapshot_unlocked",
+        "apps.live_control_server.services.workspace_document_registry.get_workspace_document_snapshot",
         explode,
     )
 
@@ -469,13 +474,14 @@ def test_persisted_ghost_reference_fails_closed_on_reads(
     assert path.read_bytes() == corrupted
 
     snapshot = get_workspace_document_snapshot(tmp_path, snapshot.record.document_id)
+    revision_n, sha = playable_binding(snapshot)
     with pytest.raises(PlayRunRegistryError) as exc_info:
         create_or_replay_play_run(
             tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=snapshot.record.document_id,
-            expected_playable_revision=snapshot.loaded_revision,
-            expected_playable_content_sha256=snapshot.content_sha256,
+            expected_playable_revision=revision_n,
+            expected_playable_content_sha256=sha,
         )
     assert exc_info.value.status_code == 500
     assert path.read_bytes() == corrupted

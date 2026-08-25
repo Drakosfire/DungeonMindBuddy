@@ -343,7 +343,7 @@ def test_missing_dsn_fails_closed_and_does_not_restore_files(
     assert plan_path.read_text(encoding="utf-8") == "# must not become authority\n"
 
 
-def test_runbook_remains_file_backed_when_app_state_is_down(
+def test_runbook_fails_closed_when_app_state_is_down(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", raising=False)
@@ -351,33 +351,29 @@ def test_runbook_remains_file_backed_when_app_state_is_down(
         "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL",
         "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:1/dungeonbuddy_app_state_down",
     )
-    runbook = create_workspace_document(
-        tmp_path,
-        title="Runbook",
-        campaign_id="longmont-c2",
-        kind="runbook",
-        target_relpath="evals/c2_live_prep/mireward-prep/content/tiptap/as1-runbook.md",
-    )
-    listed = list_workspace_documents(tmp_path, kind="runbook")
-    assert [row.document_id for row in listed] == [runbook.document_id]
-    snapshot = get_workspace_document_snapshot(tmp_path, runbook.document_id)
-    assert snapshot.record.kind == "runbook"
-    from apps.live_control_server.services.workspace_document_registry import (
-        workspace_documents_path,
-    )
-
-    assert workspace_documents_path(tmp_path).is_file()
+    with pytest.raises(WorkspaceDocumentRegistryError) as excinfo:
+        create_workspace_document(
+            tmp_path,
+            title="Runbook",
+            campaign_id="longmont-c2",
+            kind="runbook",
+            target_relpath="evals/c2_live_prep/mireward-prep/content/tiptap/as1-runbook.md",
+        )
+    assert excinfo.value.status_code == 503
 
 
 def test_unfiltered_document_list_fails_closed_when_app_state_is_down(
     tmp_path: Path, client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    runbook = create_workspace_document(
+    world = create_workspace_document(
         tmp_path,
-        title="Visible runbook",
-        campaign_id="longmont-c2",
-        kind="runbook",
-        target_relpath="evals/c2_live_prep/mireward-prep/content/tiptap/as1-list-runbook.md",
+        title="Visible lore",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
     )
     monkeypatch.setenv(
         "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL",
@@ -389,9 +385,13 @@ def test_unfiltered_document_list_fails_closed_when_app_state_is_down(
     unfiltered = client.get("/api/live/workspace-documents")
     assert unfiltered.status_code == 503, unfiltered.text
     filtered = client.get("/api/live/workspace-documents", params={"kind": "runbook"})
-    assert filtered.status_code == 200, filtered.text
-    assert [row["document_id"] for row in filtered.json()["records"]] == [
-        runbook.document_id
+    assert filtered.status_code == 503, filtered.text
+    worldbuilding = client.get(
+        "/api/live/workspace-documents", params={"kind": "worldbuilding_source"}
+    )
+    assert worldbuilding.status_code == 200, worldbuilding.text
+    assert [row["document_id"] for row in worldbuilding.json()["records"]] == [
+        world.document_id
     ]
 
 
@@ -572,11 +572,12 @@ def test_plan_load_and_commit_latency(
     baseline = create_workspace_document(
         tmp_path,
         title="latency baseline",
-        campaign_id="longmont-c2",
-        kind="runbook",
-        target_relpath=(
-            "evals/c2_live_prep/mireward-prep/content/tiptap/as1-latency-baseline.md"
-        ),
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
     )
     head = create_workspace_document(
         tmp_path, title="latency head", campaign_id="longmont-c2", kind="plan"
@@ -599,7 +600,7 @@ def test_plan_load_and_commit_latency(
     )
     print(
         "AS1 latency hypothesis capture "
-        "baseline_file_runbook "
+        "baseline_file_worldbuilding "
         f"autosave_ms={baseline_autosave_ms:.1f} "
         f"commit_ms={baseline_commit_ms:.1f} "
         f"load_ms={baseline_load_ms:.1f} "

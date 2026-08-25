@@ -54,6 +54,7 @@ import type {
   WorkspaceDocumentRecord,
   WorkspaceDocumentsListResponse,
   WorkspaceDocumentSnapshot,
+  WorkspaceCommittedRevision,
   PlayActiveRunState,
   PlayRunRecord,
   PlayRunsListResponse,
@@ -1617,6 +1618,17 @@ export async function getWorkspaceDocument(documentId: string): Promise<Workspac
 export async function getWorkspaceDocumentSnapshot(documentId: string): Promise<WorkspaceDocumentSnapshot> {
   return apiFetch<WorkspaceDocumentSnapshot>(
     `/api/live/workspace-documents/${encodeURIComponent(documentId)}/snapshot`,
+  );
+}
+
+export async function getCommittedWorkspaceRevision(
+  documentId: string,
+  revisionN?: number,
+): Promise<WorkspaceCommittedRevision> {
+  const encodedId = encodeURIComponent(documentId);
+  const suffix = revisionN == null ? "" : `/${encodeURIComponent(String(revisionN))}`;
+  return apiFetch<WorkspaceCommittedRevision>(
+    `/api/live/workspace-documents/${encodedId}/committed-revision${suffix}`,
   );
 }
 

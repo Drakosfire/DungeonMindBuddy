@@ -5,7 +5,7 @@ import {
   getPlayActiveRun,
   getPlayRun,
   getPlayRunReferenceManifest,
-  getWorkspaceDocumentSnapshot,
+  getCommittedWorkspaceRevision,
   listPlayRuns,
   putPlayActiveRun,
 } from "../api/liveApi";
@@ -306,11 +306,20 @@ export function PlaySurfacePage() {
         setAdmission(null);
         return;
       }
-      let snapshot;
+      let committed;
       try {
-        snapshot = await getWorkspaceDocumentSnapshot(loaded.playable_artifact_id);
+        committed = await getCommittedWorkspaceRevision(
+          loaded.playable_artifact_id,
+          loaded.playable_revision,
+        );
       } catch (error) {
         if (loadSerialRef.current !== serial) return;
+        if (error instanceof LiveApiError && (error.status === 404 || error.status === 409)) {
+          setLoadStatus("integrity_failure");
+          setDetail(error instanceof Error ? error.message : "bound Playable revision could not be loaded");
+          setAdmission(null);
+          return;
+        }
         const classified = classifyLoadError(error);
         setLoadStatus(classified === "integrity_failure" ? "unavailable" : classified);
         setDetail(error instanceof Error ? error.message : null);
@@ -318,7 +327,7 @@ export function PlaySurfacePage() {
         return;
       }
       if (loadSerialRef.current !== serial) return;
-      const nextAdmission = admitNativeRunbook({ run: loaded, manifest, snapshot });
+      const nextAdmission = admitNativeRunbook({ run: loaded, manifest, committed });
       if (loadSerialRef.current !== serial) return;
       setAdmission(nextAdmission);
       if (nextAdmission.status === "ready") {

@@ -6,8 +6,7 @@ import type {
   PlayRunReferenceElement,
   PlayRunReferenceManifest,
   PlayRunReferenceManifestV2,
-  WorkspaceDocumentRecord,
-  WorkspaceDocumentSnapshot,
+  WorkspaceCommittedRevision,
 } from "../../api/types";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { indexPlayableStructure } from "../../tiptap/playable/playableStructureIndex";
@@ -86,34 +85,21 @@ function runRecord(overrides: Partial<PlayRunRecord> = {}): PlayRunRecord {
   };
 }
 
-function workspaceRecord(overrides: Partial<WorkspaceDocumentRecord> = {}): WorkspaceDocumentRecord {
+function committed(overrides: Partial<WorkspaceCommittedRevision> = {}): WorkspaceCommittedRevision {
   return {
-    schema_version: "dmb_workspace_document_record_v1",
+    schema_version: "dmb_workspace_committed_revision_v1",
     document_id: ARTIFACT_ID,
-    title: "North Gate Runbook",
-    campaign_id: "longmont-c2",
-    target_session: 23,
     kind: "runbook",
-    target_relpath: "out/workspace/runbooks/north-gate.md",
+    campaign_id: "longmont-c2",
+    title: "North Gate Runbook",
     status: "active",
-    content_status: "committed",
-    revision: 3,
-    created_at: "2026-08-17T00:00:00Z",
-    updated_at: "2026-08-17T00:00:00Z",
-    ...overrides,
-  };
-}
-
-function snapshot(overrides: Partial<WorkspaceDocumentSnapshot> = {}): WorkspaceDocumentSnapshot {
-  const record = overrides.record ?? workspaceRecord();
-  return {
-    schema_version: "dmb_workspace_document_snapshot_v1",
-    record,
+    object_revision: 3,
+    work_revision_id: "11111111-1111-4111-8111-111111111111",
+    revision_n: 3,
     markdown: SIBLING_MARKDOWN,
     content_sha256: CONTENT_SHA,
-    file_fingerprint: "present",
-    file_exists: true,
-    loaded_revision: record.revision,
+    has_divergent_working_copy: false,
+    target_relpath: "out/workspace/runbooks/north-gate.md",
     ...overrides,
   };
 }
@@ -197,7 +183,7 @@ describe("admitNativeRunbook", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: manifest(),
-      snapshot: snapshot(),
+      committed: committed(),
     });
     expect(admitted.status).toBe("ready");
     if (admitted.status !== "ready") throw new Error("expected ready");
@@ -214,38 +200,33 @@ describe("admitNativeRunbook", () => {
     expect(admitted.importedDoc).toEqual(markdownToTiptapDoc(SIBLING_MARKDOWN).doc);
   });
 
-  it("blocks as rebase_required when the workspace revision is newer than the Run binding", () => {
+  it("admits the bound revision_n after a newer object_revision exists", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: manifest(),
-      snapshot: snapshot({
-        record: workspaceRecord({ revision: 4 }),
-        loaded_revision: 4,
-      }),
+      committed: committed({ object_revision: 18 }),
     });
-    expect(admitted).toMatchObject({
-      status: "rebase_required",
-      reason: expect.stringMatching(/revision/i),
-    });
-    expect(admitted.status === "ready" ? admitted.scenes : []).toEqual([]);
-    expect("importedDoc" in admitted).toBe(false);
+    expect(admitted.status).toBe("ready");
+    if (admitted.status !== "ready") throw new Error("expected ready");
+    expect(admitted.snapshot.loaded_revision).toBe(3);
+    expect(admitted.run.playable_revision).toBe(3);
   });
 
-  it("blocks as rebase_required when the workspace digest differs from the Run binding", () => {
+  it("fails closed when the committed revision digest differs from the Run binding", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: manifest(),
-      snapshot: snapshot({ content_sha256: OTHER_SHA }),
+      committed: committed({ content_sha256: OTHER_SHA }),
     });
-    expect(admitted.status).toBe("rebase_required");
-    if (admitted.status === "ready") throw new Error("must not overlay stale Runtime on newer prose");
+    expect(admitted.status).toBe("integrity_failure");
+    if (admitted.status === "ready") throw new Error("must not overlay mismatched Playable bytes");
   });
 
   it("fails closed when the sealed manifest binding disagrees with the Run", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: manifest({ playable_revision: 99 }),
-      snapshot: snapshot(),
+      committed: committed(),
     });
     expect(admitted.status).toBe("integrity_failure");
   });
@@ -287,7 +268,7 @@ describe("admitNativeRunbook", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: v2Manifest,
-      snapshot: snapshot(),
+      committed: committed(),
     });
     expect(admitted.status).toBe("integrity_failure");
     if (admitted.status !== "integrity_failure") throw new Error("v2 must not reach READY in BF1");
@@ -304,7 +285,7 @@ describe("admitNativeRunbook", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: extraManifest,
-      snapshot: snapshot(),
+      committed: committed(),
     });
     expect(admitted.status).toBe("integrity_failure");
     if (admitted.status !== "integrity_failure") throw new Error("expected integrity failure");
@@ -315,9 +296,7 @@ describe("admitNativeRunbook", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: manifest(),
-      snapshot: snapshot({
-        record: workspaceRecord({ kind: "worldbuilding_source" }),
-      }),
+      committed: committed({ kind: "plan" }),
     });
     expect(admitted.status).toBe("integrity_failure");
   });
@@ -326,37 +305,33 @@ describe("admitNativeRunbook", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: manifest(),
-      snapshot: snapshot({
-        record: workspaceRecord({ status: "discarded" }),
-      }),
+      committed: committed({ status: "discarded" }),
     });
     expect(admitted.status).toBe("integrity_failure");
     if (admitted.status === "ready") throw new Error("discarded Runbook must not reach READY");
     expect(admitted.reason).toMatch(/discarded/i);
   });
 
-  it("fails closed when the workspace Runbook is uncommitted", () => {
+  it("admits the bound revision even when a divergent WorkingCopy exists", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: manifest(),
-      snapshot: snapshot({
-        record: workspaceRecord({ content_status: "draft" }),
-      }),
+      committed: committed({ has_divergent_working_copy: true }),
     });
-    expect(admitted.status).toBe("integrity_failure");
-    if (admitted.status === "ready") throw new Error("uncommitted Runbook must not reach READY");
-    expect(admitted.reason).toMatch(/not committed/i);
+    expect(admitted.status).toBe("ready");
+    if (admitted.status !== "ready") throw new Error("existing Run N must still project N");
+    expect(admitted.snapshot.loaded_revision).toBe(3);
   });
 
-  it("fails closed when the committed Runbook target file is missing", () => {
+  it("does not require a Runbook target file to admit the bound revision", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: manifest(),
-      snapshot: snapshot({ file_exists: false }),
+      committed: committed({ target_relpath: null }),
     });
-    expect(admitted.status).toBe("integrity_failure");
-    if (admitted.status === "ready") throw new Error("missing-target Runbook must not reach READY");
-    expect(admitted.reason).toMatch(/missing/i);
+    expect(admitted.status).toBe("ready");
+    if (admitted.status !== "ready") throw new Error("file path is metadata, not byte authority");
+    expect(admitted.snapshot.file_exists).toBe(false);
   });
 
   it("overlays current Scene/Beat from Runtime rather than authored order", () => {
@@ -368,7 +343,7 @@ describe("admitNativeRunbook", () => {
         }),
       }),
       manifest: manifest(),
-      snapshot: snapshot(),
+      committed: committed(),
     });
     expect(admitted.status).toBe("ready");
     if (admitted.status !== "ready") throw new Error("expected ready");
@@ -382,7 +357,7 @@ describe("admitNativeRunbook", () => {
     const admitted = admitNativeRunbook({
       run: runRecord({ progress: progress() }),
       manifest: manifest(),
-      snapshot: snapshot(),
+      committed: committed(),
     });
     expect(admitted.status).toBe("ready");
     if (admitted.status !== "ready") throw new Error("expected ready");
@@ -399,7 +374,7 @@ describe("overlayRuntimeOnDeck", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: manifest(),
-      snapshot: snapshot(),
+      committed: committed(),
     });
     expect(admitted.status).toBe("ready");
     if (admitted.status !== "ready") throw new Error("expected ready");
@@ -423,7 +398,7 @@ describe("overlayRuntimeOnDeck", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: manifest(),
-      snapshot: snapshot(),
+      committed: committed(),
     });
     expect(admitted.status).toBe("ready");
     if (admitted.status !== "ready") throw new Error("expected ready");
@@ -445,7 +420,7 @@ describe("displayedSceneAndBeat", () => {
     const admitted = admitNativeRunbook({
       run: runRecord(),
       manifest: manifest(),
-      snapshot: snapshot(),
+      committed: committed(),
     });
     expect(admitted.status).toBe("ready");
     if (admitted.status !== "ready") throw new Error("expected ready");

@@ -3,7 +3,7 @@ import type {
   CreatePlayRunRequest,
   PlayRunRecord,
   PlayRunReferenceManifest,
-  WorkspaceDocumentSnapshot,
+  WorkspaceCommittedRevision,
 } from "../api/types";
 import { CANONICAL_SHA256_RE, isCanonicalUuid } from "./runbook/nativeRunbookProjection";
 
@@ -19,7 +19,6 @@ export type SnapshotPreflightReason =
   | "not_runbook"
   | "discarded"
   | "uncommitted"
-  | "missing_file"
   | "missing_revision"
   | "missing_sha";
 
@@ -27,7 +26,7 @@ export type StartRunPhase = "fresh" | "replay_create" | "retry_seal";
 
 export type StartRunDeps = {
   generateRunId: () => string;
-  getSnapshot: (documentId: string) => Promise<WorkspaceDocumentSnapshot>;
+  getCommittedRevision: (documentId: string) => Promise<WorkspaceCommittedRevision>;
   putRun: (runId: string, request: CreatePlayRunRequest) => Promise<PlayRunRecord>;
   getRun: (runId: string) => Promise<PlayRunRecord>;
   putManifest: (runId: string) => Promise<PlayRunReferenceManifest>;
@@ -61,36 +60,33 @@ function errorDetail(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-export function preflightCommittedRunbookSnapshot(
+export function preflightCommittedRunbookRevision(
   selectedDocumentId: string,
-  snapshot: WorkspaceDocumentSnapshot,
+  committed: WorkspaceCommittedRevision,
 ): { ok: true; revision: number; sha: string } | { ok: false; reason: SnapshotPreflightReason; detail: string } {
-  if (snapshot.record.document_id !== selectedDocumentId) {
+  if (committed.document_id !== selectedDocumentId) {
     return {
       ok: false,
       reason: "document_mismatch",
-      detail: "snapshot is not the selected Runbook",
+      detail: "committed revision is not the selected Runbook",
     };
   }
-  if (snapshot.record.kind !== "runbook") {
+  if (committed.kind !== "runbook") {
     return { ok: false, reason: "not_runbook", detail: "selected document is not a Runbook" };
   }
-  if (snapshot.record.status !== "active") {
+  if (committed.status !== "active") {
     return { ok: false, reason: "discarded", detail: "runbook workspace document is discarded" };
   }
-  if (snapshot.record.content_status !== "committed") {
+  if (committed.has_divergent_working_copy) {
     return { ok: false, reason: "uncommitted", detail: "runbook workspace document is not committed" };
   }
-  if (!snapshot.file_exists) {
-    return { ok: false, reason: "missing_file", detail: "committed runbook workspace target file is missing" };
+  if (!Number.isInteger(committed.revision_n) || committed.revision_n <= 0) {
+    return { ok: false, reason: "missing_revision", detail: "runbook has no exact committed revision" };
   }
-  if (!Number.isInteger(snapshot.loaded_revision) || snapshot.loaded_revision <= 0) {
-    return { ok: false, reason: "missing_revision", detail: "runbook snapshot has no exact loaded revision" };
+  if (!CANONICAL_SHA256_RE.test(committed.content_sha256)) {
+    return { ok: false, reason: "missing_sha", detail: "runbook committed revision has no exact content SHA" };
   }
-  if (!CANONICAL_SHA256_RE.test(snapshot.content_sha256)) {
-    return { ok: false, reason: "missing_sha", detail: "runbook snapshot has no exact content SHA" };
-  }
-  return { ok: true, revision: snapshot.loaded_revision, sha: snapshot.content_sha256 };
+  return { ok: true, revision: committed.revision_n, sha: committed.content_sha256 };
 }
 
 export function allocateStartRunId(generateRunId: () => string): { ok: true; runId: string } | { ok: false; detail: string } {
@@ -104,12 +100,12 @@ export function allocateStartRunId(generateRunId: () => string): { ok: true; run
 export function bindStartRunAttempt(
   runId: string,
   selectedDocumentId: string,
-  snapshot: WorkspaceDocumentSnapshot,
+  committed: WorkspaceCommittedRevision,
 ): { ok: true; binding: StartRunBinding } | { ok: false; reason: SnapshotPreflightReason; detail: string } {
   if (!isCanonicalUuid(runId) || !isCanonicalUuid(selectedDocumentId)) {
     return { ok: false, reason: "document_mismatch", detail: "Start Run identities must be canonical UUIDs." };
   }
-  const preflight = preflightCommittedRunbookSnapshot(selectedDocumentId, snapshot);
+  const preflight = preflightCommittedRunbookRevision(selectedDocumentId, committed);
   if (!preflight.ok) return preflight;
   return {
     ok: true,
@@ -239,16 +235,16 @@ export async function executeStartRunAttempt(input: {
   if (input.phase === "fresh") {
     const allocated = allocateStartRunId(deps.generateRunId);
     if (!allocated.ok) return { outcome: "blocked", detail: allocated.detail };
-    let snapshot: WorkspaceDocumentSnapshot;
+    let committed: WorkspaceCommittedRevision;
     try {
-      snapshot = await deps.getSnapshot(selectedDocumentId);
+      committed = await deps.getCommittedRevision(selectedDocumentId);
     } catch (error) {
       return {
         outcome: "blocked",
-        detail: errorDetail(error, "Could not load the selected Runbook snapshot."),
+        detail: errorDetail(error, "Could not load the selected Runbook committed revision."),
       };
     }
-    const bound = bindStartRunAttempt(allocated.runId, selectedDocumentId, snapshot);
+    const bound = bindStartRunAttempt(allocated.runId, selectedDocumentId, committed);
     if (!bound.ok) return { outcome: "blocked", detail: bound.detail };
     binding = bound.binding;
   }

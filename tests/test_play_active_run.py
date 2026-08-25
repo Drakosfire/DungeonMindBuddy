@@ -27,6 +27,10 @@ from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document,
     get_workspace_document_snapshot,
 )
+from tests.application_state.playable_binding import (
+    playable_binding,
+    remember_committed_playable,
+)
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
@@ -62,13 +66,16 @@ def _create_committed_run(root: Path, *, run_id: str, name: str):
             expected_revision=document.revision,
         ),
     )
-    snapshot = get_workspace_document_snapshot(root, document.document_id)
+    snapshot = remember_committed_playable(
+        get_workspace_document_snapshot(root, document.document_id)
+    )
+    revision_n, sha = playable_binding(snapshot)
     run = create_or_replay_play_run(
         root,
         run_id=run_id,
         playable_artifact_id=document.document_id,
-        expected_playable_revision=snapshot.loaded_revision,
-        expected_playable_content_sha256=snapshot.content_sha256,
+        expected_playable_revision=revision_n,
+        expected_playable_content_sha256=sha,
     )
     return run
 

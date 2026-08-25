@@ -1434,6 +1434,22 @@ export interface WorkspaceDocumentSnapshot {
   loaded_revision: number;
 }
 
+export interface WorkspaceCommittedRevision {
+  schema_version: "dmb_workspace_committed_revision_v1";
+  document_id: string;
+  kind: "plan" | "runbook";
+  campaign_id: string;
+  title: string;
+  status: WorkspaceDocumentStatus;
+  object_revision: number;
+  work_revision_id: string;
+  revision_n: number;
+  markdown: string;
+  content_sha256: string;
+  has_divergent_working_copy: boolean;
+  target_relpath: string | null;
+}
+
 export type PlayRunRecordSchema = "dmb_play_run_record_v1";
 export type PlayRunsListSchema = "dmb_play_runs_list_v1";
 export type PlayRunReferenceManifestV1Schema = "dmb_play_run_reference_manifest_v1";

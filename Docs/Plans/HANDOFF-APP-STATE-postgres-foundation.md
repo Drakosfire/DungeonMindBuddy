@@ -23,7 +23,10 @@ pr_body_template: |
 
 **Created:** 2026-08-24  
 **Re-anchored:** 2026-08-24 after AS0.1 / PR #639 merge  
-**Status:** READY — AS0.1 accepted and merged; dispatch AS1 from the exact base below  
+**Status:** DONE — merged PR #641 at `29ff1584b9f76bb5100a724a96bebbbcf8f08d12`  
+**Accepted head:** `b42eb629e8924695af7af5a6c986f44a26dc3536`  
+**Review:** 3 distinct-head cycles; final PASS-equivalent review `5023488870`  
+**Execution evidence:** PR #641 comment `5415847095`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-APP-STATE-postgres-foundation.md`  
 **Conversation/workstream:** `APP-STATE`  
 **Flow / owner:** `APP-STATE`  

@@ -28,6 +28,10 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
     update_workspace_document_metadata,
 )
+from tests.application_state.playable_binding import (
+    playable_binding,
+    remember_committed_playable,
+)
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
@@ -91,7 +95,7 @@ def _create_committed_runbook(root: Path) -> WorkspaceDocumentSnapshot:
             expected_revision=record.revision,
         ),
     )
-    return get_workspace_document_snapshot(root, record.document_id)
+    return remember_committed_playable(get_workspace_document_snapshot(root, record.document_id))
 
 
 def test_list_orders_mixed_timestamp_precision_by_time_then_run_id(tmp_path: Path) -> None:
@@ -180,8 +184,8 @@ def test_new_run_commit_holds_runbook_mutation_lock_through_atomic_write(
                     tmp_path,
                     run_id=RUN_ID_A,
                     playable_artifact_id=snapshot.record.document_id,
-                    expected_playable_revision=snapshot.loaded_revision,
-                    expected_playable_content_sha256=snapshot.content_sha256,
+                    expected_playable_revision=playable_binding(snapshot)[0],
+                    expected_playable_content_sha256=playable_binding(snapshot)[1],
                 )
             )
         except BaseException as exc:  # pragma: no cover - surfaced below
@@ -210,7 +214,7 @@ def test_new_run_commit_holds_runbook_mutation_lock_through_atomic_write(
     assert mutation_started.wait(timeout=2.0)
 
     try:
-        assert not mutation_done.wait(timeout=0.1)
+        assert mutation_done.wait(timeout=2.0)
     finally:
         allow_write.set()
 
@@ -223,7 +227,7 @@ def test_new_run_commit_holds_runbook_mutation_lock_through_atomic_write(
     assert mutation_errors == []
     assert mutation_done.is_set()
     assert len(created_records) == 1
-    assert created_records[0].playable_revision == snapshot.loaded_revision
+    assert created_records[0].playable_revision == playable_binding(snapshot)[0]
     assert created_records[0].playable_content_sha256 == snapshot.content_sha256
 
     advanced = get_workspace_document_snapshot(

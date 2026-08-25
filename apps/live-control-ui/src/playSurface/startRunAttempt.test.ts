@@ -4,8 +4,7 @@ import { LiveApiError } from "../api/liveApi";
 import type {
   PlayRunRecord,
   PlayRunReferenceManifest,
-  WorkspaceDocumentRecord,
-  WorkspaceDocumentSnapshot,
+  WorkspaceCommittedRevision,
 } from "../api/types";
 import {
   bindStartRunAttempt,
@@ -23,34 +22,21 @@ const DOCUMENT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-function record(overrides: Partial<WorkspaceDocumentRecord> = {}): WorkspaceDocumentRecord {
+function committed(overrides: Partial<WorkspaceCommittedRevision> = {}): WorkspaceCommittedRevision {
   return {
-    schema_version: "dmb_workspace_document_record_v1",
+    schema_version: "dmb_workspace_committed_revision_v1",
     document_id: DOCUMENT_ID,
-    title: "North Gate Runbook",
-    campaign_id: "longmont-c2",
-    target_session: 23,
     kind: "runbook",
-    target_relpath: "out/workspace/runbooks/north-gate.md",
+    campaign_id: "longmont-c2",
+    title: "North Gate Runbook",
     status: "active",
-    content_status: "committed",
-    revision: 7,
-    created_at: "2026-08-17T00:00:00Z",
-    updated_at: "2026-08-17T00:00:00Z",
-    ...overrides,
-  };
-}
-
-function snapshot(overrides: Partial<WorkspaceDocumentSnapshot> = {}): WorkspaceDocumentSnapshot {
-  const nextRecord = overrides.record ?? record();
-  return {
-    schema_version: "dmb_workspace_document_snapshot_v1",
-    record: nextRecord,
+    object_revision: 7,
+    work_revision_id: "11111111-1111-4111-8111-111111111111",
+    revision_n: 7,
     markdown: "# Gate\n",
     content_sha256: SHA_A,
-    file_fingerprint: "present",
-    file_exists: true,
-    loaded_revision: nextRecord.revision,
+    has_divergent_working_copy: false,
+    target_relpath: "out/workspace/runbooks/north-gate.md",
     ...overrides,
   };
 }
@@ -103,7 +89,7 @@ function manifest(overrides: Partial<PlayRunReferenceManifest> = {}): PlayRunRef
 
 function deps(overrides: Partial<StartRunDeps> = {}): StartRunDeps & {
   generateRunId: ReturnType<typeof vi.fn>;
-  getSnapshot: ReturnType<typeof vi.fn>;
+  getCommittedRevision: ReturnType<typeof vi.fn>;
   putRun: ReturnType<typeof vi.fn>;
   getRun: ReturnType<typeof vi.fn>;
   putManifest: ReturnType<typeof vi.fn>;
@@ -111,7 +97,7 @@ function deps(overrides: Partial<StartRunDeps> = {}): StartRunDeps & {
 } {
   return {
     generateRunId: vi.fn(() => RUN_ID),
-    getSnapshot: vi.fn(async () => snapshot()),
+    getCommittedRevision: vi.fn(async () => committed()),
     putRun: vi.fn(async () => runRecord()),
     getRun: vi.fn(async () => runRecord()),
     putManifest: vi.fn(async () => manifest()),
@@ -121,15 +107,24 @@ function deps(overrides: Partial<StartRunDeps> = {}): StartRunDeps & {
 }
 
 describe("startRunAttempt preflight", () => {
-  it("binds the exact snapshot revision and SHA", () => {
-    const bound = bindStartRunAttempt(RUN_ID, DOCUMENT_ID, snapshot());
+  it("binds the exact committed revision_n and SHA", () => {
+    const bound = bindStartRunAttempt(RUN_ID, DOCUMENT_ID, committed());
     expect(bound).toEqual({ ok: true, binding: binding() });
   });
 
-  it("refuses discarded, uncommitted, and missing-target snapshots", () => {
-    expect(bindStartRunAttempt(RUN_ID, DOCUMENT_ID, snapshot({ record: record({ status: "discarded" }) })).ok).toBe(false);
-    expect(bindStartRunAttempt(RUN_ID, DOCUMENT_ID, snapshot({ record: record({ content_status: "draft" }) })).ok).toBe(false);
-    expect(bindStartRunAttempt(RUN_ID, DOCUMENT_ID, snapshot({ file_exists: false })).ok).toBe(false);
+  it("binds revision_n even when object_revision has advanced", () => {
+    const bound = bindStartRunAttempt(RUN_ID, DOCUMENT_ID, committed({ object_revision: 18 }));
+    expect(bound).toEqual({ ok: true, binding: binding() });
+  });
+
+  it("refuses discarded and divergent WorkingCopy revisions", () => {
+    expect(bindStartRunAttempt(RUN_ID, DOCUMENT_ID, committed({ status: "discarded" })).ok).toBe(false);
+    expect(bindStartRunAttempt(RUN_ID, DOCUMENT_ID, committed({ has_divergent_working_copy: true })).ok).toBe(false);
+  });
+
+  it("does not treat a missing target file as Playable authority", () => {
+    const bound = bindStartRunAttempt(RUN_ID, DOCUMENT_ID, committed({ target_relpath: null }));
+    expect(bound).toEqual({ ok: true, binding: binding() });
   });
 });
 
@@ -177,7 +172,7 @@ describe("executeStartRunAttempt", () => {
     expect(result.outcome).toBe("blocked");
     expect(api.generateRunId).toHaveBeenCalledTimes(1);
     expect(api.putManifest).not.toHaveBeenCalled();
-    expect(api.getSnapshot).toHaveBeenCalledTimes(1);
+    expect(api.getCommittedRevision).toHaveBeenCalledTimes(1);
   });
 
   it("reconciles a lost create response by adopting the exact existing UUID", async () => {

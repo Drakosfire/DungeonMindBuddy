@@ -21,16 +21,38 @@ from apps.live_control_server.services.tiptap_markdown_write import (
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
+    WorkspaceDocumentRegistryError,
     WorkspaceDocumentSnapshot,
     create_workspace_document,
     discard_workspace_document,
+    get_committed_playable_revision,
     get_workspace_document_snapshot,
 )
+
+pytest_plugins = ["tests.application_state.conftest"]
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 RUN_ID_C = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
 RUN_ID_D = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+
+
+_PLAYABLE_BY_SHA: dict[tuple[str, str], int] = {}
+
+
+@pytest.fixture(autouse=True)
+def _application_state(application_state_dsn: str) -> str:
+    _PLAYABLE_BY_SHA.clear()
+    return application_state_dsn
+
+
+def _playable(snapshot: WorkspaceDocumentSnapshot) -> tuple[int, str]:
+    key = (snapshot.record.document_id, snapshot.content_sha256)
+    remembered = _PLAYABLE_BY_SHA.get(key)
+    if remembered is not None:
+        return remembered, snapshot.content_sha256
+    committed = get_committed_playable_revision(snapshot.record.document_id, kind=None)
+    return committed.revision_n, committed.content_sha256
 
 
 def _commit_record(
@@ -57,7 +79,15 @@ def _commit_record(
             expected_revision=record.revision,
         ),
     )
-    return get_workspace_document_snapshot(root, record.document_id)
+    snapshot = get_workspace_document_snapshot(root, record.document_id)
+    if snapshot.record.kind != "runbook":
+        return snapshot
+    committed = get_committed_playable_revision(record.document_id, kind=None)
+    if committed.content_sha256 == snapshot.content_sha256:
+        _PLAYABLE_BY_SHA[(snapshot.record.document_id, snapshot.content_sha256)] = (
+            committed.revision_n
+        )
+    return snapshot
 
 
 def _create_committed_runbook(
@@ -93,12 +123,16 @@ def _create_run(
     *,
     run_id: str = RUN_ID_A,
 ):
+    try:
+        revision_n, sha = _playable(snapshot)
+    except WorkspaceDocumentRegistryError:
+        revision_n, sha = snapshot.loaded_revision, snapshot.content_sha256
     return create_or_replay_play_run(
         root,
         run_id=run_id,
         playable_artifact_id=snapshot.record.document_id,
-        expected_playable_revision=snapshot.loaded_revision,
-        expected_playable_content_sha256=snapshot.content_sha256,
+        expected_playable_revision=revision_n,
+        expected_playable_content_sha256=sha,
     )
 
 
@@ -110,8 +144,8 @@ def test_exact_create_persists_binding_without_mutating_runbook(tmp_path: Path) 
     assert record.run_id == RUN_ID_A
     assert record.campaign_id == "longmont-c2"
     assert record.playable_artifact_id == snapshot_before.record.document_id
-    assert record.playable_revision == snapshot_before.loaded_revision
-    assert record.playable_content_sha256 == snapshot_before.content_sha256
+    assert record.playable_revision == _playable(snapshot_before)[0]
+    assert record.playable_content_sha256 == _playable(snapshot_before)[1]
     assert record.run_revision == 1
     assert record.created_at == record.updated_at
 
@@ -190,15 +224,23 @@ def test_stale_revision_after_real_workspace_commit_fails_without_run(
     tmp_path: Path,
 ) -> None:
     old = _create_committed_runbook(tmp_path, name="stale-revision")
+    old_revision, old_sha = _playable(old)
     current = _advance_runbook(
         tmp_path,
         old,
         "# Runbook\n\nRevision N plus one.\n",
     )
-    assert current.loaded_revision == old.loaded_revision + 1
+    current_revision, _ = _playable(current)
+    assert current_revision == old_revision + 1
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
-        _create_run(tmp_path, old)
+        create_or_replay_play_run(
+            tmp_path,
+            run_id=RUN_ID_A,
+            playable_artifact_id=old.record.document_id,
+            expected_playable_revision=old_revision,
+            expected_playable_content_sha256=old_sha,
+        )
 
     assert exc_info.value.status_code == 409
     assert not play_run_path(tmp_path, RUN_ID_A).exists()
@@ -214,7 +256,7 @@ def test_stale_sha_with_current_revision_fails_without_run(tmp_path: Path) -> No
             tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=snapshot.record.document_id,
-            expected_playable_revision=snapshot.loaded_revision,
+            expected_playable_revision=_playable(snapshot)[0],
             expected_playable_content_sha256=wrong_sha,
         )
 
@@ -382,7 +424,7 @@ def test_noncanonical_uuid_and_sha_are_rejected_before_workspace_read(
             tmp_path,
             run_id=RUN_ID_A.upper(),
             playable_artifact_id=snapshot.record.document_id,
-            expected_playable_revision=snapshot.loaded_revision,
+            expected_playable_revision=_playable(snapshot)[0],
             expected_playable_content_sha256=snapshot.content_sha256,
         )
     assert uuid_exc.value.status_code == 422
@@ -392,7 +434,7 @@ def test_noncanonical_uuid_and_sha_are_rejected_before_workspace_read(
             tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=snapshot.record.document_id,
-            expected_playable_revision=snapshot.loaded_revision,
+            expected_playable_revision=_playable(snapshot)[0],
             expected_playable_content_sha256=snapshot.content_sha256.upper(),
         )
     assert sha_exc.value.status_code == 422

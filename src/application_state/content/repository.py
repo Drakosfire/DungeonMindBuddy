@@ -71,11 +71,12 @@ def lock_work_object(conn: psycopg.Connection, work_object_id: UUID) -> WorkObje
 def list_work_objects(
     conn: psycopg.Connection,
     *,
+    kind: str,
     campaign_id: str | None = None,
     status: str | None = "active",
 ) -> list[WorkObject]:
-    clauses = ["kind = 'plan'"]
-    params: list[object] = []
+    clauses = ["kind = %s"]
+    params: list[object] = [kind]
     if status is not None:
         clauses.append("status = %s")
         params.append(status)

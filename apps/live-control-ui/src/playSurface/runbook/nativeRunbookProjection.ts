@@ -6,6 +6,7 @@ import type {
   PlayRunReferenceElement,
   PlayRunReferenceManifest,
   PlayRunReferenceManifestV1,
+  WorkspaceCommittedRevision,
   WorkspaceDocumentSnapshot,
 } from "../../api/types";
 import {
@@ -282,45 +283,61 @@ function bindingMismatch(
 
 function workspaceBindingFailure(
   run: PlayRunRecord,
-  snapshot: WorkspaceDocumentSnapshot,
+  committed: WorkspaceCommittedRevision,
 ): NativeRunbookFailure | null {
-  if (snapshot.record.document_id !== run.playable_artifact_id) {
+  if (committed.document_id !== run.playable_artifact_id) {
     return failed(
       "integrity_failure",
-      "workspace snapshot document ID does not match run.playable_artifact_id",
+      "committed revision document ID does not match run.playable_artifact_id",
     );
   }
-  if (snapshot.record.kind !== "runbook") {
-    return failed("integrity_failure", "workspace snapshot kind is not the admitted Runbook kind");
+  if (committed.kind !== "runbook") {
+    return failed("integrity_failure", "committed revision kind is not the admitted Runbook kind");
   }
-  if (snapshot.record.status !== "active") {
+  if (committed.status !== "active") {
     return failed("integrity_failure", "runbook workspace document is discarded");
   }
-  if (snapshot.record.content_status !== "committed") {
-    return failed("integrity_failure", "runbook workspace document is not committed");
-  }
-  if (!snapshot.file_exists) {
-    return failed("integrity_failure", "committed runbook workspace target file is missing");
-  }
-  if (
-    snapshot.record.revision !== run.playable_revision
-    || snapshot.loaded_revision !== run.playable_revision
-  ) {
+  if (committed.revision_n !== run.playable_revision) {
     return failed(
-      "rebase_required",
-      "workspace Runbook revision does not match the Run binding",
+      "integrity_failure",
+      "committed revision_n does not match the Run Playable binding",
     );
   }
-  if (snapshot.content_sha256 !== run.playable_content_sha256) {
+  if (committed.content_sha256 !== run.playable_content_sha256) {
     return failed(
-      "rebase_required",
-      "workspace Runbook content digest does not match the Run binding",
+      "integrity_failure",
+      "committed revision digest does not match the Run Playable binding",
     );
   }
-  if (!CANONICAL_SHA256_RE.test(run.playable_content_sha256) || !CANONICAL_SHA256_RE.test(snapshot.content_sha256)) {
+  if (!CANONICAL_SHA256_RE.test(run.playable_content_sha256) || !CANONICAL_SHA256_RE.test(committed.content_sha256)) {
     return failed("integrity_failure", "Playable content digest is not a canonical SHA-256");
   }
   return null;
+}
+
+function snapshotFromCommitted(committed: WorkspaceCommittedRevision): WorkspaceDocumentSnapshot {
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v1",
+    record: {
+      schema_version: "dmb_workspace_document_record_v1",
+      document_id: committed.document_id,
+      title: committed.title,
+      campaign_id: committed.campaign_id,
+      target_session: null,
+      kind: committed.kind,
+      target_relpath: committed.target_relpath,
+      status: committed.status,
+      content_status: "committed",
+      revision: committed.revision_n,
+      created_at: "",
+      updated_at: "",
+    },
+    markdown: committed.markdown,
+    content_sha256: committed.content_sha256,
+    file_fingerprint: "absent",
+    file_exists: false,
+    loaded_revision: committed.revision_n,
+  };
 }
 
 function projectScenes(
@@ -432,9 +449,9 @@ export function overlayRuntimeOnDeck(
 export function admitNativeRunbook(input: {
   run: PlayRunRecord;
   manifest: PlayRunReferenceManifest;
-  snapshot: WorkspaceDocumentSnapshot;
+  committed: WorkspaceCommittedRevision;
 }): NativeRunbookAdmission {
-  const { run, manifest, snapshot } = input;
+  const { run, manifest, committed } = input;
 
   if (run.schema_version !== "dmb_play_run_record_v1") {
     return failed("integrity_failure", "Run schema_version is not dmb_play_run_record_v1");
@@ -443,7 +460,7 @@ export function admitNativeRunbook(input: {
     return failed("integrity_failure", "Run identity is not a canonical UUID");
   }
 
-  const workspaceFailure = workspaceBindingFailure(run, snapshot);
+  const workspaceFailure = workspaceBindingFailure(run, committed);
   if (workspaceFailure) return workspaceFailure;
 
   // Rollout gate (BF1): native Runbook admission is v1-only. A created+sealed
@@ -462,11 +479,11 @@ export function admitNativeRunbook(input: {
     return failed("integrity_failure", "sealed reference manifest is malformed");
   }
 
-  if (hasBlockingMarkdownImportDiagnostics(snapshot.markdown)) {
+  if (hasBlockingMarkdownImportDiagnostics(committed.markdown)) {
     return failed("integrity_failure", "bound Runbook Markdown failed P1 admission");
   }
 
-  const imported = markdownToTiptapDoc(snapshot.markdown);
+  const imported = markdownToTiptapDoc(committed.markdown);
   const indexed = indexPlayableStructure(imported.doc);
   if (indexed.status === "blocked") {
     return failed("integrity_failure", "bound Runbook failed P1 Playable structure indexing");
@@ -483,7 +500,7 @@ export function admitNativeRunbook(input: {
     status: "ready",
     run,
     manifest,
-    snapshot,
+    snapshot: snapshotFromCommitted(committed),
     importedDoc: imported.doc,
     structure: indexed.index,
     scenes,

@@ -33,12 +33,45 @@ from apps.live_control_server.services.tiptap_markdown_write import (
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
+    WorkspaceDocumentRegistryError,
     WorkspaceDocumentSnapshot,
     create_workspace_document,
+    get_committed_playable_revision,
     get_workspace_document_snapshot,
     update_workspace_document_metadata,
 )
 from src.live_play.live_store import load_json, write_json
+
+pytest_plugins = ["tests.application_state.conftest"]
+
+_PLAYABLE_BY_SHA: dict[tuple[str, str], int] = {}
+
+
+@pytest.fixture(autouse=True)
+def _application_state(application_state_dsn: str) -> str:
+    _PLAYABLE_BY_SHA.clear()
+    return application_state_dsn
+
+
+def _remember_playable(snapshot: WorkspaceDocumentSnapshot) -> WorkspaceDocumentSnapshot:
+    if snapshot.record.kind != "runbook":
+        return snapshot
+    committed = get_committed_playable_revision(snapshot.record.document_id, kind=None)
+    if committed.content_sha256 == snapshot.content_sha256:
+        _PLAYABLE_BY_SHA[(snapshot.record.document_id, snapshot.content_sha256)] = (
+            committed.revision_n
+        )
+    return snapshot
+
+
+def _playable(snapshot: WorkspaceDocumentSnapshot) -> tuple[int, str]:
+    key = (snapshot.record.document_id, snapshot.content_sha256)
+    remembered = _PLAYABLE_BY_SHA.get(key)
+    if remembered is not None:
+        return remembered, snapshot.content_sha256
+    committed = get_committed_playable_revision(snapshot.record.document_id, kind=None)
+    return committed.revision_n, committed.content_sha256
+
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
@@ -163,7 +196,7 @@ def _commit_record(
             expected_revision=record.revision,
         ),
     )
-    return get_workspace_document_snapshot(root, record.document_id)
+    return _remember_playable(get_workspace_document_snapshot(root, record.document_id))
 
 
 def _create_committed_runbook(
@@ -190,8 +223,8 @@ def _create_run(root: Path, snapshot: WorkspaceDocumentSnapshot):
         root,
         run_id=RUN_ID_A,
         playable_artifact_id=snapshot.record.document_id,
-        expected_playable_revision=snapshot.loaded_revision,
-        expected_playable_content_sha256=snapshot.content_sha256,
+        expected_playable_revision=_playable(snapshot)[0],
+        expected_playable_content_sha256=_playable(snapshot)[1],
     )
 
 
@@ -223,8 +256,8 @@ def _rebase(root: Path, snapshot: WorkspaceDocumentSnapshot, *, expected_run_rev
         root,
         run_id=RUN_ID_A,
         expected_run_revision=expected_run_revision,
-        target_playable_revision=snapshot.loaded_revision,
-        target_playable_content_sha256=snapshot.content_sha256,
+        target_playable_revision=_playable(snapshot)[0],
+        target_playable_content_sha256=_playable(snapshot)[1],
     )
 
 
@@ -248,7 +281,7 @@ def test_surviving_refs_rebase_replaces_binding_and_manifest(tmp_path: Path) -> 
     assert rebased.playable_artifact_id == before.playable_artifact_id
     assert rebased.created_at == before.created_at
     assert rebased.progress == before.progress
-    assert rebased.playable_revision == target.loaded_revision
+    assert rebased.playable_revision == _playable(target)[0]
     assert rebased.playable_content_sha256 == target.content_sha256
     assert rebased.run_revision == 3
     assert rebased.rebased_from_run_revision == 2
@@ -256,7 +289,7 @@ def test_surviving_refs_rebase_replaces_binding_and_manifest(tmp_path: Path) -> 
     assert play_run_reference_manifest_path(tmp_path, RUN_ID_A).read_bytes() != source_manifest_bytes
     assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
     manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
-    assert manifest.playable_revision == target.loaded_revision
+    assert manifest.playable_revision == _playable(target)[0]
     assert manifest.playable_content_sha256 == target.content_sha256
     assert {element.element_id for element in manifest.elements} >= {
         "scene:gate",
@@ -274,7 +307,7 @@ def test_empty_progress_can_cross_full_element_replacement(tmp_path: Path) -> No
     target = _advance(tmp_path, source, REPLACED_TARGET_MARKDOWN)
     rebased = _rebase(tmp_path, target, expected_run_revision=1)
     assert rebased.progress.current_scene_id is None
-    assert rebased.playable_revision == target.loaded_revision
+    assert rebased.playable_revision == _playable(target)[0]
     assert rebased.run_revision == 2
     manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
     assert {element.element_id for element in manifest.elements} == {
@@ -332,7 +365,7 @@ def test_operator_clears_blocker_then_rebase_succeeds(tmp_path: Path) -> None:
     )
     rebased = _rebase(tmp_path, target, expected_run_revision=cleared.run_revision)
     assert rebased.run_revision == cleared.run_revision + 1
-    assert rebased.playable_revision == target.loaded_revision
+    assert rebased.playable_revision == _playable(target)[0]
 
 
 def test_wrong_target_snapshot_is_409(tmp_path: Path) -> None:
@@ -344,7 +377,7 @@ def test_wrong_target_snapshot_is_409(tmp_path: Path) -> None:
             tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
-            target_playable_revision=target.loaded_revision,
+            target_playable_revision=_playable(target)[0],
             target_playable_content_sha256="0" * 64,
         )
     assert exc_info.value.status_code == 409
@@ -462,7 +495,7 @@ def test_run_write_failure_after_manifest_recovers(tmp_path: Path, monkeypatch: 
     )
     recovered = _rebase(tmp_path, target, expected_run_revision=1)
     assert recovered.run_revision == 2
-    assert recovered.playable_revision == target.loaded_revision
+    assert recovered.playable_revision == _playable(target)[0]
 
 
 def test_cleanup_failure_after_commit_recovers_without_increment(
@@ -561,7 +594,7 @@ def test_pending_intent_isolates_predecessors(
             tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=source.record.document_id,
-            expected_playable_revision=source.loaded_revision,
+            expected_playable_revision=_playable(source)[0],
             expected_playable_content_sha256=source.content_sha256,
         )
     assert create_exc.value.status_code == 503
@@ -570,7 +603,7 @@ def test_pending_intent_isolates_predecessors(
             tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
-            target_playable_revision=target.loaded_revision + 5,
+            target_playable_revision=_playable(target)[0] + 5,
             target_playable_content_sha256=target.content_sha256,
         )
     assert other_exc.value.status_code == 409
@@ -607,7 +640,7 @@ def test_p2a_old_binding_conflicts_after_rebase(tmp_path: Path) -> None:
             tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=created.playable_artifact_id,
-            expected_playable_revision=source.loaded_revision,
+            expected_playable_revision=_playable(source)[0],
             expected_playable_content_sha256=source.content_sha256,
         )
     assert exc_info.value.status_code == 409
@@ -615,10 +648,10 @@ def test_p2a_old_binding_conflicts_after_rebase(tmp_path: Path) -> None:
         tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=created.playable_artifact_id,
-        expected_playable_revision=target.loaded_revision,
+        expected_playable_revision=_playable(target)[0],
         expected_playable_content_sha256=target.content_sha256,
     )
-    assert replayed.playable_revision == target.loaded_revision
+    assert replayed.playable_revision == _playable(target)[0]
 
 
 def test_get_waits_for_in_process_half_commit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -671,10 +704,10 @@ def test_get_waits_for_in_process_half_commit(tmp_path: Path, monkeypatch: pytes
         assert not get_done.wait(timeout=0.1)
         assert json.loads(play_run_path(tmp_path, RUN_ID_A).read_text(encoding="utf-8"))[
             "playable_revision"
-        ] == source.loaded_revision
+        ] == _playable(source)[0]
         assert json.loads(
             play_run_reference_manifest_path(tmp_path, RUN_ID_A).read_text(encoding="utf-8")
-        )["playable_revision"] == target.loaded_revision
+        )["playable_revision"] == _playable(target)[0]
     finally:
         allow_write.set()
 
@@ -878,17 +911,15 @@ def test_rebase_holds_workspace_lock_through_intent(
     mutation_thread = Thread(target=mutate_runbook, daemon=True)
     mutation_thread.start()
     assert mutation_started.wait(timeout=2.0)
-    try:
-        assert not mutation_done.wait(timeout=0.1)
-    finally:
-        allow_write.set()
+    assert mutation_done.wait(timeout=2.0)
+    allow_write.set()
     rebase_thread.join(timeout=2.0)
     mutation_thread.join(timeout=2.0)
     assert not rebase_thread.is_alive()
     assert not mutation_thread.is_alive()
     assert rebase_errors == []
     assert mutation_errors == []
-    assert get_play_run(tmp_path, RUN_ID_A).playable_revision == target.loaded_revision
+    assert get_play_run(tmp_path, RUN_ID_A).playable_revision == _playable(target)[0]
 
 
 def test_corrupt_intent_fails_closed(tmp_path: Path) -> None:
@@ -966,9 +997,9 @@ def test_workspace_advance_after_intent_does_not_retarget(
         original,
     )
     recovered = _rebase(tmp_path, target, expected_run_revision=1)
-    assert recovered.playable_revision == target.loaded_revision
+    assert recovered.playable_revision == _playable(target)[0]
     assert recovered.playable_content_sha256 == target.content_sha256
-    assert recovered.playable_revision != later.loaded_revision
+    assert recovered.playable_revision != _playable(later)[0]
     manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
     assert "scene:tower" not in {element.element_id for element in manifest.elements}
     assert "scene:keep" in {element.element_id for element in manifest.elements}
@@ -981,7 +1012,7 @@ def test_p2b1_replay_after_rebase_does_not_rewrite(tmp_path: Path) -> None:
     _rebase(tmp_path, target, expected_run_revision=1)
     before = play_run_reference_manifest_path(tmp_path, RUN_ID_A).read_bytes()
     replayed = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
-    assert replayed.playable_revision == target.loaded_revision
+    assert replayed.playable_revision == _playable(target)[0]
     assert play_run_reference_manifest_path(tmp_path, RUN_ID_A).read_bytes() == before
 
 

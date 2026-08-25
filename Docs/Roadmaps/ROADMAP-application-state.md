@@ -1,6 +1,6 @@
 # ROADMAP — Application State
 
-**Status:** ACTIVE — AS0 and AS0.1 merged; AS1 Plan/PostgreSQL is this implementation PR
+**Status:** ACTIVE — AS0, AS0.1, and AS1 merged; AS2 Playable Runbook revisions is this implementation PR
 **Line of work / flow:** `APP-STATE`
 **Created:** 2026-08-24
 **Updated:** 2026-08-25
@@ -12,12 +12,18 @@
 **AS0.1 accepted head:** `abb3fb15f9b56e8712c07c798674d0462827677f`
 **AS0.1 review:** Review Cycle 2 PASS-equivalent, review `5014814402`
 
+**AS1 merge:** `29ff1584b9f76bb5100a724a96bebbbcf8f08d12` (PR #641)
+**AS1 accepted head:** `b42eb629e8924695af7af5a6c986f44a26dc3536`
+**AS1 review:** 3 distinct-head cycles; final PASS-equivalent review `5023488870`
+**AS1 execution evidence:** PR #641 comment `5415847095`
+
 This roadmap is **capability-sequenced**. It is not a table-creation schedule.
 Each implementation slice must leave a real consumer working on PostgreSQL, then
 delete or fail-close the replaced file authority for that consumer.
 
 AS0 established the shared substrate. AS0.1 / PR #639 widened identity/asset
-scope. **AS1 is this PR and remains Plan-only.** Do not mark AS1 merged here.
+scope. **AS1 is DONE.** **AS2 is this PR and remains Runbook/Playable-read only.**
+Do not mark AS2 merged here.
 
 ---
 
@@ -26,8 +32,8 @@ scope. **AS1 is this PR and remains Plan-only.** Do not mark AS1 merged here.
 ```text
 AS0   DESIGN                 DONE — PR #636 merge 4c90df35
 AS0.1 STORAGE-TOPOLOGY       DONE — PR #639 merge dd09f7f7
-AS1   PLAN DOCUMENTS         THIS PR — substrate + kind=plan
-AS2   PLAYABLE               runbook WorkRevisions historically addressable
+AS1   PLAN DOCUMENTS         DONE — PR #641 merge 29ff1584
+AS2   PLAYABLE               THIS PR — runbook WorkRevisions historically addressable
 AS3   PLAY RUNTIME           Run + sealed manifest in one transaction
 AS4   PLAY CONTINUITY        active Run + resume/reload
 AS5   PLAY DEMOLITION        delete replaced Play file writers/locks/intents
@@ -77,7 +83,7 @@ list.
 
 | Field | Content |
 |---|---|
-| Status | **this PR** — not merged; do not invent the AS1 merge SHA |
+| Status | **DONE** — merged PR #641 at `29ff1584b9f76bb5100a724a96bebbbcf8f08d12` (accepted head `b42eb629e8924695af7af5a6c986f44a26dc3536`; 3 review cycles; final PASS-equivalent review `5023488870`; evidence comment `5415847095`) |
 | Independently useful outcome | A Plan workspace document (`kind=plan`) can be created, autosaved as a WorkingCopy, committed as an immutable WorkRevision, reloaded after process restart, and CAS-conflicted — entirely on Buddy PostgreSQL |
 | Primary consumer/story | Plan/Build authoring via existing `/api/live/workspace-documents*` + Tiptap commit for `kind=plan`; CR-U11/CR-U17 adjacent |
 | Predecessor | Accepted architecture v1.1 (AS0 + this correction) |
@@ -100,7 +106,7 @@ domains must use.
 
 | Field | Content |
 |---|---|
-| Status | blocked on AS1 |
+| Status | **this PR** — not merged; do not invent the AS2 merge SHA |
 | Independently useful outcome | Runbook/Playable documents use the same WorkObject primitives; revision N remains loadable after N+1 is committed |
 | Primary consumer/story | Plan edits Playable; Play will pin exact revisions (Runs still file-backed until AS3, but must be able to **read** historical WorkRevisions) |
 | Predecessor | AS1 plan-kind substrate in production |
