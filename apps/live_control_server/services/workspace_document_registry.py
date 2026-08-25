@@ -57,7 +57,7 @@ def _record_from_work_object(
         campaign_id=obj.campaign_id,
         world_id=getattr(obj, "world_id", None),
         target_session=obj.target_session,
-        kind="plan",
+        kind=str(obj.kind),
         target_relpath=obj.target_relpath,
         status=obj.status,
         content_status=content_status,
@@ -70,13 +70,14 @@ def _record_from_work_object(
 def unswitched_workspace_record(
     root: Path, document_id: str
 ) -> WorkspaceDocumentRecord | None:
-    """Return a file-backed runbook/worldbuilding record without touching PostgreSQL.
+    """Return a file-backed worldbuilding record without touching PostgreSQL.
 
-    Leftover ``kind=plan`` file rows are not authority after the AS1 switch.
+    Leftover ``kind=plan`` and ``kind=runbook`` file rows are not authority after
+    the Content switch.
     """
     document, _token = _load_unlocked(root)
     record = _find_record(document, document_id)
-    if record is None or record.kind == "plan":
+    if record is None or record.kind in ("plan", "runbook"):
         return None
     return record
 
@@ -159,6 +160,26 @@ class WorkspaceDocumentSnapshot(BaseModel):
     file_fingerprint: str
     file_exists: bool
     loaded_revision: int
+
+
+class WorkspaceCommittedRevision(BaseModel):
+    """Committed WorkRevision for Playable binding. ``revision_n`` is playable_revision."""
+
+    schema_version: Literal["dmb_workspace_committed_revision_v1"] = (
+        "dmb_workspace_committed_revision_v1"
+    )
+    document_id: str
+    kind: Literal["plan", "runbook"]
+    campaign_id: str
+    title: str
+    status: Literal["active", "discarded"]
+    object_revision: int
+    work_revision_id: str
+    revision_n: int
+    markdown: str
+    content_sha256: str
+    has_divergent_working_copy: bool = False
+    target_relpath: str | None = None
 
 
 def _utc_now_iso() -> str:
@@ -288,10 +309,10 @@ def list_workspace_documents(
     status: Literal["active", "discarded"] | None = "active",
 ) -> list[WorkspaceDocumentRecord]:
     records = [
-        r for r in _load_registry_document(root).records if r.kind != "plan"
+        r for r in _load_registry_document(root).records if r.kind not in ("plan", "runbook")
     ]
-    if kind in (None, "plan"):
-        from application_state.content.service import list_plans
+    if kind in (None, "plan", "runbook"):
+        from application_state.content.service import list_plans, list_runbooks
         from application_state.errors import (
             ApplicationStateError,
             ApplicationStateMigrationError,
@@ -299,16 +320,20 @@ def list_workspace_documents(
         )
 
         try:
-            plans = [
-                _record_from_work_object(obj)
-                for obj in list_plans(campaign_id=campaign_id, status=status)
-            ]
+            if kind in (None, "plan"):
+                records.extend(
+                    _record_from_work_object(obj)
+                    for obj in list_plans(campaign_id=campaign_id, status=status)
+                )
+            if kind in (None, "runbook"):
+                records.extend(
+                    _record_from_work_object(obj)
+                    for obj in list_runbooks(campaign_id=campaign_id, status=status)
+                )
         except (ApplicationStateUnavailableError, ApplicationStateMigrationError) as exc:
             raise _map_application_state_error(exc) from exc
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
-        else:
-            records.extend(plans)
     if status is not None:
         records = [r for r in records if r.status == status]
     if campaign_id is not None:
@@ -520,12 +545,13 @@ def create_workspace_document(
         updated_at=now,
         **worldbuilding_fields,
     )
-    if kind == "plan":
-        from application_state.content.service import create_plan
+    if kind in ("plan", "runbook"):
+        from application_state.content.service import create_plan, create_runbook
         from application_state.errors import ApplicationStateError
 
+        create_fn = create_plan if kind == "plan" else create_runbook
         try:
-            obj = create_plan(
+            obj = create_fn(
                 title=cleaned_title,
                 campaign_id=cleaned_campaign,
                 target_session=target_session,
@@ -550,11 +576,11 @@ def get_workspace_document(root: Path, document_id: str) -> WorkspaceDocumentRec
     file_record = unswitched_workspace_record(root, document_id)
     if file_record is not None:
         return file_record
-    from application_state.content.service import snapshot_plan
+    from application_state.content.service import snapshot_content
     from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
 
     try:
-        snap = snapshot_plan(document_id)
+        snap = snapshot_content(document_id)
     except ApplicationStateNotFoundError as exc:
         raise WorkspaceDocumentRegistryError(
             f"workspace document not found: {_validate_document_id(document_id)}",
@@ -585,11 +611,11 @@ def get_workspace_document_snapshot(root: Path, document_id: str) -> WorkspaceDo
 
 
 def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshot:
-    from application_state.content.service import snapshot_plan
+    from application_state.content.service import snapshot_content
     from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
 
     try:
-        snap = snapshot_plan(document_id)
+        snap = snapshot_content(document_id)
     except ApplicationStateNotFoundError as exc:
         raise WorkspaceDocumentRegistryError(
             f"workspace document not found: {_validate_document_id(document_id)}",
@@ -607,6 +633,52 @@ def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshot:
         file_fingerprint="postgres",
         file_exists=False,
         loaded_revision=snap.loaded_revision,
+    )
+
+
+def get_committed_playable_revision(
+    document_id: str,
+    *,
+    revision_n: int | None = None,
+    expected_sha256: str | None = None,
+    kind: Literal["plan", "runbook"] | None = "runbook",
+) -> WorkspaceCommittedRevision:
+    from application_state.content.service import (
+        current_committed_revision,
+        exact_committed_revision,
+    )
+    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
+
+    canonical_id = _validate_document_id(document_id)
+    try:
+        if revision_n is None:
+            committed = current_committed_revision(canonical_id, kind=kind)
+        else:
+            committed = exact_committed_revision(
+                canonical_id,
+                revision_n,
+                kind=kind,
+                expected_sha256=expected_sha256,
+            )
+    except ApplicationStateNotFoundError as exc:
+        raise WorkspaceDocumentRegistryError(str(exc), status_code=404) from exc
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    obj = committed.work_object
+    revision = committed.work_revision
+    return WorkspaceCommittedRevision(
+        document_id=str(obj.work_object_id),
+        kind=obj.kind,
+        campaign_id=obj.campaign_id,
+        title=obj.title,
+        status=obj.status,
+        object_revision=obj.object_revision,
+        work_revision_id=str(revision.work_revision_id),
+        revision_n=revision.revision_n,
+        markdown=revision.markdown,
+        content_sha256=revision.content_sha256,
+        has_divergent_working_copy=committed.has_divergent_working_copy,
+        target_relpath=obj.target_relpath,
     )
 
 
@@ -628,7 +700,7 @@ def get_workspace_document_snapshot_unlocked(
         if exc.status_code != 404:
             raise
         return _postgres_plan_snapshot(document_id)
-    if record.kind == "plan":
+    if record.kind in ("plan", "runbook"):
         return _postgres_plan_snapshot(document_id)
     if record.target_relpath is None or record.target_relpath == "":
         if record.content_status == "committed":
@@ -705,13 +777,18 @@ def update_workspace_document_metadata(
 ) -> WorkspaceDocumentRecord:
     file_record = unswitched_workspace_record(root, document_id)
     if file_record is None:
-        from application_state.content.service import get_plan, update_plan_metadata
+        from application_state.content.service import get_content_optional, update_plan_metadata
         from application_state.errors import ApplicationStateError
 
         try:
-            existing_plan = get_plan(document_id)
+            existing_plan = get_content_optional(document_id)
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
+        if existing_plan is None:
+            raise WorkspaceDocumentRegistryError(
+                f"workspace document not found: {_validate_document_id(document_id)}",
+                status_code=404,
+            )
         if target_relpath is not _UNSET and target_relpath != existing_plan.target_relpath:
             raise WorkspaceDocumentRegistryError(
                 "plan target_relpath cannot be changed via metadata update",

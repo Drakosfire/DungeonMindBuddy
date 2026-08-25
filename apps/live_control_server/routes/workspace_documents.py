@@ -14,10 +14,12 @@ from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
     WorkspaceDocumentRevisionRequest,
     WorkspaceDocumentSnapshot,
+    WorkspaceCommittedRevision,
     WorkspaceDocumentsListResponse,
     _UNSET,
     create_workspace_document,
     discard_workspace_document,
+    get_committed_playable_revision,
     get_workspace_document,
     get_workspace_document_snapshot,
     list_workspace_documents,
@@ -90,6 +92,34 @@ def get_workspace_document_snapshot_route(document_id: str) -> dict[str, Any]:
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return snapshot.model_dump(mode="json")
+
+
+@router.get(
+    "/workspace-documents/{document_id}/committed-revision",
+    response_model=WorkspaceCommittedRevision,
+)
+def get_workspace_document_current_committed_revision(document_id: str) -> dict[str, Any]:
+    try:
+        committed = get_committed_playable_revision(document_id)
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return committed.model_dump(mode="json")
+
+
+@router.get(
+    "/workspace-documents/{document_id}/committed-revision/{revision_n}",
+    response_model=WorkspaceCommittedRevision,
+)
+def get_workspace_document_exact_committed_revision(
+    document_id: str, revision_n: int
+) -> dict[str, Any]:
+    try:
+        committed = get_committed_playable_revision(
+            document_id, revision_n=revision_n
+        )
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return committed.model_dump(mode="json")
 
 
 @router.patch("/workspace-documents/{document_id}", response_model=WorkspaceDocumentRecord)

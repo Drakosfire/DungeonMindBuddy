@@ -386,11 +386,11 @@ def _prepare_plan_postgres(
     request: TiptapMarkdownWritePrepareRequest,
     write_mode: WriteMode,
 ) -> TiptapMarkdownWritePrepareResponse | None:
-    from application_state.content.service import autosave_plan, get_plan_optional
+    from application_state.content.service import autosave_plan, get_content_optional
     from application_state.errors import ApplicationStateError
 
     try:
-        obj = get_plan_optional(request.document_id)
+        obj = get_content_optional(request.document_id)
     except ApplicationStateError as exc:
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
@@ -419,7 +419,7 @@ def _prepare_plan_postgres(
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
         ) from exc
-    relpath = obj.target_relpath or f"plan:{obj.work_object_id}"
+    relpath = obj.target_relpath or f"{obj.kind}:{obj.work_object_id}"
     return TiptapMarkdownWritePrepareResponse(
         document_id=str(obj.work_object_id),
         title=obj.title,
@@ -448,7 +448,7 @@ def _prepare_plan_postgres(
             write_mode=write_mode,
         ),
         diagnostics=[
-            "working copy persisted; Plan Markdown file is not authority",
+            "working copy persisted; Markdown file is not authority",
             "review before commit",
             *lossy,
         ],
@@ -460,11 +460,11 @@ def _commit_plan_postgres(
     request: TiptapMarkdownWriteCommitRequest,
     write_mode: WriteMode,
 ) -> TiptapMarkdownWriteCommitResponse | None:
-    from application_state.content.service import commit_plan, get_plan_optional
+    from application_state.content.service import commit_plan, get_content_optional
     from application_state.errors import ApplicationStateError
 
     try:
-        obj = get_plan_optional(request.document_id)
+        obj = get_content_optional(request.document_id)
     except ApplicationStateError as exc:
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
@@ -474,7 +474,7 @@ def _commit_plan_postgres(
     if write_mode == "source_import":
         raise TiptapMarkdownWriteError("source_import is only valid for worldbuilding_source documents")
     content = _content_for_write_mode(request.markdown, write_mode)
-    relpath = obj.target_relpath or f"plan:{obj.work_object_id}"
+    relpath = obj.target_relpath or f"{obj.kind}:{obj.work_object_id}"
 
     def _token_for(revision: int) -> str:
         return _confirm_token(
@@ -511,10 +511,11 @@ def _commit_plan_postgres(
     record = _record_from_work_object(committed)
     display = relpath
     if not (
-        relpath.startswith("out/workspace/plan/")
+        relpath.startswith("out/")
         or relpath.startswith("corpus/")
+        or relpath.startswith("evals/")
     ):
-        display = f"out/workspace/plan/{record.document_id}.md"
+        display = f"out/workspace/{record.kind}/{record.document_id}.md"
     return TiptapMarkdownWriteCommitResponse(
         document_id=record.document_id,
         title=record.title,
@@ -529,7 +530,7 @@ def _commit_plan_postgres(
         bytes_written=len(content.encode()),
         file_fingerprint="postgres",
         backup_relpath=None,
-        diagnostics=["Plan WorkRevision committed in PostgreSQL"],
+        diagnostics=["WorkRevision committed in PostgreSQL"],
     )
 
 
