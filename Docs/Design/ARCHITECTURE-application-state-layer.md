@@ -3,12 +3,13 @@ document_id: dmb-architecture-application-state-layer
 title: Application State Layer — Architecture Authority
 document_class: architecture_authority
 status: active
-version: 1.0
+version: 1.1
 created_at: "2026-08-24"
 updated_at: "2026-08-24"
 workstream: APP-STATE
+as0_merge: "605445b3b839b494a82218758c465edbfe59bad9"
 design_authority_base: "31f2885cc18f96b98a1028304ae98914d1139fa3"
-dispatch_base: "5e596e1e90c156573da602f1f9591ee4828c3aee"
+dispatch_base: "9782c05d506ee4be918ed2491ff63d9705ac97c9"
 parent_anchor: "../Plans/STEWARDS-ANCHOR-application-state.md"
 companion_authorities:
   playable_runtime: "ARCHITECTURE-playable-material-and-runtime.md"
@@ -26,8 +27,97 @@ companion_authorities:
 
 DungeonBuddy owns **one transactional application-state substrate**, not one
 universal domain model. Surfaces call domain services. Domain services own
-invariants. PostgreSQL owns durable Buddy application state. DungeonMind owns
-World Graph truth.
+invariants. PostgreSQL owns durable Buddy application state and asset
+metadata/relationships. DungeonMind owns World Graph truth. Large binary bytes
+live in DungeonMindServer storage/CDN behind an Asset service boundary.
+
+### Storage-independent identity law
+
+A product object is addressed by a **stable domain-level ID**. Filesystem paths,
+corpus paths, CDN URLs, bucket/object keys, database table coordinates, and
+temporary generator output locations are **storage locators or projections** —
+not product identity. The owning domain service resolves locators.
+
+Examples that must remain obviously wrong as terminal design:
+
+```text
+location_id = "corpus/.../Mireward_Location_Dossiers/Foo.md"
+card.image = "https://cdn.example/..." as permanent cross-domain identity
+run_id = "out/runtime/play/runs/123.json"
+source_artifact = Path(...)
+```
+
+Preferred shape:
+
+```text
+location_draft_id = <stable id>
+image_asset_id = <stable id>
+run_id = <stable id>
+source_artifact_id = <stable id>
+```
+
+### Four state classes
+
+```text
+(A) Buddy durable application objects
+    Plan / Runbook / Play Run / Combat Runtime
+    SourceArtifact / IngestRun / reviewed processing state
+    generated Statblock / Location / NPC / Shop / Encounter drafts
+    CardProject / agent proposals / other user-relied-on product objects
+        → durable domain identity + lifecycle + relationships
+        → Buddy Application State PostgreSQL
+
+(B) Large / binary assets
+    images / maps / PDFs / audio / rendered cards / other large blobs
+        → Buddy PostgreSQL: asset identity, digest, media metadata,
+          provenance, ownership/relationships, storage locator metadata
+        → DungeonMindServer storage/CDN: large bytes and delivery
+
+(C) World truth
+    durable campaign-world identity, facts, relationships,
+    governed World publication/history
+        → DungeonMind PostgreSQL
+
+(D) Derived / regenerable state
+    projections / indexes / thumbnails / rendered HTML / previews /
+    caches / search results / exports reproducible from durable inputs
+        → may be persisted for speed; persistence alone does not make authority
+```
+
+### Product classification test
+
+For a candidate state/object, ask in order:
+
+1. **Is this World truth?** → DungeonMind authority. Buddy may reference the
+   public World ID; do not duplicate authority in APP-STATE.
+2. **Does product correctness or user trust depend on this Buddy-owned thing
+   existing later across reload/restart/worktree/deploy?** → stable Buddy domain
+   identity and durable application-state ownership.
+3. **Are the authoritative bytes large/binary?** → Buddy PostgreSQL owns
+   identity/metadata/digest/relationships; bytes go through the Asset service
+   to DungeonMindServer storage/CDN.
+4. **Can this representation be regenerated exactly enough from durable
+   inputs?** → derived/cache/output unless a separate product requirement makes
+   the particular representation itself user-owned durable state.
+5. **Does it have domain-specific lifecycle/invariants?** → domain-owned
+   schema/service. Do not force it into Content WorkObject or a generic JSON
+   table.
+
+| Product concept | Classification |
+|---|---|
+| Plan document | Buddy durable Content object |
+| Runbook | Buddy durable Content/Playable object |
+| Play Run | Buddy durable Play Runtime |
+| Combat encounter state | Buddy durable Combat Runtime |
+| raw uploaded/recorded session audio | SourceArtifact metadata + Asset bytes |
+| transcript text | Buddy durable source/processed artifact |
+| IngestRun status/review/provenance | Buddy durable Ingest state |
+| accepted World object/fact | DungeonMind World truth |
+| generated statblock draft | Buddy durable generated artifact / domain state |
+| location/NPC/shop draft before World publication | Buddy durable generated/authored state |
+| card project/specification | Buddy durable state |
+| rendered card PNG/PDF | Asset or derived render linked to exact project revision |
+| projection/search index/thumbnail | Derived/cache unless product says otherwise |
 
 This document is the persistence/revision/transaction/migration authority for
 Buddy-owned durable application state. After it is reviewed, later
@@ -73,7 +163,7 @@ redesigned by this document.
                       │
                       ▼
               domain services
-         (Content, Play, Combat, …)
+         (Content, Play, Combat, Ingest, Asset, …)
                       │
                       ▼
         Buddy Application State Layer
@@ -82,18 +172,23 @@ redesigned by this document.
                       ▼
      PostgreSQL  dungeonbuddy_application_state
          content.*   play.*   combat.*
+         ingest.*   assets.*   statblock.*   (created when earned, not AS1)
                       │
                       │  stable public IDs / governed service contracts
                       │  NO SQL FK into DungeonMind tables
                       ▼
               DungeonMind PostgreSQL
            World Graph living authority
+
+Asset service (domain) → DungeonMindServer storage/CDN (large bytes; no SQL FK)
 ```
 
 | Concern | Authority after AS0 |
 |---|---|
 | Buddy persistence substrate | this document |
-| durable work/revision lifecycle | this document |
+| storage-independent domain identity law | this document |
+| durable work/revision lifecycle (Content) | this document |
+| asset identity/metadata boundary (concept) | this document |
 | transaction / repository boundary | this document |
 | schema migration / deployment | this document |
 | application-state cutover / demolition | this document |
@@ -106,10 +201,12 @@ redesigned by this document.
 
 | Domain | Owns | Must not own |
 |---|---|---|
-| Content | Plan/Runbook WorkObjects, committed revisions, working copies | World assertions, Combat HP, Play progress |
+| Content | Plan/Runbook WorkObjects, committed revisions, working copies | World assertions, Combat HP, Play progress, Ingest runs, asset bytes |
 | Play | Run aggregate, sealed manifest, active-Run pointer, Runtime CAS | Playable bytes, Combat encounter state, World truth |
 | Combat | current encounter, save slots, combatant HP/init/conditions | Play progress, Playable revisions, World nodes |
-| World | DungeonMind graph identity and governed mutation | Buddy documents, Runs, Combat boards |
+| Ingest | SourceArtifact / IngestRun identity, processing/review state | World truth, Play progress, generic document WorkObjects |
+| Asset | asset identity, digest, locator metadata, delivery resolution | Domain lifecycle invariants, World truth, PostgreSQL byte pages |
+| World | DungeonMind graph identity and governed mutation | Buddy documents, Runs, Combat boards, Ingest staging |
 | Source | source artifact identity, bytes or blob metadata, provenance | Playable interpretation, Runtime selections |
 | Mechanics | immutable statblock/revision identity in its owning service | Combat runtime HP, Play notes |
 
@@ -119,8 +216,12 @@ A shared database does not collapse these domains.
 
 ## 3. Current-state persistence inventory
 
-Grounded on dispatch base `5e596e1e90c156573da602f1f9591ee4828c3aee`
-(design-authority predecessor: CUTOVER #634 `31f2885c…`). This is evidence, not
+Grounded on dispatch base `9782c05d506ee4be918ed2491ff63d9705ac97c9`
+(design-authority predecessor: CUTOVER #634 `31f2885c…`; AS0 merge #636
+`605445b3…`). This correction re-read `apps/live_control_server/routes/recap_ingest.py`,
+`apps/live_control_server/services/location_corpus_index.py`, and
+`Docs/Design/DESIGN-statblock-lifecycle-agentic-workbench.md` for path-keyed and
+`artifact_id`-keyed durable state beyond Plan/Play. This is evidence, not
 one-table-per-row.
 
 ### 3.1 Inventory
@@ -141,7 +242,10 @@ one-table-per-row.
 | Browser workspace drafts | Content UI | `localStorage` keyed by document id (`useWorkspaceDocumentAuthoring.ts`) | Plan/Build editor recovery | browser semantics | No | After a kind switches, **server WorkingCopy is authority**. localStorage may cache, never be the only recoverable draft. |
 | Hermes / Plan thread UI | Agent interaction | localStorage thread index/active thread | Plan agent bar | browser | No | Not product-correctness durability. Defer. Do not migrate in AS1–AS5. |
 | Build last-campaign convenience | Build UI | localStorage | Build entry | browser | No | Remains client convenience. |
-| Source / artifact bytes | Source | corpus trees, `_dungeonbuddy/sources/`, eval fixtures | ingest, Hermes, worldbuilding | path + digest | Source-owned immutability where already true | PostgreSQL owns **identity/metadata/digest/references**. Large bytes stay external/blob or corpus. |
+| Recap / Ingest run lifecycle | Ingest / Source | path-keyed staged raw, normalized recap, frontmatter seed, candidate graph, preview manifests (`recap_ingest.py`, pipeline helpers) | Ingest UI, graph preview, publication proposals | path + digest coordination | Run/artifact identity tied to corpus paths today | future `ingest.*` domain identity; paths become locators, not terminal IDs |
+| Location corpus index | Build / Content | path-keyed location dossier index (`location_corpus_index.py`) | Build location authoring, corpus navigation | filesystem scan + path display | No durable draft identity separate from corpus path | future Buddy durable location-draft identity; index may remain derived |
+| Generated statblock draft | Mechanics / Build | durable `artifact_id` lifecycle per `DESIGN-statblock-lifecycle-agentic-workbench.md` | statblock workbench, combat activation | review/lifecycle state | Review/provenance history where implemented | future `statblock.*` or domain schema when consumer earns it; not WorkObject |
+| Source / artifact bytes | Source | corpus trees, `_dungeonbuddy/sources/`, eval fixtures | ingest, Hermes, worldbuilding | path + digest | Source-owned immutability where already true | PostgreSQL owns **identity/metadata/digest/references**. Large bytes stay external/blob or corpus via Asset boundary. |
 | World Graph | DungeonMind | DungeonMind PostgreSQL via `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL` | production reads after #633/#634; governed writes | DungeonMind transactions | DungeonMind mutation history | **Out of Buddy application state.** No Buddy World tables. No SQL FK. |
 
 `src/live_play/live_store.py` is a JSON file helper, not a Combat domain store.
@@ -192,7 +296,7 @@ Known local World/Cutover server (do not reuse these database names):
 |---|---|
 | PostgreSQL server | May be the same server as DungeonMind. Authority must not depend on co-location. |
 | Logical database | Buddy owns `dungeonbuddy_application_state` (local product name). Tests use distinct names (§13). |
-| Schemas inside that database | `content`, `play`, `combat` (created when that domain first lands), plus `application_state` for migration bookkeeping |
+| Schemas inside that database | `content`, `play`, `combat` (created when that domain first lands), plus `application_state` for migration bookkeeping. Future `ingest.*`, `assets.*`, `statblock.*` only when a real consumer earns them — **not in AS1**. |
 | DungeonMind database | Separate logical database. Never a schema inside Buddy's DB. Never a schema inside DungeonMind's DB. |
 
 Same server, two databases is the intended local layout. A second PostgreSQL
@@ -285,7 +389,11 @@ Transaction rules:
 
 ## 7. Shared primitives and admission criteria
 
-Accepted shared primitives:
+The shared substrate owns **configuration, migrations, unit of work, transaction/CAS
+conventions, and failure/isolation rules**. It does not own a universal
+`application_object (id, type, jsonb)` row type.
+
+Accepted shared Content primitives:
 
 ```text
 WorkObject
@@ -294,7 +402,18 @@ WorkingCopy
 unit of work / CAS helper
 ```
 
-These are **Content** primitives. They are not a universal row type.
+These are **Content-domain** primitives for document-like authored material.
+They are not a universal row type for Ingest runs, generated statblock drafts,
+card projects, or asset metadata.
+
+Future domain schemas (created only when earned):
+
+```text
+ingest.*     SourceArtifact / IngestRun / processing-review state
+assets.*     asset identity/metadata
+statblock.*  generated-artifact lifecycle when a consumer proves it
+combat.*     Combat runtime when migrated
+```
 
 ### Admission — use WorkObject when all of these are true
 
@@ -312,7 +431,10 @@ These are **Content** primitives. They are not a universal row type.
 | Active Run pointer | continuity singleton | `play.active_run` |
 | Combat encounter / save | Combat-owned live mechanics state | `combat.*` later |
 | World node / assertion | DungeonMind | DungeonMind DB |
-| Source PDF/image bytes | large immutable blob | external/blob + metadata row |
+| Source PDF/image bytes | large immutable blob | Asset service + metadata row; bytes in DungeonMindServer storage/CDN |
+| IngestRun / SourceArtifact | domain lifecycle, not document revisions | future `ingest.*` |
+| Generated statblock / location / NPC / shop draft | domain lifecycle + review state | future domain schema; not WorkObject |
+| Card project / rendered PNG | project state + asset link | future domain + `assets.*` |
 | Hermes chat threads | UI session, not Buddy durable product state yet | remains client until a later justified slice |
 
 ### Kind is not an ontology
@@ -532,15 +654,43 @@ identity**, never by storage coupling.
 | Play / Content | World | public node/object ids and World revision tokens as **strings**; no SQL FK into DungeonMind |
 | Play / Combat | Mechanics | immutable statblock revision id from the mechanics contract; Combat instantiates mutable combatant state |
 | Play | Combat runtime | Play stores a Combat encounter/runtime id; Combat owns HP/init/conditions |
-| Content | Source / assets | source artifact id + digest; bytes in blob/corpus; PostgreSQL holds metadata |
+| Content | Source / assets | source artifact id + digest; asset_id for large bytes; Asset service resolves locators |
 | Application state | DungeonMind tables | **No SQL foreign keys. No joins. No shared migrations.** |
+
+### AssetRecord concept (not implemented)
+
+Minimum durable concept for class (B) assets — exact fields/names are not frozen
+here; no table or CDN client is required in AS1:
+
+```text
+AssetRecord
+  asset_id
+  media_type
+  sha256
+  size_bytes
+  provenance / created_by as appropriate
+  storage_provider
+  locator                    -- bucket/key or provider coordinates; not domain identity
+  created_at
+```
+
+Authority law:
+
+```text
+consumer stores asset_id
+  → Asset service resolves storage/delivery
+  → DungeonMindServer storage/CDN handles bytes
+```
+
+A CDN URL may be returned as a delivery projection (including signed/expiring
+URLs). It must not become the stable cross-domain reference.
+
+Large bytes: PostgreSQL stores `asset_id`, digest, media type, locator metadata.
+Object storage/corpus remains the byte home when the payload is not UTF-8
+document content.
 
 World pinning: when exact World revision matters, store the public revision
 identifier DungeonMind already exposes. Do not copy World rows into Buddy.
-
-Large bytes: PostgreSQL stores `asset_id`, digest, media type, locator URI.
-Object storage/corpus remains the byte home when the payload is not UTF-8
-document content.
 
 ---
 
@@ -765,6 +915,10 @@ admitted kind as that kind switches.
 | Treating localStorage as durable authority after switch | Fails worktree/browser-loss (C2S27 residual) |
 | SQL FK into DungeonMind | Authority bleed |
 | Keeping rebase-intent files after DB transactions exist | Compatibility theater |
+| CDN URL / corpus path / filesystem path as domain identity | Locators are not stable product IDs |
+| Forcing large binary bytes into PostgreSQL pages | Asset boundary + DungeonMindServer storage/CDN |
+| Ingest / Asset / generated-artifact schemas in AS1 | Speculative tables; AS1 is Plan-only |
+| Universal WorkObject / `application_object (id, type, jsonb)` | Domain invariants belong in domain schemas |
 
 ---
 
@@ -782,5 +936,11 @@ admitted kind as that kind switches.
 | Purging old WorkRevisions | Retention is keep-all until a real need |
 | Event/outbox for DungeonMind-spanning sagas | No current Buddy-only workflow needs it |
 | Docker-compose service addition | Only if the existing local server cannot `CREATE DATABASE`; default is no compose change |
+| Ingest schema (`ingest.*`) | First-class future consumer; path-keyed ingest today |
+| Asset service + CDN integration API | Named boundary only; no production API in AS1 |
+| Generated-artifact schemas (`statblock.*`, location/NPC/shop drafts) | Earned when a real consumer slice lands |
+| Card project / render lifecycle | Future domain slice |
 
-AS1 is dispatchable without resolving these.
+AS1 is dispatchable after this correction without resolving these. AS1 admits
+`kind=plan` only and does not require Asset, Ingest, or generated-artifact
+tables.

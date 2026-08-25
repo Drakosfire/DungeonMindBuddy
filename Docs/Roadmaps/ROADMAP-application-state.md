@@ -1,37 +1,43 @@
 # ROADMAP — Application State
 
-**Status:** ACTIVE — sequenced after AS0 architecture gate  
-**Line of work / flow:** `APP-STATE`  
-**Created:** 2026-08-24  
-**Architecture authority:** [`../Design/ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md)  
-**Parent pickup:** [`../Plans/STEWARDS-ANCHOR-application-state.md`](../Plans/STEWARDS-ANCHOR-application-state.md)  
-**Dispatch base at authoring:** `5e596e1e90c156573da602f1f9591ee4828c3aee`
+**Status:** ACTIVE — AS0 merged; storage-topology correction before AS1
+**Line of work / flow:** `APP-STATE`
+**Created:** 2026-08-24
+**Updated:** 2026-08-24
+**Architecture authority:** [`../Design/ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md)
+**Parent pickup:** [`../Plans/STEWARDS-ANCHOR-application-state.md`](../Plans/STEWARDS-ANCHOR-application-state.md)
+**AS0 merge:** `605445b3b839b494a82218758c465edbfe59bad9` (PR #636)
+**This correction dispatch base:** `9782c05d506ee4be918ed2491ff63d9705ac97c9`
 
 This roadmap is **capability-sequenced**. It is not a table-creation schedule.
-Each slice must leave a real consumer working on PostgreSQL, then delete or
-fail-close the replaced file authority for that consumer.
+Each implementation slice must leave a real consumer working on PostgreSQL, then
+delete or fail-close the replaced file authority for that consumer.
 
-The steward seed's AS0→AS7 hypothesis is re-evaluated below. The standalone
-"existing-state mega-cutover" slice is removed: each domain slice imports and
-switches its own consumer. Demolition remains a dedicated Play-file removal
-slice after Play consumers have switched.
+AS0 established the shared substrate. This correction widens identity/asset
+scope so later domains are not designed as an afterthought. **AS1 remains
+Plan-only.**
 
 ---
 
 ## Sequence
 
 ```text
-AS0  DESIGN          architecture + this roadmap + AS1 handoff
-AS1  PLAN DOCUMENTS  substrate + first real consumer (kind=plan)
-AS2  PLAYABLE        runbook WorkRevisions historically addressable
-AS3  PLAY RUNTIME    Run + sealed manifest in one transaction
-AS4  PLAY CONTINUITY active Run + resume/reload
-AS5  PLAY DEMOLITION delete replaced Play file writers/locks/intents
-AS6+ OTHER SURFACES  Combat, worldbuilding_source, remaining file state
+AS0   DESIGN                 DONE — PR #636 @ 605445b3
+AS0.1 STORAGE-TOPOLOGY       THIS PR — identity / asset / Ingest scope
+AS1   PLAN DOCUMENTS         NEXT implementation — substrate + kind=plan
+AS2   PLAYABLE               runbook WorkRevisions historically addressable
+AS3   PLAY RUNTIME           Run + sealed manifest in one transaction
+AS4   PLAY CONTINUITY        active Run + resume/reload
+AS5   PLAY DEMOLITION        delete replaced Play file writers/locks/intents
+AS6+  CANDIDATE FAMILIES     evidence-driven; not pre-authorized schemas
 ```
 
 BF2/BF3 Play Runtime/cockpit deepening stays paused on the file-backed store
 until AS3/AS4 land or the steward explicitly re-sequences.
+
+Order after AS5 is evidence-driven and may interleave with Play/Agent/CUTOVER
+work. Do not invent AS6/AS7 implementation handoffs or table names to fill this
+list.
 
 ---
 
@@ -39,14 +45,29 @@ until AS3/AS4 land or the steward explicitly re-sequences.
 
 | Field | Content |
 |---|---|
-| Status | **this PR** (architecture gate) |
-| Independently useful outcome | Reviewed persistence architecture so AS1 does not guess lifecycle, revision, isolation, or cutover rules |
-| Primary consumer/story | Steward / implementation agents; CON-READY durability stories enabled but not implemented |
-| Predecessor | Steward seed `STEWARDS-ANCHOR-application-state.md`; CUTOVER #634; Play BF1 PR #628 |
-| Durable/public contract introduced | `ARCHITECTURE-application-state-layer.md` |
+| Status | **DONE** — merged PR #636 at `605445b3b839b494a82218758c465edbfe59bad9` |
+| Independently useful outcome | Reviewed persistence architecture so later slices do not guess lifecycle, revision, isolation, or cutover rules |
+| Primary consumer/story | Steward / implementation agents |
+| Predecessor | Steward seed; CUTOVER #634; Play BF1 PR #628 |
+| Durable/public contract introduced | `ARCHITECTURE-application-state-layer.md` v1.0 |
 | Runtime/database collision boundary | None (design-only) |
-| Required product + owning-boundary evidence | Architecture completeness vs AS0 §6/§10; steward preflight; three-file lease |
-| What remains false | No Buddy application-state database, migrations, route wiring, data import, Play cutover, or file demolition |
+| Required product + owning-boundary evidence | Architecture completeness vs original AS0 §6/§10; three-file lease |
+| What remains false | No Buddy application-state database; Plan not migrated; identity law later widened by AS0.1 |
+
+---
+
+## AS0.1 — STORAGE-TOPOLOGY BOUNDARY
+
+| Field | Content |
+|---|---|
+| Status | **this PR** (architecture correction before AS1) |
+| Independently useful outcome | Durable Buddy objects have storage-independent identity; large bytes named to DungeonMindServer storage/CDN via Asset metadata; Ingest/generated artifacts are first-class future consumers; WorkObject stays Content-only |
+| Primary consumer/story | Prevents AS1 from baking path/URL identity or a document-only substrate |
+| Predecessor | AS0 #636 |
+| Durable/public contract introduced | Architecture v1.1 four state classes + classification test |
+| Runtime/database collision boundary | None (design-only). Open CUTOVER #638 does not lease these files. |
+| Required product + owning-boundary evidence | Four-file lease; architecture/roadmap/anchor/AS1 consistency; no speculative tables |
+| What remains false | Everything in AS1–AS6+ remains unimplemented; no Postgres, no Asset service, no Ingest schema |
 
 ---
 
@@ -54,17 +75,22 @@ until AS3/AS4 land or the steward explicitly re-sequences.
 
 | Field | Content |
 |---|---|
-| Status | NEXT after AS0 PASS/merge/re-anchor |
+| Status | NEXT after **AS0.1** PASS/merge/re-anchor (not after AS0 alone) |
 | Independently useful outcome | A Plan workspace document (`kind=plan`) can be created, autosaved as a WorkingCopy, committed as an immutable WorkRevision, reloaded after process restart, and CAS-conflicted — entirely on Buddy PostgreSQL |
 | Primary consumer/story | Plan/Build authoring via existing `/api/live/workspace-documents*` + Tiptap commit for `kind=plan`; CR-U11/CR-U17 adjacent |
-| Predecessor | Accepted AS0 architecture |
+| Predecessor | Accepted architecture v1.1 (AS0 + this correction) |
 | Durable/public contract introduced | Buddy application-state DSN + Alembic tree; `content.work_object` / `work_revision` / `working_copy`; plan-kind authority switch |
 | Runtime/database collision boundary | New DSN and database `dungeonbuddy_application_state` on the existing local Postgres server; `pyproject.toml` / `uv.lock`; live-control-server plan write path. Serialize with CUTOVER if it leases those root files. World Graph DB is forbidden. |
 | Required product + owning-boundary evidence | PostgreSQL integration tests through the plan domain service (and route); CAS 409; DB unavailable fail-closed; no file read after switch; existing plan snapshot import idempotency; baseline vs head save/load/commit latency captured (hypotheses in architecture §15) |
-| What remains false | `runbook` still file-backed; Play Runs/manifests/active-run unchanged; Combat unchanged; `worldbuilding_source` unchanged; no Play historical pinning yet; corpus Session Prep files not auto-published |
+| What remains false | `runbook` still file-backed; Play Runs/manifests/active-run unchanged; Combat unchanged; Ingest/Asset/generated-artifact tables **must not exist**; `worldbuilding_source` unchanged; no Play historical pinning yet; corpus Session Prep files not auto-published; no DungeonMindServer CDN integration |
 
 AS1 that only adds connection helpers, empty migrations, and unused tables is
-**not** this slice.
+**not** this slice. AS1 that adds `ingest.*`, `assets.*`, Play, Combat, or
+generator tables is **scope expansion** — stop.
+
+The substrate proved by Plan is intended for later domain services. WorkObject
+is the Content primitive used by Plan, not a generic container those later
+domains must use.
 
 ---
 
@@ -124,23 +150,27 @@ AS1 that only adds connection helpers, empty migrations, and unused tables is
 | Durable/public contract introduced | negative: those paths are not product authority |
 | Runtime/database collision boundary | deletion of Play registry/lock/intent modules; tests that previously used tmp files |
 | Required product + owning-boundary evidence | suite + dogfood with `out/runtime/play` missing; old write attempts fail closed; no fallback toggle |
-| What remains false | Combat file persistence remains; other workspace kinds may remain; CUTOVER graph-runtime demolition remains separate |
+| What remains false | Combat file persistence remains; other workspace kinds may remain; Ingest/Asset/generated artifacts not migrated; CUTOVER graph-runtime demolition remains separate |
 
 ---
 
-## AS6+ — OTHER SURFACES
+## AS6+ — candidate migration families
 
-Re-anchor before each. Candidates, not pre-authorized PRs:
+Re-anchor before each. These are families, **not** pre-authorized PRs or
+schema names to create early:
 
-| Candidate | Independently useful outcome | Notes |
+| Family | Independently useful outcome when selected | Notes |
 |---|---|---|
-| Combat current + saves | Combat survives worktree/session_dir locality | Combat-owned schema; Play stores only a reference |
-| `worldbuilding_source` | Build sources on WorkObject | Distinct publish/corpus policy; not World truth |
+| Ingest / SourceArtifact / processing-review | Ingest run and source identity survive without path-as-id; accepted World proposals still publish through DungeonMind | First-class APP-STATE consumer; current recap ingest is topology-heavy |
+| Generated artifact lifecycles | Statblock, location, NPC, shop, encounter, and card **drafts/projects** have stable ids through review/use | Domain-owned schemas; not WorkObject unless document-like |
+| Asset metadata + DungeonMindServer bytes | Consumers store `asset_id`; CDN URL is delivery, not identity | No byte columns in PostgreSQL for large binaries |
+| Combat | Combat survives worktree/session_dir locality | Combat-owned schema; Play stores only a reference |
+| Remaining content / worldbuilding_source | Build sources durable without becoming World truth | Distinct publish/corpus policy |
+| Optional agent proposal/task durability | Only if product correctness requires it across reload | Do not migrate Hermes localStorage by default |
 | Remaining plan publish-to-corpus | Explicit export of a WorkRevision to Session Prep.md | Must not be silent |
-| Source asset metadata | Identity/digest/locator in Postgres | Bytes stay external |
 | Run mutation history | Optional audit rows committed with CAS | Not event sourcing; only if independently useful |
 
-Do not start AS6+ by creating unused tables for every candidate.
+Do not start any of these by creating unused tables in AS1.
 
 ---
 
@@ -148,9 +178,9 @@ Do not start AS6+ by creating unused tables for every candidate.
 
 - CUTOVER D.2/D.3 may resume in parallel **if** write leases do not overlap.
   AS1's likely overlap is `pyproject.toml` / server bootstrap — serialize then.
-- Open at AS0 authoring: CUTOVER PR #635 (`HANDOFF-CUTOVER-threat-authority-port.md` only) does not overlap AS0's three files.
+- Open at this correction: CUTOVER PR #638 (`HANDOFF-CUTOVER-worldbuilding-authority-port.md` only) does not overlap these four files.
 - PLAY-SURFACE BF2/BF3 remain paused on file-backed Runtime until AS3/AS4 or steward re-sequence.
-- CON-READY stories are acceptance context, not a license to bundle Combat into AS1.
+- CON-READY stories are acceptance context, not a license to bundle Combat or Ingest into AS1.
 
 ---
 
@@ -158,8 +188,11 @@ Do not start AS6+ by creating unused tables for every candidate.
 
 The workstream succeeds when:
 
-1. Buddy-owned durable state that product correctness depends on lives behind domain services on this substrate.
-2. DungeonMind remains sole World Graph authority.
-3. Replaced file authorities are deleted, not toggled.
-4. Play resume/save/CAS meet measured (not hypothesized) latency gates.
-5. Historical Playable revisions are real, not "current file equals the Run."
+1. Buddy-owned durable product objects have stable domain identity independent of filesystem path, corpus path, CDN URL, bucket key, or table coordinate.
+2. Those objects live behind domain services on the Buddy PostgreSQL substrate (metadata/relationships for assets; not necessarily bytes).
+3. Large binary bytes are delivered through DungeonMindServer storage/CDN behind `asset_id`.
+4. DungeonMind remains sole World Graph authority.
+5. Derived/regenerable representations are not promoted into authority merely because they are persisted.
+6. Replaced topology (paths/files/URL-as-id) is demolished, not toggled, for each switched domain.
+7. Play resume/save/CAS meet measured (not hypothesized) latency gates.
+8. Historical Playable revisions are real, not "current file equals the Run."
