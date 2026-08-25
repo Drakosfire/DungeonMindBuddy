@@ -82,6 +82,48 @@ def unswitched_workspace_record(
     return record
 
 
+def capture_legacy_runbook_snapshots(root: Path) -> list:
+    """Capture leftover file-backed runbook rows + current bytes under predecessor locks.
+
+    Lock order matches the file-backed writer: ``workspace_document_mutation_lock``
+    first, then the registry file lock. Import consumes this snapshot and never
+    re-reads the target file.
+    """
+    from application_state.content.import_runbooks import freeze_legacy_runbook
+    from application_state.content.types import normalize_markdown
+
+    path = workspace_documents_path(root)
+    with registry_mutation_lock(path):
+        leftover_ids = [
+            r.document_id
+            for r in _load_unlocked(root)[0].records
+            if r.kind == "runbook"
+        ]
+    snapshots = []
+    for document_id in leftover_ids:
+        with workspace_document_mutation_lock(root, document_id):
+            with registry_mutation_lock(path):
+                record = next(
+                    (
+                        r
+                        for r in _load_unlocked(root)[0].records
+                        if r.document_id == document_id and r.kind == "runbook"
+                    ),
+                    None,
+                )
+                if record is None:
+                    continue
+                markdown = None
+                if record.target_relpath:
+                    target = root / record.target_relpath
+                    if target.is_file():
+                        markdown = normalize_markdown(
+                            target.read_text(encoding="utf-8")
+                        )
+                snapshots.append(freeze_legacy_runbook(record, markdown))
+    return snapshots
+
+
 class WorkspaceDocumentRegistryError(ValueError):
     status_code: int = 404
 
@@ -448,6 +490,17 @@ def _validate_worldbuilding_metadata(
     }
 
 
+def _content_target_owner(target_relpath: str | None) -> str | None:
+    if target_relpath is None or target_relpath == "":
+        return None
+    from application_state.content.service import list_plans, list_runbooks
+
+    for obj in [*list_plans(status=None), *list_runbooks(status=None)]:
+        if obj.target_relpath == target_relpath:
+            return str(obj.work_object_id)
+    return None
+
+
 def create_workspace_document(
     root: Path,
     *,
@@ -551,6 +604,13 @@ def create_workspace_document(
 
         create_fn = create_plan if kind == "plan" else create_runbook
         try:
+            owner = _content_target_owner(resolved_target)
+            if owner is not None:
+                raise WorkspaceDocumentRegistryError(
+                    "target_relpath is already owned by another workspace document: "
+                    f"{owner}",
+                    status_code=409,
+                )
             obj = create_fn(
                 title=cleaned_title,
                 campaign_id=cleaned_campaign,
@@ -777,21 +837,26 @@ def update_workspace_document_metadata(
 ) -> WorkspaceDocumentRecord:
     file_record = unswitched_workspace_record(root, document_id)
     if file_record is None:
-        from application_state.content.service import get_content_optional, update_plan_metadata
+        from application_state.content.service import get_content_optional
         from application_state.errors import ApplicationStateError
 
         try:
-            existing_plan = get_content_optional(document_id)
+            existing = get_content_optional(document_id)
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
-        if existing_plan is None:
+        if existing is None:
             raise WorkspaceDocumentRegistryError(
                 f"workspace document not found: {_validate_document_id(document_id)}",
                 status_code=404,
             )
-        if target_relpath is not _UNSET and target_relpath != existing_plan.target_relpath:
+        if existing.kind not in ("plan", "runbook"):
             raise WorkspaceDocumentRegistryError(
-                "plan target_relpath cannot be changed via metadata update",
+                f"workspace document not found: {_validate_document_id(document_id)}",
+                status_code=404,
+            )
+        if target_relpath is not _UNSET and target_relpath != existing.target_relpath:
+            raise WorkspaceDocumentRegistryError(
+                "target_relpath cannot be changed via metadata update",
                 status_code=422,
             )
         if document_class is not _UNSET or authority_state is not _UNSET or visibility_state is not _UNSET:
@@ -799,8 +864,16 @@ def update_workspace_document_metadata(
                 "worldbuilding metadata is only valid for kind=worldbuilding_source",
                 status_code=422,
             )
+        from application_state.content.service import (
+            update_plan_metadata,
+            update_runbook_metadata,
+        )
+
+        update_fn = (
+            update_plan_metadata if existing.kind == "plan" else update_runbook_metadata
+        )
         try:
-            updated = update_plan_metadata(
+            updated = update_fn(
                 document_id,
                 title=None if title is _UNSET else str(title),
                 target_session=None if target_session is _UNSET else target_session,  # type: ignore[arg-type]
@@ -943,11 +1016,27 @@ def discard_workspace_document(
 ) -> WorkspaceDocumentRecord:
     file_record = unswitched_workspace_record(root, document_id)
     if file_record is None:
-        from application_state.content.service import update_plan_metadata
+        from application_state.content.service import (
+            get_content_optional,
+            update_plan_metadata,
+            update_runbook_metadata,
+        )
         from application_state.errors import ApplicationStateError
 
         try:
-            updated = update_plan_metadata(
+            existing = get_content_optional(document_id)
+        except ApplicationStateError as exc:
+            raise _map_application_state_error(exc) from exc
+        if existing is None or existing.kind not in ("plan", "runbook"):
+            raise WorkspaceDocumentRegistryError(
+                f"workspace document not found: {_validate_document_id(document_id)}",
+                status_code=404,
+            )
+        update_fn = (
+            update_plan_metadata if existing.kind == "plan" else update_runbook_metadata
+        )
+        try:
+            updated = update_fn(
                 document_id,
                 status="discarded",
                 expected_revision=expected_revision,
@@ -972,11 +1061,27 @@ def restore_workspace_document(
 ) -> WorkspaceDocumentRecord:
     file_record = unswitched_workspace_record(root, document_id)
     if file_record is None:
-        from application_state.content.service import update_plan_metadata
+        from application_state.content.service import (
+            get_content_optional,
+            update_plan_metadata,
+            update_runbook_metadata,
+        )
         from application_state.errors import ApplicationStateError
 
         try:
-            updated = update_plan_metadata(
+            existing = get_content_optional(document_id)
+        except ApplicationStateError as exc:
+            raise _map_application_state_error(exc) from exc
+        if existing is None or existing.kind not in ("plan", "runbook"):
+            raise WorkspaceDocumentRegistryError(
+                f"workspace document not found: {_validate_document_id(document_id)}",
+                status_code=404,
+            )
+        update_fn = (
+            update_plan_metadata if existing.kind == "plan" else update_runbook_metadata
+        )
+        try:
+            updated = update_fn(
                 document_id,
                 status="active",
                 expected_revision=expected_revision,
