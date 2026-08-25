@@ -1021,6 +1021,43 @@ def _confirm_capability_policy(
     )
 
 
+def _threat_publish_capability_policy(
+    *,
+    world_id: str,
+    campaign_id: str | None,
+    parent_revision_id: str,
+) -> Any:
+    """Same confirm-commit tool admission as D.1, distinct policy identity."""
+    from dungeonmind.contracts.capability import (
+        CapabilityCategory,
+        CapabilityEffect,
+        CapabilityPolicy,
+        GraphScope,
+        ToolCapabilityRule,
+    )
+    from dungeonmind.contracts.contribution_review_v2 import FINALIZE_REVIEW_V2_TOOL
+    from dungeonmind.contracts.projection import Admissibility
+
+    return CapabilityPolicy(
+        policy_id="cutover:threat-publication-confirm",
+        graph_scope=GraphScope(
+            world_id=world_id,
+            campaign_id=campaign_id,
+            admissibility=Admissibility.GM,
+            revision_pin=parent_revision_id,
+        ),
+        enabled_tools=[FINALIZE_REVIEW_V2_TOOL],
+        tool_rules=[
+            ToolCapabilityRule(
+                tool_name=FINALIZE_REVIEW_V2_TOOL,
+                category=CapabilityCategory.CONFIRM_COMMIT,
+                require_graph_scope=True,
+                allowed_effects=[CapabilityEffect.COMMIT],
+            )
+        ],
+    )
+
+
 def _subject_id(assertion: Any) -> str:
     return str(
         getattr(assertion, "subject_node_id", None)
@@ -1595,6 +1632,317 @@ def confirm_extract_promote_via_dungeonmind(
     )
 
 
+def publish_contribution_via_dungeonmind(
+    *,
+    world_id: str,
+    expected_parent_revision_id: str,
+    operation_id: str,
+    actor: str,
+    contribution: Any,
+    database_url: str | None = None,
+) -> dict[str, Any]:
+    """Publish one reconstructed GraphContribution through DungeonMind.
+
+    Product-neutral relative to Graph Review: does not change
+    ``confirm_extract_promote_via_dungeonmind``. Threat (D.2A) is the first
+    caller. Identity-ledger sealing remains a Graph Review concern.
+    """
+    from dungeonmind.contracts.contribution_review import (
+        ContributionAssertionVerdict,
+        ContributionPlanRef,
+        derive_confirmation_id,
+    )
+    from dungeonmind.contracts.contribution_review_v2 import (
+        CommitConfirmationReceiptV2,
+        ContributionReviewIntentV2,
+        ContributionReviewSubmissionV2,
+        contribution_v2_payload_sha256,
+        derive_review_intent_sha256_v2,
+        FINALIZE_REVIEW_V2_TOOL,
+    )
+    from dungeonmind.contracts.semantic_profile import SemanticProfileRef
+    from dungeonmind.domain.canonical import canonical_sha256
+    from dungeonmind.domain.errors import (
+        ContributionMaterializationError,
+        DungeonMindError,
+        StaleParentRevisionError,
+    )
+
+    dsn = _require_database_url(database_url)
+    services = _direct_services(dsn, world_id)
+    bundle = services.bundle
+    try:
+        existing = bundle.finalized_review_publications.get(world_id, operation_id)
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind authority read failed during publish",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+    if existing is not None:
+        accepted_assertion_ids, _affected = _receipt_ids_from_reviewed_contribution(
+            bundle=bundle,
+            world_id=world_id,
+            publication=existing,
+        )
+        return {
+            "outcome": "already_applied",
+            "world_id": world_id,
+            "operation_id": existing.operation_id,
+            "parent_revision_id": existing.expected_parent_revision_id,
+            "committed_revision_id": existing.published_revision_id,
+            "contribution_id": existing.reviewed_contribution_id,
+            "reviewed_contribution_sha256": existing.reviewed_contribution_sha256,
+            "accepted_assertion_ids": accepted_assertion_ids,
+        }
+
+    try:
+        head = bundle.world_graph.get_head(world_id)
+        parent_stored = bundle.world_graph.get_revision(
+            world_id, expected_parent_revision_id
+        )
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind authority read failed during publish",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+    if head is None or parent_stored is None:
+        raise WorldGraphWriteError(
+            "DungeonMind parent revision is unreadable",
+            code="authority_head_missing",
+            details={
+                "world_id": world_id,
+                "revision_id": expected_parent_revision_id,
+            },
+        )
+    if head.head_revision_id != expected_parent_revision_id:
+        raise WorldGraphWriteError(
+            "DungeonMind head advanced past the sealed expected parent",
+            code="governed_write_stale_parent",
+            details={
+                "world_id": world_id,
+                "expected_parent_revision_id": expected_parent_revision_id,
+                "actual_head_revision_id": head.head_revision_id,
+            },
+        )
+
+    mutation_context = mutation_context_from_revision_payload(
+        parent_stored,
+        world_id=world_id,
+        head_revision_id=str(head.head_revision_id),
+    )
+    accepted_assertion_ids, _affected = _affected_ids_from_contribution(contribution)
+    parent_envelope = parent_stored.revision
+    pair_to_dm = _build_pair_to_dm(bundle, world_id, contribution)
+    reviewed_at = parent_envelope.created_at
+    candidate, verdict_states = _build_v2_candidate(
+        contribution,
+        context=mutation_context,
+        pair_to_dm=pair_to_dm,
+        produced_at=reviewed_at,
+    )
+    proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
+    assertion_verdicts = [
+        ContributionAssertionVerdict(
+            assertion_id=assertion.assertion_id,
+            acceptance_state=verdict_states[assertion.assertion_id],
+        )
+        for assertion in sorted(
+            candidate.assertions, key=lambda item: item.assertion_id
+        )
+    ]
+    campaign_id = contribution.campaign_scope or None
+    raw_profile = parent_stored.graph_payload.get("semantic_profile")
+    if raw_profile is None:
+        raise WorldGraphWriteError(
+            "DungeonMind parent revision payload declares no semantic profile",
+            code="governed_write_inexpressible",
+            details={"world_id": world_id, "revision_id": expected_parent_revision_id},
+        )
+    plan_ref = ContributionPlanRef(
+        source_plan_schema="dmb_threat_publication_contribution_v1",
+        source_plan_id=operation_id,
+        source_plan_sha256=canonical_sha256(
+            {
+                "operation_id": operation_id,
+                "contribution_id": contribution.contribution_id,
+            }
+        ),
+        source_input_sha256=canonical_sha256(
+            {"contribution_id": contribution.contribution_id}
+        ),
+        preview_content_sha256=canonical_sha256({}),
+        candidate_contribution_sha256=contribution_v2_payload_sha256(candidate),
+        expected_parent_revision_id=expected_parent_revision_id,
+        base_graph_schema=parent_envelope.graph_schema,
+        base_graph_payload_sha256=parent_envelope.graph_payload_sha256,
+        semantic_profile=SemanticProfileRef.model_validate(raw_profile),
+    )
+    intent_sha256 = derive_review_intent_sha256_v2(
+        operation_id=operation_id,
+        world_id=world_id,
+        campaign_id=campaign_id,
+        plan_ref=plan_ref,
+        candidate_contribution=candidate,
+        identity_proposals=proposals,
+        identity_verdicts=verdicts,
+        assertion_verdicts=assertion_verdicts,
+        reviewer_id=actor,
+        reviewed_at=reviewed_at,
+    )
+    try:
+        intent = ContributionReviewIntentV2(
+            operation_id=operation_id,
+            world_id=world_id,
+            campaign_id=campaign_id,
+            plan_ref=plan_ref,
+            candidate_contribution=candidate,
+            identity_proposals=proposals,
+            identity_verdicts=verdicts,
+            assertion_verdicts=assertion_verdicts,
+            reviewer_id=actor,
+            reviewed_at=reviewed_at,
+            review_intent_sha256=intent_sha256,
+        )
+        confirmation = CommitConfirmationReceiptV2(
+            confirmation_id=derive_confirmation_id(
+                operation_id=operation_id,
+                review_intent_sha256=intent_sha256,
+                actor=actor,
+                confirmed_at=reviewed_at,
+            ),
+            operation_id=operation_id,
+            review_intent_sha256=intent_sha256,
+            actor=actor,
+            tool_name=FINALIZE_REVIEW_V2_TOOL,
+            effect="commit",
+            world_id=world_id,
+            campaign_id=campaign_id,
+            expected_parent_revision_id=expected_parent_revision_id,
+            confirmed_at=reviewed_at,
+        )
+        submission = ContributionReviewSubmissionV2(
+            intent=intent, confirmation=confirmation
+        )
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "Threat contribution cannot be expressed as a DungeonMind v2 review",
+            code="governed_write_inexpressible",
+            details={
+                "world_id": world_id,
+                "contribution_id": contribution.contribution_id,
+                "reason": str(exc)[:500],
+            },
+        ) from exc
+
+    from dungeonmind.application.contribution_review_v2 import (
+        finalize_contribution_review_v2,
+    )
+    from dungeonmind.application.review_publication import (
+        publish_finalized_review,
+    )
+
+    try:
+        state = finalize_contribution_review_v2(
+            submission,
+            capability_policy=_threat_publish_capability_policy(
+                world_id=world_id,
+                campaign_id=campaign_id,
+                parent_revision_id=expected_parent_revision_id,
+            ),
+            world_graph_repository=bundle.world_graph,
+            review_repository=bundle.contribution_reviews,
+        )
+    except StaleParentRevisionError as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind head advanced past the sealed expected parent",
+            code="governed_write_stale_parent",
+            details={
+                "world_id": world_id,
+                "expected_parent_revision_id": expected_parent_revision_id,
+                "actual_head_revision_id": getattr(
+                    exc, "actual_head_revision_id", None
+                ),
+            },
+        ) from exc
+    except DungeonMindError as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind review finalization failed",
+            code="governed_write_failed",
+            details={"world_id": world_id, "reason": str(exc)[:500]},
+        ) from exc
+
+    try:
+        publication = publish_finalized_review(
+            world_id,
+            state.record.review_id,
+            published_at=reviewed_at,
+            review_repository=bundle.contribution_reviews,
+            world_graph_repository=bundle.world_graph,
+            publication_repository=bundle.finalized_review_publications,
+            graph_reader=_build_graph_reader(),
+        )
+    except ContributionMaterializationError as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind v6 materialization rejected the Threat contribution",
+            code="governed_write_materialization_failed",
+            details={
+                "world_id": world_id,
+                "review_id": state.record.review_id,
+                "reason": exc.reason,
+                **{k: v for k, v in (exc.details or {}).items() if k not in {"reason"}},
+            },
+        ) from exc
+    except DungeonMindError as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind review publication failed",
+            code="governed_write_failed",
+            details={
+                "world_id": world_id,
+                "review_id": state.record.review_id,
+                "reason": str(exc)[:500],
+            },
+        ) from exc
+
+    child_id = publication.published_revision_id
+    try:
+        child = bundle.world_graph.get_revision(world_id, child_id)
+        head_after = bundle.world_graph.get_head(world_id)
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind post-publication verification failed",
+            code="governed_write_failed",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+    if child is None:
+        raise WorldGraphWriteError(
+            "published DungeonMind child revision is unreadable",
+            code="governed_write_failed",
+            details={"world_id": world_id, "revision_id": child_id},
+        )
+    if head_after is None or head_after.head_revision_id != child_id:
+        raise WorldGraphWriteError(
+            "DungeonMind head did not advance to the published child",
+            code="governed_write_failed",
+            details={
+                "world_id": world_id,
+                "committed_revision_id": child_id,
+                "head_revision_id": getattr(head_after, "head_revision_id", None),
+            },
+        )
+    return {
+        "outcome": "published",
+        "world_id": world_id,
+        "operation_id": publication.operation_id,
+        "parent_revision_id": expected_parent_revision_id,
+        "committed_revision_id": child_id,
+        "contribution_id": publication.reviewed_contribution_id,
+        "reviewed_contribution_sha256": publication.reviewed_contribution_sha256,
+        "accepted_assertion_ids": accepted_assertion_ids,
+    }
+
+
 __all__ = [
     "IDENTITY_LEDGER_SCHEMA",
     "WorldGraphWriteError",
@@ -1603,5 +1951,6 @@ __all__ = [
     "load_production_mutation_context",
     "mutation_context_from_native_projection",
     "mutation_context_from_revision_payload",
+    "publish_contribution_via_dungeonmind",
     "write_error_status_code",
 ]

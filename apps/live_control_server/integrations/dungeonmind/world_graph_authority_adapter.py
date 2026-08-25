@@ -1,0 +1,326 @@
+"""DungeonMind production adapter for the World Graph authority port (D.2A).
+
+Owns database URL resolution, repository construction, and mapping between
+Buddy contribution values and DungeonMind governed publication. Product
+services must not import this module's PostgreSQL types.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+from graph_memory.world_graph_mutation_context import wire_kind
+
+from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+    WorldGraphWriteError,
+    _direct_services,
+    _require_database_url,
+    publish_contribution_via_dungeonmind,
+)
+from apps.live_control_server.ports.world_graph_authority import (
+    AuthorityObject,
+    AuthorityRelationship,
+    WorldGraphAuthorityError,
+    WorldGraphExpectedChildFacts,
+    WorldGraphHead,
+    WorldGraphPublicationReceipt,
+    WorldGraphPublishRequest,
+    WorldGraphRevisionView,
+    WorldGraphVerificationResult,
+)
+
+_WRITE_TO_PORT = {
+    "authority_unavailable": "authority_unavailable",
+    "authority_head_missing": "authority_unavailable",
+    "revision_not_bridged": "revision_unavailable",
+    "governed_write_stale_parent": "stale_parent",
+    "governed_write_inexpressible": "inexpressible",
+    "governed_write_materialization_failed": "inexpressible",
+    "governed_write_legacy_package": "inexpressible",
+    "governed_write_failed": "publication_failed",
+    "invalid_request": "inexpressible",
+}
+
+_MECHANICS_KINDS = frozenset({"external_resource"})
+_MECHANICS_PREDICATES = frozenset({"uses_statblock"})
+_MECHANICS_VALUE_KEYS = frozenset({"threat_statblock_binding", "statblock_binding"})
+
+
+def _raise_port(exc: WorldGraphWriteError) -> None:
+    raise WorldGraphAuthorityError(
+        str(exc),
+        code=_WRITE_TO_PORT.get(exc.code, "publication_failed"),  # type: ignore[arg-type]
+        details=dict(exc.details),
+    ) from exc
+
+
+def _alias_values(raw: Any) -> tuple[str, ...]:
+    if not raw:
+        return ()
+    values: list[str] = []
+    for item in raw:
+        if isinstance(item, str) and item.strip():
+            values.append(item)
+        elif isinstance(item, dict):
+            text = str(item.get("value") or item.get("alias") or "").strip()
+            if text:
+                values.append(text)
+    return tuple(values)
+
+
+def _object_from_payload(raw: Mapping[str, Any]) -> AuthorityObject | None:
+    object_id = str(raw.get("object_id") or "").strip()
+    if not object_id:
+        return None
+    kind = wire_kind(str(raw.get("kind") or ""))
+    meta = raw.get("assertion_metadata") or raw.get("existence_assertion_metadata") or {}
+    campaign_scope = None
+    if isinstance(meta, dict):
+        campaign_scope = meta.get("campaign_scope")
+        if campaign_scope is not None:
+            campaign_scope = str(campaign_scope)
+    external = None
+    for prop in raw.get("properties") or []:
+        if not isinstance(prop, dict):
+            continue
+        term = str(prop.get("property_term") or prop.get("predicate") or "")
+        if term.rsplit(":", 1)[-1] == "external_resource":
+            value = prop.get("value")
+            if isinstance(value, dict):
+                external = value
+    return AuthorityObject(
+        object_id=object_id,
+        label=str(raw.get("label") or ""),
+        kind=kind,
+        role=kind,
+        aliases=_alias_values(raw.get("aliases")),
+        source_domains=(),
+        campaign_scope=campaign_scope,
+        summary=str(raw.get("summary") or "") or None,
+        external_resource=external,
+    )
+
+
+def _relationship_from_payload(raw: Mapping[str, Any]) -> AuthorityRelationship | None:
+    relationship_id = str(raw.get("relationship_id") or "").strip()
+    subject = str(raw.get("source_object_id") or raw.get("subject_object_id") or "").strip()
+    target = str(raw.get("target_object_id") or raw.get("object_object_id") or "").strip()
+    predicate = wire_kind(str(raw.get("predicate") or ""))
+    if not relationship_id or not subject or not target or not predicate:
+        return None
+    return AuthorityRelationship(
+        relationship_id=relationship_id,
+        subject_object_id=subject,
+        target_object_id=target,
+        predicate=predicate,
+        direction="outbound",
+        source_domains=(),
+        threat_statblock_binding=None,
+    )
+
+
+def _view_from_stored(*, world_id: str, stored: Any) -> WorldGraphRevisionView:
+    payload = dict(getattr(stored, "graph_payload", None) or {})
+    envelope = getattr(stored, "revision", None)
+    revision_id = str(getattr(envelope, "revision_id", "") or "")
+    parent_revision_id = getattr(envelope, "parent_revision_id", None)
+    objects: dict[str, AuthorityObject] = {}
+    for raw in list(payload.get("objects") or []):
+        if not isinstance(raw, dict):
+            continue
+        obj = _object_from_payload(raw)
+        if obj is not None:
+            objects[obj.object_id] = obj
+    relationships: dict[str, AuthorityRelationship] = {}
+    for raw in list(payload.get("relationships") or []):
+        if not isinstance(raw, dict):
+            continue
+        rel = _relationship_from_payload(raw)
+        if rel is not None:
+            relationships[rel.relationship_id] = rel
+    return WorldGraphRevisionView(
+        world_id=world_id,
+        revision_id=revision_id,
+        parent_revision_id=str(parent_revision_id) if parent_revision_id else None,
+        objects=objects,
+        relationships=relationships,
+    )
+
+
+def _assertion_value(assertion: Any) -> dict[str, Any]:
+    value = getattr(assertion, "value", None) or {}
+    if isinstance(value, str):
+        import json
+
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _is_mechanics_assertion(assertion: Any) -> bool:
+    kind = str(_assertion_value(assertion).get("kind") or "")
+    if wire_kind(kind) in _MECHANICS_KINDS:
+        return True
+    predicate = str(getattr(assertion, "predicate", None) or "")
+    if predicate.rsplit(":", 1)[-1] in _MECHANICS_PREDICATES:
+        return True
+    value = _assertion_value(assertion)
+    return any(key in value for key in _MECHANICS_VALUE_KEYS)
+
+
+def _world_graph_expressible(contribution: Any) -> Any:
+    accepted = [
+        item
+        for item in list(getattr(contribution, "accepted_assertions", None) or [])
+        if not _is_mechanics_assertion(item)
+    ]
+    copy = getattr(contribution, "model_copy", None)
+    if callable(copy):
+        return copy(update={"accepted_assertions": accepted})
+    return contribution
+
+
+class DungeonMindWorldGraphAuthorityAdapter:
+    """Production World Graph authority. PostgreSQL stays inside this class."""
+
+    def __init__(self, *, database_url: str | None = None) -> None:
+        self._database_url = database_url
+
+    def _services(self, world_id: str) -> Any:
+        try:
+            dsn = _require_database_url(self._database_url)
+            return _direct_services(dsn, world_id)
+        except WorldGraphWriteError as exc:
+            _raise_port(exc)
+            raise
+
+    def current_head(self, world_id: str) -> WorldGraphHead:
+        services = self._services(world_id)
+        try:
+            head = services.bundle.world_graph.get_head(world_id)
+        except Exception as exc:
+            raise WorldGraphAuthorityError(
+                "DungeonMind authority is unavailable",
+                code="authority_unavailable",
+                details={"world_id": world_id, "reason": type(exc).__name__},
+            ) from exc
+        if head is None or not str(getattr(head, "head_revision_id", "") or "").strip():
+            raise WorldGraphAuthorityError(
+                "DungeonMind authority has no published head",
+                code="revision_unavailable",
+                details={"world_id": world_id},
+            )
+        return WorldGraphHead(world_id=world_id, revision_id=str(head.head_revision_id))
+
+    def read_revision(self, world_id: str, revision_id: str) -> WorldGraphRevisionView:
+        services = self._services(world_id)
+        try:
+            stored = services.bundle.world_graph.get_revision(world_id, revision_id)
+        except Exception as exc:
+            raise WorldGraphAuthorityError(
+                "DungeonMind authority is unavailable",
+                code="authority_unavailable",
+                details={"world_id": world_id, "reason": type(exc).__name__},
+            ) from exc
+        if stored is None:
+            raise WorldGraphAuthorityError(
+                "DungeonMind revision is unavailable",
+                code="revision_unavailable",
+                details={"world_id": world_id, "revision_id": revision_id},
+            )
+        return _view_from_stored(world_id=world_id, stored=stored)
+
+    def publish(self, request: WorldGraphPublishRequest) -> WorldGraphPublicationReceipt:
+        expressible = _world_graph_expressible(request.contribution)
+        accepted = list(getattr(expressible, "accepted_assertions", None) or [])
+        if not accepted:
+            raise WorldGraphAuthorityError(
+                "Threat contribution has no DungeonMind-representable World Graph facts",
+                code="inexpressible",
+                details={
+                    "world_id": request.world_id,
+                    "authority_operation_id": request.authority_operation_id,
+                    "decision": request.decision,
+                },
+            )
+        try:
+            payload = publish_contribution_via_dungeonmind(
+                world_id=request.world_id,
+                expected_parent_revision_id=request.expected_parent_revision_id,
+                operation_id=request.authority_operation_id,
+                actor=request.actor,
+                contribution=expressible,
+                database_url=self._database_url,
+            )
+        except WorldGraphWriteError as exc:
+            _raise_port(exc)
+            raise
+        return WorldGraphPublicationReceipt(
+            world_id=str(payload["world_id"]),
+            authority_operation_id=request.authority_operation_id,
+            parent_revision_id=str(payload["parent_revision_id"]),
+            published_revision_id=str(payload["committed_revision_id"]),
+            reviewed_contribution_id=str(payload["contribution_id"]),
+            accepted_assertion_ids=tuple(payload.get("accepted_assertion_ids") or ()),
+            published=True,
+            outcome="published" if payload.get("outcome") == "published" else "already_applied",
+            reviewed_contribution_sha256=payload.get("reviewed_contribution_sha256"),
+        )
+
+    def recover(
+        self, world_id: str, authority_operation_id: str
+    ) -> WorldGraphPublicationReceipt | None:
+        services = self._services(world_id)
+        try:
+            existing = services.bundle.finalized_review_publications.get(
+                world_id, authority_operation_id
+            )
+        except Exception as exc:
+            raise WorldGraphAuthorityError(
+                "DungeonMind authority is unavailable",
+                code="authority_unavailable",
+                details={"world_id": world_id, "reason": type(exc).__name__},
+            ) from exc
+        if existing is None:
+            return None
+        return WorldGraphPublicationReceipt(
+            world_id=world_id,
+            authority_operation_id=str(existing.operation_id),
+            parent_revision_id=str(existing.expected_parent_revision_id),
+            published_revision_id=str(existing.published_revision_id),
+            reviewed_contribution_id=str(existing.reviewed_contribution_id),
+            accepted_assertion_ids=(),
+            published=True,
+            outcome="already_applied",
+            reviewed_contribution_sha256=getattr(
+                existing, "reviewed_contribution_sha256", None
+            ),
+        )
+
+    def verify_child(
+        self,
+        *,
+        receipt: WorldGraphPublicationReceipt,
+        expected: WorldGraphExpectedChildFacts,
+    ) -> WorldGraphVerificationResult:
+        codes: list[str] = []
+        child = self.read_revision(receipt.world_id, receipt.published_revision_id)
+        if (
+            child.parent_revision_id
+            and child.parent_revision_id != receipt.parent_revision_id
+        ):
+            codes.append("child_parent_mismatch")
+        threat = child.objects.get(expected.threat_node_id)
+        if threat is None:
+            codes.append("missing_threat_object")
+        elif wire_kind(threat.kind).casefold() != "threat":
+            codes.append("threat_kind_mismatch")
+        # Resource/binding are Buddy mechanics facts, not DungeonMind World Graph
+        # material (R.3 field class D / v6 mechanics screen). Native verification
+        # therefore does not require them on the child payload.
+        status = "failed" if codes else "passed"
+        return WorldGraphVerificationResult(status=status, codes=tuple(codes))

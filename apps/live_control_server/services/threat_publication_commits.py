@@ -15,10 +15,7 @@ from pathlib import Path
 from collections.abc import Mapping
 from typing import Any, Callable, Literal
 
-import graph_memory.kernel as kernel
 from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
-from graph_memory.kernel.contribution_models import ContributionMergeResult, GraphContribution
-from graph_memory.kernel.contributions import normalize_assertion_provenance
 from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
     WorldGraphProjectionFocus,
@@ -37,10 +34,29 @@ from graph_memory.union_supergraph.statblock_binding import (
     parse_threat_statblock_binding_assertion,
     reject_mechanics_keys,
 )
-from graph_memory.world_supergraph.errors import WorldGraphIntegrityError
-from graph_memory.world_supergraph.model import WorldGraphRevision
 
-from apps.live_control_server.config import world_graph_root
+from apps.live_control_server.config import world_graph_native_production_read, world_graph_root
+from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
+    BuddyFilesWorldGraphAuthorityAdapter,
+    WorldGraphIntegrityError,
+    kernel,
+)
+from apps.live_control_server.models.world_graph_contribution_values import (
+    ContributionMergeResult,
+    GraphContribution,
+    compute_contribution_source_payload_sha256,
+    normalize_assertion_provenance,
+)
+from apps.live_control_server.ports.world_graph_authority import (
+    WorldGraphAuthority,
+    WorldGraphAuthorityError,
+    WorldGraphExpectedChildFacts,
+    WorldGraphPublicationReceipt,
+    WorldGraphPublishRequest,
+)
+from apps.live_control_server.ports.world_graph_authority_access import (
+    get_world_graph_authority,
+)
 from apps.live_control_server.models.threat_draft import require_draft_id
 from apps.live_control_server.models.threat_publication import (
     validate_publication_operation_id,
@@ -77,7 +93,60 @@ from apps.live_control_server.services.threat_publication_proposals import (
 )
 
 MergeFn = Callable[..., ContributionMergeResult]
-LookupFn = Callable[..., tuple[WorldGraphRevision, ...]]
+LookupFn = Callable[..., tuple[Any, ...]]
+
+
+def _authority_for_commit(
+    *,
+    world_root: Path,
+    merge_fn: MergeFn | None,
+    lookup_fn: LookupFn | None,
+) -> WorldGraphAuthority:
+    if merge_fn is not None or lookup_fn is not None:
+        return BuddyFilesWorldGraphAuthorityAdapter(
+            world_root,
+            merge_fn=merge_fn,
+            lookup_fn=lookup_fn,
+        )
+    return get_world_graph_authority(world_root=world_root)
+
+
+def _current_head_id(world_root: Path, world_id: str) -> str:
+    if world_graph_native_production_read(world_root):
+        return get_world_graph_authority(world_root=world_root).current_head(world_id).revision_id
+    try:
+        head, _revision, _store = kernel.open_current_world_graph(world_root, world_id)
+    except OSError as exc:
+        raise WorldGraphAuthorityError(str(exc), code="authority_unavailable") from exc
+    except Exception as exc:
+        raise WorldGraphAuthorityError(str(exc), code="authority_unavailable") from exc
+    return str(head.head_revision_id)
+
+
+def _receipt_to_merge_result(
+    receipt: WorldGraphPublicationReceipt,
+    *,
+    fallback_assertion_ids: tuple[str, ...] | list[str] = (),
+) -> ContributionMergeResult:
+    contribution_ids = list(receipt.contribution_ids)
+    if not contribution_ids and receipt.published:
+        contribution_ids = [receipt.reviewed_contribution_id]
+    accepted = list(receipt.accepted_assertion_ids) or list(fallback_assertion_ids)
+    return ContributionMergeResult(
+        world_id=receipt.world_id,
+        parent_revision_id=receipt.parent_revision_id,
+        revision_id=receipt.published_revision_id,
+        contribution_ids=contribution_ids,
+        accepted_assertion_ids=accepted,
+        published=receipt.published,
+        diagnostics=list(receipt.diagnostics),
+        failure_code=receipt.failure_code,
+        failure_message=receipt.failure_message,
+    )
+
+
+def _uses_injected_graph_hooks(merge_fn: MergeFn | None, lookup_fn: LookupFn | None) -> bool:
+    return merge_fn is not None or lookup_fn is not None
 
 
 @dataclass(frozen=True)
@@ -848,7 +917,7 @@ def _record_contribution_matches_authority(
         contribution, list(record.accepted_assertion_ids)
     ):
         return None, "accepted_assertion_ids_mismatch"
-    digest = kernel.compute_contribution_source_payload_sha256(contribution)
+    digest = compute_contribution_source_payload_sha256(contribution)
     if digest != record.expected_contribution_source_payload_sha256:
         return None, "contribution_source_digest_mismatch"
     return contribution, None
@@ -877,7 +946,7 @@ def _historical_contribution_source_digest(
         )
     except KeyError:
         return None
-    return kernel.compute_contribution_source_payload_sha256(ordered)
+    return compute_contribution_source_payload_sha256(ordered)
 
 
 def _record_matches_c2a_trust(
@@ -928,7 +997,7 @@ def _record_matches_c2a_trust(
         contribution, list(record.accepted_assertion_ids)
     ):
         return "accepted_assertion_ids_mismatch"
-    digest = kernel.compute_contribution_source_payload_sha256(contribution)
+    digest = compute_contribution_source_payload_sha256(contribution)
     if digest != record.expected_contribution_source_payload_sha256:
         return "contribution_source_digest_mismatch"
     return None
@@ -942,6 +1011,7 @@ def _advance_committed_verification(
     proposal: ThreatPublicationProposalV1,
     contribution: GraphContribution,
     lookup_fn: LookupFn,
+    authority: WorldGraphAuthority | None = None,
 ) -> tuple[ThreatPublicationCommitV1, ThreatPublicationCommitResultLabel, str | None]:
     """Verify a persisted committed_unverified receipt; never hide it on verify-save failure.
 
@@ -973,6 +1043,14 @@ def _advance_committed_verification(
                 identity_detail,
             )
 
+    if authority is not None and world_graph_native_production_read(world_root):
+        return _advance_native_child_verification(
+            root=root,
+            record=record,
+            contribution=contribution,
+            authority=authority,
+        )
+
     verified = _verify_committed(
         root=root,
         world_root=world_root,
@@ -993,6 +1071,70 @@ def _advance_committed_verification(
             durable_record = record
         return (
             durable_record,
+            "publication_commit_committed_unverified",
+            "verification could not persist",
+        )
+    return verified, _label_for_state(verified), None
+
+
+def _advance_native_child_verification(
+    *,
+    root: Path,
+    record: ThreatPublicationCommitV1,
+    contribution: GraphContribution,
+    authority: WorldGraphAuthority,
+) -> tuple[ThreatPublicationCommitV1, ThreatPublicationCommitResultLabel, str | None]:
+    """Prove the published child from native authority facts, not Buddy rebuild."""
+    receipt = WorldGraphPublicationReceipt(
+        world_id=record.world_id,
+        authority_operation_id=record.expected_contribution_id,
+        parent_revision_id=record.expected_parent_revision_id,
+        published_revision_id=str(record.committed_revision_id or ""),
+        reviewed_contribution_id=record.expected_contribution_id,
+        accepted_assertion_ids=tuple(record.accepted_assertion_ids),
+        published=True,
+        outcome="already_applied",
+    )
+    expected = WorldGraphExpectedChildFacts(
+        threat_node_id=record.threat_node_id,
+        decision=record.decision,
+        accepted_assertion_ids=tuple(record.accepted_assertion_ids),
+        expected_contribution_id=record.expected_contribution_id,
+        expected_contribution_source_payload_sha256=(
+            record.expected_contribution_source_payload_sha256
+        ),
+        campaign_id=record.campaign_id,
+        contribution=contribution,
+    )
+    try:
+        result = authority.verify_child(receipt=receipt, expected=expected)
+    except WorldGraphAuthorityError as exc:
+        return (
+            record,
+            "publication_commit_committed_unverified",
+            str(exc),
+        )
+    if result.status == "passed":
+        verified = _with_updated(
+            record,
+            state="committed_verified",
+            verification_status="passed",
+            verification_codes=list(result.codes),
+            warnings=list(result.warnings),
+        )
+    else:
+        verified = _with_updated(
+            record,
+            state="committed_unverified",
+            verification_status=result.status,
+            verification_codes=list(result.codes),
+            warnings=list(result.warnings),
+        )
+    try:
+        _save_commit(root, verified)
+    except ThreatPublicationCommitStorageError:
+        return (
+            record,
             "publication_commit_committed_unverified",
             "verification could not persist",
         )
@@ -1524,7 +1666,7 @@ def _direct_publish_usable(
 
 def _core_proof_match(
     *,
-    manifest: WorldGraphRevision,
+    manifest: Any,
     record: ThreatPublicationCommitV1,
     world_root: Path,
 ) -> tuple[bool, str | None]:
@@ -1902,6 +2044,89 @@ def _merge_failure_message(result: ContributionMergeResult | None) -> str | None
     return None
 
 
+def _reconcile_via_authority(
+    *,
+    root: Path,
+    world_root: Path,
+    record: ThreatPublicationCommitV1,
+    proposal: ThreatPublicationProposalV1 | None,
+    contribution: GraphContribution | None,
+    authority: WorldGraphAuthority,
+    published_false: bool,
+    merge_calls: int,
+    published_false_message: str | None,
+    lookup_fn: LookupFn,
+) -> tuple[
+    ThreatPublicationCommitV1,
+    int,
+    ThreatPublicationCommitResultLabel,
+    bool,
+    str | None,
+]:
+    try:
+        recovered = authority.recover(record.world_id, record.expected_contribution_id)
+    except WorldGraphAuthorityError as exc:
+        if exc.code == "integrity_failure":
+            return record, merge_calls, "publication_commit_integrity_failure", False, None
+        if exc.code == "authority_unavailable":
+            return record, merge_calls, "publication_commit_recovery_pending", False, None
+        return record, merge_calls, "publication_commit_integrity_failure", False, None
+
+    if recovered is not None:
+        updated = _with_updated(
+            record,
+            state="committed_unverified",
+            committed_revision_id=recovered.published_revision_id,
+            recovered_via_operation_lookup=True,
+            verification_status="not_started",
+        )
+        persisted, save_label, save_message = _persist_committed_unverified_receipt(
+            root, record, updated
+        )
+        if save_label is not None:
+            return persisted, merge_calls, save_label, False, save_message
+        updated = persisted
+        if proposal is not None and contribution is not None:
+            verified, label, message = _advance_committed_verification(
+                root=root,
+                world_root=world_root,
+                record=updated,
+                proposal=proposal,
+                contribution=contribution,
+                lookup_fn=lookup_fn,
+                authority=authority,
+            )
+            return verified, merge_calls, label, False, message
+        return updated, merge_calls, "publication_commit_committed_unverified", False, None
+
+    if published_false:
+        updated = _with_updated(record, state="uncommitted")
+        _save_commit(root, updated)
+        return (
+            updated,
+            merge_calls,
+            "publication_commit_uncommitted",
+            False,
+            published_false_message
+            or (
+                "World Graph merge did not publish a revision. "
+                "Cancel this publication and prepare again."
+            ),
+        )
+    if record.merge_attempt_count >= 2:
+        updated = _with_updated(record, state="uncommitted")
+        _save_commit(root, updated)
+        return (
+            updated,
+            merge_calls,
+            "publication_commit_uncommitted",
+            False,
+            "World Graph merge did not publish after recovery retry. "
+            "Cancel this publication and prepare again.",
+        )
+    return record, merge_calls, "publication_commit_recovery_pending", True, None
+
+
 def _reconcile(
     *,
     root: Path,
@@ -1914,6 +2139,8 @@ def _reconcile(
     published_false: bool,
     merge_calls: int,
     published_false_message: str | None = None,
+    authority: WorldGraphAuthority | None = None,
+    use_port_recover: bool = False,
 ) -> tuple[
     ThreatPublicationCommitV1,
     int,
@@ -1930,6 +2157,19 @@ def _reconcile(
     The fifth return value is an optional response message (e.g. identity gap
     after a recovered committed receipt).
     """
+    if use_port_recover and authority is not None:
+        return _reconcile_via_authority(
+            root=root,
+            world_root=world_root,
+            record=record,
+            proposal=proposal,
+            contribution=contribution,
+            authority=authority,
+            published_false=published_false,
+            merge_calls=merge_calls,
+            published_false_message=published_false_message,
+            lookup_fn=lookup_fn,
+        )
     try:
         matches = lookup_fn(
             world_root, record.world_id, record.expected_contribution_id
@@ -2040,7 +2280,9 @@ def _admit_and_build_record(
     operation_id: str,
     proposal_id: str,
     request: ConfirmThreatPublicationRequestV1,
+    authority: WorldGraphAuthority | None = None,
 ) -> tuple[ThreatPublicationCommitV1 | None, CommitOutcome | None, GraphContribution | None, ThreatPublicationProposalV1 | None]:
+    graph_authority = authority or get_world_graph_authority(world_root=world_root)
     proposal_ledger = load_threat_publication_proposal_ledger_unlocked(
         root, draft_id, operation_id
     )
@@ -2153,15 +2395,39 @@ def _admit_and_build_record(
     snapshot = operation.source_snapshot
 
     try:
+        from apps.live_control_server.services.threat_publication_proposals import (
+            _mutation_context_from_view,
+        )
+
+        parent_view = graph_authority.read_revision(
+            snapshot.world_id, proposal.expected_parent_revision_id
+        )
         _verified, contribution = resolve_merged_contribution_from_package(
             review_package=proposal.sealed_proposal,
             confirming_principal=proposal.created_by,
             world_id_hint=snapshot.world_id,
             root=world_root,
+            mutation_context=_mutation_context_from_view(parent_view),
             expected_parent_revision_id=proposal.expected_parent_revision_id,
             assertion_ids=None,
             verify_source=False,
         )
+    except WorldGraphAuthorityError as exc:
+        label: ThreatPublicationCommitResultLabel = (
+            "publication_commit_graph_unavailable"
+            if exc.code in {"authority_unavailable", "revision_unavailable"}
+            else "publication_commit_integrity_failure"
+        )
+        return None, CommitOutcome(
+            _response(
+                draft_id,
+                operation_id,
+                proposal_id,
+                request.commit_id,
+                label,
+                message=f"contribution reconstruction failed: {exc}",
+            )
+        ), None, proposal
     except Exception as exc:  # noqa: BLE001
         return None, CommitOutcome(
             _response(
@@ -2207,7 +2473,7 @@ def _admit_and_build_record(
             )
         ), None, proposal
 
-    source_digest = kernel.compute_contribution_source_payload_sha256(contribution)
+    source_digest = compute_contribution_source_payload_sha256(contribution)
     try:
         binding_id = _derive_binding_id(
             threat_node_id=proposal.threat_node_id,
@@ -2227,7 +2493,7 @@ def _admit_and_build_record(
         ), None, proposal
 
     try:
-        head, _rev, _store = kernel.open_current_world_graph(world_root, snapshot.world_id)
+        observed_head = _current_head_id(world_root, snapshot.world_id)
     except Exception as exc:  # noqa: BLE001
         return None, CommitOutcome(
             _response(
@@ -2239,7 +2505,7 @@ def _admit_and_build_record(
                 message=str(exc),
             )
         ), None, proposal
-    if head.head_revision_id != proposal.expected_parent_revision_id:
+    if observed_head != proposal.expected_parent_revision_id:
         return None, CommitOutcome(
             _response(
                 draft_id,
@@ -2329,10 +2595,10 @@ def _maybe_retry(
     merge_calls: int,
 ) -> tuple[ThreatPublicationCommitV1, int, ThreatPublicationCommitResultLabel, str | None]:
     try:
-        head, _rev, _store = kernel.open_current_world_graph(world_root, record.world_id)
+        observed_head = _current_head_id(world_root, record.world_id)
     except Exception:
         return record, merge_calls, "publication_commit_graph_unavailable", None
-    if head.head_revision_id != record.expected_parent_revision_id:
+    if observed_head != record.expected_parent_revision_id:
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
         return updated, merge_calls, "publication_commit_uncommitted", None
@@ -2402,7 +2668,7 @@ def _maybe_retry(
             rebuilt, list(record.accepted_assertion_ids)
         )
         or rebuilt.contribution_id != record.expected_contribution_id
-        or kernel.compute_contribution_source_payload_sha256(rebuilt)
+        or compute_contribution_source_payload_sha256(rebuilt)
         != record.expected_contribution_source_payload_sha256
     ):
         updated = _with_updated(record, state="uncommitted")
@@ -2497,8 +2763,14 @@ def confirm_threat_publication(
     safe_proposal = validate_proposal_id(proposal_id)
     safe_commit = validate_commit_id(request.commit_id)
     configured_world = world_root if world_root is not None else world_graph_root()
+    authority = _authority_for_commit(
+        world_root=configured_world,
+        merge_fn=merge_fn,
+        lookup_fn=lookup_fn,
+    )
     merge = merge_fn or kernel.merge_contribution_to_revision
     lookup = lookup_fn or kernel.find_world_graph_revisions_by_operation_id
+    use_port_recover = not _uses_injected_graph_hooks(merge_fn, lookup_fn)
     merge_calls = 0
 
     with threat_publication_lifecycle_lock(root, safe_draft, safe_op):
@@ -2780,6 +3052,8 @@ def confirm_threat_publication(
                         merge_fn=merge,
                         published_false=False,
                         merge_calls=merge_calls,
+                        authority=authority,
+                        use_port_recover=use_port_recover,
                     )
                 )
 
@@ -3147,6 +3421,7 @@ def confirm_threat_publication(
                 operation_id=safe_op,
                 proposal_id=safe_proposal,
                 request=request,
+                authority=authority,
             )
         except ThreatPublicationProposalStorageError as exc:
             return _outcome_storage(safe_draft, safe_op, safe_proposal, safe_commit, exc)
@@ -3165,14 +3440,41 @@ def confirm_threat_publication(
         published_false = False
         result: ContributionMergeResult | None = None
         try:
-            result = merge(
-                configured_world,
-                world_id=record.world_id,
-                contribution=contribution,
-                expected_parent_revision_id=record.expected_parent_revision_id,
+            receipt = authority.publish(
+                WorldGraphPublishRequest(
+                    world_id=record.world_id,
+                    expected_parent_revision_id=record.expected_parent_revision_id,
+                    authority_operation_id=record.expected_contribution_id,
+                    actor=request.actor,
+                    contribution=contribution,
+                    accepted_assertion_ids=tuple(record.accepted_assertion_ids),
+                    decision=record.decision,
+                    threat_node_id=record.threat_node_id,
+                )
             )
             merge_calls += 1
+            result = _receipt_to_merge_result(
+                receipt,
+                fallback_assertion_ids=record.accepted_assertion_ids,
+            )
             published_false = result.published is False
+        except WorldGraphAuthorityError as exc:
+            merge_calls += 1
+            result = None
+            if exc.code == "stale_parent":
+                return CommitOutcome(
+                    _response(
+                        safe_draft,
+                        safe_op,
+                        safe_proposal,
+                        safe_commit,
+                        "publication_commit_parent_mismatch",
+                        commit=record,
+                        message=str(exc),
+                    ),
+                    created=True,
+                    merge_calls=merge_calls,
+                )
         except Exception:
             merge_calls += 1
             result = None
@@ -3211,6 +3513,7 @@ def confirm_threat_publication(
                 proposal=proposal,
                 contribution=contribution,
                 lookup_fn=lookup,
+                authority=authority,
             )
             return CommitOutcome(
                 _response(
@@ -3239,6 +3542,8 @@ def confirm_threat_publication(
                 published_false=published_false,
                 merge_calls=merge_calls,
                 published_false_message=_merge_failure_message(result),
+                authority=authority,
+                use_port_recover=use_port_recover,
             )
         )
         outcome_message = reconcile_message

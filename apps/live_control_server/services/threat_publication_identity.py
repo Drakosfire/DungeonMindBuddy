@@ -18,8 +18,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator, Literal
 
-import graph_memory.kernel as kernel
-from apps.live_control_server.config import world_graph_root
+from apps.live_control_server.config import world_graph_root  # noqa: F401
+from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
+    kernel,  # noqa: F401  # tests patch svc.kernel
+)
+from apps.live_control_server.ports.world_graph_authority import WorldGraphAuthorityError
+from apps.live_control_server.ports.world_graph_authority_access import (
+    get_world_graph_authority,
+)
 from apps.live_control_server.models.statblock_mechanics_acceptance import AcceptedMechanicsRefV1
 from apps.live_control_server.models.threat_draft import require_draft_id
 from apps.live_control_server.models.threat_publication import (
@@ -524,18 +530,17 @@ def _exact_revision_contains_node_id(
     """Check global node-ID occupancy in the immutable expected-parent revision.
 
     Candidate projection is intentionally campaign-visible and projectable, so it
-    is insufficient for the create-new collision boundary. This read uses only
-    the public Kernel exact-revision loader and never follows the mutable head.
+    is insufficient for the create-new collision boundary. This read uses the
+    World Graph authority port and never follows the mutable head.
     """
-    graph_root = (world_root if world_root is not None else world_graph_root()).resolve()
+    authority = get_world_graph_authority(world_root=world_root)
     try:
-        store = kernel.load_world_graph_revision_with_integrity(
-            graph_root,
+        view = authority.read_revision(
             operation.source_snapshot.world_id,
             operation.expected_parent_revision_id,
         )
-    except kernel.WorldGraphProjectionError as exc:
-        if exc.code == "projection_integrity_error":
+    except WorldGraphAuthorityError as exc:
+        if exc.code == "integrity_failure":
             raise WorldGraphProjectionServiceError(
                 "exact expected-parent World Graph revision failed integrity validation",
                 code="projection_integrity_error",
@@ -546,7 +551,7 @@ def _exact_revision_contains_node_id(
             code="projection_revision_unavailable",
             status_code=503,
         ) from exc
-    return node_id in store.nodes
+    return node_id in view.objects
 
 
 def _validate_resolution_against_operation(

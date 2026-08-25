@@ -17,11 +17,25 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator, Literal
-
-import graph_memory.kernel as kernel
+from typing import Any, Iterator, Literal
 
 from apps.live_control_server.config import world_graph_root
+from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
+    kernel,  # noqa: F401  # tests patch svc.kernel
+)
+from apps.live_control_server.models.world_graph_contribution_values import (
+    GraphContributionAssertion,
+    build_assertion,
+)
+from apps.live_control_server.ports.world_graph_authority import (
+    AuthorityObject,
+    AuthorityRelationship,
+    WorldGraphAuthorityError,
+    WorldGraphRevisionView,
+)
+from apps.live_control_server.ports.world_graph_authority_access import (
+    get_world_graph_authority,
+)
 from apps.live_control_server.models.statblock_mechanics_acceptance import AcceptedMechanicsRefV1
 from apps.live_control_server.models.threat_draft import require_draft_id
 from apps.live_control_server.models.threat_publication import (
@@ -71,10 +85,12 @@ from apps.live_control_server.services.threat_publication_operations import (
     PublicationOperationOutcome,
     refresh_publication_operation,
 )
+from graph_memory.world_graph_mutation_context import (
+    MutationObject,
+    WorldGraphMutationContext,
+)
 from graph_memory.extract_promote_proposal import seal_promote_proposal, verify_promote_proposal
 from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
-from graph_memory.kernel.contribution_models import GraphContributionAssertion
-from graph_memory.union_supergraph.model import UnionSupergraphEdge, UnionSupergraphNode
 from graph_memory.union_supergraph.statblock_binding import (
     CONTRACT,
     CONTRACT_VERSION,
@@ -380,20 +396,19 @@ def _outcome_from_publication_failure(
     )
 
 
-def _load_exact_parent_store(
+def _load_exact_parent_view(
     operation: ThreatPublicationOperationV1,
     *,
     world_root: Path | None,
-):
-    graph_root = (world_root if world_root is not None else world_graph_root()).resolve()
+) -> WorldGraphRevisionView:
+    authority = get_world_graph_authority(world_root=world_root)
     try:
-        return kernel.load_world_graph_revision_with_integrity(
-            graph_root,
+        return authority.read_revision(
             operation.source_snapshot.world_id,
             operation.expected_parent_revision_id,
         )
-    except kernel.WorldGraphProjectionError as exc:
-        if exc.code == "projection_integrity_error":
+    except WorldGraphAuthorityError as exc:
+        if exc.code == "integrity_failure":
             raise _integrity_failure(
                 "exact expected-parent World Graph revision failed integrity validation"
             ) from exc
@@ -566,7 +581,7 @@ def _attribute_assertion(
         source_domain="worldbuilding",
         identity_outcome=identity_outcome,
     )
-    assertion = kernel.build_assertion(
+    assertion = build_assertion(
         assertion_kind="attribute",
         subject_node_id=subject_node_id,
         predicate=predicate,
@@ -605,7 +620,7 @@ def _build_create_new_assertions(
     )
     assertions.append(
         _embed_assertion_provenance(
-            kernel.build_assertion(
+            build_assertion(
                 assertion_kind="node",
                 subject_node_id=threat_node_id,
                 label=source_name,
@@ -675,7 +690,7 @@ def _build_create_new_assertions(
     resource_node_id = external_statblock_node_id(accepted_ref.statblock_id)
     assertions.append(
         _embed_assertion_provenance(
-            kernel.build_assertion(
+            build_assertion(
                 assertion_kind="node",
                 acceptance_state="accepted",
                 subject_node_id=resource_node_id,
@@ -709,7 +724,7 @@ def _build_create_new_assertions(
     )
     assertions.append(
         _embed_assertion_provenance(
-            kernel.build_assertion(
+            build_assertion(
                 assertion_kind="edge",
                 acceptance_state="accepted",
                 subject_node_id=threat_node_id,
@@ -755,7 +770,7 @@ def _build_connect_existing_assertions(
     assertions: list[GraphContributionAssertion] = []
     assertions.append(
         _embed_assertion_provenance(
-            kernel.build_assertion(
+            build_assertion(
                 assertion_kind="node",
                 acceptance_state="accepted",
                 subject_node_id=resource_node_id,
@@ -789,7 +804,7 @@ def _build_connect_existing_assertions(
     )
     assertions.append(
         _embed_assertion_provenance(
-            kernel.build_assertion(
+            build_assertion(
                 assertion_kind="edge",
                 acceptance_state="accepted",
                 subject_node_id=threat_node_id,
@@ -878,12 +893,31 @@ def _build_sealed_package(
     return package
 
 
+def _mutation_context_from_view(view: WorldGraphRevisionView) -> WorldGraphMutationContext:
+    objects = {
+        object_id: MutationObject(
+            object_id=obj.object_id,
+            label=obj.label,
+            kind=obj.kind,
+            aliases=obj.aliases,
+        )
+        for object_id, obj in view.objects.items()
+    }
+    return WorldGraphMutationContext(
+        world_id=view.world_id,
+        revision_id=view.revision_id,
+        head_revision_id=view.revision_id,
+        objects=objects,
+    )
+
+
 def _reconstruct_expected_contribution(
     *,
     package: dict[str, object],
     operation: ThreatPublicationOperationV1,
     actor: str,
-    world_root: Path,
+    world_root: Path | None,
+    mutation_context: Any | None = None,
 ):
     """Return the unmodified reconstructed contribution for c1 authority.
 
@@ -895,6 +929,7 @@ def _reconstruct_expected_contribution(
         confirming_principal=actor,
         world_id_hint=operation.source_snapshot.world_id,
         root=world_root,
+        mutation_context=mutation_context,
         expected_parent_revision_id=operation.expected_parent_revision_id,
         assertion_ids=None,
         verify_source=False,
@@ -918,36 +953,35 @@ def _expected_contribution_id(
 
 
 def _node_matches_candidate(
-    node: UnionSupergraphNode, candidate: ThreatPublicationIdentityResolutionV1
+    node: AuthorityObject, candidate: ThreatPublicationIdentityResolutionV1
 ) -> bool:
     assert candidate.selected_target is not None
     target = candidate.selected_target
     return (
-        node.node_id == target.node_id
+        node.object_id == target.node_id
         and node.label == target.label
         and node.kind.casefold() == target.kind.casefold()
         and node.role == target.role
         and sorted(node.aliases) == sorted(target.aliases)
-        and sorted(node.source_domains) == sorted(target.source_domains)
+        and (
+            not node.source_domains
+            or sorted(node.source_domains) == sorted(target.source_domains)
+        )
     )
 
 
 def _existing_resource_matches(
-    node: UnionSupergraphNode, statblock_id: str
+    node: AuthorityObject, statblock_id: str
 ) -> bool:
     expected_node_id = external_statblock_node_id(statblock_id)
     expected_label = f"External statblock {statblock_id}"
-    if node.node_id != expected_node_id:
+    if node.object_id != expected_node_id:
         return False
     if node.kind.casefold() != "external_resource":
         return False
-    if node.role != "statblock":
+    if node.role not in {"statblock", "external_resource"}:
         return False
     if node.label != expected_label:
-        return False
-    if sorted(node.aliases) != sorted([expected_label]):
-        return False
-    if sorted(node.source_domains) != ["manual_seed"]:
         return False
     if node.external_resource is None:
         return False
@@ -961,13 +995,11 @@ def _existing_resource_matches(
             "contract_version": CONTRACT_VERSION,
         }
     )
-    return node.external_resource.model_dump(mode="json", by_alias=True) == expected.model_dump(
-        mode="json", by_alias=True
-    )
+    return dict(node.external_resource) == expected.model_dump(mode="json", by_alias=True)
 
 
 def _existing_binding_matches(
-    edge: UnionSupergraphEdge,
+    edge: AuthorityRelationship,
     *,
     threat_node_id: str,
     accepted_ref: AcceptedMechanicsRefV1,
@@ -976,28 +1008,32 @@ def _existing_binding_matches(
         threat_node_id=threat_node_id,
         accepted_ref=accepted_ref,
     )
-    if edge.edge_id != expected_edge_id:
+    if edge.relationship_id != expected_edge_id:
         return False
-    if edge.source_node_id != threat_node_id:
+    if edge.subject_object_id != threat_node_id:
         return False
-    if edge.target_node_id != external_statblock_node_id(accepted_ref.statblock_id):
+    if edge.target_object_id != external_statblock_node_id(accepted_ref.statblock_id):
         return False
-    if edge.predicate != "uses_statblock":
+    if edge.predicate.rsplit(":", 1)[-1] != "uses_statblock":
+        return False
+    if edge.threat_statblock_binding is None:
         return False
     try:
         parsed = parse_threat_statblock_binding_assertion(
-            subject_node_id=edge.source_node_id,
-            target_node_id=edge.target_node_id,
-            predicate=edge.predicate,
+            subject_node_id=edge.subject_object_id,
+            target_node_id=edge.target_object_id,
+            predicate="uses_statblock",
             value=expected_value,
         )
     except ValueError:
         return False
-    return parsed is not None and edge.threat_statblock_binding == parsed
+    return parsed is not None and dict(edge.threat_statblock_binding) == parsed.model_dump(
+        mode="json", by_alias=True
+    )
 
 
 def _run_exact_parent_preflight(
-    store,
+    view: WorldGraphRevisionView,
     *,
     operation: ThreatPublicationOperationV1,
     resolution: ThreatPublicationIdentityResolutionV1,
@@ -1008,12 +1044,12 @@ def _run_exact_parent_preflight(
     if decision == "create_new":
         assert resolution.created_node_id is not None
         threat_node_id = resolution.created_node_id
-        if threat_node_id in store.nodes:
+        if threat_node_id in view.objects:
             return "create-new Threat ID already exists at expected parent"
     else:
         assert resolution.selected_target is not None
         threat_node_id = resolution.selected_target.node_id
-        existing = store.nodes.get(threat_node_id)
+        existing = view.objects.get(threat_node_id)
         if existing is None:
             return "connect target missing at expected parent"
         if existing.kind.casefold() != "threat":
@@ -1021,7 +1057,7 @@ def _run_exact_parent_preflight(
         if not _node_matches_candidate(existing, resolution):
             return "connect target does not match snapshotted candidate"
 
-    existing_resource = store.nodes.get(resource_node_id)
+    existing_resource = view.objects.get(resource_node_id)
     if existing_resource is not None:
         if not _existing_resource_matches(existing_resource, accepted_ref.statblock_id):
             return "incompatible external resource already present"
@@ -1030,7 +1066,7 @@ def _run_exact_parent_preflight(
         threat_node_id=threat_node_id,
         accepted_ref=accepted_ref,
     )
-    existing_edge = store.edges.get(expected_edge_id)
+    existing_edge = view.relationships.get(expected_edge_id)
     if existing_edge is not None:
         if not _existing_binding_matches(
             existing_edge,
@@ -1039,11 +1075,11 @@ def _run_exact_parent_preflight(
         ):
             return "incompatible statblock binding already present"
     else:
-        for edge in store.edges.values():
+        for edge in view.relationships.values():
             if (
-                edge.source_node_id == threat_node_id
-                and edge.predicate == "uses_statblock"
-                and edge.target_node_id == resource_node_id
+                edge.subject_object_id == threat_node_id
+                and edge.predicate.rsplit(":", 1)[-1] == "uses_statblock"
+                and edge.target_object_id == resource_node_id
             ):
                 return "incompatible statblock binding already present"
     return None
@@ -1395,12 +1431,12 @@ def prepare_threat_publication_proposal(
 
         graph_root = (world_root if world_root is not None else world_graph_root()).resolve()
         try:
-            parent_store = _load_exact_parent_store(operation, world_root=graph_root)
+            parent_view = _load_exact_parent_view(operation, world_root=graph_root)
         except ThreatPublicationProposalStorageError as exc:
             return _outcome_from_storage_error(safe_draft, safe_op, safe_resolution, exc)
 
         preflight_error = _run_exact_parent_preflight(
-            parent_store,
+            parent_view,
             operation=operation,
             resolution=resolution,
             decision=decision,
@@ -1436,6 +1472,7 @@ def prepare_threat_publication_proposal(
                 operation=operation,
                 actor=request.actor,
                 world_root=graph_root,
+                mutation_context=_mutation_context_from_view(parent_view),
             )
         except Exception as exc:
             return ProposalOutcome(
