@@ -26,9 +26,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator, Literal
 
-import graph_memory.kernel as kernel
-
 from apps.live_control_server.config import world_graph_root
+from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
+    kernel,  # noqa: F401  # tests patch svc.kernel
+)
+from apps.live_control_server.ports.world_graph_authority import (
+    WorldGraphAuthority,
+    WorldGraphAuthorityError,
+)
+from apps.live_control_server.ports.world_graph_authority_access import (
+    get_world_graph_authority,
+)
 from apps.live_control_server.models.threat_publication import (
     LEDGER_SCHEMA,
     MAX_PUBLICATION_OPERATIONS_PER_DRAFT,
@@ -245,20 +253,26 @@ def _outcome_from_storage_error(
     return PublicationOperationOutcome(_response(draft_id, label, message=str(exc)), created=False)
 
 
-def _read_graph_head(root: Path, world_id: str) -> str:
+def _authority_for(*, world_root: Path | None = None, authority: WorldGraphAuthority | None = None) -> WorldGraphAuthority:
+    return authority if authority is not None else get_world_graph_authority(world_root=world_root)
+
+
+def _read_graph_head(
+    root: Path,
+    world_id: str,
+    *,
+    authority: WorldGraphAuthority | None = None,
+) -> str:
     """Trusted current World Graph head for ``world_id``; never a fallback parent."""
+    del root  # Product storage root is not World Graph authority.
     try:
-        head = kernel.open_world_graph_head(world_graph_root(), world_id)
-    except kernel.WorldGraphNotFoundError as exc:
+        head = _authority_for(
+            world_root=world_graph_root(),
+            authority=authority,
+        ).current_head(world_id)
+    except WorldGraphAuthorityError as exc:
         raise GraphHeadUnavailable(str(exc)) from exc
-    except OSError as exc:
-        raise GraphHeadUnavailable(str(exc)) from exc
-    except Exception as exc:
-        # The canonical loader owns JSON decoding and WorldGraphHead validation.
-        # Convert every parser/model failure into the dependency failure contract;
-        # never let corrupt head bytes escape the typed publication response.
-        raise GraphHeadUnavailable(str(exc)) from exc
-    return head.head_revision_id
+    return head.revision_id
 
 
 def _draft_outcome_from_store_error(

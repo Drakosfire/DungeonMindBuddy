@@ -1,8 +1,8 @@
 # PR Tracker — Campaign Supergraph
 
 **Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices
-**Updated:** 2026-08-24 — #633 native-read switch `DONE`; D.1 native governed write context `DOING`  
-**Dispatch gate:** The active CUTOVER write lease is `cutover/native-governed-write-context`. Do not redispatch #614/#619/#620/#630/#631/#632/#633, DungeonMind #34–#37/#43/#45, or the parked catch-up handoff absent a newly observed reproducible failure.
+**Updated:** 2026-08-24 — #634 D.1 native governed writes `DONE`; D.2A Threat authority port `DOING`  
+**Dispatch gate:** The active CUTOVER write lease is `cutover/threat-authority-port`. Do not redispatch #614/#619/#620/#630/#631/#632/#633/#634, DungeonMind #34–#37/#43/#45, or the parked catch-up handoff absent a newly observed reproducible failure.
 **Repository anchor / current Buddy `main`:** `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c` (merge of PR #633). **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **Cycle 2 approval:** `5011598382`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
 **DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (PR #45 merge / R.3a native read-context optimization)
 **#538 design predecessor / docs base:** PR #538 merge
@@ -121,9 +121,11 @@ PR #566 is merged and non-publishing: canonical bytes remain unchanged, while it
 | DungeonMind R.3a / #45 native read-context optimization | DONE | R.3 sealed | DungeonMind PR #45; merge `c5d3688587b0f5d506e0f7d64f33eb0628bac896`. Reusable read context, parsed-revision cache, batched provenance snapshot. Live Eldyrwild native projection ~20.7s → ~115 ms warm. Production gate not flipped here. |
 | `cutover/r3a-dungeonmind-pin` / Buddy #632 | DONE | DungeonMind #45 `DONE` + Buddy R.3 `DONE` | Pin Buddy to `c5d36885…`; merge `54779636750ebf7a639aef8a6184cc61ead9c860`; sealed R.3 witness 0 blocking / 0 errored / 199 approved; `SWITCH_READY`. Dogfood accepted. Handoff: [`HANDOFF-CUTOVER-r3a-dungeonmind-pin.md`](HANDOFF-CUTOVER-r3a-dungeonmind-pin.md). |
 | native-read switch (remove `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ`) / Buddy #633 | DONE | Buddy R.3a pin `SWITCH_READY` + dogfood interval | Native DungeonMind reads are the only `dungeonmind`-authority production path. Hermes latest-recap comparison is native. Merge `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`; accepted head `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`; Cycle 2 approval `5011598382`; `DEMOLITION_READY`. Handoff: [`HANDOFF-CUTOVER-native-read-switch.md`](HANDOFF-CUTOVER-native-read-switch.md). |
-| D.1 native governed write context / hydration retirement | DOING | #633 native-read switch `DONE` | Exact-run prepare → confirm reads DungeonMind, seals public DungeonMind parents, and publishes DungeonMind children without Buddy graph hydration. Handoff: [`HANDOFF-CUTOVER-native-governed-write-context.md`](HANDOFF-CUTOVER-native-governed-write-context.md). |
-| D.2 mounted legacy writer migration/retirement | READY | D.1 | Migrate or retire remaining current product writers (Threat publication commit, worldbuilding/first-world, Graph Review legacy merge if mounted). |
-| D.3 final Buddy graph-engine deletion | BLOCKED | D.2 | Delete `graph_memory.kernel` / `world_supergraph` / `union_supergraph` production imports and prove the old graph is physically absent. |
+| D.1 native governed write context / hydration retirement / Buddy #634 | DONE | #633 native-read switch `DONE` | Exact-run prepare → confirm reads DungeonMind, seals public DungeonMind parents, and publishes DungeonMind children without Buddy graph hydration. Merge `31f2885cc18f96b98a1028304ae98914d1139fa3`; accepted head `aa4980a8cfd1dfedbb8b05d683f01cf27cfd0c3b`. Handoff: [`HANDOFF-CUTOVER-native-governed-write-context.md`](HANDOFF-CUTOVER-native-governed-write-context.md). |
+| D.2A Threat authority-port migration | DOING | D.1 / #634 `DONE` | Mounted Threat publication lifecycle consumes World Graph authority only through a storage-neutral port backed by DungeonMind. Handoff: [`HANDOFF-CUTOVER-threat-authority-port.md`](HANDOFF-CUTOVER-threat-authority-port.md). |
+| D.2B worldbuilding writer migration | READY | D.2A | Move mounted worldbuilding writes off the Buddy graph kernel onto the same World Graph authority port. |
+| D.2C first-world/bootstrap migration | READY | D.2A | Move first-world/bootstrap writes off the Buddy graph kernel. |
+| D.3 final Buddy graph-engine deletion | BLOCKED | D.2A–D.2C | Delete `graph_memory.kernel` / `world_supergraph` / `union_supergraph` production imports and prove the old graph is physically absent. |
 
 ### Parallel product backlog retained from the July sequence
 
@@ -144,7 +146,7 @@ These remain valid product capabilities, but they do **not** override the active
 ## Immediate dispatch order
 
 1. CUTOVER is complete for Eldyrwild World Graph authority. Do not redispatch [`HANDOFF-CUTOVER-dungeonmind-authority-completion.md`](HANDOFF-CUTOVER-dungeonmind-authority-completion.md), [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md), the #614 design, DungeonMind #34–#37, DungeonMind #43, or Buddy #630. Do not dispatch the parked catch-up handoff unless a newly observed correspondence check returns `STALE`.
-2. The current CUTOVER lane is **D.1 native governed write context** (`cutover/native-governed-write-context`; [`HANDOFF-CUTOVER-native-governed-write-context.md`](HANDOFF-CUTOVER-native-governed-write-context.md)). Native-read switch #633 is `DONE` / `DEMOLITION_READY` at merge `65d13dcc…`. D.1 removes Buddy hydration from the normal exact-run prepare → confirm path. Do not absorb Threat publication commit into D.1.
+2. The current CUTOVER lane is **D.2A Threat authority-port migration** (`cutover/threat-authority-port`; [`HANDOFF-CUTOVER-threat-authority-port.md`](HANDOFF-CUTOVER-threat-authority-port.md)). D.1 / #634 is `DONE` at merge `31f2885c…`. Do not absorb worldbuilding or first-world writers into D.2A. Do not merge APP-STATE persistence into this port.
 3. Fix-forward only: concrete post-cutover failures become bounded repairs under living DungeonMind authority. Do not re-enable Buddy World Graph writers as an emergency shortcut after `D_B`.
 4. Confirm PR #577 remains closed unmerged. Do not rescue or extend that branch.
 

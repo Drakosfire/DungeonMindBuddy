@@ -1,7 +1,7 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-24 — #633 native-read switch `DONE`; D.1 native governed write context `DOING`  
+**Updated:** 2026-08-24 — #634 D.1 native governed writes `DONE`; D.2A Threat authority port `DOING`  
 **Repository anchor / current Buddy `main`:** `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c` (merge of PR #633). **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (PR #45 merge / R.3a native read-context optimization)
@@ -212,14 +212,26 @@ DONE    native-read switch / Buddy #633
         5011598382; DEMOLITION_READY.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-native-read-switch.md.
 
-DOING   D.1 native governed write context / hydration retirement
+DONE    D.1 native governed write context / hydration retirement / Buddy #634
         Exact-run prepare → confirm seals public DungeonMind parents
         and publishes DungeonMind children without Buddy hydration.
+        Merge 31f2885cc18f96b98a1028304ae98914d1139fa3; accepted head
+        aa4980a8cfd1dfedbb8b05d683f01cf27cfd0c3b.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-native-governed-write-context.md.
 
-READY   D.2 mounted legacy writer migration/retirement
-        Threat publication commit, worldbuilding/first-world, and any
-        other proven current writer still on the Buddy kernel.
+DOING   D.2A Threat authority-port migration
+        Mounted Threat publication lifecycle consumes World Graph
+        authority only through a storage-neutral port backed by
+        DungeonMind. Buddy-owned operation/identity/proposal/commit
+        state stays Buddy state.
+        Handoff: Docs/Plans/HANDOFF-CUTOVER-threat-authority-port.md.
+
+READY   D.2B worldbuilding writer migration
+        Move mounted worldbuilding writes onto the World Graph
+        authority port.
+
+READY   D.2C first-world/bootstrap migration
+        Move first-world/bootstrap writes off the Buddy graph kernel.
 
 BLOCKED D.3 final Buddy graph-engine deletion
         Delete kernel/world_supergraph/union_supergraph production
