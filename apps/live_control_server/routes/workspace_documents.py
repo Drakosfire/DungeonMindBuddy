@@ -181,3 +181,15 @@ def post_workspace_document_source_artifact(
     except SourceArtifactRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return artifact.model_dump(mode="json")
+
+
+def _check_switched_plan_schema_at_import() -> None:
+    """Ordinary boot checks Alembic head. It never upgrades."""
+    from application_state.cli import assert_at_head
+    from application_state.config import plan_kind_uses_postgres
+
+    if plan_kind_uses_postgres():
+        assert_at_head()
+
+
+_check_switched_plan_schema_at_import()
