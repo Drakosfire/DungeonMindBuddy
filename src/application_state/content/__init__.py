@@ -1,5 +1,10 @@
 from application_state.content.import_plans import import_plans_from_registry
-from application_state.content.import_runbooks import import_runbooks_from_registry
+from application_state.content.import_runbooks import (
+    FrozenLegacyRunbook,
+    freeze_legacy_runbook,
+    import_runbooks_from_registry,
+    import_runbooks_from_snapshots,
+)
 from application_state.content.service import (
     autosave_plan,
     autosave_runbook,
@@ -50,7 +55,10 @@ __all__ = [
     "get_runbook",
     "get_runbook_optional",
     "import_plans_from_registry",
+    "FrozenLegacyRunbook",
+    "freeze_legacy_runbook",
     "import_runbooks_from_registry",
+    "import_runbooks_from_snapshots",
     "list_plans",
     "list_runbooks",
     "snapshot_content",

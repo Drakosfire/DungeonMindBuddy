@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from application_state.cli import assert_at_head
@@ -23,31 +24,41 @@ from application_state.errors import (
 from application_state.unit_of_work import unit_of_work
 
 
-def _read_markdown(root: Path, relpath: str | None) -> str | None:
-    if relpath is None or relpath == "":
-        return None
-    target = root / relpath
-    if not target.is_file():
-        return None
-    return normalize_markdown(target.read_text(encoding="utf-8"))
+@dataclass(frozen=True)
+class FrozenLegacyRunbook:
+    """Registry metadata + Markdown captured together under predecessor authority.
+
+    Import never re-reads the file. A leftover revision N cannot be paired with
+    later bytes because those bytes are not consulted after capture.
+    """
+
+    record: object
+    markdown: str | None
+    content_sha256: str
 
 
-def import_runbooks_from_registry(root: Path, records: list[object]) -> ImportReport:
-    """Import kind=runbook registry records. Does not switch leftover file writers.
+def freeze_legacy_runbook(record: object, markdown: str | None) -> FrozenLegacyRunbook:
+    normalized = None if markdown is None else normalize_markdown(markdown)
+    digest = sha256_utf8("" if normalized is None else normalized)
+    return FrozenLegacyRunbook(record=record, markdown=normalized, content_sha256=digest)
 
-    Current committed bytes become one WorkRevision whose ``revision_n`` equals
-    the legacy registry revision. Older unseen revisions are not fabricated.
+
+def import_runbooks_from_snapshots(snapshots: list[FrozenLegacyRunbook]) -> ImportReport:
+    """Import frozen leftover Runbook snapshots. Does not switch leftover file writers.
+
+    Current captured bytes become one WorkRevision whose ``revision_n`` equals
+    the captured registry revision. Older unseen revisions are not fabricated.
     """
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     report = ImportReport()
     with unit_of_work(dsn) as conn:
-        for record in records:
-            kind = getattr(record, "kind", None)
+        for snapshot in snapshots:
+            kind = getattr(snapshot.record, "kind", None)
             if kind != "runbook":
                 continue
-            result = _import_one(conn, root, record)
-            report.work_object_ids.append(str(getattr(record, "document_id")))
+            result = _import_one(conn, snapshot)
+            report.work_object_ids.append(str(getattr(snapshot.record, "document_id")))
             if result == "imported":
                 report.imported += 1
             elif result == "noop":
@@ -57,7 +68,15 @@ def import_runbooks_from_registry(root: Path, records: list[object]) -> ImportRe
     return report
 
 
-def _import_one(conn, root: Path, record: object) -> str:
+def import_runbooks_from_registry(
+    _root: object, snapshots: list[FrozenLegacyRunbook]
+) -> ImportReport:
+    """Compatibility wrapper: import already-frozen snapshots, never re-read files."""
+    return import_runbooks_from_snapshots(snapshots)
+
+
+def _import_one(conn, snapshot: FrozenLegacyRunbook) -> str:
+    record = snapshot.record
     document_id = UUID(str(getattr(record, "document_id")))
     title = str(getattr(record, "title"))
     campaign_id = str(getattr(record, "campaign_id"))
@@ -68,13 +87,16 @@ def _import_one(conn, root: Path, record: object) -> str:
     target_session = getattr(record, "target_session", None)
     created_at = getattr(record, "created_at")
     updated_at = getattr(record, "updated_at")
-    bytes_or_none = _read_markdown(root, target_relpath)
-    if content_status == "committed" and bytes_or_none is None:
+    if snapshot.markdown is not None and sha256_utf8(snapshot.markdown) != snapshot.content_sha256:
+        raise ApplicationStateIntegrityError(
+            f"frozen runbook {document_id} digest does not match captured Markdown"
+        )
+    if content_status == "committed" and snapshot.markdown is None:
         raise ApplicationStateIntegrityError(
             f"committed runbook {document_id} has no current Markdown bytes to import"
         )
-    markdown = bytes_or_none if bytes_or_none is not None else ""
-    digest = sha256_utf8(markdown)
+    markdown = snapshot.markdown if snapshot.markdown is not None else ""
+    digest = snapshot.content_sha256
     existing = repo.get_work_object(conn, document_id)
     if existing is not None:
         return _replay_or_conflict(
@@ -85,7 +107,6 @@ def _import_one(conn, root: Path, record: object) -> str:
             content_status=content_status,
             markdown=markdown,
         )
-    from datetime import datetime
 
     def _parse_dt(value: object) -> datetime:
         if isinstance(value, datetime):
