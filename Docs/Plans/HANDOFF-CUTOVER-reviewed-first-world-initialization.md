@@ -41,7 +41,8 @@ pr_body_template: |
 **Workstream / flow:** `CUTOVER`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMind`  
-**Buddy design/re-anchor base:** `6ef7aefa741a82f512f5918b460cbee1a427cae4` — merge of Buddy PR #640  
+**Buddy design/re-anchor base:** `29ff1584b9f76bb5100a724a96bebbbcf8f08d12` — merge of Buddy PR #641 / APP-STATE AS1; first parent `6ef7aefa741a82f512f5918b460cbee1a427cae4` is the merge of Buddy PR #640 / D.2B  
+**Buddy D.2B merge:** `6ef7aefa741a82f512f5918b460cbee1a427cae4`  
 **Buddy D.2B accepted head:** `caa9d84e4431db1b90ea58dab2e74d270fbcffee`  
 **Buddy D.2B review cycles:** 3; Cycle 3 PASS-equivalent review `5020798053`  
 **DungeonMind implementation base:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` — current `main`, merge of PR #45  
@@ -700,18 +701,19 @@ versioning.
 
 ## 12. Parallel-lane contract
 
-Buddy APP-STATE PR #641 is active at this design re-anchor. Its write lease owns
-Plan persistence, `src/application_state/**`, `pyproject.toml`, `uv.lock`, and
-workspace-document persistence paths.
+Buddy APP-STATE AS1 / PR #641 merged at this re-anchor as
+`29ff1584b9f76bb5100a724a96bebbbcf8f08d12`. The prior AS1 write lease no longer
+blocks D.2C design or future Buddy edits merely by being in flight.
 
 D.2C1 is in the separate DungeonMind repository and therefore has no source-path
-collision with #641. It also has no shared runtime requirement with Buddy's
-application-state database.
+collision with Buddy APP-STATE regardless. It also has no shared runtime
+requirement with Buddy's application-state database.
 
-For D.2C2, continue treating `workspace_document_registry.py` as APP-STATE-owned
-while #641 remains open. First-world may **read** the existing lineage service;
-it must not modify that file without an explicit lease transfer/serialization
-decision.
+Before dispatching D.2C2, re-check then-current APP-STATE successors/open PRs and
+allocate a fresh write lease. First-world may continue to **read** the existing
+workspace-lineage service. If a future APP-STATE successor again owns
+`workspace_document_registry.py`, D.2C2 must not modify that file without an
+explicit lease transfer/serialization decision.
 
 ---
 
