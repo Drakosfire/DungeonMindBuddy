@@ -7,7 +7,8 @@ version: 1.1
 created_at: "2026-08-24"
 updated_at: "2026-08-24"
 workstream: APP-STATE
-as0_merge: "605445b3b839b494a82218758c465edbfe59bad9"
+as0_merge: "4c90df353bfb5d0f6857357e00eb8b2b6e142257"
+as0_accepted_head: "605445b3b839b494a82218758c465edbfe59bad9"
 design_authority_base: "31f2885cc18f96b98a1028304ae98914d1139fa3"
 dispatch_base: "9782c05d506ee4be918ed2491ff63d9705ac97c9"
 parent_anchor: "../Plans/STEWARDS-ANCHOR-application-state.md"
@@ -216,9 +217,11 @@ A shared database does not collapse these domains.
 
 ## 3. Current-state persistence inventory
 
-Grounded on dispatch base `9782c05d506ee4be918ed2491ff63d9705ac97c9`
-(design-authority predecessor: CUTOVER #634 `31f2885c…`; AS0 merge #636
-`605445b3…`). This correction re-read `apps/live_control_server/routes/recap_ingest.py`,
+Grounded on AS0.1 handoff/dispatch base `9782c05d506ee4be918ed2491ff63d9705ac97c9`
+(not a completed correction merge). Design-authority predecessor: CUTOVER #634
+`31f2885c…`. AS0 / PR #636 merge on `main` is
+`4c90df353bfb5d0f6857357e00eb8b2b6e142257`; accepted PR head was
+`605445b3b839b494a82218758c465edbfe59bad9`. This correction re-read `apps/live_control_server/routes/recap_ingest.py`,
 `apps/live_control_server/services/location_corpus_index.py`, and
 `Docs/Design/DESIGN-statblock-lifecycle-agentic-workbench.md` for path-keyed and
 `artifact_id`-keyed durable state beyond Plan/Play. This is evidence, not

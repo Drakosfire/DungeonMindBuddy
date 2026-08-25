@@ -6,8 +6,9 @@
 **Updated:** 2026-08-24
 **Architecture authority:** [`../Design/ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md)
 **Parent pickup:** [`../Plans/STEWARDS-ANCHOR-application-state.md`](../Plans/STEWARDS-ANCHOR-application-state.md)
-**AS0 merge:** `605445b3b839b494a82218758c465edbfe59bad9` (PR #636)
-**This correction dispatch base:** `9782c05d506ee4be918ed2491ff63d9705ac97c9`
+**AS0 merge:** `4c90df353bfb5d0f6857357e00eb8b2b6e142257` (PR #636)
+**AS0 accepted head:** `605445b3b839b494a82218758c465edbfe59bad9`
+**This correction dispatch base:** `9782c05d506ee4be918ed2491ff63d9705ac97c9` (AS0.1 handoff/dispatch base; not a completed correction merge)
 
 This roadmap is **capability-sequenced**. It is not a table-creation schedule.
 Each implementation slice must leave a real consumer working on PostgreSQL, then
@@ -22,7 +23,7 @@ Plan-only.**
 ## Sequence
 
 ```text
-AS0   DESIGN                 DONE — PR #636 @ 605445b3
+AS0   DESIGN                 DONE — PR #636 merge 4c90df35
 AS0.1 STORAGE-TOPOLOGY       THIS PR — identity / asset / Ingest scope
 AS1   PLAN DOCUMENTS         NEXT implementation — substrate + kind=plan
 AS2   PLAYABLE               runbook WorkRevisions historically addressable
@@ -45,7 +46,7 @@ list.
 
 | Field | Content |
 |---|---|
-| Status | **DONE** — merged PR #636 at `605445b3b839b494a82218758c465edbfe59bad9` |
+| Status | **DONE** — merged PR #636 at `4c90df353bfb5d0f6857357e00eb8b2b6e142257` (accepted head `605445b3b839b494a82218758c465edbfe59bad9`) |
 | Independently useful outcome | Reviewed persistence architecture so later slices do not guess lifecycle, revision, isolation, or cutover rules |
 | Primary consumer/story | Steward / implementation agents |
 | Predecessor | Steward seed; CUTOVER #634; Play BF1 PR #628 |

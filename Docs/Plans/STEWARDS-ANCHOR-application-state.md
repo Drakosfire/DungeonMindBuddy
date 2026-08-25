@@ -6,8 +6,9 @@
 **Updated:** 2026-08-24
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Creation anchor:** `main` `54779636750ebf7a639aef8a6184cc61ead9c860` (merge of CUTOVER PR #632)
-**AS0 merge:** PR #636 @ `605445b3b839b494a82218758c465edbfe59bad9`
-**Current dispatch base:** `9782c05d506ee4be918ed2491ff63d9705ac97c9` (storage-topology correction)
+**AS0 merge:** PR #636 @ `4c90df353bfb5d0f6857357e00eb8b2b6e142257`
+**AS0 accepted head:** `605445b3b839b494a82218758c465edbfe59bad9`
+**Current dispatch base:** `9782c05d506ee4be918ed2491ff63d9705ac97c9` (AS0.1 handoff/dispatch base; not a completed correction merge)
 **Next implementation:** AS1 after AS0.1 PASS/merge/re-anchor
 **Repository law:** [`../../AGENTS.md`](../../AGENTS.md)
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)
@@ -612,7 +613,7 @@ when database integrity is perfect.
 
 ## 6. Design gate status
 
-**AS0 is complete** — merged PR #636 @ `605445b3b839b494a82218758c465edbfe59bad9`.
+**AS0 is complete** — merged PR #636 @ `4c90df353bfb5d0f6857357e00eb8b2b6e142257` (accepted head `605445b3b839b494a82218758c465edbfe59bad9`).
 
 **AS0.1 (storage-topology correction) is required before AS1 dispatch.** Update
 the active architecture to v1.1 with storage-independent identity, four state
@@ -671,7 +672,7 @@ Re-anchor against `ROADMAP-application-state.md` before dispatch. This is the
 current sequence, not pre-authorized PR scope.
 
 ```text
-AS0    DESIGN                      DONE — PR #636 @ 605445b3
+AS0    DESIGN                      DONE — PR #636 merge 4c90df35
 AS0.1  STORAGE-TOPOLOGY            identity / asset / Ingest scope (this correction)
 AS1    PLAN DOCUMENTS              substrate + kind=plan (NEXT after AS0.1)
 AS2    PLAYABLE                    runbook WorkRevisions historically addressable
@@ -958,7 +959,7 @@ A new steward should be able to begin with this exact sequence:
 
 ```text
 1. Read AGENTS.md and STEWARD-CYCLE.md.
-2. Re-anchor current main, AS0 merge (#636 @ 605445b3), and active lanes.
+2. Re-anchor current main, AS0 merge (#636 @ 4c90df35), and active lanes.
 3. Read this anchor and ARCHITECTURE-application-state-layer.md v1.1.
 4. Read Playable/Runtime architecture + current-moment cockpit + authoring/adoption.
 5. Read CUTOVER steward anchor so World authority is not accidentally reopened.
