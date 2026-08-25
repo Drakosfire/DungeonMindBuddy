@@ -405,10 +405,33 @@ sent a digest.” Confirm still:
 
 The identity snapshot follows the accepted D.1 sealed-snapshot model. Malformed,
 unsupported, invented, or non-reconstructable decision records fail closed.
-If implementation discovers that preserving the existing worldbuilding
-rebuild-as-verify adversarial guarantees requires a stronger durable/signed
-prepare capability than D.1 provides, stop and re-brief rather than adding a
-hidden plan registry.
+
+### 6.3 Cycle 3 re-brief: signed prepare-plan binding, not a Buddy registry
+
+Cycle 1 required confirm to prove the sealed I₀ snapshot was server-produced,
+not merely self-consistent after a caller recomputed the plan. Cycle 2's
+filesystem checkpoint (`out/registries/worldbuilding_identity_checkpoints.json`)
+is withdrawn: it is a second durable Buddy persistence contract (§10.2, §19.8)
+and it keyed only `(world, parent, snapshot digest)`, so a later recomputed
+plan could reuse an old I₀ after I₁ appends.
+
+Authorized D.2B repair — no new persistence:
+
+- Prepare returns a server-MAC'd `prepare_binding` on the v2 plan response.
+- The MAC covers exact `world_id + parent_revision_id + plan_id + plan_digest
+  + identity_snapshot_digest`.
+- Confirm verifies the MAC before reconstructing identity. A recomputed plan,
+  a stolen binding on a different plan, or a mutated I₀ fail closed.
+- The MAC is not part of canonical plan digest/effect.
+- The MAC key is process-local by default (callers re-prepare after restart,
+  matching “no durable plan registry”). Operators may set
+  `DMB_WORLDBUILDING_PREPARE_BINDING_KEY` when prepare and confirm must
+  succeed across processes.
+- Later I₁ ledger appends remain allowed: the original prepared plan's binding
+  still authenticates I₀, and mutation context still proves I₀ is a live prefix.
+
+Do not persist prepare records in Buddy files, APP-STATE, or a service-local
+registry.
 
 ---
 
@@ -543,6 +566,10 @@ Derive a deterministic worldbuilding operation id from the verified sealed plan.
 Persisting a separate Buddy commit ledger is **not** required in this slice: the
 response-carried plan already provides deterministic immutable operation input,
 and DungeonMind provides durable terminal publication recovery.
+
+The Cycle 3 prepare-plan MAC authenticates that the carried plan was
+server-produced. It is not a commit ledger and must not become a filesystem
+registry.
 
 Do not add a worldbuilding plan/commit filesystem registry merely to mimic
 Threat's product-state lifecycle.
@@ -742,6 +769,7 @@ The implementation PR's HANDOFF §4 write lease is:
 | Create | `tests/test_cutover_worldbuilding_authority_port.py` | fake-port / physical-absence / identity-drift product tests |
 | Create | `tests/test_cutover_worldbuilding_authority_port_integration.py` | isolated PostgreSQL parent→child/retry/recover/stale/native verification witness |
 | Modify | `Docs/Plans/HANDOFF-CUTOVER-threat-authority-port.md` | backward-looking D.2A completion/archive truth only |
+| Modify | `Docs/Plans/HANDOFF-CUTOVER-worldbuilding-authority-port.md` | Cycle 3 re-brief: signed prepare-plan binding; withdraw filesystem identity checkpoint |
 | Modify | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` | D.2A DONE + D.2B active predecessor sync |
 | Modify | `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` | same backward-looking CUTOVER state sync |
 | Modify | `Docs/Plans/STEWARDS-ANCHOR-cutover.md` | D.2A merge/review truth + D.2B dispatch anchor |
@@ -1034,9 +1062,11 @@ filter it, coerce it, or hydrate Buddy state.
 
 ### 19.2 Identity snapshot cannot preserve rebuild authority safely
 
-If the accepted D.1 sealed-snapshot pattern is insufficient for worldbuilding's
-rebuild-as-verify trust boundary, stop. Do not create an undocumented filesystem
-plan registry, hidden signing key, or APP-STATE dependency inside D.2B.
+The D.1 sealed-snapshot pattern is insufficient by itself for worldbuilding's
+response-carried plan (a caller can alter I₀ and recompute). Cycle 3 §6.3
+authorizes a server-MAC'd prepare-plan binding as the no-persistence repair.
+Do not create a filesystem plan registry, APP-STATE dependency, or additional
+unsigned checkpoint inside D.2B.
 
 ### 19.3 Port starts becoming generic CRUD/database middleware
 
@@ -1066,7 +1096,8 @@ seam split can avoid it. Do not edit first.
 ### 19.8 A durable Buddy worldbuilding commit registry becomes required
 
 That is a second persistence contract. Re-brief it separately; do not smuggle it
-into this migration.
+into this migration. The withdrawn Cycle 2 identity checkpoint file was this
+failure. The signed prepare-plan binding in §6.3 is not a commit registry.
 
 ---
 

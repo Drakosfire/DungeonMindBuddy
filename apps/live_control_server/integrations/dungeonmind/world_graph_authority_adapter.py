@@ -25,6 +25,7 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_writes import
     publish_contribution_via_dungeonmind,
 )
 from apps.live_control_server.ports.world_graph_authority import (
+    AuthorityEvidenceRef,
     AuthorityObject,
     AuthorityRelationship,
     WorldGraphAuthorityError,
@@ -131,6 +132,21 @@ def _relationship_from_payload(raw: Mapping[str, Any]) -> AuthorityRelationship 
     )
 
 
+def _evidence_from_payload(raw: Mapping[str, Any]) -> AuthorityEvidenceRef | None:
+    evidence_ref_id = str(raw.get("evidence_ref_id") or "").strip()
+    if not evidence_ref_id:
+        return None
+    role = raw.get("evidence_role")
+    if role is not None and not isinstance(role, str):
+        role = str(getattr(role, "value", role) or "")
+    locator = raw.get("locator")
+    return AuthorityEvidenceRef(
+        evidence_ref_id=evidence_ref_id,
+        evidence_role=str(role or "").strip(),
+        locator=str(locator).strip() if locator else None,
+    )
+
+
 def _view_from_stored(*, world_id: str, stored: Any) -> WorldGraphRevisionView:
     payload = dict(getattr(stored, "graph_payload", None) or {})
     envelope = getattr(stored, "revision", None)
@@ -150,12 +166,20 @@ def _view_from_stored(*, world_id: str, stored: Any) -> WorldGraphRevisionView:
         rel = _relationship_from_payload(raw)
         if rel is not None:
             relationships[rel.relationship_id] = rel
+    evidence_refs: dict[str, AuthorityEvidenceRef] = {}
+    for raw in list(payload.get("evidence_refs") or []):
+        if not isinstance(raw, dict):
+            continue
+        evidence = _evidence_from_payload(raw)
+        if evidence is not None:
+            evidence_refs[evidence.evidence_ref_id] = evidence
     return WorldGraphRevisionView(
         world_id=world_id,
         revision_id=revision_id,
         parent_revision_id=str(parent_revision_id) if parent_revision_id else None,
         objects=objects,
         relationships=relationships,
+        evidence_refs=evidence_refs,
     )
 
 

@@ -713,8 +713,9 @@ def load_authority_mutation_context(
     Confirm proves the carried I0 decision list is an exact prefix of today's
     append-only DungeonMind ledger so invented or modified records fail closed.
     Later I1 appends are the live suffix and must not change sealed confirm
-    semantics. The product service separately authenticates the full snapshot
-    digest recorded at prepare so trailing decisions cannot be dropped.
+    semantics. The product service authenticates the exact prepared plan plus
+    I0 snapshot with a server-MAC'd prepare binding; this function does not
+    persist Buddy prepare records.
     """
     from graph_memory.world_graph_mutation_context import (
         mutation_context_with_sealed_identity,
@@ -2195,7 +2196,6 @@ def publish_contribution_via_dungeonmind(
         world_id=world_id,
         head_revision_id=str(head.head_revision_id),
     )
-    accepted_assertion_ids, _affected = _affected_ids_from_contribution(contribution)
     parent_envelope = parent_stored.revision
     pair_to_dm = _build_pair_to_dm(bundle, world_id, contribution)
     reviewed_at = parent_envelope.created_at
@@ -2396,6 +2396,11 @@ def publish_contribution_via_dungeonmind(
                 "head_revision_id": getattr(head_after, "head_revision_id", None),
             },
         )
+    accepted_assertion_ids, _affected = _receipt_ids_from_reviewed_contribution(
+        bundle=bundle,
+        world_id=world_id,
+        publication=publication,
+    )
     return {
         "outcome": "published",
         "world_id": world_id,

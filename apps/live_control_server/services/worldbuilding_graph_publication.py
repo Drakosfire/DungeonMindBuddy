@@ -7,8 +7,10 @@ in ``extract_promote.py``. Product code talks only to ``WorldGraphAuthority``.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
-from pathlib import Path
+import os
+import secrets
 from typing import Any, Mapping
 
 from apps.live_control_server import config as live_config
@@ -63,8 +65,9 @@ _PORT_ERROR_MAP: dict[str, tuple[str, int]] = {
     "publication_failed": ("merge_did_not_publish", 409),
 }
 
-_IDENTITY_CHECKPOINT_REL = "out/registries/worldbuilding_identity_checkpoints.json"
-_IDENTITY_CHECKPOINT_SCHEMA = "dmb_worldbuilding_identity_checkpoint_v1"
+_PREPARE_BINDING_SCHEMA = "dmb_worldbuilding_prepare_binding_v1"
+_PREPARE_BINDING_KEY_ENV = "DMB_WORLDBUILDING_PREPARE_BINDING_KEY"
+_PROCESS_PREPARE_BINDING_KEY = secrets.token_bytes(32)
 
 
 def _promotable_run_error(exc: PromotableIngestRunError) -> ExtractPromoteError:
@@ -125,60 +128,74 @@ def _identity_snapshot_digest(snapshot: Mapping[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _identity_checkpoint_path() -> Path:
-    return live_config.repo_root() / _IDENTITY_CHECKPOINT_REL
+def _prepare_binding_key() -> bytes:
+    explicit = os.environ.get(_PREPARE_BINDING_KEY_ENV, "").strip()
+    if explicit:
+        return hashlib.sha256(
+            f"{_PREPARE_BINDING_SCHEMA}:{explicit}".encode("utf-8")
+        ).digest()
+    return _PROCESS_PREPARE_BINDING_KEY
 
 
-def _load_identity_checkpoints() -> dict[str, Any]:
-    path = _identity_checkpoint_path()
-    if not path.is_file():
-        return {"schema": _IDENTITY_CHECKPOINT_SCHEMA, "checkpoints": []}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {"schema": _IDENTITY_CHECKPOINT_SCHEMA, "checkpoints": []}
-    if not isinstance(payload, dict):
-        return {"schema": _IDENTITY_CHECKPOINT_SCHEMA, "checkpoints": []}
-    records = payload.get("checkpoints")
-    if not isinstance(records, list):
-        payload["checkpoints"] = []
-    return payload
-
-
-def _checkpoint_key(record: Mapping[str, Any]) -> tuple[str, str, str]:
-    return (
-        str(record.get("world_id") or ""),
-        str(record.get("parent_revision_id") or ""),
-        str(record.get("digest") or ""),
+def _prepare_binding_message(
+    *,
+    world_id: str,
+    parent_revision_id: str,
+    plan_id: str,
+    plan_digest: str,
+    identity_snapshot_digest: str,
+) -> bytes:
+    payload = json.dumps(
+        {
+            "schema": _PREPARE_BINDING_SCHEMA,
+            "world_id": world_id,
+            "parent_revision_id": parent_revision_id,
+            "plan_id": plan_id,
+            "plan_digest": plan_digest,
+            "identity_snapshot_digest": identity_snapshot_digest,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
     )
+    return payload.encode("utf-8")
 
 
-def _record_identity_checkpoint(
-    *, world_id: str, parent_revision_id: str, digest: str
+def _sign_prepare_binding(
+    *,
+    world_id: str,
+    parent_revision_id: str,
+    plan_id: str,
+    plan_digest: str,
+    identity_snapshot_digest: str,
+) -> str:
+    digest = hmac.new(
+        _prepare_binding_key(),
+        _prepare_binding_message(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            plan_id=plan_id,
+            plan_digest=plan_digest,
+            identity_snapshot_digest=identity_snapshot_digest,
+        ),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"v1.{digest}"
+
+
+def _require_prepare_binding(
+    plan: WorldbuildingWritePlanResponse,
+    snapshot: Mapping[str, Any],
 ) -> None:
-    path = _identity_checkpoint_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = _load_identity_checkpoints()
-    records = [dict(item) for item in list(payload.get("checkpoints") or []) if isinstance(item, dict)]
-    entry = {
-        "world_id": world_id,
-        "parent_revision_id": parent_revision_id,
-        "digest": digest,
-    }
-    if _checkpoint_key(entry) not in {_checkpoint_key(item) for item in records}:
-        records.append(entry)
-    payload["schema"] = _IDENTITY_CHECKPOINT_SCHEMA
-    payload["checkpoints"] = records
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-
-
-def _require_identity_checkpoint(
-    *, world_id: str, parent_revision_id: str, digest: str
-) -> None:
-    payload = _load_identity_checkpoints()
-    wanted = (world_id, parent_revision_id, digest)
-    records = [item for item in list(payload.get("checkpoints") or []) if isinstance(item, dict)]
-    if wanted not in {_checkpoint_key(item) for item in records}:
+    expected = _sign_prepare_binding(
+        world_id=str(plan.world_id),
+        parent_revision_id=str(plan.parent_revision_id),
+        plan_id=str(plan.plan_id),
+        plan_digest=str(plan.plan_digest),
+        identity_snapshot_digest=_identity_snapshot_digest(snapshot),
+    )
+    provided = str(getattr(plan, "prepare_binding", None) or "").strip()
+    if not provided or not hmac.compare_digest(provided, expected):
         raise ExtractPromoteError(
             "identity snapshot was not sealed by prepare on this server",
             code="identity_snapshot_inexpressible",
@@ -213,6 +230,33 @@ def _relationship_predicate_matches(published: str, expected: str) -> bool:
         return False
     dm_predicate = mapping[0]
     return published == dm_predicate or published_tail == dm_predicate.rsplit(":", 1)[-1]
+
+
+def _attribute_evidence_ids(assertion: Any, reviewed_contribution_id: str) -> list[str]:
+    ids: list[str] = []
+    for item in list(getattr(assertion, "evidence_ref_ids", None) or []):
+        text = str(item).strip()
+        if text:
+            ids.append(text)
+    subject = str(getattr(assertion, "subject_node_id", "") or "")
+    contribution_id = str(reviewed_contribution_id or "").strip()
+    if contribution_id and subject:
+        fallback = f"evidence:{contribution_id}:{subject}"
+        if fallback not in ids:
+            ids.append(fallback)
+    return ids
+
+
+def _evidence_id_on_child(present: set[str], expected_id: str) -> bool:
+    """True when the child carries the expected evidence id or its DM v1 rewrite.
+
+    DungeonMind adoption/publication may suffix Buddy evidence ids with
+    ``:dmv1:<binding sha256>`` (export identity). Exact id match remains valid.
+    """
+    if expected_id in present:
+        return True
+    marker = f"{expected_id}:dmv1:"
+    return any(item.startswith(marker) for item in present)
 
 
 def _identity_snapshot_payload(plan: WorldbuildingWritePlanResponse) -> dict[str, Any]:
@@ -309,17 +353,29 @@ def _verify_worldbuilding_child(
             if subject and subject not in objects:
                 codes.append(f"missing_attribute_subject:{subject}")
             elif subject:
-                obj = objects[subject]
-                terms = tuple(getattr(obj, "property_terms", ()) or ())
-                # DungeonMind v6 materializes attribute assertions as
-                # evidence/provenance only, not object.properties. When the
-                # child does expose property terms, they must include the
-                # accepted predicate. Empty terms are not a dropped assertion
-                # so long as the subject exists and accepted IDs matched.
-                if predicate and terms and not any(
-                    _relationship_predicate_matches(term, predicate) for term in terms
-                ):
+                expected = _attribute_evidence_ids(
+                    assertion, str(receipt.reviewed_contribution_id or "")
+                )
+                present_evidence = set(getattr(child, "evidence_refs", {}) or {})
+                supported = getattr(child, "supported_assertion_ids", frozenset()) or frozenset()
+                assertion_id = str(getattr(assertion, "assertion_id", "") or "")
+                terms = tuple(getattr(objects[subject], "property_terms", ()) or ())
+                evidence_ok = any(
+                    _evidence_id_on_child(present_evidence, item) for item in expected
+                ) or (assertion_id in supported)
+                terms_ok = bool(
+                    predicate
+                    and terms
+                    and any(
+                        _relationship_predicate_matches(term, predicate) for term in terms
+                    )
+                )
+                if predicate and terms and not terms_ok:
                     codes.append(f"missing_attribute:{subject}:{predicate}")
+                elif not evidence_ok and not terms_ok:
+                    codes.append(
+                        f"missing_attribute_evidence:{subject}:{predicate or assertion_id}"
+                    )
         elif kind == "alias":
             if subject and subject not in objects:
                 codes.append(f"missing_alias_subject:{subject}")
@@ -471,12 +527,17 @@ def prepare_worldbuilding(
             diagnostics=[_diagnostic("plan_verification_failed", str(exc))],
         ) from exc
     snapshot = _identity_snapshot_payload(response)
-    _record_identity_checkpoint(
-        world_id=DEFAULT_WORLD_ID,
-        parent_revision_id=request.expected_parent_revision_id,
-        digest=_identity_snapshot_digest(snapshot),
+    return response.model_copy(
+        update={
+            "prepare_binding": _sign_prepare_binding(
+                world_id=DEFAULT_WORLD_ID,
+                parent_revision_id=response.parent_revision_id,
+                plan_id=response.plan_id,
+                plan_digest=response.plan_digest,
+                identity_snapshot_digest=_identity_snapshot_digest(snapshot),
+            )
+        }
     )
-    return response
 
 
 def confirm_worldbuilding(
@@ -523,11 +584,7 @@ def confirm_worldbuilding(
     )
     authority = get_world_graph_authority()
     snapshot = _identity_snapshot_payload(plan)
-    _require_identity_checkpoint(
-        world_id=DEFAULT_WORLD_ID,
-        parent_revision_id=plan.parent_revision_id,
-        digest=_identity_snapshot_digest(snapshot),
-    )
+    _require_prepare_binding(plan, snapshot)
     try:
         mutation_context = authority.mutation_context(
             DEFAULT_WORLD_ID,

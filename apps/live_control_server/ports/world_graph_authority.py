@@ -76,6 +76,15 @@ class AuthorityRelationship:
 
 
 @dataclass(frozen=True)
+class AuthorityEvidenceRef:
+    """One exact-revision evidence/support fact from DungeonMind v6 materialization."""
+
+    evidence_ref_id: str
+    evidence_role: str = ""
+    locator: str | None = None
+
+
+@dataclass(frozen=True)
 class WorldGraphRevisionView:
     world_id: str
     revision_id: str
@@ -85,6 +94,7 @@ class WorldGraphRevisionView:
     supported_assertion_ids: frozenset[str] = field(default_factory=frozenset)
     contribution_source_digests: Mapping[str, str] = field(default_factory=dict)
     active_contribution_ids: frozenset[str] = field(default_factory=frozenset)
+    evidence_refs: Mapping[str, AuthorityEvidenceRef] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -220,6 +230,7 @@ def relationships_by_predicate(
 
 
 __all__ = [
+    "AuthorityEvidenceRef",
     "AuthorityObject",
     "AuthorityRelationship",
     "WorldGraphAuthority",

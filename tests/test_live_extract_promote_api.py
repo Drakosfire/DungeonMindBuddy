@@ -2349,7 +2349,7 @@ def test_worldbuilding_confirm_rejects_presentation_and_effect_tamper(
         WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(effect_tamper)
     )
     assert effect_resp.status_code in {409, 422}, effect_resp.text
-    assert effect_resp.json()["code"] == "plan_verification_failed"
+    assert effect_resp.json()["code"] == "identity_snapshot_inexpressible"
     assert kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id == before
 
 

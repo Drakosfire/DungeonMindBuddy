@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 from apps.live_control_server.ports.world_graph_authority import (
+    AuthorityEvidenceRef,
     AuthorityObject,
     AuthorityRelationship,
     WorldGraphAuthorityError,
@@ -217,6 +218,10 @@ class FakeWorldGraphAuthority:
         )
         objects = dict(parent_view.objects) if parent_view is not None else {}
         relationships = dict(parent_view.relationships) if parent_view else {}
+        evidence_refs = dict(parent_view.evidence_refs) if parent_view else {}
+        contribution_id = str(
+            getattr(request.contribution, "contribution_id", "") or receipt.reviewed_contribution_id
+        )
         for assertion in list(getattr(request.contribution, "accepted_assertions", None) or []):
             kind = str(getattr(assertion, "assertion_kind", "") or "")
             subject = str(getattr(assertion, "subject_node_id", "") or "")
@@ -236,10 +241,21 @@ class FakeWorldGraphAuthority:
                 existing = objects.get(subject)
                 if existing is None:
                     continue
-                terms = list(existing.property_terms)
-                if predicate and predicate not in terms:
-                    terms.append(predicate)
-                objects[subject] = replace(existing, property_terms=tuple(terms))
+                evidence_ids = [
+                    str(item).strip()
+                    for item in list(getattr(assertion, "evidence_ref_ids", None) or [])
+                    if str(item).strip()
+                ]
+                if not evidence_ids:
+                    evidence_ids = [
+                        f"evidence:{receipt.reviewed_contribution_id}:{subject}"
+                    ]
+                for evidence_id in evidence_ids:
+                    evidence_refs[evidence_id] = AuthorityEvidenceRef(
+                        evidence_ref_id=evidence_id,
+                        evidence_role="support",
+                        locator=f"contribution/{contribution_id}/{subject}",
+                    )
             elif kind == "alias" and subject:
                 existing = objects.get(subject)
                 if existing is None:
@@ -263,6 +279,7 @@ class FakeWorldGraphAuthority:
             parent_revision_id=request.expected_parent_revision_id,
             objects=objects,
             relationships=relationships,
+            evidence_refs=evidence_refs,
         )
         return receipt
 
@@ -362,6 +379,12 @@ def _plan_kwargs(context: WorldGraphMutationContext, dispositions=None):
         "dispositions": dispositions or _dispositions(),
         "require_current_head": True,
     }
+
+
+def test_static_worldbuilding_service_has_no_identity_checkpoint_registry():
+    source = WORLDBUILDING_SERVICE_PATHS[0].read_text(encoding="utf-8")
+    assert "worldbuilding_identity_checkpoints" not in source
+    assert "out/registries" not in source
 
 
 def test_static_worldbuilding_services_have_no_direct_buddy_graph_runtime_imports():
@@ -643,7 +666,10 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
     assert plan.schema_ == "dmb_worldbuilding_write_plan_v2"
     assert plan.effect.identity_authority is not None
     assert plan.effect.identity_authority.schema_ == WORLDBUILDING_IDENTITY_SNAPSHOT_SCHEMA
+    assert plan.prepare_binding
+    assert plan.prepare_binding.startswith("v1.")
     assert not (tmp_path / "buddy-world-graph-absent").exists()
+    assert not (repo / "out/registries/worldbuilding_identity_checkpoints.json").exists()
 
 
 def test_identity_drift_without_graph_head_advance_uses_sealed_snapshot(
@@ -1091,7 +1117,9 @@ def test_tampered_identity_snapshot_fails_even_after_recompute(tmp_path, monkeyp
             ],
             require_current_head=False,
         )
-        attack_plan = _wrap_built_plan(rebuilt)
+        attack_plan = _wrap_built_plan(rebuilt).model_copy(
+            update={"prepare_binding": honest.prepare_binding}
+        )
         with pytest.raises(Exception) as exc:
             confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=attack_plan))
         code = getattr(exc.value, "code", "")
@@ -1151,6 +1179,93 @@ def test_identity_drift_appends_i1_without_changing_sealed_confirm(
     receipt = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert receipt.outcome == "committed"
     assert fake.publish_calls == 1
+
+
+def test_recomputed_plan_after_i1_cannot_reuse_prepare_binding(tmp_path, monkeypatch):
+    from apps.live_control_server.models.extract_promote import (
+        WorldbuildingWritePlanConfirmRequest,
+        WorldbuildingWritePlanPrepareRequest,
+    )
+    from apps.live_control_server.services.extract_promote import (
+        _load_typed_worldbuilding_preview_for_run,
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
+    from apps.live_control_server.services.worldbuilding_graph_publication import (
+        _identity_snapshot_payload,
+        confirm_worldbuilding,
+        prepare_worldbuilding,
+    )
+    from graph_memory.world_graph_mutation_context import (
+        mutation_context_with_sealed_identity,
+    )
+    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+
+    parent = "rev:d-a"
+    repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
+    fake = FakeWorldGraphAuthority()
+    fake.heads[DEFAULT_WORLD_ID] = parent
+    fake.revisions[(DEFAULT_WORLD_ID, parent)] = _empty_parent(revision_id=parent)
+    fake.identity[DEFAULT_WORLD_ID] = {
+        "identity_redirects": {},
+        "decisions": [],
+        "alias_owners": {},
+    }
+    _install_fake_authority(monkeypatch, fake)
+    _explode_buddy_graph_runtime(monkeypatch)
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    prepared = prepare_worldbuilding(
+        WorldbuildingWritePlanPrepareRequest.model_validate(
+            {
+                "runId": run_id,
+                "expectedParentRevisionId": parent,
+                "dispositions": _standard_dispositions(),
+            }
+        )
+    )
+    fake.identity[DEFAULT_WORLD_ID] = {
+        "identity_redirects": {},
+        "decisions": [
+            {
+                **_SEED_MERGE,
+                "decision_id": "identity-decision:d2b-i1",
+                "subject_object_ids": ["npc:later-a", "npc:later-b"],
+                "target_object_ids": ["npc:later-b"],
+            }
+        ],
+        "alias_owners": {},
+    }
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(resolved)
+    graph_base = fake.mutation_context(DEFAULT_WORLD_ID, parent)
+    snapshot = _identity_snapshot_payload(prepared)
+    rebuilt = build_worldbuilding_write_plan(
+        preview=typed_preview,
+        mutation_context=mutation_context_with_sealed_identity(graph_base, snapshot),
+        world_id=DEFAULT_WORLD_ID,
+        expected_parent_revision_id=parent,
+        run_id=resolved.run_id,
+        source_artifact_id=resolved.source_artifact_id,
+        source_revision_id=resolved.source_revision_id,
+        source_uri=resolved.sealed_source_uri,
+        extraction_profile=expected_profile,
+        campaign_scope=resolved.campaign_id or None,
+        dispositions=[
+            {"assertion_id": "obj_session22_vial", "decision": "reject"},
+            {"assertion_id": "mystery_puddles", "decision": "create_new"},
+            {"assertion_id": "e33", "decision": "defer"},
+        ],
+        require_current_head=False,
+    )
+    attack_plan = _wrap_built_plan(rebuilt).model_copy(
+        update={"prepare_binding": prepared.prepare_binding}
+    )
+    assert attack_plan.plan_id != prepared.plan_id
+    with pytest.raises(Exception) as exc:
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=attack_plan))
+    assert getattr(exc.value, "code", "") == "identity_snapshot_inexpressible"
+    assert fake.publish_calls == 0
 
 
 def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkeypatch):
@@ -1238,6 +1353,17 @@ def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkey
     assert receipt.outcome == "committed"
     child = fake.read_revision(DEFAULT_WORLD_ID, receipt.committed_revision_id)
     bound = child.objects[target.object_id]
-    assert "worldbuilding_observation" in bound.property_terms
+    attribute_assertions = [
+        item
+        for item in plan.effect.accepted_proposals
+        if item.assertion_kind == "attribute"
+    ]
+    assert attribute_assertions
+    published = next(iter(fake.publications.values()))
+    expected_evidence = [
+        *attribute_assertions[0].evidence_ref_ids,
+        f"evidence:{published.reviewed_contribution_id}:{target.object_id}",
+    ]
+    assert any(item in child.evidence_refs for item in expected_evidence if item)
     assert "Witness Alias" in bound.aliases
     assert "mystery_puddles" in child.objects

@@ -288,6 +288,7 @@ class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     confirmable_reason: Literal[
         "BLD-10a prepares an inert write plan; graph confirmation is not implemented."
     ] = "BLD-10a prepares an inert write plan; graph confirmation is not implemented."
+    prepare_binding: str | None = None
 
 
 WORLD_BUILDING_WRITE_PLAN_CONFIRM_REQUEST_SCHEMA = (

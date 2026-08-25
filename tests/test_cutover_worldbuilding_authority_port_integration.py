@@ -368,6 +368,23 @@ def test_worldbuilding_bind_existing_publishes_observation_and_alias(
     assert alias_ids
     assert all(assertion_id in receipt.accepted_assertion_ids for assertion_id in attribute_ids)
     assert all(assertion_id in receipt.accepted_assertion_ids for assertion_id in alias_ids)
+    parent_evidence = set(parent.evidence_refs)
+    child_evidence = set(child.evidence_refs)
+    added_evidence = child_evidence - parent_evidence
+    attribute_evidence_ids = [
+        evidence_id
+        for item in accepted
+        if item.assertion_kind == "attribute"
+        for evidence_id in list(item.evidence_ref_ids)
+        if evidence_id
+    ]
+    assert added_evidence
+    assert attribute_evidence_ids
+    assert any(
+        evidence_id == raw or evidence_id.startswith(f"{raw}:dmv1:")
+        for raw in attribute_evidence_ids
+        for evidence_id in added_evidence
+    ), (added_evidence, attribute_evidence_ids)
     schemas = _source_plan_schemas(dsn)
     assert "dmb_worldbuilding_publication_contribution_v1" in schemas
     assert "dmb_threat_publication_contribution_v1" not in schemas
