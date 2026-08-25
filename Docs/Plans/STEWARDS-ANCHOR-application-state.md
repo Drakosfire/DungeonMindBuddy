@@ -3,13 +3,16 @@
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT
 **Line of work / flow:** `APP-STATE`
 **Created:** 2026-08-24
-**Updated:** 2026-08-24
+**Updated:** 2026-08-25
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Creation anchor:** `main` `54779636750ebf7a639aef8a6184cc61ead9c860` (merge of CUTOVER PR #632)
 **AS0 merge:** PR #636 @ `4c90df353bfb5d0f6857357e00eb8b2b6e142257`
 **AS0 accepted head:** `605445b3b839b494a82218758c465edbfe59bad9`
-**Current dispatch base:** `9782c05d506ee4be918ed2491ff63d9705ac97c9` (AS0.1 handoff/dispatch base; not a completed correction merge)
-**Next implementation:** AS1 after AS0.1 PASS/merge/re-anchor
+**AS0.1 merge:** PR #639 @ `dd09f7f707e38f9f4348b759da8cfdbbe420fd60`
+**AS0.1 accepted head:** `abb3fb15f9b56e8712c07c798674d0462827677f`
+**AS0.1 review:** Review Cycle 2 PASS-equivalent, review `5014814402`
+**Current implementation:** AS1 Plan/PostgreSQL — this PR; do not mark AS1 DONE
+**Named successor still false:** AS2 Playable historical WorkRevisions
 **Repository law:** [`../../AGENTS.md`](../../AGENTS.md)
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)
 **Primary adjacent authorities:**
@@ -617,13 +620,12 @@ when database integrity is perfect.
 
 **AS0 is complete** — merged PR #636 @ `4c90df353bfb5d0f6857357e00eb8b2b6e142257` (accepted head `605445b3b839b494a82218758c465edbfe59bad9`).
 
-**AS0.1 (storage-topology correction) is required before AS1 dispatch.** Update
-the active architecture to v1.1 with storage-independent identity, four state
-classes, Asset boundary concept, and Ingest/generated-artifact scope. Do **not**
-dispatch AS1 from pre-correction architecture text.
+**AS0.1 is complete** — merged PR #639 @ `dd09f7f707e38f9f4348b759da8cfdbbe420fd60`
+(accepted head `abb3fb15…`; Review Cycle 2 review `5014814402`). Architecture v1.1
+is living authority.
 
-After AS0.1 PASS/merge/re-anchor, the first implementation slice is AS1
-(Plan-only PostgreSQL foundation).
+**AS1 is the active implementation slice** (this PR). Do not mark AS1 DONE and do
+not invent its merge SHA. AS2 remains false.
 
 Expected artifacts (canonical owners):
 
@@ -675,8 +677,8 @@ current sequence, not pre-authorized PR scope.
 
 ```text
 AS0    DESIGN                      DONE — PR #636 merge 4c90df35
-AS0.1  STORAGE-TOPOLOGY            identity / asset / Ingest scope (this correction)
-AS1    PLAN DOCUMENTS              substrate + kind=plan (NEXT after AS0.1)
+AS0.1  STORAGE-TOPOLOGY            DONE — PR #639 merge dd09f7f7
+AS1    PLAN DOCUMENTS              substrate + kind=plan (THIS PR; not merged)
 AS2    PLAYABLE                    runbook WorkRevisions historically addressable
 AS3    PLAY RUNTIME                Run + sealed manifest in one transaction
 AS4    PLAY CONTINUITY             active Run + resume/reload
@@ -974,15 +976,14 @@ A new steward should be able to begin with this exact sequence:
 
 ```text
 1. Read AGENTS.md and STEWARD-CYCLE.md.
-2. Re-anchor current main, AS0 merge (#636 @ 4c90df35), and active lanes.
+2. Re-anchor current main, AS0 merge (#636 @ 4c90df35), AS0.1 merge (#639 @ dd09f7f7), and active lanes.
 3. Read this anchor and ARCHITECTURE-application-state-layer.md v1.1.
 4. Read Playable/Runtime architecture + current-moment cockpit + authoring/adoption.
 5. Read CUTOVER steward anchor so World authority is not accidentally reopened.
 6. Trace current workspace-document + Play Run persistence end to end.
 7. Inventory path-keyed Ingest, location index, and generated-artifact durable state.
-8. Confirm AS0.1 storage-topology correction is merged before AS1 dispatch.
-9. Dispatch AS1 (Plan-only) only after write leases, DB isolation, proof, and parent-story
-   outcome are concrete.
+8. Treat AS1 as the active Plan/PostgreSQL implementation; do not claim it merged.
+9. Keep AS2 (runbook historical WorkRevisions) unimplemented until AS1 merges and is re-anchored.
 ```
 
 If a fresh steward cannot answer "what remains false after the first implementation

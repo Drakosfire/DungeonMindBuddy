@@ -1,22 +1,23 @@
 # ROADMAP — Application State
 
-**Status:** ACTIVE — AS0 merged; storage-topology correction before AS1
+**Status:** ACTIVE — AS0 and AS0.1 merged; AS1 Plan/PostgreSQL is this implementation PR
 **Line of work / flow:** `APP-STATE`
 **Created:** 2026-08-24
-**Updated:** 2026-08-24
+**Updated:** 2026-08-25
 **Architecture authority:** [`../Design/ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md)
 **Parent pickup:** [`../Plans/STEWARDS-ANCHOR-application-state.md`](../Plans/STEWARDS-ANCHOR-application-state.md)
 **AS0 merge:** `4c90df353bfb5d0f6857357e00eb8b2b6e142257` (PR #636)
 **AS0 accepted head:** `605445b3b839b494a82218758c465edbfe59bad9`
-**This correction dispatch base:** `9782c05d506ee4be918ed2491ff63d9705ac97c9` (AS0.1 handoff/dispatch base; not a completed correction merge)
+**AS0.1 merge:** `dd09f7f707e38f9f4348b759da8cfdbbe420fd60` (PR #639)
+**AS0.1 accepted head:** `abb3fb15f9b56e8712c07c798674d0462827677f`
+**AS0.1 review:** Review Cycle 2 PASS-equivalent, review `5014814402`
 
 This roadmap is **capability-sequenced**. It is not a table-creation schedule.
 Each implementation slice must leave a real consumer working on PostgreSQL, then
 delete or fail-close the replaced file authority for that consumer.
 
-AS0 established the shared substrate. This correction widens identity/asset
-scope so later domains are not designed as an afterthought. **AS1 remains
-Plan-only.**
+AS0 established the shared substrate. AS0.1 / PR #639 widened identity/asset
+scope. **AS1 is this PR and remains Plan-only.** Do not mark AS1 merged here.
 
 ---
 
@@ -24,8 +25,8 @@ Plan-only.**
 
 ```text
 AS0   DESIGN                 DONE — PR #636 merge 4c90df35
-AS0.1 STORAGE-TOPOLOGY       THIS PR — identity / asset / Ingest scope
-AS1   PLAN DOCUMENTS         NEXT implementation — substrate + kind=plan
+AS0.1 STORAGE-TOPOLOGY       DONE — PR #639 merge dd09f7f7
+AS1   PLAN DOCUMENTS         THIS PR — substrate + kind=plan
 AS2   PLAYABLE               runbook WorkRevisions historically addressable
 AS3   PLAY RUNTIME           Run + sealed manifest in one transaction
 AS4   PLAY CONTINUITY        active Run + resume/reload
@@ -61,14 +62,14 @@ list.
 
 | Field | Content |
 |---|---|
-| Status | **this PR** (architecture correction before AS1) |
+| Status | **DONE** — merged PR #639 at `dd09f7f707e38f9f4348b759da8cfdbbe420fd60` (accepted head `abb3fb15f9b56e8712c07c798674d0462827677f`; Review Cycle 2 review `5014814402`) |
 | Independently useful outcome | Durable Buddy objects have storage-independent identity; large bytes named to DungeonMindServer storage/CDN via Asset metadata; Ingest/generated artifacts are first-class future consumers; WorkObject stays Content-only |
 | Primary consumer/story | Prevents AS1 from baking path/URL identity or a document-only substrate |
 | Predecessor | AS0 #636 |
 | Durable/public contract introduced | Architecture v1.1 four state classes + classification test |
 | Runtime/database collision boundary | None (design-only). Open CUTOVER #638 does not lease these files. |
 | Required product + owning-boundary evidence | Four-file lease; architecture/roadmap/anchor/AS1 consistency; no speculative tables |
-| What remains false | Everything in AS1–AS6+ remains unimplemented; no Postgres, no Asset service, no Ingest schema |
+| What remains false | AS1–AS6+ remain unimplemented until this/next PRs land; no Asset service, no Ingest schema |
 
 ---
 
@@ -76,7 +77,7 @@ list.
 
 | Field | Content |
 |---|---|
-| Status | NEXT after **AS0.1** PASS/merge/re-anchor (not after AS0 alone) |
+| Status | **this PR** — not merged; do not invent the AS1 merge SHA |
 | Independently useful outcome | A Plan workspace document (`kind=plan`) can be created, autosaved as a WorkingCopy, committed as an immutable WorkRevision, reloaded after process restart, and CAS-conflicted — entirely on Buddy PostgreSQL |
 | Primary consumer/story | Plan/Build authoring via existing `/api/live/workspace-documents*` + Tiptap commit for `kind=plan`; CR-U11/CR-U17 adjacent |
 | Predecessor | Accepted architecture v1.1 (AS0 + this correction) |

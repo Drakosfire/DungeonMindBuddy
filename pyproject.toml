@@ -30,6 +30,8 @@ dependencies = [
     # The postgres extra carries the in-process PostgreSQL adapter dependencies
     # used by the DungeonMind-backed World Graph authority (cutover).
     "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@c5d3688587b0f5d506e0f7d64f33eb0628bac896",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.16",
 ]
 
 [project.optional-dependencies]
@@ -46,13 +48,21 @@ markers = [
     "integration: live OpenAI or external I/O; opt-in via env vars documented per test",
     "live_llm: live OpenAI classifier cohort; run with pytest -m live_llm (excluded from default addopts)",
 ]
-addopts = ["-m", "not live_llm"]
+addopts = ["-m", "not live_llm", "-p", "tests.application_state.isolate_dsn"]
 
 [tool.setuptools.package-dir]
 "" = "src"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+application_state = [
+    "alembic.ini",
+    "migrations/*.py",
+    "migrations/*.mako",
+    "migrations/versions/*.py",
+]
 
 [tool.ruff]
 exclude = [

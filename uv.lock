@@ -410,6 +410,7 @@ name = "dungeonmindbuddy"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "alembic" },
     { name = "blake3" },
     { name = "dungeonmind", extra = ["postgres"] },
     { name = "fastapi" },
@@ -418,6 +419,7 @@ dependencies = [
     { name = "jsonschema" },
     { name = "openai" },
     { name = "paramiko" },
+    { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -435,6 +437,7 @@ embedding = [
 
 [package.metadata]
 requires-dist = [
+    { name = "alembic", specifier = ">=1.16" },
     { name = "blake3", specifier = ">=0.3.3" },
     { name = "dungeonmind", extras = ["postgres"], git = "https://github.com/Drakosfire/DungeonMind.git?rev=c5d3688587b0f5d506e0f7d64f33eb0628bac896#c5d3688587b0f5d506e0f7d64f33eb0628bac896" },
     { name = "fastapi", specifier = ">=0.115.0" },
@@ -444,6 +447,7 @@ requires-dist = [
     { name = "numpy", marker = "extra == 'embedding'", specifier = ">=2.0.0" },
     { name = "openai", specifier = "==2.24.0" },
     { name = "paramiko", specifier = ">=4.0.0" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
