@@ -1,11 +1,11 @@
 # STEWARD'S ANCHOR — CUTOVER
 
-**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; native DungeonMind reads are production (#633 `DONE`); D.1 native governed writes are `DONE` (#634); remaining debt is D.2 mounted-writer migration then D.3 graph-engine demolition (D.2A `DOING`)  
+**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; native DungeonMind reads are production (#633 `DONE`); D.1 native governed writes are `DONE` (#634); D.2A Threat authority port is `DONE` (#637); remaining debt is D.2B worldbuilding then D.2C first-world/bootstrap then D.3 graph-engine demolition (D.2B `DOING`)  
 **Line of work:** `CUTOVER`  
 **Created:** 2026-08-17  
 **Completed:** 2026-08-18 (live D_A→D_B)  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Current Buddy `main`:** `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c` (merge of PR #633). **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **Cycle 2 approval:** `5011598382`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`.  
+**Current Buddy `main`:** `879c1b8c8794d4774cc17f6ec7c91eebf999f77c` (APP-STATE AS1 PostgreSQL Plan foundation; D.2B implementation base). Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **Cycle 2 approval:** `5011598382`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`.  
 **Buddy integration tip at completion:** `18bcb18475ac30679ebec84bec17c4e81390f674` (merge of Buddy PR #620)  
 **DungeonMind authority anchor:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (merge of DungeonMind PR #45 — R.3a native read-context optimization; Buddy runtime pin of this slice. Historical R.3 pin was PR #43 `519b2c96…`)  
 **Completed implementation handoffs:** Buddy PR #619 (`6c2fe9d37dcecf34e025db8373fce072de30b62e`) + Buddy PR #620 (`18bcb18475ac30679ebec84bec17c4e81390f674`; 4 review cycles; final PASS review `4966969478`) + parent [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md)  

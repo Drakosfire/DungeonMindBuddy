@@ -12,6 +12,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
+from graph_memory.world_graph_mutation_context import WorldGraphMutationContext
+
 WorldGraphAuthorityFailureCode = Literal[
     "authority_unavailable",
     "revision_unavailable",
@@ -20,6 +22,7 @@ WorldGraphAuthorityFailureCode = Literal[
     "inexpressible",
     "publication_failed",
 ]
+WorldGraphOperationNamespace = Literal["threat", "worldbuilding"]
 
 
 class WorldGraphAuthorityError(RuntimeError):
@@ -56,6 +59,7 @@ class AuthorityObject:
     campaign_scope: str | None = None
     summary: str | None = None
     external_resource: Mapping[str, Any] | None = None
+    property_terms: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -72,6 +76,15 @@ class AuthorityRelationship:
 
 
 @dataclass(frozen=True)
+class AuthorityEvidenceRef:
+    """One exact-revision evidence/support fact from DungeonMind v6 materialization."""
+
+    evidence_ref_id: str
+    evidence_role: str = ""
+    locator: str | None = None
+
+
+@dataclass(frozen=True)
 class WorldGraphRevisionView:
     world_id: str
     revision_id: str
@@ -81,6 +94,7 @@ class WorldGraphRevisionView:
     supported_assertion_ids: frozenset[str] = field(default_factory=frozenset)
     contribution_source_digests: Mapping[str, str] = field(default_factory=dict)
     active_contribution_ids: frozenset[str] = field(default_factory=frozenset)
+    evidence_refs: Mapping[str, AuthorityEvidenceRef] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -94,6 +108,7 @@ class WorldGraphPublishRequest:
     accepted_assertion_ids: tuple[str, ...] = ()
     decision: str | None = None
     threat_node_id: str | None = None
+    operation_namespace: WorldGraphOperationNamespace = "threat"
 
 
 @dataclass(frozen=True)
@@ -145,6 +160,20 @@ class WorldGraphAuthority(Protocol):
     def read_revision(self, world_id: str, revision_id: str) -> WorldGraphRevisionView:
         """Immutable storage-neutral revision view for preflight and verification."""
 
+    def mutation_context(
+        self,
+        world_id: str,
+        revision_id: str,
+        *,
+        sealed_identity_snapshot: Mapping[str, Any] | None = None,
+    ) -> WorldGraphMutationContext:
+        """Exact parent graph facts plus identity semantics for prepare/confirm.
+
+        Prepare (no sealed snapshot): adapt the immutable revision plus the
+        current identity ledger. Confirm (sealed snapshot supplied): reconstruct
+        identity from that snapshot and do not substitute today's live ledger.
+        """
+
     def publish(self, request: WorldGraphPublishRequest) -> WorldGraphPublicationReceipt:
         """Publish one exact governed contribution against one expected public parent."""
 
@@ -156,6 +185,7 @@ class WorldGraphAuthority(Protocol):
         expected_parent_revision_id: str | None = None,
         contribution: Any | None = None,
         actor: str | None = None,
+        operation_namespace: WorldGraphOperationNamespace = "threat",
     ) -> WorldGraphPublicationReceipt | None:
         """Recover one terminal publication by durable authority operation id.
 
@@ -163,6 +193,8 @@ class WorldGraphAuthority(Protocol):
         state must raise ``WorldGraphAuthorityError(code="integrity_failure")``.
         When expected parent and/or contribution are supplied, the recovered
         publication must match those bindings or fail closed as integrity.
+        ``operation_namespace`` selects the product family's review-operation
+        mapping. Threat must keep D.2A's historical derivation.
         """
 
     def verify_child(
@@ -198,6 +230,7 @@ def relationships_by_predicate(
 
 
 __all__ = [
+    "AuthorityEvidenceRef",
     "AuthorityObject",
     "AuthorityRelationship",
     "WorldGraphAuthority",
@@ -205,6 +238,8 @@ __all__ = [
     "WorldGraphAuthorityFailureCode",
     "WorldGraphExpectedChildFacts",
     "WorldGraphHead",
+    "WorldGraphMutationContext",
+    "WorldGraphOperationNamespace",
     "WorldGraphPublicationReceipt",
     "WorldGraphPublishRequest",
     "WorldGraphRevisionView",

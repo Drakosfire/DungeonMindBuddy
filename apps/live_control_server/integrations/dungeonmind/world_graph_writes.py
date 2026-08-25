@@ -30,6 +30,10 @@ from graph_memory.world_graph_mutation_context import (
 logger = logging.getLogger(__name__)
 
 IDENTITY_LEDGER_SCHEMA = "dmb_world_graph_identity_ledger_v1"
+THREAT_SOURCE_PLAN_SCHEMA = "dmb_threat_publication_contribution_v1"
+THREAT_PUBLISH_POLICY_ID = "cutover:threat-publication-confirm"
+WORLDBUILDING_SOURCE_PLAN_SCHEMA = "dmb_worldbuilding_publication_contribution_v1"
+WORLDBUILDING_PUBLISH_POLICY_ID = "cutover:worldbuilding-publication-confirm"
 
 _WRITE_STATUS_CODES = {
     "authority_unavailable": 503,
@@ -610,6 +614,186 @@ def derive_threat_review_operation_id(*, world_id: str, authority_operation_id: 
     return f"{prefix}{digest[:32]}"
 
 
+def derive_worldbuilding_review_operation_id(
+    *, world_id: str, authority_operation_id: str
+) -> str:
+    """Map a worldbuilding authority operation id onto DungeonMind reviewop.
+
+    Distinct hash schema from Threat. Do not reuse ``dmb_threat_authority_operation_v1``.
+    """
+    from dungeonmind.domain.canonical import canonical_sha256
+
+    prefix = "reviewop:"
+    suffix = (
+        authority_operation_id[len(prefix) :]
+        if authority_operation_id.startswith(prefix)
+        else ""
+    )
+    if (
+        len(suffix) == 32
+        and suffix == suffix.lower()
+        and all(char in "0123456789abcdef" for char in suffix)
+    ):
+        return authority_operation_id
+    digest = canonical_sha256(
+        {
+            "schema": "dmb_worldbuilding_authority_operation_v1",
+            "world_id": world_id,
+            "authority_operation_id": authority_operation_id,
+        }
+    )
+    return f"{prefix}{digest[:32]}"
+
+
+def derive_authority_review_operation_id(
+    *,
+    world_id: str,
+    authority_operation_id: str,
+    operation_namespace: str = "threat",
+) -> str:
+    """Dispatch product-family review-operation mapping.
+
+    Threat keeps the exact D.2A derivation so previously published operations
+    remain recoverable.
+    """
+    if operation_namespace == "worldbuilding":
+        return derive_worldbuilding_review_operation_id(
+            world_id=world_id,
+            authority_operation_id=authority_operation_id,
+        )
+    return derive_threat_review_operation_id(
+        world_id=world_id,
+        authority_operation_id=authority_operation_id,
+    )
+
+
+def worldbuilding_authority_operation_id(
+    *, world_id: str, plan_id: str, plan_digest: str
+) -> str:
+    """Deterministic Buddy-side worldbuilding operation id from sealed plan identity."""
+    import hashlib
+    import json
+
+    payload = json.dumps(
+        {
+            "schema": "dmb_worldbuilding_authority_operation_v1",
+            "world_id": world_id,
+            "plan_id": plan_id,
+            "plan_digest": plan_digest,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return f"wbop:{digest}"
+
+
+def _identity_decision_prefix_key(record: Mapping[str, Any]) -> tuple[Any, ...]:
+    """Comparable identity for append-only prefix proof, ignoring later-only fields."""
+    return (
+        str(record.get("decision_id") or ""),
+        str(record.get("decision_kind") or ""),
+        tuple(str(item) for item in list(record.get("subject_object_ids") or [])),
+        tuple(str(item) for item in list(record.get("target_object_ids") or [])),
+        str(record.get("status") or "active"),
+        str(record.get("alias") or ""),
+    )
+
+
+def load_authority_mutation_context(
+    world_id: str,
+    revision_id: str,
+    *,
+    sealed_identity_snapshot: Mapping[str, Any] | None = None,
+    database_url: str | None = None,
+) -> WorldGraphMutationContext:
+    """Prepare uses the live ledger; confirm reconstructs from the sealed snapshot.
+
+    Confirm proves the carried I0 decision list is an exact prefix of today's
+    append-only DungeonMind ledger so invented or modified records fail closed.
+    Later I1 appends are the live suffix and must not change sealed confirm
+    semantics. The product service authenticates the exact prepared plan plus
+    I0 snapshot with a server-MAC'd prepare binding; this function does not
+    persist Buddy prepare records.
+    """
+    from graph_memory.world_graph_mutation_context import (
+        mutation_context_with_sealed_identity,
+    )
+
+    if sealed_identity_snapshot is None:
+        return load_production_mutation_context(
+            world_id,
+            revision_pin=revision_id,
+            database_url=database_url,
+        )
+    dsn = _require_database_url(database_url)
+    services = _direct_services(dsn, world_id)
+    bundle = services.bundle
+    try:
+        head = bundle.world_graph.get_head(world_id)
+        stored = bundle.world_graph.get_revision(world_id, revision_id)
+        live_decisions = bundle.identity_decisions.list_for_world(world_id)
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind authority read failed while building mutation context",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+    if stored is None:
+        raise WorldGraphWriteError(
+            "DungeonMind parent revision is unreadable",
+            code="revision_not_bridged",
+            details={"world_id": world_id, "revision_id": revision_id},
+        )
+    graph_context = mutation_context_from_revision_payload(
+        stored,
+        world_id=world_id,
+        head_revision_id=str(
+            getattr(head, "head_revision_id", "") or revision_id
+        ),
+        dungeonmind_decisions=None,
+    )
+    sealed_decisions = [
+        dict(item)
+        for item in list(sealed_identity_snapshot.get("decisions") or [])
+        if isinstance(item, Mapping)
+    ]
+    live_dumps = [_dump_identity_decision(item) for item in live_decisions]
+    if len(sealed_decisions) > len(live_dumps):
+        raise WorldGraphWriteError(
+            "sealed identity snapshot invents decisions absent from DungeonMind",
+            code="governed_write_inexpressible",
+            details={
+                "world_id": world_id,
+                "reason": "identity_snapshot_not_live_prefix",
+            },
+        )
+    for index, sealed in enumerate(sealed_decisions):
+        if _identity_decision_prefix_key(sealed) != _identity_decision_prefix_key(
+            live_dumps[index]
+        ):
+            raise WorldGraphWriteError(
+                "sealed identity snapshot is not the prepare-time DungeonMind prefix",
+                code="governed_write_inexpressible",
+                details={
+                    "world_id": world_id,
+                    "reason": "identity_snapshot_not_live_prefix",
+                    "index": index,
+                },
+            )
+    try:
+        return mutation_context_with_sealed_identity(
+            graph_context, sealed_identity_snapshot
+        )
+    except ValueError as exc:
+        raise WorldGraphWriteError(
+            "sealed identity snapshot cannot be reconstructed",
+            code="governed_write_inexpressible",
+            details={"world_id": world_id, "reason": str(exc)[:500]},
+        ) from exc
+
+
 def _reverse_revision_id(dm_revision_id: str, artifact_id: str | None) -> str:
     suffix = f"::{artifact_id}" if artifact_id else ""
     if suffix and dm_revision_id.endswith(suffix):
@@ -1073,11 +1257,19 @@ def _confirm_capability_policy(
     )
 
 
-def _threat_publish_capability_policy(
+def _publication_provenance(publication_family: str) -> tuple[str, str]:
+    """Durable source-plan schema and capability policy for one product family."""
+    if publication_family == "worldbuilding":
+        return WORLDBUILDING_SOURCE_PLAN_SCHEMA, WORLDBUILDING_PUBLISH_POLICY_ID
+    return THREAT_SOURCE_PLAN_SCHEMA, THREAT_PUBLISH_POLICY_ID
+
+
+def _publish_capability_policy(
     *,
     world_id: str,
     campaign_id: str | None,
     parent_revision_id: str,
+    policy_id: str,
 ) -> Any:
     """Same confirm-commit tool admission as D.1, distinct policy identity."""
     from dungeonmind.contracts.capability import (
@@ -1091,7 +1283,7 @@ def _threat_publish_capability_policy(
     from dungeonmind.contracts.projection import Admissibility
 
     return CapabilityPolicy(
-        policy_id="cutover:threat-publication-confirm",
+        policy_id=policy_id,
         graph_scope=GraphScope(
             world_id=world_id,
             campaign_id=campaign_id,
@@ -1107,6 +1299,21 @@ def _threat_publish_capability_policy(
                 allowed_effects=[CapabilityEffect.COMMIT],
             )
         ],
+    )
+
+
+def _threat_publish_capability_policy(
+    *,
+    world_id: str,
+    campaign_id: str | None,
+    parent_revision_id: str,
+) -> Any:
+    """Historical Threat policy identity. Do not change the policy id string."""
+    return _publish_capability_policy(
+        world_id=world_id,
+        campaign_id=campaign_id,
+        parent_revision_id=parent_revision_id,
+        policy_id=THREAT_PUBLISH_POLICY_ID,
     )
 
 
@@ -1729,11 +1936,13 @@ def _review_intent_sha256_for_threat_request(
     operation_id: str,
     actor: str,
     contribution: Any,
+    publication_family: str = "threat",
 ) -> str:
-    """Rebuild the DungeonMind v2 review-intent digest for one Threat request.
+    """Rebuild the DungeonMind v2 review-intent digest for one publication request.
 
     Uses the sealed parent, not the live head, so exact retry after publication
-    still hashes the original contribution identity.
+    still hashes the original contribution identity. Threat keeps the historical
+    source-plan schema so D.2A recovery remains exact.
     """
     from dungeonmind.contracts.contribution_review import (
         ContributionAssertionVerdict,
@@ -1797,8 +2006,9 @@ def _review_intent_sha256_for_threat_request(
             code="governed_write_inexpressible",
             details={"world_id": world_id, "revision_id": expected_parent_revision_id},
         )
+    source_plan_schema, _policy_id = _publication_provenance(publication_family)
     plan_ref = ContributionPlanRef(
-        source_plan_schema="dmb_threat_publication_contribution_v1",
+        source_plan_schema=source_plan_schema,
         source_plan_id=operation_id,
         source_plan_sha256=canonical_sha256(
             {
@@ -1839,6 +2049,7 @@ def _prove_existing_publication_matches_request(
     operation_id: str,
     actor: str,
     contribution: Any,
+    publication_family: str = "threat",
 ) -> None:
     """Require exact parent + review-intent identity before already_applied/recover."""
     _assert_publication_replay_identity(
@@ -1853,6 +2064,7 @@ def _prove_existing_publication_matches_request(
             operation_id=operation_id,
             actor=actor,
             contribution=contribution,
+            publication_family=publication_family,
         )
     except WorldGraphWriteError as exc:
         if exc.code == "governed_write_idempotency_conflict":
@@ -1881,12 +2093,13 @@ def publish_contribution_via_dungeonmind(
     actor: str,
     contribution: Any,
     database_url: str | None = None,
+    publication_family: str = "threat",
 ) -> dict[str, Any]:
     """Publish one reconstructed GraphContribution through DungeonMind.
 
     Product-neutral relative to Graph Review: does not change
-    ``confirm_extract_promote_via_dungeonmind``. Threat (D.2A) is the first
-    caller. Identity-ledger sealing remains a Graph Review concern.
+    ``confirm_extract_promote_via_dungeonmind``. Threat keeps historical
+    source-plan schema and capability policy so D.2A recovery remains exact.
     """
     from dungeonmind.contracts.contribution_review import (
         ContributionAssertionVerdict,
@@ -1929,6 +2142,7 @@ def publish_contribution_via_dungeonmind(
             operation_id=operation_id,
             actor=actor,
             contribution=contribution,
+            publication_family=publication_family,
         )
         accepted_assertion_ids, _affected = _receipt_ids_from_reviewed_contribution(
             bundle=bundle,
@@ -1982,7 +2196,6 @@ def publish_contribution_via_dungeonmind(
         world_id=world_id,
         head_revision_id=str(head.head_revision_id),
     )
-    accepted_assertion_ids, _affected = _affected_ids_from_contribution(contribution)
     parent_envelope = parent_stored.revision
     pair_to_dm = _build_pair_to_dm(bundle, world_id, contribution)
     reviewed_at = parent_envelope.created_at
@@ -2010,8 +2223,9 @@ def publish_contribution_via_dungeonmind(
             code="governed_write_inexpressible",
             details={"world_id": world_id, "revision_id": expected_parent_revision_id},
         )
+    source_plan_schema, _policy_id = _publication_provenance(publication_family)
     plan_ref = ContributionPlanRef(
-        source_plan_schema="dmb_threat_publication_contribution_v1",
+        source_plan_schema=source_plan_schema,
         source_plan_id=operation_id,
         source_plan_sha256=canonical_sha256(
             {
@@ -2096,10 +2310,11 @@ def publish_contribution_via_dungeonmind(
     try:
         state = finalize_contribution_review_v2(
             submission,
-            capability_policy=_threat_publish_capability_policy(
+            capability_policy=_publish_capability_policy(
                 world_id=world_id,
                 campaign_id=campaign_id,
                 parent_revision_id=expected_parent_revision_id,
+                policy_id=_publication_provenance(publication_family)[1],
             ),
             world_graph_repository=bundle.world_graph,
             review_repository=bundle.contribution_reviews,
@@ -2181,6 +2396,11 @@ def publish_contribution_via_dungeonmind(
                 "head_revision_id": getattr(head_after, "head_revision_id", None),
             },
         )
+    accepted_assertion_ids, _affected = _receipt_ids_from_reviewed_contribution(
+        bundle=bundle,
+        world_id=world_id,
+        publication=publication,
+    )
     return {
         "outcome": "published",
         "world_id": world_id,
@@ -2198,10 +2418,14 @@ __all__ = [
     "WorldGraphWriteError",
     "bind_identity_ledger_to_package",
     "confirm_extract_promote_via_dungeonmind",
+    "derive_authority_review_operation_id",
+    "derive_threat_review_operation_id",
+    "derive_worldbuilding_review_operation_id",
+    "load_authority_mutation_context",
     "load_production_mutation_context",
     "mutation_context_from_native_projection",
     "mutation_context_from_revision_payload",
     "publish_contribution_via_dungeonmind",
-    "derive_threat_review_operation_id",
+    "worldbuilding_authority_operation_id",
     "write_error_status_code",
 ]

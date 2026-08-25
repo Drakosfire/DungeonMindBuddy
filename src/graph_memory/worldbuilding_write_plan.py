@@ -11,10 +11,8 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-import graph_memory.kernel as kernel
 from graph_memory.candidate_graph_preview import (
     CandidateEdge,
     CandidateGraphPreview,
@@ -43,15 +41,18 @@ from graph_memory.kernel.contribution_models import (
     GraphContributionAssertion,
 )
 from graph_memory.kernel.contributions import build_assertion, create_graph_contribution
-from graph_memory.union_supergraph.model import (
-    UnionSupergraphNode,
-    UnionSupergraphStore,
+from graph_memory.world_graph_mutation_context import (
+    WORLDBUILDING_IDENTITY_SNAPSHOT_SCHEMA,
+    MutationObject,
+    WorldGraphMutationContext,
+    identity_snapshot_from_context,
+    mutation_context_from_store,
 )
-from graph_memory.union_supergraph.redirects import active_identity_redirect_map
 
 
-WORLD_BUILDING_WRITE_PLAN_SCHEMA = "dmb_worldbuilding_write_plan_v1"
-WORLD_BUILDING_WRITE_PLAN_VERSION = 1
+WORLD_BUILDING_WRITE_PLAN_SCHEMA_V1 = "dmb_worldbuilding_write_plan_v1"
+WORLD_BUILDING_WRITE_PLAN_SCHEMA = "dmb_worldbuilding_write_plan_v2"
+WORLD_BUILDING_WRITE_PLAN_VERSION = 2
 WORLD_BUILDING_WRITE_PLAN_AUTHORED_BY = "live_control:worldbuilding_write_plan"
 WORLD_BUILDING_WRITE_PLAN_SOURCE_KIND = "source_extraction"
 WORLDBUILDING_EXTRACTION_PROFILE = (
@@ -174,6 +175,7 @@ def _canonical_fields(
     names: Sequence[str],
     *,
     context: str,
+    optional_names: Sequence[str] = (),
 ) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         raise WorldbuildingWritePlanError(
@@ -189,9 +191,17 @@ def _canonical_fields(
                 f"{context}: {exc}",
                 code="plan_verification_failed",
             ) from exc
+    for name in optional_names:
+        try:
+            result[name] = _field(payload, name, optional=True)
+        except WorldbuildingWritePlanError as exc:
+            raise WorldbuildingWritePlanError(
+                f"{context}: {exc}",
+                code="plan_verification_failed",
+            ) from exc
     recognized = {
         key
-        for name in names
+        for name in (*names, *optional_names)
         for key in ((("schema", "schema_") if name == "schema" else (name, _camel_key(name))))
     }
     unknown = sorted(set(payload) - recognized)
@@ -446,6 +456,7 @@ def _canonical_effect(effect: Any) -> dict[str, Any]:
             "candidate_effect_map",
             "decision_snapshot",
         ),
+        optional_names=("identity_authority",),
         context="effect",
     )
     meta = _canonical_fields(
@@ -468,7 +479,7 @@ def _canonical_effect(effect: Any) -> dict[str, Any]:
             "effect.contribution_meta.campaign_scope must be null or non-blank",
             code="plan_verification_failed",
         )
-    return {
+    result = {
         "contribution_meta": meta,
         "accepted_proposals": _canonical_assertion_list(
             canonical["accepted_proposals"],
@@ -500,6 +511,76 @@ def _canonical_effect(effect: Any) -> dict[str, Any]:
         "decision_snapshot": _canonical_decision_snapshot(
             canonical["decision_snapshot"]
         ),
+    }
+    raw_identity = canonical.get("identity_authority", _MISSING)
+    if raw_identity is not _MISSING and raw_identity is not None:
+        result["identity_authority"] = _canonical_identity_authority(raw_identity)
+    return result
+
+
+def _canonical_identity_authority(value: Any) -> dict[str, Any]:
+    canonical = _canonical_fields(
+        value,
+        ("schema", "decisions", "identity_redirects", "alias_owners"),
+        context="effect.identity_authority",
+    )
+    schema = _require_string(
+        canonical["schema"], field="effect.identity_authority.schema"
+    )
+    if schema != WORLDBUILDING_IDENTITY_SNAPSHOT_SCHEMA:
+        raise WorldbuildingWritePlanError(
+            f"unsupported identity snapshot schema: {schema!r}",
+            code="identity_snapshot_inexpressible",
+            status_code=409,
+        )
+    decisions = canonical["decisions"]
+    if not isinstance(decisions, list) or any(
+        not isinstance(item, Mapping) for item in decisions
+    ):
+        raise WorldbuildingWritePlanError(
+            "effect.identity_authority.decisions must be a list of objects",
+            code="identity_snapshot_inexpressible",
+            status_code=409,
+        )
+    redirects = canonical["identity_redirects"]
+    if not isinstance(redirects, Mapping) or any(
+        not isinstance(key, str) or not isinstance(item, str)
+        for key, item in redirects.items()
+    ):
+        raise WorldbuildingWritePlanError(
+            "effect.identity_authority.identity_redirects must map strings to strings",
+            code="identity_snapshot_inexpressible",
+            status_code=409,
+        )
+    alias_owners = canonical["alias_owners"]
+    if not isinstance(alias_owners, Mapping):
+        raise WorldbuildingWritePlanError(
+            "effect.identity_authority.alias_owners must be an object",
+            code="identity_snapshot_inexpressible",
+            status_code=409,
+        )
+    canonical_owners: dict[str, list[str]] = {}
+    for alias, owners in alias_owners.items():
+        if not isinstance(alias, str) or not alias.strip():
+            raise WorldbuildingWritePlanError(
+                "effect.identity_authority.alias_owners keys must be non-blank strings",
+                code="identity_snapshot_inexpressible",
+                status_code=409,
+            )
+        if not isinstance(owners, list) or any(
+            not isinstance(owner, str) or not owner.strip() for owner in owners
+        ):
+            raise WorldbuildingWritePlanError(
+                f"effect.identity_authority.alias_owners[{alias!r}] must be a list of strings",
+                code="identity_snapshot_inexpressible",
+                status_code=409,
+            )
+        canonical_owners[alias] = list(owners)
+    return {
+        "schema": schema,
+        "decisions": [dict(item) for item in decisions],
+        "identity_redirects": dict(sorted(redirects.items())),
+        "alias_owners": dict(sorted(canonical_owners.items())),
     }
 
 
@@ -627,59 +708,80 @@ def _candidate_kernel_kind(node: CandidateNode) -> str:
     return kernel_kind_for_node_type(node.node_type)
 
 
-def _identity_canon_state(node: UnionSupergraphNode) -> str:
-    return str(
-        node.state.get("identity_canon_state")
-        or node.state.get("canon_state")
-        or ""
-    ).strip()
+def _occupied_identity_ids(context: WorldGraphMutationContext) -> set[str]:
+    ids = set(context.objects)
+    ids.update(context.identity_redirects.keys())
+    ids.update(context.identity_redirects.values())
+    for record in context.identity_decisions:
+        if record.subject_node_id:
+            ids.add(record.subject_node_id)
+        if record.target_node_id:
+            ids.add(record.target_node_id)
+        ids.update(record.affected_node_ids or [])
+    for raw in context.identity_ledger_records:
+        for key in ("subject_object_ids", "target_object_ids"):
+            ids.update(
+                str(item)
+                for item in list(raw.get(key) or [])
+                if str(item).strip()
+            )
+        for key in ("subject_node_id", "target_node_id"):
+            value = str(raw.get(key) or "").strip()
+            if value:
+                ids.add(value)
+    return ids
 
 
 def _assert_create_new_id_is_free(
-    store: UnionSupergraphStore,
+    authority: WorldGraphMutationContext | Any,
     node_id: str,
 ) -> None:
-    redirects = active_identity_redirect_map(store.identity_redirects)
-    if node_id in store.nodes or node_id in redirects:
+    """Reject create-new when the id is already occupied.
+
+    Existing-world plans pass a ``WorldGraphMutationContext``. First-world
+    materialization still passes the empty in-memory baseline store; adapt it
+    here so that first-world behavior does not have to change in this slice.
+    """
+    context = (
+        authority
+        if isinstance(authority, WorldGraphMutationContext)
+        else mutation_context_from_store(
+            authority,
+            world_id="",
+            revision_id="",
+            head_revision_id="",
+        )
+    )
+    if node_id in _occupied_identity_ids(context):
         raise WorldbuildingWritePlanError(
             f"create_new node ID {node_id!r} already exists in the pinned parent",
-            code="new_node_id_conflict",
-            status_code=409,
-        )
-    if any(
-        node_id in {redirect.from_node_id, redirect.to_node_id}
-        for redirect in store.identity_redirects
-    ):
-        raise WorldbuildingWritePlanError(
-            f"create_new node ID {node_id!r} conflicts with identity history",
             code="new_node_id_conflict",
             status_code=409,
         )
 
 
 def _resolve_bind_target(
-    store: UnionSupergraphStore,
+    context: WorldGraphMutationContext,
     node: CandidateNode,
     target_node_id: str,
-) -> UnionSupergraphNode:
-    target = store.nodes.get(target_node_id)
+) -> MutationObject:
+    target = context.objects.get(target_node_id)
     if target is None:
         raise WorldbuildingWritePlanError(
             f"bind_existing target {target_node_id!r} is not in the pinned parent",
             code="bind_target_missing",
             status_code=409,
         )
-    redirects = active_identity_redirect_map(store.identity_redirects)
-    canon = _identity_canon_state(target)
-    memory = str(target.state.get("memory_state") or "").strip()
-    if target_node_id in redirects:
-        canonical_id = redirects[target_node_id].to_node_id
+    if target_node_id in context.identity_redirects:
+        canonical_id = context.identity_redirects[target_node_id]
         raise WorldbuildingWritePlanError(
             f"bind_existing target {target_node_id!r} is a redirected source; "
             f"canonical target is {canonical_id!r}",
             code="bind_target_not_canonical",
             status_code=409,
         )
+    canon = str(target.canon_state or "").strip()
+    memory = str(target.memory_state or "").strip()
     if (
         memory in {"merged_away", "rejected"}
         or canon in {"merged_away", "rejected", "noncanonical_provisional"}
@@ -812,40 +914,34 @@ def _deferred_node_mention(
     )
 
 
-def _load_pinned_parent(
-    *,
-    world_root: Path,
-    world_id: str,
+def _admit_parent_context(
+    context: WorldGraphMutationContext,
     expected_parent_revision_id: str,
+    *,
     require_current_head: bool = True,
-) -> tuple[str, UnionSupergraphStore]:
+) -> str:
     expected = _nonblank(
         expected_parent_revision_id, field="expected_parent_revision_id"
     )
-    try:
-        head, _revision, _current = kernel.open_current_world_graph(world_root, world_id)
-    except (kernel.WorldGraphNotFoundError, ValueError) as exc:
+    if not isinstance(context, WorldGraphMutationContext):
         raise WorldbuildingWritePlanError(
-            "The World Graph is not initialized.",
+            "worldbuilding write plans require a mutation context",
             code="world_not_initialized",
             status_code=409,
-        ) from exc
-    if require_current_head and head.head_revision_id != expected:
+        )
+    if context.revision_id != expected:
+        raise WorldbuildingWritePlanError(
+            "mutation context revision is not the expected parent",
+            code="stale_parent_revision",
+            status_code=409,
+        )
+    if require_current_head and context.head_revision_id != expected:
         raise WorldbuildingWritePlanError(
             "expected parent revision is not the current World Graph head",
             code="stale_parent_revision",
             status_code=409,
         )
-    try:
-        return expected, kernel.load_world_graph_revision(
-            world_root, world_id, expected
-        )
-    except (kernel.WorldGraphNotFoundError, ValueError) as exc:
-        raise WorldbuildingWritePlanError(
-            "The expected World Graph revision is not readable.",
-            code="world_not_initialized",
-            status_code=409,
-        ) from exc
+    return expected
 
 
 def materialize_worldbuilding_contribution(
@@ -904,7 +1000,7 @@ def materialize_worldbuilding_contribution(
 def build_worldbuilding_write_plan(
     *,
     preview: CandidateGraphPreview,
-    world_root: Path,
+    mutation_context: WorldGraphMutationContext,
     world_id: str,
     expected_parent_revision_id: str,
     run_id: str,
@@ -934,10 +1030,9 @@ def build_worldbuilding_write_plan(
             "worldbuilding candidate must keep session_id null",
             code="run_scope_mismatch",
         )
-    parent, store = _load_pinned_parent(
-        world_root=world_root,
-        world_id=world,
-        expected_parent_revision_id=expected_parent_revision_id,
+    parent = _admit_parent_context(
+        mutation_context,
+        expected_parent_revision_id,
         require_current_head=require_current_head,
     )
     disposition_map, decision_snapshot, nodes, edges = _validate_dispositions(
@@ -967,7 +1062,7 @@ def build_worldbuilding_write_plan(
         decision, target = disposition_map[node_id]
         diagnostics.extend(semantic_diagnostics(node))
         if decision == "create_new":
-            _assert_create_new_id_is_free(store, node_id)
+            _assert_create_new_id_is_free(mutation_context, node_id)
             assertion = _map_node(
                 node,
                 source_revision_id=revision,
@@ -983,7 +1078,7 @@ def build_worldbuilding_write_plan(
             identity_snapshot[node_id] = "created_new"
         elif decision == "bind_existing":
             assert target is not None
-            target_node = _resolve_bind_target(store, node, target)
+            target_node = _resolve_bind_target(mutation_context, node, target)
             # Validate the reviewed semantic tuple even though connect-existing
             # intentionally emits support-only assertions, never a competing node.
             try:
@@ -1000,7 +1095,7 @@ def build_worldbuilding_write_plan(
             try:
                 support, alias_diagnostics = map_connect_existing_support_assertions(
                     node,
-                    durable_node_id=target_node.node_id,
+                    durable_node_id=target_node.object_id,
                     source_revision_id=revision,
                     verified_source_artifact_id=artifact,
                     campaign_scope=campaign_scope,
@@ -1010,7 +1105,7 @@ def build_worldbuilding_write_plan(
                     source_uri=uri,
                     acceptance_state="accepted",
                     identity_resolution_outcome="human_override",
-                    alias_owners=dict(store.aliases),
+                    alias_owners=dict(mutation_context.alias_owner_map()),
                     kind_override=_candidate_kernel_kind(node),
                     predicate=WORLDBUILDING_BIND_SUPPORT_PREDICATE,
                 )
@@ -1021,7 +1116,7 @@ def build_worldbuilding_write_plan(
                 item.assertion_id for item in support
             ]
             diagnostics.extend(alias_diagnostics)
-            node_id_map[node_id] = target_node.node_id
+            node_id_map[node_id] = target_node.object_id
             identity_snapshot[node_id] = "human_override"
         elif decision == "reject":
             assertion = _map_node(
@@ -1157,6 +1252,7 @@ def build_worldbuilding_write_plan(
             for candidate_id, assertion_ids in sorted(candidate_effect_map.items())
         },
         "decision_snapshot": decision_snapshot,
+        "identity_authority": identity_snapshot_from_context(mutation_context),
     }
     plan_identity = {
         "world_id": world,
@@ -1212,7 +1308,7 @@ def build_worldbuilding_write_plan(
         verify_worldbuilding_write_plan(
             _plan_mapping(plan),
             preview=preview,
-            world_root=world_root,
+            mutation_context=mutation_context,
             context=WorldbuildingWritePlanVerificationContext(
                 world_id=world,
                 parent_revision_id=parent,
@@ -1269,7 +1365,7 @@ def verify_worldbuilding_write_plan(
     plan: Mapping[str, Any],
     *,
     preview: CandidateGraphPreview,
-    world_root: Path,
+    mutation_context: WorldGraphMutationContext,
     context: WorldbuildingWritePlanVerificationContext,
     require_current_head: bool = True,
 ) -> dict[str, Any]:
@@ -1451,7 +1547,7 @@ def verify_worldbuilding_write_plan(
         try:
             expected = build_worldbuilding_write_plan(
                 preview=preview,
-                world_root=world_root,
+                mutation_context=mutation_context,
                 world_id=context.world_id,
                 expected_parent_revision_id=context.parent_revision_id,
                 run_id=context.run_id,
@@ -1519,6 +1615,7 @@ def verify_worldbuilding_write_plan(
 __all__ = [
     "WORLD_BUILDING_WRITE_PLAN_AUTHORED_BY",
     "WORLD_BUILDING_WRITE_PLAN_SCHEMA",
+    "WORLD_BUILDING_WRITE_PLAN_SCHEMA_V1",
     "WORLD_BUILDING_WRITE_PLAN_SOURCE_KIND",
     "WORLD_BUILDING_WRITE_PLAN_VERSION",
     "WORLDBUILDING_BIND_SUPPORT_PREDICATE",

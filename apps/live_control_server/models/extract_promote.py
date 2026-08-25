@@ -22,11 +22,13 @@ EXACT_RUN_REVIEW_SCHEMA = "dmb_extract_promote_exact_run_review_v1"
 WORLD_BUILDING_WRITE_PLAN_REQUEST_SCHEMA = (
     "dmb_worldbuilding_write_plan_prepare_request_v1"
 )
-WORLD_BUILDING_WRITE_PLAN_SCHEMA = "dmb_worldbuilding_write_plan_v1"
+WORLD_BUILDING_WRITE_PLAN_SCHEMA_V1 = "dmb_worldbuilding_write_plan_v1"
+WORLD_BUILDING_WRITE_PLAN_SCHEMA = "dmb_worldbuilding_write_plan_v2"
 # Readable aliases used by service/tests; retain the existing constant naming
 # style for the older extract-promote contracts.
 WORLDBUILDING_WRITE_PLAN_REQUEST_SCHEMA = WORLD_BUILDING_WRITE_PLAN_REQUEST_SCHEMA
 WORLDBUILDING_WRITE_PLAN_SCHEMA = WORLD_BUILDING_WRITE_PLAN_SCHEMA
+WORLDBUILDING_WRITE_PLAN_SCHEMA_V1 = WORLD_BUILDING_WRITE_PLAN_SCHEMA_V1
 
 DiagnosticSeverity = Literal["error", "warning", "info"]
 ExtractPromoteInspectionStatus = Literal["ready", "blocked", "invalid_evidence"]
@@ -219,6 +221,15 @@ class WorldbuildingWritePlanContributionMeta(_ExtractPromoteModel):
     )
 
 
+class WorldbuildingWritePlanIdentityAuthority(_ExtractPromoteModel):
+    schema_: Literal["dmb_worldbuilding_identity_snapshot_v1"] = Field(
+        default="dmb_worldbuilding_identity_snapshot_v1", alias="schema"
+    )
+    decisions: list[dict[str, Any]] = Field(default_factory=list)
+    identity_redirects: dict[str, str] = Field(default_factory=dict)
+    alias_owners: dict[str, list[str]] = Field(default_factory=dict)
+
+
 class WorldbuildingWritePlanEffect(_ExtractPromoteModel):
     contribution_meta: WorldbuildingWritePlanContributionMeta
     accepted_proposals: list[GraphContributionAssertion] = Field(
@@ -237,6 +248,7 @@ class WorldbuildingWritePlanEffect(_ExtractPromoteModel):
     decision_snapshot: list[WorldbuildingWritePlanDecisionSnapshot] = Field(
         default_factory=list
     )
+    identity_authority: WorldbuildingWritePlanIdentityAuthority | None = None
 
 
 class WorldbuildingWritePlanSummary(_ExtractPromoteModel):
@@ -249,10 +261,11 @@ class WorldbuildingWritePlanSummary(_ExtractPromoteModel):
 
 
 class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
-    schema_: Literal[WORLD_BUILDING_WRITE_PLAN_SCHEMA] = Field(
-        default=WORLD_BUILDING_WRITE_PLAN_SCHEMA, alias="schema"
-    )
-    version: Literal[1] = 1
+    schema_: Literal[
+        WORLD_BUILDING_WRITE_PLAN_SCHEMA,
+        WORLD_BUILDING_WRITE_PLAN_SCHEMA_V1,
+    ] = Field(default=WORLD_BUILDING_WRITE_PLAN_SCHEMA, alias="schema")
+    version: Literal[1, 2] = 2
     plan_id: str
     plan_digest: str
     decision_digest: str
@@ -275,6 +288,7 @@ class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     confirmable_reason: Literal[
         "BLD-10a prepares an inert write plan; graph confirmation is not implemented."
     ] = "BLD-10a prepares an inert write plan; graph confirmation is not implemented."
+    prepare_binding: str | None = None
 
 
 WORLD_BUILDING_WRITE_PLAN_CONFIRM_REQUEST_SCHEMA = (
@@ -284,7 +298,11 @@ WORLD_BUILDING_WRITE_PLAN_CONFIRM_RESPONSE_SCHEMA = (
     "dmb_worldbuilding_write_plan_confirm_v1"
 )
 ConfirmAuditStatus = Literal["ok", "degraded"]
-WorldbuildingConfirmOutcome = Literal["committed", "published_audit_degraded"]
+WorldbuildingConfirmOutcome = Literal[
+    "committed",
+    "published_audit_degraded",
+    "already_applied",
+]
 
 
 class WorldbuildingWritePlanConfirmRequest(_ExtractPromoteModel):

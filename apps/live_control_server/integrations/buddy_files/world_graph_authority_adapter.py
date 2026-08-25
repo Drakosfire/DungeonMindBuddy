@@ -8,7 +8,7 @@ deletes it with the Buddy graph engine.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import graph_memory.kernel as kernel
 from graph_memory.projection.world_projection import (
@@ -157,6 +157,56 @@ class BuddyFilesWorldGraphAuthorityAdapter:
             store=store,
         )
 
+    def mutation_context(
+        self,
+        world_id: str,
+        revision_id: str,
+        *,
+        sealed_identity_snapshot: Mapping[str, Any] | None = None,
+    ):
+        from graph_memory.world_graph_mutation_context import (
+            mutation_context_from_store,
+            mutation_context_with_sealed_identity,
+        )
+
+        try:
+            head, _revision, current = kernel.open_current_world_graph(
+                self._world_root, world_id
+            )
+        except kernel.WorldGraphNotFoundError as exc:
+            raise WorldGraphAuthorityError(str(exc), code="revision_unavailable") from exc
+        except OSError as exc:
+            raise WorldGraphAuthorityError(str(exc), code="authority_unavailable") from exc
+        head_id = str(head.head_revision_id)
+        try:
+            store = (
+                current
+                if revision_id in {head_id, getattr(_revision, "revision_id", "")}
+                else kernel.load_world_graph_revision(
+                    self._world_root, world_id, revision_id
+                )
+            )
+        except (kernel.WorldGraphNotFoundError, ValueError) as exc:
+            raise WorldGraphAuthorityError(str(exc), code="revision_unavailable") from exc
+        except OSError as exc:
+            raise WorldGraphAuthorityError(str(exc), code="authority_unavailable") from exc
+        base = mutation_context_from_store(
+            store,
+            world_id=world_id,
+            revision_id=revision_id,
+            head_revision_id=head_id,
+        )
+        if sealed_identity_snapshot is None:
+            return base
+        try:
+            return mutation_context_with_sealed_identity(base, sealed_identity_snapshot)
+        except ValueError as exc:
+            raise WorldGraphAuthorityError(
+                str(exc),
+                code="inexpressible",
+                details={"world_id": world_id, "revision_id": revision_id},
+            ) from exc
+
     def publish(self, request: WorldGraphPublishRequest) -> WorldGraphPublicationReceipt:
         try:
             result = self._merge_fn(
@@ -207,11 +257,22 @@ class BuddyFilesWorldGraphAuthorityAdapter:
         expected_parent_revision_id: str | None = None,
         contribution: Any | None = None,
         actor: str | None = None,
+        operation_namespace: str = "threat",
     ) -> WorldGraphPublicationReceipt | None:
+        lookup_ids = [authority_operation_id]
+        contrib_id = str(getattr(contribution, "contribution_id", "") or "")
+        if (
+            (operation_namespace or "threat") == "worldbuilding"
+            and contrib_id
+            and contrib_id not in lookup_ids
+        ):
+            lookup_ids.append(contrib_id)
+        matches = ()
         try:
-            matches = self._lookup_fn(
-                self._world_root, world_id, authority_operation_id
-            )
+            for lookup_id in lookup_ids:
+                matches = self._lookup_fn(self._world_root, world_id, lookup_id)
+                if matches:
+                    break
         except WorldGraphIntegrityError as exc:
             raise WorldGraphAuthorityError(str(exc), code="integrity_failure") from exc
         except OSError as exc:
@@ -245,7 +306,7 @@ class BuddyFilesWorldGraphAuthorityAdapter:
                     "requested_parent_revision_id": expected_parent_revision_id,
                 },
             )
-        if contribution is not None:
+        if contribution is not None and (operation_namespace or "threat") != "worldbuilding":
             contrib_id = str(getattr(contribution, "contribution_id", "") or "")
             if contrib_id and contrib_id != authority_operation_id:
                 raise WorldGraphAuthorityError(
@@ -257,13 +318,19 @@ class BuddyFilesWorldGraphAuthorityAdapter:
                         "requested_contribution_id": contrib_id,
                     },
                 )
+        accepted_ids = ()
+        if contribution is not None:
+            accepted_ids = tuple(
+                str(getattr(item, "assertion_id", "") or "")
+                for item in list(getattr(contribution, "accepted_assertions", None) or [])
+            )
         return WorldGraphPublicationReceipt(
             world_id=world_id,
             authority_operation_id=authority_operation_id,
             parent_revision_id=parent_id,
             published_revision_id=str(getattr(manifest, "revision_id", "") or ""),
             reviewed_contribution_id=authority_operation_id,
-            accepted_assertion_ids=(),
+            accepted_assertion_ids=accepted_ids,
             published=True,
             outcome="already_applied",
         )

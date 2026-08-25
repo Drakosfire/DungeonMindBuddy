@@ -18,11 +18,14 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_writes import
     _assert_publication_replay_identity,
     _direct_services,
     _prove_existing_publication_matches_request,
+    _receipt_ids_from_reviewed_contribution,
     _require_database_url,
+    derive_authority_review_operation_id,
+    load_authority_mutation_context,
     publish_contribution_via_dungeonmind,
-    derive_threat_review_operation_id,
 )
 from apps.live_control_server.ports.world_graph_authority import (
+    AuthorityEvidenceRef,
     AuthorityObject,
     AuthorityRelationship,
     WorldGraphAuthorityError,
@@ -86,10 +89,13 @@ def _object_from_payload(raw: Mapping[str, Any]) -> AuthorityObject | None:
         if campaign_scope is not None:
             campaign_scope = str(campaign_scope)
     external = None
+    property_terms: list[str] = []
     for prop in raw.get("properties") or []:
         if not isinstance(prop, dict):
             continue
         term = str(prop.get("property_term") or prop.get("predicate") or "")
+        if term.strip():
+            property_terms.append(term)
         if term.rsplit(":", 1)[-1] == "external_resource":
             value = prop.get("value")
             if isinstance(value, dict):
@@ -104,6 +110,7 @@ def _object_from_payload(raw: Mapping[str, Any]) -> AuthorityObject | None:
         campaign_scope=campaign_scope,
         summary=str(raw.get("summary") or "") or None,
         external_resource=external,
+        property_terms=tuple(property_terms),
     )
 
 
@@ -122,6 +129,21 @@ def _relationship_from_payload(raw: Mapping[str, Any]) -> AuthorityRelationship 
         direction="outbound",
         source_domains=(),
         threat_statblock_binding=None,
+    )
+
+
+def _evidence_from_payload(raw: Mapping[str, Any]) -> AuthorityEvidenceRef | None:
+    evidence_ref_id = str(raw.get("evidence_ref_id") or "").strip()
+    if not evidence_ref_id:
+        return None
+    role = raw.get("evidence_role")
+    if role is not None and not isinstance(role, str):
+        role = str(getattr(role, "value", role) or "")
+    locator = raw.get("locator")
+    return AuthorityEvidenceRef(
+        evidence_ref_id=evidence_ref_id,
+        evidence_role=str(role or "").strip(),
+        locator=str(locator).strip() if locator else None,
     )
 
 
@@ -144,12 +166,20 @@ def _view_from_stored(*, world_id: str, stored: Any) -> WorldGraphRevisionView:
         rel = _relationship_from_payload(raw)
         if rel is not None:
             relationships[rel.relationship_id] = rel
+    evidence_refs: dict[str, AuthorityEvidenceRef] = {}
+    for raw in list(payload.get("evidence_refs") or []):
+        if not isinstance(raw, dict):
+            continue
+        evidence = _evidence_from_payload(raw)
+        if evidence is not None:
+            evidence_refs[evidence.evidence_ref_id] = evidence
     return WorldGraphRevisionView(
         world_id=world_id,
         revision_id=revision_id,
         parent_revision_id=str(parent_revision_id) if parent_revision_id else None,
         objects=objects,
         relationships=relationships,
+        evidence_refs=evidence_refs,
     )
 
 
@@ -192,6 +222,59 @@ def _world_graph_expressible(contribution: Any) -> Any:
         return cloned
     except Exception:
         return contribution
+
+
+_WORLDBUILDING_IDENTITY_OUTCOMES = {
+    "created_new": "created_new",
+    "human_override": "resolved_existing",
+    "resolved_existing": "resolved_existing",
+    "rejected_by_operator": "rejected",
+    "rejected": "rejected",
+    "accepted_by_operator": None,
+    "deferred_by_operator": None,
+    "": None,
+}
+
+
+def _remap_worldbuilding_identity_outcome(assertion: Any) -> Any:
+    raw = str(getattr(assertion, "identity_resolution_outcome", "") or "")
+    if raw not in _WORLDBUILDING_IDENTITY_OUTCOMES:
+        raise WorldGraphAuthorityError(
+            "worldbuilding assertion identity outcome cannot be expressed in DungeonMind",
+            code="inexpressible",
+            details={"identity_resolution_outcome": raw},
+        )
+    mapped = _WORLDBUILDING_IDENTITY_OUTCOMES[raw]
+    if mapped == (raw or None):
+        return assertion
+    model_copy = getattr(assertion, "model_copy", None)
+    if callable(model_copy):
+        return model_copy(update={"identity_resolution_outcome": mapped})
+    cloned = shallow_copy(assertion)
+    cloned.identity_resolution_outcome = mapped
+    return cloned
+
+
+def _worldbuilding_expressible(contribution: Any) -> Any:
+    """Map worldbuilding identity vocabulary onto DungeonMind without dropping facts."""
+    updates = {}
+    for field in (
+        "accepted_assertions",
+        "rejected_assertions",
+        "candidate_assertions",
+    ):
+        items = list(getattr(contribution, field, None) or [])
+        if items:
+            updates[field] = [_remap_worldbuilding_identity_outcome(item) for item in items]
+    if not updates:
+        return contribution
+    model_copy = getattr(contribution, "model_copy", None)
+    if callable(model_copy):
+        return model_copy(update=updates)
+    cloned = shallow_copy(contribution)
+    for field, value in updates.items():
+        setattr(cloned, field, value)
+    return cloned
 
 
 class DungeonMindWorldGraphAuthorityAdapter:
@@ -244,22 +327,48 @@ class DungeonMindWorldGraphAuthorityAdapter:
             )
         return _view_from_stored(world_id=world_id, stored=stored)
 
+    def mutation_context(
+        self,
+        world_id: str,
+        revision_id: str,
+        *,
+        sealed_identity_snapshot: Mapping[str, Any] | None = None,
+    ):
+        try:
+            return load_authority_mutation_context(
+                world_id,
+                revision_id,
+                sealed_identity_snapshot=sealed_identity_snapshot,
+                database_url=self._database_url,
+            )
+        except WorldGraphWriteError as exc:
+            _raise_port(exc)
+            raise
+
     def publish(self, request: WorldGraphPublishRequest) -> WorldGraphPublicationReceipt:
-        expressible = _world_graph_expressible(request.contribution)
+        namespace = request.operation_namespace or "threat"
+        if namespace == "threat":
+            expressible = _world_graph_expressible(request.contribution)
+        elif namespace == "worldbuilding":
+            expressible = _worldbuilding_expressible(request.contribution)
+        else:
+            expressible = request.contribution
         accepted = list(getattr(expressible, "accepted_assertions", None) or [])
         if not accepted:
             raise WorldGraphAuthorityError(
-                "Threat contribution has no DungeonMind-representable World Graph facts",
+                "contribution has no DungeonMind-representable World Graph facts",
                 code="inexpressible",
                 details={
                     "world_id": request.world_id,
                     "authority_operation_id": request.authority_operation_id,
                     "decision": request.decision,
+                    "operation_namespace": namespace,
                 },
             )
-        dm_operation_id = derive_threat_review_operation_id(
+        dm_operation_id = derive_authority_review_operation_id(
             world_id=request.world_id,
             authority_operation_id=request.authority_operation_id,
+            operation_namespace=namespace,
         )
         try:
             payload = publish_contribution_via_dungeonmind(
@@ -269,6 +378,7 @@ class DungeonMindWorldGraphAuthorityAdapter:
                 actor=request.actor,
                 contribution=expressible,
                 database_url=self._database_url,
+                publication_family=namespace,
             )
         except WorldGraphWriteError as exc:
             _raise_port(exc)
@@ -293,11 +403,13 @@ class DungeonMindWorldGraphAuthorityAdapter:
         expected_parent_revision_id: str | None = None,
         contribution: Any | None = None,
         actor: str | None = None,
+        operation_namespace: str = "threat",
     ) -> WorldGraphPublicationReceipt | None:
         services = self._services(world_id)
-        dm_operation_id = derive_threat_review_operation_id(
+        dm_operation_id = derive_authority_review_operation_id(
             world_id=world_id,
             authority_operation_id=authority_operation_id,
+            operation_namespace=operation_namespace or "threat",
         )
         try:
             existing = services.bundle.finalized_review_publications.get(
@@ -312,6 +424,11 @@ class DungeonMindWorldGraphAuthorityAdapter:
         if existing is None:
             return None
         if expected_parent_revision_id is not None and contribution is not None and actor:
+            replay_contribution = contribution
+            if (operation_namespace or "threat") == "threat":
+                replay_contribution = _world_graph_expressible(contribution)
+            elif (operation_namespace or "threat") == "worldbuilding":
+                replay_contribution = _worldbuilding_expressible(contribution)
             try:
                 _prove_existing_publication_matches_request(
                     bundle=services.bundle,
@@ -320,7 +437,8 @@ class DungeonMindWorldGraphAuthorityAdapter:
                     expected_parent_revision_id=expected_parent_revision_id,
                     operation_id=dm_operation_id,
                     actor=actor,
-                    contribution=_world_graph_expressible(contribution),
+                    contribution=replay_contribution,
+                    publication_family=operation_namespace or "threat",
                 )
             except WorldGraphWriteError as exc:
                 _raise_port(exc)
@@ -334,13 +452,22 @@ class DungeonMindWorldGraphAuthorityAdapter:
             except WorldGraphWriteError as exc:
                 _raise_port(exc)
                 raise
+        try:
+            accepted_ids, _affected = _receipt_ids_from_reviewed_contribution(
+                bundle=services.bundle,
+                world_id=world_id,
+                publication=existing,
+            )
+        except WorldGraphWriteError as exc:
+            _raise_port(exc)
+            raise
         return WorldGraphPublicationReceipt(
             world_id=world_id,
             authority_operation_id=authority_operation_id,
             parent_revision_id=str(existing.expected_parent_revision_id),
             published_revision_id=str(existing.published_revision_id),
             reviewed_contribution_id=str(existing.reviewed_contribution_id),
-            accepted_assertion_ids=(),
+            accepted_assertion_ids=tuple(accepted_ids),
             published=True,
             outcome="already_applied",
             reviewed_contribution_sha256=getattr(
