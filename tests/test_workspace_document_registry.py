@@ -52,7 +52,7 @@ def test_create_issues_uuid_persists_and_get_round_trips(root: Path) -> None:
     assert created.revision == 1
     assert created.status == "active"
     assert created.content_status == "draft"
-    assert workspace_documents_path(root).is_file()
+    assert not workspace_documents_path(root).exists()
 
     loaded = get_workspace_document(root, created.document_id)
     assert loaded.model_dump() == created.model_dump()
@@ -207,6 +207,13 @@ def test_api_create_list_and_patch(client: TestClient) -> None:
 
 
 def test_mark_committed_sets_content_status_and_bumps_revision(root: Path) -> None:
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteCommitRequest,
+        TiptapMarkdownWritePrepareRequest,
+        commit_tiptap_markdown_write,
+        prepare_tiptap_markdown_write,
+    )
+
     created = create_workspace_document(
         root,
         title="Commit me",
@@ -214,41 +221,124 @@ def test_mark_committed_sets_content_status_and_bumps_revision(root: Path) -> No
         kind="plan",
     )
     assert created.content_status == "draft"
-
-    committed = mark_workspace_document_committed(
-        root,
-        created.document_id,
-        expected_revision=1,
+    markdown = "# committed via Tiptap\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=created.document_id,
+            markdown=markdown,
+            expected_revision=created.revision,
+        ),
     )
-    assert committed.content_status == "committed"
-    assert committed.revision == 2
-
+    committed = commit_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=created.document_id,
+            markdown=markdown,
+            writer_confirm_token=prepared.writer_confirm_token or "",
+            expected_revision=created.revision,
+        ),
+    )
+    assert committed.committed_record.content_status == "committed"
     loaded = get_workspace_document(root, created.document_id)
     assert loaded.content_status == "committed"
-    assert loaded.revision == 2
 
 
 def test_mark_committed_stale_expected_revision_conflicts(root: Path) -> None:
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteCommitRequest,
+        TiptapMarkdownWriteConflictError,
+        TiptapMarkdownWritePrepareRequest,
+        commit_tiptap_markdown_write,
+        prepare_tiptap_markdown_write,
+    )
+
     created = create_workspace_document(
         root,
         title="Commit me",
         campaign_id="longmont-c2",
         kind="plan",
     )
+    markdown = "# stale token\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=created.document_id,
+            markdown=markdown,
+            expected_revision=created.revision,
+        ),
+    )
+    after_prepare = get_workspace_document(root, created.document_id)
     update_workspace_document_metadata(
         root,
         created.document_id,
         title="Updated",
-        expected_revision=1,
+        expected_revision=after_prepare.revision,
+    )
+    with pytest.raises(TiptapMarkdownWriteConflictError):
+        commit_tiptap_markdown_write(
+            root=root,
+            request=TiptapMarkdownWriteCommitRequest(
+                document_id=created.document_id,
+                markdown=markdown,
+                writer_confirm_token=prepared.writer_confirm_token or "",
+                expected_revision=created.revision,
+            ),
+        )
+
+
+def _worldbuilding_source(root: Path, *, title: str = "Shepherd Cult Lore") -> WorkspaceDocumentRecord:
+    return create_workspace_document(
+        root,
+        title=title,
+        campaign_id="longmont-c2",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
     )
 
-    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
-        mark_workspace_document_committed(
-            root,
-            created.document_id,
-            expected_revision=1,
-        )
-    assert exc_info.value.status_code == 409
+
+def _inject_leftover_twin(
+    root: Path,
+    *,
+    target_relpath: str,
+    status: str = "active",
+    revision: int = 1,
+) -> str:
+    """Bypass create uniqueness to simulate a pre-invariant leftover JSON duplicate."""
+    from apps.live_control_server.services.workspace_document_registry import (
+        _load_unlocked,
+        _save_cas,
+        _utc_now_iso,
+    )
+    from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
+
+    twin_id = str(uuid.uuid4())
+    now = _utc_now_iso()
+    twin = WorkspaceDocumentRecord(
+        document_id=twin_id,
+        title="Leftover twin",
+        campaign_id="longmont-c2",
+        kind="worldbuilding_source",
+        target_relpath=target_relpath,
+        status=status,  # type: ignore[arg-type]
+        content_status="draft",
+        revision=revision,
+        created_at=now,
+        updated_at=now,
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    path = workspace_documents_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        document.records.append(twin)
+        _save_cas(root, document, expected_token=token)
+    return twin_id
 
 
 def test_worldbuilding_source_issues_uuid_and_registry_owned_target(root: Path) -> None:
@@ -943,95 +1033,27 @@ def test_worldbuilding_create_remains_uuid_bound_and_collision_free(root: Path) 
 
 
 def test_find_duplicate_target_relpath_ownership_reports_groups(root: Path) -> None:
-    target = (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
-        "Session Prep/Session 23 Prep.md"
-    )
-    first = create_workspace_document(
-        root,
-        title="C2 Session 23 Prep",
-        campaign_id="longmont-c2",
-        kind="plan",
-        target_session=23,
-        target_relpath=target,
-    )
-    # Bypass create guard to simulate a pre-invariant duplicate registry.
-    from apps.live_control_server.services.workspace_document_registry import (
-        _load_unlocked,
-        _save_cas,
-        _utc_now_iso,
-    )
-    from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
-
-    twin_id = str(uuid.uuid4())
-    now = _utc_now_iso()
-    twin = WorkspaceDocumentRecord(
-        document_id=twin_id,
-        title="C2 Session 23 Prep",
-        campaign_id="longmont-c2",
-        target_session=23,
-        kind="plan",
-        target_relpath=target,
-        status="active",
-        content_status="draft",
-        revision=1,
-        created_at=now,
-        updated_at=now,
-    )
-    path = workspace_documents_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        document.records.append(twin)
-        _save_cas(root, document, expected_token=token)
+    first = _worldbuilding_source(root, title="C2 Session 23 Prep")
+    assert first.target_relpath is not None
+    twin_id = _inject_leftover_twin(root, target_relpath=first.target_relpath)
 
     groups = find_duplicate_target_relpath_ownership(root)
     assert len(groups) == 1
-    assert groups[0][0] == target
+    assert groups[0][0] == first.target_relpath
     assert {r.document_id for r in groups[0][1]} == {first.document_id, twin_id}
 
 
 def test_release_target_relpath_from_discarded_duplicate_keeps_survivor_path(
     root: Path,
 ) -> None:
-    target = (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
-        "Session Prep/Session 23 Prep.md"
-    )
-    survivor = create_workspace_document(
+    survivor = _worldbuilding_source(root, title="C2 Session 23 Prep")
+    assert survivor.target_relpath is not None
+    twin_id = _inject_leftover_twin(
         root,
-        title="C2 Session 23 Prep",
-        campaign_id="longmont-c2",
-        kind="plan",
-        target_session=23,
-        target_relpath=target,
-    )
-    from apps.live_control_server.services.workspace_document_registry import (
-        _load_unlocked,
-        _save_cas,
-        _utc_now_iso,
-    )
-    from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
-
-    twin_id = str(uuid.uuid4())
-    now = _utc_now_iso()
-    twin = WorkspaceDocumentRecord(
-        document_id=twin_id,
-        title="C2 Session 23 Prep",
-        campaign_id="longmont-c2",
-        target_session=23,
-        kind="plan",
-        target_relpath=target,
+        target_relpath=survivor.target_relpath,
         status="discarded",
-        content_status="draft",
         revision=2,
-        created_at=now,
-        updated_at=now,
     )
-    path = workspace_documents_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        document.records.append(twin)
-        _save_cas(root, document, expected_token=token)
 
     discard_workspace_document(root, survivor.document_id)
     released = release_target_relpath_from_discarded_duplicate(
@@ -1042,24 +1064,14 @@ def test_release_target_relpath_from_discarded_duplicate_keeps_survivor_path(
     assert released.document_id == twin_id
     assert released.target_relpath is None
     assert released.status == "discarded"
-    assert get_workspace_document(root, survivor.document_id).target_relpath == target
+    assert get_workspace_document(root, survivor.document_id).target_relpath == survivor.target_relpath
     assert find_duplicate_target_relpath_ownership(root) == []
 
 
 def test_reinstate_workspace_document_record_restores_identity_without_path_collision(
     root: Path,
 ) -> None:
-    survivor = create_workspace_document(
-        root,
-        title="C2 Session 23 Prep",
-        campaign_id="longmont-c2",
-        kind="plan",
-        target_session=23,
-        target_relpath=(
-            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
-            "Session Prep/Session 23 Prep.md"
-        ),
-    )
+    survivor = _worldbuilding_source(root, title="C2 Session 23 Prep")
     discard_workspace_document(root, survivor.document_id)
     restored_id = str(uuid.uuid4())
     now = "2026-08-08T18:00:00Z"
@@ -1069,14 +1081,17 @@ def test_reinstate_workspace_document_record_restores_identity_without_path_coll
             document_id=restored_id,
             title="C2 Session 23 Prep",
             campaign_id="longmont-c2",
-            target_session=23,
-            kind="plan",
+            kind="worldbuilding_source",
             target_relpath=None,
             status="discarded",
             content_status="draft",
             revision=2,
             created_at=now,
             updated_at=now,
+            source_domain="worldbuilding",
+            document_class="lore",
+            authority_state="draft",
+            visibility_state="internal",
         ),
     )
     assert reinstated.document_id == restored_id
@@ -1113,8 +1128,8 @@ def test_update_metadata_rejects_target_relpath_owned_by_active_document(root: P
             target_relpath=path_a,
             expected_revision=before.revision,
         )
-    assert exc_info.value.status_code == 409
-    assert owner.document_id in str(exc_info.value)
+    assert exc_info.value.status_code == 422
+    assert "cannot be changed via metadata update" in str(exc_info.value)
 
     after = get_workspace_document(root, other.document_id)
     assert after.revision == before.revision
@@ -1151,8 +1166,8 @@ def test_update_metadata_rejects_target_relpath_owned_by_discarded_document(root
             target_relpath=path_a,
             expected_revision=before.revision,
         )
-    assert exc_info.value.status_code == 409
-    assert owner.document_id in str(exc_info.value)
+    assert exc_info.value.status_code == 422
+    assert "cannot be changed via metadata update" in str(exc_info.value)
     after = get_workspace_document(root, other.document_id)
     assert after.model_dump() == before.model_dump()
 
@@ -1384,8 +1399,8 @@ def test_api_patch_rejects_duplicate_target_relpath_including_discarded_owner(
         f"/api/live/workspace-documents/{other.document_id}",
         json={"target_relpath": path_a, "expected_revision": before.revision},
     )
-    assert response.status_code == 409
-    assert owner.document_id in response.json()["detail"]
+    assert response.status_code == 422
+    assert "cannot be changed via metadata update" in response.json()["detail"]
 
     after = get_workspace_document(root, other.document_id)
     assert after.model_dump() == before.model_dump()

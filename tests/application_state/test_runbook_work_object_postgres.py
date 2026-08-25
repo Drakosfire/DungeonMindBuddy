@@ -252,6 +252,13 @@ def test_tiptap_exact_commit_replay_returns_existing_revision(
         assert repo.next_revision_n(conn, UUID(created.document_id)) == 2
     committed = get_committed_playable_revision(created.document_id)
     assert committed.revision_n == 1
+    locator = f"runbook:{created.document_id}"
+    assert prepared.target_relpath == locator
+    assert prepared.target_display_path == locator
+    assert first.target_relpath == locator
+    assert first.target_display_path == locator
+    assert first.committed_record.target_relpath is None
+    assert not first.target_relpath.startswith("out/workspace/")
 
 
 def test_unwritable_lock_path_is_not_required(
@@ -431,3 +438,70 @@ def test_runbook_playable_latency(
         and historical_ms >= 0
         and existing_run_ms >= 0
     )
+
+
+def test_plan_and_runbook_mutations_reject_wrong_kind(application_state_dsn: str) -> None:
+    from application_state.content.service import (
+        autosave_plan,
+        autosave_runbook,
+        commit_plan,
+        commit_runbook,
+        create_plan,
+        create_runbook,
+        update_plan_metadata,
+        update_runbook_metadata,
+    )
+    from application_state.errors import ApplicationStateValidationError
+
+    plan = create_plan(title="Plan", campaign_id="longmont-c2")
+    runbook = create_runbook(title="Runbook", campaign_id="longmont-c2")
+    plan_id = str(plan.work_object_id)
+    runbook_id = str(runbook.work_object_id)
+
+    with pytest.raises(ApplicationStateValidationError, match="kind mismatch"):
+        autosave_plan(runbook_id, "# no\n")
+    with pytest.raises(ApplicationStateValidationError, match="kind mismatch"):
+        commit_plan(runbook_id, "# no\n")
+    with pytest.raises(ApplicationStateValidationError, match="kind mismatch"):
+        update_plan_metadata(runbook_id, title="hijack")
+    with pytest.raises(ApplicationStateValidationError, match="kind mismatch"):
+        autosave_runbook(plan_id, "# no\n")
+    with pytest.raises(ApplicationStateValidationError, match="kind mismatch"):
+        commit_runbook(plan_id, "# no\n")
+    with pytest.raises(ApplicationStateValidationError, match="kind mismatch"):
+        update_runbook_metadata(plan_id, title="hijack")
+
+
+def test_pathless_runbook_prepare_and_commit_receipts_agree(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    created = create_workspace_document(
+        tmp_path, title="Pathless", campaign_id="longmont-c2", kind="runbook"
+    )
+    assert created.target_relpath is None
+    markdown = "# pathless runbook\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=created.document_id,
+            markdown=markdown,
+            expected_revision=created.revision,
+        ),
+    )
+    committed = commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=created.document_id,
+            markdown=markdown,
+            writer_confirm_token=prepared.writer_confirm_token or "",
+            expected_revision=created.revision,
+        ),
+    )
+    locator = f"runbook:{created.document_id}"
+    assert prepared.target_relpath == locator
+    assert committed.target_relpath == locator
+    assert committed.target_display_path == locator
+    assert committed.committed_record.target_relpath is None
+    assert "out/workspace/" not in committed.target_relpath
+    fake = tmp_path / "out" / "workspace" / "runbook" / f"{created.document_id}.md"
+    assert not fake.exists()

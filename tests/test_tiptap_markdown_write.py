@@ -21,6 +21,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document,
     discard_workspace_document,
     get_workspace_document,
+    get_workspace_document_snapshot,
 )
 
 
@@ -96,11 +97,9 @@ def test_plan_workspace_prepare_commit_round_trip(tmp_path: Path) -> None:
     )
     assert committed.writer_ok is True
     assert committed.bytes_written
-    assert "corpus was not mutated" in committed.diagnostics
+    assert "WorkRevision committed in PostgreSQL" in committed.diagnostics
     target = tmp_path / (record.target_relpath or "")
-    assert target.is_file()
-    assert target.read_text(encoding="utf-8") == markdown
-    assert not str(record.target_relpath).startswith("corpus/")
+    assert not target.exists()
     loaded = get_workspace_document(tmp_path, record.document_id)
     assert loaded.content_status == "committed"
 
@@ -229,7 +228,9 @@ def test_lossy_markdown_is_advisory_for_plan_and_runbook(tmp_path: Path, kind: s
         ),
     )
     assert committed.writer_ok is True
-    assert (tmp_path / target).read_text(encoding="utf-8") == markdown
+    snapshot = get_workspace_document_snapshot(tmp_path, record.document_id)
+    assert snapshot.markdown == markdown
+    assert snapshot.file_exists is False
 
 
 def test_plan_and_runbook_cannot_authorize_foreign_worldbuilding_path() -> None:
