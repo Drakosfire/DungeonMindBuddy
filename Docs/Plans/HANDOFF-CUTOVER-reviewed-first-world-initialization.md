@@ -28,9 +28,12 @@ pr_body_template: |
   - graph payload is materialized by DungeonMind from the reviewed contribution
   - source/revision/contribution/head/receipt commit atomically
   - exact retry and lost-response recovery return the same receipt/revision
-  - same world + different initialization intent fails closed with zero mutation
+  - same world + same initialization_id + different command_sha256 fails closed
+    and does not return the stored receipt as success
+  - same world + different initialization_id fails closed with zero mutation
   - exact receipt remains recoverable after a later legitimate child advances head
   - no existing_world_adoptions row is written
+  - adoption treats a reviewed-init receipt as non-pristine
   - existing-world adoption and governed D_A → D_B publication regressions stay green
 ---
 
@@ -45,6 +48,7 @@ pr_body_template: |
 **Buddy D.2B merge:** `6ef7aefa741a82f512f5918b460cbee1a427cae4`  
 **Buddy D.2B accepted head:** `caa9d84e4431db1b90ea58dab2e74d270fbcffee`  
 **Buddy D.2B review cycles:** 3; Cycle 3 PASS-equivalent review `5020798053`  
+**This design PR:** Buddy #642; Cycle 1 REQUEST-CHANGES-equivalent review `5023633280`  
 **DungeonMind implementation base:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` — current `main`, merge of PR #45  
 **Suggested DungeonMind branch:** `cutover/reviewed-first-world-initialization`  
 **Suggested PR title:** `CUTOVER: add reviewed first-world initialization authority`  
@@ -205,8 +209,12 @@ Rejected assertions remain durable review history but do not materialize.
 A first authoritative graph whose evidence cannot resolve through DungeonMind's
 source authority is not complete.
 
-The command therefore carries the exact `SourceArtifactV2` / `SourceRevisionV2`
-records required by the reviewed contribution and accepted evidence. Validate:
+The command therefore carries the exact `SourceArtifactV2` /
+`SourceRevision` records required by the reviewed contribution and accepted
+evidence. Those are the repository-true types at DungeonMind pin
+`c5d3688587b0f5d506e0f7d64f33eb0628bac896` (`dm_source_artifact_v2` and
+`dm_source_revision_v1`). Do not invent `SourceRevisionV2` or another
+source-revision schema in this PR. Validate:
 
 - every source record belongs to the command world where the contract requires
   world binding;
@@ -241,30 +249,51 @@ head.
 The operation has one deterministic caller-supplied initialization identity,
 for example `initialization_id` / `operation_id`.
 
-Replay algebra:
+Replay algebra copies existing-world adoption's bundle-digest branch
+(`existing.bundle_sha256 == validated.bundle_sha256` else conflict):
 
 ```text
-same world + same initialization id + exact same bound command
+same world + same initialization_id + same command_sha256
   → same receipt
   → same D_0
   → zero new rows
 
-same world + different initialization intent
+same world + same initialization_id + different command_sha256
+  → typed idempotency/integrity conflict
+  → do not return the stored receipt as success
+  → zero mutation
+
+same world + different initialization_id
   → conflict / already initialized
   → zero mutation
 
-same initialization id reused for another world
+same initialization_id reused for another world
   → idempotency conflict
   → zero mutation
 ```
 
-A current head existing is not by itself proof of replay. The receipt is.
+Receipt-first means fingerprint-equal command, not “a receipt exists for this
+id.” A current head existing is not by itself proof of replay. The receipt is.
+
+Probe order after taking the world lock:
+
+```text
+load reviewed-init receipt by world_id
+→ if present: compare initialization_id and command_sha256
+     match both → exact replay / return receipt
+     otherwise → conflict, zero writes
+→ else if initialization_id exists for another world → conflict
+→ else assert pristine and continue
+```
 
 ### 3.7 Uncertain outcomes recover from durable authority
 
 If the transaction may have committed but the caller does not receive the
-response, a retry probes the reviewed-initialization receipt first. An exact
-stored receipt returns success. Contradictory durable state fails integrity.
+response, a retry probes the reviewed-initialization receipt first. A stored
+receipt returns success only when `initialization_id` and `command_sha256`
+match the retry. Same world/id with a different command digest is a conflict,
+not replay. Contradictory durable state (receipt without `D_0`, parent not
+null, payload/world mismatch) fails integrity.
 
 Do not issue a blind second initialization after an uncertain result.
 
@@ -272,8 +301,10 @@ Do not issue a blind second initialization after an uncertain result.
 
 ## 4. Proposed public contracts
 
-Names may vary slightly if current DungeonMind naming conventions demand it,
-but the semantics may not drift.
+New command/receipt module names may vary slightly if current DungeonMind
+naming conventions demand it, but the semantics may not drift. Source types
+are frozen to pin truth: `SourceArtifactV2` and `SourceRevision`. Do not add
+a `SourceRevisionV2` type.
 
 ### `ReviewedWorldInitializationCommandV1`
 
@@ -289,7 +320,7 @@ source_plan_id
 source_plan_sha256
 semantic_profile: SemanticProfileRef
 source_artifacts: list[SourceArtifactV2]
-source_revisions: list[SourceRevisionV2]
+source_revisions: list[SourceRevision]
 reviewed_contribution: GraphContributionV2
 actor
 requested_initialized_at
@@ -419,7 +450,8 @@ The PostgreSQL boundary must perform one transaction:
 
 ```text
 lock world
-→ receipt-first replay probe
+→ receipt-first replay probe (§3.6: world_id, then initialization_id +
+  command_sha256; never treat a digest mismatch as replay)
 → assert pristine target
 → validate/materialize exact command
 → insert source artifacts/revisions
@@ -517,20 +549,25 @@ Expected paths:
 | Create/Modify | `tests/**reviewed_world_initialization**` | pure/in-memory/Postgres owning-boundary proof |
 | Modify if bounded | `src/dungeonmind/application/review_materialization_v6.py` | extract only a proven pure v6 helper shared by first-world materialization |
 | Modify if bounded | existing v6 publication tests | prove helper extraction is behavior-preserving |
+| Modify if bounded | `src/dungeonmind/infrastructure/postgres/existing_world_adoption.py` | one extra pristine predicate: a reviewed-world-initialization receipt makes adoption fail closed as non-pristine |
+| Modify if bounded | existing-world adoption pristine/regression tests | prove adoption happy-path replay/conflict/recovery is otherwise unchanged |
 
 Explicitly out of scope:
 
 - any `Drakosfire/DungeonMindBuddy` production code;
 - Buddy `WorldGraphAuthority` / adapters;
 - Buddy `pyproject.toml` or `uv.lock` pin;
-- existing-world adoption contract/receipt semantics except regression tests;
+- existing-world adoption **command/receipt contracts**, replay algebra, or
+  graph-payload semantics — do not store reviewed-init as an adoption;
+- rewriting adoption to share a generic genesis framework;
 - changes to normal existing-parent governed publication semantics;
 - read/projection/retrieval behavior;
 - APP-STATE;
 - D.3 deletion.
 
 If implementation needs a new generic transaction coordinator, graph CRUD API,
-or rewrites existing-world adoption to share a broad framework, stop and re-brief.
+a `SourceRevisionV2` (or other new source schema), or rewrites existing-world
+adoption to share a broad framework, stop and re-brief.
 
 ---
 
@@ -587,14 +624,16 @@ Call initialize again with exact C:
 
 ### 9.4 Conflicting initialization
 
-After C succeeds, attempt C2 for same W with different plan/contribution/digest:
+After C succeeds, prove both collision shapes with zero mutation, head still
+`D_0`, and C's receipt unchanged:
 
-- typed conflict/already-initialized failure;
-- head remains D_0;
-- receipt remains C's receipt;
-- zero partial C2 rows.
+- C2 = same world, **different** `initialization_id`, different
+  plan/contribution/digest → already-initialized / not pristine;
+- C2 = same world, **same** `initialization_id`, different `command_sha256`
+  → typed idempotency/integrity conflict; **do not** return C's receipt as
+  success for C2.
 
-Also test same initialization id reused for another world fails idempotency.
+Also test same `initialization_id` reused for another world fails idempotency.
 
 ### 9.5 Lost response / recovery
 
@@ -624,13 +663,17 @@ initialization C/R:
 Run focused existing suites for:
 
 - existing-world adoption exact replay/conflict/recovery;
+- adoption against a world that already has a reviewed-init receipt fails
+  closed as non-pristine (even in a constructed receipt-without-graph fixture
+  if that is how the predicate is proved);
 - finalized v2/v6 review publication and stale-parent CAS;
 - graph repository parent-null + normal parented publication;
 - source/contribution persistence integrity;
 - migration upgrade from current head.
 
-No existing adoption receipt/schema changes are acceptable merely to make this
-new path easier.
+No existing adoption receipt/schema contract changes are acceptable merely to
+make this new path easier. The bounded pristine SELECT above is the only
+allowed adoption implementation edit.
 
 ---
 
@@ -666,6 +709,12 @@ capability.
 ### 10.6 Buddy production code becomes necessary in this PR
 
 Stop. D.2C2 owns the consumer migration after this provider merges.
+
+### 10.7 A new source-revision schema would be required
+
+Use `SourceArtifactV2` and `SourceRevision` at the stated pin. Inventing
+`SourceRevisionV2` or another source contract is a split, not a convenience
+rename.
 
 ---
 
@@ -752,7 +801,12 @@ Do not mark D.2C done when only the DungeonMind provider exists.
 - [ ] Source + contribution + revision/head + receipt commit atomically.
 - [ ] First-world identity semantics fail closed against existing/bind behavior.
 - [ ] Exact retry returns same receipt/revision with zero second writes.
-- [ ] Conflicting initialization fails with zero mutation.
+- [ ] Same world + same initialization_id + different command_sha256 fails
+      closed and does not return the stored receipt as success.
+- [ ] Conflicting initialization (different initialization_id) fails with
+      zero mutation.
+- [ ] Adoption treats a reviewed-init receipt as non-pristine; adoption
+      contracts and replay algebra otherwise unchanged.
 - [ ] Lost-response recovery is receipt-first and exact.
 - [ ] Receipt remains valid after head advances to a descendant.
 - [ ] Zero existing-world-adoption row for reviewed initialization.
