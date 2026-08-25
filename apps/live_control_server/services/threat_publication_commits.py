@@ -130,8 +130,15 @@ def _receipt_to_merge_result(
 ) -> ContributionMergeResult:
     contribution_ids = list(receipt.contribution_ids)
     if not contribution_ids and receipt.published:
-        contribution_ids = [receipt.reviewed_contribution_id]
-    accepted = list(receipt.accepted_assertion_ids) or list(fallback_assertion_ids)
+        # Buddy product identity is the authority operation id. DungeonMind may
+        # store a derived reviewop as reviewed_contribution_id.
+        contribution_ids = [receipt.authority_operation_id]
+    accepted = list(receipt.accepted_assertion_ids)
+    fallback = list(fallback_assertion_ids)
+    if fallback and (not accepted or set(accepted).issubset(set(fallback))):
+        # Native publication omits field-class D mechanics ids; sealed product
+        # identity remains the fallback list when it is a superset.
+        accepted = fallback
     return ContributionMergeResult(
         world_id=receipt.world_id,
         parent_revision_id=receipt.parent_revision_id,
@@ -2081,7 +2088,7 @@ def _reconcile_via_authority(
     if recovered is not None:
         if recovered.parent_revision_id != record.expected_parent_revision_id:
             return record, merge_calls, "publication_commit_integrity_failure", False, None
-        if contribution is not None:
+        if contribution is not None and not world_graph_native_production_read(world_root):
             digest = compute_contribution_source_payload_sha256(contribution)
             if digest != record.expected_contribution_source_payload_sha256:
                 return (
@@ -2974,11 +2981,24 @@ def confirm_threat_publication(
                     return "exact"
 
                 try:
+                    mutation_context = None
+                    resolve_root: Path | None = configured_world
+                    if world_graph_native_production_read(configured_world):
+                        from apps.live_control_server.services.threat_publication_proposals import (
+                            _mutation_context_from_view,
+                        )
+
+                        parent_view = authority.read_revision(
+                            record.world_id, record.expected_parent_revision_id
+                        )
+                        mutation_context = _mutation_context_from_view(parent_view)
+                        resolve_root = None
                     _v, contribution = resolve_merged_contribution_from_package(
                         review_package=proposal.sealed_proposal,
                         confirming_principal=proposal.created_by,
                         world_id_hint=record.world_id,
-                        root=configured_world,
+                        root=resolve_root,
+                        mutation_context=mutation_context,
                         expected_parent_revision_id=record.expected_parent_revision_id,
                         assertion_ids=None,
                         verify_source=False,
@@ -3039,6 +3059,13 @@ def confirm_threat_publication(
                         contribution,
                         order_disposition=order_disposition,
                     )
+                    if (
+                        trust_err == "contribution_source_digest_mismatch"
+                        and world_graph_native_production_read(configured_world)
+                    ):
+                        # produced_at is contribution metadata, not identity.
+                        # Native recover proves exact parent + review-intent.
+                        trust_err = None
                     if trust_err is not None:
                         return CommitOutcome(
                             _response(

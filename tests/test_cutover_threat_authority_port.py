@@ -785,3 +785,47 @@ def test_effect_summary_records_resource_binding_ids_from_accepted_mechanics():
     assert summary.binding_edge_id
     assert summary.external_resource_node_id != summary.binding_edge_id
 
+
+def test_receipt_to_merge_result_keeps_buddy_operation_identity():
+    from apps.live_control_server.services.threat_publication_commits import (
+        _receipt_to_merge_result,
+    )
+
+    receipt = WorldGraphPublicationReceipt(
+        world_id="eldyrwild",
+        authority_operation_id="contrib:buddy-op",
+        parent_revision_id="rev:d-a",
+        published_revision_id="rev:d-b",
+        reviewed_contribution_id="reviewop:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        accepted_assertion_ids=("assert:threat",),
+        published=True,
+        outcome="published",
+    )
+    result = _receipt_to_merge_result(
+        receipt,
+        fallback_assertion_ids=("assert:threat", "assert:resource", "assert:binding"),
+    )
+    assert result.contribution_ids == ["contrib:buddy-op"]
+    assert result.accepted_assertion_ids == [
+        "assert:threat",
+        "assert:resource",
+        "assert:binding",
+    ]
+    assert result.revision_id == "rev:d-b"
+
+
+def test_qualified_assertion_update_clears_attribute_predicate():
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        _qualified_assertion_update,
+    )
+
+    assertion = SimpleNamespace(
+        assertion_kind="attribute",
+        predicate="description",
+        value={"text": "A brutal enforcer.", "source_domains": ["worldbuilding"]},
+    )
+    update = _qualified_assertion_update(assertion, endpoint_kinds={})
+    assert update["predicate"] is None
+    assert '"property_term":"description"' in update["value"]
+    assert "brutal enforcer" in update["value"]
+

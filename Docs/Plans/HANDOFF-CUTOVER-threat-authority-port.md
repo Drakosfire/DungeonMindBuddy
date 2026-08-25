@@ -846,12 +846,15 @@ Adversarial witnesses, same operation id:
 ### 16.7 Lost receipt / uncertain outcome
 
 Inject failure after DungeonMind publication but before Buddy receipt save.
-On the next call:
+Owning witness is `confirm_threat_publication()` against isolated PostgreSQL
+(not a direct adapter call and not the injected `BuddyFiles` merge/lookup
+hooks). On the next call:
 
 - durable Buddy intent is present;
-- authority recovery finds the exact publication;
-- no second publication occurs;
-- product state advances to committed/verification state from recovered facts.
+- native `WorldGraphAuthority.recover()` finds the exact publication;
+- no second DungeonMind revision/finalization occurs;
+- product state advances to committed/verification state from recovered facts;
+- Buddy graph runtime remains exploded / physically unnecessary.
 
 ### 16.8 Stale parent
 

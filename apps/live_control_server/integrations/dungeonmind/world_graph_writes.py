@@ -861,6 +861,26 @@ def _qualified_assertion_update(
         return {"value": _qualified_value(assertion)}
     if assertion.assertion_kind == "edge":
         return _qualified_edge_update(assertion, endpoint_kinds=endpoint_kinds)
+    if assertion.assertion_kind == "attribute":
+        from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+            _canonical_json,
+        )
+
+        raw_value = assertion.value
+        if isinstance(raw_value, str) and raw_value:
+            try:
+                parsed = json.loads(raw_value)
+            except ValueError:
+                parsed = {"text": raw_value}
+        else:
+            parsed = raw_value
+        value = dict(parsed) if isinstance(parsed, dict) else {}
+        predicate = str(getattr(assertion, "predicate", None) or "").strip()
+        if predicate and not str(value.get("property_term") or "").strip():
+            value["property_term"] = predicate
+        return {"predicate": None, "value": _canonical_json(value) if value else None}
+    if assertion.assertion_kind == "evidence_ref":
+        return {"predicate": None}
     return {}
 
 
