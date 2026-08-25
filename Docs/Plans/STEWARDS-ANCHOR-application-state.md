@@ -11,8 +11,12 @@
 **AS0.1 merge:** PR #639 @ `dd09f7f707e38f9f4348b759da8cfdbbe420fd60`
 **AS0.1 accepted head:** `abb3fb15f9b56e8712c07c798674d0462827677f`
 **AS0.1 review:** Review Cycle 2 PASS-equivalent, review `5014814402`
-**Current implementation:** AS1 Plan/PostgreSQL — this PR; do not mark AS1 DONE
-**Named successor still false:** AS2 Playable historical WorkRevisions
+**Current implementation:** AS2 Playable Runbook revisions — this PR; do not mark AS2 DONE
+**Named successor still false:** AS3 Play Run + sealed manifest transaction
+**AS1 merge:** PR #641 @ `29ff1584b9f76bb5100a724a96bebbbcf8f08d12`
+**AS1 accepted head:** `b42eb629e8924695af7af5a6c986f44a26dc3536`
+**AS1 review:** 3 distinct-head cycles; final PASS-equivalent review `5023488870`
+**AS1 execution evidence:** PR #641 comment `5415847095`
 **Repository law:** [`../../AGENTS.md`](../../AGENTS.md)
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)
 **Primary adjacent authorities:**
@@ -624,8 +628,12 @@ when database integrity is perfect.
 (accepted head `abb3fb15…`; Review Cycle 2 review `5014814402`). Architecture v1.1
 is living authority.
 
-**AS1 is the active implementation slice** (this PR). Do not mark AS1 DONE and do
-not invent its merge SHA. AS2 remains false.
+**AS1 is complete** — merged PR #641 @ `29ff1584b9f76bb5100a724a96bebbbcf8f08d12`
+(accepted head `b42eb629…`; 3 review cycles; final PASS-equivalent review `5023488870`;
+evidence comment `5415847095`).
+
+**AS2 is the active implementation slice** (this PR). Do not mark AS2 DONE and do
+not invent its merge SHA. AS3 remains false.
 
 Expected artifacts (canonical owners):
 
@@ -678,8 +686,8 @@ current sequence, not pre-authorized PR scope.
 ```text
 AS0    DESIGN                      DONE — PR #636 merge 4c90df35
 AS0.1  STORAGE-TOPOLOGY            DONE — PR #639 merge dd09f7f7
-AS1    PLAN DOCUMENTS              substrate + kind=plan (THIS PR; not merged)
-AS2    PLAYABLE                    runbook WorkRevisions historically addressable
+AS1    PLAN DOCUMENTS              DONE — PR #641 merge 29ff1584
+AS2    PLAYABLE                    runbook WorkRevisions historically addressable (THIS PR; not merged)
 AS3    PLAY RUNTIME                Run + sealed manifest in one transaction
 AS4    PLAY CONTINUITY             active Run + resume/reload
 AS5    PLAY DEMOLITION             delete replaced Play file writers/locks/intents
@@ -982,8 +990,8 @@ A new steward should be able to begin with this exact sequence:
 5. Read CUTOVER steward anchor so World authority is not accidentally reopened.
 6. Trace current workspace-document + Play Run persistence end to end.
 7. Inventory path-keyed Ingest, location index, and generated-artifact durable state.
-8. Treat AS1 as the active Plan/PostgreSQL implementation; do not claim it merged.
-9. Keep AS2 (runbook historical WorkRevisions) unimplemented until AS1 merges and is re-anchored.
+8. Treat AS2 as the active Playable/Runbook implementation; do not claim it merged.
+9. Keep AS3 (Play Run + sealed manifest transaction) unimplemented until AS2 merges and is re-anchored.
 ```
 
 If a fresh steward cannot answer "what remains false after the first implementation
