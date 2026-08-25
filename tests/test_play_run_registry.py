@@ -27,8 +27,6 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
 )
 
-pytest_plugins = ["tests.application_state.conftest"]
-
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 RUN_ID_C = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
@@ -224,9 +222,7 @@ def test_stale_sha_with_current_revision_fails_without_run(tmp_path: Path) -> No
     assert not play_run_path(tmp_path, RUN_ID_A).exists()
 
 
-def test_committed_non_runbook_is_not_admitted(
-    tmp_path: Path, application_state_dsn: str
-) -> None:
+def test_committed_non_runbook_is_not_admitted(tmp_path: Path) -> None:
     record = create_workspace_document(
         tmp_path,
         title="Plan is not a Runbook",

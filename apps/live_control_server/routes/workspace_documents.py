@@ -38,12 +38,15 @@ def get_workspace_documents(
     kind: Annotated[Literal["plan", "runbook", "worldbuilding_source"] | None, Query()] = None,
     status: Annotated[Literal["active", "discarded"] | None, Query()] = "active",
 ) -> dict[str, Any]:
-    records = list_workspace_documents(
-        repo_root(),
-        campaign_id=campaign_id,
-        kind=kind,
-        status=status,
-    )
+    try:
+        records = list_workspace_documents(
+            repo_root(),
+            campaign_id=campaign_id,
+            kind=kind,
+            status=status,
+        )
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return WorkspaceDocumentsListResponse(records=records).model_dump(mode="json")
 
 

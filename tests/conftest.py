@@ -24,16 +24,6 @@ def _live_play_classifier_heuristic_fallback(monkeypatch: pytest.MonkeyPatch, re
 
 
 @pytest.fixture(autouse=True)
-def _isolate_application_state_dsn(
-    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
-) -> None:
-    """Plan is PostgreSQL-backed; do not leak the operator product DSN into tests."""
-    if "application_state_dsn" in request.fixturenames:
-        return
-    monkeypatch.delenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", raising=False)
-
-
-@pytest.fixture(autouse=True)
 def _isolate_live_server_session_dir(
     monkeypatch: pytest.MonkeyPatch,
     request: pytest.FixtureRequest,

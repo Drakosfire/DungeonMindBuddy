@@ -475,23 +475,30 @@ def _commit_plan_postgres(
         raise TiptapMarkdownWriteError("source_import is only valid for worldbuilding_source documents")
     content = _content_for_write_mode(request.markdown, write_mode)
     relpath = obj.target_relpath or f"plan:{obj.work_object_id}"
-    expected = _confirm_token(
-        str(obj.work_object_id),
-        obj.object_revision,
-        relpath,
-        content,
-        "postgres",
-        write_mode,
-    )
-    if request.writer_confirm_token != expected:
-        raise TiptapMarkdownWriteConflictError(
-            "stale writer confirm token; prepare file write again"
+
+    def _token_for(revision: int) -> str:
+        return _confirm_token(
+            str(obj.work_object_id),
+            revision,
+            relpath,
+            content,
+            "postgres",
+            write_mode,
         )
+
+    expected_revision = obj.object_revision
+    if request.writer_confirm_token != _token_for(obj.object_revision):
+        prior_revision = obj.object_revision - 1
+        if prior_revision < 1 or request.writer_confirm_token != _token_for(prior_revision):
+            raise TiptapMarkdownWriteConflictError(
+                "stale writer confirm token; prepare file write again"
+            )
+        expected_revision = prior_revision
     try:
         committed, revision = commit_plan(
             request.document_id,
             content,
-            expected_revision=obj.object_revision,
+            expected_revision=expected_revision,
         )
     except ApplicationStateError as exc:
         raise _map_registry_error(

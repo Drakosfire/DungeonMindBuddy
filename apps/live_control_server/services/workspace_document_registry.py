@@ -304,8 +304,7 @@ def list_workspace_documents(
                 for obj in list_plans(campaign_id=campaign_id, status=status)
             ]
         except (ApplicationStateUnavailableError, ApplicationStateMigrationError) as exc:
-            if kind == "plan":
-                raise _map_application_state_error(exc) from exc
+            raise _map_application_state_error(exc) from exc
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
         else:

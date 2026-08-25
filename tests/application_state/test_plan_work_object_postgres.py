@@ -219,6 +219,40 @@ def test_stale_cas_identical_commit_replay_returns_existing_revision(
         assert repo.next_revision_n(conn, created.work_object_id) == 2
 
 
+def test_tiptap_exact_commit_replay_returns_existing_revision(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    from uuid import UUID
+
+    from application_state.content import repository as repo
+    from application_state.unit_of_work import unit_of_work
+
+    created = create_workspace_document(
+        tmp_path, title="Tiptap replay", campaign_id="longmont-c2", kind="plan"
+    )
+    markdown = "# exact adapter replay\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=created.document_id,
+            markdown=markdown,
+            expected_revision=created.revision,
+        ),
+    )
+    request = TiptapMarkdownWriteCommitRequest(
+        document_id=created.document_id,
+        markdown=markdown,
+        writer_confirm_token=prepared.writer_confirm_token or "",
+        expected_revision=created.revision,
+    )
+    first = commit_tiptap_markdown_write(root=tmp_path, request=request)
+    replay = commit_tiptap_markdown_write(root=tmp_path, request=request)
+    assert replay.committed_revision == first.committed_revision
+    assert replay.normalized_content_sha256 == first.normalized_content_sha256
+    with unit_of_work(application_state_dsn) as conn:
+        assert repo.next_revision_n(conn, UUID(created.document_id)) == 2
+
+
 def test_working_copy_cas_rejects_stale_autosave(
     application_state_dsn: str,
 ) -> None:
@@ -333,6 +367,32 @@ def test_runbook_remains_file_backed_when_app_state_is_down(
     )
 
     assert workspace_documents_path(tmp_path).is_file()
+
+
+def test_unfiltered_document_list_fails_closed_when_app_state_is_down(
+    tmp_path: Path, client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runbook = create_workspace_document(
+        tmp_path,
+        title="Visible runbook",
+        campaign_id="longmont-c2",
+        kind="runbook",
+        target_relpath="evals/c2_live_prep/mireward-prep/content/tiptap/as1-list-runbook.md",
+    )
+    monkeypatch.setenv(
+        "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL",
+        "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:1/dungeonbuddy_app_state_down",
+    )
+    with pytest.raises(WorkspaceDocumentRegistryError) as excinfo:
+        list_workspace_documents(tmp_path)
+    assert excinfo.value.status_code == 503
+    unfiltered = client.get("/api/live/workspace-documents")
+    assert unfiltered.status_code == 503, unfiltered.text
+    filtered = client.get("/api/live/workspace-documents", params={"kind": "runbook"})
+    assert filtered.status_code == 200, filtered.text
+    assert [row["document_id"] for row in filtered.json()["records"]] == [
+        runbook.document_id
+    ]
 
 
 def test_authoring_canonicalizes_trailing_newlines_and_rejects_whitespace_only(
@@ -471,40 +531,90 @@ def test_behind_head_fails_closed_without_mutating_schema(
         _drop_database(admin, name)
 
 
-def test_plan_load_and_commit_latency(
-    tmp_path: Path, application_state_dsn: str
-) -> None:
-    created = create_workspace_document(
-        tmp_path, title="latency", campaign_id="longmont-c2", kind="plan"
-    )
-    markdown = "# latency witness\n"
+def _measure_prepare_commit_load(
+    *,
+    root: Path,
+    document_id: str,
+    expected_revision: int,
+    markdown: str,
+) -> tuple[float, float, float, str]:
     started = time.perf_counter()
     prepared = prepare_tiptap_markdown_write(
-        root=tmp_path,
+        root=root,
         request=TiptapMarkdownWritePrepareRequest(
-            document_id=created.document_id,
+            document_id=document_id,
             markdown=markdown,
-            expected_revision=created.revision,
+            expected_revision=expected_revision,
         ),
     )
     autosave_ms = (time.perf_counter() - started) * 1000
     started = time.perf_counter()
     commit_tiptap_markdown_write(
-        root=tmp_path,
+        root=root,
         request=TiptapMarkdownWriteCommitRequest(
-            document_id=created.document_id,
+            document_id=document_id,
             markdown=markdown,
             writer_confirm_token=prepared.writer_confirm_token or "",
-            expected_revision=created.revision,
+            expected_revision=expected_revision,
         ),
     )
     commit_ms = (time.perf_counter() - started) * 1000
     started = time.perf_counter()
-    snapshot = get_workspace_document_snapshot(tmp_path, created.document_id)
+    snapshot = get_workspace_document_snapshot(root, document_id)
     load_ms = (time.perf_counter() - started) * 1000
+    return autosave_ms, commit_ms, load_ms, snapshot.markdown
+
+
+def test_plan_load_and_commit_latency(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    markdown = "# latency witness\n"
+    baseline = create_workspace_document(
+        tmp_path,
+        title="latency baseline",
+        campaign_id="longmont-c2",
+        kind="runbook",
+        target_relpath=(
+            "evals/c2_live_prep/mireward-prep/content/tiptap/as1-latency-baseline.md"
+        ),
+    )
+    head = create_workspace_document(
+        tmp_path, title="latency head", campaign_id="longmont-c2", kind="plan"
+    )
+    baseline_autosave_ms, baseline_commit_ms, baseline_load_ms, baseline_markdown = (
+        _measure_prepare_commit_load(
+            root=tmp_path,
+            document_id=baseline.document_id,
+            expected_revision=baseline.revision,
+            markdown=markdown,
+        )
+    )
+    head_autosave_ms, head_commit_ms, head_load_ms, head_markdown = (
+        _measure_prepare_commit_load(
+            root=tmp_path,
+            document_id=head.document_id,
+            expected_revision=head.revision,
+            markdown=markdown,
+        )
+    )
     print(
         "AS1 latency hypothesis capture "
-        f"autosave_ms={autosave_ms:.1f} commit_ms={commit_ms:.1f} load_ms={load_ms:.1f}"
+        "baseline_file_runbook "
+        f"autosave_ms={baseline_autosave_ms:.1f} "
+        f"commit_ms={baseline_commit_ms:.1f} "
+        f"load_ms={baseline_load_ms:.1f} "
+        "head_postgres_plan "
+        f"autosave_ms={head_autosave_ms:.1f} "
+        f"commit_ms={head_commit_ms:.1f} "
+        f"load_ms={head_load_ms:.1f}"
     )
-    assert snapshot.markdown == markdown
-    assert autosave_ms >= 0 and commit_ms >= 0 and load_ms >= 0
+    assert baseline_markdown == markdown
+    assert head_markdown == markdown
+    assert (
+        baseline_autosave_ms >= 0
+        and baseline_commit_ms >= 0
+        and baseline_load_ms >= 0
+        and head_autosave_ms >= 0
+        and head_commit_ms >= 0
+        and head_load_ms >= 0
+    )

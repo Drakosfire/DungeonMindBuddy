@@ -48,7 +48,7 @@ markers = [
     "integration: live OpenAI or external I/O; opt-in via env vars documented per test",
     "live_llm: live OpenAI classifier cohort; run with pytest -m live_llm (excluded from default addopts)",
 ]
-addopts = ["-m", "not live_llm"]
+addopts = ["-m", "not live_llm", "-p", "tests.application_state.isolate_dsn"]
 
 [tool.setuptools.package-dir]
 "" = "src"
