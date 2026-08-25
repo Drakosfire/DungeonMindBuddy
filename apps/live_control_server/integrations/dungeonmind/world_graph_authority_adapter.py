@@ -8,15 +8,19 @@ services must not import this module's PostgreSQL types.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from copy import copy as shallow_copy
 from typing import Any
 
 from graph_memory.world_graph_mutation_context import wire_kind
 
 from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
     WorldGraphWriteError,
+    _assert_publication_replay_identity,
     _direct_services,
+    _prove_existing_publication_matches_request,
     _require_database_url,
     publish_contribution_via_dungeonmind,
+    derive_threat_review_operation_id,
 )
 from apps.live_control_server.ports.world_graph_authority import (
     AuthorityObject,
@@ -38,6 +42,7 @@ _WRITE_TO_PORT = {
     "governed_write_inexpressible": "inexpressible",
     "governed_write_materialization_failed": "inexpressible",
     "governed_write_legacy_package": "inexpressible",
+    "governed_write_idempotency_conflict": "integrity_failure",
     "governed_write_failed": "publication_failed",
     "invalid_request": "inexpressible",
 }
@@ -178,10 +183,15 @@ def _world_graph_expressible(contribution: Any) -> Any:
         for item in list(getattr(contribution, "accepted_assertions", None) or [])
         if not _is_mechanics_assertion(item)
     ]
-    copy = getattr(contribution, "model_copy", None)
-    if callable(copy):
-        return copy(update={"accepted_assertions": accepted})
-    return contribution
+    model_copy = getattr(contribution, "model_copy", None)
+    if callable(model_copy):
+        return model_copy(update={"accepted_assertions": accepted})
+    try:
+        cloned = shallow_copy(contribution)
+        cloned.accepted_assertions = accepted
+        return cloned
+    except Exception:
+        return contribution
 
 
 class DungeonMindWorldGraphAuthorityAdapter:
@@ -247,11 +257,15 @@ class DungeonMindWorldGraphAuthorityAdapter:
                     "decision": request.decision,
                 },
             )
+        dm_operation_id = derive_threat_review_operation_id(
+            world_id=request.world_id,
+            authority_operation_id=request.authority_operation_id,
+        )
         try:
             payload = publish_contribution_via_dungeonmind(
                 world_id=request.world_id,
                 expected_parent_revision_id=request.expected_parent_revision_id,
-                operation_id=request.authority_operation_id,
+                operation_id=dm_operation_id,
                 actor=request.actor,
                 contribution=expressible,
                 database_url=self._database_url,
@@ -272,12 +286,22 @@ class DungeonMindWorldGraphAuthorityAdapter:
         )
 
     def recover(
-        self, world_id: str, authority_operation_id: str
+        self,
+        world_id: str,
+        authority_operation_id: str,
+        *,
+        expected_parent_revision_id: str | None = None,
+        contribution: Any | None = None,
+        actor: str | None = None,
     ) -> WorldGraphPublicationReceipt | None:
         services = self._services(world_id)
+        dm_operation_id = derive_threat_review_operation_id(
+            world_id=world_id,
+            authority_operation_id=authority_operation_id,
+        )
         try:
             existing = services.bundle.finalized_review_publications.get(
-                world_id, authority_operation_id
+                world_id, dm_operation_id
             )
         except Exception as exc:
             raise WorldGraphAuthorityError(
@@ -287,9 +311,32 @@ class DungeonMindWorldGraphAuthorityAdapter:
             ) from exc
         if existing is None:
             return None
+        if expected_parent_revision_id is not None and contribution is not None and actor:
+            try:
+                _prove_existing_publication_matches_request(
+                    bundle=services.bundle,
+                    existing=existing,
+                    world_id=world_id,
+                    expected_parent_revision_id=expected_parent_revision_id,
+                    operation_id=dm_operation_id,
+                    actor=actor,
+                    contribution=_world_graph_expressible(contribution),
+                )
+            except WorldGraphWriteError as exc:
+                _raise_port(exc)
+                raise
+        elif expected_parent_revision_id is not None:
+            try:
+                _assert_publication_replay_identity(
+                    existing=existing,
+                    expected_parent_revision_id=expected_parent_revision_id,
+                )
+            except WorldGraphWriteError as exc:
+                _raise_port(exc)
+                raise
         return WorldGraphPublicationReceipt(
             world_id=world_id,
-            authority_operation_id=str(existing.operation_id),
+            authority_operation_id=authority_operation_id,
             parent_revision_id=str(existing.expected_parent_revision_id),
             published_revision_id=str(existing.published_revision_id),
             reviewed_contribution_id=str(existing.reviewed_contribution_id),
@@ -317,10 +364,16 @@ class DungeonMindWorldGraphAuthorityAdapter:
         threat = child.objects.get(expected.threat_node_id)
         if threat is None:
             codes.append("missing_threat_object")
-        elif wire_kind(threat.kind).casefold() != "threat":
-            codes.append("threat_kind_mismatch")
-        # Resource/binding are Buddy mechanics facts, not DungeonMind World Graph
-        # material (R.3 field class D / v6 mechanics screen). Native verification
-        # therefore does not require them on the child payload.
+        elif expected.expected_object_kind:
+            actual_kind = wire_kind(threat.kind).casefold()
+            if actual_kind != expected.expected_object_kind.casefold():
+                codes.append("threat_kind_mismatch")
+        # Resource/binding are accepted-mechanics facts (R.3 field class D /
+        # DungeonMind v6 mechanics screen), not World Graph authored material.
+        # Native verification therefore proves the Threat object, not
+        # resource/binding payloads. File-mode still verifies those on the
+        # Buddy graph. Owning compatibility evidence is proposal construction
+        # from accepted-mechanics plus exact-parent preflight if those facts
+        # appear on a revision view.
         status = "failed" if codes else "passed"
         return WorldGraphVerificationResult(status=status, codes=tuple(codes))

@@ -117,12 +117,17 @@ def test_authority_port_publishes_d_a_to_d_b_with_retry_recover_and_stale_parent
     child = adapter.read_revision(WORLD_ID, d_b)
     assert child.parent_revision_id == d_a
     assert "node:d2a-threat-port" in child.objects
+    assert not any(
+        rel.predicate.rsplit(":", 1)[-1] == "uses_statblock"
+        for rel in child.relationships.values()
+    )
     verified = adapter.verify_child(
         receipt=receipt,
         expected=WorldGraphExpectedChildFacts(
             threat_node_id="node:d2a-threat-port",
             decision="create_new",
             accepted_assertion_ids=tuple(accepted_ids),
+            expected_object_kind=None,
         ),
     )
     assert verified.status == "passed"
@@ -132,10 +137,81 @@ def test_authority_port_publishes_d_a_to_d_b_with_retry_recover_and_stale_parent
     assert retry.outcome == "already_applied"
     assert adapter.current_head(WORLD_ID).revision_id == d_b
 
-    recovered = adapter.recover(WORLD_ID, operation_id)
+    recovered = adapter.recover(
+        WORLD_ID,
+        operation_id,
+        expected_parent_revision_id=d_a,
+        contribution=contribution,
+        actor="gm@confirm",
+    )
     assert recovered is not None
     assert recovered.published_revision_id == d_b
     assert recovered.parent_revision_id == d_a
+
+    changed_parent = WorldGraphPublishRequest(
+        world_id=WORLD_ID,
+        expected_parent_revision_id=d_b,
+        authority_operation_id=operation_id,
+        actor="gm@confirm",
+        contribution=contribution,
+        accepted_assertion_ids=tuple(accepted_ids),
+        decision="create_new",
+        threat_node_id="node:d2a-threat-port",
+    )
+    with pytest.raises(WorldGraphAuthorityError) as changed_parent_exc:
+        adapter.publish(changed_parent)
+    assert changed_parent_exc.value.code == "integrity_failure"
+    assert adapter.current_head(WORLD_ID).revision_id == d_b
+
+    package2, accepted_ids2 = _seal_tinker_package(
+        context,
+        write_world["tmp_path"],
+        preview_slug="d2a-threat-port-changed",
+        node_id="node:d2a-threat-port-changed",
+        label="D2A Threat Port Changed",
+    )
+    _verified2, contribution2 = resolve_merged_contribution_from_package(
+        review_package=package2,
+        confirming_principal="gm@confirm",
+        world_id_hint=WORLD_ID,
+        root=None,
+        mutation_context=context,
+        expected_parent_revision_id=d_a,
+        assertion_ids=None,
+        verify_source=False,
+    )
+    changed_contrib = WorldGraphPublishRequest(
+        world_id=WORLD_ID,
+        expected_parent_revision_id=d_a,
+        authority_operation_id=operation_id,
+        actor="gm@confirm",
+        contribution=contribution2,
+        accepted_assertion_ids=tuple(accepted_ids2),
+        decision="create_new",
+        threat_node_id="node:d2a-threat-port-changed",
+    )
+    with pytest.raises(WorldGraphAuthorityError) as changed_contrib_exc:
+        adapter.publish(changed_contrib)
+    assert changed_contrib_exc.value.code == "integrity_failure"
+    assert adapter.current_head(WORLD_ID).revision_id == d_b
+    with pytest.raises(WorldGraphAuthorityError) as recover_parent_exc:
+        adapter.recover(
+            WORLD_ID,
+            operation_id,
+            expected_parent_revision_id=d_b,
+            contribution=contribution,
+            actor="gm@confirm",
+        )
+    assert recover_parent_exc.value.code == "integrity_failure"
+    with pytest.raises(WorldGraphAuthorityError) as recover_contrib_exc:
+        adapter.recover(
+            WORLD_ID,
+            operation_id,
+            expected_parent_revision_id=d_a,
+            contribution=contribution2,
+            actor="gm@confirm",
+        )
+    assert recover_contrib_exc.value.code == "integrity_failure"
 
     stale = WorldGraphPublishRequest(
         world_id=WORLD_ID,

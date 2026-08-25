@@ -200,7 +200,13 @@ class BuddyFilesWorldGraphAuthorityAdapter:
         )
 
     def recover(
-        self, world_id: str, authority_operation_id: str
+        self,
+        world_id: str,
+        authority_operation_id: str,
+        *,
+        expected_parent_revision_id: str | None = None,
+        contribution: Any | None = None,
+        actor: str | None = None,
     ) -> WorldGraphPublicationReceipt | None:
         try:
             matches = self._lookup_fn(
@@ -222,11 +228,39 @@ class BuddyFilesWorldGraphAuthorityAdapter:
                     "match_count": len(matches),
                 },
             )
+        del actor
         manifest = matches[0]
+        parent_id = str(getattr(manifest, "parent_revision_id", "") or "")
+        if (
+            expected_parent_revision_id is not None
+            and parent_id != expected_parent_revision_id
+        ):
+            raise WorldGraphAuthorityError(
+                "recovered publication parent does not match the durable request",
+                code="integrity_failure",
+                details={
+                    "world_id": world_id,
+                    "authority_operation_id": authority_operation_id,
+                    "stored_parent_revision_id": parent_id,
+                    "requested_parent_revision_id": expected_parent_revision_id,
+                },
+            )
+        if contribution is not None:
+            contrib_id = str(getattr(contribution, "contribution_id", "") or "")
+            if contrib_id and contrib_id != authority_operation_id:
+                raise WorldGraphAuthorityError(
+                    "recovered publication contribution does not match the durable request",
+                    code="integrity_failure",
+                    details={
+                        "world_id": world_id,
+                        "authority_operation_id": authority_operation_id,
+                        "requested_contribution_id": contrib_id,
+                    },
+                )
         return WorldGraphPublicationReceipt(
             world_id=world_id,
             authority_operation_id=authority_operation_id,
-            parent_revision_id=str(getattr(manifest, "parent_revision_id", "") or ""),
+            parent_revision_id=parent_id,
             published_revision_id=str(getattr(manifest, "revision_id", "") or ""),
             reviewed_contribution_id=authority_operation_id,
             accepted_assertion_ids=(),

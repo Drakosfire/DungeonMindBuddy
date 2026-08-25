@@ -356,9 +356,18 @@ relationships by relationship id
 Do not return DungeonMind ORM/repository records or a raw PostgreSQL row map.
 Do not recreate a `UnionSupergraphStore` under a new name.
 
-If a field required by the current Threat preflight cannot be represented by
-DungeonMind's supported contract, stop and identify the semantic gap. Do not
-hydrate Buddy state to fill it.
+**Mechanics vs World Graph facts (re-brief, Cycle 1):** DungeonMind v6
+rejects `external_resource` nodes and `uses_statblock` / statblock-binding
+payloads at materialization (R.3 field class D). The DungeonMind revision
+view therefore does **not** carry resource/binding as World Graph authored
+facts. File-mode (`buddy_files`) still projects those payloads for existing
+Buddy-graph tests. If a leftover resource/binding object *does* appear on a
+revision view, exact-parent preflight still fail-closed on incompatibility.
+Do not hydrate Buddy state to reconstruct mechanics as World Graph facts.
+
+If a *World Graph* field required by create-new/connect-existing Threat
+object safety cannot be represented by DungeonMind's supported contract, stop
+and identify the semantic gap.
 
 ### 5.3 `publish`
 
@@ -502,7 +511,9 @@ Threat services continue to own:
 - commit claim and retry presentation;
 - user-facing result labels;
 - committed / committed-unverified / verified product state;
-- product-specific verification of the expected Threat/resource/binding effect.
+- product-specific verification of the expected Threat object on the World
+  Graph child;
+- accepted-mechanics / statblock resource/binding compatibility (see §9.1).
 
 The adapter owns durable graph authority mechanics, not Threat UX/business
 workflow.
@@ -524,7 +535,7 @@ Prove:
   semantically compatible;
 - any pre-existing deterministic binding relationship is compatible;
 - no conflicting `uses_statblock` relationship occupies the same semantic
-  binding surface.
+  binding surface **when that relationship exists as a World Graph fact**.
 
 ### connect-existing
 
@@ -534,11 +545,38 @@ Prove:
 - it is a Threat under supported DungeonMind/Buddy wire semantics;
 - its identity fields still match the snapshotted candidate to the extent those
   fields are part of the supported authority contract;
-- external resource and binding compatibility checks above still hold.
+- external resource and binding compatibility checks above still hold **when
+  those facts are present on the exact-parent revision view**.
 
 The preflight must use the exact public parent, not current head after the fact.
 The actual publish still performs expected-parent enforcement; preflight is not
 a substitute for CAS.
+
+### 9.1 Where resource/binding compatibility is authoritatively proven
+
+DungeonMind v6 cannot materialize statblock resource/binding as World Graph
+authored facts (R.3 field class D). That is the semantic gap §18.1 named.
+This slice does **not** hydrate Buddy to fill it. The owning authorities are:
+
+```text
+Accepted-mechanics + proposal construction (Buddy product state)
+  → required AcceptedMechanicsRef
+  → deterministic external-resource node id + uses_statblock binding id
+  → sealed Threat contribution still *contains* those assertions
+  → effect_summary records resource/binding identities for the commit ledger
+
+World Graph authority (DungeonMind)
+  → filters mechanics assertions before governed publication
+  → exact-parent occupancy/identity of the Threat object
+  → native child proof of the Threat object
+  → fail-closed if leftover resource/binding facts on a revision view conflict
+
+File-mode buddy_files adapter (D.3 deletion owner)
+  → still verifies resource/binding on the Buddy graph child
+```
+
+Exact retry/recovery identity is World Graph review-intent + expected parent,
+not the filtered mechanics payload.
 
 ---
 
@@ -600,12 +638,15 @@ For a DungeonMind child, verification should compose native durable proofs:
 2. the reviewed contribution/effect corresponds to the sealed Threat proposal
    and exact accepted assertion identities;
 3. an exact read of the published child shows the expected materialized
-   Threat/resource/binding facts;
+   Threat object; resource/binding are not World Graph child facts after
+   DungeonMind v6 (see §9.1);
 4. child parent identity equals the sealed expected parent;
-5. mechanics payload remains outside World Graph authored facts except for the
-   existing external-resource/binding contract;
+5. mechanics payload remains outside World Graph authored facts (R.3 field
+   class D). Compatibility is proven at accepted-mechanics / proposal
+   construction, with exact-parent preflight fail-closed only if leftover
+   resource/binding facts appear on the revision view;
 6. create-new or connect-existing product constraints hold on the resulting
-   child.
+   child Threat object.
 
 Do not require Buddy replay-manifest equivalence or construct a Buddy graph only
 for verification.
@@ -759,13 +800,15 @@ Adversarial witness:
 
 Cover both create-new and connect-existing:
 
-- compatible resource/binding reuse;
-- conflicting resource;
-- conflicting binding;
+- compatible resource/binding reuse **when those facts appear on the revision view**;
+- conflicting resource on the revision view;
+- conflicting binding on the revision view;
 - missing connect-existing target;
 - wrong target kind;
 - changed snapshotted target identity;
-- exact expected-parent semantics.
+- exact expected-parent semantics;
+- accepted-mechanics / proposal construction still records resource/binding ids
+  even when DungeonMind does not materialize them.
 
 ### 16.5 Native parent → child publication
 
@@ -779,8 +822,10 @@ D_B = published DungeonMind child
 D_B.parent == D_A
 ```
 
-Assert the expected Threat/resource/binding effect and durable publication
-receipt.
+Assert the expected Threat object and durable publication receipt. Native
+child verification does not require resource/binding on the DungeonMind
+payload. Owning mechanics evidence is accepted-mechanics / proposal
+construction plus exact-parent preflight against leftover view facts.
 
 ### 16.6 Exact retry
 
@@ -791,6 +836,12 @@ Repeat the identical confirm after the first successful publication:
 - same durable authority operation identity;
 - zero second publication/finalization;
 - product receipt facts remain exact.
+
+Adversarial witnesses, same operation id:
+
+- changed expected parent must not return the prior child as `already_applied`;
+- changed contribution/digest must not return the prior child as `already_applied`;
+- both fail closed as integrity / contradictory authority state.
 
 ### 16.7 Lost receipt / uncertain outcome
 
@@ -813,8 +864,8 @@ Advance DungeonMind head after prepare but before first publication:
 
 ### 16.9 Native verification
 
-Prove verification succeeds from DungeonMind publication + exact child facts
-with all of the following exploded if called:
+Prove verification succeeds from DungeonMind publication + exact child Threat
+object facts with all of the following exploded if called:
 
 - `open_world_graph_head`;
 - `load_world_graph_revision_with_integrity`;
@@ -890,11 +941,19 @@ Stop rather than guessing if any of these occur.
 ### 18.1 DungeonMind cannot express a required Threat fact
 
 If exact DungeonMind revision/publication contracts cannot represent a fact
-needed for create-new/connect-existing safety or materialization verification,
-identify the exact semantic gap. Do not reconstruct Buddy state as a
-compatibility answer.
+needed for create-new/connect-existing **Threat object** safety or
+materialization verification, identify the exact semantic gap. Do not
+reconstruct Buddy state as a compatibility answer.
 
-The correct successor may be a bounded DungeonMind contract PR.
+**Recorded re-brief (D.2A Cycle 1):** DungeonMind v6 cannot materialize
+statblock `external_resource` / `uses_statblock` bindings. Those are R.3
+field class D mechanics, not World Graph authored facts. The implementation
+filters them at native publication and proves the Threat object on the child.
+Resource/binding compatibility is owned by accepted-mechanics + proposal
+construction (§9.1), with exact-parent preflight still fail-closed if leftover
+view facts conflict. File-mode continues to verify the old Buddy graph
+resource/binding effect. This is an authorized design amendment, not a silent
+weakening.
 
 ### 18.2 Port starts becoming a generic database abstraction
 

@@ -40,6 +40,7 @@ _WRITE_STATUS_CODES = {
     "governed_write_materialization_failed": 409,
     "governed_write_stale_parent": 409,
     "governed_write_legacy_package": 409,
+    "governed_write_idempotency_conflict": 409,
     "governed_write_failed": 502,
     "invalid_request": 422,
 }
@@ -576,6 +577,37 @@ def _derive_confirm_operation_id(
         }
     )
     return f"reviewop:{digest[:32]}"
+
+
+def derive_threat_review_operation_id(*, world_id: str, authority_operation_id: str) -> str:
+    """Map a Buddy authority operation id onto DungeonMind's reviewop contract.
+
+    Threat product identity stays the sealed contribution/operation id. DungeonMind
+    requires ``reviewop:<32 lowercase hex>``. The mapping is deterministic so
+    publish, exact retry, and recover share one durable DungeonMind operation id.
+    """
+    from dungeonmind.domain.canonical import canonical_sha256
+
+    prefix = "reviewop:"
+    suffix = (
+        authority_operation_id[len(prefix) :]
+        if authority_operation_id.startswith(prefix)
+        else ""
+    )
+    if (
+        len(suffix) == 32
+        and suffix == suffix.lower()
+        and all(char in "0123456789abcdef" for char in suffix)
+    ):
+        return authority_operation_id
+    digest = canonical_sha256(
+        {
+            "schema": "dmb_threat_authority_operation_v1",
+            "world_id": world_id,
+            "authority_operation_id": authority_operation_id,
+        }
+    )
+    return f"{prefix}{digest[:32]}"
 
 
 def _reverse_revision_id(dm_revision_id: str, artifact_id: str | None) -> str:
@@ -1632,6 +1664,195 @@ def confirm_extract_promote_via_dungeonmind(
     )
 
 
+def _assert_publication_replay_identity(
+    *,
+    existing: Any,
+    expected_parent_revision_id: str,
+    expected_review_intent_sha256: str | None = None,
+    expected_reviewed_contribution_sha256: str | None = None,
+) -> None:
+    """Fail closed when a reused operation id is bound to different input."""
+    stored_parent = str(getattr(existing, "expected_parent_revision_id", "") or "")
+    mismatches: list[str] = []
+    if stored_parent != expected_parent_revision_id:
+        mismatches.append("expected_parent_revision_id")
+    stored_intent = str(getattr(existing, "review_intent_sha256", "") or "")
+    if expected_review_intent_sha256 is not None and (
+        not stored_intent or stored_intent != expected_review_intent_sha256
+    ):
+        mismatches.append("review_intent_sha256")
+    stored_reviewed = str(getattr(existing, "reviewed_contribution_sha256", "") or "")
+    if expected_reviewed_contribution_sha256 is not None and (
+        not stored_reviewed or stored_reviewed != expected_reviewed_contribution_sha256
+    ):
+        mismatches.append("reviewed_contribution_sha256")
+    if not mismatches:
+        return
+    raise WorldGraphWriteError(
+        "existing publication for this operation id does not match the current request",
+        code="governed_write_idempotency_conflict",
+        details={
+            "world_id": getattr(existing, "world_id", None),
+            "operation_id": getattr(existing, "operation_id", None),
+            "mismatches": mismatches,
+            "stored_parent_revision_id": stored_parent,
+            "requested_parent_revision_id": expected_parent_revision_id,
+        },
+    )
+
+
+def _review_intent_sha256_for_threat_request(
+    *,
+    bundle: Any,
+    world_id: str,
+    expected_parent_revision_id: str,
+    operation_id: str,
+    actor: str,
+    contribution: Any,
+) -> str:
+    """Rebuild the DungeonMind v2 review-intent digest for one Threat request.
+
+    Uses the sealed parent, not the live head, so exact retry after publication
+    still hashes the original contribution identity.
+    """
+    from dungeonmind.contracts.contribution_review import (
+        ContributionAssertionVerdict,
+        ContributionPlanRef,
+    )
+    from dungeonmind.contracts.contribution_review_v2 import (
+        contribution_v2_payload_sha256,
+        derive_review_intent_sha256_v2,
+    )
+    from dungeonmind.contracts.semantic_profile import SemanticProfileRef
+    from dungeonmind.domain.canonical import canonical_sha256
+
+    try:
+        parent_stored = bundle.world_graph.get_revision(
+            world_id, expected_parent_revision_id
+        )
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind authority read failed while proving replay identity",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+    if parent_stored is None:
+        raise WorldGraphWriteError(
+            "DungeonMind parent revision is unreadable",
+            code="authority_head_missing",
+            details={
+                "world_id": world_id,
+                "revision_id": expected_parent_revision_id,
+            },
+        )
+    mutation_context = mutation_context_from_revision_payload(
+        parent_stored,
+        world_id=world_id,
+        head_revision_id=expected_parent_revision_id,
+    )
+    parent_envelope = parent_stored.revision
+    pair_to_dm = _build_pair_to_dm(bundle, world_id, contribution)
+    reviewed_at = parent_envelope.created_at
+    candidate, verdict_states = _build_v2_candidate(
+        contribution,
+        context=mutation_context,
+        pair_to_dm=pair_to_dm,
+        produced_at=reviewed_at,
+    )
+    proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
+    assertion_verdicts = [
+        ContributionAssertionVerdict(
+            assertion_id=assertion.assertion_id,
+            acceptance_state=verdict_states[assertion.assertion_id],
+        )
+        for assertion in sorted(
+            candidate.assertions, key=lambda item: item.assertion_id
+        )
+    ]
+    campaign_id = contribution.campaign_scope or None
+    raw_profile = parent_stored.graph_payload.get("semantic_profile")
+    if raw_profile is None:
+        raise WorldGraphWriteError(
+            "DungeonMind parent revision payload declares no semantic profile",
+            code="governed_write_inexpressible",
+            details={"world_id": world_id, "revision_id": expected_parent_revision_id},
+        )
+    plan_ref = ContributionPlanRef(
+        source_plan_schema="dmb_threat_publication_contribution_v1",
+        source_plan_id=operation_id,
+        source_plan_sha256=canonical_sha256(
+            {
+                "operation_id": operation_id,
+                "contribution_id": contribution.contribution_id,
+            }
+        ),
+        source_input_sha256=canonical_sha256(
+            {"contribution_id": contribution.contribution_id}
+        ),
+        preview_content_sha256=canonical_sha256({}),
+        candidate_contribution_sha256=contribution_v2_payload_sha256(candidate),
+        expected_parent_revision_id=expected_parent_revision_id,
+        base_graph_schema=parent_envelope.graph_schema,
+        base_graph_payload_sha256=parent_envelope.graph_payload_sha256,
+        semantic_profile=SemanticProfileRef.model_validate(raw_profile),
+    )
+    return derive_review_intent_sha256_v2(
+        operation_id=operation_id,
+        world_id=world_id,
+        campaign_id=campaign_id,
+        plan_ref=plan_ref,
+        candidate_contribution=candidate,
+        identity_proposals=proposals,
+        identity_verdicts=verdicts,
+        assertion_verdicts=assertion_verdicts,
+        reviewer_id=actor,
+        reviewed_at=reviewed_at,
+    )
+
+
+def _prove_existing_publication_matches_request(
+    *,
+    bundle: Any,
+    existing: Any,
+    world_id: str,
+    expected_parent_revision_id: str,
+    operation_id: str,
+    actor: str,
+    contribution: Any,
+) -> None:
+    """Require exact parent + review-intent identity before already_applied/recover."""
+    _assert_publication_replay_identity(
+        existing=existing,
+        expected_parent_revision_id=expected_parent_revision_id,
+    )
+    try:
+        intent_sha256 = _review_intent_sha256_for_threat_request(
+            bundle=bundle,
+            world_id=world_id,
+            expected_parent_revision_id=expected_parent_revision_id,
+            operation_id=operation_id,
+            actor=actor,
+            contribution=contribution,
+        )
+    except WorldGraphWriteError as exc:
+        if exc.code == "governed_write_idempotency_conflict":
+            raise
+        raise WorldGraphWriteError(
+            "existing publication for this operation id does not match the current request",
+            code="governed_write_idempotency_conflict",
+            details={
+                "world_id": world_id,
+                "operation_id": operation_id,
+                "reason": exc.code,
+            },
+        ) from exc
+    _assert_publication_replay_identity(
+        existing=existing,
+        expected_parent_revision_id=expected_parent_revision_id,
+        expected_review_intent_sha256=intent_sha256,
+    )
+
+
 def publish_contribution_via_dungeonmind(
     *,
     world_id: str,
@@ -1680,6 +1901,15 @@ def publish_contribution_via_dungeonmind(
             details={"world_id": world_id, "reason": type(exc).__name__},
         ) from exc
     if existing is not None:
+        _prove_existing_publication_matches_request(
+            bundle=bundle,
+            existing=existing,
+            world_id=world_id,
+            expected_parent_revision_id=expected_parent_revision_id,
+            operation_id=operation_id,
+            actor=actor,
+            contribution=contribution,
+        )
         accepted_assertion_ids, _affected = _receipt_ids_from_reviewed_contribution(
             bundle=bundle,
             world_id=world_id,
@@ -1952,5 +2182,6 @@ __all__ = [
     "mutation_context_from_native_projection",
     "mutation_context_from_revision_payload",
     "publish_contribution_via_dungeonmind",
+    "derive_threat_review_operation_id",
     "write_error_status_code",
 ]

@@ -2064,7 +2064,13 @@ def _reconcile_via_authority(
     str | None,
 ]:
     try:
-        recovered = authority.recover(record.world_id, record.expected_contribution_id)
+        recovered = authority.recover(
+            record.world_id,
+            record.expected_contribution_id,
+            expected_parent_revision_id=record.expected_parent_revision_id,
+            contribution=contribution,
+            actor=record.created_by,
+        )
     except WorldGraphAuthorityError as exc:
         if exc.code == "integrity_failure":
             return record, merge_calls, "publication_commit_integrity_failure", False, None
@@ -2073,6 +2079,18 @@ def _reconcile_via_authority(
         return record, merge_calls, "publication_commit_integrity_failure", False, None
 
     if recovered is not None:
+        if recovered.parent_revision_id != record.expected_parent_revision_id:
+            return record, merge_calls, "publication_commit_integrity_failure", False, None
+        if contribution is not None:
+            digest = compute_contribution_source_payload_sha256(contribution)
+            if digest != record.expected_contribution_source_payload_sha256:
+                return (
+                    record,
+                    merge_calls,
+                    "publication_commit_integrity_failure",
+                    False,
+                    None,
+                )
         updated = _with_updated(
             record,
             state="committed_unverified",

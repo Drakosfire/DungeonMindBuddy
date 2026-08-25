@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -36,11 +38,37 @@ FORBIDDEN_IMPORT_PREFIXES = (
 )
 
 
+def _contribution_fingerprint(contribution: object) -> str:
+    if contribution is None:
+        return ""
+    if isinstance(contribution, dict):
+        return repr(sorted(contribution.items()))
+    parts = [str(getattr(contribution, "contribution_id", "") or "")]
+    for item in list(getattr(contribution, "accepted_assertions", None) or []):
+        if isinstance(item, dict):
+            parts.append(repr(sorted(item.items())))
+            continue
+        parts.append(
+            "|".join(
+                str(getattr(item, key, "") or "")
+                for key in (
+                    "assertion_id",
+                    "predicate",
+                    "label",
+                    "subject_object_id",
+                    "target_object_id",
+                )
+            )
+        )
+    return "\n".join(parts)
+
+
 class FakeWorldGraphAuthority:
     def __init__(self) -> None:
         self.heads: dict[str, str] = {}
         self.revisions: dict[tuple[str, str], WorldGraphRevisionView] = {}
         self.publications: dict[tuple[str, str], WorldGraphPublicationReceipt] = {}
+        self._bindings: dict[tuple[str, str], tuple[str, str]] = {}
         self.publish_calls = 0
         self.unavailable = False
 
@@ -65,7 +93,20 @@ class FakeWorldGraphAuthority:
         key = (request.world_id, request.authority_operation_id)
         existing = self.publications.get(key)
         if existing is not None:
-            return existing
+            stored_parent, stored_fp = self._bindings.get(key, (existing.parent_revision_id, ""))
+            request_fp = _contribution_fingerprint(request.contribution)
+            if stored_parent != request.expected_parent_revision_id or (
+                stored_fp and stored_fp != request_fp
+            ):
+                raise WorldGraphAuthorityError(
+                    "existing publication does not match the current request",
+                    code="integrity_failure",
+                    details={
+                        "stored_parent_revision_id": stored_parent,
+                        "requested_parent_revision_id": request.expected_parent_revision_id,
+                    },
+                )
+            return replace(existing, outcome="already_applied")
         head = self.current_head(request.world_id)
         if head.revision_id != request.expected_parent_revision_id:
             raise WorldGraphAuthorityError("stale parent", code="stale_parent")
@@ -81,6 +122,10 @@ class FakeWorldGraphAuthority:
             outcome="published",
         )
         self.publications[key] = receipt
+        self._bindings[key] = (
+            request.expected_parent_revision_id,
+            _contribution_fingerprint(request.contribution),
+        )
         self.heads[request.world_id] = child
         parent_view = self.revisions.get(
             (request.world_id, request.expected_parent_revision_id)
@@ -103,9 +148,37 @@ class FakeWorldGraphAuthority:
         return receipt
 
     def recover(
-        self, world_id: str, authority_operation_id: str
+        self,
+        world_id: str,
+        authority_operation_id: str,
+        *,
+        expected_parent_revision_id: str | None = None,
+        contribution: object | None = None,
+        actor: str | None = None,
     ) -> WorldGraphPublicationReceipt | None:
-        return self.publications.get((world_id, authority_operation_id))
+        del actor
+        existing = self.publications.get((world_id, authority_operation_id))
+        if existing is None:
+            return None
+        stored_parent, stored_fp = self._bindings.get(
+            (world_id, authority_operation_id),
+            (existing.parent_revision_id, ""),
+        )
+        if (
+            expected_parent_revision_id is not None
+            and stored_parent != expected_parent_revision_id
+        ):
+            raise WorldGraphAuthorityError(
+                "recovered publication parent does not match the durable request",
+                code="integrity_failure",
+            )
+        if contribution is not None and stored_fp:
+            if stored_fp != _contribution_fingerprint(contribution):
+                raise WorldGraphAuthorityError(
+                    "recovered publication contribution does not match the durable request",
+                    code="integrity_failure",
+                )
+        return existing
 
     def verify_child(
         self,
@@ -432,3 +505,283 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     assert retry.response.commit.committed_revision_id == child
     assert fake.publish_calls == 1
     assert not absent.exists()
+
+
+def _publish_request(
+    *,
+    operation_id: str,
+    parent: str,
+    contribution: object,
+    threat_node_id: str = "node:t1",
+) -> WorldGraphPublishRequest:
+    return WorldGraphPublishRequest(
+        world_id="world_1",
+        expected_parent_revision_id=parent,
+        authority_operation_id=operation_id,
+        actor="gm@test",
+        contribution=contribution,
+        threat_node_id=threat_node_id,
+    )
+
+
+def test_fake_publish_rejects_same_operation_id_with_changed_parent():
+    fake = FakeWorldGraphAuthority()
+    fake.heads["world_1"] = "rev:d-a"
+    contrib = SimpleNamespace(contribution_id="op:1", accepted_assertions=[])
+    first = fake.publish(_publish_request(operation_id="op:1", parent="rev:d-a", contribution=contrib))
+    with pytest.raises(WorldGraphAuthorityError) as excinfo:
+        fake.publish(
+            _publish_request(
+                operation_id="op:1",
+                parent=first.published_revision_id,
+                contribution=contrib,
+            )
+        )
+    assert excinfo.value.code == "integrity_failure"
+    assert fake.heads["world_1"] == first.published_revision_id
+
+
+def test_fake_publish_rejects_same_operation_id_with_changed_contribution():
+    fake = FakeWorldGraphAuthority()
+    fake.heads["world_1"] = "rev:d-a"
+    first_contrib = SimpleNamespace(
+        contribution_id="op:1",
+        accepted_assertions=[SimpleNamespace(assertion_id="a1", predicate="exists")],
+    )
+    first = fake.publish(
+        _publish_request(operation_id="op:1", parent="rev:d-a", contribution=first_contrib)
+    )
+    changed = SimpleNamespace(
+        contribution_id="op:1",
+        accepted_assertions=[SimpleNamespace(assertion_id="a2", predicate="exists")],
+    )
+    with pytest.raises(WorldGraphAuthorityError) as excinfo:
+        fake.publish(_publish_request(operation_id="op:1", parent="rev:d-a", contribution=changed))
+    assert excinfo.value.code == "integrity_failure"
+    retry = fake.publish(
+        _publish_request(operation_id="op:1", parent="rev:d-a", contribution=first_contrib)
+    )
+    assert retry.outcome == "already_applied"
+    assert retry.published_revision_id == first.published_revision_id
+
+
+def test_fake_recover_rejects_changed_parent_and_contribution_bindings():
+    fake = FakeWorldGraphAuthority()
+    fake.heads["world_1"] = "rev:d-a"
+    contrib = SimpleNamespace(
+        contribution_id="op:1",
+        accepted_assertions=[SimpleNamespace(assertion_id="a1", predicate="exists")],
+    )
+    first = fake.publish(_publish_request(operation_id="op:1", parent="rev:d-a", contribution=contrib))
+    recovered = fake.recover(
+        "world_1",
+        "op:1",
+        expected_parent_revision_id="rev:d-a",
+        contribution=contrib,
+        actor="gm@test",
+    )
+    assert recovered is not None
+    assert recovered.published_revision_id == first.published_revision_id
+    with pytest.raises(WorldGraphAuthorityError) as excinfo:
+        fake.recover(
+            "world_1",
+            "op:1",
+            expected_parent_revision_id=first.published_revision_id,
+            contribution=contrib,
+        )
+    assert excinfo.value.code == "integrity_failure"
+    changed = SimpleNamespace(
+        contribution_id="op:1",
+        accepted_assertions=[SimpleNamespace(assertion_id="a9", predicate="exists")],
+    )
+    with pytest.raises(WorldGraphAuthorityError) as excinfo:
+        fake.recover(
+            "world_1",
+            "op:1",
+            expected_parent_revision_id="rev:d-a",
+            contribution=changed,
+        )
+    assert excinfo.value.code == "integrity_failure"
+
+
+def test_derive_threat_review_operation_id_is_deterministic_reviewop():
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        derive_threat_review_operation_id,
+    )
+
+    first = derive_threat_review_operation_id(
+        world_id="eldyrwild", authority_operation_id="contrib:abc"
+    )
+    again = derive_threat_review_operation_id(
+        world_id="eldyrwild", authority_operation_id="contrib:abc"
+    )
+    assert first == again
+    assert first.startswith("reviewop:")
+    assert len(first) == len("reviewop:") + 32
+    assert derive_threat_review_operation_id(
+        world_id="eldyrwild", authority_operation_id=first
+    ) == first
+    assert derive_threat_review_operation_id(
+        world_id="eldyrwild", authority_operation_id="contrib:other"
+    ) != first
+
+
+def test_replay_identity_helper_fails_closed_on_parent_or_digest_mismatch():
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        WorldGraphWriteError,
+        _assert_publication_replay_identity,
+    )
+
+    existing = SimpleNamespace(
+        expected_parent_revision_id="rev:a",
+        review_intent_sha256="intent-a",
+        reviewed_contribution_sha256="hash-a",
+        world_id="world_1",
+        operation_id="op:1",
+    )
+    _assert_publication_replay_identity(
+        existing=existing, expected_parent_revision_id="rev:a"
+    )
+    with pytest.raises(WorldGraphWriteError) as parent_exc:
+        _assert_publication_replay_identity(
+            existing=existing, expected_parent_revision_id="rev:other"
+        )
+    assert parent_exc.value.code == "governed_write_idempotency_conflict"
+    with pytest.raises(WorldGraphWriteError) as digest_exc:
+        _assert_publication_replay_identity(
+            existing=existing,
+            expected_parent_revision_id="rev:a",
+            expected_review_intent_sha256="intent-other",
+        )
+    assert "review_intent_sha256" in digest_exc.value.details["mismatches"]
+
+
+def test_world_graph_expressible_strips_resource_and_binding_assertions():
+    from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
+        _world_graph_expressible,
+    )
+
+    class _Contribution:
+        def __init__(self, assertions):
+            self.accepted_assertions = assertions
+
+        def model_copy(self, update):
+            return _Contribution(update["accepted_assertions"])
+
+    threat = SimpleNamespace(predicate="exists", value={"kind": "threat"})
+    resource = SimpleNamespace(
+        predicate="external_resource", value={"kind": "external_resource"}
+    )
+    binding = SimpleNamespace(
+        predicate="uses_statblock", value={"threat_statblock_binding": {"id": "b1"}}
+    )
+    out = _world_graph_expressible(_Contribution([threat, resource, binding]))
+    assert out.accepted_assertions == [threat]
+
+
+def test_native_verify_child_proves_threat_object_not_resource_binding(monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
+        DungeonMindWorldGraphAuthorityAdapter,
+    )
+
+    adapter = DungeonMindWorldGraphAuthorityAdapter(database_url="postgresql://unused")
+    view = WorldGraphRevisionView(
+        world_id="world_1",
+        revision_id="rev:child",
+        parent_revision_id="rev:parent",
+        objects={
+            "node:threat": AuthorityObject(
+                object_id="node:threat",
+                label="Threat",
+                kind="threat",
+                role="threat",
+            )
+        },
+        relationships={},
+    )
+    monkeypatch.setattr(adapter, "read_revision", lambda *_args, **_kwargs: view)
+    result = adapter.verify_child(
+        receipt=WorldGraphPublicationReceipt(
+            world_id="world_1",
+            authority_operation_id="op:1",
+            parent_revision_id="rev:parent",
+            published_revision_id="rev:child",
+            reviewed_contribution_id="op:1",
+            accepted_assertion_ids=(),
+            published=True,
+            outcome="already_applied",
+        ),
+        expected=WorldGraphExpectedChildFacts(
+            threat_node_id="node:threat",
+            decision="create_new",
+            external_resource_node_id="node:resource",
+            binding_edge_id="edge:binding",
+        ),
+    )
+    assert result.status == "passed"
+    assert result.codes == ()
+
+
+def test_exact_parent_preflight_still_rejects_incompatible_resource_on_revision_view():
+    from graph_memory.union_supergraph.statblock_binding import external_statblock_node_id
+
+    from apps.live_control_server.services.threat_publication_proposals import (
+        _run_exact_parent_preflight,
+    )
+
+    resource_id = external_statblock_node_id("sb_abc")
+    view = WorldGraphRevisionView(
+        world_id="world_1",
+        revision_id="rev:parent",
+        parent_revision_id=None,
+        objects={
+            resource_id: AuthorityObject(
+                object_id=resource_id,
+                label="Wrong resource",
+                kind="external_resource",
+                role="statblock",
+                external_resource={"provider": "other"},
+            )
+        },
+        relationships={},
+    )
+    operation = SimpleNamespace(
+        source_snapshot=SimpleNamespace(
+            accepted_mechanics_ref=SimpleNamespace(statblock_id="sb_abc")
+        )
+    )
+    resolution = SimpleNamespace(created_node_id="node:new-threat", selected_target=None)
+    reason = _run_exact_parent_preflight(
+        view,
+        operation=operation,
+        resolution=resolution,
+        decision="create_new",
+    )
+    assert reason == "incompatible external resource already present"
+
+
+def test_effect_summary_records_resource_binding_ids_from_accepted_mechanics():
+    from apps.live_control_server.models.statblock_mechanics_acceptance import (
+        AcceptedMechanicsRefV1,
+    )
+    from apps.live_control_server.services.threat_publication_proposals import (
+        _effect_summary,
+    )
+    from tests.test_threat_publication_proposals import _locator
+
+    ref = AcceptedMechanicsRefV1.from_locator(
+        _locator(),
+        accepted_from_draft_version=1,
+        accepted_at="2020-01-01T00:00:00Z",
+    )
+    summary = _effect_summary(
+        decision="create_new",
+        threat_node_id="node:threat",
+        accepted_ref=ref,
+        assertions=[],
+    )
+    assert summary.threat_node_id == "node:threat"
+    assert summary.external_resource_node_id
+    assert summary.binding_edge_id
+    assert summary.external_resource_node_id != summary.binding_edge_id
+

@@ -126,6 +126,7 @@ class WorldGraphExpectedChildFacts:
     expected_contribution_source_payload_sha256: str | None = None
     campaign_id: str | None = None
     contribution: Any = None
+    expected_object_kind: str | None = "threat"
 
 
 @dataclass(frozen=True)
@@ -148,12 +149,20 @@ class WorldGraphAuthority(Protocol):
         """Publish one exact governed contribution against one expected public parent."""
 
     def recover(
-        self, world_id: str, authority_operation_id: str
+        self,
+        world_id: str,
+        authority_operation_id: str,
+        *,
+        expected_parent_revision_id: str | None = None,
+        contribution: Any | None = None,
+        actor: str | None = None,
     ) -> WorldGraphPublicationReceipt | None:
         """Recover one terminal publication by durable authority operation id.
 
         None means no terminal publication is proven. Contradictory authority
         state must raise ``WorldGraphAuthorityError(code="integrity_failure")``.
+        When expected parent and/or contribution are supplied, the recovered
+        publication must match those bindings or fail closed as integrity.
         """
 
     def verify_child(
