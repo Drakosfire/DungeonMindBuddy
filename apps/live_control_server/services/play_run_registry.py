@@ -19,11 +19,10 @@ from pydantic import (
 
 from apps.live_control_server.services.registry_file_lock import (
     registry_mutation_lock,
-    workspace_document_mutation_lock,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
-    get_workspace_document_snapshot_unlocked,
+    get_committed_playable_revision,
 )
 from src.live_play.live_store import load_json, write_json
 
@@ -481,64 +480,57 @@ def create_or_replay_play_run(
             )
 
         try:
-            with workspace_document_mutation_lock(root, canonical_artifact_id):
-                snapshot = get_workspace_document_snapshot_unlocked(
-                    root,
-                    canonical_artifact_id,
+            committed = get_committed_playable_revision(
+                canonical_artifact_id,
+                kind=None,
+            )
+            if committed.kind != "runbook":
+                raise PlayRunRegistryError(
+                    "playable_artifact_id must identify a runbook workspace document",
+                    status_code=422,
+                )
+            if committed.status != "active":
+                raise PlayRunRegistryError(
+                    "runbook workspace document is discarded",
+                    status_code=409,
+                )
+            if committed.has_divergent_working_copy:
+                raise PlayRunRegistryError(
+                    "runbook workspace document is not committed",
+                    status_code=409,
+                )
+            if committed.revision_n != expected_revision:
+                raise PlayRunRegistryError(
+                    "playable revision mismatch: "
+                    f"expected {expected_revision}, current {committed.revision_n}",
+                    status_code=409,
+                )
+            if committed.content_sha256 != expected_sha:
+                raise PlayRunRegistryError(
+                    "playable content SHA mismatch",
+                    status_code=409,
                 )
 
-                if snapshot.record.kind != "runbook":
-                    raise PlayRunRegistryError(
-                        "playable_artifact_id must identify a runbook workspace document",
-                        status_code=422,
-                    )
-                if snapshot.record.status != "active":
-                    raise PlayRunRegistryError(
-                        "runbook workspace document is discarded",
-                        status_code=409,
-                    )
-                if snapshot.record.content_status != "committed":
-                    raise PlayRunRegistryError(
-                        "runbook workspace document is not committed",
-                        status_code=409,
-                    )
-                if not snapshot.file_exists:
-                    raise PlayRunRegistryError(
-                        "committed runbook workspace target file is missing",
-                        status_code=409,
-                    )
-                if snapshot.loaded_revision != expected_revision:
-                    raise PlayRunRegistryError(
-                        "playable revision mismatch: "
-                        f"expected {expected_revision}, current {snapshot.loaded_revision}",
-                        status_code=409,
-                    )
-                if snapshot.content_sha256 != expected_sha:
-                    raise PlayRunRegistryError(
-                        "playable content SHA mismatch",
-                        status_code=409,
-                    )
-
-                now = _utc_now_iso()
-                record = PlayRunRecord(
-                    run_id=canonical_run_id,
-                    campaign_id=snapshot.record.campaign_id,
-                    playable_artifact_id=canonical_artifact_id,
-                    playable_revision=snapshot.loaded_revision,
-                    playable_content_sha256=snapshot.content_sha256,
-                    created_at=now,
-                    updated_at=now,
-                    progress=empty_play_run_progress(),
-                )
-                path.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    write_json(path, record.model_dump(mode="json"))
-                except (OSError, TypeError, ValueError) as exc:
-                    raise PlayRunRegistryError(
-                        f"failed to persist Play Run: {exc}",
-                        status_code=500,
-                    ) from exc
-                return record
+            now = _utc_now_iso()
+            record = PlayRunRecord(
+                run_id=canonical_run_id,
+                campaign_id=committed.campaign_id,
+                playable_artifact_id=canonical_artifact_id,
+                playable_revision=committed.revision_n,
+                playable_content_sha256=committed.content_sha256,
+                created_at=now,
+                updated_at=now,
+                progress=empty_play_run_progress(),
+            )
+            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                write_json(path, record.model_dump(mode="json"))
+            except (OSError, TypeError, ValueError) as exc:
+                raise PlayRunRegistryError(
+                    f"failed to persist Play Run: {exc}",
+                    status_code=500,
+                ) from exc
+            return record
         except WorkspaceDocumentRegistryError as exc:
             raise PlayRunRegistryError(
                 str(exc),

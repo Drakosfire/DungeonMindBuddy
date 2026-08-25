@@ -19,11 +19,10 @@ from apps.live_control_server.services.play_run_registry import (
 )
 from apps.live_control_server.services.registry_file_lock import (
     registry_mutation_lock,
-    workspace_document_mutation_lock,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
-    get_workspace_document_snapshot_unlocked,
+    get_committed_playable_revision,
 )
 from src.live_play.live_store import load_json, write_json
 
@@ -855,44 +854,31 @@ def get_play_run_reference_manifest(root: Path, run_id: str) -> AnyPlayRunRefere
 
 
 def _admit_snapshot(record: PlayRunRecord, root: Path) -> str:
-    snapshot = get_workspace_document_snapshot_unlocked(root, record.playable_artifact_id)
-    if snapshot.record.document_id != record.playable_artifact_id:
-        raise PlayRunReferenceManifestError(
-            "workspace document id does not match the Run binding",
-            status_code=409,
+    del root
+    try:
+        committed = get_committed_playable_revision(
+            record.playable_artifact_id,
+            revision_n=record.playable_revision,
+            expected_sha256=record.playable_content_sha256,
         )
-    if snapshot.record.kind != "runbook":
+    except WorkspaceDocumentRegistryError as exc:
+        raise PlayRunReferenceManifestError(str(exc), status_code=exc.status_code) from exc
+    if committed.kind != "runbook":
         raise PlayRunReferenceManifestError(
             "playable_artifact_id must identify a runbook workspace document",
             status_code=422,
         )
-    if snapshot.record.status != "active":
+    if committed.document_id != record.playable_artifact_id:
+        raise PlayRunReferenceManifestError(
+            "workspace document id does not match the Run binding",
+            status_code=409,
+        )
+    if committed.status != "active":
         raise PlayRunReferenceManifestError(
             "runbook workspace document is discarded",
             status_code=409,
         )
-    if snapshot.record.content_status != "committed":
-        raise PlayRunReferenceManifestError(
-            "runbook workspace document is not committed",
-            status_code=409,
-        )
-    if not snapshot.file_exists:
-        raise PlayRunReferenceManifestError(
-            "committed runbook workspace target file is missing",
-            status_code=409,
-        )
-    if snapshot.loaded_revision != record.playable_revision:
-        raise PlayRunReferenceManifestError(
-            "playable revision mismatch: "
-            f"expected {record.playable_revision}, current {snapshot.loaded_revision}",
-            status_code=409,
-        )
-    if snapshot.content_sha256 != record.playable_content_sha256:
-        raise PlayRunReferenceManifestError(
-            "playable content SHA mismatch",
-            status_code=409,
-        )
-    return snapshot.markdown
+    return committed.markdown
 
 
 def seal_or_replay_play_run_reference_manifest(
@@ -917,50 +903,44 @@ def seal_or_replay_play_run_reference_manifest(
                 return manifest
 
             try:
-                with workspace_document_mutation_lock(root, record.playable_artifact_id):
-                    if path.is_file():
-                        manifest = _load_manifest(path)
-                        _require_binding_match(manifest, record)
-                        return manifest
-
-                    markdown = _admit_snapshot(record, root)
-                    manifest: AnyPlayRunReferenceManifest
-                    if detect_playable_grammar_version(markdown) == 2:
-                        membership = derive_play_run_reference_elements_v2(markdown)
-                        manifest = PlayRunReferenceManifestV2(
-                            run_id=record.run_id,
-                            playable_artifact_id=record.playable_artifact_id,
-                            playable_revision=record.playable_revision,
-                            playable_content_sha256=record.playable_content_sha256,
-                            sealed_at=_utc_now_iso(),
-                            beats=membership.beats,
-                            scenes=membership.scenes,
-                            choices=membership.choices,
-                            options=membership.options,
-                            edges=membership.edges,
-                        )
-                    else:
-                        elements = sorted(
-                            derive_play_run_reference_elements(markdown),
-                            key=lambda element: element.element_id,
-                        )
-                        manifest = PlayRunReferenceManifest(
-                            run_id=record.run_id,
-                            playable_artifact_id=record.playable_artifact_id,
-                            playable_revision=record.playable_revision,
-                            playable_content_sha256=record.playable_content_sha256,
-                            elements=elements,
-                            sealed_at=_utc_now_iso(),
-                        )
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    try:
-                        write_json(path, _dump_manifest(manifest))
-                    except (OSError, TypeError, ValueError) as exc:
-                        raise PlayRunReferenceManifestError(
-                            f"failed to persist Play Run reference manifest: {exc}",
-                            status_code=500,
-                        ) from exc
-                    return manifest
+                markdown = _admit_snapshot(record, root)
+                manifest: AnyPlayRunReferenceManifest
+                if detect_playable_grammar_version(markdown) == 2:
+                    membership = derive_play_run_reference_elements_v2(markdown)
+                    manifest = PlayRunReferenceManifestV2(
+                        run_id=record.run_id,
+                        playable_artifact_id=record.playable_artifact_id,
+                        playable_revision=record.playable_revision,
+                        playable_content_sha256=record.playable_content_sha256,
+                        sealed_at=_utc_now_iso(),
+                        beats=membership.beats,
+                        scenes=membership.scenes,
+                        choices=membership.choices,
+                        options=membership.options,
+                        edges=membership.edges,
+                    )
+                else:
+                    elements = sorted(
+                        derive_play_run_reference_elements(markdown),
+                        key=lambda element: element.element_id,
+                    )
+                    manifest = PlayRunReferenceManifest(
+                        run_id=record.run_id,
+                        playable_artifact_id=record.playable_artifact_id,
+                        playable_revision=record.playable_revision,
+                        playable_content_sha256=record.playable_content_sha256,
+                        elements=elements,
+                        sealed_at=_utc_now_iso(),
+                    )
+                path.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    write_json(path, _dump_manifest(manifest))
+                except (OSError, TypeError, ValueError) as exc:
+                    raise PlayRunReferenceManifestError(
+                        f"failed to persist Play Run reference manifest: {exc}",
+                        status_code=500,
+                    ) from exc
+                return manifest
             except WorkspaceDocumentRegistryError as exc:
                 raise PlayRunReferenceManifestError(
                     str(exc),

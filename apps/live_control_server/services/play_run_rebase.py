@@ -33,11 +33,10 @@ from apps.live_control_server.services.play_run_registry import (
 from apps.live_control_server.services.registry_file_lock import (
     registry_mutation_lock,
     registry_token,
-    workspace_document_mutation_lock,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
-    get_workspace_document_snapshot_unlocked,
+    get_committed_playable_revision,
 )
 from src.live_play.live_store import load_json, write_json
 
@@ -325,49 +324,32 @@ def _admit_target_snapshot(
     target_revision: int,
     target_sha: str,
 ) -> str:
-    snapshot = get_workspace_document_snapshot_unlocked(root, record.playable_artifact_id)
-    if snapshot.record.document_id != record.playable_artifact_id:
+    del root
+    try:
+        committed = get_committed_playable_revision(
+            record.playable_artifact_id,
+            revision_n=target_revision,
+            expected_sha256=target_sha,
+            kind="runbook",
+        )
+    except WorkspaceDocumentRegistryError as exc:
+        raise PlayRunRebaseError(str(exc), status_code=exc.status_code) from exc
+    if committed.document_id != record.playable_artifact_id:
         raise PlayRunRebaseError(
             "workspace document id does not match the Run binding",
             status_code=409,
         )
-    if snapshot.record.campaign_id != record.campaign_id:
+    if committed.campaign_id != record.campaign_id:
         raise PlayRunRebaseError(
             "workspace campaign_id does not match the Run campaign",
             status_code=409,
         )
-    if snapshot.record.kind != "runbook":
-        raise PlayRunRebaseError(
-            "playable_artifact_id must identify a runbook workspace document",
-            status_code=422,
-        )
-    if snapshot.record.status != "active":
+    if committed.status != "active":
         raise PlayRunRebaseError(
             "runbook workspace document is discarded",
             status_code=409,
         )
-    if snapshot.record.content_status != "committed":
-        raise PlayRunRebaseError(
-            "runbook workspace document is not committed",
-            status_code=409,
-        )
-    if not snapshot.file_exists:
-        raise PlayRunRebaseError(
-            "committed runbook workspace target file is missing",
-            status_code=409,
-        )
-    if snapshot.loaded_revision != target_revision:
-        raise PlayRunRebaseError(
-            "playable revision mismatch: "
-            f"expected {target_revision}, current {snapshot.loaded_revision}",
-            status_code=409,
-        )
-    if snapshot.content_sha256 != target_sha:
-        raise PlayRunRebaseError(
-            "playable content SHA mismatch",
-            status_code=409,
-        )
-    return snapshot.markdown
+    return committed.markdown
 
 
 def _request_matches_intent(request: RebasePlayRunRequest, intent: PlayRunRebaseIntent) -> bool:
@@ -593,60 +575,59 @@ def rebase_or_replay_play_run(
                 )
 
             try:
-                with workspace_document_mutation_lock(root, record.playable_artifact_id):
-                    markdown = _admit_target_snapshot(
-                        record,
-                        root=root,
-                        target_revision=request.target_playable_revision,
-                        target_sha=request.target_playable_content_sha256,
+                markdown = _admit_target_snapshot(
+                    record,
+                    root=root,
+                    target_revision=request.target_playable_revision,
+                    target_sha=request.target_playable_content_sha256,
+                )
+                try:
+                    elements = sorted(
+                        derive_play_run_reference_elements(markdown),
+                        key=lambda element: element.element_id,
                     )
-                    try:
-                        elements = sorted(
-                            derive_play_run_reference_elements(markdown),
-                            key=lambda element: element.element_id,
-                        )
-                    except PlayRunReferenceManifestError as exc:
-                        _raise_manifest(exc)
-                    sealed_at = _utc_now_iso()
-                    updated_at = sealed_at
-                    target_manifest = PlayRunReferenceManifest(
-                        run_id=record.run_id,
-                        playable_artifact_id=record.playable_artifact_id,
-                        playable_revision=request.target_playable_revision,
-                        playable_content_sha256=request.target_playable_content_sha256,
-                        elements=elements,
-                        sealed_at=sealed_at,
-                    )
-                    _admit_progress_for_rebase(record.progress, manifest=target_manifest)
-                    target_run = record.model_copy(
-                        update={
-                            "playable_revision": request.target_playable_revision,
-                            "playable_content_sha256": request.target_playable_content_sha256,
-                            "run_revision": record.run_revision + 1,
-                            "updated_at": updated_at,
-                            "progress": record.progress,
-                            "rebased_from_run_revision": record.run_revision,
-                        }
-                    )
-                    intent = PlayRunRebaseIntent(
-                        run_id=record.run_id,
-                        expected_source_run_revision=record.run_revision,
-                        source_playable_artifact_id=record.playable_artifact_id,
-                        source_playable_revision=record.playable_revision,
-                        source_playable_content_sha256=record.playable_content_sha256,
-                        source_run_token=registry_token(run_path),
-                        source_manifest_token=source_manifest_token,
-                        target_run=target_run,
-                        target_manifest=target_manifest,
-                        prepared_at=sealed_at,
-                    )
-                    _write_intent(intent_path, intent)
-                    return _complete_from_stage(
-                        run_path=run_path,
-                        manifest_path=manifest_path,
-                        intent_path=intent_path,
-                        intent=intent,
-                        stage="prepared",
-                    )
+                except PlayRunReferenceManifestError as exc:
+                    _raise_manifest(exc)
+                sealed_at = _utc_now_iso()
+                updated_at = sealed_at
+                target_manifest = PlayRunReferenceManifest(
+                    run_id=record.run_id,
+                    playable_artifact_id=record.playable_artifact_id,
+                    playable_revision=request.target_playable_revision,
+                    playable_content_sha256=request.target_playable_content_sha256,
+                    elements=elements,
+                    sealed_at=sealed_at,
+                )
+                _admit_progress_for_rebase(record.progress, manifest=target_manifest)
+                target_run = record.model_copy(
+                    update={
+                        "playable_revision": request.target_playable_revision,
+                        "playable_content_sha256": request.target_playable_content_sha256,
+                        "run_revision": record.run_revision + 1,
+                        "updated_at": updated_at,
+                        "progress": record.progress,
+                        "rebased_from_run_revision": record.run_revision,
+                    }
+                )
+                intent = PlayRunRebaseIntent(
+                    run_id=record.run_id,
+                    expected_source_run_revision=record.run_revision,
+                    source_playable_artifact_id=record.playable_artifact_id,
+                    source_playable_revision=record.playable_revision,
+                    source_playable_content_sha256=record.playable_content_sha256,
+                    source_run_token=registry_token(run_path),
+                    source_manifest_token=source_manifest_token,
+                    target_run=target_run,
+                    target_manifest=target_manifest,
+                    prepared_at=sealed_at,
+                )
+                _write_intent(intent_path, intent)
+                return _complete_from_stage(
+                    run_path=run_path,
+                    manifest_path=manifest_path,
+                    intent_path=intent_path,
+                    intent=intent,
+                    stage="prepared",
+                )
             except WorkspaceDocumentRegistryError as exc:
                 raise PlayRunRebaseError(str(exc), status_code=exc.status_code) from exc
