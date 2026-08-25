@@ -162,7 +162,8 @@ schema names to create early:
 
 | Family | Independently useful outcome when selected | Notes |
 |---|---|---|
-| Ingest / SourceArtifact / processing-review | Ingest run and source identity survive without path-as-id; accepted World proposals still publish through DungeonMind | First-class APP-STATE consumer; current recap ingest is topology-heavy |
+| Ingest processing-review | IngestRun and processing/review survive without path-as-id; accepted World-bearing proposals still publish through DungeonMind | First-class APP-STATE consumer; current recap ingest is topology-heavy |
+| SourceArtifact identity | Source owns artifact identity, provenance, and asset reference without path-as-id | Distinct from IngestRun; large bytes stay behind Asset |
 | Generated artifact lifecycles | Statblock, location, NPC, shop, encounter, and card **drafts/projects** have stable ids through review/use | Domain-owned schemas; not WorkObject unless document-like |
 | Asset metadata + DungeonMindServer bytes | Consumers store `asset_id`; CDN URL is delivery, not identity | No byte columns in PostgreSQL for large binaries |
 | Combat | Combat survives worktree/session_dir locality | Combat-owned schema; Play stores only a reference |

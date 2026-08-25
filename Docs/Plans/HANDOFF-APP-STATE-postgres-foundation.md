@@ -76,7 +76,8 @@ The shared substrate (config, migrations, UoW, CAS, isolation) serves later doma
 services. WorkObject / WorkRevision / WorkingCopy is a **Content-domain** primitive for
 document-like authored material — not a generic `application_object (id, type, jsonb)`
 container. If AS1 seems to need Ingest, Asset, generated-artifact, Combat, or Play Run
-tables, stop — the slice is over-generalized.
+tables, stop — the slice is over-generalized. Source owns SourceArtifact identity;
+Ingest owns IngestRun and processing/review. Neither schema is AS1.
 
 ---
 

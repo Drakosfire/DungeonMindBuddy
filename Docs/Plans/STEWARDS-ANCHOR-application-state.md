@@ -253,8 +253,9 @@ Do not treat path-keyed ingest staging, location corpus paths, CDN URLs, or
 
 ### 2.10 Four state classes and classification
 
-Buddy durable application objects (Plan, Runbook, Run, IngestRun, generated
-drafts, card projects, …) → PostgreSQL with domain-owned schemas.
+Buddy durable application objects (Plan, Runbook, Run, SourceArtifact,
+IngestRun, generated drafts, card projects, …) → PostgreSQL with domain-owned
+schemas.
 
 Large/binary assets → PostgreSQL metadata + digest + relationships; bytes through
 Asset service to DungeonMindServer storage/CDN.
@@ -270,8 +271,9 @@ object? large binary? regenerable? domain lifecycle?).
 
 WorkObject / WorkRevision / WorkingCopy remain **Content-domain** primitives for
 document-like authored material — not a universal `application_object (id, type,
-jsonb)` for every domain. Ingest is a first-class **future** consumer with its
-own `ingest.*` schema when earned.
+jsonb)` for every domain. Source owns SourceArtifact identity; Ingest is a
+first-class **future** consumer with its own `ingest.*` schema (IngestRun /
+processing-review) when earned.
 
 ---
 
@@ -738,11 +740,17 @@ substrate while retaining Combat-owned state.
 Do not put HP/initiative/conditions into Play Runtime merely to reuse the first migrated
 schema. Play may link to a Combat runtime ID; Combat owns the combat aggregate.
 
-### 8.5 Ingest and generated artifacts
+### 8.5 Ingest, Source, and generated artifacts
 
-Ingest (SourceArtifact / IngestRun / processing-review state) and generated game
-artifacts (statblock, location, NPC, shop, encounter, card drafts) are first-class
-future consumers of the shared substrate — not afterthoughts to Plan/Play.
+Source and Ingest are distinct first-class future consumers of the shared
+substrate — not afterthoughts to Plan/Play:
+
+- **Source** owns `SourceArtifact` identity, provenance, and asset reference.
+- **Ingest** owns `IngestRun` identity and the processing/review lifecycle,
+  including reviewed outputs and World-bearing proposals.
+
+Generated game artifacts (statblock, location, NPC, shop, encounter, card drafts)
+are also first-class future consumers of the shared substrate.
 
 Current repository evidence is path-keyed (`recap_ingest.py`,
 `location_corpus_index.py`) or uses durable `artifact_id`
@@ -752,7 +760,7 @@ without pre-creating `ingest.*`, `assets.*`, or `statblock.*` tables.
 Publication boundary remains:
 
 ```text
-Buddy SourceArtifact / IngestRun / reviewed proposal
+Buddy SourceArtifact (Source) + IngestRun / reviewed proposal (Ingest)
   → governed publication contract
   → DungeonMind World Graph
 ```

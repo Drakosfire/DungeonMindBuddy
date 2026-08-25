@@ -62,7 +62,7 @@ source_artifact_id = <stable id>
 ```text
 (A) Buddy durable application objects
     Plan / Runbook / Play Run / Combat Runtime
-    SourceArtifact / IngestRun / reviewed processing state
+    SourceArtifact (Source-owned) / IngestRun (Ingest-owned) / reviewed processing state
     generated Statblock / Location / NPC / Shop / Encounter drafts
     CardProject / agent proposals / other user-relied-on product objects
         → durable domain identity + lifecycle + relationships
@@ -110,8 +110,8 @@ For a candidate state/object, ask in order:
 | Runbook | Buddy durable Content/Playable object |
 | Play Run | Buddy durable Play Runtime |
 | Combat encounter state | Buddy durable Combat Runtime |
-| raw uploaded/recorded session audio | SourceArtifact metadata + Asset bytes |
-| transcript text | Buddy durable source/processed artifact |
+| raw uploaded/recorded session audio | SourceArtifact metadata (Source) + Asset bytes |
+| transcript text | Buddy durable Source/processed artifact; Ingest may attach review outputs |
 | IngestRun status/review/provenance | Buddy durable Ingest state |
 | accepted World object/fact | DungeonMind World truth |
 | generated statblock draft | Buddy durable generated artifact / domain state |
@@ -164,7 +164,7 @@ redesigned by this document.
                       │
                       ▼
               domain services
-         (Content, Play, Combat, Ingest, Asset, …)
+         (Content, Play, Combat, Source, Ingest, Asset, …)
                       │
                       ▼
         Buddy Application State Layer
@@ -205,10 +205,10 @@ Asset service (domain) → DungeonMindServer storage/CDN (large bytes; no SQL FK
 | Content | Plan/Runbook WorkObjects, committed revisions, working copies | World assertions, Combat HP, Play progress, Ingest runs, asset bytes |
 | Play | Run aggregate, sealed manifest, active-Run pointer, Runtime CAS | Playable bytes, Combat encounter state, World truth |
 | Combat | current encounter, save slots, combatant HP/init/conditions | Play progress, Playable revisions, World nodes |
-| Ingest | SourceArtifact / IngestRun identity, processing/review state | World truth, Play progress, generic document WorkObjects |
+| Ingest | IngestRun identity, processing/review outputs and lifecycle | SourceArtifact identity, World truth, Play progress, generic document WorkObjects |
 | Asset | asset identity, digest, locator metadata, delivery resolution | Domain lifecycle invariants, World truth, PostgreSQL byte pages |
 | World | DungeonMind graph identity and governed mutation | Buddy documents, Runs, Combat boards, Ingest staging |
-| Source | source artifact identity, bytes or blob metadata, provenance | Playable interpretation, Runtime selections |
+| Source | SourceArtifact identity, provenance, and asset reference | IngestRun lifecycle, Playable interpretation, Runtime selections, World truth, large bytes |
 | Mechanics | immutable statblock/revision identity in its owning service | Combat runtime HP, Play notes |
 
 A shared database does not collapse these domains.
@@ -245,10 +245,11 @@ one-table-per-row.
 | Browser workspace drafts | Content UI | `localStorage` keyed by document id (`useWorkspaceDocumentAuthoring.ts`) | Plan/Build editor recovery | browser semantics | No | After a kind switches, **server WorkingCopy is authority**. localStorage may cache, never be the only recoverable draft. |
 | Hermes / Plan thread UI | Agent interaction | localStorage thread index/active thread | Plan agent bar | browser | No | Not product-correctness durability. Defer. Do not migrate in AS1–AS5. |
 | Build last-campaign convenience | Build UI | localStorage | Build entry | browser | No | Remains client convenience. |
-| Recap / Ingest run lifecycle | Ingest / Source | path-keyed staged raw, normalized recap, frontmatter seed, candidate graph, preview manifests (`recap_ingest.py`, pipeline helpers) | Ingest UI, graph preview, publication proposals | path + digest coordination | Run/artifact identity tied to corpus paths today | future `ingest.*` domain identity; paths become locators, not terminal IDs |
+| Recap / Ingest run lifecycle | Ingest | path-keyed staged raw, normalized recap, frontmatter seed, candidate graph, preview manifests (`recap_ingest.py`, pipeline helpers) | Ingest UI, graph preview, publication proposals | path + digest coordination | Run identity tied to corpus paths today | future `ingest.*` IngestRun identity; paths become locators, not terminal IDs |
+| Source artifact identity | Source | path-keyed corpus trees, `_dungeonbuddy/sources/`, eval fixtures, ingest staging paths used as IDs | ingest, Hermes, worldbuilding | path + digest | Artifact identity tied to paths today | future Source-owned SourceArtifact identity; Asset reference for large bytes; paths become locators |
 | Location corpus index | Build / Content | path-keyed location dossier index (`location_corpus_index.py`) | Build location authoring, corpus navigation | filesystem scan + path display | No durable draft identity separate from corpus path | future Buddy durable location-draft identity; index may remain derived |
 | Generated statblock draft | Mechanics / Build | durable `artifact_id` lifecycle per `DESIGN-statblock-lifecycle-agentic-workbench.md` | statblock workbench, combat activation | review/lifecycle state | Review/provenance history where implemented | future `statblock.*` or domain schema when consumer earns it; not WorkObject |
-| Source / artifact bytes | Source | corpus trees, `_dungeonbuddy/sources/`, eval fixtures | ingest, Hermes, worldbuilding | path + digest | Source-owned immutability where already true | PostgreSQL owns **identity/metadata/digest/references**. Large bytes stay external/blob or corpus via Asset boundary. |
+| Source / artifact bytes | Asset, referenced by SourceArtifact | corpus trees, `_dungeonbuddy/sources/`, eval fixtures | ingest, Hermes, worldbuilding | path + digest | Bytes currently path-located | Asset identity/metadata in PostgreSQL; large bytes via DungeonMindServer storage/CDN. SourceArtifact holds the asset reference, not the bytes. |
 | World Graph | DungeonMind | DungeonMind PostgreSQL via `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL` | production reads after #633/#634; governed writes | DungeonMind transactions | DungeonMind mutation history | **Out of Buddy application state.** No Buddy World tables. No SQL FK. |
 
 `src/live_play/live_store.py` is a JSON file helper, not a Combat domain store.
@@ -412,7 +413,8 @@ card projects, or asset metadata.
 Future domain schemas (created only when earned):
 
 ```text
-ingest.*     SourceArtifact / IngestRun / processing-review state
+ingest.*     IngestRun / processing-review outputs and lifecycle
+             (SourceArtifact is Source-owned; do not put that identity in ingest.*)
 assets.*     asset identity/metadata
 statblock.*  generated-artifact lifecycle when a consumer proves it
 combat.*     Combat runtime when migrated
@@ -435,7 +437,8 @@ combat.*     Combat runtime when migrated
 | Combat encounter / save | Combat-owned live mechanics state | `combat.*` later |
 | World node / assertion | DungeonMind | DungeonMind DB |
 | Source PDF/image bytes | large immutable blob | Asset service + metadata row; bytes in DungeonMindServer storage/CDN |
-| IngestRun / SourceArtifact | domain lifecycle, not document revisions | future `ingest.*` |
+| IngestRun | domain lifecycle, not document revisions | future `ingest.*` |
+| SourceArtifact | identity/provenance/asset reference, not document revisions | future Source-owned schema; not `ingest.*` |
 | Generated statblock / location / NPC / shop draft | domain lifecycle + review state | future domain schema; not WorkObject |
 | Card project / rendered PNG | project state + asset link | future domain + `assets.*` |
 | Hermes chat threads | UI session, not Buddy durable product state yet | remains client until a later justified slice |
@@ -939,7 +942,7 @@ admitted kind as that kind switches.
 | Purging old WorkRevisions | Retention is keep-all until a real need |
 | Event/outbox for DungeonMind-spanning sagas | No current Buddy-only workflow needs it |
 | Docker-compose service addition | Only if the existing local server cannot `CREATE DATABASE`; default is no compose change |
-| Ingest schema (`ingest.*`) | First-class future consumer; path-keyed ingest today |
+| Ingest schema (`ingest.*`) | First-class future consumer for IngestRun/processing-review; path-keyed ingest today. SourceArtifact identity is Source-owned. |
 | Asset service + CDN integration API | Named boundary only; no production API in AS1 |
 | Generated-artifact schemas (`statblock.*`, location/NPC/shop drafts) | Earned when a real consumer slice lands |
 | Card project / render lifecycle | Future domain slice |
