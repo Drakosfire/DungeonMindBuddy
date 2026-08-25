@@ -188,13 +188,63 @@ def next_revision_n(conn: psycopg.Connection, work_object_id: UUID) -> int:
     return int(row[0]) if row is not None else 1
 
 
-def upsert_working_copy(conn: psycopg.Connection, copy: WorkingCopy) -> WorkingCopy:
+_WORKING_COPY_COLUMNS = """
+    work_object_id, markdown, content_sha256, base_revision_id,
+    working_copy_revision, updated_at
+"""
+
+
+def insert_working_copy(conn: psycopg.Connection, copy: WorkingCopy) -> WorkingCopy:
     conn.execute(
-        """
-        INSERT INTO content.working_copy (
-            work_object_id, markdown, content_sha256, base_revision_id,
-            working_copy_revision, updated_at
+        f"""
+        INSERT INTO content.working_copy ({_WORKING_COPY_COLUMNS})
+        VALUES (
+            %(work_object_id)s, %(markdown)s, %(content_sha256)s, %(base_revision_id)s,
+            %(working_copy_revision)s, %(updated_at)s
         )
+        """,
+        copy.model_dump(),
+    )
+    loaded = get_working_copy(conn, copy.work_object_id)
+    if loaded is None:
+        raise ApplicationStateIntegrityError("working_copy insert did not persist")
+    return loaded
+
+
+def update_working_copy(
+    conn: psycopg.Connection,
+    copy: WorkingCopy,
+    *,
+    expected_working_copy_revision: int,
+) -> WorkingCopy | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE content.working_copy
+            SET
+                markdown = %(markdown)s,
+                content_sha256 = %(content_sha256)s,
+                base_revision_id = %(base_revision_id)s,
+                working_copy_revision = %(working_copy_revision)s,
+                updated_at = %(updated_at)s
+            WHERE work_object_id = %(work_object_id)s
+              AND working_copy_revision = %(expected_working_copy_revision)s
+            RETURNING {_WORKING_COPY_COLUMNS}
+            """,
+            {
+                **copy.model_dump(),
+                "expected_working_copy_revision": expected_working_copy_revision,
+            },
+        )
+        row = cur.fetchone()
+    return None if row is None else WorkingCopy.model_validate(row)
+
+
+def replace_working_copy(conn: psycopg.Connection, copy: WorkingCopy) -> WorkingCopy:
+    """Commit-owned WorkingCopy replace. Callers must already hold object CAS."""
+    conn.execute(
+        f"""
+        INSERT INTO content.working_copy ({_WORKING_COPY_COLUMNS})
         VALUES (
             %(work_object_id)s, %(markdown)s, %(content_sha256)s, %(base_revision_id)s,
             %(working_copy_revision)s, %(updated_at)s
@@ -210,8 +260,13 @@ def upsert_working_copy(conn: psycopg.Connection, copy: WorkingCopy) -> WorkingC
     )
     loaded = get_working_copy(conn, copy.work_object_id)
     if loaded is None:
-        raise ApplicationStateIntegrityError("working_copy upsert did not persist")
+        raise ApplicationStateIntegrityError("working_copy replace did not persist")
     return loaded
+
+
+def upsert_working_copy(conn: psycopg.Connection, copy: WorkingCopy) -> WorkingCopy:
+    """Import/bootstrap helper. Prefer insert/update/replace at the service boundary."""
+    return replace_working_copy(conn, copy)
 
 
 def get_working_copy(conn: psycopg.Connection, work_object_id: UUID) -> WorkingCopy | None:

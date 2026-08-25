@@ -41,8 +41,16 @@ def _map_application_state_error(exc: Exception) -> WorkspaceDocumentRegistryErr
     return WorkspaceDocumentRegistryError(str(exc), status_code=status)
 
 
-def _record_from_work_object(obj: object) -> WorkspaceDocumentRecord:
+def _record_from_work_object(
+    obj: object,
+    *,
+    from_working_copy: bool = False,
+) -> WorkspaceDocumentRecord:
     current_revision_id = getattr(obj, "current_revision_id", None)
+    if from_working_copy or current_revision_id is None:
+        content_status: Literal["draft", "committed"] = "draft"
+    else:
+        content_status = "committed"
     return WorkspaceDocumentRecord(
         document_id=str(obj.work_object_id),
         title=obj.title,
@@ -52,17 +60,25 @@ def _record_from_work_object(obj: object) -> WorkspaceDocumentRecord:
         kind="plan",
         target_relpath=obj.target_relpath,
         status=obj.status,
-        content_status="committed" if current_revision_id is not None else "draft",
+        content_status=content_status,
         revision=int(obj.object_revision),
         created_at=_iso_timestamp(obj.created_at),
         updated_at=_iso_timestamp(obj.updated_at),
     )
 
 
-def _plan_kind_uses_postgres() -> bool:
-    from application_state.config import plan_kind_uses_postgres
+def unswitched_workspace_record(
+    root: Path, document_id: str
+) -> WorkspaceDocumentRecord | None:
+    """Return a file-backed runbook/worldbuilding record without touching PostgreSQL.
 
-    return plan_kind_uses_postgres()
+    Leftover ``kind=plan`` file rows are not authority after the AS1 switch.
+    """
+    document, _token = _load_unlocked(root)
+    record = _find_record(document, document_id)
+    if record is None or record.kind == "plan":
+        return None
+    return record
 
 
 class WorkspaceDocumentRegistryError(ValueError):
@@ -271,20 +287,28 @@ def list_workspace_documents(
     kind: Literal["plan", "runbook", "worldbuilding_source"] | None = None,
     status: Literal["active", "discarded"] | None = "active",
 ) -> list[WorkspaceDocumentRecord]:
-    records = list(_load_registry_document(root).records)
-    if _plan_kind_uses_postgres():
+    records = [
+        r for r in _load_registry_document(root).records if r.kind != "plan"
+    ]
+    if kind in (None, "plan"):
         from application_state.content.service import list_plans
-        from application_state.errors import ApplicationStateError
+        from application_state.errors import (
+            ApplicationStateError,
+            ApplicationStateMigrationError,
+            ApplicationStateUnavailableError,
+        )
 
-        records = [r for r in records if r.kind != "plan"]
-        if kind in (None, "plan"):
-            try:
-                plans = [
-                    _record_from_work_object(obj)
-                    for obj in list_plans(campaign_id=campaign_id, status=status)
-                ]
-            except ApplicationStateError as exc:
+        try:
+            plans = [
+                _record_from_work_object(obj)
+                for obj in list_plans(campaign_id=campaign_id, status=status)
+            ]
+        except (ApplicationStateUnavailableError, ApplicationStateMigrationError) as exc:
+            if kind == "plan":
                 raise _map_application_state_error(exc) from exc
+        except ApplicationStateError as exc:
+            raise _map_application_state_error(exc) from exc
+        else:
             records.extend(plans)
     if status is not None:
         records = [r for r in records if r.status == status]
@@ -497,7 +521,7 @@ def create_workspace_document(
         updated_at=now,
         **worldbuilding_fields,
     )
-    if kind == "plan" and _plan_kind_uses_postgres():
+    if kind == "plan":
         from application_state.content.service import create_plan
         from application_state.errors import ApplicationStateError
 
@@ -524,29 +548,24 @@ def create_workspace_document(
 
 
 def get_workspace_document(root: Path, document_id: str) -> WorkspaceDocumentRecord:
-    if _plan_kind_uses_postgres():
-        from application_state.content.service import get_plan_optional
-        from application_state.errors import ApplicationStateError
+    file_record = unswitched_workspace_record(root, document_id)
+    if file_record is not None:
+        return file_record
+    from application_state.content.service import snapshot_plan
+    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
 
-        try:
-            found = get_plan_optional(document_id)
-        except ApplicationStateError as exc:
-            raise _map_application_state_error(exc) from exc
-        if found is not None:
-            return _record_from_work_object(found)
-    document = _load_registry_document(root)
-    record = _find_record(document, document_id)
-    if record is None:
+    try:
+        snap = snapshot_plan(document_id)
+    except ApplicationStateNotFoundError as exc:
         raise WorkspaceDocumentRegistryError(
             f"workspace document not found: {_validate_document_id(document_id)}",
             status_code=404,
-        )
-    if _plan_kind_uses_postgres() and record.kind == "plan":
-        raise WorkspaceDocumentRegistryError(
-            f"workspace document not found: {_validate_document_id(document_id)}",
-            status_code=404,
-        )
-    return record
+        ) from exc
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    return _record_from_work_object(
+        snap.work_object, from_working_copy=snap.from_working_copy
+    )
 
 
 def get_workspace_document_snapshot(root: Path, document_id: str) -> WorkspaceDocumentSnapshot:
@@ -559,8 +578,37 @@ def get_workspace_document_snapshot(root: Path, document_id: str) -> WorkspaceDo
     ``content_status=committed`` with a missing/unreadable target is an integrity
     failure (409), not an empty editor payload.
     """
-    with workspace_document_mutation_lock(root, document_id):
-        return get_workspace_document_snapshot_unlocked(root, document_id)
+    file_record = unswitched_workspace_record(root, document_id)
+    if file_record is not None:
+        with workspace_document_mutation_lock(root, document_id):
+            return get_workspace_document_snapshot_unlocked(root, document_id)
+    return _postgres_plan_snapshot(document_id)
+
+
+def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshot:
+    from application_state.content.service import snapshot_plan
+    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
+
+    try:
+        snap = snapshot_plan(document_id)
+    except ApplicationStateNotFoundError as exc:
+        raise WorkspaceDocumentRegistryError(
+            f"workspace document not found: {_validate_document_id(document_id)}",
+            status_code=404,
+        ) from exc
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    record = _record_from_work_object(
+        snap.work_object, from_working_copy=snap.from_working_copy
+    )
+    return WorkspaceDocumentSnapshot(
+        record=record,
+        markdown=snap.markdown,
+        content_sha256=snap.content_sha256,
+        file_fingerprint="postgres",
+        file_exists=False,
+        loaded_revision=snap.loaded_revision,
+    )
 
 
 def get_workspace_document_snapshot_unlocked(
@@ -575,33 +623,14 @@ def get_workspace_document_snapshot_unlocked(
         resolve_tiptap_markdown_target,
     )
 
-    if _plan_kind_uses_postgres():
-        from application_state.content.service import snapshot_plan
-        from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
-
-        try:
-            snap = snapshot_plan(document_id)
-        except ApplicationStateNotFoundError:
-            pass
-        except ApplicationStateError as exc:
-            raise _map_application_state_error(exc) from exc
-        else:
-            record = _record_from_work_object(snap.work_object)
-            return WorkspaceDocumentSnapshot(
-                record=record,
-                markdown=snap.markdown,
-                content_sha256=snap.content_sha256,
-                file_fingerprint="postgres",
-                file_exists=False,
-                loaded_revision=snap.loaded_revision,
-            )
-
-    record = load_workspace_document_under_registry_lock(root, document_id)
-    if _plan_kind_uses_postgres() and record.kind == "plan":
-        raise WorkspaceDocumentRegistryError(
-            f"workspace document not found: {_validate_document_id(document_id)}",
-            status_code=404,
-        )
+    try:
+        record = load_workspace_document_under_registry_lock(root, document_id)
+    except WorkspaceDocumentRegistryError as exc:
+        if exc.status_code != 404:
+            raise
+        return _postgres_plan_snapshot(document_id)
+    if record.kind == "plan":
+        return _postgres_plan_snapshot(document_id)
     if record.target_relpath is None or record.target_relpath == "":
         if record.content_status == "committed":
             raise WorkspaceDocumentRegistryError(
@@ -675,36 +704,36 @@ def update_workspace_document_metadata(
     visibility_state: Literal["internal", "player_safe"] | None | object = _UNSET,
     expected_revision: int | None = None,
 ) -> WorkspaceDocumentRecord:
-    if _plan_kind_uses_postgres():
-        from application_state.content.service import get_plan_optional, update_plan_metadata
+    file_record = unswitched_workspace_record(root, document_id)
+    if file_record is None:
+        from application_state.content.service import get_plan, update_plan_metadata
         from application_state.errors import ApplicationStateError
 
         try:
-            existing_plan = get_plan_optional(document_id)
+            existing_plan = get_plan(document_id)
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
-        if existing_plan is not None:
-            if target_relpath is not _UNSET and target_relpath != existing_plan.target_relpath:
-                raise WorkspaceDocumentRegistryError(
-                    "plan target_relpath cannot be changed via metadata update",
-                    status_code=422,
-                )
-            if document_class is not _UNSET or authority_state is not _UNSET or visibility_state is not _UNSET:
-                raise WorkspaceDocumentRegistryError(
-                    "worldbuilding metadata is only valid for kind=worldbuilding_source",
-                    status_code=422,
-                )
-            try:
-                updated = update_plan_metadata(
-                    document_id,
-                    title=None if title is _UNSET else str(title),
-                    target_session=None if target_session is _UNSET else target_session,  # type: ignore[arg-type]
-                    target_session_set=target_session is not _UNSET,
-                    expected_revision=expected_revision,
-                )
-            except ApplicationStateError as exc:
-                raise _map_application_state_error(exc) from exc
-            return _record_from_work_object(updated)
+        if target_relpath is not _UNSET and target_relpath != existing_plan.target_relpath:
+            raise WorkspaceDocumentRegistryError(
+                "plan target_relpath cannot be changed via metadata update",
+                status_code=422,
+            )
+        if document_class is not _UNSET or authority_state is not _UNSET or visibility_state is not _UNSET:
+            raise WorkspaceDocumentRegistryError(
+                "worldbuilding metadata is only valid for kind=worldbuilding_source",
+                status_code=422,
+            )
+        try:
+            updated = update_plan_metadata(
+                document_id,
+                title=None if title is _UNSET else str(title),
+                target_session=None if target_session is _UNSET else target_session,  # type: ignore[arg-type]
+                target_session_set=target_session is not _UNSET,
+                expected_revision=expected_revision,
+            )
+        except ApplicationStateError as exc:
+            raise _map_application_state_error(exc) from exc
+        return _record_from_work_object(updated)
     with workspace_document_mutation_lock(root, document_id):
         return _update_workspace_document_metadata_unlocked(
             root,
@@ -836,24 +865,20 @@ def discard_workspace_document(
     *,
     expected_revision: int | None = None,
 ) -> WorkspaceDocumentRecord:
-    if _plan_kind_uses_postgres():
-        from application_state.content.service import get_plan_optional, update_plan_metadata
+    file_record = unswitched_workspace_record(root, document_id)
+    if file_record is None:
+        from application_state.content.service import update_plan_metadata
         from application_state.errors import ApplicationStateError
 
         try:
-            existing_plan = get_plan_optional(document_id)
+            updated = update_plan_metadata(
+                document_id,
+                status="discarded",
+                expected_revision=expected_revision,
+            )
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
-        if existing_plan is not None:
-            try:
-                updated = update_plan_metadata(
-                    document_id,
-                    status="discarded",
-                    expected_revision=expected_revision,
-                )
-            except ApplicationStateError as exc:
-                raise _map_application_state_error(exc) from exc
-            return _record_from_work_object(updated)
+        return _record_from_work_object(updated)
     with workspace_document_mutation_lock(root, document_id):
         return _set_workspace_document_status_unlocked(
             root,
@@ -869,24 +894,20 @@ def restore_workspace_document(
     *,
     expected_revision: int | None = None,
 ) -> WorkspaceDocumentRecord:
-    if _plan_kind_uses_postgres():
-        from application_state.content.service import get_plan_optional, update_plan_metadata
+    file_record = unswitched_workspace_record(root, document_id)
+    if file_record is None:
+        from application_state.content.service import update_plan_metadata
         from application_state.errors import ApplicationStateError
 
         try:
-            existing_plan = get_plan_optional(document_id)
+            updated = update_plan_metadata(
+                document_id,
+                status="active",
+                expected_revision=expected_revision,
+            )
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
-        if existing_plan is not None:
-            try:
-                updated = update_plan_metadata(
-                    document_id,
-                    status="active",
-                    expected_revision=expected_revision,
-                )
-            except ApplicationStateError as exc:
-                raise _map_application_state_error(exc) from exc
-            return _record_from_work_object(updated)
+        return _record_from_work_object(updated)
     with workspace_document_mutation_lock(root, document_id):
         return _set_workspace_document_status_unlocked(
             root,

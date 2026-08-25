@@ -1,46 +1,44 @@
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
 import pytest
 
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
-    create_workspace_document,
     get_workspace_document_snapshot,
-    mark_workspace_document_committed,
 )
 from application_state.content.import_plans import import_plans_from_registry
 from application_state.errors import ApplicationStateConflictError
 
 
-def _file_plan(root: Path, *, revision: int = 3, committed: bool = True) -> WorkspaceDocumentRecord:
-    monkey = pytest.MonkeyPatch()
-    monkey.delenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", raising=False)
-    try:
-        record = create_workspace_document(
-            root,
-            title="Legacy Plan",
-            campaign_id="longmont-c2",
-            kind="plan",
-            target_session=24,
-        )
-        target = root / str(record.target_relpath)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("# imported exactly\n", encoding="utf-8")
-        if committed:
-            record = mark_workspace_document_committed(root, record.document_id)
-        # The registry revision after commit is 2 by default; rewrite the stored
-        # revision number by importing the in-memory record with an explicit n.
-        return record.model_copy(update={"revision": revision})
-    finally:
-        monkey.undo()
+def _legacy_file_plan(root: Path, *, revision: int = 3) -> WorkspaceDocumentRecord:
+    document_id = str(uuid.uuid4())
+    relpath = f"out/workspace/plan/{document_id}.md"
+    target = root / relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# imported exactly\n", encoding="utf-8")
+    now = "2026-01-01T00:00:00Z"
+    return WorkspaceDocumentRecord(
+        document_id=document_id,
+        title="Legacy Plan",
+        campaign_id="longmont-c2",
+        target_session=24,
+        kind="plan",
+        target_relpath=relpath,
+        status="active",
+        content_status="committed",
+        revision=revision,
+        created_at=now,
+        updated_at=now,
+    )
 
 
 def test_import_exact_and_idempotent(tmp_path: Path, application_state_dsn: str) -> None:
     source_root = tmp_path / "legacy"
     source_root.mkdir()
-    record = _file_plan(source_root, revision=7)
+    record = _legacy_file_plan(source_root, revision=7)
     report = import_plans_from_registry(source_root, [record])
     assert report.imported == 1
     replay = import_plans_from_registry(source_root, [record])
@@ -55,7 +53,7 @@ def test_import_exact_and_idempotent(tmp_path: Path, application_state_dsn: str)
 def test_import_conflict_fails_closed(tmp_path: Path, application_state_dsn: str) -> None:
     source_root = tmp_path / "legacy"
     source_root.mkdir()
-    record = _file_plan(source_root, revision=4)
+    record = _legacy_file_plan(source_root, revision=4)
     import_plans_from_registry(source_root, [record])
     conflict = record.model_copy(update={})
     target = source_root / str(record.target_relpath)

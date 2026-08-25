@@ -21,7 +21,10 @@ from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document,
     discard_workspace_document,
     get_workspace_document,
+    get_workspace_document_snapshot,
 )
+
+pytest_plugins = ["tests.application_state.conftest"]
 
 
 def test_normalize_allows_worldbuilding_workspace_target() -> None:
@@ -63,7 +66,9 @@ def test_authorize_target_binds_plan_workspace_to_own_document_id() -> None:
         authorize_target_for_record(record)
 
 
-def test_plan_workspace_prepare_commit_round_trip(tmp_path: Path) -> None:
+def test_plan_workspace_prepare_commit_round_trip(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
     record = create_workspace_document(
         tmp_path,
         title="If the party goes north",
@@ -96,13 +101,11 @@ def test_plan_workspace_prepare_commit_round_trip(tmp_path: Path) -> None:
     )
     assert committed.writer_ok is True
     assert committed.bytes_written
-    assert "corpus was not mutated" in committed.diagnostics
-    target = tmp_path / (record.target_relpath or "")
-    assert target.is_file()
-    assert target.read_text(encoding="utf-8") == markdown
+    loaded_snapshot = get_workspace_document_snapshot(tmp_path, record.document_id)
+    assert loaded_snapshot.markdown == markdown
+    assert loaded_snapshot.record.content_status == "committed"
+    assert not (tmp_path / (record.target_relpath or "")).is_file()
     assert not str(record.target_relpath).startswith("corpus/")
-    loaded = get_workspace_document(tmp_path, record.document_id)
-    assert loaded.content_status == "committed"
 
 
 def test_lossy_markdown_diagnostics_block_tables_and_html() -> None:
@@ -190,7 +193,9 @@ def test_lossy_markdown_blocks_prepare_and_commit_for_worldbuilding(tmp_path: Pa
 
 
 @pytest.mark.parametrize("kind", ["plan", "runbook"])
-def test_lossy_markdown_is_advisory_for_plan_and_runbook(tmp_path: Path, kind: str) -> None:
+def test_lossy_markdown_is_advisory_for_plan_and_runbook(
+    tmp_path: Path, kind: str, application_state_dsn: str
+) -> None:
     if kind == "plan":
         target = (
             "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
@@ -229,7 +234,11 @@ def test_lossy_markdown_is_advisory_for_plan_and_runbook(tmp_path: Path, kind: s
         ),
     )
     assert committed.writer_ok is True
-    assert (tmp_path / target).read_text(encoding="utf-8") == markdown
+    if kind == "plan":
+        snapshot = get_workspace_document_snapshot(tmp_path, record.document_id)
+        assert snapshot.markdown.rstrip() == markdown.rstrip()
+    else:
+        assert (tmp_path / target).read_text(encoding="utf-8") == markdown
 
 
 def test_plan_and_runbook_cannot_authorize_foreign_worldbuilding_path() -> None:

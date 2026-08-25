@@ -22,6 +22,8 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
 )
 
+pytest_plugins = ["tests.application_state.conftest"]
+
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
@@ -239,6 +241,7 @@ def test_stale_sha_returns_409_and_no_file(client: TestClient, root: Path) -> No
 def test_non_runbook_draft_and_discarded_are_rejected_over_http(
     client: TestClient,
     root: Path,
+    application_state_dsn: str,
 ) -> None:
     plan = create_workspace_document(
         root,

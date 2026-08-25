@@ -24,6 +24,8 @@ from apps.live_control_server.services.workspace_document_registry import (
     workspace_documents_path,
 )
 
+pytest_plugins = ["tests.application_state.conftest"]
+
 
 @pytest.fixture
 def root(tmp_path: Path) -> Path:
@@ -39,7 +41,9 @@ def client(root: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     return TestClient(create_app())
 
 
-def test_create_issues_uuid_persists_and_get_round_trips(root: Path) -> None:
+def test_create_issues_uuid_persists_and_get_round_trips(
+    root: Path, application_state_dsn: str
+) -> None:
     created = create_workspace_document(
         root,
         title="Session 24 Plan",
@@ -52,13 +56,15 @@ def test_create_issues_uuid_persists_and_get_round_trips(root: Path) -> None:
     assert created.revision == 1
     assert created.status == "active"
     assert created.content_status == "draft"
-    assert workspace_documents_path(root).is_file()
+    assert not workspace_documents_path(root).is_file()
 
     loaded = get_workspace_document(root, created.document_id)
     assert loaded.model_dump() == created.model_dump()
 
 
-def test_list_filters_by_campaign_kind_and_status(root: Path) -> None:
+def test_list_filters_by_campaign_kind_and_status(
+    root: Path, application_state_dsn: str
+) -> None:
     plan_a = create_workspace_document(
         root,
         title="Plan A",
@@ -97,7 +103,7 @@ def test_update_bumps_revision_and_stale_expected_revision_conflicts(root: Path)
         root,
         title="Original",
         campaign_id="longmont-c2",
-        kind="plan",
+        kind="runbook",
     )
 
     updated = update_workspace_document_metadata(
@@ -147,7 +153,9 @@ def test_invalid_uuid_raises_422(client: TestClient) -> None:
     assert "invalid document_id" in response.json()["detail"]
 
 
-def test_unknown_document_raises_404(client: TestClient) -> None:
+def test_unknown_document_raises_404(
+    client: TestClient, application_state_dsn: str
+) -> None:
     missing_id = str(uuid.uuid4())
     response = client.get(f"/api/live/workspace-documents/{missing_id}")
     assert response.status_code == 404
@@ -167,7 +175,9 @@ def test_empty_title_rejected_on_create(client: TestClient) -> None:
     assert "title is required" in response.json()["detail"]
 
 
-def test_api_create_list_and_patch(client: TestClient) -> None:
+def test_api_create_list_and_patch(
+    client: TestClient, application_state_dsn: str
+) -> None:
     create_response = client.post(
         "/api/live/workspace-documents",
         json={
@@ -211,7 +221,8 @@ def test_mark_committed_sets_content_status_and_bumps_revision(root: Path) -> No
         root,
         title="Commit me",
         campaign_id="longmont-c2",
-        kind="plan",
+        kind="runbook",
+        target_relpath="evals/c2_live_prep/mireward-prep/content/tiptap/commit-me.md",
     )
     assert created.content_status == "draft"
 
@@ -233,7 +244,8 @@ def test_mark_committed_stale_expected_revision_conflicts(root: Path) -> None:
         root,
         title="Commit me",
         campaign_id="longmont-c2",
-        kind="plan",
+        kind="runbook",
+        target_relpath="evals/c2_live_prep/mireward-prep/content/tiptap/commit-me-stale.md",
     )
     update_workspace_document_metadata(
         root,
@@ -852,13 +864,12 @@ def test_commit_receipt_matches_snapshot_fingerprint(root: Path) -> None:
 def test_create_rejects_duplicate_non_null_target_relpath(root: Path) -> None:
     from apps.live_control_server.services.workspace_document_registry import _load_registry_document
 
-    target = "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 28 Prep.md"
+    target = "evals/c2_live_prep/mireward-prep/content/tiptap/duplicate-owner.md"
     first = create_workspace_document(
         root,
-        title="C2 Session 28 Prep",
+        title="First runbook",
         campaign_id="longmont-c2",
-        kind="plan",
-        target_session=28,
+        kind="runbook",
         target_relpath=target,
     )
     before_count = len(_load_registry_document(root).records)
@@ -866,10 +877,9 @@ def test_create_rejects_duplicate_non_null_target_relpath(root: Path) -> None:
     with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
         create_workspace_document(
             root,
-            title="C2 Session 28 Prep again",
+            title="First runbook again",
             campaign_id="longmont-c2",
-            kind="plan",
-            target_session=28,
+            kind="runbook",
             target_relpath=target,
         )
 
@@ -879,24 +889,22 @@ def test_create_rejects_duplicate_non_null_target_relpath(root: Path) -> None:
 
     second = create_workspace_document(
         root,
-        title="C2 Session 29 Prep",
+        title="Second runbook",
         campaign_id="longmont-c2",
-        kind="plan",
-        target_session=29,
-        target_relpath=target.replace("Session 28", "Session 29"),
+        kind="runbook",
+        target_relpath="evals/c2_live_prep/mireward-prep/content/tiptap/duplicate-owner-other.md",
     )
     assert second.document_id != first.document_id
     assert second.target_relpath != first.target_relpath
 
 
 def test_create_rejects_target_relpath_owned_by_discarded_document(root: Path) -> None:
-    target = "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 30 Prep.md"
+    target = "evals/c2_live_prep/mireward-prep/content/tiptap/discarded-owner.md"
     first = create_workspace_document(
         root,
-        title="C2 Session 30 Prep",
+        title="Discarded owner",
         campaign_id="longmont-c2",
-        kind="plan",
-        target_session=30,
+        kind="runbook",
         target_relpath=target,
     )
     discard_workspace_document(root, first.document_id)
@@ -904,10 +912,9 @@ def test_create_rejects_target_relpath_owned_by_discarded_document(root: Path) -
     with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
         create_workspace_document(
             root,
-            title="C2 Session 30 Prep revived",
+            title="Discarded owner revived",
             campaign_id="longmont-c2",
-            kind="plan",
-            target_session=30,
+            kind="runbook",
             target_relpath=target,
         )
 
@@ -943,16 +950,12 @@ def test_worldbuilding_create_remains_uuid_bound_and_collision_free(root: Path) 
 
 
 def test_find_duplicate_target_relpath_ownership_reports_groups(root: Path) -> None:
-    target = (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
-        "Session Prep/Session 23 Prep.md"
-    )
+    target = "evals/c2_live_prep/mireward-prep/content/tiptap/duplicate-group.md"
     first = create_workspace_document(
         root,
-        title="C2 Session 23 Prep",
+        title="Duplicate group",
         campaign_id="longmont-c2",
-        kind="plan",
-        target_session=23,
+        kind="runbook",
         target_relpath=target,
     )
     # Bypass create guard to simulate a pre-invariant duplicate registry.
@@ -970,7 +973,7 @@ def test_find_duplicate_target_relpath_ownership_reports_groups(root: Path) -> N
         title="C2 Session 23 Prep",
         campaign_id="longmont-c2",
         target_session=23,
-        kind="plan",
+        kind="runbook",
         target_relpath=target,
         status="active",
         content_status="draft",
@@ -1001,7 +1004,7 @@ def test_release_target_relpath_from_discarded_duplicate_keeps_survivor_path(
         root,
         title="C2 Session 23 Prep",
         campaign_id="longmont-c2",
-        kind="plan",
+        kind="runbook",
         target_session=23,
         target_relpath=target,
     )
@@ -1019,7 +1022,7 @@ def test_release_target_relpath_from_discarded_duplicate_keeps_survivor_path(
         title="C2 Session 23 Prep",
         campaign_id="longmont-c2",
         target_session=23,
-        kind="plan",
+        kind="runbook",
         target_relpath=target,
         status="discarded",
         content_status="draft",
@@ -1053,7 +1056,7 @@ def test_reinstate_workspace_document_record_restores_identity_without_path_coll
         root,
         title="C2 Session 23 Prep",
         campaign_id="longmont-c2",
-        kind="plan",
+        kind="runbook",
         target_session=23,
         target_relpath=(
             "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
@@ -1070,7 +1073,7 @@ def test_reinstate_workspace_document_record_restores_identity_without_path_coll
             title="C2 Session 23 Prep",
             campaign_id="longmont-c2",
             target_session=23,
-            kind="plan",
+            kind="runbook",
             target_relpath=None,
             status="discarded",
             content_status="draft",
@@ -1157,7 +1160,9 @@ def test_update_metadata_rejects_target_relpath_owned_by_discarded_document(root
     assert after.model_dump() == before.model_dump()
 
 
-def test_update_metadata_allows_restating_own_target_relpath(root: Path) -> None:
+def test_update_metadata_allows_restating_own_target_relpath(
+    root: Path, application_state_dsn: str
+) -> None:
     path = (
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
         "Session Prep/Session 44 Prep.md"
@@ -1180,7 +1185,9 @@ def test_update_metadata_allows_restating_own_target_relpath(root: Path) -> None
     assert updated.revision == 2
 
 
-def test_plan_metadata_rejects_target_relpath_transition(root: Path) -> None:
+def test_plan_metadata_rejects_target_relpath_transition(
+    root: Path, application_state_dsn: str
+) -> None:
     workspace = create_workspace_document(
         root,
         title="If the party goes north",
@@ -1209,7 +1216,9 @@ def test_plan_metadata_rejects_target_relpath_transition(root: Path) -> None:
     assert after.model_dump() == before.model_dump()
 
 
-def test_plan_create_omitted_path_assigns_uuid_workspace_target(root: Path) -> None:
+def test_plan_create_omitted_path_assigns_uuid_workspace_target(
+    root: Path, application_state_dsn: str
+) -> None:
     first = create_workspace_document(
         root,
         title="If the party goes north",
@@ -1231,7 +1240,9 @@ def test_plan_create_omitted_path_assigns_uuid_workspace_target(root: Path) -> N
     assert first.status == second.status == "active"
 
 
-def test_plan_create_explicit_canonical_path_remains_supported(root: Path) -> None:
+def test_plan_create_explicit_canonical_path_remains_supported(
+    root: Path, application_state_dsn: str
+) -> None:
     canonical = (
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
         "Session Prep/Session 50 Prep.md"
@@ -1301,7 +1312,9 @@ def test_api_plan_create_rejects_illegal_explicit_path(
     assert list_workspace_documents(root) == []
 
 
-def test_plan_workspace_create_ignores_discarded_canonical_owner(root: Path) -> None:
+def test_plan_workspace_create_ignores_discarded_canonical_owner(
+    root: Path, application_state_dsn: str
+) -> None:
     canonical = (
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
         "Session Prep/Session 23 Prep.md"
@@ -1330,6 +1343,7 @@ def test_plan_workspace_create_ignores_discarded_canonical_owner(root: Path) -> 
 def test_api_patch_rejects_plan_target_relpath_promotion(
     client: TestClient,
     root: Path,
+    application_state_dsn: str,
 ) -> None:
     created = create_workspace_document(
         root,

@@ -52,7 +52,10 @@ def application_state_dsn(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
     try:
         _create_database(admin, name)
     except Exception as exc:
-        pytest.skip(f"cannot create ephemeral application-state database: {exc}")
+        pytest.fail(
+            "AS1 owning-boundary tests require real disposable PostgreSQL; "
+            f"could not create {name}: {exc}"
+        )
     dsn = _replace_database(admin, name)
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
     from application_state.cli import upgrade_to_head

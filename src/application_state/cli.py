@@ -9,12 +9,9 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, text
 
 from application_state.config import APPLICATION_STATE_DSN_ENV, load_runtime_dsn
-from application_state.engine import sqlalchemy_url
 from application_state.errors import ApplicationStateMigrationError, ApplicationStateUnavailableError
 
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -26,28 +23,50 @@ def alembic_config() -> Config:
     return cfg
 
 
-def _current_and_head(dsn: str) -> tuple[str | None, str | None]:
+def _alembic_head() -> str:
     cfg = alembic_config()
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
-    head = heads[0] if len(heads) == 1 else None
     if len(heads) != 1:
         raise ApplicationStateMigrationError(
             f"application-state Alembic must have exactly one head, got {heads!r}"
         )
-    engine = create_engine(sqlalchemy_url(dsn))
-    with engine.connect() as connection:
-        connection.execute(text("CREATE SCHEMA IF NOT EXISTS application_state"))
-        connection.commit()
-        context = MigrationContext.configure(
-            connection,
-            opts={
-                "version_table": "schema_migrations",
-                "version_table_schema": "application_state",
-            },
-        )
-        current = context.get_current_revision()
-    return current, head
+    return heads[0]
+
+
+def _read_current_revision(dsn: str) -> str | None:
+    """Read Alembic current revision without creating schema, tables, or rows."""
+    import psycopg
+
+    try:
+        with psycopg.connect(dsn, autocommit=True) as conn:
+            schema = conn.execute(
+                "SELECT 1 FROM information_schema.schemata "
+                "WHERE schema_name = 'application_state'"
+            ).fetchone()
+            if schema is None:
+                return None
+            table = conn.execute(
+                """
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = 'application_state'
+                  AND table_name = 'schema_migrations'
+                """
+            ).fetchone()
+            if table is None:
+                return None
+            row = conn.execute(
+                "SELECT version_num FROM application_state.schema_migrations LIMIT 1"
+            ).fetchone()
+            return None if row is None else str(row[0])
+    except psycopg.Error as exc:
+        raise ApplicationStateUnavailableError(
+            f"application-state PostgreSQL is unavailable: {exc}"
+        ) from exc
+
+
+def _current_and_head(dsn: str) -> tuple[str | None, str]:
+    return _read_current_revision(dsn), _alembic_head()
 
 
 def upgrade_to_head(*, dsn: str | None = None) -> None:

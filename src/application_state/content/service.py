@@ -108,7 +108,16 @@ def snapshot_plan(document_id: str) -> ContentSnapshot:
                 f"workspace document not found: {document_id}"
             )
         working = repo.get_working_copy(conn, work_object_id)
-        if working is not None:
+        committed = None
+        if obj.current_revision_id is not None:
+            committed = repo.get_work_revision(conn, obj.current_revision_id)
+            if committed is None:
+                raise ApplicationStateConflictError(
+                    "committed workspace document is missing its WorkRevision"
+                )
+        if working is not None and (
+            committed is None or working.content_sha256 != committed.content_sha256
+        ):
             return ContentSnapshot(
                 work_object=obj,
                 markdown=working.markdown,
@@ -116,16 +125,11 @@ def snapshot_plan(document_id: str) -> ContentSnapshot:
                 loaded_revision=obj.object_revision,
                 from_working_copy=True,
             )
-        if obj.current_revision_id is not None:
-            revision = repo.get_work_revision(conn, obj.current_revision_id)
-            if revision is None:
-                raise ApplicationStateConflictError(
-                    "committed workspace document is missing its WorkRevision"
-                )
+        if committed is not None:
             return ContentSnapshot(
                 work_object=obj,
-                markdown=revision.markdown,
-                content_sha256=revision.content_sha256,
+                markdown=committed.markdown,
+                content_sha256=committed.content_sha256,
                 loaded_revision=obj.object_revision,
                 from_working_copy=False,
             )
@@ -207,18 +211,41 @@ def autosave_plan(
             )
         existing = repo.get_working_copy(conn, work_object_id)
         wc_revision = 1 if existing is None else existing.working_copy_revision + 1
-        repo.upsert_working_copy(
-            conn,
-            WorkingCopy(
-                work_object_id=work_object_id,
-                markdown=content,
-                content_sha256=digest,
-                base_revision_id=obj.current_revision_id,
-                working_copy_revision=wc_revision,
-                updated_at=repo.now_utc(),
-            ),
+        copy = WorkingCopy(
+            work_object_id=work_object_id,
+            markdown=content,
+            content_sha256=digest,
+            base_revision_id=obj.current_revision_id,
+            working_copy_revision=wc_revision,
+            updated_at=repo.now_utc(),
         )
-        return obj
+        if existing is None:
+            repo.insert_working_copy(conn, copy)
+        else:
+            persisted_copy = repo.update_working_copy(
+                conn,
+                copy,
+                expected_working_copy_revision=existing.working_copy_revision,
+            )
+            if persisted_copy is None:
+                raise ApplicationStateConflictError(
+                    "working copy revision mismatch: concurrent Plan autosave"
+                )
+        expected = obj.object_revision
+        updated = obj.model_copy(
+            update={
+                "object_revision": expected + 1,
+                "updated_at": repo.now_utc(),
+            }
+        )
+        persisted = repo.update_work_object(
+            conn, updated, expected_object_revision=expected
+        )
+        if persisted is None:
+            raise ApplicationStateConflictError(
+                "revision mismatch: concurrent Plan autosave"
+            )
+        return persisted
 
 
 def commit_plan(
@@ -284,14 +311,19 @@ def commit_plan(
         )
         if persisted is None:
             raise ApplicationStateConflictError("revision mismatch: concurrent Plan commit")
-        repo.upsert_working_copy(
+        existing_copy = repo.get_working_copy(conn, work_object_id)
+        repo.replace_working_copy(
             conn,
             WorkingCopy(
                 work_object_id=work_object_id,
                 markdown=content,
                 content_sha256=digest,
                 base_revision_id=revision.work_revision_id,
-                working_copy_revision=1,
+                working_copy_revision=(
+                    1
+                    if existing_copy is None
+                    else existing_copy.working_copy_revision + 1
+                ),
                 updated_at=repo.now_utc(),
             ),
         )

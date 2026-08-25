@@ -20,12 +20,12 @@ def _world_dsns_from_env() -> dict[str, str]:
 
 
 def plan_kind_uses_postgres() -> bool:
-    """True after the Plan kind is switched: app-state DSN is configured.
+    """AS1 switched ``kind=plan`` to PostgreSQL.
 
-    Unset DSN is the pre-switch window (file registry remains Plan authority).
-    A set but unusable DSN is switched and must fail closed with no file fallback.
+    There is no production file-authority toggle. Missing or unusable DSN fails
+    closed on Plan operations; it does not restore the old file registry.
     """
-    return bool(os.environ.get(APPLICATION_STATE_DSN_ENV, "").strip())
+    return True
 
 
 def load_runtime_dsn() -> str:

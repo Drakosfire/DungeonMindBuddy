@@ -19,6 +19,8 @@ from apps.live_control_server.services.workspace_document_registry import (
     update_workspace_document_metadata,
 )
 
+pytest_plugins = ["tests.application_state.conftest"]
+
 TARGET = "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md"
 PLAN_TARGET = (
     "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md"
@@ -132,7 +134,9 @@ def test_discarded_document_blocks_prepare_and_commit(tmp_path: Path):
     assert exc.value.status_code == 409
 
 
-def test_plan_create_without_target_assigns_workspace_path(tmp_path: Path):
+def test_plan_create_without_target_assigns_workspace_path(
+    tmp_path: Path, application_state_dsn: str
+):
     """Plan create no longer leaves target_relpath unset; prepare must succeed."""
     doc = create_workspace_document(
         tmp_path,
@@ -231,7 +235,9 @@ def test_overwrite_creates_backup(tmp_path: Path):
     assert target.read_text() == "new\n"
 
 
-def test_prepare_accepts_plan_session_prep_target(tmp_path: Path):
+def test_prepare_accepts_plan_session_prep_target(
+    tmp_path: Path, application_state_dsn: str
+):
     doc = create_doc(tmp_path, target=PLAN_TARGET, title="Session 23 Prep")
     markdown = "# C2 Session 23 Prep\n"
     response = prepare(tmp_path, doc.document_id, markdown)
@@ -241,22 +247,34 @@ def test_prepare_accepts_plan_session_prep_target(tmp_path: Path):
     assert not (tmp_path / PLAN_TARGET).exists()
 
 
-def test_commit_creates_plan_session_prep_file(tmp_path: Path):
+def test_commit_creates_plan_session_prep_file(
+    tmp_path: Path, application_state_dsn: str
+):
     doc = create_doc(tmp_path, target=PLAN_TARGET, title="Session 23 Prep")
     markdown = "# C2 Session 23 Prep\n"
     preview = prepare(tmp_path, doc.document_id, markdown)
     response = commit(tmp_path, doc.document_id, preview.writer_confirm_token or "", markdown)
     assert response.writer_ok
-    assert (tmp_path / PLAN_TARGET).read_text() == markdown
+    from apps.live_control_server.services.workspace_document_registry import (
+        get_workspace_document_snapshot,
+    )
+
+    snapshot = get_workspace_document_snapshot(tmp_path, doc.document_id)
+    assert snapshot.markdown == markdown
+    assert not (tmp_path / PLAN_TARGET).exists()
 
 
-def test_plan_session_prep_prepare_diagnostics_do_not_claim_corpus_untouched(tmp_path: Path):
+def test_plan_session_prep_prepare_diagnostics_do_not_claim_corpus_untouched(
+    tmp_path: Path, application_state_dsn: str
+):
     doc = create_doc(tmp_path, target=PLAN_TARGET, title="Session 23 Prep")
     response = prepare(tmp_path, doc.document_id, "# Prep\n")
     assert "corpus was not mutated" not in response.diagnostics
 
 
-def test_plan_session_prep_commit_diagnostics_do_not_claim_corpus_untouched(tmp_path: Path):
+def test_plan_session_prep_commit_diagnostics_do_not_claim_corpus_untouched(
+    tmp_path: Path, application_state_dsn: str
+):
     doc = create_doc(tmp_path, target=PLAN_TARGET, title="Session 23 Prep")
     preview = prepare(tmp_path, doc.document_id, "# Prep\n")
     response = commit(tmp_path, doc.document_id, preview.writer_confirm_token or "", "# Prep\n")

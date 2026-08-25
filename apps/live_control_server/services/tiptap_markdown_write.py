@@ -387,7 +387,6 @@ def _prepare_plan_postgres(
     write_mode: WriteMode,
 ) -> TiptapMarkdownWritePrepareResponse | None:
     from application_state.content.service import autosave_plan, get_plan_optional
-    from application_state.content.types import normalize_markdown
     from application_state.errors import ApplicationStateError
 
     try:
@@ -400,7 +399,7 @@ def _prepare_plan_postgres(
         return None
     if write_mode == "source_import":
         raise TiptapMarkdownWriteError("source_import is only valid for worldbuilding_source documents")
-    content = normalize_markdown(request.markdown)
+    content = _content_for_write_mode(request.markdown, write_mode)
     if request.expected_revision is not None and obj.object_revision != request.expected_revision:
         raise TiptapMarkdownWriteConflictError(
             f"revision mismatch: expected {request.expected_revision}, current {obj.object_revision}"
@@ -409,6 +408,7 @@ def _prepare_plan_postgres(
         raise TiptapMarkdownWriteConflictError(
             f"workspace document is discarded: {request.document_id}"
         )
+    lossy = markdown_lossy_diagnostics(request.markdown)
     try:
         obj = autosave_plan(
             request.document_id,
@@ -440,10 +440,17 @@ def _prepare_plan_postgres(
         writer_diff="",
         existing_size_bytes=None,
         new_size_bytes=len(content.encode()),
-        warnings=["Working copy saved in PostgreSQL; commit creates an immutable WorkRevision."],
+        warnings=_prepare_warnings(
+            exists=False,
+            writer_ok=True,
+            blocking_lossy=[],
+            advisory_lossy=lossy,
+            write_mode=write_mode,
+        ),
         diagnostics=[
             "working copy persisted; Plan Markdown file is not authority",
             "review before commit",
+            *lossy,
         ],
     )
 
@@ -454,7 +461,6 @@ def _commit_plan_postgres(
     write_mode: WriteMode,
 ) -> TiptapMarkdownWriteCommitResponse | None:
     from application_state.content.service import commit_plan, get_plan_optional
-    from application_state.content.types import normalize_markdown
     from application_state.errors import ApplicationStateError
 
     try:
@@ -467,7 +473,7 @@ def _commit_plan_postgres(
         return None
     if write_mode == "source_import":
         raise TiptapMarkdownWriteError("source_import is only valid for worldbuilding_source documents")
-    content = normalize_markdown(request.markdown)
+    content = _content_for_write_mode(request.markdown, write_mode)
     relpath = obj.target_relpath or f"plan:{obj.work_object_id}"
     expected = _confirm_token(
         str(obj.work_object_id),
@@ -485,7 +491,7 @@ def _commit_plan_postgres(
         committed, revision = commit_plan(
             request.document_id,
             content,
-            expected_revision=request.expected_revision,
+            expected_revision=obj.object_revision,
         )
     except ApplicationStateError as exc:
         raise _map_registry_error(
@@ -524,12 +530,20 @@ def prepare_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWritePrepareRequest
 ) -> TiptapMarkdownWritePrepareResponse:
     write_mode = _normalize_write_mode(request.write_mode)
-    from application_state.config import plan_kind_uses_postgres
+    from apps.live_control_server.services.workspace_document_registry import (
+        unswitched_workspace_record,
+    )
 
-    if plan_kind_uses_postgres():
+    file_record = unswitched_workspace_record(root, request.document_id)
+    if file_record is None:
         postgres = _prepare_plan_postgres(root=root, request=request, write_mode=write_mode)
         if postgres is not None:
             return postgres
+        error = TiptapMarkdownWriteError(
+            f"workspace document not found: {request.document_id}"
+        )
+        error.status_code = 404
+        raise error
     record = _resolve_writable_document(
         root,
         request.document_id,
@@ -671,6 +685,20 @@ def _rollback_after_failure(
 def commit_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWriteCommitRequest
 ) -> TiptapMarkdownWriteCommitResponse:
+    from apps.live_control_server.services.workspace_document_registry import (
+        unswitched_workspace_record,
+    )
+
+    file_record = unswitched_workspace_record(root, request.document_id)
+    if file_record is None:
+        postgres = _commit_plan_postgres(request=request, write_mode=_normalize_write_mode(request.write_mode))
+        if postgres is not None:
+            return postgres
+        error = TiptapMarkdownWriteError(
+            f"workspace document not found: {request.document_id}"
+        )
+        error.status_code = 404
+        raise error
     with workspace_document_mutation_lock(root, request.document_id):
         return _commit_tiptap_markdown_write_unlocked(root=root, request=request)
 
@@ -679,12 +707,6 @@ def _commit_tiptap_markdown_write_unlocked(
     *, root: Path, request: TiptapMarkdownWriteCommitRequest
 ) -> TiptapMarkdownWriteCommitResponse:
     write_mode = _normalize_write_mode(request.write_mode)
-    from application_state.config import plan_kind_uses_postgres
-
-    if plan_kind_uses_postgres():
-        postgres = _commit_plan_postgres(request=request, write_mode=write_mode)
-        if postgres is not None:
-            return postgres
     record = _resolve_writable_document(
         root,
         request.document_id,

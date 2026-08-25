@@ -57,8 +57,9 @@ def test_product_name_is_admitted() -> None:
 
 
 def test_missing_runtime_dsn_is_named_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    from application_state.config import load_runtime_dsn
+    from application_state.config import load_runtime_dsn, plan_kind_uses_postgres
 
     monkeypatch.delenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", raising=False)
+    assert plan_kind_uses_postgres() is True
     with pytest.raises(ApplicationStateUnavailableError):
         load_runtime_dsn()
