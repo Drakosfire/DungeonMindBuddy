@@ -9,7 +9,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-AdmittedKind = Literal["plan"]
+AdmittedKind = Literal["plan", "runbook"]
 ObjectStatus = Literal["active", "discarded"]
 
 
@@ -60,6 +60,14 @@ class ContentSnapshot(BaseModel):
     content_sha256: str
     loaded_revision: int
     from_working_copy: bool = False
+
+
+class CommittedPlayableRevision(BaseModel):
+    """Immutable committed Content revision. Play binds ``revision_n``, not object CAS."""
+
+    work_object: WorkObject
+    work_revision: WorkRevision
+    has_divergent_working_copy: bool = False
 
 
 class ImportReport(BaseModel):

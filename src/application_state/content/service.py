@@ -1,4 +1,4 @@
-"""Content domain service. AS1 admits kind=plan only."""
+"""Content domain service. Admitted kinds: plan, runbook."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
 from application_state.content import repository as repo
 from application_state.content.types import (
+    AdmittedKind,
+    CommittedPlayableRevision,
     ContentSnapshot,
     WorkObject,
     WorkRevision,
@@ -39,8 +41,17 @@ def _require_title(title: str) -> str:
     return cleaned
 
 
-def create_plan(
+def _require_kind(obj: WorkObject, kind: AdmittedKind | None) -> WorkObject:
+    if kind is not None and obj.kind != kind:
+        raise ApplicationStateNotFoundError(
+            f"workspace document not found: {obj.work_object_id}"
+        )
+    return obj
+
+
+def create_work_object(
     *,
+    kind: AdmittedKind,
     title: str,
     campaign_id: str,
     target_session: int | None = None,
@@ -54,7 +65,7 @@ def create_plan(
     now = repo.now_utc()
     obj = WorkObject(
         work_object_id=work_object_id,
-        kind="plan",
+        kind=kind,
         campaign_id=cleaned_campaign,
         title=_require_title(title),
         target_session=target_session,
@@ -71,6 +82,50 @@ def create_plan(
         return repo.insert_work_object(conn, obj)
 
 
+def create_plan(
+    *,
+    title: str,
+    campaign_id: str,
+    target_session: int | None = None,
+    target_relpath: str | None = None,
+    document_id: str | None = None,
+) -> WorkObject:
+    return create_work_object(
+        kind="plan",
+        title=title,
+        campaign_id=campaign_id,
+        target_session=target_session,
+        target_relpath=target_relpath,
+        document_id=document_id,
+    )
+
+
+def create_runbook(
+    *,
+    title: str,
+    campaign_id: str,
+    target_session: int | None = None,
+    target_relpath: str | None = None,
+    document_id: str | None = None,
+) -> WorkObject:
+    return create_work_object(
+        kind="runbook",
+        title=title,
+        campaign_id=campaign_id,
+        target_session=target_session,
+        target_relpath=target_relpath,
+        document_id=document_id,
+    )
+
+
+def get_content_optional(document_id: str) -> WorkObject | None:
+    work_object_id = _require_uuid(document_id)
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        return repo.get_work_object(conn, work_object_id)
+
+
 def get_plan(document_id: str) -> WorkObject:
     found = get_plan_optional(document_id)
     if found is None:
@@ -79,11 +134,24 @@ def get_plan(document_id: str) -> WorkObject:
 
 
 def get_plan_optional(document_id: str) -> WorkObject | None:
-    work_object_id = _require_uuid(document_id)
-    dsn = load_runtime_dsn()
-    assert_at_head(dsn=dsn)
-    with unit_of_work(dsn) as conn:
-        return repo.get_work_object(conn, work_object_id)
+    found = get_content_optional(document_id)
+    if found is None or found.kind != "plan":
+        return None
+    return found
+
+
+def get_runbook(document_id: str) -> WorkObject:
+    found = get_runbook_optional(document_id)
+    if found is None:
+        raise ApplicationStateNotFoundError(f"workspace document not found: {document_id}")
+    return found
+
+
+def get_runbook_optional(document_id: str) -> WorkObject | None:
+    found = get_content_optional(document_id)
+    if found is None or found.kind != "runbook":
+        return None
+    return found
 
 
 def list_plans(
@@ -94,10 +162,25 @@ def list_plans(
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        return repo.list_work_objects(conn, campaign_id=campaign_id, status=status)
+        return repo.list_work_objects(
+            conn, kind="plan", campaign_id=campaign_id, status=status
+        )
 
 
-def snapshot_plan(document_id: str) -> ContentSnapshot:
+def list_runbooks(
+    *,
+    campaign_id: str | None = None,
+    status: str | None = "active",
+) -> list[WorkObject]:
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        return repo.list_work_objects(
+            conn, kind="runbook", campaign_id=campaign_id, status=status
+        )
+
+
+def snapshot_content(document_id: str) -> ContentSnapshot:
     work_object_id = _require_uuid(document_id)
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
@@ -141,6 +224,18 @@ def snapshot_plan(document_id: str) -> ContentSnapshot:
             loaded_revision=obj.object_revision,
             from_working_copy=False,
         )
+
+
+def snapshot_plan(document_id: str) -> ContentSnapshot:
+    snap = snapshot_content(document_id)
+    _require_kind(snap.work_object, "plan")
+    return snap
+
+
+def snapshot_runbook(document_id: str) -> ContentSnapshot:
+    snap = snapshot_content(document_id)
+    _require_kind(snap.work_object, "runbook")
+    return snap
 
 
 def update_plan_metadata(
@@ -328,3 +423,121 @@ def commit_plan(
             ),
         )
         return persisted, revision
+
+
+def current_committed_revision(
+    document_id: str,
+    *,
+    kind: AdmittedKind | None = None,
+) -> CommittedPlayableRevision:
+    work_object_id = _require_uuid(document_id)
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        obj = repo.get_work_object(conn, work_object_id)
+        if obj is None:
+            raise ApplicationStateNotFoundError(
+                f"workspace document not found: {document_id}"
+            )
+        _require_kind(obj, kind)
+        if obj.current_revision_id is None:
+            raise ApplicationStateConflictError(
+                "runbook workspace document is not committed"
+            )
+        committed = repo.get_work_revision(conn, obj.current_revision_id)
+        if committed is None:
+            raise ApplicationStateConflictError(
+                "committed workspace document is missing its WorkRevision"
+            )
+        working = repo.get_working_copy(conn, work_object_id)
+        divergent = (
+            working is not None and working.content_sha256 != committed.content_sha256
+        )
+        return CommittedPlayableRevision(
+            work_object=obj,
+            work_revision=committed,
+            has_divergent_working_copy=divergent,
+        )
+
+
+def exact_committed_revision(
+    document_id: str,
+    revision_n: int,
+    *,
+    kind: AdmittedKind | None = None,
+    expected_sha256: str | None = None,
+) -> CommittedPlayableRevision:
+    if not isinstance(revision_n, int) or isinstance(revision_n, bool) or revision_n <= 0:
+        raise ApplicationStateValidationError("revision_n must be a positive integer")
+    work_object_id = _require_uuid(document_id)
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        obj = repo.get_work_object(conn, work_object_id)
+        if obj is None:
+            raise ApplicationStateNotFoundError(
+                f"workspace document not found: {document_id}"
+            )
+        _require_kind(obj, kind)
+        revision = repo.get_work_revision_by_n(conn, work_object_id, revision_n)
+        if revision is None:
+            raise ApplicationStateNotFoundError(
+                "historical revision bytes were never retained"
+            )
+        if expected_sha256 is not None and revision.content_sha256 != expected_sha256:
+            raise ApplicationStateConflictError(
+                "playable content SHA mismatch"
+            )
+        working = repo.get_working_copy(conn, work_object_id)
+        current = None
+        if obj.current_revision_id is not None:
+            current = repo.get_work_revision(conn, obj.current_revision_id)
+        divergent = False
+        if current is not None and working is not None:
+            divergent = working.content_sha256 != current.content_sha256
+        return CommittedPlayableRevision(
+            work_object=obj,
+            work_revision=revision,
+            has_divergent_working_copy=divergent,
+        )
+
+
+def autosave_runbook(
+    document_id: str,
+    markdown: str,
+    *,
+    expected_revision: int | None = None,
+) -> WorkObject:
+    return autosave_plan(
+        document_id, markdown, expected_revision=expected_revision
+    )
+
+
+def commit_runbook(
+    document_id: str,
+    markdown: str,
+    *,
+    expected_revision: int | None = None,
+) -> tuple[WorkObject, WorkRevision]:
+    return commit_plan(
+        document_id, markdown, expected_revision=expected_revision
+    )
+
+
+def update_runbook_metadata(
+    document_id: str,
+    *,
+    title: str | None = None,
+    target_session: int | None | object = None,
+    expected_revision: int | None = None,
+    status: str | None = None,
+    target_session_set: bool = False,
+) -> WorkObject:
+    return update_plan_metadata(
+        document_id,
+        title=title,
+        target_session=target_session,
+        expected_revision=expected_revision,
+        status=status,
+        target_session_set=target_session_set,
+    )

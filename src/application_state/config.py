@@ -28,11 +28,24 @@ def plan_kind_uses_postgres() -> bool:
     return True
 
 
+def runbook_kind_uses_postgres() -> bool:
+    """AS2 switched ``kind=runbook`` to PostgreSQL.
+
+    There is no production file-authority toggle. Missing or unusable DSN fails
+    closed on Runbook operations; it does not restore the old file registry.
+    """
+    return True
+
+
+def content_kind_uses_postgres(kind: str) -> bool:
+    return kind in {"plan", "runbook"}
+
+
 def load_runtime_dsn() -> str:
     raw = os.environ.get(APPLICATION_STATE_DSN_ENV, "").strip()
     if not raw:
         raise ApplicationStateUnavailableError(
-            f"{APPLICATION_STATE_DSN_ENV} is not set; Plan kind cannot use application state"
+            f"{APPLICATION_STATE_DSN_ENV} is not set; switched Content kinds cannot use application state"
         )
     try:
         assert_safe_application_state_dsn(raw)
