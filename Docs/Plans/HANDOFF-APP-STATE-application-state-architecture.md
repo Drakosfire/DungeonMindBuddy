@@ -19,15 +19,15 @@ pr_body_template: |
 
 # HANDOFF — AS0: define the Buddy Application State architecture and migration contract
 
-**Created:** 2026-08-24  
-**Status:** READY FOR DISPATCH — steward-designated architecture gate  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-APP-STATE-application-state-architecture.md`  
-**Conversation/workstream:** `APP-STATE`  
-**Flow / owner:** `APP-STATE`  
-**Direction:** DESIGN → REVIEW  
-**Design authority base:** `31f2885cc18f96b98a1028304ae98914d1139fa3` (merge of CUTOVER PR #634)  
-**Dispatch base rule:** branch from fresh current `main` containing this handoff; if `main` advances after dispatch, use steward preflight and stop only when the advance materially changes AS0 authority, write lease, or evidence.  
-**Suggested branch:** `agent/app-state-application-state-architecture`  
+**Created:** 2026-08-24
+**Status:** ARCHIVED — completed by PR #636 merge `4c90df353bfb5d0f6857357e00eb8b2b6e142257`; successor AS0.1 PR #639 merge `dd09f7f707e38f9f4348b759da8cfdbbe420fd60`; AS1 is the active implementation slice
+**Canonical handoff path:** `Docs/Plans/HANDOFF-APP-STATE-application-state-architecture.md`
+**Conversation/workstream:** `APP-STATE`
+**Flow / owner:** `APP-STATE`
+**Direction:** DESIGN → REVIEW
+**Design authority base:** `31f2885cc18f96b98a1028304ae98914d1139fa3` (merge of CUTOVER PR #634)
+**Dispatch base rule:** branch from fresh current `main` containing this handoff; if `main` advances after dispatch, use steward preflight and stop only when the advance materially changes AS0 authority, write lease, or evidence.
+**Suggested branch:** `agent/app-state-application-state-architecture`
 **Suggested PR title:** `APP-STATE: define application-state architecture and migration contract`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Parent pickup authority: [`STEWARDS-ANCHOR-application-state.md`](STEWARDS-ANCHOR-application-state.md).
