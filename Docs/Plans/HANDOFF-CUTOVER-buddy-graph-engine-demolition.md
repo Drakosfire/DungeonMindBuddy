@@ -12,6 +12,7 @@ pr_body_template: |
   - #645 final review: Review Cycle 2 PASS-equivalent `5026532158`
   - Cycle 1 review: REQUEST-CHANGES-equivalent `5026690745` on `e7b34502eb3a7a3fcc8b716ef4a25a5bb7fc9db2`
   - Cycle 1 addendum: `5420568935` (same head; not Cycle 2)
+  - Cycle 2 review: REQUEST-CHANGES-equivalent `5031234283` on `1d99c5e7a23cf864b671c6d3f0d17c65618a9327`
   - Parallel re-anchor: APP-STATE Play-continuity docs on `main` as `764d9d1ddbebbf398cb1f701d23de83c4c67a454`
   - DungeonMind provider pin: `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`
 
@@ -30,13 +31,14 @@ pr_body_template: |
       D.3B   physical legacy-package deletion
 
   D.3 is not DONE until D.3B merges and the final absence proof passes.
+  D.2C3 is not dispatched until this design PR merges.
   D.3A is not dispatched until D.2C3 merges.
 ---
 
 # HANDOFF — CUTOVER D.3: Buddy graph-engine demolition
 
 **Created:** 2026-08-25
-**Status:** CYCLE 1 REPAIR — awaiting Review Cycle 2
+**Status:** CYCLE 2 REPAIR — awaiting Review Cycle 3
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`
 **Workstream / flow:** `CUTOVER`
 **Direction:** DESIGN → REVIEW
@@ -44,6 +46,7 @@ pr_body_template: |
 **Exact design base / current `main`:** `764d9d1ddbebbf398cb1f701d23de83c4c67a454` — APP-STATE Play-continuity re-anchor on top of #646/#645
 **Cycle 1 review:** REQUEST-CHANGES-equivalent `5026690745` on `e7b34502eb3a7a3fcc8b716ef4a25a5bb7fc9db2`
 **Cycle 1 addendum:** issue comment `5420568935` on the same head; not Review Cycle 2
+**Cycle 2 review:** REQUEST-CHANGES-equivalent `5031234283` on `1d99c5e7a23cf864b671c6d3f0d17c65618a9327`
 **D.2C2 implementation:** Buddy #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`
 **D.2C2 accepted head:** `f772db17e00cbe2c0198ae53f169a10a6332a3ed`
 **D.2C2 review:** 2 distinct-head cycles; final PASS-equivalent `5026532158`
@@ -99,6 +102,9 @@ demolition, not another semantic migration.
 
 **D.3 is not DONE after D.3A.** D.3 becomes DONE only after D.3B merges and the
 final source/runtime absence proof passes.
+
+**D.2C3 is not dispatched until this design PR merges.** Then re-anchor
+current `main` and dispatch the parseable D.2C3 CODE wrapper.
 
 **D.3A is not dispatched until D.2C3 merges.** The D.3A → D.3B split remains
 the demolition boundary. What changed is that repository inspection exposed
@@ -239,9 +245,21 @@ f27bf550  APP-STATE: record AS3 done and keep AS4 next
 Those commits are now part of the design base rather than a parallel lease.
 This design intentionally does not touch them.
 
-At this re-anchor the only open implementation/design PR is this D.3 design
-PR. D.2C3 and D.3A must still repeat the active-PR/write-lease check
-immediately before implementation.
+At this Cycle 2 repair the open PRs are:
+
+```text
+this D.3 design PR                          #647  this lease (design file only)
+APP-STATE persist active Run continuity     #649  disjoint Play/AS4
+```
+
+`#649` currently touches `apps/live-control-ui/src/api/liveApi.test.ts` as a
+test-only path. D.3A names `liveApi.ts` and Statblock/Graph Review UI in
+§6.3; that is a **future** implementation lease. If #649 is still open when
+D.3A is dispatched, serialize or split `liveApi.ts` / its tests rather than
+editing through AS4.
+
+D.2C3 and D.3A must still repeat the active-PR/write-lease check immediately
+before implementation.
 
 ### 2.4 Current state docs are behind both #645 and this repair
 
@@ -307,17 +325,29 @@ Hermes / agent graph reads
 ```
 
 The following are mounted FastAPI surface *today*, not historical scripts.
-Their D.3A fate is frozen in §5.1; D.2C3 does not change them.
+Their D.3A fate is frozen in §5.1 at **endpoint / UI** granularity, not
+router-unmount granularity. D.2C3 does not change them.
 
 ```text
-/api/live/world-graph-bootstrap     Kernel Eldyrwild bootstrap writer
-/api/live/graph-authoring           UnionSupergraph file apply
-/api/live/graph-preview             UnionSupergraphStore Plan preview
-lifespan world_graph_prewarm        import graph_memory.kernel as kernel
-config.world_graph_authority_mode() parser in world_supergraph.storage
-routes.world_graph_projection       module-level graph_memory.kernel import
-routes.world_graph_retrieval        module-level graph_memory.kernel import
-routes.threat_query_hydration       union_supergraph.statblock_binding import
+/api/live/world-graph-bootstrap/*                Kernel Eldyrwild bootstrap
+/api/live/graph-authoring/*                      UnionSupergraph file apply
+/api/live/graph-preview/union-supergraph/projection
+                                                store-backed Plan/GR preview
+remaining /api/live/graph-preview/*              mixed live product router
+lifespan world_graph_prewarm                     import graph_memory.kernel
+config.world_graph_authority_mode()              parser in world_supergraph.storage
+routes.world_graph_projection                    module-level kernel import
+routes.world_graph_retrieval                     module-level kernel import
+routes.threat_query_hydration                    union_supergraph.statblock_binding
+```
+
+Active UI callers that D.3A must not orphan:
+
+```text
+Plan GraphIngestProjectionPanel          Open Union Graph
+Graph Review live/candidate projection   getUnionSupergraphProjection
+Graph Review authoring workspace         prepare/commit/merge-reconciliation
+Statblock workbench create-context       getWorldGraphBootstrapStatus
 ```
 
 Historical migration/conformance scripts and explicit legacy fixtures are not
@@ -601,15 +631,19 @@ title   CUTOVER: native genesis read/write continuity
 The wrapper pins execution metadata, write lease, evidence, state sync, and
 handback. It does not reopen the binding algebra.
 
+**Dispatch law:** merge this design PR first. Then re-anchor current `main`
+and dispatch the parseable D.2C3 CODE wrapper from the **merged** design.
+Do not dispatch D.2C3 from an accepted-but-unmerged design head. That would
+implement from a side-branch authority document and violates repository law.
+
 ### 4.10 D.2C3 review handback contract
 
 Return:
 
 1. exact PR / branch / final head SHA;
 2. exact implementation base and rebase status;
-3. accepted D.3 design merge/head/review authorizing D.2C3, or this design
-   PR's accepted head if D.2C3 is dispatched from an accepted design head
-   before design merge;
+3. this design PR's **merge SHA**, accepted head, and PASS-equivalent review
+   authorizing D.2C3. An accepted-but-unmerged design head is not authority;
 4. cumulative changed paths against the D.2C3 lease;
 5. active parallel PRs checked;
 6. binding algebra implemented for both genesis families;
@@ -646,8 +680,8 @@ architecture is not an implementation lease.
 Dispositions:
 
 ```text
-FAIL_CLOSED   remove from mounted app; explicit retired/410/config-error;
-              no engine import remains on the boot graph
+FAIL_CLOSED   retire the named capability; no engine import remains on the
+              boot graph; HTTP/UI contract is frozen in §5.1.1
 REHOME_DTO    consume already-landed DungeonMind projection/retrieval/value
               contracts only; byte/ID/digest parity where values move
 REWRITE_PORT  already-frozen WorldGraphAuthority / initialization port;
@@ -656,24 +690,217 @@ STOP          still requires local head/revision/UnionSupergraphStore
               semantics; D.2 incomplete or split a predecessor
 ```
 
-Frozen table:
+#### 5.1.1 Observable retired-HTTP contract
+
+`FAIL_CLOSED` does **not** mean “unmount the router and hope.” An unmounted
+route is 404. Live UI currently treats some 404s as “missing artifact,” not
+“retired capability.”
+
+For each retired HTTP path, D.3A uses exactly this observable:
+
+```text
+KEEP_MOUNTED_410
+  the path stays registered on the live FastAPI app
+  the handler imports none of kernel / world_supergraph / union_supergraph
+  response is HTTP 410
+  JSON carries a stable retired code + explicit retirement message
+  no UnionSupergraphStore load, Kernel init, or file apply runs
+```
+
+Frozen retired codes:
+
+```text
+/api/live/graph-preview/union-supergraph/projection
+  → 410  code=union_supergraph_preview_retired
+
+/api/live/graph-authoring/prepare
+/api/live/graph-authoring/commit
+/api/live/graph-authoring/merge-reconciliation/prepare
+/api/live/graph-authoring/merge-reconciliation/apply
+  → 410  code=graph_authoring_store_retired
+
+/api/live/world-graph-bootstrap/status
+/api/live/world-graph-bootstrap/prepare
+/api/live/world-graph-bootstrap/confirm
+  → 410  code=world_graph_bootstrap_retired
+```
+
+Never:
+
+- unmount a still-public path so callers observe 404;
+- keep the engine implementation behind a 410;
+- leave a live button/workspace that presents 404 as “missing projection”
+  or “write succeeded.”
+
+Engine implementation modules may remain on disk until D.3B DELETE. They must
+not be imported by `create_app()`, retained routers, or lifespan.
+
+#### 5.1.2 `/api/live/graph-preview` is endpoint-level, not router-level
+
+`routes/graph_preview.py` is a mixed router. **Keep it mounted.** Do not
+treat the whole `graph_preview.py` path as FAIL_CLOSED in the D.3A static
+gate.
+
+Retire only the store-backed endpoint:
+
+```text
+GET /api/live/graph-preview/union-supergraph/projection
+```
+
+Keep these mounted and import-block-safe (they are live product/source
+workflows; they are not UnionSupergraphStore loads):
+
+```text
+GET  /api/live/graph-preview/artifacts
+GET  /api/live/graph-preview/runs
+GET  /api/live/graph-preview/latest
+GET  /api/live/graph-preview/graph-ingest/runs
+GET  /api/live/graph-preview/graph-ingest/latest
+GET  /api/live/graph-preview/extraction-runs/{run_id}
+GET  /api/live/graph-preview/extraction-runs/{run_id}/build-context
+POST /api/live/graph-preview/extraction-runs
+POST /api/live/graph-preview/existing-object-resolver/candidates
+POST /api/live/graph-preview/gold-authoring/prepare
+POST /api/live/graph-preview/gold-authoring/commit
+POST /api/live/graph-preview/gold-authoring/verify-commit
+GET  /api/live/graph-preview/gold-review/sessions
+GET  /api/live/graph-preview/gold-review/compare
+GET  /api/live/graph-preview/gold-review/evidence
+GET  /api/live/graph-preview/gold-review/projection
+GET  /api/live/graph-preview/gold-review/vocabulary-ablation
+GET  /api/live/graph-preview/manual-review/beds
+GET  /api/live/graph-preview/manual-review/beds/{bed_id}
+GET  /api/live/graph-preview/recap
+```
+
+Required module splits so the retained router is import-block-safe:
+
+```text
+routes/graph_preview.py
+  must not import union_supergraph_projection_adapter
+
+GET /union-supergraph/projection
+  KEEP_MOUNTED_410 stub with no adapter/engine import
+
+POST /existing-object-resolver/candidates stays mounted
+  graph_object_candidate_sources.py currently imports
+  graph_memory.union_supergraph.load at module top for
+  current_recap_projection. Drop that import.
+  That scope is FAIL_CLOSED-as-unavailable (diagnostic, not 410 on
+  the resolver endpoint) or REHOME_DTO onto already-mounted
+  World Graph projection. Do not load a UnionSupergraphStore.
+
+world_graph_recap_projection.py
+  currently imports corpus-recap helpers from
+  union_supergraph_projection_adapter. Extract those helpers into a
+  non-engine module. Recap projection stays mounted.
+```
+
+If any other currently retained endpoint is later proven to import a
+retired namespace at module top, split or FAIL_CLOSED that endpoint; do
+not unmount the router.
+
+Store-backed preview is ingest-store semantics, not the published World
+Graph. Do not pretend native DungeonMind projection is the same product.
+Plan/Graph Review may keep using `/api/live/world-graph-projection` and
+`/api/live/world-graph-retrieval` for published authority.
+
+#### 5.1.3 Live UI callers — Open Union Graph / candidate store preview
+
+Live callers of `getUnionSupergraphProjection` today:
+
+```text
+GraphIngestProjectionPanel          Plan “Open Union Graph”
+graphReviewLiveReviewState.ts       Graph Review candidate/live ingest projection
+```
+
+`GraphIngestProjectionPanel` currently maps HTTP 404 to “the latest
+graph-ingest run disappeared or its projection artifact is missing.”
+
+D.3A product choice for this store-backed visualization: **intentional
+retirement**, not STOP, and not a Plan/Graph Review UX redesign.
+
+Same PR must:
+
+1. keep `GET /union-supergraph/projection` as KEEP_MOUNTED_410;
+2. stop offering Open Union Graph as a working action; the Plan panel
+   communicates that Union Graph store preview is retired;
+3. stop Graph Review candidate/live ingest projection from calling the
+   store API; that lane shows explicit retired/unavailable for
+   preview-union visualization;
+4. leave committed/exact-run DungeonMind World Graph projection in place
+   (`GraphReviewCommittedProjectionPanel` / extract-promote);
+5. treat HTTP 410 `union_supergraph_preview_retired` as retirement, never
+   as a missing artifact;
+6. update owning UI tests.
+
+#### 5.1.4 Graph authoring — intentional retirement, not STOP
+
+`/api/live/graph-authoring` is the expired PR003 UnionSupergraph *file
+writer*. Exact-run Graph Review already publishes through DungeonMind.
+This is **not** a remaining intended World Graph write capability, so D.3A
+does **not** insert a predecessor migration and does **not** rewrite it
+onto `WorldGraphAuthority`.
+
+It is also not abandoned backend: Graph Review currently calls
+`prepareGraphObjectAuthoringWrite` / `commitGraphObjectAuthoringWrite`,
+mounts `GraphReviewAuthorDraftWorkspace`, and presents successful durable
+writes.
+
+D.3A product choice: **intentional retirement of the authoring UI/workflow
+in the same PR as the backend 410.** Do not 410 the backend while a live
+authoring surface remains.
+
+Same PR must:
+
+1. KEEP_MOUNTED_410 on all four authoring endpoints;
+2. disable/remove the Graph Review authoring prepare/commit/merge-reconciliation
+   workspace so users cannot operate a dead write flow, including at least:
+   `GraphReviewAuthorDraftWorkspace`,
+   `GraphObjectAuthoringPrepareCommitPanel`,
+   `GraphReviewAuthoringRail` merge-reconciliation,
+   `GraphProjectionReader` `graph-authoring-action`,
+   authoring mode toggle;
+3. keep exact-run extract-promote Graph Review mounted and working;
+4. not copy `apply_union_supergraph_merge_plan_to_file` into a new namespace;
+5. update owning UI tests.
+
+Gold-authoring under `/api/live/graph-preview/gold-authoring/*` is fixture
+JSON preview, not the UnionSupergraph file writer. It stays mounted unless
+inventory proves a retired-namespace import on the boot graph.
+
+#### 5.1.5 World-graph-bootstrap — 410, not unmount
+
+Kernel Eldyrwild bootstrap prepare/confirm is retired. First-world creation
+is `WorldGraphInitializationAuthority`; Eldyrwild living authority is
+existing-world adoption. Do not rewrite bootstrap onto reviewed-init.
+
+`StatblockWorkbenchModule` currently calls `getWorldGraphBootstrapStatus()`
+as a live head/world oracle for create-context. Unmounting to 404 would
+break that pin.
+
+KEEP_MOUNTED_410 for status/prepare/confirm. D.3A updates Statblock
+create-context to pin from already-landed World Graph / DungeonMind head
+(`WorldGraphAuthority` / native projection), not Kernel bootstrap status.
+Handle 410 as retired if any call remains.
+
+#### 5.1.6 Remaining boot-imported surfaces
 
 | Boot-imported surface | Disposition | D.3A meaning |
 |---|---|---|
-| `/api/live/world-graph-bootstrap` (`routes/world_graph_bootstrap.py`, `services/world_graph_bootstrap.py`) | **FAIL_CLOSED** | Unmount from `create_app()`. This is the pre-D.2C2 Kernel Eldyrwild bootstrap writer. First-world creation is `WorldGraphInitializationAuthority`; Eldyrwild living authority is existing-world adoption. Do not rewrite this route onto reviewed-init. 410/retired if a caller still hits the path. Implementation may remain until D.3B DELETE. |
-| `/api/live/graph-authoring` prepare/commit/merge-reconciliation (`routes/graph_authoring.py`, `services/graph_object_authoring_commit.py`, `services/graph_merge_reconciliation_materialize.py`, related overlay apply) | **FAIL_CLOSED** | Unmount from `create_app()`. This is the expired PR003 UnionSupergraph *file writer* (exemption named PR006/PR007; those slices are DONE). Exact-run Graph Review already publishes through DungeonMind. Do not copy `apply_union_supergraph_merge_plan_to_file` into a new namespace. Do not rewrite Plan gold-authoring onto `WorldGraphAuthority`. Overlay files are historical artifacts for D.3B. |
-| Plan `/api/live/graph-preview` UnionSupergraphStore materialization (`services/union_supergraph_projection_adapter.py` load/parse/`build_preview_union_supergraph`) | **FAIL_CLOSED** | Retire store-backed candidate/gold/preview materialization from the mounted app. That preview is ingest-store semantics, not the published World Graph. Do not pretend native DungeonMind projection is the same product. Plan may keep using already-mounted `/api/live/world-graph-projection` and `/api/live/world-graph-retrieval`. This is retirement of a local-store preview, not a Plan UX redesign. |
+| Retained `/api/live/graph-preview/*` except `/union-supergraph/projection` | **keep mounted** | Import-block-safe. Not FAIL_CLOSED as a router. |
 | Plan graph-preview / recap DTOs that do not import the three retired namespaces | **REHOME_DTO** | Keep storage-neutral `graph_memory.projection` / retrieval DTO modules. After D.3A they must not import kernel / world_supergraph / union_supergraph. Do not churn public wire schemas merely to rename a package. |
-| `world_graph_prewarm` Kernel coordinator (`services/world_graph_prewarm.py`, app lifespan) | **FAIL_CLOSED** | No Kernel resident/prewarm worker. Lifespan start/stop may remain as a no-op so shutdown ownership does not import `graph_memory.kernel`. In `dungeonmind` mode the worker is already documented as waste; D.3A makes that import-free. |
+| `world_graph_prewarm` Kernel coordinator (`services/world_graph_prewarm.py`, app lifespan) | **FAIL_CLOSED** | No Kernel resident/prewarm worker. Lifespan start/stop may remain as a no-op so shutdown ownership does not import `graph_memory.kernel`. No HTTP 410; there is no public route. |
 | `config.world_graph_authority_mode()` parser currently in `graph_memory.world_supergraph.storage` | **REHOME_DTO** | D.3A **must** rehome the parser/constants into Buddy-owned `config` / ports and apply §5.2. App boot cannot be import-blocked while `config.py` imports `world_supergraph.storage`. D.3B deletion of the old parser is not a substitute. |
 | Module-level `import graph_memory.kernel` on `services/world_graph_projection.py` and `services/world_graph_retrieval.py` | **FAIL_CLOSED** for the file/kernel branch; production already uses DungeonMind | Remove the top-level kernel import. Production native methods stay. `_route_authority_read` / `dungeonmind_kernel.route_service_read` buddy_files passthrough is not a mounted production path after D.3A. Lazy kernel import is not an escape: these modules are imported at app construction. |
 | Mounted `dungeonmind_kernel` hydrated read passthrough (`route_service_read`, `bind_world_authority` requiring frozen Buddy store) | **FAIL_CLOSED** | Not a production path after D.3A. Do not extend it for first-world worlds. Historical modules may remain until D.3B. |
 | `routes/threat_query_hydration.py` → `graph_memory.union_supergraph.statblock_binding` | **REHOME_DTO** | Relocate still-used mechanics contracts per §5.4. Query/hydration stays mounted; it must not import `union_supergraph` after D.3A. |
-| `get_world_graph_authority(world_root=...)` / `get_world_graph_initialization_authority(world_root=...)` selecting `BuddyFiles*Adapter` for a non-production root | **FAIL_CLOSED** | After D.3A a different `world_root` argument must not select the file adapter. Tests/tools that need legacy fixtures construct them directly. |
+| `get_world_graph_authority(world_root=...)` / `get_world_graph_initialization_authority(world_root=...)` selecting `BuddyFiles*Adapter` for a non-production root | **FAIL_CLOSED** | After D.3A a different `world_root` argument must not select the file adapter. Tests/tools that need legacy fixtures construct them directly. Configuration failure, not HTTP 410. |
 
 If implementation discovers that a FAIL_CLOSED surface is still a real
 operational dependency that requires local store semantics, STOP and re-brief.
-Do not silently convert FAIL_CLOSED into REWRITE_PORT.
+Do not silently convert FAIL_CLOSED into REWRITE_PORT. Do not convert
+intentional authoring retirement into STOP without a re-brief.
 
 ### 5.2 Production authority selection is retired
 
@@ -878,7 +1105,9 @@ current API/wire schemas for remaining mounted routes
 stable contribution/source IDs and digests
 ```
 
-FAIL_CLOSED retired routes in §5.1 are removed, not rewritten.
+FAIL_CLOSED retired capabilities in §5.1 keep their public paths as
+KEEP_MOUNTED_410 stubs; engine implementations are not rewritten onto
+DungeonMind.
 
 ---
 
@@ -976,7 +1205,16 @@ directly. A non-production `world_root` does not select the file adapter.
 
 #### Step 3 — execute §5.1 and remaining mounted engine imports
 
-Unmount FAIL_CLOSED boot surfaces from `create_app()` / lifespan.
+Keep `routes.graph_preview` mounted. Replace store-backed
+`/union-supergraph/projection` with an import-free 410 stub and drop the
+adapter import from the retained router.
+
+Keep `routes.graph_authoring` and `routes.world_graph_bootstrap` registered
+as import-free 410 stubs (KEEP_MOUNTED_410). Do not `include_router`-remove
+them into 404.
+
+In the same PR, apply the §5.1.3–§5.1.5 UI retirements so no live button
+or authoring workspace still presents store writes/preview as working.
 
 Switch every remaining `MOUNTED_PRODUCT` / `PURE_PRODUCT_VALUE` dependency to:
 
@@ -1074,7 +1312,7 @@ apps/live_control_server/ports/world_graph_authority_access.py
 apps/live_control_server/ports/world_graph_initialization_access.py
 apps/live_control_server/integrations/buddy_files/**
 apps/live_control_server/integrations/dungeonmind/world_graph*.py
-apps/live_control_server/integrations/dungeonmind_kernel/**   only to FAIL_CLOSED unmount / stop calling it
+apps/live_control_server/integrations/dungeonmind_kernel/**   only to stop calling it from mounted product
 apps/live_control_server/models/world_graph_contribution_values.py
 apps/live_control_server/models/extract_promote.py
 apps/live_control_server/models/threat_query_hydration.py
@@ -1086,7 +1324,19 @@ apps/live_control_server/services/world_graph_bootstrap.py
 apps/live_control_server/services/graph_object_authoring_commit.py
 apps/live_control_server/services/graph_merge_reconciliation_materialize.py
 apps/live_control_server/services/union_supergraph_projection_adapter.py
+apps/live_control_server/services/graph_object_candidate_sources.py
+apps/live_control_server/services/world_graph_recap_projection.py
 apps/live_control_server/services/world_graph_prewarm.py
+apps/live-control-ui/src/api/liveApi.ts
+apps/live-control-ui/src/planSurface/graphPreview/GraphIngestProjectionPanel.tsx
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewLiveReviewState.ts
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorDraftWorkspace.tsx
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringPrepareCommitPanel.tsx
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthoringRail.tsx
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphMergeReconciliationMaterializationPanel.tsx
+apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.tsx
+apps/live-control-ui/src/surface/modules/StatblockWorkbenchModule.tsx
+owning UI tests for those retired actions / workspaces
 apps/live_control_server/services/first_world_graph.py
 apps/live_control_server/services/first_world_graph_publication.py
 apps/live_control_server/services/world_graph_*.py
@@ -1097,9 +1347,10 @@ src/graph_memory/projection/**
 new narrowly named Buddy-owned contribution/mechanics value modules required by §5.4
 ```
 
-The named boot-imported routes/adapters are the §5.1 lease. Bounded
-`apps/live_control_server/**` discovery is **not** permission to redesign
-Plan/authoring. FAIL_CLOSED means unmount/retire, not a new Plan UX.
+The named boot-imported routes/adapters and the §5.1.3–§5.1.5 UI files are
+the lease. Bounded `apps/live_control_server/**` or `apps/live-control-ui/**`
+discovery is **not** permission to redesign Plan/Graph Review. FAIL_CLOSED
+means KEEP_MOUNTED_410 plus the frozen minimal UI retirement, not a new UX.
 
 #### Bounded discovery lease
 
@@ -1108,9 +1359,9 @@ added only when all are true:
 
 1. it has a base-revision executable import from a retired namespace;
 2. D.3A only replaces that import/call with a frozen owner from this design
-   or executes a §5.1 FAIL_CLOSED unmount;
+   or executes a §5.1 KEEP_MOUNTED_410 / import-free stub;
 3. no remaining mounted wire/public semantics change except the frozen
-   retired/410 responses for FAIL_CLOSED routes;
+   410 retirement responses and the frozen minimal UI disable/removal;
 4. it is not leased by another active PR at implementation re-anchor;
 5. handback names the file and original classification.
 
@@ -1125,7 +1376,9 @@ tests/test_first_world_graph.py
 tests/test_live_extract_promote_api.py
 focused Graph Review / Threat / worldbuilding / Hermes tests owning changed seams
 new D.3 import-blocker / filesystem-absence tests
-FAIL_CLOSED proofs for bootstrap / graph-authoring / store-backed graph-preview
+FAIL_CLOSED proofs for KEEP_MOUNTED_410 bootstrap / graph-authoring /
+  union-supergraph projection; retained graph-preview endpoints still boot;
+  Open Union Graph / authoring workspace / Statblock bootstrap-status UI
   / prewarm / retired selector / non-production world_root
 ```
 
@@ -1146,7 +1399,7 @@ new World Graph semantics
 broad historical Eldyrwild correction/conformance deletion
 source-artifact/evidence/extraction redesign
 Combat/application-state work
-Plan UX replacement for FAIL_CLOSED preview/authoring
+Plan UX replacement beyond the frozen §5.1.3–§5.1.5 retirements
 ```
 
 D.3A must re-check active PRs at implementation time. Any new lease overlap is
@@ -1164,9 +1417,12 @@ At accepted head:
 0 mounted-product imports from graph_memory.union_supergraph
 0 mounted factory branches selecting buddy_files/quiesced
 0 hydration/local fallback on DungeonMind failure
-0 create_app() registration of world-graph-bootstrap / graph-authoring
-  UnionSupergraph apply / store-backed graph-preview materialization
+0 engine implementation behind KEEP_MOUNTED_410 stubs
+0 create_app() import of union_supergraph_projection_adapter
+  / Kernel bootstrap service / UnionSupergraph file-apply
 0 lifespan Kernel prewarm import
+graph-preview router remains mounted; retained endpoints besides
+  /union-supergraph/projection still registered
 ```
 
 Historical docs are excluded. Named legacy tooling/tests may remain for D.3B.
@@ -1187,7 +1443,9 @@ native D_0 projection/retrieval + one existing-parent child (D.2C3)
 Threat publish/recover
 worldbuilding publish/recover
 Hermes/latest-recap graph comparison or owning service boundary
-FAIL_CLOSED retired bootstrap/authoring/store-preview paths
+FAIL_CLOSED retired bootstrap/authoring/store-preview paths as 410
+retained graph-preview extraction/gold/manual/recap endpoints still boot
+Open Union Graph / authoring workspace / Statblock bootstrap-status UI
 ```
 
 Route-level + owning service tests may be combined, but the blocker remains active
@@ -1270,7 +1528,8 @@ src/graph_memory/world_supergraph/**
 src/graph_memory/union_supergraph/**
 apps/live_control_server/integrations/buddy_files/**
 retired hydration/cache implementation
-FAIL_CLOSED bootstrap/authoring/store-preview implementations unmounted in D.3A
+FAIL_CLOSED bootstrap/authoring/store-preview implementations replaced by
+  import-free 410 stubs in D.3A
 legacy-only tests whose sole purpose is deleted authority behavior
 ```
 
@@ -1368,8 +1627,8 @@ Do not use D.2C3 or D.3 to:
 - create another Buddy graph database/schema;
 - move mechanics/statblocks into semantic World Graph authority;
 - redesign Graph Review UX/API;
-- redesign Plan/Play/Build/Hermes behavior (FAIL_CLOSED is retirement, not a
-  replacement UX);
+- redesign Plan/Play/Build/Hermes behavior beyond the frozen §5.1.3–§5.1.5
+  retirements (410 + disable dead store actions is not a replacement UX);
 - merge APP-STATE feature work into CUTOVER;
 - delete source artifacts/evidence/candidate/workspace state;
 - rename every surviving `graph_memory` package for aesthetics;
@@ -1403,7 +1662,10 @@ STOP if:
     already-landed repositories;
 12. a concrete post-cutover failure shows D.2 authority migration was incomplete
     *beyond* the frozen D.2C3 seam;
-13. a §5.1 FAIL_CLOSED surface is still operationally required as a local store.
+13. a §5.1 FAIL_CLOSED / KEEP_MOUNTED_410 surface is still operationally
+    required as a local store;
+14. a live UI still presents store-backed preview or authoring as a working
+    write/open action after the frozen 410 retirement.
 
 ---
 
@@ -1425,8 +1687,8 @@ STOP if:
 1. establish Buddy-owned contribution/mechanics values + parity tests
 2. switch mounted DTOs/services off legacy value imports
 3. rehome selector parser; make factories DungeonMind-only; retire old modes
-4. FAIL_CLOSED unmount bootstrap / graph-authoring / store-backed preview /
-   Kernel prewarm; remove remaining mounted engine imports
+4. KEEP_MOUNTED_410 stubs + §5.1.3–§5.1.5 UI retirement; drop engine
+   imports from retained routers; Kernel prewarm no-op
 5. add import-blocked + legacy-filesystem-absent witnesses
 6. run D.1/D.2/D.2C3 regressions and close the dependency inventory
 7. carry D.2C3 + accepted-design predecessor state sync
@@ -1455,8 +1717,10 @@ Return:
 12. import-blocker witness installed before app import;
 13. legacy graph filesystem absent-before/after proof;
 14. no hydration/cache/local fallback on DungeonMind failure;
-15. FAIL_CLOSED proofs for bootstrap / graph-authoring / store-backed preview /
-    Kernel prewarm;
+15. KEEP_MOUNTED_410 proofs for bootstrap / graph-authoring /
+    `/union-supergraph/projection`; retained graph-preview endpoints still
+    boot; Open Union Graph / authoring workspace / Statblock bootstrap-status
+    UI plus Kernel prewarm;
 16. projection/retrieval/evidence/anchor results;
 17. D.1 Graph Review results;
 18. D.2A Threat PostgreSQL publish/recovery results;
@@ -1491,8 +1755,8 @@ Review this repaired design specifically for:
    and is the two-family genesis binder complete enough to dispatch?
 2. **Decomposition:** after D.2C3, is D.3A production excision → D.3B physical
    deletion still the right demolition boundary?
-3. **Boot fate:** are the §5.1 FAIL_CLOSED / REHOME_DTO dispositions the right
-   product decisions, especially Plan store-preview retirement vs STOP?
+3. **Boot fate:** are KEEP_MOUNTED_410 + endpoint-level graph-preview +
+   intentional UI retirement the right product decisions, vs STOP?
 4. **Authority retirement:** should `buddy_files` / `quiesced` / non-production
    `world_root` fail closed rather than be silently ignored?
 5. **Value ownership:** are contribution/projection/mechanics values preserved
@@ -1506,8 +1770,9 @@ Review this repaired design specifically for:
 9. **Data safety:** is “physically absent” correctly defined as runtime
    independence rather than automatic deletion of user graph data?
 
-Do not dispatch D.2C3 until this repaired design has a formal PASS-equivalent
-review on a distinct accepted head.
+Do not dispatch D.2C3 until this design PR **merges** after a formal
+PASS-equivalent review. An accepted-but-unmerged design head is not
+dispatch authority.
 
 Do not dispatch D.3A until D.2C3 is merged.
 
