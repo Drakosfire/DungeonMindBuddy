@@ -1,9 +1,9 @@
 # ROADMAP — Application State
 
-**Status:** ACTIVE — AS0 through AS3 merged; AS4 Play Continuity is this implementation PR
+**Status:** ACTIVE — AS0 through AS4 merged; AS5 Play persistence demolition is this implementation PR
 **Line of work / flow:** `APP-STATE`
 **Created:** 2026-08-24
-**Updated:** 2026-08-25
+**Updated:** 2026-08-26
 **Architecture authority:** [`../Design/ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md)
 **Parent pickup:** [`../Plans/STEWARDS-ANCHOR-application-state.md`](../Plans/STEWARDS-ANCHOR-application-state.md)
 **AS0 merge:** `4c90df353bfb5d0f6857357e00eb8b2b6e142257` (PR #636)
@@ -27,13 +27,19 @@
 **AS3 review:** 3 distinct-head cycles; final PASS-equivalent review `5026608908`
 **AS3 exact-head evidence:** PR #646 comment `5420273265`
 
+**AS4 merge:** `993f837b6f2fc601acf2ae3a4b7926af1858ac6c` (PR #649)
+**AS4 accepted head:** `be109c429460b6e22b0ded1c13e77dd0cc8e6b5e`
+**AS4 review:** 2 distinct-head cycles; final PASS-equivalent review `5033365385`
+**AS4 exact-head evidence:** PR #649 comment `5428663041`
+
 This roadmap is **capability-sequenced**. It is not a table-creation schedule.
 Each implementation slice must leave a real consumer working on PostgreSQL, then
 delete or fail-close the replaced file authority for that consumer.
 
 AS0 established the shared substrate. AS0.1 / PR #639 widened identity/asset
-scope. **AS1 is DONE.** **AS2 is DONE.** **AS3 is DONE.** **AS4 is this PR and
-is unmerged.** Do not invent the AS4 merge SHA. AS5 remains false.
+scope. **AS1 is DONE.** **AS2 is DONE.** **AS3 is DONE.** **AS4 is DONE.**
+**AS5 is this PR and is unmerged.** Do not invent the AS5 merge SHA. AS6+
+remains unselected.
 
 ---
 
@@ -45,14 +51,14 @@ AS0.1 STORAGE-TOPOLOGY       DONE — PR #639 merge dd09f7f7
 AS1   PLAN DOCUMENTS         DONE — PR #641 merge 29ff1584
 AS2   PLAYABLE               DONE — PR #643 merge b4d63daa
 AS3   PLAY RUNTIME           DONE — PR #646 merge 9c946cd8
-AS4   PLAY CONTINUITY        THIS PR — active Run + resume/reload; unmerged
-AS5   PLAY DEMOLITION        still false / blocked on AS4
+AS4   PLAY CONTINUITY        DONE — PR #649 merge 993f837b
+AS5   PLAY DEMOLITION        THIS PR — unmerged
 AS6+  CANDIDATE FAMILIES     evidence-driven; not pre-authorized schemas
 ```
 
-BF2/BF3 Play Runtime/cockpit deepening stays paused on the remaining
-file-backed `active-run.json` pointer until this AS4 PR merges or the steward
-explicitly re-sequences.
+AS4 closed the persistence reason for pausing BF2/BF3. Play Surface cockpit
+work may proceed in parallel with AS5 when write leases are disjoint. AS5 does
+not implement BF2/BF3.
 
 Order after AS5 is evidence-driven and may interleave with Play/Agent/CUTOVER
 work. Do not invent AS6/AS7 implementation handoffs or table names to fill this
@@ -139,7 +145,7 @@ domains must use.
 | Durable/public contract introduced | `play.run` + `play.run_manifest`; SQL `run_revision` CAS |
 | Runtime/database collision boundary | `out/runtime/play/` during pre-switch; same Buddy DB new `play` schema |
 | Required product + owning-boundary evidence | create+manifest atomicity (crash leaves neither); CAS 409; rebase without intent files; import existing runs+manifests; Runtime mutation latency baseline/head |
-| What remains false | active-run pointer remains a file until AS4; Play file demolition is AS5; Combat not migrated; mutation-history table not created |
+| What remains false | active-run pointer remained a file until AS4; Play file demolition is AS5; Combat not migrated; mutation-history table not created |
 | Measured latency (not a merge gate) | PostgreSQL Runtime CAS ~74 ms p95 vs 50 ms hypothesis and ~1 ms file baseline; Start Run + seal ~75 ms p95, inside the 250 ms hypothesis. Keep visible during interactive use. |
 
 ---
@@ -148,14 +154,14 @@ domains must use.
 
 | Field | Content |
 |---|---|
-| Status | **this PR** — not merged; do not invent the AS4 merge SHA |
+| Status | **DONE** — merged PR #649 at `993f837b6f2fc601acf2ae3a4b7926af1858ac6c` (accepted head `be109c429460b6e22b0ded1c13e77dd0cc8e6b5e`; 2 review cycles; final PASS-equivalent review `5033365385`; evidence comment `5428663041`) |
 | Independently useful outcome | Resume/reload opens the selected Run at the pinned Playable revision and current Runtime without reading `active-run.json` |
 | Primary consumer/story | Play entry/resume; CR-U17 |
 | Predecessor | AS3 Runs in PostgreSQL |
 | Durable/public contract introduced | `play.active_run` |
 | Runtime/database collision boundary | `out/runtime/play/active-run.json` |
 | Required product + owning-boundary evidence | set/get/clear active Run; resume E2E; restart restores exact current moment; resume latency baseline/head |
-| What remains false | Play file writers may still exist until AS5; Combat still files; BF2/BF3 cockpit semantics not in scope |
+| What remains false | Play filesystem persistence code remained until AS5; Combat still files; BF2/BF3 cockpit not implemented by AS4 |
 
 ---
 
@@ -163,7 +169,7 @@ domains must use.
 
 | Field | Content |
 |---|---|
-| Status | blocked on AS4 |
+| Status | **this PR** — not merged; do not invent the AS5 merge SHA |
 | Independently useful outcome | Play boots and operates with `out/runtime/play/` writers, rebase intents, and Play file locks **absent** |
 | Primary consumer/story | Operator dogfood: Play with old paths deleted or unreadable |
 | Predecessor | AS2–AS4 switched |
@@ -202,9 +208,9 @@ Do not start any of these by creating unused tables in AS1.
 - CUTOVER #645 merged immediately before AS3 #646; first-world initialization is
   now behind DungeonMind authority. Open CUTOVER #647 is D.3 graph-engine
   demolition design and is disjoint from APP-STATE Play Continuity paths.
-- PLAY-SURFACE BF2/BF3 remain paused on the remaining `active-run.json` file
-  pointer until AS4 or steward re-sequence. Existing PLAY-SURFACE active-run
-  continuity work is file-backed resume/serialize, not AS4 PostgreSQL dispatch.
+- PLAY-SURFACE BF2/BF3 may proceed in parallel with AS5 when write leases are
+  disjoint. AS4 removed the persistence reason for that pause; AS5 does not
+  implement cockpit semantics.
 - CON-READY stories are acceptance context, not a license to bundle Combat or Ingest into AS1.
 
 ---

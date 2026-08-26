@@ -27,7 +27,7 @@ pr_body_template: |
 # HANDOFF — AS4: Play Continuity on PostgreSQL
 
 **Created:** 2026-08-25  
-**Status:** READY — next APP-STATE implementation slice  
+**Status:** DONE — PR #649 merge `993f837b6f2fc601acf2ae3a4b7926af1858ac6c`  
 **Canonical handoff:** `Docs/Plans/HANDOFF-APP-STATE-play-continuity-postgres.md`  
 **Workstream / flow:** `APP-STATE`  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
@@ -36,10 +36,14 @@ pr_body_template: |
 **AS3 review:** 3 distinct-head cycles; final PASS-equivalent `5026608908`  
 **AS3 exact-head evidence:** PR #646 comment `5420273265`  
 **Post-AS3 state-sync merge:** `dd6c36abd3943f2a51ab2c69b8e789f005cc2b99` — PR #648  
+**AS4 merge:** `993f837b6f2fc601acf2ae3a4b7926af1858ac6c` — PR #649  
+**AS4 accepted head:** `be109c429460b6e22b0ded1c13e77dd0cc8e6b5e`  
+**AS4 review:** 2 distinct-head review cycles; final PASS-equivalent `5033365385`  
+**AS4 exact-head evidence:** PR #649 comment `5428663041`  
 **Branching rule:** create the implementation branch from the current `main` that contains this handoff, record that exact SHA as the PR base, and review `PR_BASE...HEAD`; do not branch from the historical AS3 merge.  
 **Suggested branch:** `agent/app-state-play-continuity`  
 **Suggested PR title:** `APP-STATE: persist active Run continuity`  
-**Named successor:** AS5 — Play persistence demolition — remains false until AS4 merges  
+**Named successor:** AS5 — Play persistence demolition — current unmerged APP-STATE slice; AS6+ remains unselected  
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Application-state authority: [`../Design/ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md). Play authority: [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md). Historical product contract: [`HANDOFF-PLAY-SURFACE-active-run-continuity.md`](HANDOFF-PLAY-SURFACE-active-run-continuity.md).
 
@@ -404,8 +408,9 @@ PR #648 already recorded AS3 DONE. Do not redo that history. If the implementati
 
 ```text
 AS3  DONE — #646 merge 9c946cd8; accepted head 913cfe0b; 3 cycles; PASS 5026608908
-AS4  THIS PR — unmerged; do not invent merge SHA
-AS5  still false / blocked on AS4
+AS4  DONE — #649 merge 993f837b; accepted head be109c42; 2 cycles; PASS 5033365385; evidence 5428663041
+AS5  THIS PR — unmerged Play persistence demolition
+AS6+ evidence-driven; no implementation dispatched
 ```
 
 Preserve the AS3 latency note and exact evidence IDs.
