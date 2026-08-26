@@ -5,8 +5,10 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import threading
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -19,13 +21,14 @@ from apps.live_control_server.main import create_app
 from apps.live_control_server.models.extract_promote import FirstWorldGraphConfirmRequest
 from apps.live_control_server.ports.world_graph_initialization import (
     WorldGraphInitializationError,
+    WorldGraphInitializationRequest,
 )
 from apps.live_control_server.ports.world_graph_initialization_access import (
     get_world_graph_initialization_authority,
 )
 from apps.live_control_server.services.first_world_graph import first_world_initialization_id
 from apps.live_control_server.services.first_world_graph_publication import (
-    confirm_first_world,
+    _initialization_request,
 )
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GRAPH_INGEST_RUNS_ENV,
@@ -162,6 +165,147 @@ def test_genesis_semantic_profile_is_builtin_worldbuilding_descriptor() -> None:
     assert profile.descriptor_sha256 == descriptor_sha256(descriptor)
 
 
+@dataclass
+class _FakeReceipt:
+    initialization_id: str = "init-1"
+    published_revision_id: str = "rev:d0"
+    initialized_at: datetime = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+class _FakeReviewedInit:
+    def __init__(self, result=None, error: BaseException | None = None) -> None:
+        self._result = result
+        self._error = error
+
+    def get_for_world(self, world_id: str):
+        if self._error is not None:
+            raise self._error
+        return self._result
+
+
+class _FakeGraph:
+    def __init__(self, head=None, error: BaseException | None = None) -> None:
+        self._head = head
+        self._error = error
+
+    def get_head(self, world_id: str):
+        if self._error is not None:
+            raise self._error
+        return self._head
+
+
+class _FakeBundle:
+    def __init__(
+        self,
+        *,
+        receipt=None,
+        receipt_error: BaseException | None = None,
+        head=None,
+        head_error: BaseException | None = None,
+    ) -> None:
+        self.reviewed_world_initializations = _FakeReviewedInit(receipt, receipt_error)
+        self.world_graph = _FakeGraph(head, head_error)
+
+
+def _dummy_initialization_request() -> WorldGraphInitializationRequest:
+    return WorldGraphInitializationRequest(
+        world_id="the-glass-orchard",
+        campaign_id="the-glass-orchard",
+        initialization_id="dmb:first-world:test",
+        source_plan_schema="dmb_first_world_plan_v1",
+        source_plan_id="plan",
+        source_plan_sha256="0" * 64,
+        actor="live_control:graph_review_confirm",
+        source_artifact=object(),
+        source_revision_token="rev:src",
+        source_uri="object://src",
+        reviewed_contribution=object(),
+    )
+
+
+def test_probe_maps_verified_receipt_integrity_not_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dungeonmind.domain.errors import PersistenceIntegrityError
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
+        DungeonMindWorldGraphInitializationAdapter,
+    )
+
+    adapter = DungeonMindWorldGraphInitializationAdapter(database_url="postgresql://unused")
+    bundle = _FakeBundle(
+        receipt_error=PersistenceIntegrityError(
+            "reviewed-world initialization receipt references a missing revision"
+        )
+    )
+    monkeypatch.setattr(adapter, "_bundle", lambda: bundle)
+    with pytest.raises(WorldGraphInitializationError) as exc_info:
+        adapter.probe("the-glass-orchard")
+    assert type(exc_info.value) is WorldGraphInitializationError
+    assert exc_info.value.code == "integrity_failure"
+
+
+def test_initialize_maps_verified_receipt_integrity_without_leaking(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dungeonmind.domain.errors import PersistenceIntegrityError
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
+        DungeonMindWorldGraphInitializationAdapter,
+    )
+
+    adapter = DungeonMindWorldGraphInitializationAdapter(database_url="postgresql://unused")
+    bundle = _FakeBundle(
+        receipt_error=PersistenceIntegrityError(
+            "reviewed-world initialization receipt references a missing revision"
+        )
+    )
+    monkeypatch.setattr(adapter, "_bundle", lambda: bundle)
+    with pytest.raises(WorldGraphInitializationError) as exc_info:
+        adapter.initialize(_dummy_initialization_request())
+    assert type(exc_info.value) is WorldGraphInitializationError
+    assert exc_info.value.code == "integrity_failure"
+
+
+def test_probe_maps_unavailable_receipt_read_to_authority_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dungeonmind.domain.errors import PersistenceUnavailableError
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
+        DungeonMindWorldGraphInitializationAdapter,
+    )
+
+    adapter = DungeonMindWorldGraphInitializationAdapter(database_url="postgresql://unused")
+    bundle = _FakeBundle(
+        receipt_error=PersistenceUnavailableError("initialization repository unavailable")
+    )
+    monkeypatch.setattr(adapter, "_bundle", lambda: bundle)
+    with pytest.raises(WorldGraphInitializationError) as exc_info:
+        adapter.probe("the-glass-orchard")
+    assert exc_info.value.code == "authority_unavailable"
+
+
+def test_probe_and_initialize_treat_receipt_without_head_as_integrity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
+        DungeonMindWorldGraphInitializationAdapter,
+    )
+
+    adapter = DungeonMindWorldGraphInitializationAdapter(database_url="postgresql://unused")
+    bundle = _FakeBundle(receipt=_FakeReceipt(), head=None)
+    monkeypatch.setattr(adapter, "_bundle", lambda: bundle)
+    with pytest.raises(WorldGraphInitializationError) as probe_exc:
+        adapter.probe("the-glass-orchard")
+    assert probe_exc.value.code == "integrity_failure"
+    assert probe_exc.value.details.get("reason") == "reviewed_init_receipt_without_head"
+    with pytest.raises(WorldGraphInitializationError) as init_exc:
+        adapter.initialize(_dummy_initialization_request())
+    assert init_exc.value.code == "integrity_failure"
+    assert init_exc.value.details.get("reason") == "reviewed_init_receipt_without_head"
+
+
 def _add_rejected_node(payload: dict) -> None:
     nodes = list(payload.get("nodes") or [])
     template = dict(nodes[0])
@@ -215,6 +359,49 @@ def _prepare_native_plan(client, repo: Path, *, with_rejected: bool = False) -> 
     )
     assert prepare.status_code == 200, prepare.text
     return run_id, prepare.json()
+
+
+def _sealed_native_request(repo: Path, plan: dict) -> WorldGraphInitializationRequest:
+    from apps.live_control_server.services.extract_promote import (
+        _load_typed_worldbuilding_preview_for_run,
+    )
+    from apps.live_control_server.services.first_world_graph import (
+        materialize_first_world_plan,
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
+    from graph_memory.worldbuilding_write_plan import WorldbuildingDispositionInput
+
+    resolved = resolve_promotable_ingest_run(plan["runId"], root=repo)
+    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(resolved)
+    rematerialized = materialize_first_world_plan(
+        preview=typed_preview,
+        world_id=plan["worldId"],
+        run_id=plan["runId"],
+        source_artifact_id=plan["sourceArtifactId"],
+        source_revision_id=plan["sourceRevisionId"],
+        source_uri=resolved.sealed_source_uri,
+        extraction_profile=expected_profile,
+        campaign_scope=plan["campaignScope"],
+        workspace_document_id=plan["workspaceDocumentId"],
+        workspace_document_revision=plan["workspaceDocumentRevision"],
+        dispositions=[
+            WorldbuildingDispositionInput(
+                assertion_id=str(item["assertion_id"]),
+                decision=str(item["decision"]),
+                target_node_id=item.get("target_node_id"),
+            )
+            for item in plan["reviewedEffect"]["decision_snapshot"]
+        ],
+    )
+    return _initialization_request(
+        plan=FirstWorldGraphConfirmRequest.model_validate(
+            _first_world_confirm_body(plan)
+        ).plan,
+        rematerialized=rematerialized,
+        resolved=resolved,
+    )
 
 
 def _bundle(dsn: str):
@@ -451,24 +638,103 @@ def test_native_lost_response_restart_replays_same_d0(
 
 
 @pytest.mark.integration
-def test_native_synchronized_identical_confirms_share_one_d0(
-    native_first_world_client,
+def test_native_synchronized_identical_confirms_recover_via_timestamp_conflict(
+    native_first_world_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from dungeonmind.application import reviewed_world_initialization as rwi
+    from dungeonmind.domain.errors import IdempotencyConflictError
+
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_initialization_adapter as init_mod,
+    )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
+        DungeonMindWorldGraphInitializationAdapter,
+    )
+
     client, _world, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo)
-    request = FirstWorldGraphConfirmRequest.model_validate(
-        _first_world_confirm_body(plan)
-    )
+    request = _sealed_native_request(repo, plan)
+    first_stamp = datetime(2026, 8, 26, 12, 0, 0, tzinfo=UTC)
+    second_stamp = first_stamp + timedelta(seconds=7)
+    barrier = threading.Barrier(2, timeout=20)
+    receipt_reads: list[str | None] = []
+    provider_calls: list[dict[str, object]] = []
+
+    real_verified = init_mod._get_verified_reviewed_init_receipt
+
+    def tracking_verified(repository, world_id):
+        receipt = real_verified(repository, world_id)
+        receipt_reads.append(None if receipt is None else str(receipt.initialization_id))
+        return receipt
+
+    monkeypatch.setattr(init_mod, "_get_verified_reviewed_init_receipt", tracking_verified)
+
+    real_provider = rwi.initialize_reviewed_world
+
+    def tracking_provider(command, **kwargs):
+        record: dict[str, object] = {
+            "requested_initialized_at": command.requested_initialized_at,
+            "outcome": "ok",
+        }
+        try:
+            result = real_provider(command, **kwargs)
+        except IdempotencyConflictError:
+            record["outcome"] = "conflict"
+            provider_calls.append(record)
+            raise
+        provider_calls.append(record)
+        return result
+
+    monkeypatch.setattr(rwi, "initialize_reviewed_world", tracking_provider)
+
+    adapters = [
+        DungeonMindWorldGraphInitializationAdapter(
+            database_url=dsn,
+            now=lambda stamp=first_stamp: stamp,
+            after_uninitialized_receipt=barrier.wait,
+        ),
+        DungeonMindWorldGraphInitializationAdapter(
+            database_url=dsn,
+            now=lambda stamp=second_stamp: stamp,
+            after_uninitialized_receipt=barrier.wait,
+        ),
+    ]
+
     with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(confirm_first_world, [request, request]))
+        results = list(pool.map(lambda adapter: adapter.initialize(request), adapters))
+
     outcomes = sorted(item.outcome for item in results)
-    assert outcomes in (
-        ["already_initialized", "initialized"],
-        ["initialized", "initialized"],
-        ["already_initialized", "already_initialized"],
-    )
-    published = {item.committed_revision_id for item in results}
+    assert outcomes == ["already_initialized", "initialized"]
+    published = {item.published_revision_id for item in results}
     assert len(published) == 1
+    assert {item.command_sha256 for item in results} == {
+        results[0].command_sha256
+    }
+    first_attempt_stamps = {
+        call["requested_initialized_at"]
+        for call in provider_calls
+        if call["requested_initialized_at"] in {first_stamp, second_stamp}
+    }
+    assert first_attempt_stamps == {first_stamp, second_stamp}
+    conflicts = [call for call in provider_calls if call["outcome"] == "conflict"]
+    successes = [call for call in provider_calls if call["outcome"] == "ok"]
+    assert len(conflicts) == 1
+    assert len(provider_calls) == 3
+    assert len(successes) == 2
+    winner_stamp = next(
+        call["requested_initialized_at"]
+        for call in provider_calls
+        if call["outcome"] == "ok"
+        and call["requested_initialized_at"] in {first_stamp, second_stamp}
+    )
+    replay_stamps = [
+        call["requested_initialized_at"]
+        for call in successes
+        if call["requested_initialized_at"] == winner_stamp
+    ]
+    assert len(replay_stamps) == 2
+    assert receipt_reads.count(None) == 2
+    assert sum(1 for item in receipt_reads if item is not None) == 1
     assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 1
     assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["receipts"] == 1
 
@@ -478,53 +744,12 @@ def test_native_changed_command_conflicts(native_first_world_client) -> None:
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
-    from apps.live_control_server.services.extract_promote import (
-        _load_typed_worldbuilding_preview_for_run,
-    )
-    from apps.live_control_server.services.first_world_graph import (
-        materialize_first_world_plan,
-    )
-    from apps.live_control_server.services.first_world_graph_publication import (
-        _initialization_request,
-    )
-    from apps.live_control_server.services.promotable_ingest_run import (
-        resolve_promotable_ingest_run,
-    )
-    from graph_memory.worldbuilding_write_plan import WorldbuildingDispositionInput
 
     client, _world, repo, dsn = native_first_world_client
-    run_id, plan = _prepare_native_plan(client, repo)
+    _run_id, plan = _prepare_native_plan(client, repo)
     first = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert first.status_code == 200, first.text
-    resolved = resolve_promotable_ingest_run(run_id, root=repo)
-    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(resolved)
-    rematerialized = materialize_first_world_plan(
-        preview=typed_preview,
-        world_id=plan["worldId"],
-        run_id=plan["runId"],
-        source_artifact_id=plan["sourceArtifactId"],
-        source_revision_id=plan["sourceRevisionId"],
-        source_uri=resolved.sealed_source_uri,
-        extraction_profile=expected_profile,
-        campaign_scope=plan["campaignScope"],
-        workspace_document_id=plan["workspaceDocumentId"],
-        workspace_document_revision=plan["workspaceDocumentRevision"],
-        dispositions=[
-            WorldbuildingDispositionInput(
-                assertion_id=str(item["assertion_id"]),
-                decision=str(item["decision"]),
-                target_node_id=item.get("target_node_id"),
-            )
-            for item in plan["reviewedEffect"]["decision_snapshot"]
-        ],
-    )
-    request = _initialization_request(
-        plan=FirstWorldGraphConfirmRequest.model_validate(
-            _first_world_confirm_body(plan)
-        ).plan,
-        rematerialized=rematerialized,
-        resolved=resolved,
-    )
+    request = _sealed_native_request(repo, plan)
     changed = replace(request, actor="attacker:not-the-confirming-principal")
     adapter = DungeonMindWorldGraphInitializationAdapter(database_url=dsn)
     with pytest.raises(WorldGraphInitializationError) as exc_info:
@@ -598,3 +823,79 @@ def test_native_workspace_drift_fails_before_publication(
     assert confirm.status_code == 422, confirm.text
     assert confirm.json()["code"] == "workspace_lineage_mismatch"
     assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["receipts"] == 0
+
+
+@pytest.mark.integration
+def test_native_receipt_without_head_is_integrity_not_unavailable(
+    native_first_world_client,
+) -> None:
+    import psycopg
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
+        DungeonMindWorldGraphInitializationAdapter,
+    )
+
+    client, _world, repo, dsn = native_first_world_client
+    run_id, plan = _prepare_native_plan(client, repo)
+    first = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert first.status_code == 200, first.text
+    with psycopg.connect(dsn) as conn:
+        conn.execute(
+            "DELETE FROM dungeonmind.world_graph_heads WHERE world_id = %s",
+            (GLASS_ORCHARD_WORLD_ID,),
+        )
+        conn.commit()
+    adapter = DungeonMindWorldGraphInitializationAdapter(database_url=dsn)
+    with pytest.raises(WorldGraphInitializationError) as probe_exc:
+        adapter.probe(GLASS_ORCHARD_WORLD_ID)
+    assert type(probe_exc.value) is WorldGraphInitializationError
+    assert probe_exc.value.code == "integrity_failure"
+    assert probe_exc.value.details.get("reason") == "reviewed_init_receipt_without_head"
+    with pytest.raises(WorldGraphInitializationError) as init_exc:
+        adapter.initialize(_sealed_native_request(repo, plan))
+    assert init_exc.value.code == "integrity_failure"
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 200, review.text
+    assert review.json()["worldState"] != "initialized"
+    assert review.json()["firstWorldPublishEligible"] is False
+    confirm = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert confirm.status_code == 409, confirm.text
+    assert confirm.status_code != 503
+    assert confirm.json()["code"] == "first_world_initialization_failed"
+
+
+@pytest.mark.integration
+def test_native_corrupt_d0_receipt_is_integrity_not_unavailable(
+    native_first_world_client,
+) -> None:
+    import psycopg
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
+        DungeonMindWorldGraphInitializationAdapter,
+    )
+
+    client, _world, repo, dsn = native_first_world_client
+    _run_id, plan = _prepare_native_plan(client, repo)
+    first = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert first.status_code == 200, first.text
+    with psycopg.connect(dsn) as conn:
+        conn.execute(
+            "UPDATE dungeonmind.graph_revisions "
+            "SET parent_revision_id = revision_id "
+            "WHERE world_id = %s",
+            (GLASS_ORCHARD_WORLD_ID,),
+        )
+        conn.commit()
+    adapter = DungeonMindWorldGraphInitializationAdapter(database_url=dsn)
+    with pytest.raises(WorldGraphInitializationError) as probe_exc:
+        adapter.probe(GLASS_ORCHARD_WORLD_ID)
+    assert type(probe_exc.value) is WorldGraphInitializationError
+    assert probe_exc.value.code == "integrity_failure"
+    with pytest.raises(WorldGraphInitializationError) as init_exc:
+        adapter.initialize(_sealed_native_request(repo, plan))
+    assert type(init_exc.value) is WorldGraphInitializationError
+    assert init_exc.value.code == "integrity_failure"
+    confirm = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert confirm.status_code == 409, confirm.text
+    assert confirm.status_code != 503
+    assert confirm.json()["code"] == "first_world_initialization_failed"
