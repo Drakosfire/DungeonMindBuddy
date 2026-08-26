@@ -8,7 +8,6 @@ import pytest
 from apps.live_control_server.services.play_active_run import (
     get_play_active_run,
     play_active_run_path,
-    set_play_active_run,
 )
 from apps.live_control_server.services.play_run_rebase import (
     PlayRunRebaseIntent,
@@ -29,6 +28,7 @@ from application_state.play.import_runtime import import_play_runtime_from_legac
 from src.live_play.live_store import write_json
 from tests.application_state.play_runtime_helpers import (
     RUN_ID_A,
+    RUN_ID_B,
     SOURCE_MARKDOWN,
     SURVIVING_TARGET_MARKDOWN,
     commit_runbook_markdown,
@@ -36,6 +36,7 @@ from tests.application_state.play_runtime_helpers import (
     create_committed_runbook,
     gate_progress,
     playable_of,
+    write_legacy_active_run_pointer,
     write_legacy_run_and_manifest,
 )
 
@@ -59,9 +60,13 @@ def test_legacy_pair_imports_exactly_and_second_pass_is_noop(
     assert replay.noop == 1
     loaded = get_play_run(tmp_path, RUN_ID_A)
     assert loaded.run_revision == 4
+    assert loaded.campaign_id == snapshot.record.campaign_id
+    assert loaded.created_at == "2026-01-01T00:00:00Z"
+    assert loaded.updated_at == "2026-01-01T00:00:00Z"
     assert loaded.progress.selections == {"choice:route": "option:fire"}
     manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
     assert manifest.playable_revision == loaded.playable_revision
+    assert manifest.playable_content_sha256 == loaded.playable_content_sha256
     assert count_play_rows(application_state_dsn) == (1, 1)
 
 
@@ -157,8 +162,70 @@ def test_pending_intent_is_recovered_before_capture(
     loaded = get_play_run(tmp_path, RUN_ID_A)
     assert loaded.playable_revision == target_revision
     assert loaded.playable_content_sha256 == target_sha
-    assert loaded.run_revision == 2
+    assert get_play_run(tmp_path, RUN_ID_A).run_revision == 2
     assert not intent_path.exists()
+
+
+def test_malformed_legacy_progress_is_not_imported(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    snapshot = create_committed_runbook(tmp_path, name="bad-progress")
+    write_legacy_run_and_manifest(
+        tmp_path,
+        run_id=RUN_ID_A,
+        snapshot=snapshot,
+        progress=gate_progress(),
+    )
+    run_path = play_run_path(tmp_path, RUN_ID_A)
+    payload = json.loads(run_path.read_text(encoding="utf-8"))
+    payload["progress"]["resolved_beat_ids"] = ["beat:briefing", "beat:arrival"]
+    run_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(ApplicationStateIntegrityError, match="resolved_beat_ids"):
+        import_play_runtime_from_legacy_files(tmp_path)
+    assert count_play_rows(application_state_dsn) == (0, 0)
+
+
+def test_campaign_mismatch_is_not_imported(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    snapshot = create_committed_runbook(tmp_path, name="campaign-mismatch")
+    write_legacy_run_and_manifest(
+        tmp_path,
+        run_id=RUN_ID_A,
+        snapshot=snapshot,
+        campaign_id="not-the-runbook-campaign",
+    )
+    with pytest.raises(ApplicationStateConflictError, match="campaign_id"):
+        import_play_runtime_from_legacy_files(tmp_path)
+    assert count_play_rows(application_state_dsn) == (0, 0)
+
+
+def test_changed_preserved_metadata_replay_conflicts(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    from application_state.play.import_runtime import (
+        capture_legacy_play_runtime,
+        import_play_runtime_from_snapshots,
+    )
+
+    snapshot = create_committed_runbook(tmp_path, name="replay-metadata")
+    write_legacy_run_and_manifest(
+        tmp_path,
+        run_id=RUN_ID_A,
+        snapshot=snapshot,
+        run_revision=3,
+        created_at="2026-01-01T00:00:00Z",
+    )
+    frozen, _recovered = capture_legacy_play_runtime(tmp_path)
+    first = import_play_runtime_from_snapshots(frozen)
+    assert first.imported == 1
+    changed_time = frozen[0].model_copy(update={"created_at": frozen[0].created_at.replace(year=2025)})
+    with pytest.raises(ApplicationStateConflictError, match="conflicts with an existing Run"):
+        import_play_runtime_from_snapshots([changed_time])
+    changed_campaign = frozen[0].model_copy(update={"campaign_id": "other-campaign"})
+    with pytest.raises(ApplicationStateConflictError, match="campaign_id"):
+        import_play_runtime_from_snapshots([changed_campaign])
+    assert get_play_run(tmp_path, RUN_ID_A).created_at == "2026-01-01T00:00:00Z"
 
 
 def test_active_run_pointer_stays_file_backed_after_import(
@@ -166,12 +233,29 @@ def test_active_run_pointer_stays_file_backed_after_import(
 ) -> None:
     snapshot = create_committed_runbook(tmp_path, name="active-pointer")
     write_legacy_run_and_manifest(tmp_path, run_id=RUN_ID_A, snapshot=snapshot)
+    pointer_path = write_legacy_active_run_pointer(
+        tmp_path, run_id=RUN_ID_A, selected_at="2026-01-01T00:00:00Z"
+    )
+    before = pointer_path.read_bytes()
     import_play_runtime_from_legacy_files(tmp_path)
-    selected = set_play_active_run(tmp_path, run_id=RUN_ID_A)
-    assert selected.run_id == RUN_ID_A
-    assert play_active_run_path(tmp_path).is_file()
+    assert pointer_path.read_bytes() == before
     pointer = get_play_active_run(tmp_path)
     assert pointer.run_id == RUN_ID_A
+    assert pointer.selected_at == "2026-01-01T00:00:00Z"
     assert get_play_run(tmp_path, RUN_ID_A).run_id == RUN_ID_A
     assert get_play_run_reference_manifest(tmp_path, RUN_ID_A).run_id == RUN_ID_A
+    assert play_active_run_path(tmp_path).is_file()
+
+
+def test_active_pointer_to_missing_run_stops_import(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    snapshot = create_committed_runbook(tmp_path, name="missing-pointer-target")
+    write_legacy_run_and_manifest(tmp_path, run_id=RUN_ID_A, snapshot=snapshot)
+    write_legacy_active_run_pointer(
+        tmp_path, run_id=RUN_ID_B, selected_at="2026-01-01T00:00:00Z"
+    )
+    with pytest.raises(ApplicationStateIntegrityError, match="was not imported"):
+        import_play_runtime_from_legacy_files(tmp_path)
+    assert count_play_rows(application_state_dsn) == (0, 0)
     assert play_active_run_path(tmp_path).is_file()

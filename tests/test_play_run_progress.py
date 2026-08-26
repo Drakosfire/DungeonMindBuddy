@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from threading import Thread
 
@@ -482,7 +481,9 @@ def test_persisted_ghost_reference_fails_closed_on_reads(
         get_play_run(tmp_path, RUN_ID_A)
     assert exc_info.value.status_code == 500
 
-    assert [record.run_id for record in list_play_runs(tmp_path)] == [RUN_ID_A]
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        list_play_runs(tmp_path)
+    assert exc_info.value.status_code == 500
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
@@ -518,8 +519,8 @@ def test_persisted_cross_choice_selection_fails_closed(
 @pytest.mark.parametrize(
     "tampered_beats",
     [
-        ["beat:ghost"],
-        ["beat:briefing", "beat:missing"],
+        ["beat:briefing", "beat:arrival"],
+        ["beat:arrival", "beat:arrival"],
     ],
 )
 def test_persisted_resolved_beats_must_be_duplicate_free_and_sorted(
@@ -541,6 +542,10 @@ def test_persisted_resolved_beats_must_be_duplicate_free_and_sorted(
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         get_play_run(tmp_path, RUN_ID_A)
+    assert exc_info.value.status_code == 500
+
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        list_play_runs(tmp_path)
     assert exc_info.value.status_code == 500
 
 

@@ -32,11 +32,13 @@ from tests.application_state.play_runtime_helpers import (
     SURVIVING_TARGET_MARKDOWN,
     commit_runbook_markdown,
     count_play_rows,
+    corrupt_play_run_progress,
     create_committed_runbook,
     create_run,
     empty_progress,
     gate_progress,
     hidden_legacy_runtime_dirs,
+    measure_file_backed_baseline_latency,
     measure_ms,
     playable_of,
 )
@@ -213,6 +215,33 @@ def test_file_absence_progress_and_rebase_still_work(
         assert list_play_runs(tmp_path)[0].run_id == RUN_ID_A
 
 
+def test_get_and_list_reject_corrupt_persisted_progress(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    create_run(tmp_path, create_committed_runbook(tmp_path))
+    replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=gate_progress(),
+    )
+    cases = [
+        gate_progress().model_dump(mode="json") | {"current_scene_id": "scene:ghost"},
+        gate_progress().model_dump(mode="json")
+        | {"resolved_beat_ids": ["beat:briefing", "beat:arrival"]},
+        gate_progress().model_dump(mode="json")
+        | {"resolved_beat_ids": ["beat:arrival", "beat:arrival"]},
+    ]
+    for progress in cases:
+        corrupt_play_run_progress(application_state_dsn, RUN_ID_A, progress)
+        with pytest.raises(PlayRunRegistryError) as get_exc:
+            get_play_run(tmp_path, RUN_ID_A)
+        assert get_exc.value.status_code == 500
+        with pytest.raises(PlayRunRegistryError) as list_exc:
+            list_play_runs(tmp_path)
+        assert list_exc.value.status_code == 500
+
+
 def test_play_runtime_latency_samples(
     tmp_path: Path, application_state_dsn: str
 ) -> None:
@@ -251,8 +280,15 @@ def test_play_runtime_latency_samples(
         progress=gate_progress(),
     )
     cas_p50, cas_p95, cas_max = measure_ms(cas, samples=30)
+    baseline = measure_file_backed_baseline_latency()
     print(
-        "AS3 latency hypothesis capture postgres_head "
+        "AS3 latency hypothesis capture "
+        f"baseline_file_b4d63daa "
+        f"start_plus_seal_p50_ms={baseline['start_plus_seal_p50_ms']:.1f} "
+        f"start_plus_seal_p95_ms={baseline['start_plus_seal_p95_ms']:.1f} "
+        f"cas_p50_ms={baseline['cas_p50_ms']:.1f} "
+        f"cas_p95_ms={baseline['cas_p95_ms']:.1f} "
+        "postgres_head "
         f"start_plus_seal_p50_ms={start_p50:.1f} "
         f"start_plus_seal_p95_ms={start_p95:.1f} "
         f"start_plus_seal_max_ms={start_max:.1f} "
@@ -261,3 +297,5 @@ def test_play_runtime_latency_samples(
         f"cas_max_ms={cas_max:.1f} "
         "hypotheses start_plus_seal_p95_ms=250 cas_p95_ms=50"
     )
+    assert baseline["start_plus_seal_p50_ms"] >= 0
+    assert baseline["cas_p50_ms"] >= 0

@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import os
 import statistics
+import subprocess
+import sys
+import tempfile
 import time
+import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
 from apps.live_control_server.services.play_run_registry import (
     PlayRunProgress,
@@ -67,6 +73,36 @@ SURVIVING_TARGET_MARKDOWN = SOURCE_MARKDOWN + "\n".join(
 )
 
 INVALID_PLAYABLE_MARKDOWN = "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->\n"
+
+V2_SOURCE_MARKDOWN = "\n".join(
+    [
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:arrival -->",
+        "## Arrival",
+        "",
+        "<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->",
+        "### The Gate",
+        "",
+        "<!-- dmb-playable-element:v2 kind=choice id=choice:route -->",
+        "### Which route do they take?",
+        "",
+        "<!-- dmb-playable-element:v2 kind=option id=option:fire -->",
+        "- Burn through the growth",
+        "",
+        "<!-- dmb-playable-element:v2 kind=option id=option:wait -->",
+        "- Wait and watch",
+        "",
+    ]
+)
+
+V2_SURVIVING_TARGET_MARKDOWN = V2_SOURCE_MARKDOWN + "\n".join(
+    [
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:inside -->",
+        "## Inside",
+        "",
+    ]
+)
+
+AS2_FILE_BACKED_BASE_SHA = "b4d63daab3eeb8150ca73fe9492d7a3d8744a4e0"
 
 
 def commit_runbook_markdown(root: Path, document_id: str, markdown: str, expected_revision: int) -> None:
@@ -179,6 +215,7 @@ def write_legacy_run_and_manifest(
     run_revision: int = 1,
     progress: PlayRunProgress | None = None,
     created_at: str = "2026-01-01T00:00:00Z",
+    campaign_id: str | None = None,
     playable_revision: int | None = None,
     playable_content_sha256: str | None = None,
     markdown: str | None = None,
@@ -198,7 +235,7 @@ def write_legacy_run_and_manifest(
         sha = playable_content_sha256
     record = PlayRunRecord(
         run_id=run_id,
-        campaign_id=snapshot.record.campaign_id,
+        campaign_id=campaign_id or snapshot.record.campaign_id,
         playable_artifact_id=snapshot.record.document_id,
         playable_revision=revision_n,
         playable_content_sha256=sha,
@@ -240,3 +277,263 @@ def measure_ms(fn, samples: int = 30) -> tuple[float, float, float]:
         fn()
         timings.append((time.perf_counter() - started) * 1000)
     return statistics.median(timings), percentile(timings, 95), max(timings)
+
+
+def corrupt_play_run_progress(dsn: str, run_id: str, progress: dict) -> None:
+    import psycopg
+    from psycopg.types.json import Jsonb
+
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE play.run SET progress = %(progress)s WHERE run_id = %(run_id)s",
+            {"progress": Jsonb(progress), "run_id": run_id},
+        )
+
+
+def write_legacy_active_run_pointer(root: Path, *, run_id: str, selected_at: str) -> Path:
+    from apps.live_control_server.services.play_active_run import (
+        PLAY_ACTIVE_RUN_SCHEMA,
+        play_active_run_path,
+    )
+
+    path = play_active_run_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(
+        path,
+        {
+            "schema_version": PLAY_ACTIVE_RUN_SCHEMA,
+            "run_id": run_id,
+            "selected_at": selected_at,
+        },
+    )
+    return path
+
+
+_BASELINE_LATENCY_SCRIPT = r"""
+from __future__ import annotations
+
+import json
+import statistics
+import time
+import uuid
+from pathlib import Path
+
+from apps.live_control_server.services.play_run_registry import (
+    PlayRunProgress,
+    create_or_replay_play_run,
+    get_play_run,
+    replace_play_run_progress,
+)
+from apps.live_control_server.services.play_run_reference_manifest import (
+    seal_or_replay_play_run_reference_manifest,
+)
+from apps.live_control_server.services.tiptap_markdown_write import (
+    TiptapMarkdownWriteCommitRequest,
+    TiptapMarkdownWritePrepareRequest,
+    commit_tiptap_markdown_write,
+    prepare_tiptap_markdown_write,
+)
+from apps.live_control_server.services.workspace_document_registry import (
+    create_workspace_document,
+    get_committed_playable_revision,
+    get_workspace_document_snapshot,
+)
+
+MARKDOWN = "\n".join(
+    [
+        "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+        "## The Gate",
+        "",
+        "<!-- dmb-playable-element:v1 kind=beat id=beat:arrival -->",
+        "### Arrival",
+        "",
+        "<!-- dmb-playable-element:v1 kind=beat id=beat:briefing -->",
+        "### Briefing",
+        "",
+        "<!-- dmb-playable-element:v1 kind=choice id=choice:route -->",
+        "### Which route do they take?",
+        "",
+        "<!-- dmb-playable-element:v1 kind=option id=option:fire -->",
+        "#### Burn through the growth",
+        "",
+        "<!-- dmb-playable-element:v1 kind=option id=option:wait -->",
+        "#### Wait and watch",
+        "",
+    ]
+)
+SAMPLES = 30
+RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+
+def percentile(samples: list[float], p: float) -> float:
+    ordered = sorted(samples)
+    index = min(len(ordered) - 1, max(0, round((p / 100) * (len(ordered) - 1))))
+    return ordered[index]
+
+
+def measure(fn) -> tuple[float, float]:
+    timings = []
+    for _ in range(SAMPLES):
+        started = time.perf_counter()
+        fn()
+        timings.append((time.perf_counter() - started) * 1000)
+    return statistics.median(timings), percentile(timings, 95)
+
+
+root = Path("baseline-root")
+root.mkdir()
+record = create_workspace_document(
+    root,
+    title="Runbook latency",
+    campaign_id="longmont-c2",
+    kind="runbook",
+    target_relpath="evals/c2_live_prep/mireward-prep/content/tiptap/latency.md",
+)
+prepared = prepare_tiptap_markdown_write(
+    root=root,
+    request=TiptapMarkdownWritePrepareRequest(
+        document_id=record.document_id,
+        markdown=MARKDOWN,
+        expected_revision=record.revision,
+    ),
+)
+commit_tiptap_markdown_write(
+    root=root,
+    request=TiptapMarkdownWriteCommitRequest(
+        document_id=record.document_id,
+        markdown=MARKDOWN,
+        writer_confirm_token=prepared.writer_confirm_token,
+        expected_revision=record.revision,
+    ),
+)
+committed = get_committed_playable_revision(record.document_id, kind=None)
+
+
+def start_and_seal() -> None:
+    run_id = str(uuid.uuid4())
+    create_or_replay_play_run(
+        root,
+        run_id=run_id,
+        playable_artifact_id=record.document_id,
+        expected_playable_revision=committed.revision_n,
+        expected_playable_content_sha256=committed.content_sha256,
+    )
+    seal_or_replay_play_run_reference_manifest(root, run_id)
+
+
+start_p50, start_p95 = measure(start_and_seal)
+durable = create_or_replay_play_run(
+    root,
+    run_id=RUN_ID,
+    playable_artifact_id=record.document_id,
+    expected_playable_revision=committed.revision_n,
+    expected_playable_content_sha256=committed.content_sha256,
+)
+seal_or_replay_play_run_reference_manifest(root, RUN_ID)
+replace_play_run_progress(
+    root,
+    run_id=RUN_ID,
+    expected_run_revision=durable.run_revision,
+    progress=PlayRunProgress(
+        current_scene_id="scene:gate",
+        current_beat_id="beat:arrival",
+        resolved_beat_ids=["beat:arrival"],
+        selections={"choice:route": "option:fire"},
+        notes_by_element_id={"scene:gate": "Noted."},
+    ),
+)
+
+
+def cas() -> None:
+    current = get_play_run(root, RUN_ID)
+    replace_play_run_progress(
+        root,
+        run_id=RUN_ID,
+        expected_run_revision=current.run_revision,
+        progress=PlayRunProgress(
+            current_scene_id="scene:gate",
+            current_beat_id="beat:arrival",
+            resolved_beat_ids=["beat:arrival"],
+            selections={"choice:route": "option:fire"},
+            notes_by_element_id={"scene:gate": str(uuid.uuid4())},
+        ),
+    )
+
+
+cas_p50, cas_p95 = measure(cas)
+print(
+    json.dumps(
+        {
+            "start_plus_seal_p50_ms": start_p50,
+            "start_plus_seal_p95_ms": start_p95,
+            "cas_p50_ms": cas_p50,
+            "cas_p95_ms": cas_p95,
+        }
+    )
+)
+"""
+
+
+def measure_file_backed_baseline_latency() -> dict[str, float]:
+    """Time AS2 file-backed Start+seal and CAS at the exact predecessor SHA."""
+    import psycopg
+    from psycopg import sql
+
+    from application_state.config import APPLICATION_STATE_DSN_ENV, TEST_ADMIN_DSN_ENV
+    from application_state.naming import assert_safe_application_state_database_name
+
+    repo = Path(__file__).resolve().parents[2]
+    worktree = Path(tempfile.gettempdir()) / f"as3-as2-baseline-{uuid.uuid4().hex}"
+    admin = os.environ.get(TEST_ADMIN_DSN_ENV, "").strip() or (
+        "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/postgres"
+    )
+    db_name = f"dungeonbuddy_app_state_test_{uuid.uuid4().hex[:12]}"
+    parsed = urlparse(admin)
+    dsn = urlunparse(parsed._replace(path=f"/{db_name}"))
+    created_db = False
+    added_worktree = False
+    try:
+        subprocess.check_call(
+            ["git", "worktree", "add", "--detach", str(worktree), AS2_FILE_BACKED_BASE_SHA],
+            cwd=repo,
+        )
+        added_worktree = True
+        assert_safe_application_state_database_name(db_name)
+        with psycopg.connect(admin, autocommit=True) as conn:
+            conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
+        created_db = True
+        env = {
+            **os.environ,
+            APPLICATION_STATE_DSN_ENV: dsn,
+            "PYTHONPATH": os.pathsep.join((str(worktree / "src"), str(worktree))),
+        }
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-c",
+                "from application_state.cli import upgrade_to_head; upgrade_to_head()",
+            ],
+            cwd=worktree,
+            env=env,
+        )
+        output = subprocess.check_output(
+            [sys.executable, "-c", _BASELINE_LATENCY_SCRIPT],
+            cwd=worktree,
+            env=env,
+            text=True,
+        )
+        payload = json.loads(output.strip().splitlines()[-1])
+        return {key: float(value) for key, value in payload.items()}
+    finally:
+        if created_db:
+            with psycopg.connect(admin, autocommit=True) as conn:
+                conn.execute(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s",
+                    (db_name,),
+                )
+                conn.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name)))
+        if added_worktree:
+            subprocess.call(
+                ["git", "worktree", "remove", "--force", str(worktree)],
+                cwd=repo,
+            )
