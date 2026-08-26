@@ -2,9 +2,9 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-08-21 (post-PR #626 Lane A2 merge; `main` `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6`)
+**Re-anchored:** 2026-08-26 from `main` `cc016661f80416e0816f56349217cf33c53a195f` (APP-STATE AS5 / PR #650 merged)  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Historical starting anchor:** `main` after merged PR #560, merge commit `85a2bbf048d92afed1911031ca7b6a311115873c`  
+**Historical starting anchor:** `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
 
 ---
@@ -13,101 +13,89 @@
 
 CON-READY is a product-readiness workstream.
 
-It is not a demo program, a PDF-ingestion program, or an architecture-completion program. Architecture and contracts matter only when they enable or protect a concrete GM-visible capability.
-
-The convention one-shot is the forcing-function acceptance scenario because it is bounded, time-sensitive, and unforgiving. The resulting capabilities should remain useful for ordinary campaign material.
+It is not an architecture-completion program. Architecture, schemas, migrations, and contracts matter only when they enable or protect concrete GM-visible capability.
 
 CON-READY succeeds when:
 
-> **A GM can bring playable material into a world, understand and navigate what was ingested, prepare the version they intend to run, and rely on DungeonBuddy during a live session for original source material, NPCs, locations, mechanics, shops/notes, Hermes retrieval, and combat preparation.**
+> **A GM can bring playable material into a world, prepare the version they intend to run, and rely on DungeonBuddy during a live session for current Scene context, authored branching, source/world/object detail, exact mechanics, unexpected-play retrieval, notes, Agent/Hermes assistance, and Combat—without rebuilding context after reload.**
 
-Success is defined by the user stories in this document. Internal contracts, schemas, migrations, projections, and architecture are implementation means rather than independent definitions of success.
+The convention one-shot remains the forcing-function acceptance scenario, but the capabilities must remain useful for ordinary campaign play.
 
 ---
 
 ## 1. Product model
 
-CON-READY distinguishes four useful layers of state.
-
 ```text
 ORIGINAL SOURCE
-The Markdown brought into DungeonBuddy.
-Rich prose, tables, images, statblocks, adventure text.
+rich prose, tables, images, maps, statblocks
 
         ↓ extraction / provenance
 
 WORLD
-Durable semantic representation.
-NPCs, threats, locations, relationships, mechanics bindings.
-Lossy on purpose; points back to source.
+durable semantic representation
+identity, relationships, accepted assertions, mechanics bindings
 
         ↓ GM preparation / deliberate adoption
 
-PLAYABLE WORLD
-The version the GM intends to run.
-Runbooks, scenes, beats, object-attached prep, choices,
-consequences, encounter composition, local interpretations.
+PLAYABLE MATERIAL
+the version the GM intends to run
+Runbooks, Beats, Scenes, Decisions, consequences,
+object-attached prep, encounter composition, local interpretations
 
-        ↓ actual play
+        ↓ actual table interaction
 
-PLAYED EXPERIENCE
-What happened at the table.
-Current/resolved beats, choices, notes, combat/runtime state,
-decisions and consequences.
+PLAYED / RUNTIME STATE
+current Beat/Scene, selected Choices, resolved Beats, notes,
+linked Combat/runtime state and other run-local outcomes
 ```
 
-These layers must not be collapsed merely because they refer to the same fictional world.
+These layers must not collapse merely because they refer to the same fictional world.
 
-### 1.1 Original Source remains first-class
+### 1.1 Source remains first-class
 
-The World Graph is a semantic and relational knowledge layer, not a replacement for the source prose.
+World is intentionally lossy. The GM and Agent should be able to follow admitted provenance back to readable rich source when compact World representation is insufficient.
 
-A graph object should retain navigable provenance into the rich source that established it. When the compact graph representation is insufficient, both the GM and Hermes should be able to follow that provenance through governed source access.
+### 1.2 Playable material is durable without becoming canon
 
-### 1.2 The World Graph may be intentionally lossy
+GM prep is durable intent, not automatic World truth.
 
-CON-READY does not require every useful sentence, scene, clue, item, table, shop, or adventure beat to become graph ontology.
+APP-STATE now provides stable WorkObject identity, immutable historical WorkRevisions, and PostgreSQL Play Runtime/continuity. Filesystem path/worktree location is no longer Play identity or authority.
 
-The graph should capture enough durable identity and relationships to make the world navigable and queryable, while source documents preserve richer detail.
+### 1.3 Play design authority
 
-### 1.3 Playable material is durable without automatically becoming canon
-
-GM preparation, brainstorming decisions, local relationships, encounter compositions, shop changes, and other choices made for a particular run must be preservable without silently publishing them into durable World Graph truth.
-
-Workspace documents remain a valid first Playable storage path. The architecture does not require a new datastore merely because Playable Material has stronger semantics.
-
-### 1.4 Playable / Play design authority
-
-The Playable Layer is architecturally bounded by:
+Current Play authorities:
 
 - [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
+- [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
 - [`../Design/DESIGN-play-surface-projection.md`](../Design/DESIGN-play-surface-projection.md)
 - [`../Design/DESIGN-playable-authoring-and-adoption.md`](../Design/DESIGN-playable-authoring-and-adoption.md)
+- [`../Design/DESIGN-play-surface-gm-cockpit-target.md`](../Design/DESIGN-play-surface-gm-cockpit-target.md)
 
-Real Of Conks / Hempholm dogfood established enough evidence to make durable Runbook/Beat/Scene structure useful Playable material without promoting beats/scenes into World Graph ontology. C2 Session 27 dogfood (2026-08-19) then revised the organization direction: the **Beat is the larger useful hierarchy** — a Runbook arranges Beats (table objective / pressure / phase), and a Scene is a concrete playable situation inside a Beat. Choices/Decisions carry Options, consequences, and authored transitions that reshape which later Scenes/Beats remain possible or relevant. Exact wire grammar is the next reviewed design task, not yet frozen.
+The durable model is Beat-first; the default runtime projection is Scene-centered when a Scene is current.
 
-The canonical outcome concept for a Beat is **consequence**. Rewards/treasure, costs, state changes, relationship changes, clocks, access, information, and branch transitions may all be represented as consequences. This does not create a universal Adventure schema.
+Choices/Decisions retain authored Options, consequences, and `activates`/`suppresses` branch relevance. Those edges influence emphasis; they do not gate access/navigation.
 
 ---
 
 ## 2. Governing principles
 
 1. **User stories are the gates.** A slice is complete when a GM-visible story works end-to-end with real material.
-2. **Markdown is the ingress boundary.** PDF extraction is upstream and out of scope; `.md` upload and paste should converge on one normalization path.
-3. **World placement is explicit.** Imported material belongs to an existing world or establishes a new world container. Do not require an orphan-source architecture for CON-READY.
-4. **Source stays readable.** Ingestion must not turn the original material into stripped debug text.
-5. **Graph provenance is useful navigation.** Evidence/provenance should let the GM and Hermes reach the original source, not exist only for audits.
-6. **Hermes remains governed.** Source follow-through must extend admitted provenance, not grant arbitrary filesystem or corpus browsing.
-7. **Mechanics deserve structure where it pays off.** Threat/statblock mechanics should preferentially become exact typed resources because Hermes and Combat can reuse them.
-8. **Documents are valid product objects.** A shop, prep sheet, NPC notes, Runbook, or other useful material need not gain bespoke ontology before it can be useful.
-9. **Preparation is not automatic canon.** Creative collaboration may persist in the Playable Layer without rewriting the World Graph.
-10. **Combat may advance in parallel.** CON-READY defines what the GM must be able to hand to Combat; it does not require the full future Play roadmap to land first.
-11. **Unexpected play is an acceptance case.** Prepared paths alone are insufficient.
-12. **No hidden Eldyrwild assumption.** A new one-shot world must work without special-case knowledge of the existing campaign.
-13. **Playable structure is not World ontology.** Runbooks, Scenes, Beats, choices, consequences, and object-attached table interpretation may be durable Playable Material without becoming graph canon.
-14. **Runtime points at Playable; it does not rewrite it.** Current Scene/Beat, resolved Beats, selected choices, scratch notes, and Combat/runtime state remain separate from the versioned material being run.
-15. **Stable playable identity beats display text.** Any Scene/Beat/Choice referenced by durable runtime state must retain stable identity through ordinary title/prose edits.
-16. **Agent adoption is explicit.** Hermes may propose changes to admitted Playable Material, but GM approval and the normal document Save boundary remain required.
+2. **Source stays readable.** Ingestion must not replace useful source with stripped semantic output.
+3. **World placement and writes are explicit.** Playable/Runtime work does not silently publish canon.
+4. **Graph provenance is useful navigation.** Evidence should lead back to the useful source.
+5. **Agent/Hermes remains governed.** Context follow-through is admitted and bounded; proposals require approval.
+6. **Mechanics deserve exact structure where it pays off.** Threat/statblock mechanics should become reusable exact resources.
+7. **Documents are valid product objects.** Useful material need not gain bespoke ontology first.
+8. **Unexpected play is a required acceptance case.** Prepared paths alone are insufficient.
+9. **Playable structure is not World ontology.** Beat/Scene/Decision is a Playable domain model.
+10. **Runtime points at Playable; it does not rewrite it.** Historical WorkRevision pinning is real.
+11. **Stable identity beats display text.** Durable references use stable IDs.
+12. **Authored branching is real but non-gating.** `activates`/`suppresses` alter relevance, not navigation permission.
+13. **Scene is the normal table workspace; Beat supplies context.** This is projection hierarchy, not a change to durable containment.
+14. **Inspect is not Make Current.** Looking at another Scene/object never silently mutates Runtime position.
+15. **Useful campaign material must be reachable faster than finding where it was authored.** Contextual and global/on-demand retrieval are complementary.
+16. **Combat remains Combat-owned.** Play may link/project it, not absorb combat state.
+17. **Durability claims are scoped.** The Play path is now durable; CR-U17 remains false overall until every relied-upon capability—especially Combat—survives restart/worktree/browser loss.
 
 ---
 
@@ -115,545 +103,352 @@ The canonical outcome concept for a Beat is **consequence**. Rewards/treasure, c
 
 ## CR-U1 — Bring external material into DungeonBuddy
 
-> **As a GM, I can take Markdown from outside DungeonBuddy and bring it into the world I am working on without preparing it specifically for DungeonBuddy.**
+> **As a GM, I can bring external Markdown into the world I am working on without preparing it specifically for DungeonBuddy.**
 
-Success means:
+Success includes normal paste/file ingress, explicit world placement, durable source identity, useful title, reopen/edit, and one normalization boundary for future upstream extraction.
 
-- paste Markdown is supported;
-- `.md` file loading may follow but must use the same normalization boundary;
-- the GM can choose an existing world or establish a new world;
-- the source is persisted inside that world's existing local filesystem hierarchy;
-- the source gets a useful title and can be reopened and edited through Build;
-- future Markdown emitted by the external PDF pipeline can enter through the same boundary.
-
-Not success:
-
-- manually copying a file into an undocumented path;
-- running a bespoke CLI to make the source visible;
-- requiring graph IDs, ExtractionRun vocabulary, or internal document kinds from the GM.
-
----
+Not success: undocumented manual file copying, bespoke CLI-only workflows, or requiring graph IDs/internal storage vocabulary from the GM.
 
 ## CR-U2 — Read the original source as a real document
 
-> **As a GM, I can open the material I imported and read it comfortably inside DungeonBuddy.**
+> **As a GM, I can read imported material comfortably inside DungeonBuddy.**
 
-Minimum useful rendering includes:
-
-- headings;
-- paragraphs;
-- emphasis;
-- lists;
-- tables;
-- links;
-- useful spacing and typography.
-
-The source representation must remain extensible to images/assets. If a local Markdown image reference is available, the GM-facing reading experience should render it. Multimodal interpretation of those images by Hermes is not a CON-READY blocker.
-
-The normal presentation is the named source document, not hashes, artifact IDs, or evidence spans.
-
----
+Headings, paragraphs, emphasis, lists, tables, links, spacing/typography, and available images/assets should remain useful.
 
 ## CR-U3 — DungeonBuddy gives me a useful semantic index
 
-> **As a GM, after ingesting the material I can quickly find the important people, threats, places, organizations, and relationships without rereading the entire source.**
+> **As a GM, I can quickly find important people, threats, places, organizations, and relationships without rereading everything.**
 
-The first useful extraction target is bounded:
-
-- named NPCs / actors;
-- creatures / threats;
-- locations;
-- factions / organizations / groups;
-- useful source-backed relationships;
-- provenance back into the source.
-
-CON-READY does not initially require perfect extraction of beats, clues, events, items, objectives, branches, or full adventure structure.
-
-Additional extraction structure should enter the roadmap only when real one-shot dogfood demonstrates that its absence materially harms preparation or live play.
-
----
+The World representation may remain intentionally lossy and point back to source.
 
 ## CR-U4 — I can inspect and correct what DungeonBuddy understood
 
-> **As a GM, I can recognize important extraction mistakes and repair them without thinking in graph-database terms.**
+> **As a GM, I can repair important extraction/identity/relationship mistakes without thinking in graph-database terms.**
 
-Common corrections should be cheap:
-
-- wrong name → rename;
-- source mention matches an existing object → connect/use existing;
-- accidental duplicate → merge/connect appropriately;
-- wrong or irrelevant object → remove/ignore;
-- missing important object → add;
-- wrong relationship → change/remove.
-
-When importing into an established world, the normal experience should help prevent duplicate durable identities.
-
-The product language should be human-facing: for example, “This looks like the existing Hesta. Use her?” rather than exposing graph-collision vocabulary.
-
----
+Human-facing correction language and duplicate prevention matter more than exposing graph machinery.
 
 ## CR-U5 — I can follow a world object back to its source
 
-> **As a GM, when the compact NPC/location/threat view is not enough, I can open its original source and land near the passage that established it.**
+> **As a GM, compact object detail can take me back to the exact rich source that established it.**
 
-Example:
+Provenance is normal navigation, not only audit metadata.
 
-```text
-Hesta
-Halfling apothecary
+## CR-U6 — Agent/Hermes can follow provenance when graph detail is insufficient
 
-Owns → Hesta's Apothecary
+> **As a GM, Agent/Hermes can use admitted source follow-through for a known object without gaining arbitrary filesystem authority.**
 
-SOURCE
-Hesta's Apothecary
-[Read source]
-```
+## CR-U7 — Agent/Hermes remains truthful about standing
 
-`Read source` should open the rich Markdown document, ideally at or near the relevant passage. Exact source anchors and hashes remain integrity mechanisms underneath the user-facing interaction.
-
-Provenance is therefore a normal navigation feature, not only an evidence/debug panel.
-
----
-
-## CR-U6 — Hermes can follow provenance when the graph is insufficient
-
-> **As a GM, I can ask Hermes about a known object, and if the graph does not contain enough detail, Hermes can consult the original source material that object came from.**
-
-Target behavior:
-
-```text
-GM asks about Hesta
-→ Hermes finds Hesta in the World Graph
-→ graph facts are insufficient
-→ Hermes follows admitted source provenance
-→ Hermes reads more of the exact source artifact
-→ Hermes answers from graph + source as appropriate
-```
-
-The governing boundary is:
-
-> **Graph admission grants bounded access to the exact source artifact behind the admitted provenance.**
-
-It does not grant arbitrary Markdown, corpus, or filesystem browsing.
-
-The likely capability is source-artifact follow-through from an admitted anchor, with bounded reading around that anchor and potentially bounded search within that exact admitted artifact.
-
----
-
-## CR-U7 — Hermes remains truthful about graph facts and source detail
-
-> **As a GM, Hermes can use useful detail from the original source even when that detail has not been independently promoted as a graph assertion, without pretending those states are identical.**
-
-The distinction should normally remain unobtrusive. Hermes should lead with useful game information rather than provenance reports, while preserving the authority distinction underneath.
-
----
+> **Useful source detail may appear in an answer without pretending source prose and accepted World assertion are identical authority.**
 
 ## CR-U8 — Important NPCs are ready to use
 
-> **As a GM, I can find an important NPC quickly, open them, understand who they are, and ask Hermes about them.**
+> **As a GM, I can find/open an important NPC quickly, understand who they are, follow useful relationships/source, and ask Agent/Hermes about them.**
 
-A formal universal NPC sheet is not required for CON-READY.
-
-A useful experience may combine:
-
-- name and concise source-backed summary;
-- important relationships;
-- links to relevant place/threat/source material;
-- `Ask Hermes`;
-- `Read source`.
-
-Success is access and usability, not maximum typed-field coverage.
-
----
+A universal NPC ORM is not required.
 
 ## CR-U9 — Important places and shops are ready to use
 
-> **As a GM, I can quickly open an important place or shop and get the information needed to run it.**
+> **As a GM, I can quickly open an important place/shop and get what I need to run it.**
 
-A shop may remain a rich source/playable document rather than a first-class graph ontology if it can be:
-
-- found quickly;
-- rendered well;
-- reached from relevant NPC/location context;
-- queried through the governed agent/source path;
-- preserved with its useful inventory, prices, descriptions, and notes.
-
-Documents are an acceptable product answer when they solve the GM's task.
-
----
+A rich document is an acceptable answer when it solves the task.
 
 ## CR-U10 — Threats have usable mechanics
 
-> **As a GM, when the source contains a creature I expect to use, I can reach its actual statblock easily from the creature/threat.**
+> **As a GM, I can reach the actual accepted statblock for a creature/threat quickly.**
 
-The preferred target is:
+Preferred authority:
 
 ```text
 Threat
-  ↓ exact mechanics binding
-accepted immutable StatblockRevision
+→ exact accepted StatblockRevision
 ```
 
-rather than repeatedly extracting combat numbers from prose.
+Exact mechanics should not require regeneration when already known.
 
-CON-READY must determine the smallest useful path for externally supplied statblocks to enter the accepted mechanics system. External mechanics should not need to be regenerated merely because DungeonBuddy did not author them originally.
+## CR-U11 — I can develop the version I intend to run
 
-If typed import proves substantially larger than expected, a rich rendered/queryable source statblock may serve as an intermediate state, but typed exact mechanics remains the target because it unlocks reuse by Hermes and Combat.
+> **As a GM, during prep I can organize, develop, save, reopen, and revise the Playable version without automatically rewriting World.**
 
----
-
-## CR-U11 — I can develop the version of the world I intend to run
-
-> **As a GM, during prep I can organize, develop, and persist the version I intend to run without automatically rewriting the World Graph.**
-
-The Playable Layer may use ordinary durable documents and typed references.
-
-Real dogfood warrants a session-shaped Playable organization. After C2S27, the Beat is the session-scale unit and Scenes live inside it:
+Current durable structure:
 
 ```text
 Runbook
-  Beat (table objective / pressure / phase)
+  Beat (context / objective / pressure / phase)
     Scene (concrete playable situation)
-    Choice/Decision → Options → consequences → authored transitions
+    Decision → Options → consequences → activates/suppresses
 ```
 
-A Beat may contain table-facing material such as:
+APP-STATE historical WorkRevisions mean revision N remains a real durable version after N+1 exists.
 
-- At the Table;
-- Read Aloud;
-- GM Notes;
-- Rules Now;
-- Warnings;
-- Consequences;
-- references to NPCs, locations, items, threats, source, and mechanics;
-- contextual Play actions.
+The Runbook is the exact linear authored source. Play projects it into a Scene-centered cockpit rather than requiring document-tree navigation at the table.
 
-`consequences` is the general outcome concept. A reward/treasure is one possible consequence, as are costs, clock/state changes, relationship changes, access, information, and branch transitions.
+## CR-U12 — Agent/Hermes can reason over and help author the playable version
 
-Important World objects may also have run-local Playable interpretation such as current attitude, offers/hooks, or table framing without requiring those fields to become universal graph ontology.
-
-Playable decisions must be durable and reopenable, but must not silently publish graph canon.
-
----
-
-## CR-U12 — Hermes can reason over and help author the playable version
-
-> **As a GM, once I deliberately save something as part of my prep, Hermes can use it alongside the durable world, original source, and exact mechanics; when Hermes suggests a prep change, I remain the adoption authority.**
-
-Target model:
-
-```text
-WORLD GRAPH
-durable semantic world knowledge
-
-ORIGINAL SOURCE
-rich admitted prose
-
-MECHANICS
-exact accepted mechanics
-
-PLAYABLE MATERIAL
-GM-adopted runbook/object prep
-
-        ↓ governed context
-
-HERMES
-answer / navigate / propose
-
-        ↓ explicit approval for writes
-
-PLAYABLE MATERIAL revision
-```
-
-The safe authoring posture is:
-
-```text
-ground
-→ propose typed change
-→ preview
-→ GM approves
-→ apply to admitted work object
-→ normal Save
-```
-
-Hermes does not silently write Playable Material or promote it into the World Graph.
-
----
+> **As a GM, deliberately saved Playable Material can join governed World/Source/Mechanics context, and Agent/Hermes suggestions remain proposals until I approve and Save them.**
 
 ## CR-U13 — Prepared combats are ready before the session
 
-> **As a GM, I can identify the combats I expect to run and have their combatants/mechanics prepared before sitting down at the table.**
+> **As a GM, expected encounters can be prepared with exact identities/mechanics and handed to Combat before play.**
 
-CON-READY defines the expected handoff:
-
-```text
-prepared encounter
-  ├── exact creature/threat identity
-  ├── quantity
-  ├── exact mechanics where available
-  └── encounter notes
-        ↓
-Combat
-```
-
-Combat implementation may proceed as a parallel workstream. CON-READY must not require the entire future Play/world-object program before a useful convention combat workflow exists.
-
----
+Combat may advance in parallel but remains Combat-owned.
 
 ## CR-U14 — An unexpected fight does not break the workflow
 
-> **As a GM, when the players start a fight I did not prepare, I can assemble it from known NPCs/threats and begin running it without editing JSON or reconstructing everything from memory.**
+> **As a GM, when players start a fight I did not prepare, I can find known NPCs/threats, see exact mechanics, add them to Combat, and begin running without JSON or memory reconstruction.**
 
-This is a required dogfood scenario. Prepared combat alone is not sufficient.
-
----
+This is mandatory dogfood.
 
 ## CR-U15 — I can use DungeonBuddy instead of my memory
 
-> **As a GM running the session, DungeonBuddy is faster and safer than trying to remember where the information was.**
+> **As a GM running the session, DungeonBuddy is faster and safer than remembering where information was.**
 
-Representative live questions include:
+Representative live actions/questions now explicitly include:
 
-- “Who runs the apothecary?”
-- “What exactly does Hesta sell?”
-- “Open Hesta's shop.”
-- “What does the source say about the eastern door?”
+- resume the exact last current Scene;
+- inspect Beat context;
+- see which Scenes/locations/NPCs/threats/tables/notes are around this moment;
+- inspect a Scene under another Beat without moving the current moment;
+- explicitly Make that Scene Current if the table actually moves there;
 - “Show me the Tunnel Crawler statblock.”
-- “Who in town knows about the mine?”
-- “What did I decide about Hesta and the mayor during prep?”
-- “What Beat am I on and what happens if they wait?”
-- “Open Morwin’s table sheet.”
-- “What consequence did I prepare if they burn the tree?”
-- “Mark this Beat resolved and keep my scene note.”
+- find an unplanned known NPC/Threat not referenced by the current Scene;
+- select an authored Decision Option and see what became emphasized/de-emphasized;
+- keep a table note pinned to the context where it originated;
+- expand Combat and collapse back to the same Scene.
 
-The answer may come from the World Graph, source follow-through, Playable Material, exact mechanics, or Runtime State. The GM should not need to know which internal subsystem supplied it.
-
----
+The GM should not need to know which internal authority supplied the answer.
 
 ## CR-U16 — Navigation is part of the answer
 
-> **As a GM, when Hermes tells me about something, I can easily open the underlying NPC, location, threat, source document, mechanics, or Playable element instead of receiving only prose.**
+> **As a GM, useful answers/objects open the underlying NPC, location, threat, source, mechanics, or Playable material without making me reconstruct table context.**
 
-Hermes is a route into the useful parts of DungeonBuddy, not a detached chatbot next to them.
-
----
+Opening is inspect/read by default. Runtime position changes only through explicit actions.
 
 ## CR-U17 — Reload does not destroy preparation
 
-> **As a GM, I can restart/reload DungeonBuddy and still have the imported material, extracted world, source navigation, Playable material, runtime position/notes, mechanics, and prepared combat state I was relying on.**
+> **As a GM, restart/reload preserves every piece of material and runtime state I depend on.**
 
-No success claim may depend on transient developer state or manual reconstruction after restart.
+Play-specific durability is now substantially true:
+
+- Plan/Runbook WorkObjects and historical WorkRevisions → PostgreSQL;
+- Play Run + manifest + progress/rebase → PostgreSQL;
+- active Run selection/resume → PostgreSQL;
+- legacy Play filesystem persistence → demolished.
+
+CR-U17 remains **false overall** until Combat and any other relied-upon non-Play state meet the same standard.
 
 ---
 
 # 4. Delivery roadmap
 
-The roadmap is sequenced by user-visible capability rather than architecture layer.
+## 4.0 Current delivery state — 2026-08-26
 
-## 4.0 Current delivery state — 2026-08-22 post-PR #627
-
-Synchronized by the in-flight BF1 implementation
-(`Docs/Plans/HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`)
-at `main` `0975ebcfb714b1a664dfb57362d7cd13351aa077` (PR #627 merge of the Lane A3 current-moment cockpit design gate; final reviewed head `71901b60e6c90779c11b6ca3f1b8a91493b2967f`; **5 formal review cycles**, Cycle 5 PASS). Lane A3 is complete: the reviewed Beat-first contract lives in `Docs/Design/DESIGN-play-current-moment-cockpit.md`. Lane A2 readability and the same-store U1/U2/U3 active-Run continuity proof remain complete; the C2S27 dogfood truth remains `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`.
-
-Merged and proven: CR01–CR04 capabilities through the CUTOVER/Build program; Playable P1/P2/P3A/D1/D2 (durable Runbook identity, exact Run binding, native admission, Start Run, exact Runbook view).
-
-C2 Session 27 was a real-table dogfood of native Play. Verdict: **BLOCKED / PLAY NOT READY**. Exact Run admission worked; the native table surface was abandoned almost immediately; the HTML Combat Tracker carried the session.
-
-Current story truth after C2S27:
-
-| Story | State | Evidence |
-|---|---|---|
-| CR-U11 | **Materially false** | Plan ideas did not enter Play with sufficient semantic fidelity; Plan export dropped playable blocks and styling; prep does not survive worktree switches |
-| CR-U13 | Partially true, not durable | The HTML Combat Tracker prepared/ran the expected fight; state lived in browser `localStorage` + export JSON only |
-| CR-U14 | Partially true, not durable | The tracker pool added unplanned combatants quickly at the table; same persistence gap |
-| CR-U15 | **False for native Play** | The GM abandoned native Play; the Combat Tracker was materially more useful |
-| CR-U16 | **False** | Dead/clunky statblock and reference paths; roll tables unreachable |
-| CR-U17 | **False** | Reload/restart does not preserve prep and table state across browser/worktree boundaries |
-
-New delivery priority (supersedes "continue the Play phase ladder"):
+Repository truth at this re-anchor:
 
 ```text
-1. BF1 (implementation, in flight): beat-first Playable grammar and manifest
-   foundation (`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`),
-   making the reviewed Lane A3 contract executable and durable against CR-U11
-   while v2 Runs stay blocked from READY until BF2. Lane A3 (the
-   Beat/Scene/Decision + Plan-to-Playable cockpit design gate) is merged and
-   complete in PR #627. Lane A1 (active-Run continuity) and Lane A2 (table
-   readability + the U1/U2/U3 dogfood proof) are merged and complete.
-2. Lane B: durable Combat state — database-backed tracker authority; the C2S27
-   tracker interaction is the proven UX to keep. Resolve the retained
-   unmerged Combat-save worktree before dispatch.
-3. After both domain slices prove their own durability invariants, extract a
-   bounded shared persistence primitive only if the evidence demonstrates a
-   common seam. Do not make one atomic slice span Plan, Playable state, Combat,
-   Threat drafts, Runs, and workspace registries.
+PLAY STRUCTURE
+BF1 / PR #628    DONE — Beat-first v2 grammar, index, manifest foundation
+
+APP-STATE
+AS1              DONE — Plan WorkObjects / immutable WorkRevisions
+AS2              DONE — Runbook / historical Playable WorkRevisions
+AS3              DONE — Play Run + manifest + Runtime CAS/rebase on PostgreSQL
+AS4              DONE — active Run / resume continuity on PostgreSQL
+AS5 / PR #650    DONE — legacy Play filesystem persistence demolished
+
+PLAY PRODUCT
+BF2              NEXT structural Play slice — v2 READY/current-position/relevance
+BF3              after BF2 — Scene-centered cockpit
+BF4              authoring composition; may run in parallel on disjoint lease
+
+CUTOVER
+separate active lane; do not make remaining CUTOVER work a reason to pause disjoint Play Surface work
 ```
 
-Lane A3 was a DESIGN → REVIEW gate with zero production code and is now
-merged; BF1 is the first structural implementation slice under that contract.
-Lane B is a separate domain concern. Lane B remains blocked until the retained
-unmerged Combat-save worktree is mined/adopted/landed or discarded. P3B
-(native graph-object sheets) and P4 (exact Threat-to-Combat mutation) remain
-designed but **deferred** — they are not current dispatch authority.
+### Current story truth
 
-CR-U17 remains **false overall**. Merged Lane A1 addresses same-store Play
-re-entry and duplicate-Run churn; merged Lane A2 makes that surface readable
-and proves the continuity behavior. Neither claims that Playable material,
-workspace authority, Combat state, or other GM work survives a worktree switch.
+| Story | State now | Why |
+|---|---|---|
+| CR-U11 | **Partially true, foundation strong** | durable WorkObject/WorkRevision + BF1 structure exist; richer Beat-first Plan composition controls still need BF4/dogfood |
+| CR-U13 | **Partial / Combat-owned** | exact mechanics/projection seams exist, but durable integrated Combat acceptance is separate |
+| CR-U14 | **False as native end-to-end story** | C2S27 proved fast unplanned combat in the legacy tracker; native global Threat→exact mechanics→Combat flow still needs proof |
+| CR-U15 | **False for target cockpit** | persistence is solved, but BF2/BF3 Scene-centered live surface is not yet delivered |
+| CR-U16 | **Partial** | projection seams exist; cross-Beat inspect/global on-demand retrieval remains a prioritized gap |
+| CR-U17 | **Play portion true; overall false** | Play durability is PostgreSQL-backed; Combat/other relied-upon state must still prove continuity |
+
+### Immediate delivery sequence
+
+```text
+1. BF2 — v2 READY Runtime + derived Choice relevance
+   - seed new v2 currentBeatId
+   - restore exact historical pinned WorkRevision
+   - explicit Beat/Scene current-position mutations
+   - activates/suppresses emphasis
+
+2. BF3 — Scene-centered current-moment cockpit
+   - active Scene central board
+   - Beat context wrapper
+   - Beat-only state
+   - Decision interaction
+   - At a Glance presence inventory
+   - inspect vs Make Current
+   - Runbook as secondary reference
+
+3. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
+   - inspect material from other Beats without changing current moment
+   - global/on-demand known object finder
+   - fast NPC/location/Threat/table opening
+   - exact statblock hot path
+
+4. THREAT → COMBAT + COMBAT WORKSPACE — P4 / Combat lane
+   - Add to Combat from prepared or unexpected Threat
+   - Combat expands into central working area while remaining Combat-owned
+   - collapse returns to exact Scene
+   - durable Combat authority required for CR-U17 overall
+
+5. BF4 — Plan Beat-first authoring composition
+   - may proceed in parallel after BF1 on disjoint leases
+   - must not block getting BF2/BF3 back to a real table
+
+6. REAL SESSION DOGFOOD
+   - deliberately include an off-script scene change
+   - unplanned NPC/Threat
+   - exact mechanics lookup
+   - unexpected Add to Combat
+   - authored Decision branch
+   - reload/resume
+```
+
+Agent Surface and kernel hoist work may proceed in parallel where leases/authority boundaries are clean, but neither is a prerequisite for fast native object/statblock retrieval.
+
+---
 
 ## CR01 — Source Ingress & Reading
 
 **Primary stories:** CR-U1, CR-U2.  
-**Outcome:** paste Markdown → choose/create world → durable source → reopen → rich reading/editing.
-
-Design ingress so `.md` files and future RulesIngestion-produced Markdown can use the same boundary. Preserve an extensible asset/image model even if paste-only is the first UI.
+**Outcome:** external Markdown → chosen world → durable source → rich reopen/read/edit.
 
 ## CR02 — Source-Backed World Ingestion
 
 **Primary stories:** CR-U3, CR-U4, CR-U5.  
-**Outcome:** run bounded extraction on real one-shot material, review/correct meaningful mistakes, publish into the chosen world, and navigate object → relevant source.
+**Outcome:** bounded extraction/review/publication on real material with object→source navigation.
 
-This slice or its immediate predecessors must cover generic first-world initialization when the chosen destination has no graph yet.
-
-## CR03 — Hermes Source Follow-Through
+## CR03 — Agent/Hermes Source Follow-Through
 
 **Primary stories:** CR-U6, CR-U7.  
-**Outcome:** graph retrieval remains the discovery path; when an admitted source artifact is needed, Hermes can read farther into that exact artifact without arbitrary filesystem authority.
-
-This is a high-priority CON-READY capability.
+**Outcome:** graph discovery may follow admitted provenance into the exact source artifact without arbitrary filesystem authority.
 
 ## CR04 — Game-Facing Objects & Mechanics
 
 **Primary stories:** CR-U8, CR-U9, CR-U10.  
-**Outcome:** NPC/location/threat navigation leads with useful game content; external statblocks have the best practical path toward exact accepted mechanics; shops/documents remain usable without unnecessary ontology.
+**Outcome:** useful NPC/location/threat/document projections; exact mechanics where valuable; no unnecessary universal ontology.
 
 ## CR05 — Playable Preparation
 
 **Primary stories:** CR-U11, CR-U12.  
-**Outcome:** the GM can author/reopen versioned Playable Material using existing document/reference capabilities; real Runbooks can carry stable Scenes/Beats, choices, consequences, and object-attached table interpretation; Hermes can use saved playable context and propose explicit GM-approved changes without graph-canon promotion.
+**Outcome:** exact versioned Playable WorkObjects with stable Beat/Scene/Decision/Option identity, explicit authoring/adoption, and governed Agent proposals.
 
-Start document-first. Do not invent a new datastore unless the existing workspace document/Canvas boundary proves insufficient.
-
-A Run may reference the exact Playable revision being used, but live progress/state remains separate.
+The datastore decision is already made for the current foundation: Buddy PostgreSQL application state owns durable WorkObjects/WorkRevisions. Do not reopen file authority.
 
 ## CR06 — Combat Readiness Integration
 
 **Primary stories:** CR-U13, CR-U14.  
-**Outcome:** prepared and unexpected Threat/NPC encounters can reach Combat from table-facing Play projections without campaign-specific mechanics bridges or JSON reconstruction.
+**Outcome:** prepared **and unexpected** known Threat/NPC encounters can reach Combat from Play without campaign bridges, JSON reconstruction, or authoring-location hunts.
 
-Preferred handoff:
+Preferred path:
 
 ```text
-Runbook Beat / Play Object
-  → Threat
-  → exact accepted StatblockRevision
-  → Add to Combat
-  → Combat runtime
+current context OR global finder
+→ Threat
+→ exact accepted StatblockRevision
+→ Add to Combat
+→ Combat-owned runtime
 ```
 
-Combat state remains Combat-owned. Play/Run state may link to it but does not absorb HP/initiative/condition authority.
+## CR07 — Real One-Shot / Campaign Run
 
-## CR07 — Real One-Shot Run
+**Primary stories:** CR-U15, CR-U16, CR-U17 plus cumulative verification.  
+**Outcome:** run a real session through the target Play cockpit.
 
-**Primary stories:** CR-U15, CR-U16, CR-U17 plus cumulative verification of all prior stories.  
-**Outcome:** use an actual selected convention adventure through the Play surface: open the versioned Runbook, move through stable Scenes/Beats, resolve/branch/note runtime state, open useful object/source/mechanics projections, add prepared or unexpected threats to Combat, ask Hermes, and restart without losing material or table position.
+Required live proof includes:
 
-The run must not depend on:
+- exact resume to last current Beat/Scene;
+- Beat context + Scene-centered board;
+- authored Decision selection and visible branch relevance;
+- inspect another Beat/Scene without moving current position;
+- explicit Make Current;
+- presence-first `At a Glance`;
+- unplanned global object/Threat retrieval;
+- exact statblock with no noticeable table-breaking delay;
+- prepared and unexpected Add to Combat;
+- Combat expand/collapse with exact Scene return;
+- note capture;
+- restart/reload without reconstruction.
 
-- campaign-specific `ofConks*`/Mireward code dictionaries;
-- manual JSON surgery;
-- fabricated local graph resolution;
-- legacy prep HTML as the permanent Play substrate;
-- hidden Eldyrwild assumptions.
-
-Anything that forces the GM to abandon DungeonBuddy for manual source search, memory reconstruction, or combat rebuilding becomes concrete CON-READY debt.
+Anything that forces the GM to abandon DungeonBuddy for manual source search, memory reconstruction, or combat rebuilding is concrete CON-READY debt.
 
 ---
 
 # 5. Explicitly deferred / not required for CON-READY
 
-The following are not required before CON-READY can succeed:
+Not required before CON-READY succeeds:
 
-- wiring the PDF extraction pipeline directly into DungeonBuddy;
-- Hermes arbitrary filesystem or Markdown search;
-- Hermes multimodal interpretation of imported images;
-- perfect extraction of scenes, clues, beats, events, items, or branches;
-- a universal Adventure schema;
-- full NPC or Shop ontology;
-- automatic graph writes from Hermes brainstorming;
-- automatic promotion of Playable Layer decisions into canon;
-- continuous Hermes conversation identity across every surface;
-- completion of the entire formal Play/world-object roadmap;
+- direct PDF pipeline wiring;
+- arbitrary Agent filesystem search;
+- multimodal interpretation of every imported image;
+- perfect automatic extraction of Scenes/Beats/branches;
+- universal Adventure ORM;
+- full universal NPC/Shop ontology;
+- automatic World writes from brainstorming;
+- automatic Playable→World or Runtime→Playable promotion;
 - a universal asset-management platform;
-- broad latency/performance work not demonstrated as a blocker by real dogfood.
+- boolean Choice condition DSL / workflow engine;
+- a new Note table without dogfood evidence;
+- completion of every kernel/hoist possibility.
 
-The deferrals above concerning scenes/beats and an Adventure schema concern **automatic source extraction and universal World ontology**. They do not prohibit GM-authored Playable Runbooks from using stable Scene/Beat structure; real dogfood has justified that Playable structure.
-
-These may become successors when actual use proves their value.
+Deferring automatic Scene/Beat extraction does not defer GM-authored Playable structure.
 
 ---
 
 # 6. Final acceptance journey
 
-CON-READY is complete only when this experience works with real one-shot material:
+CON-READY is successful when this works with real material:
 
 ```text
-I have external Markdown for an adventure.
+I bring source material into DungeonBuddy and can read it.
 
-I bring it into DungeonBuddy.
+DungeonBuddy gives me enough World/index structure to find important people,
+places, organizations, threats, and their source.
 
-I choose an existing world or create a new one.
+I prepare the exact version I intend to run as a durable Runbook.
 
-I can read the original material comfortably, including its useful structure
-and available assets.
+I start/resume a Run.
 
-DungeonBuddy extracts enough of the world that I can find the important NPCs,
-locations, organizations, and threats.
+Within seconds I see the Scene I left off on, inside accessible Beat context.
 
-I open an NPC.
+The players make an authored Decision; I record the Option and the cockpit
+shows the consequence and changed relevance without trapping navigation.
 
-I can jump directly to where that NPC came from in the source.
+The players immediately do something I did not expect.
 
-I ask Hermes something the graph summary does not contain.
+I inspect a Scene under another Beat without losing my current moment.
+I find an NPC/Threat that was not referenced by the current Scene.
+I open the exact statblock quickly.
+I add it to Combat.
+Combat expands as the working instrument.
+I collapse it and I am back in the exact Scene.
 
-Hermes follows the NPC's admitted provenance, consults the source, and gives me
-a useful answer without pretending arbitrary files are authoritative.
+If the table actually moved to that other Scene, I explicitly Make Current.
 
-I can open important shops and other playable material as readable documents.
+I record notes without rewriting the Runbook or World.
 
-I can open the monsters and their mechanics.
-
-During prep, I develop NPC relationships and other ideas and keep them as part
-of the world I intend to run without silently rewriting graph canon.
-
-I organize the run as a durable Runbook with stable Scenes and Beats.
-
-The Beat I am running shows the table framing, relevant rules/warnings,
-references, and consequences I prepared. Rewards are ordinary consequences
-rather than a special subsystem.
-
-During play I mark progress, make branch choices, and record scratch notes
-without rewriting the Runbook or World Graph.
-
-My expected combats are prepared.
-
-The players do something unexpected and I can adapt the combat without JSON or
-memory reconstruction.
-
-During play I use Hermes and navigation to recover information faster than I
-could by manually searching the source.
-
-I restart DungeonBuddy and the material, Playable prep, runtime position, and
-other preparation I depended on are still there.
+I reload/restart and the state I depended on is still there.
 ```
-
-If this journey works, CON-READY is successful.
 
 ---
 
 # 7. Stewardship rule
 
-Every agent designing, implementing, reviewing, or re-anchoring work under CON-READY must begin with [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md), reconcile it against current repository state, and judge proposed work against the user stories above.
+Every implementation/review under CON-READY must re-anchor against current repository truth and the user stories above.
 
-No successor roadmap or implementation handoff may silently redefine CON-READY as an architecture-completion program.
+Do not silently redefine CON-READY as architecture completion. Do not dispatch BF2 from historical BF1-era assumptions that APP-STATE has already made false.

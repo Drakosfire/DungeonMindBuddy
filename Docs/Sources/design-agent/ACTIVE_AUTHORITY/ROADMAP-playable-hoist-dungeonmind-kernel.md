@@ -1,12 +1,14 @@
 # ROADMAP — Playable Architecture → Shared Buddy Primitives → DungeonMind Kernel
 
-**Status:** ACTIVE DESIGN ROADMAP — evidence-driven; review on every implementation PR
-**Date:** 2026-08-15 (state re-anchored 2026-08-21 after PR #626; `main` `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6`)
-**Scope:** DungeonMindBuddy Playable/Play implementation, internal hoisting, and evidence-driven promotion into DungeonMind / DungeonMindDnD
+**Status:** ACTIVE DESIGN ROADMAP — evidence-driven; review on every implementation PR  
+**Re-anchored:** 2026-08-26 from `main` `cc016661f80416e0816f56349217cf33c53a195f`  
+**Scope:** DungeonMindBuddy Playable/Play implementation, Buddy-shared hoisting, and evidence-driven promotion into DungeonMind / DungeonMindDnD
+
+---
 
 ## 0. North star
 
-The canonical Playable design should now move through a deliberate graduation path:
+The graduation path remains:
 
 ```text
 DOGFOOD / PLAY DOMAIN
@@ -14,439 +16,280 @@ prove the GM interaction with real material
 
         ↓ repeated invariant
 
-DUNGEONMINDBUDDY SHARED PRIMITIVE
+DUNGEONBUDDY SHARED PRIMITIVE
 hoist product-neutral editor/projection/work-object behavior
 
         ↓ second-system pressure + governance need
 
 DUNGEONMIND KERNEL OR PROFILE
-hoist only the authority/context semantics that must be consistent across consumers
+hoist only authority/context semantics that must be consistent across consumers
 ```
 
-The central architectural rule is:
+Central rule:
 
-> **DungeonMind should learn about governed operator-authored context, exact identity/revision/provenance, and capability-bounded adoption. It should not learn what a Beat, Scene, Play Object Sheet, or Combat panel is.**
+> **DungeonMind may learn governed operator-authored context, exact identity/revision/provenance, and capability-bounded adoption. It should not learn what a Beat, Scene, Play Object Sheet, Decision card, or Combat panel is.**
+
+The 2026-08-26 re-anchor does not change this hoist philosophy. It changes **delivery order** now that BF1 and APP-STATE AS1–AS5 are complete and C2S27's unexpected-play lesson has been made explicit.
+
+---
 
 ## 1. Ownership model
 
 | Concern | Long-term owner | Hoist posture |
 |---|---|---|
-| Runbook / Scene / Beat / Consequence semantics | DungeonMindBuddy Playable domain | Keep product-owned |
-| Play Object Sheet layout and table prioritization | DungeonMindBuddy Play surface | Keep surface-owned |
-| Run progress: current scene/beat, resolved beats, choices, scratch notes | DungeonMindBuddy Run runtime | Keep runtime-owned |
-| Combat HP/initiative/conditions | Combat | Keep Combat-owned |
-| Workspace document revision/save/CAS | Markdown Canvas / workspace document authority | Shared Buddy primitive |
-| Stable address of a semantic element inside a work object | Shared Buddy Canvas/work-object layer first | Kernel may consume the ref later; should not own storage |
-| Proposal apply/stale/dirty arbitration | Shared Buddy Canvas/work-object layer | Hoist inside Buddy before kernel consideration |
-| Typed graph/source/mechanics references | Existing shared reference/projection seams | Reuse/extend, do not duplicate in Play |
-| D&D world-object kinds and exact statblock mechanics attachments | `dungeonmind_dnd` semantic profile | Already profile territory; keep out of kernel core |
-| World identity, revisions, evidence, context assembly, capability policy | DungeonMind | Kernel authority |
-| Saved Playable material as governed agent context | DungeonMind candidate | Strong kernel candidate, but as generic external/operator context—not Runbook ontology |
-| Playable → World promotion | DungeonMind contribution review/publication + profile adapter | Reuse existing kernel write path |
-| Runtime → Playable adoption | Buddy proposal/adoption flow | Product-owned |
-| Asset/map annotation | Shared Buddy asset/projection layer first | Kernel only if later required for evidence/retrieval |
+| Runbook / Beat / Scene / Decision / Consequence semantics | DungeonMindBuddy Playable | keep product-owned |
+| Scene-centered cockpit / `At a Glance` / table prioritization | DungeonMindBuddy Play Surface | keep surface-owned |
+| Run current position / resolution / selections / notes | DungeonMindBuddy Play Runtime | keep runtime-owned |
+| Combat HP / initiative / conditions / encounter runtime | Combat | keep Combat-owned |
+| WorkObject / WorkRevision / WorkingCopy / CAS | Buddy Application State / Canvas | shared Buddy primitive already proven |
+| stable semantic element addressing | Buddy Canvas/work-object candidate | hoist only when a second consumer requires same contract |
+| proposal apply / stale / dirty arbitration | Buddy Canvas/work-object | shared Buddy before kernel consideration |
+| typed graph/source/mechanics refs + projection open | existing shared reference/projection seams | reuse/extend |
+| D&D exact mechanics attachment semantics | `dungeonmind_dnd` profile | profile-owned |
+| World identity/revisions/evidence/governed publication | DungeonMind | kernel authority |
+| operator-authored context admission to Agent | DungeonMind candidate | only as generic exact external context |
+| Runtime→Playable adoption | Buddy proposal/adoption | product-owned |
+| Playable→World promotion | Buddy UI → profile adapter → DungeonMind review/publication | reuse kernel write path |
+
+---
 
 ## 2. Promotion test
 
-A behavior is eligible to move **out of Play** only when all of these are true:
+A behavior may move out of Play only when:
 
-1. A real dogfood path has proved it useful.
-2. A second consumer or surface needs the same invariant, or divergence would create an authority/safety problem.
-3. The contract can be named without `Play`, `Plan`, `Beat`, `Scene`, `Canvas UI`, or adventure-specific vocabulary.
-4. Moving it creates one clear owner instead of a second copy.
-5. Its failure semantics can be strict and testable.
-6. The lower layer does not need to own presentation or product workflow to enforce it.
+1. real dogfood proved it useful;
+2. a second consumer needs the same invariant or divergence creates authority/safety risk;
+3. the contract can be named without Play/Beat/Scene/adventure vocabulary;
+4. moving creates one owner rather than a second copy;
+5. failure semantics are strict/testable;
+6. the lower layer does not need presentation/product workflow to enforce it.
 
-For **DungeonMind kernel** promotion, add two more gates:
+For DungeonMind kernel promotion also require:
 
-7. The concern is about knowledge/context identity, revisioning, provenance, admission, retrieval, capability policy, or governed durable adoption.
-8. A game/system-specific semantic can remain in a profile package instead of entering kernel core.
+7. concern is knowledge/context identity, revision, provenance, admission, retrieval, capability policy, or governed promotion;
+8. system/game semantics remain in profile/product layers.
 
-If these are not true, keep the behavior in Buddy.
+If these are not true, keep behavior in Buddy.
 
+---
 
-## 2.1 Roadmap maintenance contract
+## 3. Living-roadmap maintenance contract
 
-This roadmap is a **living design authority**, not a one-time planning artifact and not a mechanical status tracker.
+Every implementation PR dispatched from this roadmap must ask:
 
-Every implementation PR dispatched from this roadmap must deliberately re-read it against the evidence produced by that PR before the PR can receive a final passing review.
+> **Did this PR's evidence change ownership, sequence, hoist posture, successor boundary, or assumptions?**
 
-The required final-review question is:
-
-> **Did this PR produce evidence that changes the ownership, sequence, hoist posture, successor boundary, or assumptions in this roadmap?**
-
-A final passing review requires exactly one disposition:
+Final review records one disposition:
 
 ```text
 ROADMAP_REVIEW — UPDATED
-<what evidence changed the design and which roadmap claims were edited>
 ```
 
-or:
+or
 
 ```text
 ROADMAP_REVIEW — NO DESIGN CHANGE
-<why the actual implementation/evidence still supports the current roadmap>
 ```
 
 Rules:
 
-1. The coding agent and reviewer both consider the roadmap; it is not a reviewer-only ceremony.
-2. If the evidence changes a roadmap claim, the same implementation PR updates this file before passing review.
-3. If the design still holds, do not churn architecture prose merely to record activity. Add one concise row to the review ledger below.
-4. A roadmap edit must describe evidence from the current PR, not speculative future preference.
-5. Changes to ownership or hoist posture are architecture changes and must remain consistent with the canonical Playable architecture and the owning lower-layer authority.
-6. A Buddy PR may identify a DungeonMind/DungeonMindDnD successor but must not silently make a cross-repository contract change.
-7. The roadmap's current phase / next-slice statement is mutable state authority and must agree with merged repository truth before the next dependent dispatch.
-8. The ledger names the **implementation/evidence head** — the code commit whose tests and behavior drove the disposition. It must not chase the later bookkeeping SHA created by writing this ledger. The formal review handback records the exact reviewed PR head, which may be newer than the evidence head.
+- current phase / next slice must agree with merged repository truth;
+- evidence heads and formal reviewed heads may differ when roadmap bookkeeping creates a later SHA;
+- do not create cross-repository contracts silently;
+- do not hoist because abstraction feels clean; hoist because evidence proves shared ownership.
 
-### Roadmap review ledger
-
-| PR / evidence head | Phase | Review disposition | Design consequence | Next slice after merge |
-|---|---|---|---|---|
-| [#590](https://github.com/Drakosfire/DungeonMindBuddy/pull/590) evidence `3fe4a403` | P1 | ROADMAP_REVIEW — UPDATED. First use of the living-roadmap exact-head rule showed that requiring the same-PR ledger to name the final reviewed head cannot converge: the ledger write creates a new SHA. Distinguish implementation/evidence head (this row) from the reviewed head recorded in the review handback. P1A identity remains Play-owned semantic Markdown plus editor projection attrs; no second consumer needed the same invariant. | Keep Scene/Beat identity Play-owned. Do not hoist `WorkObjectElementRef` yet. Living-roadmap rows name evidence heads, not the ledger-write SHA. | P1B — Playable structure index and authored Choice identity, after this PR is reviewed |
-| [#592](https://github.com/Drakosfire/DungeonMindBuddy/pull/592) evidence `c6435609` | P1B | ROADMAP_REVIEW — NO DESIGN CHANGE. The structure index is a deterministic Play-domain derivation over existing P1A root heading attrs. It creates no durable authority, Markdown grammar, Save policy, or second identity syntax. One Playable consumer can now resolve Scene/Beat membership by stable IDs, but that is not yet a second independent consumer of a shared element-ref invariant. | Keep Scene/Beat identity and the derived structure index Play-owned. Do not hoist `WorkObjectElementRef` yet. P1C still owns Choice/Option identity. | P1C — Choice / Option identity and minimal authored representation |
-| [#594](https://github.com/Drakosfire/DungeonMindBuddy/pull/594) evidence `9aacb9f3` | P1C | ROADMAP_REVIEW — NO DESIGN CHANGE. Choice/Option are an additive Play-owned extension of the existing v1 marker family and P1B index. Parser/serializer/Save production code did not need Choice-specific branching. That is still one Playable consumer of element identity, not a second independent consumer of a generic ref. | Keep the four-kind identity family and derived index Play-owned. Do not hoist `WorkObjectElementRef` yet. P2 remains next. | P2 — separate Run runtime |
-| [#596](https://github.com/Drakosfire/DungeonMindBuddy/pull/596) evidence `b1f93191` | P2A | ROADMAP_REVIEW — NO DESIGN CHANGE. The P2A implementation binds Runtime to the existing workspace document identity + revision + content digest authority and reuses existing generic lock/atomic-JSON seams. It did not require a server Playable parser, a second element-reference consumer, or a generic work-object revision type. Focused service/route/integrity tests at this evidence head passed, including Runbook-mutation linearization. | P2A_HOIST_OBSERVATION: exact Run→work-object revision/digest binding has not become useful outside Play Runtime; `WorkObjectRevisionRef` not yet justified; `WorkObjectElementRef` not yet justified; server-owned Playable element resolution was not needed in P2A and remains the concrete P2B design question; DungeonMind relevance discovered: none. | P2B — durable element-referenced Run progress |
-| [#599](https://github.com/Drakosfire/DungeonMindBuddy/pull/599) evidence `66fd7f37` | P2B1 | ROADMAP_REVIEW — NO DESIGN CHANGE. The P2B1 implementation is a second Play-owned consumer of the existing P1 marker family: a private server scanner derives only canonical IDs and membership into an immutable Runtime sidecar. It did not store Markdown/titles/prose/order, mutate P2A Run records, invent a historical Playable archive, or require a generic work-object element ref. Cycle 1 repaired fence-interior literal treatment (`~~~` and variable-length backticks) and persisted Scene/Choice membership resolution without changing that posture. | P2B1_HOIST_OBSERVATION: server-side marker/reference resolution remained cleanly Play-owned; no independent non-Play consumer required the same element-ref contract; `WorkObjectRevisionRef` not yet justified; `WorkObjectElementRef` not yet justified; a historical Playable archive was not necessary; DungeonMind relevance discovered: none. | P2B2 — durable CAS Run progress against the sealed manifest |
-| [#601](https://github.com/Drakosfire/DungeonMindBuddy/pull/601) evidence `8538409e` | P2B2 | ROADMAP_REVIEW — NO DESIGN CHANGE. The P2B2 implementation mutates one full progress snapshot inside the existing Play-owned Run JSON under `run_revision` CAS and admits every durable reference from the sealed P2B1 sidecar. It did not add a progress file/token, parse current Runbook bytes, auto-seal a missing manifest, or invent a generic runtime-state primitive. Cycle 1 required persisted `resolved_beat_ids` to fail closed when duplicate or unsorted rather than silently re-canonicalizing on reload. Focused service/route/predecessor tests at this evidence head passed, including concurrent CAS, response-loss replay, persisted-reference corruption, persisted canonical-beat shape, and legacy P2A records without `progress`. | P2B2_HOIST_OBSERVATION: Run-progress CAS has not become useful outside Play Runtime; no shared Buddy runtime-state primitive was required; no independent consumer required `WorkObjectRevisionRef` or `WorkObjectElementRef`; progress integrity used the Play-owned manifest rather than a generic cross-domain reference validator; DungeonMind relevance discovered: none. | P2C — explicit Run rebase/migration to a newer Playable revision |
-| [#608](https://github.com/Drakosfire/DungeonMindBuddy/pull/608) evidence `9b6918d6` | P3C | ROADMAP_REVIEW — NO DESIGN CHANGE. P3C extracted surface-neutral exact Threat mechanics hydration/rendering (`useExactThreatMechanics`, `ThreatMechanicsPanel`) and composed it into a Play-owned object sheet without Combat or a new backend contract. Plan/Build keep `ThreatSheetProjection` as the compatibility wrapper. Living-roadmap dispatch authority remains P2C; P3A/P3B product sheets are still not merged. | P3C_HOIST_OBSERVATION: reused existing Threat query/hydration API; mechanics identity remains `(statblock_id, revision_id, definition_digest)`; no new DungeonMindDnD attachment semantic; surface-neutral read/render seam extracted; no Playable/Run persistence of mechanics; no active/default binding choice; no Combat mutation; P4 Add to Combat remains independently useful; generic WorkObject/Runtime/DungeonMind relevance: none. | P2C remains current dispatch; P4 remains the first Combat mutation after P3C is product-complete |
-| [#612](https://github.com/Drakosfire/DungeonMindBuddy/pull/612) evidence `0299d6a6` | P2C | ROADMAP_REVIEW — NO DESIGN CHANGE. The P2C implementation rebases one Play-owned Run UUID onto a newer committed revision of the same Runbook artifact, preserving progress only when every durable reference remains admissible in a replacement P2B1-format manifest. It introduced one forward-only rebase intent to recover the Run+manifest pair and isolated non-rebase APIs while that intent remains. Cycle 1 required authoritative P2B2 source-progress integrity before migration, preserve-only proof of tampered intents, an explicit `rebased_from_run_revision` receipt rather than inferring completed replay from the shared CAS counter, and list isolation of orphan intents. It did not add ID mapping, a historical Playable archive, a second concurrency token, a generic multi-file transaction framework, or a DungeonMind contract. Focused service/route/predecessor tests at this evidence head passed, including preserve-only success, per-field 409 blockers, injected intent/manifest/run/cleanup failures, pending-intent 503 isolation, completed-replay pair integrity, in-process half-commit concealment, source-integrity rejection, tampered-intent fail-closed recovery, progress-vs-rebase replay distinction, and orphan-intent list isolation. | P2C_HOIST_OBSERVATION: the rebase intent remained a Play-owned recovery journal for one Run+manifest pair; the rebase receipt is a Play-owned replay identity on the existing Run record, not a generic transaction primitive; no independent non-Play consumer required a shared CAS/receipt type; `WorkObjectRevisionRef` not yet justified; `WorkObjectElementRef` not yet justified; a historical Playable archive was not necessary; DungeonMind relevance discovered: none. | After merge: P3 — native Play projections; current sequence stays P2C until post-merge state-authority sync |
-| [#618](https://github.com/Drakosfire/DungeonMindBuddy/pull/618) evidence `196144bb` | P3A | ROADMAP_REVIEW — NO DESIGN CHANGE. Native `/play` reconstructs one exact Run-bound Runbook table deck from the persisted P2 Run, sealed P2B1 manifest, and matching committed workspace snapshot. Scene/Beat/Choice identity and authored bodies stay Play-owned P1 derivations; Runtime overlay and `run_revision` CAS stay Play-owned P2. Cycle 1 closed four implementation-boundary gaps without changing ownership: concurrent rebase must re-admit rather than overlay a new Run on old scenes; workspace admission carries P2B1 `active`/`committed`/`file_exists` predicates; blocked Play publishes surface identity without admitted campaign/document authority; Play stays in shared product nav. Shared AppChrome is reused; no second Projection host, AgentInteractionProvider, historical Runbook archive, graph-reference open, or backend schema was required. | P3A_HOIST_OBSERVATION: Native Runbook projection remains Play-owned. P1 stable element identity remains Play-owned. P2 Runtime remains Play-owned. shared AppChrome/Projection host remains reused rather than forked. WorkObjectElementRef remains not yet justified by an independent non-Play consumer. WorkObjectRevisionRef remains not yet justified. DungeonMind relevance discovered: none. | After merge: Start Run dogfood bridge, then Runbook briefing/instructions, then live dogfood/re-anchor. P3B remains designed but deferred. P4 remains the first Combat mutation |
-| [#621](https://github.com/Drakosfire/DungeonMindBuddy/pull/621) evidence `8dc1bad2` | D1 | ROADMAP_REVIEW — NO DESIGN CHANGE. Start Run is a Play-owned UI consumer of the existing P2A create/replay and P2B1 seal/replay endpoints. One explicit attempt allocates one canonical Run UUID, sends the exact committed Runbook snapshot revision/SHA, and navigates to `/play?run=<uuid>` only after both authorities confirm. Unknown create/seal outcomes reconcile by exact GET; 409 never refreshes to latest; incomplete create-without-seal is truthful and has no delete/rebase. Cycle 1 restored the owning App `/play` composition proof: Existing Runs stay openable when Start Run discovery fails, and successful start enters the existing P3A READY deck at `/play?run=<uuid>`. No backend schema, start transaction, Plan authoring workflow, or new Playable grammar was required. | D1_HOIST_OBSERVATION: Start Run remained a Play-owned workflow over existing Run+manifest APIs. No generic start-transaction primitive was required. `WorkObjectRevisionRef` not yet justified. `WorkObjectElementRef` not yet justified. DungeonMind relevance discovered: none. | After merge: Play Runbook instructions (D2), then live dogfood/re-anchor. P3B remains designed but deferred. P4 remains the first Combat mutation |
-| [#622](https://github.com/Drakosfire/DungeonMindBuddy/pull/622) evidence `b923117b` | D2 | ROADMAP_REVIEW — NO DESIGN CHANGE. Native `/play` now has two Play-owned projections of one P3A-admitted Runbook: the existing Table deck and a read-only full-document Runbook view that reuses `MarkdownEditorCore` with the exact imported TipTap document. Ordinary unmarked root H1/H2 terminate preceding playable body slices so later instructions stay visible in Runbook mode without becoming Scene/Beat identity. Mode switching is local, defaults to Table, writes no Runtime, and returns to the prior focused Beat. No briefing schema, heading-name ontology, backend parser, second Markdown import, or graph-reference open was required. | D2_HOIST_OBSERVATION: Full-document Runbook viewing remained a Play-owned projection of the already-admitted TipTap document. No generic document-view primitive or briefing persistence type was required. `WorkObjectRevisionRef` not yet justified. `WorkObjectElementRef` not yet justified. DungeonMind relevance discovered: none. | After merge: D3 C2 Session 27 real-session dogfood ran; verdict **BLOCKED / PLAY NOT READY** (exact Run admission accepted; native Table rejected as the table instrument). Post-dogfood re-anchor supersedes the earlier D4 table-stage selection |
-| [#624](https://github.com/Drakosfire/DungeonMindBuddy/pull/624) evidence `693ff906` | post-C2S27 re-anchor | ROADMAP_REVIEW — UPDATED. The operator-authorized PLAY-SURFACE reset merged at `850daa75469965fa4306ab05d0920b99d1fa8b03` after 2 formal review cycles; no Cycle 3 judgment was posted before merge. C2S27 falsified native Play as the ready table instrument and split the next work into bounded domain-first Run continuity and Combat durability slices. | Keep CON-READY as parent acceptance authority; keep Playable sequence and active dispatch under PLAY-SURFACE. Do not treat broad cross-domain persistence as one prerequisite. Beat/Scene/Decision + Plan→Playable remains a reviewed redesign gate, and P3B/P4 remain deferred. | Lane A1 active-Run continuity (`HANDOFF-PLAY-SURFACE-active-run-continuity.md`); Lane B remains blocked on the retained Combat-save worktree |
-| [#625](https://github.com/Drakosfire/DungeonMindBuddy/pull/625) evidence `54ad6fe` | Lane A1 | ROADMAP_REVIEW — NO DESIGN CHANGE. PR #625 merged at `d4c6fb365b1e8958f6a1989a9f88fcde1b844e73` after 2 formal review cycles; no passing formal judgment was posted before merge. The active-Run pointer/queue repair remains a bounded same-store continuity capability. Required U1/U2/U3 live proof was not run before merge and is consumed by the Lane A2 readability + dogfood handoff. | Keep active-Run authority Play-owned and keep CR-U17 false overall. Do not infer cross-worktree persistence, Run lifecycle, or Beat-first redesign from the merge. | Lane A2 table readability + active-Run dogfood (`HANDOFF-PLAY-SURFACE-table-readability-dogfood.md`); Lane B remains blocked on the retained Combat-save worktree |
-| [#626](https://github.com/Drakosfire/DungeonMindBuddy/pull/626) evidence `58e1e7bc` | Lane A2 | ROADMAP_REVIEW — NO DESIGN CHANGE. The accepted Play-local CSS pass made the existing Table, Runbook, chooser, controls, focus treatment, and authored content readable at normal viewport/100% zoom. The final same-store proof used U1 `11111111-1111-4111-8111-111111111111`, then a real StartRunPanel U2 `b21008e6-178b-4624-8c1a-bf28552c9d26` whose Run record exists but whose manifest seal failed with HTTP 409/GET 404; U1 remained active. Fresh U3 `def930de-302e-4b94-81ee-a12a9c4adb2b` became active only after READY. The earlier `07865ee` rehearsal is superseded. This evidence does not validate the Scene-first/Beat-first structure, chooser lifecycle policy, cross-worktree persistence, or Combat durability. | Keep A2 presentation-only and preserve the merged A1 state-machine/API contract. Record allocated-but-incomplete Run status as product evidence; do not broaden into Run lifecycle or persistence work. | Lane B remains blocked on the retained Combat-save worktree; next design task remains the reviewed Beat/Scene/Decision + Plan→Playable redesign |
-| [#627](https://github.com/Drakosfire/DungeonMindBuddy/pull/627) evidence `71901b60` | Lane A3 | ROADMAP_REVIEW — UPDATED. The current-moment cockpit contract merged at `0975ebcfb714b1a664dfb57362d7cd13351aa077` after **5 formal review cycles** (Cycles 1–4 REQUEST-CHANGES-equivalent, Cycle 5 PASS; final reviewed head `71901b60e6c90779c11b6ca3f1b8a91493b2967f`). The Beat-first Playable grammar (`dmb-playable-element:v2`), the `dmb_play_run_reference_manifest_v2` schema with sealed transition edges, Runtime current-position semantics (`currentBeatId` required once a v2 Run is READY), derived relevance, the conservative v1/v2 migration posture, and the BF1/BF2 rollout gate are now reviewed repository design. Zero production code changed. | Beat ownership of Scenes and Decisions, H3 sibling disambiguation by directive kind, pinned-bytes document-order authority, local-only Decision focus, and the BF1 gate (v2 Runs create/seal but never reach READY until BF2) are reviewed design truth. | BF1 — beat-first Playable grammar and manifest foundation (`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`), dispatched from `f8354f5659f5ff5188ad549419dffa4bbf3ed2ba` |
-| BF1 evidence `ca51de7b` | BF1 | ROADMAP_REVIEW — NO DESIGN CHANGE (self-assessed at evidence head `ca51de7b3c5a90a0e8bc15fe1abea5b80826df98`; formal exact-head review pending). The BF1 implementation carries the reviewed Lane A3 contract into code without changing ownership, sequence, or successor boundaries: v2 grammar parse/validate/serialize, the Beat-rooted v2 structure index, the v2 manifest seal/replay service, and the v1/v2 client manifest union are all Play-owned derivations over the reviewed design. The rollout gate holds at the owning boundary: native Runbook admission refuses sealed v2 manifests with `integrity_failure`, so no READY v2 cockpit is reachable. One §5.4 lease amendment was granted by the operator before edit: `calloutMarkdown.ts` received a minimal delegation hook so v2 Option list-item markers survive Save; all v2 logic lives in the new sibling module `playableOptionMarker.ts`. | BF1_HOIST_OBSERVATION: the v2 grammar remained Play-owned Markdown plus editor projection attrs; the v2 manifest remained a Play-owned sealed sidecar; no generic document/grammar/manifest primitive was required; `WorkObjectRevisionRef` not yet justified; `WorkObjectElementRef` not yet justified; no ledger, global clock, transaction-point contract, or TL00 change was added; DungeonMind relevance discovered: none. | BF2 — seed `currentBeatId` and open v2 READY admission at native Runbook admission, after this PR is reviewed |
-
-### Current sequence
-
-Mutable workstream state after merged PR #627 / `0975ebcfb714b1a664dfb57362d7cd13351aa077`
-and the C2 Session 27 dogfood re-anchor (2026-08-20). Implementation PRs still add a ledger row;
-they do not rewrite this block except as post-merge state-authority sync. This
-block was synchronized by the operator-authorized PLAY-SURFACE doc-sync
-exception (`Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`)
-under the CON-READY parent acceptance authorities; it records completed work
-and the post-dogfood sequence, and does not pre-mark any in-flight slice
-complete.
-
-| Field | Current truth |
-|---|---|
-| Integration tip | `0975ebcfb714b1a664dfb57362d7cd13351aa077` — [PR #627](https://github.com/Drakosfire/DungeonMindBuddy/pull/627) merge of the Lane A3 current-moment cockpit design gate |
-| Merged capability | P2 complete. P3A native `/play` table deck merged. D1 Start Run merged. D2 exact Runbook view merged. P3C landed early as a partial P3 sibling. |
-| P2 status | **COMPLETE** — P2A/P2B1/P2B2/P2C merged |
-| P3A status | **COMPLETE** — PR #618; evidence `196144bb`; reviewed head `a907e623`; merge `03252d51`; **3 review cycles** |
-| D1 status | **COMPLETE** — PR #621; evidence `8dc1bad2`; reviewed head `11f5724f`; merge `a0e03bed`; **2 review cycles** |
-| D2 status | **COMPLETE** — PR #622; evidence `b923117b`; reviewed head `c549611a`; merge `62f7f9e`; **1 review cycle** |
-| D3 status | **COMPLETE — BLOCKED / PLAY NOT READY** — C2 Session 27 real-table dogfood accepted the exact Run admission wiring and rejected the native three-column Table as the table instrument; final report `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md` |
-| D4 status | **RETIRED AS CURRENT SEQUENCE** — the current-Beat table-stage repair (`HANDOFF-PLAY-current-beat-table-stage.md`, PR [#623](https://github.com/Drakosfire/DungeonMindBuddy/pull/623)) was closed unmerged; its evidence is mined, its code is not on `main`, and its Scene-first deck design (`DESIGN-play-native-current-moment-deck.md`) was superseded by the dogfood's Beat-first conclusion and intentionally not promoted |
-| Lane A3 status | **COMPLETE** — PR [#627](https://github.com/Drakosfire/DungeonMindBuddy/pull/627) merged `0975ebcfb714b1a664dfb57362d7cd13351aa077`; final reviewed head `71901b60e6c90779c11b6ca3f1b8a91493b2967f`; **5 formal review cycles**, Cycle 5 PASS. The reviewed Beat-first contract lives in `Docs/Design/DESIGN-play-current-moment-cockpit.md` |
-| Next dispatch | **BF1 (implementation, in flight):** `HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md` — beat-first Playable grammar and manifest foundation, dispatched from `f8354f5659f5ff5188ad549419dffa4bbf3ed2ba`. BF1 makes the reviewed Beat-first model executable and durable (CR-U11 structural target) while v2 Runs deliberately remain blocked from READY until BF2. Lane A2 is **COMPLETE** (PR #626 merged `a56cf4ab1ea231164db1f5a30fa3d177d8b328a6`, 4 formal review cycles, Cycle 4 PASS-equivalent). **Lane B:** durable Combat state / database-backed tracker authority, blocked until the retained unmerged Combat-save worktree is mined/adopted/landed or discarded. These remain separate domain-first concerns; Lane B follows its collision gate |
-| Shared persistence posture | The broad cross-domain persistence item is not an atomic prerequisite. After Lane A and Lane B each prove their own durability invariant, extract a bounded shared persistence primitive only if the evidence demonstrates a common seam; do not span Plan, Playable state, Combat, Threat drafts, Runs, and workspace registries in one slice |
-| Next design task | **COMPLETE as Lane A3** — the Beat/Scene/Decision + Plan→Playable model (P1/P2 structure, serialization, manifest, current-position, sealed-Run, and migration/rebase redesign) is reviewed and merged in `Docs/Design/DESIGN-play-current-moment-cockpit.md`. The selected first implementation slice BF1 is now the in-flight dispatch above. **No native Play table implementation starts until BF1/BF2 land the reviewed structure** |
-| P3B status | Designed but **NON-DISPATCHABLE** — `Docs/Plans/HANDOFF-PLAY-SURFACE-native-graph-object-sheet.md` stays parked behind the new sequence |
-| P4 status | Designed but **deferred** — `Docs/Plans/HANDOFF-PLAY-SURFACE-add-to-combat.md` is preserved design evidence and is not "directly dispatchable when selected" until the durable Combat re-anchor |
-| Hoist posture | Runtime remains DungeonMindBuddy Play-owned. Native Runbook projection remains Play-owned. D2 is a second Play-owned projection of the same admitted TipTap document, not a briefing schema or new element kind. `WorkObjectRevisionRef`, `WorkObjectElementRef`, and a generic transaction framework remain not yet justified without an independent non-Play consumer. |
-
-P2 is complete. P3A is complete. D1 Start Run is complete. D2 exact Runbook
-view is complete. The C2 Session 27 dogfood falsified the shipped native
-Table as a table instrument and revised the Playable organization direction:
-the Beat is the larger useful hierarchy over Scenes, and Decisions carry
-consequences that reshape later Scene/Beat relevance (canonical architecture
-updated in `Docs/Design/ARCHITECTURE-playable-material-and-runtime.md`). The
-D4 current-Beat table-stage sequence is retired with PR #623 closed unmerged.
-Lane A1 active-Run continuity and Lane A2 table readability are merged and
-live-validated. The Lane A3 design gate
-(`HANDOFF-PLAY-SURFACE-current-moment-cockpit-design.md`) is complete: the
-reviewed Beat/Scene/Decision + Plan-to-Playable contract
-(`Docs/Design/DESIGN-play-current-moment-cockpit.md`) merged in PR #627.
-Current dispatch authority is BF1
-(`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`), the first
-Beat-first implementation slice selected by that contract. Lane B (durable
-Combat state) remains separately sequenced behind its retained-worktree
-collision gate. The common persistence question still follows those domain
-slices. This is a sequencing update, not a stable architecture
-ownership change.
+Detailed historical review-cycle/evidence rows remain available in git history prior to this re-anchor; this file now prioritizes current design authority over carrying an ever-growing implementation diary.
 
 ---
 
-# 3. Delivery roadmap
+## 4. Proven foundation — do not re-sequence as unfinished work
 
-## PHASE P0 — Re-anchor and freeze the graduation map
+### P1 — durable Playable identity — DONE
 
-**Owner:** DESIGN / DOCUMENTS
+Merged foundation:
 
-Before implementation handoffs, treat the merged Playable architecture as the product authority and the existing DungeonMind architecture as kernel authority.
+- P1A Scene/Beat stable identity — PR #590;
+- P1B derived structure index — PR #592;
+- P1C Choice/Option stable identity — PR #594.
 
-Record three explicit destinations for every new contract:
+Hoist result: identity remained Play-owned; no independent consumer yet justified a generic kernel element-ref contract.
+
+### P2 — separate Run Runtime — DONE, later migrated to APP-STATE
+
+Merged foundation:
+
+- P2A exact Run→Playable binding — PR #596;
+- P2B1 sealed reference manifest — PR #599;
+- P2B2 CAS Runtime progress — PR #601;
+- P2C preserve-only rebase — PR #612.
+
+Original file-backed topology was later replaced by APP-STATE. Preserve the domain invariants, not the old storage implementation.
+
+### P3A / D1 / D2 — native Play foundations — DONE
+
+- native Runbook admission/table projection — PR #618;
+- explicit Start Run — PR #621;
+- exact full-document Runbook reference projection — PR #622.
+
+The full Runbook view remains useful reference but is no longer treated as the primary target Play mode.
+
+### P3C — exact Threat mechanics rendering seam — DONE foundation
+
+PR #608 proved surface-neutral exact mechanics hydration/rendering. This now becomes a hot-path dependency for unexpected-play retrieval rather than a deferred nicety.
+
+### Lane A3 / cockpit design — DONE design gate
+
+PR #627 established Beat-first current-moment semantics.
+
+The 2026-08-26 revision keeps its durable structure/Choice contracts but changes projection priority to Scene-centered inside Beat context.
+
+### BF1 — Beat-first v2 grammar / index / manifest — DONE
+
+PR #628 implemented `dmb-playable-element:v2` and `dmb_play_run_reference_manifest_v2`.
+
+BF1 intentionally left v2 READY admission gated for BF2.
+
+### APP-STATE AS1–AS5 — DONE Play persistence foundation
 
 ```text
-PLAY DOMAIN
-BUDDY SHARED
-DUNGEONMIND / DUNGEONMIND-DND
+AS1  Plan WorkObjects / immutable WorkRevisions
+AS2  Runbook + historical Playable WorkRevisions
+AS3  Run + manifest + progress CAS/rebase on PostgreSQL
+AS4  active Run / resume continuity on PostgreSQL
+AS5  legacy Play filesystem persistence demolished
 ```
 
-**Exit:** no implementation PR needs to decide ownership ad hoc.
+Architectural consequence:
+
+- a Run may read historical revision N after N+1 exists;
+- current/latest is not required for admission;
+- Play Runtime is not checkout-local;
+- `out/runtime/play` is not authority;
+- persistence is no longer a reason to postpone BF2/BF3.
 
 ---
 
-## PHASE P1 — Durable Playable work object
+## 5. Current Play product sequence
 
-**Primary CON-READY target:** CR05 / CR-U11
-**Owner:** DungeonMindBuddy Canvas + Playable domain
+### BF2 — v2 READY Runtime + relevance — NEXT structural slice
 
-Build the smallest real Playable Artifact on existing workspace-document / Markdown Canvas authority.
+Primary capability:
 
-Prove:
+- admit sealed v2 Runs to READY;
+- deterministically seed new Run `currentBeatId`;
+- restore exact historical pinned WorkRevision;
+- validate explicit Beat/Scene current-position CAS mutation;
+- derive `activates`/`suppresses` emphasis from current selections.
 
-- exact durable work-object identity;
-- exact revision/digest;
-- stable Scene IDs;
-- stable Beat IDs;
-- stable Choice / Option IDs where runtime will reference them;
-- `consequences` as the canonical outcome structure;
-- save/reload;
-- renaming prose/title does not change semantic identity.
+Remains false after BF2: the target Scene-centered cockpit presentation.
 
-Do **not** introduce a new datastore.
+No condition/workflow DSL. No new note schema. No Combat ownership change.
 
-### P1 delivery decomposition
+### BF3 — Scene-centered current-moment cockpit
 
-P1 is intentionally split so stable identity is proven before richer Playable structure depends on it.
+Primary capability:
 
-#### P1A — Durable Scene / Beat identity grammar ← merged PR #590
+- active Scene central workspace;
+- persistent/expandable Beat context;
+- truthful Beat-only state;
+- authored Decision/Option interaction;
+- visible consequence + branch relevance;
+- presence-first `At a Glance`;
+- inspect versus Make Current;
+- Runbook demoted to secondary reference projection;
+- notes projected as pinned context using existing capability unless dogfood proves a stronger lifecycle.
 
-Deliver one versioned semantic-Markdown identity convention for Scene and Beat headings and prove it survives:
+BF3 acceptance must include deliberate off-script play.
 
-- Markdown import;
-- TipTap editing;
-- title/text rename;
-- reorder;
-- semantic Markdown serialization;
-- committed reload;
-- malformed/orphan/duplicate identity failure without silent retargeting.
+### BF3.x / P3 — fast contextual + global object retrieval
 
-P1A does **not** implement Run runtime, choices/options, Play projections, legacy-runbook auto-migration, or DungeonMind contracts.
+This may be part of BF3 if small enough, otherwise an immediately adjacent independently useful slice.
 
-#### P1B — Playable structure index ← merged PR #592
-
-After P1A, add the smallest consumer-facing structure needed to address Scenes/Beats by stable P1A IDs and document order. P1B is a read-only derived index: no new Markdown grammar, Save policy, persistence, or editor mutation.
-
-P1B must re-open the hoist decision instead of assuming P1A's representation belongs in the shared Canvas layer.
-
-Handoff: [`HANDOFF-PLAY-playable-structure-index.md`](../Plans/HANDOFF-PLAY-playable-structure-index.md).
-
-#### P1C — Choice / Option identity and minimal authored representation ← merged PR #594
-
-After P1B, add durable Choice/Option identity to the existing `dmb-playable-element:v1` family and extend the structure index with Scene→Choice→Option membership so P2 can later persist `choiceId → optionId` without labels or position as identity.
-
-P1C must re-open the hoist decision. P1B did not prove a second independent consumer of generic element addressing.
-
-Handoff: [`HANDOFF-PLAY-choice-option-identity.md`](../Plans/HANDOFF-PLAY-choice-option-identity.md).
-
-### Hoist decision after P1
-
-If stable semantic element identity is useful to both Play and agent/document mutation, hoist a neutral Buddy ref such as:
+Required proof:
 
 ```text
-WorkObjectElementRef
-  documentId
-  revision / digest
-  elementId
+current Scene A1
+→ inspect Scene C2 under another Beat without moving Runtime
+→ find a known NPC/Threat not referenced in A1
+→ open exact mechanics
+→ close and still be at A1
 ```
 
-The Canvas/workspace layer owns how this resolves. DungeonMind may later consume the reference but does not own the editor or storage.
+The exact finder UI is not frozen. Agent Surface is not a prerequisite.
 
-**Not a kernel PR.**
+### P4 / Combat — exact Threat → Combat + expandable instrument
+
+Required interaction:
+
+```text
+context or finder
+→ Threat
+→ exact StatblockRevision
+→ Add to Combat
+→ Combat-owned runtime
+```
+
+Combat may expand into the central Scene workspace while active. Play retains originating Beat/Scene context; collapse returns exactly there.
+
+Durable Combat remains required before claiming CR-U17 overall.
+
+### BF4 — Plan Beat-first authoring composition — PARALLEL-ELIGIBLE
+
+BF1 grammar is sufficient predecessor. BF4 may proceed on a disjoint lease and must not block getting BF2/BF3 back to a real table.
+
+Primary capability: structure-aware authoring of the exact Playable WorkObject—Beat/Scene/Decision/Option/consequence/refs—without lossy export.
+
+### BF5 — legacy/operator posture — EVIDENCE-DRIVEN
+
+Historical WorkRevision support removed the old premise that “new latest revision makes old Run unreadable.”
+
+Only harden v1 migration/operator flows that real remaining users/material require. Do not manufacture migration work to fill the phase number.
 
 ---
 
-## PHASE P2 — Separate Run runtime
+## 6. Real-session dogfood gate
 
-**Primary CON-READY target:** CR05 / CR-U17 precursor
-**Owner:** DungeonMindBuddy Play runtime
+Before prioritizing broad hoist/kernel work over table functionality, run the target cockpit against real material.
 
-Implement persistent Run state bound to one explicit Playable revision:
+Required scenario includes:
 
-```text
-runId
-playableArtifactId
-playableRevisionId
-currentSceneId
-currentBeatId
-resolvedBeatIds
-choiceId → optionId
-notesByElementId
-linkedRuntimeHandles
-```
+- resume exact last current Scene;
+- Beat context accessible;
+- authored Decision branch (`A→B`, `A→suppress C`);
+- inspect suppressed/other-Beat Scene anyway;
+- explicit Make Current;
+- unplanned known NPC/Threat retrieval;
+- exact statblock opening without table-breaking delay;
+- unexpected Add to Combat;
+- Combat expand/collapse with exact Scene return;
+- notes;
+- restart/resume.
 
-Prove reload/restart and fail safely when a referenced element disappears in a newer Playable revision.
-
-The live-control server does not currently own a canonical Playable structure resolver. P2A proved that exact Run→Playable binding can be established without one. P2B now has two separate durable concerns: freezing the minimum exact reference-admission facts for the bound revision and mutating progress under CAS. Those are split below so neither trusts current/latest Playable state after the Runbook advances.
-
-### P2 delivery decomposition
-
-#### P2A — Durable Run identity + exact Playable revision/digest binding ← merged PR #596
-
-Create one Play Runtime authority: an opaque Run UUID bound to one admitted committed Runbook workspace-document identity + revision + content SHA. Persist outside authored workspace storage. Idempotent create replay. No element progress, no Playable parse, no UI.
-
-Handoff: [`HANDOFF-PLAY-durable-run-binding.md`](../Plans/HANDOFF-PLAY-durable-run-binding.md).
-
-#### P2B1 — Immutable Run-bound Playable reference manifest ← merged PR #599
-
-For one existing P2A Run, seal one immutable Runtime sidecar derived from the **exact still-current bound Runbook revision/SHA**. The sidecar stores only canonical Scene/Beat/Choice/Option IDs and structural membership. It stores no Markdown, titles, prose, consequences, rendering order, progress, World/Source/Mechanics data, or migration state.
-
-The first seal fails closed if the workspace has already advanced beyond the Run's bound revision. Once sealed, replay uses the immutable sidecar and does not consult current workspace state.
-
-Handoff: [`HANDOFF-PLAY-run-reference-manifest.md`](../Plans/HANDOFF-PLAY-run-reference-manifest.md).
-
-#### P2B2 — Durable CAS Run progress against the sealed manifest ← merged PR #601
-
-After P2B1, persist current Scene/Beat, resolved Beats, `choiceId → optionId` selections, and notes. Every referenced ID must validate against the P2B1 manifest, and every mutation must use P2A `run_revision` as the compare-and-swap boundary. Do not add a second concurrency token.
-
-P2B2 must not parse current Runbook bytes as a fallback and must not silently create/rebuild a missing manifest from a newer Playable revision.
-
-Handoff: [`HANDOFF-PLAY-run-progress-cas.md`](../Plans/HANDOFF-PLAY-run-progress-cas.md).
-
-#### P2C — Explicit preserve-only Run rebase to a newer Playable revision ← merged PR #612
-
-After P2B2, explicitly move one Run UUID to a newer committed revision of the same Runbook artifact, preserving current progress only when every durable reference remains admissible in the target revision. Do not invent a mapping language, historical Playable archive, or second concurrency token.
-
-Handoff: [`HANDOFF-PLAY-run-rebase.md`](../Plans/HANDOFF-PLAY-run-rebase.md).
-
-`linkedRuntimeHandles` stays deferred until a real Combat/other runtime consumer requires it.
-
-### Hoist decision after P2
-
-Default disposition: **do not hoist to DungeonMind**.
-
-Run position is product runtime state, just as Combat HP is Combat runtime state. Only revisit if another independent product needs the same generic runtime-state contract.
+The test is failed if the GM abandons DungeonBuddy for memory, manual source search, JSON surgery, or a separate mechanics navigation workflow.
 
 ---
 
-## PHASE P3 — Native Play projections
+## 7. Buddy-shared candidates after cockpit evidence
 
-**Primary CON-READY target:** CR-U15 / CR-U16 preparation
-**Owner:** DungeonMindBuddy Play + Surface Interaction Layer
+Candidates, not pre-authorized hoists:
 
-Replace #578 campaign bridges with generic projections over real authorities:
+1. `WorkObjectElementRef` if Play + Agent/document mutation genuinely share the same exact targeting invariant.
+2. proposal apply/stale/dirty arbitration shared by Plan/Play/Agent.
+3. generic typed-reference open / projection actions.
+4. global/on-demand object finder primitive if multiple surfaces need the same product-neutral interaction.
+5. asset/annotation identity if multiple surfaces prove the same need.
 
-```text
-World + Source + Playable + Mechanics + small Runtime status
-                     ↓
-              Play Object Sheet
-```
-
-Build native:
-
-- Run / Scene / Beat projection;
-- NPC/location/item Play Object Sheets;
-- Threat sheet using exact mechanics;
-- reference opening through the shared Projection host;
-- source/Advanced detail without losing table position.
-
-Keep table ordering and presentation in Play.
-
-### Buddy-shared hoist candidates
-
-Hoist only repeated mechanics such as:
-
-- generic graph/source/reference open behavior;
-- projection composition helpers;
-- common object-reference action wiring;
-- reusable asset annotation rendering if Plan/Build also need it.
-
-**Do not hoist Play Object Sheet section vocabulary into DungeonMind.**
+Do not move Beat/Scene/Decision semantics into shared core merely because these tools operate on them.
 
 ---
 
-## PHASE P4 — Threat → exact mechanics → Combat
+## 8. DungeonMind kernel sequence — still evidence-driven
 
-**Primary CON-READY target:** CR06 / CR-U13 / CR-U14
-**Owner:** DungeonMindDnD mechanics identity + Buddy Play/Combat action
+### K0 — operator-authored context contract inventory
 
-Use the already-established profile-side model:
+Before adding a kernel contract, inventory whether existing exact artifact/revision/source contracts can already represent saved Playable material with truthful standing.
 
-```text
-world object
-→ exact D&D world-object mechanics binding
-→ exact statblock attachment/revision
-→ explicit Add to Combat
-→ Combat-owned mutable state
-```
-
-The Play action may choose quantity/team/attachment explicitly. Never use first/latest/display-name selection.
-
-### Hoist decision after P4
-
-No new kernel-core combat schema.
-
-DungeonMindDnD already owns D&D world-object and mechanics attachment semantics. `Add to Combat` remains a Buddy capability consuming those exact refs.
-
----
-
-## PHASE P5 — Shared proposal/adoption seam in Buddy
-
-**Primary CON-READY target:** CR-U11
-**Owner:** Shared Markdown Canvas / Surface Interaction, with Play/Plan as consumers
-
-Promote the #578 proposal experiment into a neutral work-object mutation flow:
-
-```text
-proposal
-→ exact target work object
-→ exact base revision/digest
-→ exact semantic element target when applicable
-→ preview
-→ explicit operator approval
-→ Canvas mutation
-→ ordinary Save
-```
-
-Centralize:
-
-- stale-base rejection;
-- dirty-edit rejection;
-- document mismatch rejection;
-- stable element targeting;
-- apply result and local dirty state.
-
-Keep domain payloads extensible. `Read Aloud`, `GM Note`, `Consequence`, etc. may be Playable proposal kinds without becoming Canvas core vocabulary.
-
-### Hoist decision after P5
-
-This should be **Buddy-shared first**.
-
-DungeonMind already has `SuggestedAction` as a surface-offered, non-side-effecting response concept. Use that as the initial cross-boundary carrier. Only introduce a stricter kernel proposal envelope if a second product/client needs shared proposal exactness that `SuggestedAction.arguments` cannot safely express.
-
----
-
-## PHASE K0 — DungeonMind Playable-context contract inventory
-
-**Owner:** DOCUMENTS, cross-repo audit
-**Repositories:** DungeonMindBuddy + DungeonMind
-
-Before adding a kernel contract, inventory what already exists.
-
-Specifically test whether the combination below can represent a saved Playable revision without lying about its standing:
-
-```text
-SurfaceContext.selected_document_ref / active_artifact_refs
-+ SourceArtifactV2
-+ SourceRevision
-+ source_domain = prep
-+ workspace_document_ref
-+ review_state / authority / lineage
-+ SemanticDocument provenance
-```
-
-Then inspect the actual Mind Turn context path.
-
-Known pressure to verify: current deterministic context assembly is graph/evidence/anchor-centric; active external artifacts are not currently a first-class context input to that assembler.
-
-**Required disposition:**
+Possible disposition:
 
 ```text
 K0_REUSE_EXISTING_CONTRACTS
@@ -455,135 +298,45 @@ K0_REUSE_EXISTING_CONTRACTS
 or
 
 ```text
-K0_MINIMAL_KERNEL_GAP — <exact missing generic contract>
+K0_MINIMAL_KERNEL_GAP — <exact generic missing contract>
 ```
 
-Do not create `PlayableArtifact`, `Runbook`, `Scene`, or `Beat` classes in the kernel.
+No `PlayableArtifact`, `Beat`, `Scene`, or `Decision` kernel classes.
 
----
+### K1 — exact external/operator context admission — only if K0 proves a gap
 
-## PHASE K1 — Admit exact operator-authored context into Mind Turn
-
-**Owner:** DungeonMind kernel, only if K0 proves the gap
-**Primary CON-READY target:** CR-U12
-
-The likely kernel capability is generic:
-
-> Given an exact admitted external/operator-authored artifact revision referenced by surface context, DungeonMind may resolve, retrieve, budget, and assemble that material for the agent while preserving its authority/standing separately from World assertions.
-
-Preferred shape:
+Likely generic capability:
 
 ```text
-surface sends pointer(s)
-→ kernel resolves exact artifact/revision
-→ admission + visibility checks
-→ optional exact-artifact semantic retrieval
-→ context budgeting
-→ agent context labels standing/provenance
+surface sends exact artifact/revision pointer
+→ kernel resolves/admission-checks
+→ bounded retrieval/context budgeting
+→ Agent sees standing/provenance
 ```
 
-The kernel should not receive caller-supplied filesystem paths or unpinned document bodies as authority.
+### K2 — exact-artifact retrieval — only if real Runbook size proves whole-artifact context too large
 
-### First design choice
+No ambient filesystem/corpus authority.
 
-Try to reuse `SourceArtifactV2` / `SourceRevision` as the provenance carrier before adding a parallel external-context identity family. It already supports:
+### K3 — stricter proposal envelope — only if multiple consumers prove `SuggestedAction` too weak
 
-- `SourceDomain.PREP`;
-- opaque producer classification;
-- workspace-document linkage;
-- independent review state / evidentiary authority / access policy;
-- exact source revision hashes.
+Payload remains product/profile-owned.
 
-If those axes cannot truthfully express operator-adopted context, add only the smallest generic standing/ref contract necessary.
-
-### Exit proof
-
-A GM asks:
-
-> “What did I decide about Hesta during prep?”
-
-DungeonMind answers from the exact saved Playable revision, while the response/agent state remains distinguishable from a World Graph assertion.
-
----
-
-## PHASE K2 — Exact-artifact retrieval for Playable context
-
-**Owner:** DungeonMind kernel retrieval/context assembly
-**Depends on:** K1 and real dogfood showing whole-artifact injection is too large
-
-Use the same discipline already applied to source follow-through:
-
-```text
-explicit admitted artifact
-→ bounded exact-artifact retrieval
-→ no ambient filesystem/corpus authority
-```
-
-The retrieval unit may be a semantic document/chunk derived from the exact Playable revision. Results must retain artifact/revision/element provenance and authority standing.
-
-Do not build this merely because the architecture allows it. Build it only if the real Runbook is too large for bounded active-context injection.
-
----
-
-## PHASE K3 — Proposal carrier graduation, only if needed
-
-**Owner:** DungeonMind kernel + product adapter
-
-Start by using existing `SuggestedAction` semantics: the kernel suggests; the surface offers; there is no silent side effect.
-
-If repeated consumers prove `kind + arguments` is too weak, graduate a generic versioned proposal envelope containing only product-neutral exactness:
-
-```text
-target authority / capability
-opaque target ref
-base revision/digest
-proposal schema id/version
-proposal payload
-provenance refs
-```
-
-The payload remains product/profile-owned. DungeonMind does not learn `GM Note` or `Beat` semantics.
-
-The owning product still performs preview, approval, apply, and Save.
-
----
-
-## PHASE K4 — Playable → World promotion through existing review authority
-
-**Primary goal:** deliberate canonization without a second graph-write path
-**Owners:** Buddy authoring UI → profile adapter → DungeonMind review/publication
-
-Implement the user action:
-
-```text
-"Make this part of the world"
-```
-
-as:
+### K4 — Playable → World through existing review/publication authority
 
 ```text
 exact Playable revision/element
-→ evidence/provenance record
-→ profile-owned candidate assertion planning
-→ explicit identity/assertion review
-→ confirm_commit
-→ existing DungeonMind finalized-review publication
-→ new World Graph revision
+→ evidence/provenance
+→ profile candidate assertion planning
+→ explicit review
+→ DungeonMind finalized publication
 ```
 
-The Playable artifact remains unchanged and remains provenance for the promoted claim.
+No second graph-write path.
 
-This is where the Playable architecture should most strongly **reuse** the kernel rather than extending it.
+### P6 — Runtime → Playable adoption
 
-Graph assertion metadata already separates campaign, visibility, epistemic standing, canon state, evidence, session refs, and fictional time. Use that authority; do not invent a Playable-specific graph mutation path.
-
----
-
-## PHASE P6 — Runtime → Playable adoption
-
-**Owner:** DungeonMindBuddy
-
-After play, allow the GM to choose from runtime outcomes:
+Post-session operator actions:
 
 ```text
 keep in next prep
@@ -592,159 +345,72 @@ promote to World
 discard
 ```
 
-`keep in next prep` uses the same proposal/adoption + Canvas Save seam from P5.
-
-`promote to World` uses K4.
-
 No automatic upward promotion.
 
-### Kernel posture
-
-Runtime may later be exposed as bounded **current-turn context** through surface pointers, but DungeonMind should not become the runtime database.
-
 ---
 
-## PHASE P7 — Full one-shot dogfood and demolition
-
-**Primary CON-READY target:** CR07 / CR-U15–U17
-
-Run a real one-shot with no campaign-specific bridge code.
-
-Must prove:
-
-- durable Runbook/Scene/Beat identity;
-- consequences and branching;
-- saved Playable context used by Hermes;
-- Play Object Sheets from real authorities;
-- exact Threat mechanics;
-- prepared and unexpected Add-to-Combat;
-- runtime progress/notes survive restart;
-- agent proposals require approval;
-- source/world/playable/runtime distinctions remain truthful.
-
-Then delete or retire:
-
-- `ofConks*` play-object dictionaries;
-- `ofConks*` beats dictionaries;
-- local fake graph resolution;
-- threat/statblock bridge maps;
-- permanent dependency on legacy injected prep HTML.
-
----
-
-## PHASE H1 — Post-dogfood hoist review
+## 9. Post-dogfood hoist review
 
 After at least one full real run—and preferably a second materially different adventure—perform a deliberate hoist audit.
 
 ### Strong kernel candidates
 
-1. Exact external/operator-authored context admission.
-2. Authority/standing-aware context assembly across World, source/evidence, operator prep, and bounded runtime observations.
-3. Exact-artifact semantic retrieval constrained by an admitted artifact revision.
-4. A stricter generic proposal envelope, **only if** multiple consumers require it.
+- exact operator-authored context admission;
+- authority/standing-aware context assembly;
+- exact-artifact bounded retrieval;
+- stricter generic proposal envelope only if repeated consumers need it.
 
 ### Strong Buddy-shared candidates
 
-1. Stable work-object element refs.
-2. Proposal apply / stale / dirty arbitration.
-3. Generic typed-reference projection actions.
-4. Asset + annotation identity if multiple surfaces use it.
+- stable work-object element refs;
+- proposal apply/stale/dirty arbitration;
+- generic reference projection actions;
+- global finder/search primitive if cross-surface;
+- asset/annotation identity if cross-surface.
 
-### Keep product-owned unless new evidence appears
+### Keep product-owned absent new evidence
 
-1. Runbook / Scene / Beat.
-2. Consequence trigger/category UX.
-3. Play Object Sheet layout/section vocabulary.
-4. Run progress state.
-5. Combat state and Add-to-Combat presentation.
-6. Map interaction/legend behavior.
-7. Play navigation and table ergonomics.
-
----
-
-# 4. Kernel lessons from the Playable architecture
-
-## Lesson A — Durable knowledge is not the only durable context
-
-Playable Material proves a durable state category that is intentionally **not** World Graph truth but must still be queryable by the agent.
-
-The kernel implication is not “add Runbooks to the graph.” It is:
-
-> **Context assembly needs a governed representation of durable operator-authored context with exact revision/provenance and explicit standing.**
-
-## Lesson B — Surface context should remain pointer-first
-
-Buddy should publish exact selected document/artifact/run/object pointers. DungeonMind should resolve, retrieve, budget, and assemble context.
-
-This preserves the kernel rule that surfaces do not assemble prompts or graph queries.
-
-## Lesson C — Proposal and adoption are different states
-
-A model output is a proposal. Approval changes the product work object. Saving makes it durable. Promotion to World is a separate reviewed kernel write.
-
-This is the same governance instinct DungeonMind already applies to graph contributions.
-
-## Lesson D — Promotion should create evidence, not erase provenance
-
-When Playable material becomes World knowledge, the exact Playable revision should remain the evidence behind the new assertion.
-
-The transition is:
-
-```text
-Playable intent
-→ reviewed evidence-backed assertion
-```
-
-not:
-
-```text
-Playable row magically becomes graph row
-```
-
-## Lesson E — Domain semantics belong beside the domain
-
-DungeonMindDnD already demonstrates the pattern: D&D world-object kinds and exact statblock mechanics attachment live in the semantic profile, while the kernel stays generic.
-
-Use the same filter for future Play pressure:
-
-- D&D semantic meaning → profile;
-- product/table interaction → Buddy;
-- generic knowledge/context/governance → kernel.
+- Runbook / Beat / Scene / Decision / Consequence;
+- Choice branch relevance vocabulary;
+- Play Object Sheet layout;
+- current-moment cockpit hierarchy;
+- Run progress;
+- notes product behavior;
+- Combat state and Add-to-Combat presentation;
+- table navigation ergonomics.
 
 ---
 
-# 5. Recommended immediate sequence
+## 10. Current recommended sequence
 
 ```text
-P1  durable Playable artifact + stable Scene/Beat/Choice identity
+BF2  v2 READY Runtime + relevance
 ↓
-P2  persistent Run state bound to exact Playable revision
+BF3  Scene-centered cockpit
 ↓
-P3  native generic Play projections
+BF3.x / P3  fast contextual + global object/statblock retrieval
 ↓
-P4  exact Threat → Combat handoff
+P4 / Combat  exact Threat→Combat + expandable Combat workspace
 ↓
-P5  shared Buddy proposal/adoption seam
+REAL SESSION DOGFOOD
 ↓
-K0  cross-repo Playable-context contract inventory
+P5 / Buddy shared proposal seams where evidence now warrants
 ↓
-K1  minimal kernel external/operator-context admission, if K0 proves needed
+K0/K1/K2/K4 only where cross-system evidence proves kernel need
 ↓
-K2  exact-artifact retrieval only if real context size requires it
+P6 runtime adoption
 ↓
-K4  Playable → World through existing review/publication authority
-↓
-P6  Runtime → Playable deliberate adoption
-↓
-P7  full one-shot dogfood + bridge demolition
-↓
-H1  evidence-based final hoist review
+H1 post-dogfood hoist review
 ```
 
-K3 (a stricter generic proposal envelope) is intentionally conditional and should be inserted only if P5 exposes a real multi-consumer contract gap.
+BF4 Plan Beat-first authoring may run in parallel after BF1 on a disjoint lease.
+
+K3 remains conditional.
+
+---
 
 ## Final rule
 
-> **Hoist authority, not vocabulary.**
+> **Hoist authority, not vocabulary. Keep the table model close to the table.**
 >
-> Keep the table model close to the table. Hoist exact identity, revisions, provenance, admission, context assembly, capability policy, and governed promotion only when the lower-level owner must be shared.
+> The immediate product priority is now proving the Scene-centered cockpit under unexpected play, not manufacturing another infrastructure prerequisite after APP-STATE already removed the persistence blocker.

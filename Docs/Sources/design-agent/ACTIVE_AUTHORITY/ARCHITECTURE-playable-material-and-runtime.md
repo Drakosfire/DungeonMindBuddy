@@ -3,18 +3,21 @@ document_id: dmb-architecture-playable-material-and-runtime
 title: Playable Material and Runtime — Architecture Authority
 document_class: architecture_authority
 status: active
-version: 1.1
+version: 1.2
 created_at: "2026-08-15"
-updated_at: "2026-08-21"
+updated_at: "2026-08-26"
 workstream: PLAY-SURFACE
 evidence:
   - "PR #578 — Of Conks / Hempholm table-ready dogfood"
-  - "C2 Session 27 native Play dogfood — BLOCKED / PLAY NOT READY (Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md)"
+  - "C2S27 native Play dogfood — BLOCKED / PLAY NOT READY; unexpected-play and Combat evidence"
+  - "PR #628 — Beat-first v2 grammar/manifest foundation"
+  - "APP-STATE AS1–AS5 — WorkRevision history, PostgreSQL Play Runtime/continuity, legacy Play persistence demolition"
 companion_authorities:
   con_ready_anchor: "../Plans/STEWARDS-ANCHOR-con-ready.md"
   con_ready_roadmap: "../Roadmaps/ROADMAP-con-ready.md"
   surface_interaction: "ARCHITECTURE-surface-interaction-layer.md"
   graph: "ARCHITECTURE-campaign-supergraph.md"
+  application_state: "ARCHITECTURE-application-state-layer.md"
 companion_designs:
   play_projection: "DESIGN-play-surface-projection.md"
   authoring_adoption: "DESIGN-playable-authoring-and-adoption.md"
@@ -25,7 +28,7 @@ companion_designs:
 
 ## Status and scope
 
-This document is the **architecture authority** for the boundary between:
+This document is the architecture authority for the boundary between:
 
 - durable World knowledge;
 - rich Original Source;
@@ -35,20 +38,23 @@ This document is the **architecture authority** for the boundary between:
 
 It does not replace:
 
-- Campaign Supergraph authority for World identity, graph claims, graph writes, or mechanics bindings;
-- source/document authority for source artifacts and source provenance;
-- Surface Interaction Layer authority for AppChrome, shared bars, Canvas host, or projection-host ownership;
-- exact mechanics authority such as accepted immutable `StatblockRevision`;
+- DungeonMind / Campaign Supergraph authority for World identity, claims, graph writes, and governed publication;
+- Source authority for source artifacts/provenance;
+- exact Mechanics authority such as immutable accepted `StatblockRevision`;
+- Combat authority for mutable combat state;
+- Application State architecture for Buddy PostgreSQL/storage topology;
+- Surface Interaction architecture for AppChrome/shared projection hosts;
 - the CON-READY product roadmap.
 
-This document turns the Play-Surface layer model into a durable design
-contract after PR #578 proved concrete Playable and Play interactions.
-`CON-READY` remains the parent acceptance workstream; this document owns the
-Play-specific architecture.
+The 2026-08-26 revision updates repository truth after APP-STATE and clarifies one product/architecture distinction:
+
+> **Beat-first is the durable Playable organization. Scene-centered is the default Play projection when a Scene is current. Projection dominance does not change durable ownership.**
+
+---
 
 ## 1. Governing model
 
-DungeonBuddy maintains four distinct layers of fictional/game state:
+DungeonBuddy maintains four distinct state layers:
 
 ```text
 ORIGINAL SOURCE
@@ -65,105 +71,114 @@ identity, relationships, accepted assertions, mechanics bindings
 
 PLAYABLE MATERIAL
 the version the GM intends to run
-runbooks, scenes, beats, table framing, local interpretations,
-object-attached prep, choices, consequences, encounter composition
+runbooks, beats, scenes, choices, consequences,
+object-attached prep, encounter composition, table framing
 
         ↓ actual table interaction
 
 PLAYED / RUNTIME STATE
-what is currently selected, resolved, changed, spent, damaged,
-noted, chosen, or completed during a run
+current Beat/Scene, resolved state, selections, notes,
+linked runtime handles, and other mutable run-local facts
 ```
 
-A fifth concept sits **over** these layers rather than beside them:
+A fifth concept sits over these layers:
 
 ```text
 PROJECTION
-a surface-specific view composed from one or more authorities
+surface-specific composition of one or more authorities
 ```
 
-The Play surface is a projection consumer. It is not another truth store.
+Play is a projection consumer and Runtime owner. It is not another World/Source/Mechanics truth store.
+
+---
 
 ## 2. Core invariant
 
-> **Playable Material is durable GM intent that may reference World, Source, and Mechanics without becoming any of them; Runtime State records what happens while using a particular playable version without rewriting that playable version.**
+> **Playable Material is durable GM intent that may reference World, Source, and Mechanics without becoming them; Runtime records what happens while using one exact Playable revision without rewriting that revision.**
 
 Consequences:
 
-1. Playable Material may contradict, override, reinterpret, or narrow World/Source for a particular run without silently publishing graph canon.
-2. Runtime changes such as resolved beats, chosen branches, initiative, HP, conditions, spent resources, and scratch notes do not mutate Source, World, or immutable mechanics.
-3. A Play projection may combine authorities, but it must preserve the owning boundary underneath.
-4. A convenience projection must not duplicate authoritative mechanics or source prose as a new truth store.
+1. Playable Material may reinterpret/narrow World/Source for a run without silently publishing canon.
+2. Runtime changes never mutate immutable Source/World/Mechanics merely because the table changed.
+3. Projection may combine authorities but must preserve owning boundaries.
+4. Convenience projections do not become copied truth stores.
+5. Historical Playable revision identity is real product authority; current/latest is never a substitute for a Run's pinned revision.
+
+---
 
 ## 3. Authority table
 
-| Information | Owning authority | Playable may do | Runtime may do |
+| Information | Owning authority | Playable may do | Runtime / Play may do |
 |---|---|---|---|
-| Original prose / quoted module text | SOURCE | reference / quote with provenance | read only |
-| World identity | WORLD | reference object | never redefine identity silently |
-| Accepted world relationship | WORLD | reference; add run-local interpretation separately | read only |
-| Run-local NPC motivation/secret | PLAYABLE | own | note consequences of use |
-| Scene / Beat organization | PLAYABLE | own | point at current/resolved elements |
-| Prepared choice options | PLAYABLE | own | record selected option |
-| Prepared consequence | PLAYABLE | own | record whether/when it occurred |
-| Statblock mechanics | MECHANICS | reference exact revision | instantiate mutable combatant state |
-| Encounter composition | PLAYABLE | own expected composition | instantiate/adjust live combat |
-| Current HP / initiative / conditions | RUNTIME | never own | own |
-| Scene scratch note made during play | RUNTIME | may later be deliberately adopted | own |
-| Source asset / map image | SOURCE / ASSET | reference | read only |
-| Map pin annotation | ASSET ANNOTATION | reference / curate visibility | current selection only |
-| Hermes proposed prep text | PROPOSAL, not truth | adopt only after GM approval | n/a |
+| Original prose / quoted module text | SOURCE | reference / quote with provenance | read/project |
+| World identity | WORLD | reference object | read/project; never silently redefine |
+| Accepted world relationship | WORLD | reference; add run-local interpretation separately | read/project |
+| Run-local NPC motivation/secret | PLAYABLE | own | note outcomes of use |
+| Beat / Scene / Decision organization | PLAYABLE | own | point at current/resolved/selected IDs |
+| Prepared Option / consequence / transition | PLAYABLE | own | record selected Option; derive relevance |
+| Exact statblock mechanics | MECHANICS | reference exact revision | render; instantiate Combat action |
+| Encounter composition | PLAYABLE | own expected composition | explicitly instantiate/adjust Combat |
+| Current HP / initiative / conditions | COMBAT | never own | link/project through Combat |
+| Table note | PLAY RUNTIME | may later adopt into Playable | own/current context |
+| Source asset / map image | SOURCE / ASSET | reference | read/project |
+| Hermes/Agent proposed prep change | PROPOSAL, not truth | adopt after approval | no silent apply |
+
+---
 
 ## 4. Durable Playable Material
 
-### 4.1 Playable Artifact
+### 4.1 WorkObject / WorkRevision
 
-A **Playable Artifact** is a durable versioned work object containing material the GM intends to prepare or run.
+A Playable Artifact is a durable versioned Buddy content object.
 
-A workspace document is a valid first implementation and remains a first-class product object. This architecture does **not** require a new database merely because Playable Material gained stronger semantics.
+Current implementation uses the APP-STATE content substrate:
 
-A Playable Artifact must have:
+```text
+WorkObject
+  stable identity
+  current committed revision pointer
 
-- stable work-object identity;
-- campaign/world scope sufficient to resolve references;
-- durable revision identity or equivalent compare-and-swap boundary;
+WorkRevision
+  immutable revision identity
+  revision_n
+  canonical bytes
+  content_sha256
+  provenance / timestamps
+
+WorkingCopy
+  mutable recoverable draft
+  exact base revision
+```
+
+A committed Runbook revision remains loadable after later revisions exist.
+
+A Playable Artifact must preserve:
+
+- stable WorkObject identity;
+- campaign/world scope needed for refs;
+- immutable committed revision identity/digest;
 - readable/editable content;
-- stable identities for semantic elements that Runtime State may reference;
-- typed references to external authorities instead of copied truth where possible.
-
-Possible roles include:
-
-- session runbook;
-- scene packet;
-- NPC prep notes;
-- shop sheet;
-- encounter plan;
-- roll-table prep;
-- object-attached playable interpretation.
-
-`role` is not a closed ontology.
+- stable semantic element IDs for Runtime references;
+- typed refs to external authorities instead of copied truth where possible.
 
 ### 4.2 Stable element identity
 
-Runtime State cannot safely point at mutable headings or display text.
+Any Playable element referenced durably must have identity independent of current display text.
 
-Therefore:
+At minimum:
 
-> **Any Playable element referenced by Runtime State or another durable object must have stable identity independent of its current title/text.**
+```text
+beat:<slug>
+scene:<slug>
+choice:<slug>
+option:<slug>
+```
 
-This applies at minimum to:
+Heading/title edits do not change identity.
 
-- Scene;
-- Beat;
-- authored Choice;
-- Choice Option when persisted runtime selection depends on it;
-- any block that can be replaced/addressed by an approved agent proposal.
+### 4.3 Semantic blocks
 
-The exact Markdown/Tiptap serialization of those IDs is an implementation decision. The identity invariant is not.
-
-### 4.3 Playable blocks
-
-Playable Material may contain semantic blocks such as:
+Playable Material may contain:
 
 - At the table;
 - Read aloud;
@@ -173,134 +188,74 @@ Playable Material may contain semantic blocks such as:
 - Consequence;
 - ordinary prose;
 - typed reference;
-- contextual tool/action reference.
+- contextual tool/action ref.
 
-These are **presentation/use semantics**, not World ontology.
-
-A block may carry provenance when it was adopted or derived from Source/World. GM-authored material may have no source provenance beyond its own playable revision.
+These are Playable presentation/use semantics, not World ontology.
 
 ### 4.4 Object-attached Playable Material
 
-A GM may attach playable interpretation to a durable World object without promoting it into World truth.
+A durable World object may have run-specific Playable interpretation without that interpretation becoming World truth.
 
-Examples:
+The World object remains identity authority; Playable owns only the run-specific material.
 
-```text
-NPC Hesta
-  WORLD:
-    halfling apothecary
-    owns Hesta's Apothecary
-
-  PLAYABLE:
-    At the table: hurried, keeps glancing toward the cellar
-    Attitude: warm to the party, terrified of the mayor
-    Offer: can identify the restorative tincture
-```
-
-The object identity remains World-owned. The attached interpretation is Playable-owned.
-
-This is the foundation for Play Object Sheets without requiring universal NPC/location/shop schemas.
+---
 
 ## 5. Runbook, Beat, Scene, and Decision
 
-PR #578 provided sufficient dogfood evidence to make durable Runbook/Beat/Scene structure first-class Playable material. The C2 Session 27 dogfood (2026-08-19, `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`) then revised the organization direction: **the Beat is the larger useful hierarchy, and a Scene is a concrete playable situation inside a Beat.**
+The canonical durable hierarchy is:
 
 ```text
 Runbook
-  → Beats
+  → ordered Beats
 
 Beat
-  → table objective / pressure / phase
-  → Scenes
-  → Choices/Decisions
-  → consequences
+  → objective / pressure / phase / context
+  → ordered Scenes
+  → ordered Decisions
+  → Beat-level consequences
   → references/tools
 
 Scene
-  → concrete playable situation inside a Beat
+  → concrete playable situation inside exactly one Beat
 
-Choice/Decision
-  → Options
-  → consequences
-  → authored transitions affecting later Scene/Beat relevance
+Decision (wire kind: choice)
+  → ordered Options
+
+Option
+  → consequence
+  → activates / suppresses later Beat/Scene relevance
 ```
 
-This is a Playable organization model, not an Adventure ontology for the World Graph.
+This is Playable organization, not World Graph Adventure ontology.
 
-The wire grammar for this Beat-first model is now frozen by the reviewed
-current-moment cockpit contract
-(`DESIGN-play-current-moment-cockpit.md` §1–§2):
+### 5.1 BF1 v2 serialization
 
-- **Containment:** a Runbook owns ordered Beats directly; a Scene belongs to
-  exactly one Beat; a Beat is runnable with zero Scenes; Decisions are
-  Beat-owned with an optional Scene projection association; consequences
-  attach to Beats and Options only.
-- **Serialization:** `dmb-playable-element:v2` — Beat at H2, Scene and
-  Decision (wire kind `choice`) both at H3 as Beat-owned siblings
-  distinguished by directive kind, Option as a marked list item, with
-  authored consequence blocks and `activates`/`suppresses` transition
-  edges on Options.
-- **Manifest:** `dmb_play_run_reference_manifest_v2` seals identity,
-  membership, parentage, and transition edges; prose/titles remain in the
-  pinned revision bytes.
-- **Current position:** `currentBeatId` is required once READY (seeded
-  explicitly at admission); `currentSceneId` is optional and must belong to
-  the current Beat.
-- **Relevance:** derived from sealed edges plus durable selections; never
-  persisted separately.
-- **Migration/rebase:** v1 sealed Runs remain openable under v1 semantics only while their bound revision/digest is still the current workspace revision (the existing admission rule; no historical revision archive exists or is created);
-  v1→v2 adoption is an explicit one-way authoring action producing a new
-  revision; a v1 Run whose Runbook advanced to v2 is `rebase_required` and terminally so, because cross-grammar Run rebase is fail-closed in the first
-  implementation; same-grammar rebase stays preserve-only with parent-Beat
-  changes treated as semantic incompatibility.
+BF1 / PR #628 implemented:
 
-The shipped P1/P2 wiring remains Scene-first and **not structurally
-compatible** with this model: current `main` places Scene at H2 and
-Beat/Choice at H3, requires every Beat/Choice to belong to a Scene, and
-rejects a current Beat unless it belongs to the current Scene. The frozen
-contract above is therefore implemented only through the reviewed slice
-sequence selected by
-`Docs/Plans/HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md` — not by
-patching v1 containment.
+- `dmb-playable-element:v2`;
+- Beat H2;
+- Scene and Choice/Decision as Beat-owned H3 siblings;
+- optional same-Beat `scene=` association on Decision;
+- Option as marked list item;
+- `activates` / `suppresses` transition edges;
+- v2 structure index;
+- `dmb_play_run_reference_manifest_v2`.
 
-### 5.1 Runbook
+Mixed grammar and invalid containment/identity/edge states fail closed.
 
-A Runbook is a Playable Artifact role that arranges material into a table-running sequence.
+### 5.2 Runbook
 
-It may contain:
+A Runbook is the durable linear authoring arrangement of the material the GM intends to run.
 
-- ordered Beats;
-- fallback or optional Beats;
-- choices/decisions and transitions;
-- object references;
-- contextual tools;
-- non-beat reference material where useful.
+Its document order remains authoritative for authored order and initial Beat seeding.
 
-The Runbook is the table-facing projection of prep, not the prep database.
+The Runbook document is **not required to be the runtime navigation UI**. Play may project the same committed truth as a Scene-centered cockpit.
 
-### 5.2 Beat
+### 5.3 Beat
 
-A Beat is the session-scale unit the GM is deliberately running now: a table objective, pressure, or phase.
+Beat is the session-scale durable context container: objective, pressure, phase, framing, and the Scenes/Decisions/references belonging to it.
 
-Useful Beat semantics include:
-
-- stable ID;
-- title;
-- kind;
-- table objective / pressure / phase;
-- summary;
-- At the table;
-- Read aloud;
-- GM note;
-- Rules now;
-- warnings;
-- consequences;
-- the Scenes that concretely realize it;
-- Choices/Decisions;
-- typed references;
-- contextual Play actions.
-
-The initially warranted Beat kinds are:
+Initial Beat kinds remain:
 
 ```text
 spine
@@ -308,374 +263,346 @@ optional
 interrupt
 ```
 
-This is a small product vocabulary, not a closed universal event taxonomy.
+Beat does not own live clock values; prepared definition is Playable, live value is Runtime/owning capability.
 
-A Beat does not own live clock values. Prepared clock/pressure definition is Playable; current clock value/progress is Runtime.
+### 5.4 Scene
 
-### 5.3 Scene
+Scene is a concrete playable situation inside one Beat.
 
-A Scene is a concrete playable situation inside a Beat — the ordered, stable grouping that gives the GM a specific table context within the current objective/phase.
+Scene is the normal dominant central Play projection when current, but that visual dominance does not make Scene the durable parent of Decision or Beat.
 
-Useful Scene semantics include:
+### 5.5 Consequences
 
-- stable ID;
-- title;
-- order within its Beat;
-- intent;
-- prepared clocks/pressure definitions;
-- scene-level playable blocks;
-- typed references;
-- authored choices/transitions.
+Consequence is the canonical authored outcome concept.
 
-A Scene does not own live clock values. Prepared clock definition is Playable; current clock value/progress is Runtime.
+Consequences attach to Beat outcomes and Decision Options. Presentation hints may include reward/cost/state/relationship/access/information/etc. These are extensible UI semantics, not a World ontology.
 
-### 5.4 Consequences
+---
 
-`consequences` is the canonical Beat outcome concept.
+## 6. Choices, Decisions, branching, and relevance
 
-A consequence answers:
-
-> **What becomes true for this run if a particular table condition/action resolves this way?**
-
-Consequences also attach to Decisions: resolving a Choice/Decision carries consequences and may reshape which later Scenes or Beats remain possible or relevant for this run.
-
-A consequence may optionally express:
-
-- a trigger/condition such as success, failure, waiting, choice, always, or a referenced authored condition;
-- a presentation/category hint such as reward, cost, state change, relationship, clock, access, information, or other;
-- table-facing text;
-- references to affected objects/mechanics/playable elements.
-
-These hints must remain extensible. They are not a new World ontology.
-
-Examples:
+Permanent Playable choices are generic:
 
 ```text
-wait → tree advances one growth step
-success → Morwin pays 20 gp
-failure → character is buried
-choice:fire → aftermath scene becomes Firefighting
-success → Nar becomes willing to help
-search → recover 100 gp of precious metal leaves
-```
-
-**Treasure/reward is therefore a consequence, not a root Beat field.**
-
-Likewise, `ifTheyWait`, `ifTheySucceed`, and `ifTheyFail` are useful UI labels over consequence triggers, not required parallel top-level storage axes.
-
-## 6. Choices, Decisions, and branching
-
-PR #578 proves branch-aware running is useful, but its branch enums are adventure-specific. C2S27 adds the table-side requirement: Decisions must be visible as such at the table, and resolving one must be able to reshape which later Scenes/Beats remain possible or relevant.
-
-Permanent Playable Material defines choices generically:
-
-```text
-Choice/Decision
-  stable choiceId
-  prompt / meaning
-  options[]
-    stable optionId
+Decision
+  choiceId
+  prompt
+  Options[]
+    optionId
     label
-    optional transition / consequence references
+    consequence
+    activates[]
+    suppresses[]
 ```
 
-Runtime State records:
+Runtime records only:
 
 ```text
 choiceId → selected optionId
 ```
 
-Runtime does not know that an option means `celebration`, `fire`, `guild`, or any other adventure-specific concept except through the authored Playable Material.
+### 6.1 Branch relevance, not permission
 
-The existing stable Choice / Option identity (merged in P1C) is the durable
-storage primitive for Decisions: `choice` remains the wire kind and "Decision"
-is the product word. The reviewed contract
-(`DESIGN-play-current-moment-cockpit.md` §1, §5) freezes the rest: Decisions
-are Beat-owned with an optional Scene projection association; Options carry
-authored consequences and a two-effect transition vocabulary
-(`activates`/`suppresses`); Runtime records only the selection; relevance is
-derived, never persisted; consequences are informational first and never
-automatically mutate World/Runtime state.
+`activates` / `suppresses` are authored branch/relevance edges.
 
-## 7. Runtime State
-
-A **Run** binds mutable table state to one exact or explicitly migrated Playable revision.
-
-Minimum durable runtime concepts:
+They are interpreted as projection emphasis:
 
 ```text
-Run
-  runId
-  playableArtifactId
-  playableRevisionId
-  currentBeatId        # required once READY; seeded explicitly at admission
-  currentSceneId?      # optional; must belong to currentBeatId when present
-  resolvedBeatIds[]
-  selections: { choiceId: optionId }
-  notesByElementId: { playableElementId: text }
-  linkedCombatRuntime?   # Combat-owned encounter/board handle
-  updatedAt
+activated target     → emphasized
+suppressed target    → de-emphasized unless also activated
+everything else      → default
 ```
 
-This is conceptual architecture, not a frozen wire schema. The reviewed
-current-position, selection, and relevance semantics are frozen by
-`DESIGN-play-current-moment-cockpit.md` §4–§5; relevance is derived from
-sealed manifest edges plus selections and is never persisted as a second
-copy.
+They do **not** make material inaccessible.
 
-Two C2S27 findings activate here:
+A GM may inspect or explicitly make current any Beat/Scene regardless of emphasis. The architecture does not define a navigation permission graph.
 
-1. **Active-Run continuity is required.** Re-entering Play must offer Resume of the active Run rather than encouraging duplicate Run creation; the Run chooser must not accumulate useless duplicate UUIDs. Resume vs Start New is an explicit, truthful choice.
-2. **Combat is now a real live consumer.** The C2S27 table ran on the Combat Tracker, so a linked Combat runtime is no longer hypothetical. The need is activated now; the eventual wire shape (how a Run references a Combat-owned board/encounter) is intentionally not frozen by this revision. Combat state must become durable and independent of browser/worktree, and remains Combat-owned.
+### 6.2 No general condition engine
 
-### 7.1 Runtime invariants
+The first vocabulary does not include boolean expressions, arbitrary event predicates, automatic state reducers, or workflow execution.
 
-- Run state references stable Playable IDs.
-- Run state never invents new Playable structure.
-- Run state never writes World Graph canon.
-- Combat runtime remains owned by Combat.
-- A Play run may link to Combat runtime rather than absorbing combat fields.
-- Reload/restart must preserve run state needed to continue the table.
-- If the Playable revision changes, migration/rebase must be explicit when referenced IDs are removed or semantically replaced.
-- The Beat-first model is implemented only through the reviewed slice sequence
-  selected by `HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`; v1
-  sealed Runs remain openable under v1 semantics while their bound revision
-  stays current (no historical revision archive), v1→v2 adoption is an explicit
-  one-way authoring action producing a new revision, and cross-grammar Run
-  rebase fails closed (see `DESIGN-play-current-moment-cockpit.md` §6–§7).
+If future dogfood proves combined-choice conditions are necessary, that requires new evidence and design.
 
-## 8. Projection architecture
+### 6.3 Consequences are informational first
 
-Play consumes authorities through projections.
+Selecting an Option does not automatically publish World facts, execute arbitrary Runtime mutations, or advance unrelated systems. Actual outcomes are explicitly recorded through owning capabilities.
 
-### 8.1 Play Object Sheet
+---
 
-A Play Object Sheet is not stored as a duplicate object.
+## 7. Run Runtime and persistence
 
-It composes:
-
-```text
-WORLD
-identity, durable relationships, concise accepted facts
-
-SOURCE
-rich exact source detail / provenance
-
-PLAYABLE
-GM-adopted table interpretation and relevant-now curation
-
-MECHANICS
-exact mechanics bindings where applicable
-
-RUNTIME
-small current-run status only when useful
-
-        ↓
-
-PLAY OBJECT SHEET
-```
-
-The projection should lead with table usefulness and place graph/provenance internals in Advanced/supporting detail.
-
-### 8.2 Threat projection
-
-Threat projection uses exact mechanics when available.
-
-```text
-Threat
-  ↓ accepted exact mechanics binding
-StatblockRevision
-  ↓ Play projection
-Threat Sheet
-  ↓ explicit action
-Add to Combat
-```
-
-Playable notes may describe tactics or encounter intent, but must not silently replace exact mechanics authority.
-
-### 8.3 Maps/media
-
-Maps and media should be composed from reusable source/asset records and annotations.
+A Run binds mutable Play state to one exact committed Playable WorkRevision.
 
 Conceptually:
 
 ```text
-Asset
-  identity
-  source provenance
-  media metadata
-
-AssetAnnotation
-  assetId
-  normalized position / region
-  target reference
-  label
+Run
+  runId
+  campaignId
+  playableWorkObjectId
+  playableRevisionN
+  playableWorkRevisionId
+  playableContentSha256
+  runRevision
+  currentBeatId
+  currentSceneId?
+  resolvedBeatIds[]
+  selections: { choiceId: optionId }
+  notes / note anchors
+  linkedCombatRuntime?
+  timestamps
 ```
 
-Play may render these as clickable map overlays. Build and Plan may reuse the same underlying data.
+The actual AS3 schema stores Run + sealed manifest transactionally in Buddy PostgreSQL and uses `run_revision` SQL CAS.
 
-## 9. Agentic authoring boundary
+### 7.1 Historical revision invariant
 
-Hermes may help create Playable Material, but proposal is not adoption.
+> **A Run reads the exact historical WorkRevision it pins, even after later WorkRevisions exist.**
 
-The durable flow is:
+No “current workspace revision” prerequisite remains for historical Run readability.
+
+### 7.2 Active Run continuity
+
+AS4 stores the active/selected Run in `play.active_run` on PostgreSQL.
+
+Bare `/play` resolves that explicit selection and then performs full Run/manifest/WorkRevision admission. It never guesses latest/first.
+
+### 7.3 Legacy Play persistence demolished
+
+AS5 removed current-product authority for:
+
+- Run JSON files;
+- manifest sidecars;
+- `active-run.json`;
+- Play rebase intents;
+- Play filesystem transaction locks/import engine.
+
+Current Play operation must not depend on `out/runtime/play/` existing.
+
+### 7.4 Runtime invariants
+
+- Run references stable Playable IDs.
+- Run never invents Playable structure.
+- Run never writes World canon.
+- CAS protects mutable Runtime updates.
+- corrupted Run/manifest aggregate fails closed; ordinary mutation cannot repair it silently.
+- explicit rebase is one transaction and preserve-only.
+- Combat remains Combat-owned.
+
+---
+
+## 8. Current position and projection
+
+BF2 owns opening v2 READY admission.
+
+For a new v2 Run:
+
+- seed `currentBeatId` durably to first spine Beat, else first Beat;
+- zero Beats is not runnable;
+- do not infer a Scene.
+
+For an existing Run:
+
+- resume exact persisted Beat/Scene;
+- when Scene is current, Scene is the primary central projection;
+- Beat context remains accessible;
+- Beat-only current position remains legal.
+
+### 8.1 Inspect versus mutate position
+
+Opening an object or Playable element is projection/read behavior and preserves current position.
+
+Explicit **Make Current** for a Scene mutates Beat + Scene together through Runtime CAS.
+
+This boundary lets unexpected-play inspection stay cheap without corrupting the current moment.
+
+---
+
+## 9. Notes
+
+Table notes are Runtime state, distinct from authored Playable `GM Note` blocks.
+
+Product projection may treat notes as objects pinned to Run/Beat/Scene/other Play context.
+
+This architecture intentionally does **not** freeze a new note table. The existing note persistence may continue until a concrete interaction proves a need for independent note IDs, multiple notes per anchor, timestamps, move/re-pin, or another lifecycle.
+
+Post-session adoption of a Runtime note into Playable remains explicit.
+
+---
+
+## 10. Projection architecture
+
+Play composes:
+
+```text
+WORLD
+SOURCE
+PLAYABLE
+MECHANICS
+RUNTIME
+COMBAT handle/status where admitted
+        ↓
+PLAY PROJECTION
+```
+
+### 10.1 Contextual and global retrieval
+
+Play must support two access modes:
+
+```text
+CONTEXTUAL
+references seeded by current Beat / Scene
+
+GLOBAL / ON-DEMAND
+known campaign material needed unexpectedly
+```
+
+The global finder is surface/product behavior, not new World/Playable authority.
+
+Opening a found object never mutates Runtime merely because it was opened.
+
+### 10.2 Play Object Sheet
+
+A Play Object Sheet is projection-only composition. It leads with table usefulness and keeps graph/evidence internals subordinate.
+
+### 10.3 Threat / exact mechanics
+
+```text
+Threat
+→ exact accepted mechanics binding
+→ StatblockRevision
+→ Play Threat projection
+→ explicit Add to Combat
+```
+
+Exact mechanics must not be copied into Runbook fields merely for faster rendering.
+
+### 10.4 Combat workspace
+
+Combat may visually replace the Scene as the central working instrument while expanded.
+
+That does not move HP/initiative/conditions/encounter persistence into Play. Play retains origin Beat/Scene and a linked Combat handle/status; Combat remains authority.
+
+---
+
+## 11. Agentic authoring boundary
+
+Agent/Hermes may propose Playable changes, but proposal is not adoption.
 
 ```text
 ground in admitted context
-→ propose typed Playable mutation
-→ show preview + provenance
-→ GM explicitly approves
-→ apply to admitted Playable work object
-→ ordinary Save / revision commit
+→ proposal targets exact WorkObject + base revision/digest + stable element
+→ preview
+→ GM approves
+→ apply to Canvas/working copy
+→ ordinary Save commits WorkRevision
 ```
 
 Requirements:
 
-- explicit target work object;
-- stale-revision / digest protection;
-- no apply over conflicting unsaved edits;
-- stable target element identity when replacing/editing existing content;
-- provenance retained when proposal is grounded in Source/World;
-- no automatic World Graph publication;
-- no hidden durable write on proposal generation.
+- stale/dirty conflict protection;
+- no fuzzy silent retargeting;
+- provenance retained when grounded in Source/World;
+- no automatic graph publication;
+- no hidden durable write during proposal generation.
 
-## 10. From Playable to World, and Runtime to Playable
+---
 
-Upward promotion is always deliberate.
+## 12. Promotion boundaries
 
-### 10.1 Playable → World
+### Playable → World
 
-A run-local decision may later deserve canonical promotion.
+Explicit reviewed World/graph publication. The originating Playable WorkRevision remains provenance/evidence.
 
-That is a separate reviewed operation through World/Graph authority.
+### Runtime → Playable
 
-Example:
-
-```text
-PLAYABLE:
-Hesta secretly treated the mayor's daughter.
-
-later operator decision:
-"Make this true in the durable world."
-
-→ explicit graph-authoring/review path
-```
-
-### 10.2 Runtime → Playable
-
-A table outcome or scratch note may later be useful prep.
-
-That is also deliberate adoption:
-
-```text
-RUNTIME:
-Torbin fled west during play.
-
-after session:
-GM chooses "keep this in next prep"
-
-→ Playable proposal/adoption
-```
+Explicit adoption into new prep/recap material through the normal proposal/adoption + Save boundary.
 
 Neither direction is automatic.
 
-## 11. Persistence and revision rules
+---
 
-1. Playable Material is durable across reload/restart.
-2. Runtime State is durable across reload/restart when the GM depends on it.
-3. Every persisted Run binds to an identifiable Playable version.
-4. Stable referenced element IDs survive ordinary text/title edits.
-5. Deleting/replacing a referenced element must not silently retarget runtime state.
-6. Exact mechanics revisions remain immutable and externally referenced.
-7. Source provenance remains source-owned and integrity-checked.
-8. Projection caches, if any, are reconstructable and never become authority.
-9. Durable state the GM depends on must not be checkout-local or browser-local. Plan documents, playable blocks/styling, Combat board state, and Run/workspace registries must survive worktree switches and browser loss (C2S27 rank-1 residual).
+## 13. Revision and rebase rules
 
-## 12. Surface Interaction Layer boundary
+1. committed WorkRevisions are immutable and historically loadable;
+2. a Run stays bound to its exact historical revision until explicit rebase;
+3. newer WorkRevisions do not force rebase for readability;
+4. same-grammar rebase is preserve-only and transactional;
+5. removal/semantic relocation of referenced IDs may block rebase;
+6. v1→v2 is a structural grammar boundary and is not silently mapped;
+7. current/latest fallback is forbidden;
+8. exact mechanics/source refs retain their own authority/revision rules.
 
-`ARCHITECTURE-surface-interaction-layer.md` remains authority for shared AppChrome and projection hosts.
+---
 
-This architecture adds domain meaning, not new chrome ownership.
+## 14. Surface Interaction Layer boundary
 
-Play:
+Shared AppChrome/projection host remains outside Play ownership.
 
-- publishes Play capabilities upward;
-- uses the shared Projection host;
-- may select a Playable Canvas/work object;
-- may register Beat/Object/Threat projections;
-- does not own AppChrome bars;
-- does not absorb Canvas document authority.
+Play publishes capabilities/projections upward, may select Playable Canvas context, and may register Beat/Scene/Object/Threat/Combat projections.
 
-## 13. Migration from PR #578
+It does not absorb Canvas document authority or build a second chrome.
 
-Keep:
+---
 
-- Play as dedicated surface;
-- Scene/Beat interaction;
-- Play Object Sheet semantics;
-- consequences;
-- persisted run state;
-- Threat → Add to Combat;
-- typed Hermes proposal/approval;
-- map/media projection concept;
-- real-object eval methodology.
+## 15. Migration / demolition posture
 
-Replace:
+Historical campaign-specific Play bridges remain replacement targets:
 
 ```text
-ofConksPlayObjectBridge
-        ↓
-generic projection over World + Source + Playable
+campaign Play-object dictionaries
+  → generic World + Source + Playable projections
 
-ofConksHempholmBeats
-        ↓
-durable Playable Runbook / Scene / Beat content
+campaign Beat dictionaries
+  → durable Playable Runbook content
 
-ofConksThreatPlayBridge
-        ↓
-exact accepted mechanics binding
+campaign Threat bridges
+  → exact mechanics bindings
 
-Of Conks branch enums
-        ↓
-generic authored choices + runtime selections
+adventure-specific branch enums
+  → generic Decision/Option + activates/suppresses
 
-ofConksNodeMedia / ofConksMapOverlays
-        ↓
-asset + annotation authority
-
-playPrepHost / MirewardPrep globals
-        ↓
-native Play capabilities over time
+legacy prep host globals
+  → native Play capabilities
 ```
 
-## 14. Explicit non-goals
+Do not preserve old bridge topology merely because it once carried dogfood.
 
-This architecture does **not** require:
+---
 
-- a universal Adventure object in the World Graph;
-- automatic extraction of every Scene/Beat from source;
-- a bespoke NPC ontology;
-- a bespoke Shop ontology;
-- a new database before workspace documents prove insufficient;
-- copying source prose into Playable storage merely so Play can render it;
-- copying statblock mechanics into Runbook/Beat fields;
-- making every Runtime event durable campaign canon;
-- making every playable consequence a typed graph assertion;
+## 16. Architecture acceptance tests
+
+A conforming implementation should be able to prove:
+
+1. Runbook WorkRevision N remains loadable for a Run after N+1 is committed.
+2. stable Beat/Scene/Choice/Option IDs survive ordinary prose/title edits.
+3. a new v2 Run seeds a Beat explicitly; resume restores exact stored Beat/Scene.
+4. opening another Scene for inspection does not mutate current position.
+5. explicit Make Current changes Beat+Scene lawfully under CAS.
+6. authored Option selection persists only IDs and re-derives branch relevance.
+7. a de-emphasized Scene remains accessible.
+8. a Play Object Sheet composes useful content without campaign-specific dictionaries.
+9. an unexpected known Threat can be found, exact mechanics rendered, and Add to Combat invoked without Plan/Build navigation.
+10. Combat expansion does not transfer combat state ownership into Play and collapse returns to exact Scene.
+11. Runtime notes persist and remain distinct from authored GM Note blocks.
+12. Agent proposals require exact base/target and explicit approval.
+13. Source, World, Playable, Mechanics, Runtime, and Combat authority remain distinguishable.
+14. ordinary Play operates with legacy `out/runtime/play` persistence absent.
+
+---
+
+## 17. Explicit non-goals
+
+- universal Adventure object in World Graph;
+- automatic extraction of every Scene/Beat/Choice from source;
+- bespoke universal NPC/Shop ontology;
+- copying source prose or mechanics into Playable as new authority;
+- making every Runtime event canon;
+- making every consequence a typed graph assertion;
+- Play-owned Combat state;
 - Play-owned map/media truth;
-- arbitrary Hermes filesystem access;
-- direct Hermes writes without explicit operator adoption.
-
-## 15. Architecture acceptance tests
-
-A future implementation conforming to this authority should be able to prove:
-
-1. A real Runbook with stable Scenes/Beats survives save/reload.
-2. Renaming a Beat does not orphan run-state references to it.
-3. A Beat can express a reward as a consequence without a treasure-specific schema.
-4. A branch choice is authored generically and runtime records only choice/option IDs.
-5. A Play Object Sheet renders useful NPC/location/item information without a campaign-specific code dictionary.
-6. A run-local NPC interpretation remains usable in Play without becoming World Graph truth.
-7. A Threat opens exact mechanics and can be explicitly added to Combat without a campaign-specific statblock bridge.
-8. Hermes can propose a GM Note/Rules/Warning/Read Aloud against the admitted Playable work object; stale/dirty state prevents unsafe application.
-9. Runtime notes/resolved Beats persist across restart.
-10. Source, World, Playable, Mechanics, and Runtime provenance/authority remain distinguishable under the projection.
+- arbitrary Agent filesystem authority;
+- direct Agent writes without approval;
+- navigation permission gating from Choice relevance;
+- condition/workflow DSL without new evidence;
+- new note schema merely because notes are projected as pinned objects.

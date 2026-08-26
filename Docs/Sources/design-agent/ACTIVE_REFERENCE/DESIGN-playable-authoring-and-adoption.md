@@ -3,9 +3,9 @@ document_id: dmb-design-playable-authoring-and-adoption
 title: Playable Authoring and Adoption
 document_class: product_design
 status: active
-version: 1.1
+version: 1.2
 created_at: "2026-08-15"
-updated_at: "2026-08-21"
+updated_at: "2026-08-26"
 workstream: PLAY-SURFACE
 architecture_authority: "ARCHITECTURE-playable-material-and-runtime.md"
 companion_designs:
@@ -13,7 +13,9 @@ companion_designs:
   current_moment_cockpit: "DESIGN-play-current-moment-cockpit.md"
 evidence:
   - "PR #578 — Canvas block proposal / Of Conks runbook dogfood"
-  - "C2 Session 27 native Play dogfood — BLOCKED / PLAY NOT READY (Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md)"
+  - "C2S27 native Play dogfood — Plan→Playable fidelity and unexpected-play evidence"
+  - "PR #628 — BF1 Beat-first v2 grammar and manifest foundation"
+  - "APP-STATE AS1–AS5 — durable WorkObject/WorkRevision + Play Runtime foundation"
 supersedes_direction_from:
   - "DESIGN-runbook-roadmap-and-session-ingestion.md"
 ---
@@ -28,173 +30,165 @@ It covers:
 
 - GM-authored preparation;
 - source/world material adopted into prep;
-- Runbook/Scene/Beat construction;
+- Runbook / Beat / Scene / Decision composition;
 - object-attached playable interpretation;
-- Hermes proposals;
+- Agent/Hermes proposals;
 - explicit operator approval;
 - revision safety;
 - reopening and continuing preparation.
 
 It does not define graph writes or source ingestion.
 
+---
+
 ## 1. Product promise
 
-> **The GM can develop the version they intend to run, keep the useful decisions, reopen them later, and let Hermes use them—without requiring those decisions to become canonical World Graph truth.**
+> **The GM can develop the version they intend to run, keep the useful decisions, reopen them later, and let Agent/Hermes use them—without requiring those decisions to become canonical World Graph truth.**
 
-This is the concrete authoring contract behind CON-READY CR-U11 and CR-U12.
+The Runbook is a durable, versioned linear authoring object. Play later consumes that exact committed material into a table projection; the GM is not required to navigate the linear document structure during play.
+
+---
 
 ## 2. Sources of Playable Material
-
-Playable Material can originate from several places.
 
 ### 2.1 Direct GM authoring
 
 Examples:
 
-- write a Scene;
-- add a Beat;
-- add a GM Note;
-- decide an NPC's current attitude;
-- change a shop for this run;
-- prepare an encounter;
+- create a Beat;
+- create a Scene;
+- add a Decision with Options;
+- add Read Aloud / GM Note / Rules Now / Warning;
 - add a consequence;
-- create an optional branch.
+- prepare optional/branch material;
+- reference an NPC, location, Threat, statblock, table, map, source, or tool.
 
-Authority: the Playable revision itself.
+Authority: the Playable WorkRevision.
 
 ### 2.2 Adopt from Original Source
 
 Examples:
 
-- copy/adopt read-aloud into the Runbook;
+- adopt read-aloud into the Runbook;
 - preserve a module rule in Rules Now;
 - attach a source-backed hook to an NPC;
 - reference a source location without copying all prose.
 
-The adopted block should retain useful provenance when possible.
-
-The source remains source authority.
+Retain useful provenance when possible. Source remains source authority.
 
 ### 2.3 Adopt from World
 
 Examples:
 
 - insert a typed Hesta reference;
-- attach the known relationship to the current Scene;
-- include an existing location or threat in a Beat.
+- include an existing location or Threat in a Beat/Scene;
+- attach known relationships as context.
 
-The World object remains World authority.
-
-The Runbook owns only why/how it matters for this run.
+The World object remains World authority. Playable owns only why/how it matters for this run.
 
 ### 2.4 Adopt exact Mechanics
 
-Playable prep may reference exact mechanics such as an accepted `StatblockRevision`.
+Playable prep may reference exact accepted mechanics such as a `StatblockRevision`.
 
-It should not copy mechanics into a new mutable Playable schema merely for convenience.
+Do not copy mechanics into a mutable Runbook schema merely for convenience.
 
 ### 2.5 Adopt Runtime outcomes later
 
-After play, the GM may deliberately keep a runtime outcome as next-session prep.
+After play, the GM may deliberately keep a runtime outcome as next-session prep, recap material, or a candidate World fact.
 
-This is a new adoption action, not automatic promotion.
+That is an explicit adoption/promotion action, never automatic Runtime→Playable→World mutation.
 
-## 3. Authoring work object
+---
 
-The first-class authoring target is an admitted, durable Playable work object.
+## 3. Authoring work object and revision truth
 
-A workspace document / Markdown Canvas remains a valid normal implementation.
+The first-class authoring target is an admitted durable Playable WorkObject.
 
-The authoring surface must know:
+The authoring surface knows:
 
-- exact document/work-object ID;
-- current revision/digest;
+- exact WorkObject/document ID;
+- exact committed WorkRevision / revision number / digest;
 - scope;
-- whether the object is editable;
-- semantic element IDs when targeted mutations depend on them.
+- editability;
+- stable semantic element IDs where targeted mutations depend on them.
 
-The user should not supply filesystem paths as write authority.
+APP-STATE now provides immutable historical WorkRevisions. An existing Run may remain bound to revision N after N+1 is committed; Plan editing a newer revision does not make the old Run unreadable or silently retarget it.
+
+The user should never supply filesystem paths as write authority.
 
 ### 3.1 Plan authors the exact Playable material — no lossy export
 
-C2S27 falsified the derivative-export path: Plan ideas did not enter Play with sufficient semantic fidelity, and the Plan export dropped playable blocks and styling — authored work was lost.
-
-The authoring contract is therefore:
+C2S27 falsified derivative export. The contract remains:
 
 > **Plan authors and adopts the exact Playable work object itself. Playable Material is not produced by exporting a lossy derivative from a separate Plan document.**
 
 Consequences:
 
-- The Plan surface edits the admitted Playable work object through the normal Canvas/document authority and ordinary Save; there is no parallel "export to Runbook" transformation that can drop blocks, styling, or semantics.
-- If a separate free-form Plan document exists, adopting its material into the Playable work object is an explicit, reviewable adoption — not a batch export.
-- What the GM sees while preparing in Plan is what Play will project at the table, up to projection (projection never rewrites the material).
+- Plan edits the admitted Playable WorkObject through normal Canvas/document authority and ordinary Save/commit.
+- If a separate free-form Plan document exists, adopting its material into the Playable WorkObject is explicit and reviewable.
+- What the GM prepares is what Play later reads from the committed WorkRevision.
+- There is no parallel “export to Runbook” transform that can drop semantic blocks, styling, references, or IDs.
 
-The exact Plan↔Playable composition is frozen by the reviewed current-moment
-cockpit contract (`DESIGN-play-current-moment-cockpit.md` §8): Plan edits the same
-admitted Playable work object directly; free-form planning documents adopt
-material through the explicit, reviewable adoption seam; Beat/Scene/Decision
-authoring uses structure-aware controls over the same document rather than a
-graph editor; and the Plan preview and Play projection read the same committed
-revision. The no-lossy-derivative rule is settled here and there.
+---
 
-## 4. Runbook authoring
+## 4. Runbook authoring model
 
-After C2S27, the Beat is the session-scale organization unit; Scenes are
-concrete situations inside a Beat. See
-`ARCHITECTURE-playable-material-and-runtime.md` §5.
+The durable hierarchy remains Beat-first:
 
-The Beat-first authoring model is now frozen by the reviewed current-moment
-cockpit contract (`DESIGN-play-current-moment-cockpit.md` §1–§2, §8): Beats are
-authored as v2 H2 elements, Scenes as v2 H3 elements inside exactly one Beat,
-Decisions as v2 H3 `choice` elements — Beat-owned siblings of Scenes,
-distinguished by directive kind rather than heading level — with an
-optional Scene projection association, and Options as marked list items carrying authored
-consequences and `activates`/`suppresses` edges. The shipped P1/P2 grammar
-remains Scene-first and cannot serialize this; the authoring controls below
-are implemented through the reviewed slice sequence, not by patching v1.
+```text
+Runbook
+  → ordered Beats
+      → ordered Scenes
+      → ordered Decisions
+          → ordered Options
+```
 
-### 4.1 Create/organize Beats
+The BF1 v2 grammar is active implementation truth:
+
+```text
+beat     → H2
+scene    → H3 inside Beat
+choice   → H3 inside Beat (optional same-Beat scene association)
+option   → marked list item inside choice
+```
+
+`choice` is the wire kind; Decision is the product word.
+
+The Runbook is a **linear, readable authoring source**. Its order matters for prep, initial Beat seeding, and explicit order-based navigation. Play is free to project the same truth as a Scene-centered cockpit rather than a document tree.
+
+### 4.1 Create / organize Beats
 
 The GM can:
 
-- create Beat;
+- create/reorder a Beat;
 - choose `spine`, `optional`, or `interrupt`;
-- set the table objective / pressure / phase;
-- write At the Table;
-- add Read Aloud;
-- add GM Note;
-- add Rules Now;
-- add Warning;
-- add Consequences;
-- add Decisions with Options and authored transitions;
-- add references/actions;
-- title/reorder Beats within the Runbook;
-- delete/replace Beat with explicit impact on referenced runtime state.
+- set objective / pressure / phase / summary;
+- author At the Table, Read Aloud, GM Note, Rules Now, Warning;
+- add Beat-level consequences;
+- add Scenes;
+- add Decisions;
+- add typed references/actions;
+- delete/replace Beat with explicit impact when durable Runtime references would be affected.
 
-Stable identity is preserved through title/prose edits.
+Stable ID survives ordinary title/prose edits.
 
-### 4.2 Create/organize Scenes inside a Beat
+### 4.2 Create / organize Scenes inside a Beat
 
 The GM can:
 
-- create Scene inside a Beat;
-- title/reorder Scene within its Beat;
-- set table intent;
-- add pressure/clock definitions;
+- create/reorder Scene within its Beat;
+- set table situation/intent;
+- add semantic blocks;
+- add prepared pressure/clock definitions;
 - add typed references;
-- add authored choices/transitions;
-- delete/replace Scene with explicit impact on referenced runtime state.
+- associate Beat-owned Decisions with this Scene;
+- delete/replace Scene with explicit impact when Runtime references would be affected.
+
+Scene is the normal table workspace in Play, but remains durably owned by its Beat.
 
 ### 4.3 Consequence authoring
 
-The authoring UI should help express:
-
-```text
-trigger / condition
-→ outcome
-```
-
-without forcing a large rules engine.
+Consequences remain authored outcome framing, not a rules engine.
 
 Examples:
 
@@ -209,29 +203,61 @@ If they search
 → recover precious metal leaves worth 100 gp.
 
 If they choose Fire
-→ open Firefighting aftermath.
+→ Firefighting aftermath becomes emphasized.
 ```
 
-"Reward" is a useful presentation/category hint. It does not require `treasure` as a separate Beat field.
+Reward is a useful presentation hint, not a separate treasure subsystem.
 
 ### 4.4 Choice / Decision authoring
 
-A Choice/Decision has stable identity and stable options.
+A Decision has stable identity and ordered stable Options.
 
-The GM may connect an option to:
+An Option may carry:
 
-- a next Scene or Beat;
-- one or more consequences;
-- an authored transition that changes which later Scenes/Beats remain possible or relevant;
-- another Playable reference.
+- authored consequence text;
+- `activates` references to later Beat/Scene IDs;
+- `suppresses` references to later Beat/Scene IDs.
 
-The first implementation need not become a general workflow graph.
+This is enough to express useful authored branching such as:
 
-## 5. Object-attached playable authoring
+```text
+A → emphasize B
+A → de-emphasize C
+```
 
-The GM can add run-specific material to a World object.
+The authoring UI should describe these as branch/relevance effects, not permissions. A suppressed Scene remains valid Playable material and remains inspectable/navigable at the table.
 
-Useful semantic roles include:
+The first implementation does not add boolean expressions (`A && B && !C`), arbitrary conditions, a workflow graph editor, or automatic consequence execution.
+
+If players later choose something outside all authored Options, Runtime need not fabricate a selection. A later deliberate authoring/Agent proposal may add a new Option through the normal WorkRevision path.
+
+---
+
+## 5. References and unexpected-play preparation
+
+Authoring should prefer typed references over duplication.
+
+References may target:
+
+- World object;
+- Source artifact / source anchor;
+- Threat / exact mechanics;
+- another Playable Beat/Scene;
+- roll table;
+- map/asset;
+- Play capability/tool.
+
+References authored into the current Beat/Scene seed Play's contextual `At a Glance` projection.
+
+But authors are not expected to predict everything the players will do. The Play surface must also provide global/on-demand retrieval for known campaign material that was never referenced by the current Beat/Scene. This requirement does **not** justify polluting the Runbook with exhaustive references merely to make objects discoverable at runtime.
+
+---
+
+## 6. Object-attached Playable authoring
+
+The GM may add run-specific interpretation to a durable World object without promoting it into World truth.
+
+Useful semantic roles may include:
 
 - At the table;
 - Attitude;
@@ -240,8 +266,6 @@ Useful semantic roles include:
 - Warning;
 - consequence / pressure;
 - relevant-now references.
-
-These roles are intentionally flexible.
 
 Example:
 
@@ -259,214 +283,178 @@ Offer:
   gem-cutting job
 ```
 
-This does not require adding `attitude` or `offers` as universal World Graph fields.
+These roles do not become universal World fields.
 
-## 6. Typed references
+---
 
-Authoring should prefer references over duplication.
+## 7. Notes versus authored GM Notes
 
-References may target:
+Do not conflate:
 
-- World object;
-- Source/document/evidence;
-- Threat / exact mechanics;
-- another Playable Scene/Beat/object;
-- Play capability/tool;
-- later, reusable asset annotation.
+- **GM Note semantic block** — authored Playable Material committed in a WorkRevision;
+- **table note** — Runtime observation created while playing.
 
-The Canvas/editor is responsible for preserving durable reference identity through Save/reload.
+Table notes may be projected as pinned context objects associated with Run/Beat/Scene/originating Play element. This authoring design does not prescribe a new note persistence schema; deliberate post-session adoption may turn a Runtime note into new Playable material through the normal proposal/adoption + Save path.
 
-## 7. Hermes proposal model
+---
 
-Hermes is a collaborator, not an implicit writer.
+## 8. Agent/Hermes proposal model
 
-### 7.1 Allowed proposal posture
+Agent/Hermes is a collaborator, not an implicit writer.
 
-Hermes may propose changes such as:
+### 8.1 Allowed proposal posture
 
-- insert Read Aloud;
-- insert GM Note;
-- insert Rules Now;
-- insert Warning;
-- add/edit Consequence;
-- add a typed reference;
-- later, create/rearrange Scene/Beat when the mutation contract supports stable identity safely.
+It may propose:
 
-### 7.2 Grounding
+- insert/edit Read Aloud;
+- insert/edit GM Note;
+- insert/edit Rules Now;
+- insert/edit Warning;
+- add/edit consequence;
+- add typed reference;
+- create/rearrange Beat/Scene/Decision when the mutation contract safely preserves stable identity;
+- add an Option / branch effect when the GM explicitly chooses to update prep after unexpected play.
 
-Before proposing source/world-derived material, Hermes must use the governed context available to it.
+### 8.2 Grounding
 
-A proposal may carry provenance references.
+Before proposing source/world-derived material, use governed context and carry provenance when appropriate.
 
-The proposal itself is not truth merely because Hermes generated it.
-
-### 7.3 Targeting
+### 8.3 Exact targeting
 
 A proposal targets:
 
-- exact Playable work object;
-- exact base revision/digest;
-- stable semantic element/position when applicable.
+- exact Playable WorkObject;
+- exact base WorkRevision/digest;
+- stable semantic element/position where applicable.
 
-Heading text and fuzzy old text may remain temporary compatibility locators but are not the permanent identity contract.
+Heading text/fuzzy text is not permanent authority.
 
-### 7.4 Preview and approval
-
-Required flow:
+### 8.4 Preview and approval
 
 ```text
-Hermes returns proposal
-→ UI renders proposed block/change
+Agent returns proposal
+→ UI renders proposed change
 → GM approves or rejects
-→ apply to current admitted work object
+→ apply to admitted WorkObject
+→ Canvas becomes dirty
+→ ordinary Save commits next WorkRevision
 ```
 
-No proposal is applied automatically.
+No proposal is applied or made durable automatically.
 
-### 7.5 Concurrency safety
+### 8.5 Concurrency safety
 
-Application fails safely when:
+Apply fails safely when:
 
-- target document changed since admission;
-- current local Canvas contains conflicting unsaved edits;
-- stable target element no longer exists;
-- proposal scope no longer matches the active work object.
+- base revision changed;
+- current Canvas has conflicting unsaved edits;
+- target element disappeared;
+- proposal scope no longer matches the active WorkObject.
 
-The correct user action is re-ground/re-ask, not silent fuzzy retargeting.
+Correct response is re-ground/re-ask, not fuzzy silent retargeting.
 
-### 7.6 Persistence
+---
 
-Approved proposal application creates ordinary local document dirtiness.
+## 9. Review/adoption language
 
-Durability remains:
+Prefer operator-intent language:
 
-```text
-apply proposal
-→ Canvas dirty
-→ normal Save / revision write
-```
+- Add to prep;
+- Keep this;
+- Approve into Runbook;
+- Replace this GM Note;
+- Add consequence;
+- Add Option;
+- Save.
 
-Agent mutation does not gain a private persistence path.
+Avoid filesystem paths, hashes as primary UI, graph mutation vocabulary for Playable-only edits, or “publish canon” unless actually entering World promotion.
 
-## 8. Review/adoption language
+---
 
-The product language should describe operator intent, not storage mechanics.
+## 10. Source / World / Mechanics staleness
 
-Prefer:
+Playable Material may outlive the source/world/mechanics revision from which it was prepared.
 
-- Add to prep
-- Keep this
-- Approve into Runbook
-- Replace this GM Note
-- Add consequence
-- Save
+Later changes do not silently rewrite prep.
 
-Avoid exposing:
+When useful, surface staleness signals such as:
 
-- graph mutation language for Playable-only edits;
-- filesystem paths;
-- artifact hashes as primary UI;
-- "publish canon" unless the operator is actually entering a separate World promotion flow.
-
-## 9. Source/world staleness
-
-Playable Material may outlive the source/world revision from which it was prepared.
-
-That is acceptable.
-
-A later source/world change should not silently rewrite prep.
-
-Instead, when useful, DungeonBuddy may surface:
-
-- source changed since this block was adopted;
+- source changed since adoption;
 - referenced World object changed;
 - mechanics binding moved to a newer accepted revision.
 
-The GM decides whether to update the playable version.
+The GM decides whether to update the Playable version.
 
-Staleness is a review signal, not automatic mutation.
+---
 
-## 10. Promotion to World
+## 11. Promotion and post-session adoption
 
-The Playable Layer is not a dead end.
+### Playable → World
 
-A GM may deliberately promote an adopted run-local fact into durable World knowledge.
+A GM may deliberately promote a run-local fact through the existing World/graph review authority. The Playable WorkRevision remains provenance/evidence; it does not magically become a graph row.
 
-That must route through the existing World/graph review authority.
-
-Example:
-
-```text
-Playable:
-Hesta secretly treated the mayor's daughter.
-
-GM action:
-Make this part of the world.
-
-→ graph authoring/review
-→ accepted World assertion if approved
-```
-
-The Playable authoring surface may initiate this workflow later, but it cannot bypass it.
-
-## 11. Runtime adoption after play
+### Runtime → Playable
 
 Post-session, the GM may inspect:
 
 - resolved Beats;
-- selected choices;
-- scene notes;
-- combat outcomes;
-- improvised NPC/location facts.
+- selected Choices;
+- notes;
+- Combat outcomes;
+- improvised facts.
 
-The system may propose:
+Possible deliberate actions:
 
 - keep as next prep;
 - add to recap;
 - promote to World;
 - discard as transient.
 
-Those are separate deliberate actions.
+No automatic promotion.
 
-No automatic "runtime becomes canon" path is allowed.
+---
 
-## 12. Revision and run compatibility
+## 12. Revision and Run compatibility
 
-When a Run already exists against Playable revision R:
+A Run binds one exact committed Playable WorkRevision.
 
-- ordinary prose edits that preserve referenced element IDs can create R+1 safely;
-- removal/replacement of referenced Scene/Beat/Choice IDs requires explicit compatibility handling;
-- current Run remains bound to its recorded revision until migrated or intentionally continued on a new revision.
+- Newer WorkRevisions do not invalidate the historical revision already pinned by a Run.
+- Ordinary authoring produces new immutable revisions; it does not rewrite the Run's bytes.
+- Explicit same-grammar rebase may move a Run to a newer revision only when Runtime references remain preserve-only admissible.
+- v1→v2 is a structural grammar boundary and is not silently mapped; existing v1 Runs remain bound to their exact v1 revisions, while a new v2 Run is the normal path for Beat-first structure.
 
-The first implementation may choose a conservative rule such as "finish current Run on its pinned revision."
-
-It must not silently reinterpret runtime references.
+---
 
 ## 13. Authoring acceptance stories
 
-A conforming first implementation should prove:
+A conforming implementation should prove:
 
-1. GM creates a Playable Runbook as a durable workspace object.
-2. GM creates at least two Scenes and several stable Beats.
-3. GM renames a Beat; its stable identity remains unchanged.
-4. GM adds a consequence representing a reward; no treasure-specific storage is required.
-5. GM attaches a run-local Attitude/Offer to a World NPC without changing graph canon.
-6. GM inserts an existing Threat reference rather than copying statblock data.
-7. Hermes proposes a GM Note grounded in admitted context.
-8. UI previews it and requires explicit approval.
-9. A stale digest or dirty Canvas prevents unsafe apply.
-10. After approval, the document is dirty but not durable until ordinary Save.
-11. Save/reload preserves the playable material and stable IDs.
-12. Hermes can later use the deliberately saved Playable Material alongside governed World/Source context.
+1. GM creates/reopens a durable Playable Runbook WorkObject.
+2. GM authors Beat→Scene/Decision→Option v2 structure with stable IDs.
+3. Renaming prose/title does not change semantic identity.
+4. GM authors an Option with consequence + activates/suppresses effects.
+5. Those effects survive Save/reload and remain visible during authoring.
+6. GM inserts exact Threat/mechanics references rather than copying statblock truth.
+7. Runbook remains a readable linear document even though Play later projects it Scene-first visually.
+8. A newer WorkRevision does not make a Run pinned to an older revision unreadable.
+9. Agent/Hermes proposes a targeted Playable change grounded in admitted context.
+10. UI previews and requires explicit approval.
+11. stale/dirty state prevents unsafe apply.
+12. approved proposal becomes durable only through ordinary Save/WorkRevision commit.
+13. unexpected-play discoverability does not require authors to exhaustively reference every possible campaign object in every Beat/Scene.
+
+---
 
 ## 14. Non-goals
 
 - No automatic World Graph publication.
 - No universal Adventure ORM.
 - No requirement that source ingestion automatically extract Scenes/Beats.
-- No separate agent-only document writer.
+- No separate agent-only writer.
 - No fuzzy text locator as permanent semantic identity.
 - No copy of exact statblock mechanics into Runbook storage.
-- No forced typed schema for every creative GM note.
-- No automatic staleness reconciliation.
-- No automatic Runtime → Playable or Playable → World promotion.
+- No forced typed schema for every creative note.
+- No automatic source/world/mechanics reconciliation.
+- No automatic Runtime→Playable or Playable→World promotion.
+- No workflow/condition DSL beyond the existing small Choice transition vocabulary.
+- No requirement that runtime Play navigate the Runbook as a document tree.
