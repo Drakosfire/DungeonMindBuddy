@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 from pathlib import Path
 from threading import Thread
 
@@ -12,7 +11,6 @@ from apps.live_control_server.services.play_active_run import (
     PlayActiveRunError,
     clear_play_active_run,
     get_play_active_run,
-    play_active_run_path,
     set_play_active_run,
 )
 from apps.live_control_server.services.play_run_registry import (
@@ -29,17 +27,18 @@ from apps.live_control_server.services.workspace_document_registry import (
 from tests.application_state.play_runtime_helpers import (
     RUN_ID_A,
     RUN_ID_B,
-    count_active_run_rows,
     corrupt_play_run_manifest_document,
     corrupt_play_run_progress,
+    count_active_run_rows,
     create_committed_runbook,
     create_run,
     fetch_play_active_run_row,
     gate_progress,
+    leftover_active_run_path,
     measure_file_backed_active_run_latency,
     measure_ms,
-    unreadable_path,
     unknown_schema_manifest,
+    unreadable_path,
     write_legacy_active_run_pointer,
 )
 
@@ -59,7 +58,7 @@ def test_missing_row_is_public_null_and_set_is_idempotent(
     assert first.run_id == RUN_ID_A
     assert second == first
     assert fetch_play_active_run_row(application_state_dsn)["run_id"] == RUN_ID_A
-    assert not play_active_run_path(tmp_path).exists()
+    assert not leftover_active_run_path(tmp_path).exists()
 
 
 def test_clear_removes_row_and_failed_set_does_not_clear(
@@ -117,13 +116,13 @@ def test_legacy_file_absent_unreadable_or_contradictory_is_ignored(
     create_run(tmp_path, snapshot, run_id=RUN_ID_A)
     create_run(tmp_path, create_committed_runbook(tmp_path, name="other"), run_id=RUN_ID_B)
     selected = set_play_active_run(tmp_path, run_id=RUN_ID_A)
-    assert not play_active_run_path(tmp_path).exists()
+    assert not leftover_active_run_path(tmp_path).exists()
     assert get_play_active_run(tmp_path) == selected
 
     other_root = tmp_path / "other-checkout"
     other_root.mkdir()
     assert get_play_active_run(other_root) == selected
-    assert not play_active_run_path(other_root).exists()
+    assert not leftover_active_run_path(other_root).exists()
 
     write_legacy_active_run_pointer(
         tmp_path, run_id=RUN_ID_B, selected_at="2026-01-01T00:00:00Z"
@@ -131,32 +130,11 @@ def test_legacy_file_absent_unreadable_or_contradictory_is_ignored(
     assert get_play_active_run(tmp_path) == selected
     replaced = set_play_active_run(tmp_path, run_id=RUN_ID_A)
     assert replaced == selected
-    assert play_active_run_path(tmp_path).read_text()
+    assert leftover_active_run_path(tmp_path).read_text()
 
-    with unreadable_path(play_active_run_path(tmp_path)):
+    with unreadable_path(leftover_active_run_path(tmp_path)):
         assert get_play_active_run(tmp_path).run_id == RUN_ID_A
         assert set_play_active_run(tmp_path, run_id=RUN_ID_A) == selected
-
-
-def test_ordinary_get_put_do_not_take_the_file_lock(
-    tmp_path: Path, application_state_dsn: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    snapshot = create_committed_runbook(tmp_path)
-    create_run(tmp_path, snapshot)
-    calls: list[Path] = []
-
-    @contextmanager
-    def tracking_lock(path: Path):
-        calls.append(path)
-        yield
-
-    monkeypatch.setattr(
-        "apps.live_control_server.services.play_active_run.registry_mutation_lock",
-        tracking_lock,
-    )
-    set_play_active_run(tmp_path, run_id=RUN_ID_A)
-    get_play_active_run(tmp_path)
-    assert calls == []
 
 
 def test_new_app_instance_and_different_root_resume_exact_current_moment(
@@ -202,7 +180,7 @@ def test_new_app_instance_and_different_root_resume_exact_current_moment(
     assert committed.revision_n == run.playable_revision
     assert committed.content_sha256 == run.playable_content_sha256
     assert manifest.run_id == RUN_ID_A
-    assert not play_active_run_path(other_root).exists()
+    assert not leftover_active_run_path(other_root).exists()
 
 
 def test_corrupt_selected_run_fails_truthfully_without_fallback(

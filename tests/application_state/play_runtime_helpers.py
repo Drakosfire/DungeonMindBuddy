@@ -35,6 +35,7 @@ from apps.live_control_server.services.workspace_document_registry import (
 )
 from src.live_play.live_store import write_json
 
+LEGACY_PLAY_REL = Path("out/runtime/play")
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
@@ -103,6 +104,26 @@ V2_SURVIVING_TARGET_MARKDOWN = V2_SOURCE_MARKDOWN + "\n".join(
 )
 
 AS2_FILE_BACKED_BASE_SHA = "b4d63daab3eeb8150ca73fe9492d7a3d8744a4e0"
+
+
+def leftover_play_dir(root: Path) -> Path:
+    return root / LEGACY_PLAY_REL
+
+
+def leftover_run_path(root: Path, run_id: str) -> Path:
+    return leftover_play_dir(root) / "runs" / f"{run_id}.json"
+
+
+def leftover_manifest_path(root: Path, run_id: str) -> Path:
+    return leftover_play_dir(root) / "reference-manifests" / f"{run_id}.json"
+
+
+def leftover_active_run_path(root: Path) -> Path:
+    return leftover_play_dir(root) / "active-run.json"
+
+
+def leftover_rebase_intent_path(root: Path, run_id: str) -> Path:
+    return leftover_play_dir(root) / "rebase-intents" / f"{run_id}.json"
 
 
 def commit_runbook_markdown(root: Path, document_id: str, markdown: str, expected_revision: int) -> None:
@@ -257,13 +278,7 @@ def write_legacy_run_and_manifest(
     playable_content_sha256: str | None = None,
     markdown: str | None = None,
 ) -> None:
-    from apps.live_control_server.services.play_run_registry import (
-        PlayRunRecord,
-        play_run_path,
-    )
-    from apps.live_control_server.services.play_run_reference_manifest import (
-        play_run_reference_manifest_path,
-    )
+    from apps.live_control_server.services.play_run_registry import PlayRunRecord
 
     revision_n, sha = playable_of(snapshot)
     if playable_revision is not None:
@@ -281,7 +296,7 @@ def write_legacy_run_and_manifest(
         updated_at=created_at,
         progress=progress or empty_progress(),
     )
-    run_path = play_run_path(root, run_id)
+    run_path = leftover_run_path(root, run_id)
     run_path.parent.mkdir(parents=True, exist_ok=True)
     write_json(run_path, record.model_dump(mode="json"))
     manifest = derive_sealed_manifest(
@@ -292,7 +307,7 @@ def write_legacy_run_and_manifest(
         playable_content_sha256=sha,
         sealed_at=created_at,
     )
-    manifest_path = play_run_reference_manifest_path(root, run_id)
+    manifest_path = leftover_manifest_path(root, run_id)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     write_json(manifest_path, manifest.model_dump(mode="json", exclude_none=True))
 
@@ -378,17 +393,12 @@ def unknown_schema_manifest(document: dict) -> dict:
 
 
 def write_legacy_active_run_pointer(root: Path, *, run_id: str, selected_at: str) -> Path:
-    from apps.live_control_server.services.play_active_run import (
-        PLAY_ACTIVE_RUN_SCHEMA,
-        play_active_run_path,
-    )
-
-    path = play_active_run_path(root)
+    path = leftover_active_run_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     write_json(
         path,
         {
-            "schema_version": PLAY_ACTIVE_RUN_SCHEMA,
+            "schema_version": "dmb_play_active_run_v1",
             "run_id": run_id,
             "selected_at": selected_at,
         },

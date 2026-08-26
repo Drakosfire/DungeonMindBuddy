@@ -431,3 +431,123 @@ def test_predecessor_import_then_as5_head_reads_same_db_without_files(
     )
     assert replayed.run_revision == loaded.run_revision
     _assert_play_dir_absent(tmp_path)
+
+
+def test_current_production_has_no_legacy_play_importers() -> None:
+    import importlib
+
+    for module_name in (
+        "application_state.play.import_runtime",
+        "application_state.play.import_active_run",
+    ):
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module(module_name)
+    play_pkg = importlib.import_module("application_state.play")
+    for symbol in (
+        "import_play_runtime_from_legacy_files",
+        "import_play_active_run_from_legacy_file",
+        "PlayRuntimeImportReport",
+        "PlayActiveRunImportReport",
+        "FrozenPlayRuntime",
+    ):
+        assert not hasattr(play_pkg, symbol)
+    from apps.live_control_server.services import play_active_run, play_run_rebase, play_run_registry
+    from apps.live_control_server.services import play_run_reference_manifest as play_manifest
+
+    assert not hasattr(play_active_run, "load_legacy_play_active_run_file")
+    assert not hasattr(play_active_run, "play_active_run_path")
+    assert not hasattr(play_run_rebase, "recover_legacy_rebase_intents")
+    assert not hasattr(play_run_rebase, "PlayRunRebaseIntent")
+    assert not hasattr(play_run_registry, "play_run_path")
+    assert not hasattr(play_manifest, "play_run_reference_manifest_path")
+
+
+def test_play_production_modules_do_not_depend_on_file_locks_or_live_store() -> None:
+    repo = Path(__file__).resolve().parents[2]
+    production = [
+        repo / "apps/live_control_server/services/play_run_registry.py",
+        repo / "apps/live_control_server/services/play_run_reference_manifest.py",
+        repo / "apps/live_control_server/services/play_run_rebase.py",
+        repo / "apps/live_control_server/services/play_active_run.py",
+        repo / "src/application_state/play/__init__.py",
+        repo / "src/application_state/play/types.py",
+        repo / "src/application_state/play/service.py",
+        repo / "src/application_state/play/repository.py",
+    ]
+    forbidden = (
+        "registry_mutation_lock",
+        "registry_token",
+        "live_store",
+        "from src.live_play.live_store import",
+        "out/runtime/play",
+        "PLAY_RUNS_REL",
+        "PLAY_RUN_REFERENCE_MANIFESTS_REL",
+        "PLAY_RUN_REBASE_INTENTS_REL",
+        "PLAY_ACTIVE_RUN_REL",
+    )
+    for path in production:
+        text = path.read_text(encoding="utf-8")
+        for token in forbidden:
+            assert token not in text, f"{path.name} still contains {token}"
+    assert (repo / "apps/live_control_server/services/registry_file_lock.py").is_file()
+    assert (repo / "src/live_play/live_store.py").is_file()
+
+
+def test_current_production_has_no_legacy_play_importers() -> None:
+    import importlib
+
+    for module_name in (
+        "application_state.play.import_runtime",
+        "application_state.play.import_active_run",
+    ):
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module(module_name)
+    play_pkg = importlib.import_module("application_state.play")
+    for symbol in (
+        "import_play_runtime_from_legacy_files",
+        "import_play_active_run_from_legacy_file",
+        "PlayRuntimeImportReport",
+        "PlayActiveRunImportReport",
+        "FrozenPlayRuntime",
+    ):
+        assert not hasattr(play_pkg, symbol)
+    from apps.live_control_server.services import play_active_run, play_run_rebase, play_run_registry
+    from apps.live_control_server.services import play_run_reference_manifest as play_manifest
+
+    assert not hasattr(play_active_run, "load_legacy_play_active_run_file")
+    assert not hasattr(play_active_run, "play_active_run_path")
+    assert not hasattr(play_run_rebase, "recover_legacy_rebase_intents")
+    assert not hasattr(play_run_rebase, "PlayRunRebaseIntent")
+    assert not hasattr(play_run_registry, "play_run_path")
+    assert not hasattr(play_manifest, "play_run_reference_manifest_path")
+
+
+def test_play_production_modules_do_not_depend_on_file_locks_or_live_store() -> None:
+    repo = Path(__file__).resolve().parents[2]
+    production = [
+        repo / "apps/live_control_server/services/play_run_registry.py",
+        repo / "apps/live_control_server/services/play_run_reference_manifest.py",
+        repo / "apps/live_control_server/services/play_run_rebase.py",
+        repo / "apps/live_control_server/services/play_active_run.py",
+        repo / "src/application_state/play/__init__.py",
+        repo / "src/application_state/play/types.py",
+        repo / "src/application_state/play/service.py",
+        repo / "src/application_state/play/repository.py",
+    ]
+    forbidden = (
+        "registry_mutation_lock",
+        "registry_token",
+        "live_store",
+        "from src.live_play.live_store import",
+        "out/runtime/play",
+        "PLAY_RUNS_REL",
+        "PLAY_RUN_REFERENCE_MANIFESTS_REL",
+        "PLAY_RUN_REBASE_INTENTS_REL",
+        "PLAY_ACTIVE_RUN_REL",
+    )
+    for path in production:
+        text = path.read_text(encoding="utf-8")
+        for token in forbidden:
+            assert token not in text, f"{path.name} still contains {token}"
+    assert (repo / "apps/live_control_server/services/registry_file_lock.py").is_file()
+    assert (repo / "src/live_play/live_store.py").is_file()

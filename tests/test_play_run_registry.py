@@ -11,8 +11,6 @@ from apps.live_control_server.services.play_run_registry import (
     create_or_replay_play_run,
     get_play_run,
     list_play_runs,
-    play_run_path,
-    play_runs_dir,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -32,6 +30,9 @@ from apps.live_control_server.services.workspace_document_registry import (
 
 pytest_plugins = ["tests.application_state.conftest"]
 
+from tests.application_state.play_runtime_helpers import (
+    leftover_run_path,
+)
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 RUN_ID_C = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
@@ -150,7 +151,7 @@ def test_exact_create_persists_binding_without_mutating_runbook(tmp_path: Path) 
     assert record.run_revision == 1
     assert record.created_at == record.updated_at
 
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
     assert "markdown" not in record.model_dump_json()
     assert record.progress.current_scene_id is None
     assert record.progress.current_beat_id is None
@@ -179,7 +180,7 @@ def test_identical_replay_returns_existing_record_and_bytes_unchanged(
     assert second.run_revision == 1
     assert second.created_at == first.created_at
     assert second.updated_at == first.updated_at
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_replay_remains_idempotent_after_runbook_advances(tmp_path: Path) -> None:
@@ -197,7 +198,7 @@ def test_replay_remains_idempotent_after_runbook_advances(tmp_path: Path) -> Non
     replayed = _create_run(tmp_path, snapshot)
 
     assert replayed == first
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_same_run_id_different_binding_fails_without_overwrite(tmp_path: Path) -> None:
@@ -210,7 +211,7 @@ def test_same_run_id_different_binding_fails_without_overwrite(tmp_path: Path) -
 
     assert exc_info.value.status_code == 409
     assert get_play_run(tmp_path, RUN_ID_A) == first
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_stale_revision_after_real_workspace_commit_fails_without_run(
@@ -236,7 +237,7 @@ def test_stale_revision_after_real_workspace_commit_fails_without_run(
         )
 
     assert exc_info.value.status_code == 409
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_stale_sha_with_current_revision_fails_without_run(tmp_path: Path) -> None:
@@ -254,7 +255,7 @@ def test_stale_sha_with_current_revision_fails_without_run(tmp_path: Path) -> No
         )
 
     assert exc_info.value.status_code == 409
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_committed_non_runbook_is_not_admitted(tmp_path: Path) -> None:
@@ -270,7 +271,7 @@ def test_committed_non_runbook_is_not_admitted(tmp_path: Path) -> None:
         _create_run(tmp_path, snapshot)
 
     assert exc_info.value.status_code == 422
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_draft_runbook_is_not_admitted(tmp_path: Path) -> None:
@@ -289,7 +290,7 @@ def test_draft_runbook_is_not_admitted(tmp_path: Path) -> None:
         _create_run(tmp_path, snapshot)
 
     assert exc_info.value.status_code == 409
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_discarded_runbook_is_not_admitted(tmp_path: Path) -> None:
@@ -305,7 +306,7 @@ def test_discarded_runbook_is_not_admitted(tmp_path: Path) -> None:
         _create_run(tmp_path, snapshot)
 
     assert exc_info.value.status_code == 409
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_fresh_reads_recover_persisted_run_and_list(tmp_path: Path) -> None:
@@ -336,7 +337,7 @@ def test_different_run_ids_may_bind_same_playable_revision(tmp_path: Path) -> No
 
 
 def test_malformed_persisted_run_fails_get_and_whole_list(tmp_path: Path) -> None:
-    path = play_runs_dir(tmp_path) / f"{RUN_ID_A}.json"
+    path = leftover_run_path(tmp_path, RUN_ID_A)
     path.parent.mkdir(parents=True)
     path.write_text("{not-json\n", encoding="utf-8")
 
