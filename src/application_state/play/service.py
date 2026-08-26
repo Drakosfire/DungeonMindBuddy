@@ -129,7 +129,11 @@ def _require_same_grammar(
 def require_persisted_progress_integrity(
     progress: dict, manifest_payload: dict, *, run_id: UUID
 ) -> None:
-    """Reject corrupt stored progress rather than canonicalize it on read."""
+    """Reject unreadable stored manifests and corrupt stored progress.
+
+    Empty progress does not skip manifest-document proof. Stored progress is
+    never canonicalized on read, replay, or mutation.
+    """
     from apps.live_control_server.services.play_run_registry import (
         PlayRunProgress,
         PlayRunRegistryError,
@@ -137,6 +141,7 @@ def require_persisted_progress_integrity(
         _progress_is_empty,
     )
 
+    parsed_manifest = _parse_manifest_document(manifest_payload, run_id=run_id)
     try:
         parsed_progress = PlayRunProgress.model_validate(progress)
     except Exception as exc:
@@ -145,7 +150,6 @@ def require_persisted_progress_integrity(
         ) from exc
     if _progress_is_empty(parsed_progress):
         return
-    parsed_manifest = _parse_manifest_document(manifest_payload, run_id=run_id)
     try:
         admitted = _admit_progress(
             parsed_progress, manifest=parsed_manifest, status_code=500
@@ -158,11 +162,19 @@ def require_persisted_progress_integrity(
         )
 
 
-def _readable_aggregate(run: PlayRun, manifest: PlayRunManifest | None) -> PlayRunAggregate:
+def require_persisted_aggregate_integrity(
+    run: PlayRun, manifest: PlayRunManifest | None
+) -> PlayRunManifest:
+    """Fail-closed proof of a readable, replayable, or mutable Runtime aggregate."""
     coherent = _require_coherent_manifest(run, manifest)
     require_persisted_progress_integrity(
         run.progress, coherent.manifest, run_id=run.run_id
     )
+    return coherent
+
+
+def _readable_aggregate(run: PlayRun, manifest: PlayRunManifest | None) -> PlayRunAggregate:
+    coherent = require_persisted_aggregate_integrity(run, manifest)
     return PlayRunAggregate(run=run, manifest=coherent)
 
 
@@ -342,7 +354,9 @@ def replace_play_run_progress(
         run = repo.lock_run(conn, canonical_run_id)
         if run is None:
             raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
-        manifest = _require_coherent_manifest(run, repo.get_manifest(conn, canonical_run_id))
+        manifest = require_persisted_aggregate_integrity(
+            run, repo.get_manifest(conn, canonical_run_id)
+        )
         admitted = _admit_progress_payload(
             progress, manifest.manifest, run_id=canonical_run_id, status_code=422
         )
@@ -388,15 +402,14 @@ def rebase_play_run(
         run = repo.lock_run(conn, canonical_run_id)
         if run is None:
             raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
-        manifest = _require_coherent_manifest(run, repo.get_manifest(conn, canonical_run_id))
+        manifest = require_persisted_aggregate_integrity(
+            run, repo.get_manifest(conn, canonical_run_id)
+        )
         same_target = (
             run.playable_revision_n == target_n
             and run.playable_content_sha256 == target_playable_content_sha256
         )
         if same_target:
-            require_persisted_progress_integrity(
-                run.progress, manifest.manifest, run_id=canonical_run_id
-            )
             if run.run_revision == expected:
                 return PlayRunAggregate(run=run, manifest=manifest)
             if (
@@ -437,9 +450,6 @@ def rebase_play_run(
             sealed_at=now,
         )
         _require_same_grammar(manifest.manifest, document, run_id=canonical_run_id)
-        require_persisted_progress_integrity(
-            run.progress, manifest.manifest, run_id=canonical_run_id
-        )
         _admit_progress_payload(
             run.progress, document, run_id=canonical_run_id, status_code=409
         )
