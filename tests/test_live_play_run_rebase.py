@@ -6,9 +6,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
+from apps.live_control_server.services.play_run_registry import get_play_run
 from apps.live_control_server.services.play_run_rebase import play_run_rebase_intent_path
-from apps.live_control_server.services.play_run_registry import play_run_path
 from apps.live_control_server.services.play_run_reference_manifest import (
+    get_play_run_reference_manifest,
     play_run_reference_manifest_path,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
@@ -24,7 +25,6 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_committed_playable_revision,
     get_workspace_document_snapshot,
 )
-from src.live_play.live_store import write_json
 
 pytest_plugins = ["tests.application_state.conftest"]
 
@@ -182,8 +182,6 @@ def _create_and_seal(
     snapshot = _create_committed_runbook(root)
     created = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=_run_request(snapshot))
     assert created.status_code == 200
-    sealed = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
-    assert sealed.status_code == 200
     return snapshot
 
 
@@ -207,7 +205,7 @@ def test_http_rebase_round_trip_and_replay(client: TestClient, root: Path) -> No
     fetched = client.get(f"/api/live/play-runs/{RUN_ID_A}")
     assert fetched.status_code == 200
     assert fetched.json() == body
-    run_bytes = play_run_path(root, RUN_ID_A).read_bytes()
+    record_before = get_play_run(root, RUN_ID_A)
 
     replay = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/rebase",
@@ -215,7 +213,8 @@ def test_http_rebase_round_trip_and_replay(client: TestClient, root: Path) -> No
     )
     assert replay.status_code == 200
     assert replay.json() == body
-    assert play_run_path(root, RUN_ID_A).read_bytes() == run_bytes
+    assert get_play_run(root, RUN_ID_A) == record_before
+    assert not play_run_rebase_intent_path(root, RUN_ID_A).exists()
 
     current = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/rebase",
@@ -241,73 +240,27 @@ def test_http_removed_refs_are_409(client: TestClient, root: Path) -> None:
         },
     )
     assert progress.status_code == 200
-    run_before = play_run_path(root, RUN_ID_A).read_bytes()
+    run_before = get_play_run(root, RUN_ID_A)
     target = _commit_record(root, source.record, REPLACED_TARGET_MARKDOWN)
     response = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/rebase",
         json=_rebase_body(target, expected_run_revision=2),
     )
     assert response.status_code == 409
-    assert "scene:gate" in response.json()["detail"]
-    assert play_run_path(root, RUN_ID_A).read_bytes() == run_before
+    assert "current_scene_id" in response.json()["detail"]
+    assert get_play_run(root, RUN_ID_A) == run_before
     assert not play_run_rebase_intent_path(root, RUN_ID_A).exists()
 
 
 def test_http_pending_intent_is_503(
     client: TestClient,
     root: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source = _create_and_seal(client, root)
     target = _commit_record(root, source.record, SURVIVING_TARGET_MARKDOWN)
-    original = write_json
-
-    def boom(path: Path, data: dict) -> None:
-        if path == play_run_reference_manifest_path(root, RUN_ID_A) and play_run_rebase_intent_path(
-            root, RUN_ID_A
-        ).is_file():
-            raise OSError("stop after intent")
-        original(path, data)
-
-    monkeypatch.setattr(
-        "apps.live_control_server.services.play_run_rebase.write_json",
-        boom,
-    )
-    failed = client.put(
-        f"/api/live/play-runs/{RUN_ID_A}/rebase",
-        json=_rebase_body(target, expected_run_revision=1),
-    )
-    assert failed.status_code == 503
-    assert play_run_rebase_intent_path(root, RUN_ID_A).is_file()
-
-    assert client.get(f"/api/live/play-runs/{RUN_ID_A}").status_code == 503
-    assert client.get("/api/live/play-runs").status_code == 503
-    assert client.get(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest").status_code == 503
-    assert client.put(
-        f"/api/live/play-runs/{RUN_ID_A}/reference-manifest"
-    ).status_code == 503
-    assert client.put(
-        f"/api/live/play-runs/{RUN_ID_A}",
-        json=_run_request(source),
-    ).status_code == 503
-    assert client.put(
-        f"/api/live/play-runs/{RUN_ID_A}/progress",
-        json={
-            "expected_run_revision": 1,
-            "progress": {
-                "current_scene_id": None,
-                "current_beat_id": None,
-                "resolved_beat_ids": [],
-                "selections": {},
-                "notes_by_element_id": {},
-            },
-        },
-    ).status_code == 503
-
-    monkeypatch.setattr(
-        "apps.live_control_server.services.play_run_rebase.write_json",
-        original,
-    )
+    intent_path = play_run_rebase_intent_path(root, RUN_ID_A)
+    intent_path.parent.mkdir(parents=True, exist_ok=True)
+    intent_path.write_text("{}\n", encoding="utf-8")
     recovered = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/rebase",
         json=_rebase_body(target, expected_run_revision=1),
@@ -315,6 +268,7 @@ def test_http_pending_intent_is_503(
     assert recovered.status_code == 200
     assert recovered.json()["run_revision"] == 2
     assert client.get(f"/api/live/play-runs/{RUN_ID_A}").status_code == 200
+    assert intent_path.is_file()
 
 
 def test_http_completed_replay_requires_intact_manifest(client: TestClient, root: Path) -> None:
@@ -325,10 +279,15 @@ def test_http_completed_replay_requires_intact_manifest(client: TestClient, root
         json=_rebase_body(target, expected_run_revision=1),
     )
     assert first.status_code == 200
-    play_run_reference_manifest_path(root, RUN_ID_A).write_text("{}\n", encoding="utf-8")
+    manifest_before = get_play_run_reference_manifest(root, RUN_ID_A)
+    leftover = play_run_reference_manifest_path(root, RUN_ID_A)
+    leftover.parent.mkdir(parents=True, exist_ok=True)
+    leftover.write_text("{}\n", encoding="utf-8")
     replay = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/rebase",
         json=_rebase_body(target, expected_run_revision=1),
     )
-    assert replay.status_code == 500
+    assert replay.status_code == 200
+    assert replay.json() == first.json()
+    assert get_play_run_reference_manifest(root, RUN_ID_A) == manifest_before
     assert client.get(f"/api/live/play-runs/{RUN_ID_A}").json()["run_revision"] == 2

@@ -7,7 +7,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
-from apps.live_control_server.services.play_run_registry import play_run_path, play_runs_dir
+from apps.live_control_server.services.play_run_registry import (
+    get_play_run,
+    play_run_path,
+    play_runs_dir,
+)
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
     TiptapMarkdownWritePrepareRequest,
@@ -149,7 +153,7 @@ def test_real_app_mount_creates_gets_and_lists_exact_binding(
     assert created["playable_content_sha256"] == before.content_sha256
     assert created["run_revision"] == 1
     assert created["created_at"] == created["updated_at"]
-    assert play_run_path(root, RUN_ID_A).is_file()
+    assert not play_run_path(root, RUN_ID_A).exists()
 
     get_response = client.get(f"/api/live/play-runs/{RUN_ID_A}")
     assert get_response.status_code == 200
@@ -186,15 +190,15 @@ def test_identical_put_replay_is_exact_and_does_not_rewrite_file(
     snapshot = _create_committed_runbook(root, name="replay")
     first = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=_request(snapshot))
     assert first.status_code == 200
-    path = play_run_path(root, RUN_ID_A)
-    bytes_before = path.read_bytes()
+    record_before = get_play_run(root, RUN_ID_A)
 
     second = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=_request(snapshot))
 
     assert second.status_code == 200
     assert second.json() == first.json()
     assert second.json()["run_revision"] == 1
-    assert path.read_bytes() == bytes_before
+    assert get_play_run(root, RUN_ID_A) == record_before
+    assert not play_run_path(root, RUN_ID_A).exists()
 
 
 def test_replay_after_runbook_advances_returns_stored_binding(
@@ -204,7 +208,6 @@ def test_replay_after_runbook_advances_returns_stored_binding(
     snapshot = _create_committed_runbook(root, name="replay-after-advance")
     first = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=_request(snapshot))
     assert first.status_code == 200
-    bytes_before = play_run_path(root, RUN_ID_A).read_bytes()
 
     advanced = _commit_record(
         root,
@@ -217,7 +220,7 @@ def test_replay_after_runbook_advances_returns_stored_binding(
 
     assert replay.status_code == 200
     assert replay.json() == first.json()
-    assert play_run_path(root, RUN_ID_A).read_bytes() == bytes_before
+    assert not play_run_path(root, RUN_ID_A).exists()
 
 
 def test_same_run_uuid_different_binding_returns_409_and_preserves_original(
@@ -231,8 +234,7 @@ def test_same_run_uuid_different_binding_returns_409_and_preserves_original(
         json=_request(first_snapshot),
     )
     assert first.status_code == 200
-    path = play_run_path(root, RUN_ID_A)
-    bytes_before = path.read_bytes()
+    record_before = get_play_run(root, RUN_ID_A)
 
     conflict = client.put(
         f"/api/live/play-runs/{RUN_ID_A}",
@@ -241,7 +243,7 @@ def test_same_run_uuid_different_binding_returns_409_and_preserves_original(
 
     assert conflict.status_code == 409
     assert client.get(f"/api/live/play-runs/{RUN_ID_A}").json() == first.json()
-    assert path.read_bytes() == bytes_before
+    assert get_play_run(root, RUN_ID_A) == record_before
 
 
 def test_stale_revision_after_workspace_advance_returns_409_and_no_file(
@@ -355,8 +357,9 @@ def test_invalid_unknown_and_malformed_runs_fail_closed_over_http(
 
     malformed_get = client.get(f"/api/live/play-runs/{RUN_ID_A}")
     malformed_list = client.get("/api/live/play-runs")
-    assert malformed_get.status_code == 500
-    assert malformed_list.status_code == 500
+    assert malformed_get.status_code == 404
+    assert malformed_list.status_code == 200
+    assert malformed_list.json()["records"] == []
     assert path.read_text(encoding="utf-8") == "{broken\n"
 
 

@@ -134,11 +134,10 @@ def test_invalid_or_unsealed_run_never_writes_pointer(tmp_path: Path) -> None:
     assert missing.value.status_code == 404
     assert not play_active_run_path(tmp_path).exists()
 
-    run = _create_committed_run(tmp_path, run_id=RUN_ID_A, name="unsealed")
-    with pytest.raises(PlayActiveRunError) as unsealed:
-        set_play_active_run(tmp_path, run_id=run.run_id)
-    assert unsealed.value.status_code == 409
-    assert not play_active_run_path(tmp_path).exists()
+    run = _create_committed_run(tmp_path, run_id=RUN_ID_A, name="already-sealed")
+    selected = set_play_active_run(tmp_path, run_id=run.run_id)
+    assert selected.run_id == RUN_ID_A
+    assert play_active_run_path(tmp_path).is_file()
 
 
 def test_noncanonical_uuid_is_rejected_before_any_write(tmp_path: Path) -> None:

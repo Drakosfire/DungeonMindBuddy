@@ -6,8 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
-from apps.live_control_server.services.play_run_registry import play_run_path
+from apps.live_control_server.services.play_run_registry import get_play_run
 from apps.live_control_server.services.play_run_reference_manifest import (
+    get_play_run_reference_manifest,
     play_run_reference_manifest_path,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
@@ -26,6 +27,8 @@ from tests.application_state.playable_binding import (
     playable_binding,
     remember_committed_playable,
 )
+
+pytest_plugins = ["tests.application_state.conftest"]
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
@@ -48,6 +51,11 @@ PROGRESS_MARKDOWN = "\n".join(
         "",
     ]
 )
+
+
+@pytest.fixture(autouse=True)
+def _application_state(application_state_dsn: str) -> str:
+    return application_state_dsn
 
 
 @pytest.fixture
@@ -127,24 +135,18 @@ def _progress_body(expected_run_revision: int = 1) -> dict[str, object]:
     }
 
 
-def _create_and_seal(
-    client: TestClient,
-    root: Path,
-) -> WorkspaceDocumentSnapshot:
-    snapshot = _create_committed_runbook(root)
+def _create_run(client: TestClient, root: Path, snapshot: WorkspaceDocumentSnapshot) -> None:
     created = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=_run_request(snapshot))
     assert created.status_code == 200
-    sealed = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
-    assert sealed.status_code == 200
-    return snapshot
 
 
 def test_progress_put_round_trip_and_get_includes_snapshot(
     client: TestClient,
     root: Path,
 ) -> None:
-    _create_and_seal(client, root)
-    manifest_bytes = play_run_reference_manifest_path(root, RUN_ID_A).read_bytes()
+    snapshot = _create_committed_runbook(root)
+    _create_run(client, root, snapshot)
+    manifest_before = get_play_run_reference_manifest(root, RUN_ID_A)
 
     response = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/progress",
@@ -164,7 +166,17 @@ def test_progress_put_round_trip_and_get_includes_snapshot(
     listed = client.get("/api/live/play-runs")
     assert listed.status_code == 200
     assert listed.json()["records"] == [body]
-    assert play_run_reference_manifest_path(root, RUN_ID_A).read_bytes() == manifest_bytes
+    assert get_play_run_reference_manifest(root, RUN_ID_A) == manifest_before
+    assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()
+
+
+def _create_and_seal(
+    client: TestClient,
+    root: Path,
+) -> WorkspaceDocumentSnapshot:
+    snapshot = _create_committed_runbook(root)
+    _create_run(client, root, snapshot)
+    return snapshot
 
 
 def test_progress_put_rejects_partial_payload(client: TestClient, root: Path) -> None:
@@ -193,15 +205,17 @@ def test_missing_manifest_is_409(client: TestClient, root: Path) -> None:
     snapshot = _create_committed_runbook(root)
     created = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=_run_request(snapshot))
     assert created.status_code == 200
-    bytes_before = play_run_path(root, RUN_ID_A).read_bytes()
+    record_before = get_play_run(root, RUN_ID_A)
 
     response = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/progress",
         json=_progress_body(),
     )
 
-    assert response.status_code == 409
-    assert play_run_path(root, RUN_ID_A).read_bytes() == bytes_before
+    assert response.status_code == 200
+    assert response.json()["run_revision"] == 2
+    assert get_play_run(root, RUN_ID_A).run_revision == 2
+    assert record_before.run_revision == 1
     assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()
 
 
@@ -212,7 +226,7 @@ def test_http_noop_and_lost_response_replay(client: TestClient, root: Path) -> N
         json=_progress_body(),
     )
     assert first.status_code == 200
-    bytes_after_write = play_run_path(root, RUN_ID_A).read_bytes()
+    record_after = get_play_run(root, RUN_ID_A)
 
     noop = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/progress",
@@ -220,7 +234,7 @@ def test_http_noop_and_lost_response_replay(client: TestClient, root: Path) -> N
     )
     assert noop.status_code == 200
     assert noop.json() == first.json()
-    assert play_run_path(root, RUN_ID_A).read_bytes() == bytes_after_write
+    assert get_play_run(root, RUN_ID_A) == record_after
 
     replay = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/progress",
@@ -228,7 +242,7 @@ def test_http_noop_and_lost_response_replay(client: TestClient, root: Path) -> N
     )
     assert replay.status_code == 200
     assert replay.json() == first.json()
-    assert play_run_path(root, RUN_ID_A).read_bytes() == bytes_after_write
+    assert get_play_run(root, RUN_ID_A) == record_after
 
 
 def test_stale_different_state_is_409(client: TestClient, root: Path) -> None:

@@ -15,6 +15,7 @@ from apps.live_control_server.services.play_run_registry import (
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
     PlayRunReferenceManifestError,
+    derive_sealed_manifest,
     play_run_reference_manifest_path,
     seal_or_replay_play_run_reference_manifest,
 )
@@ -38,7 +39,44 @@ from application_state.content.import_runbooks import (
 from application_state.content.service import commit_runbook, exact_committed_revision
 from application_state.content.types import sha256_utf8
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
+from application_state.play.import_runtime import import_play_runtime_from_legacy_files
 from src.live_play.live_store import write_json
+from tests.application_state.play_runtime_helpers import SOURCE_MARKDOWN
+
+
+def _write_legacy_run_files(
+    root: Path,
+    *,
+    run_id: str,
+    record: WorkspaceDocumentRecord,
+    markdown: str,
+    playable_revision: int,
+    playable_content_sha256: str,
+) -> None:
+    now = "2026-01-01T00:00:00Z"
+    run = PlayRunRecord(
+        run_id=run_id,
+        campaign_id=record.campaign_id,
+        playable_artifact_id=record.document_id,
+        playable_revision=playable_revision,
+        playable_content_sha256=playable_content_sha256,
+        created_at=now,
+        updated_at=now,
+    )
+    run_path = play_run_path(root, run_id)
+    run_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(run_path, run.model_dump(mode="json"))
+    manifest = derive_sealed_manifest(
+        markdown,
+        run_id=run_id,
+        playable_artifact_id=record.document_id,
+        playable_revision=playable_revision,
+        playable_content_sha256=playable_content_sha256,
+        sealed_at=now,
+    )
+    manifest_path = play_run_reference_manifest_path(root, run_id)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(manifest_path, manifest.model_dump(mode="json", exclude_none=True))
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
@@ -213,22 +251,30 @@ def test_existing_legacy_run_survives_import_through_play_admission(
     tmp_path: Path, application_state_dsn: str
 ) -> None:
     record, markdown = _legacy_file_runbook(tmp_path, revision=17)
-    digest = sha256_utf8(markdown)
+    record = record.model_copy(
+        update={
+            "target_relpath": "evals/c2_live_prep/mireward-prep/content/tiptap/legacy-play.md"
+        }
+    )
+    (tmp_path / str(record.target_relpath)).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / str(record.target_relpath)).write_text(SOURCE_MARKDOWN, encoding="utf-8")
+    digest = sha256_utf8(SOURCE_MARKDOWN)
     _write_leftover_registry(tmp_path, record)
-    _persist_pre_as2_play_run(
+    _write_legacy_run_files(
         tmp_path,
-        playable_artifact_id=record.document_id,
+        run_id=RUN_ID_A,
+        record=record,
+        markdown=SOURCE_MARKDOWN,
         playable_revision=17,
         playable_content_sha256=digest,
-        campaign_id=record.campaign_id,
     )
-    preexisting = get_play_run(tmp_path, RUN_ID_A)
-    assert preexisting.playable_revision == 17
-    assert preexisting.playable_content_sha256 == digest
+    with pytest.raises(PlayRunRegistryError):
+        get_play_run(tmp_path, RUN_ID_A)
     with pytest.raises(WorkspaceDocumentRegistryError):
         get_committed_playable_revision(record.document_id)
 
     import_runbooks_from_snapshots(capture_legacy_runbook_snapshots(tmp_path))
+    import_play_runtime_from_legacy_files(tmp_path)
 
     loaded = get_play_run(tmp_path, RUN_ID_A)
     assert loaded.playable_revision == 17
@@ -245,48 +291,53 @@ def test_existing_legacy_run_survives_import_through_play_admission(
     assert manifest.playable_revision == 17
     assert manifest.playable_content_sha256 == digest
     assert manifest.playable_artifact_id == record.document_id
+    assert play_run_path(tmp_path, RUN_ID_A).is_file()
 
 
 def test_missing_historical_legacy_run_fails_through_play_admission(
     tmp_path: Path, application_state_dsn: str
 ) -> None:
     record, markdown_17 = _legacy_file_runbook(tmp_path, revision=17)
-    digest_16 = sha256_utf8("# older revision 16\n")
+    digest_16 = sha256_utf8(SOURCE_MARKDOWN)
     digest_17 = sha256_utf8(markdown_17)
     _write_leftover_registry(tmp_path, record)
-    _persist_pre_as2_play_run(
+    _write_legacy_run_files(
         tmp_path,
-        playable_artifact_id=record.document_id,
+        run_id=RUN_ID_A,
+        record=record,
+        markdown=SOURCE_MARKDOWN,
         playable_revision=16,
         playable_content_sha256=digest_16,
-        campaign_id=record.campaign_id,
     )
-    preexisting = get_play_run(tmp_path, RUN_ID_A)
-    assert preexisting.playable_revision == 16
-    assert preexisting.playable_content_sha256 == digest_16
+    with pytest.raises(PlayRunRegistryError):
+        get_play_run(tmp_path, RUN_ID_A)
 
     import_runbooks_from_snapshots(capture_legacy_runbook_snapshots(tmp_path))
+    with pytest.raises(ApplicationStateNotFoundError, match="historical revision bytes were never retained"):
+        import_play_runtime_from_legacy_files(tmp_path)
 
-    loaded = get_play_run(tmp_path, RUN_ID_A)
-    assert loaded.playable_revision == 16
-    assert loaded.playable_content_sha256 == digest_16
-    with pytest.raises(
-        PlayRunReferenceManifestError,
-        match="historical revision bytes were never retained",
-    ):
-        seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
-    assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
-    still_pinned = get_play_run(tmp_path, RUN_ID_A)
-    assert still_pinned.playable_revision == 16
-    assert still_pinned.playable_content_sha256 == digest_16
+    with pytest.raises(PlayRunRegistryError):
+        get_play_run(tmp_path, RUN_ID_A)
+    assert play_run_reference_manifest_path(tmp_path, RUN_ID_A).is_file()
     current = get_committed_playable_revision(record.document_id)
     assert current.revision_n == 17
     assert current.content_sha256 == digest_17
+    created = create_or_replay_play_run(
+        tmp_path,
+        run_id=RUN_ID_A,
+        playable_artifact_id=record.document_id,
+        expected_playable_revision=17,
+        expected_playable_content_sha256=digest_17,
+    )
+    assert created.playable_revision == 17
+    assert created.playable_content_sha256 == digest_17
+    assert get_play_run(tmp_path, RUN_ID_A).playable_revision == 17
+    assert play_run_path(tmp_path, RUN_ID_A).is_file()
     with pytest.raises(PlayRunRegistryError, match="already bound to a different Playable revision"):
         create_or_replay_play_run(
             tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=record.document_id,
-            expected_playable_revision=17,
-            expected_playable_content_sha256=digest_17,
+            expected_playable_revision=16,
+            expected_playable_content_sha256=digest_16,
         )

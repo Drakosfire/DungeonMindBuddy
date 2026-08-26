@@ -106,10 +106,10 @@ def test_put_validates_uuid_and_requires_existing_sealed_run(
     assert missing.status_code == 404
     assert not play_active_run_path(tmp_path).exists()
 
-    _create_committed_run(tmp_path, run_id=RUN_ID_A, name="unsealed")
-    unsealed = client.put("/api/live/play-active-run", json={"run_id": RUN_ID_A})
-    assert unsealed.status_code == 409
-    assert not play_active_run_path(tmp_path).exists()
+    _create_committed_run(tmp_path, run_id=RUN_ID_A, name="already-sealed")
+    sealed = client.put("/api/live/play-active-run", json={"run_id": RUN_ID_A})
+    assert sealed.status_code == 200
+    assert play_active_run_path(tmp_path).is_file()
 
 
 def test_valid_selection_is_idempotent_and_last_explicit_run_wins(
