@@ -52,33 +52,83 @@ function v2MembershipKey(kind: string, id: string, parentA = "", parentB = ""): 
   return [kind, id, parentA, parentB].join("\0");
 }
 
+function targetKindFromId(targetId: string): string {
+  const idx = targetId.indexOf(":");
+  return idx === -1 ? "" : targetId.slice(0, idx);
+}
+
+function sameKeySet(left: Set<string>, right: Set<string>): boolean {
+  if (left.size !== right.size) return false;
+  for (const key of left) {
+    if (!right.has(key)) return false;
+  }
+  return true;
+}
+
 export function compareV2Membership(
   structure: PlayableStructureIndexV2,
   manifest: PlayRunReferenceManifestV2,
 ): string | null {
-  const fromStructure = new Set<string>([
-    ...structure.beats.map((beat) => v2MembershipKey("beat", beat.beatId)),
-    ...structure.scenes.map((scene) => v2MembershipKey("scene", scene.sceneId, scene.beatId)),
-    ...structure.choices.map((choice) => (
-      v2MembershipKey("choice", choice.choiceId, choice.beatId, choice.sceneId ?? "")
-    )),
-    ...structure.options.map((option) => v2MembershipKey("option", option.optionId, option.choiceId)),
-  ]);
-  const fromManifest = new Set<string>([
-    ...manifest.beats.map((beat) => v2MembershipKey("beat", beat.beat_id)),
-    ...manifest.scenes.map((scene) => v2MembershipKey("scene", scene.scene_id, scene.beat_id)),
-    ...manifest.choices.map((choice) => (
-      v2MembershipKey("choice", choice.choice_id, choice.beat_id, choice.scene_id ?? "")
-    )),
-    ...manifest.options.map((option) => v2MembershipKey("option", option.option_id, option.choice_id)),
-  ]);
-  if (fromStructure.size !== fromManifest.size) {
+  const structureBeats = new Set(
+    structure.beats.map((beat) => v2MembershipKey("beat", beat.beatId, beat.beatKind ?? "")),
+  );
+  const manifestBeats = new Set(
+    manifest.beats.map((beat) => v2MembershipKey("beat", beat.beat_id, beat.beat_kind ?? "")),
+  );
+  if (!sameKeySet(structureBeats, manifestBeats)) {
+    return "client v2 structure and sealed manifest disagree on Beat kind or membership";
+  }
+
+  const structureScenes = new Set(
+    structure.scenes.map((scene) => v2MembershipKey("scene", scene.sceneId, scene.beatId)),
+  );
+  const manifestScenes = new Set(
+    manifest.scenes.map((scene) => v2MembershipKey("scene", scene.scene_id, scene.beat_id)),
+  );
+  if (!sameKeySet(structureScenes, manifestScenes)) {
     return "client v2 structure and sealed manifest disagree on Playable membership";
   }
-  for (const key of fromStructure) {
-    if (!fromManifest.has(key)) {
-      return "client v2 structure and sealed manifest disagree on Playable membership";
+
+  const structureChoices = new Set(
+    structure.choices.map((choice) => (
+      v2MembershipKey("choice", choice.choiceId, choice.beatId, choice.sceneId ?? "")
+    )),
+  );
+  const manifestChoices = new Set(
+    manifest.choices.map((choice) => (
+      v2MembershipKey("choice", choice.choice_id, choice.beat_id, choice.scene_id ?? "")
+    )),
+  );
+  if (!sameKeySet(structureChoices, manifestChoices)) {
+    return "client v2 structure and sealed manifest disagree on Playable membership";
+  }
+
+  const structureOptions = new Set(
+    structure.options.map((option) => v2MembershipKey("option", option.optionId, option.choiceId)),
+  );
+  const manifestOptions = new Set(
+    manifest.options.map((option) => v2MembershipKey("option", option.option_id, option.choice_id)),
+  );
+  if (!sameKeySet(structureOptions, manifestOptions)) {
+    return "client v2 structure and sealed manifest disagree on Playable membership";
+  }
+
+  const structureEdges = new Set<string>();
+  for (const option of structure.options) {
+    for (const target of option.activates) {
+      structureEdges.add(["edge", "activate", option.optionId, targetKindFromId(target), target].join("\0"));
     }
+    for (const target of option.suppresses) {
+      structureEdges.add(["edge", "suppress", option.optionId, targetKindFromId(target), target].join("\0"));
+    }
+  }
+  const manifestEdges = new Set(
+    manifest.edges.map((edge) => (
+      ["edge", edge.effect, edge.option_id, edge.target_kind, edge.target_id].join("\0")
+    )),
+  );
+  if (!sameKeySet(structureEdges, manifestEdges)) {
+    return "client v2 structure and sealed manifest disagree on authored transition edges";
   }
   return null;
 }

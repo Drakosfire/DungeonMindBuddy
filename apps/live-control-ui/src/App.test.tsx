@@ -1324,6 +1324,83 @@ describe("App inspector integration", () => {
     expect(screen.queryByTestId("play-status-integrity_failure")).not.toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
     expect(liveApi.getPlayRun).toHaveBeenCalledTimes(2);
+    expect(liveApi.getPlayRunReferenceManifest).toHaveBeenCalledTimes(2);
+    expect(liveApi.getCommittedWorkspaceRevision).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+  });
+
+  it("does not seed when a sealed v2 manifest disagrees with the pinned WorkRevision", async () => {
+    mockV2PlayRun();
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue({
+      ...v2Manifest(),
+      beats: [
+        ...v2Manifest().beats,
+        { beat_id: "beat:ghost", beat_kind: "spine" as const },
+      ],
+    });
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-status-integrity_failure")).toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("play-v2-runtime")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+  });
+
+  it("rebinds the full authority set after a seed 409 that returns a rebased Run", async () => {
+    const empty = mockV2PlayRun();
+    const rebasedMarkdown = [
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:rebased beat_kind=spine -->",
+      "## Rebased",
+      "",
+    ].join("\n");
+    const rebasedRun = {
+      ...empty,
+      playable_revision: 4,
+      playable_content_sha256: PLAY_SHA_R4,
+      run_revision: 7,
+      progress: {
+        ...empty.progress,
+        current_beat_id: "beat:rebased",
+        current_scene_id: null,
+      },
+    };
+    vi.mocked(liveApi.putPlayRunProgress).mockRejectedValue(
+      new liveApi.LiveApiError("run_revision does not match the current Play Run", 409),
+    );
+    vi.mocked(liveApi.getPlayRun)
+      .mockResolvedValueOnce(empty)
+      .mockResolvedValueOnce(rebasedRun);
+    vi.mocked(liveApi.getPlayRunReferenceManifest)
+      .mockResolvedValueOnce(v2Manifest())
+      .mockResolvedValueOnce({
+        ...v2Manifest(),
+        playable_revision: 4,
+        playable_content_sha256: PLAY_SHA_R4,
+        beats: [{ beat_id: "beat:rebased", beat_kind: "spine" as const }],
+        scenes: [],
+        choices: [],
+        options: [],
+        edges: [],
+      });
+    vi.mocked(liveApi.getCommittedWorkspaceRevision)
+      .mockResolvedValueOnce(playCommittedRevision({ markdown: PLAY_V2_MARKDOWN }))
+      .mockResolvedValueOnce(playCommittedRevision({
+        markdown: rebasedMarkdown,
+        revision_n: 4,
+        object_revision: 4,
+        content_sha256: PLAY_SHA_R4,
+      }));
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-v2-runtime")).toBeInTheDocument();
+    expect(screen.getByTestId("play-v2-current-beat")).toHaveTextContent("beat:rebased");
+    expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
+    expect(liveApi.getPlayRun).toHaveBeenCalledTimes(2);
+    expect(liveApi.getPlayRunReferenceManifest).toHaveBeenCalledTimes(2);
+    expect(liveApi.getCommittedWorkspaceRevision).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(liveApi.getCommittedWorkspaceRevision).mock.calls[1]?.[1]).toBe(4);
     expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
   });
 

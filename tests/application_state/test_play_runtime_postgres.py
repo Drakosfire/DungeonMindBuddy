@@ -12,6 +12,8 @@ from apps.live_control_server.services.play_run_registry import (
     PlayRunRegistryError,
     create_or_replay_play_run,
     derive_v2_opening_beat_id,
+    empty_play_run_progress,
+    ensure_v2_native_ready,
     get_play_run,
     list_play_runs,
     replace_play_run_progress,
@@ -551,3 +553,78 @@ def test_v2_reread_preserves_exact_current_beat_and_scene(tmp_path: Path) -> Non
     assert reloaded.progress.current_beat_id == "beat:arrival"
     assert reloaded.progress.current_scene_id == "scene:gate"
     assert reloaded.run_revision == persisted.run_revision
+
+
+BF2_FENCED_MARKDOWN = "\n".join(
+    [
+        "```",
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:fenced-first beat_kind=spine -->",
+        "## Fenced",
+        "```",
+        "",
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:z-opening beat_kind=spine -->",
+        "## Opening",
+        "",
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:a-later beat_kind=optional -->",
+        "## Later",
+        "",
+    ]
+)
+
+
+def test_v2_opening_beat_ignores_fenced_markers(tmp_path: Path) -> None:
+    assert derive_v2_opening_beat_id(BF2_FENCED_MARKDOWN) == "beat:z-opening"
+    snapshot = create_committed_runbook(
+        tmp_path, name="bf2-fenced", markdown=BF2_FENCED_MARKDOWN
+    )
+    create_run(tmp_path, snapshot)
+    seeded = ensure_v2_native_ready(tmp_path, RUN_ID_A)
+    assert seeded.progress.current_beat_id == "beat:z-opening"
+    assert seeded.progress.current_scene_id is None
+
+
+def test_v2_native_first_admission_seeds_after_pinned_preflight(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    snapshot = create_committed_runbook(
+        tmp_path, name="bf2-owning-seed", markdown=BF2_SPINE_MARKDOWN
+    )
+    record = create_run(tmp_path, snapshot)
+    assert record.progress == empty_progress()
+    seeded = ensure_v2_native_ready(tmp_path, RUN_ID_A)
+    assert seeded.progress.current_beat_id == "beat:z-opening"
+    assert seeded.progress.current_scene_id is None
+    replayed = ensure_v2_native_ready(tmp_path, RUN_ID_A)
+    assert replayed.run_revision == seeded.run_revision
+    assert replayed.progress.current_beat_id == "beat:z-opening"
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        replace_play_run_progress(
+            tmp_path,
+            run_id=RUN_ID_A,
+            expected_run_revision=seeded.run_revision,
+            progress=empty_play_run_progress(),
+        )
+    assert exc_info.value.status_code == 422
+    preserved = get_play_run(tmp_path, RUN_ID_A)
+    assert preserved.run_revision == seeded.run_revision
+    assert preserved.progress.current_beat_id == "beat:z-opening"
+    assert count_play_rows(application_state_dsn) == (1, 1)
+
+
+def test_v2_native_first_admission_does_not_seed_corrupted_sealed_edges(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    snapshot = create_committed_runbook(
+        tmp_path, name="bf2-corrupt-kind", markdown=BF2_SPINE_MARKDOWN
+    )
+    create_run(tmp_path, snapshot)
+    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    payload = manifest.model_dump(mode="json")
+    first = payload["beats"][0]
+    first["beat_kind"] = "optional" if first.get("beat_kind") == "spine" else "spine"
+    payload["beats"][0] = first
+    corrupt_play_run_manifest_document(application_state_dsn, RUN_ID_A, payload)
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        ensure_v2_native_ready(tmp_path, RUN_ID_A)
+    assert "Beat kind" in str(exc_info.value)
+    assert get_play_run(tmp_path, RUN_ID_A).progress == empty_progress()

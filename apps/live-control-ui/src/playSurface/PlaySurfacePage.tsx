@@ -27,12 +27,12 @@ import {
   isNativeRunbookReadyV1,
   isNativeRunbookReadyV2,
   overlayRuntimeOnDeck,
+  preflightV2Authority,
   type NativeRunbookAdmission,
   type NativeRunbookReadyDeck,
   type NativeRunbookReadyV2,
 } from "./runbook/nativeRunbookProjection";
 import {
-  deriveV2OpeningBeatIdFromMarkdown,
   playRunProgressIsEmpty,
   v2SeedProgress,
 } from "./runbook/v2RuntimeProjection";
@@ -288,7 +288,7 @@ export function PlaySurfacePage() {
   const activeWriteRunRef = useRef<string | null>(null);
   const activeWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  const loadExactRun = useCallback(async (runId: string) => {
+  const loadExactRun = useCallback(async (runId: string, conflictDepth = 0) => {
     const serial = loadSerialRef.current + 1;
     loadSerialRef.current = serial;
     setLoadStatus("loading");
@@ -338,10 +338,14 @@ export function PlaySurfacePage() {
       if (loadSerialRef.current !== serial) return;
       let runForAdmission = loaded;
       if (manifest.schema_version === "dmb_play_run_reference_manifest_v2") {
-        const openingBeatId = deriveV2OpeningBeatIdFromMarkdown(committed.markdown);
-        if (openingBeatId == null) {
-          setLoadStatus("integrity_failure");
-          setDetail("v2 Playable has no Beat; native READY is fail-closed");
+        const preflight = preflightV2Authority({
+          run: loaded,
+          manifest,
+          committed,
+        });
+        if (preflight.status !== "ok") {
+          setLoadStatus(preflight.status);
+          setDetail(preflight.reason);
           setAdmission(null);
           return;
         }
@@ -349,28 +353,25 @@ export function PlaySurfacePage() {
           try {
             runForAdmission = await putPlayRunProgress(runForAdmission.run_id, {
               expected_run_revision: runForAdmission.run_revision,
-              progress: v2SeedProgress(openingBeatId),
+              progress: v2SeedProgress(preflight.openingBeatId),
             });
           } catch (error) {
             if (loadSerialRef.current !== serial) return;
             if (error instanceof LiveApiError && error.status === 409) {
-              try {
-                runForAdmission = await getPlayRun(runForAdmission.run_id);
-              } catch (rereadError) {
-                if (loadSerialRef.current !== serial) return;
-                const classified = classifyLoadError(rereadError);
-                setLoadStatus(classified);
-                setDetail(rereadError instanceof Error ? rereadError.message : null);
+              if (conflictDepth >= 2) {
+                setLoadStatus("unavailable");
+                setDetail(error instanceof Error ? error.message : "seed conflict could not be resolved");
                 setAdmission(null);
                 return;
               }
-            } else {
-              const classified = classifyLoadError(error);
-              setLoadStatus(classified === "integrity_failure" ? classified : "unavailable");
-              setDetail(error instanceof Error ? error.message : null);
-              setAdmission(null);
+              await loadExactRun(runId, conflictDepth + 1);
               return;
             }
+            const classified = classifyLoadError(error);
+            setLoadStatus(classified === "integrity_failure" ? classified : "unavailable");
+            setDetail(error instanceof Error ? error.message : null);
+            setAdmission(null);
+            return;
           }
           if (loadSerialRef.current !== serial) return;
         }

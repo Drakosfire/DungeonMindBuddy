@@ -276,26 +276,158 @@ def _progress_is_empty(progress: PlayRunProgress) -> bool:
 def derive_v2_opening_beat_id(markdown: str) -> str | None:
     """First spine Beat in pinned document order, else first Beat, else None.
 
-    Manifest array order is not document-order authority. This scans the exact
-    WorkRevision markdown bytes.
+    Manifest array order is not document-order authority. Opening Beat is taken
+    from BF1 fence/grammar-admitted markers in exact WorkRevision document
+    order — not a raw line scan that would treat fenced examples as Beats.
     """
     from apps.live_control_server.services.play_run_reference_manifest import (
+        PlayRunReferenceManifestError,
         V2_BEAT_MARKER_RE,
+        _closes_fence,
+        _opening_fence,
+        derive_play_run_reference_elements_v2,
     )
 
+    try:
+        derived = derive_play_run_reference_elements_v2(markdown)
+    except PlayRunReferenceManifestError:
+        return None
+    admitted = {beat.beat_id: beat.beat_kind for beat in derived.beats}
+    if not admitted:
+        return None
+
     normalized = markdown.replace("\ufeff", "").replace("\r\n", "\n").replace("\r", "\n")
+    fence_char: str | None = None
+    fence_length = 0
     first_beat: str | None = None
     for line in normalized.split("\n"):
+        if fence_char is not None:
+            if _closes_fence(line, fence_char, fence_length):
+                fence_char = None
+                fence_length = 0
+            continue
+        opening = _opening_fence(line)
+        if opening is not None:
+            fence_char, fence_length = opening
+            continue
         match = V2_BEAT_MARKER_RE.fullmatch(line)
         if match is None:
             continue
         beat_id = match.group(1)
-        beat_kind = match.group(2)
+        if beat_id not in admitted:
+            continue
         if first_beat is None:
             first_beat = beat_id
-        if beat_kind == "spine":
+        if admitted[beat_id] == "spine":
             return beat_id
     return first_beat
+
+
+def compare_v2_sealed_structure(markdown: str, manifest: object) -> str | None:
+    """Fail closed when sealed v2 membership, beat_kind, or edges diverge."""
+    from apps.live_control_server.services.play_run_reference_manifest import (
+        PlayRunReferenceManifestError,
+        derive_play_run_reference_elements_v2,
+    )
+
+    try:
+        derived = derive_play_run_reference_elements_v2(markdown)
+    except PlayRunReferenceManifestError as exc:
+        return str(exc)
+
+    derived_beats = {(beat.beat_id, beat.beat_kind) for beat in derived.beats}
+    manifest_beats = {
+        (beat.beat_id, beat.beat_kind) for beat in getattr(manifest, "beats", ())
+    }
+    if derived_beats != manifest_beats:
+        return "sealed v2 manifest disagrees with pinned WorkRevision on Beat kind or membership"
+    derived_scenes = {(scene.scene_id, scene.beat_id) for scene in derived.scenes}
+    manifest_scenes = {
+        (scene.scene_id, scene.beat_id) for scene in getattr(manifest, "scenes", ())
+    }
+    if derived_scenes != manifest_scenes:
+        return "sealed v2 manifest disagrees with pinned WorkRevision on Scene membership"
+    derived_choices = {
+        (choice.choice_id, choice.beat_id, choice.scene_id) for choice in derived.choices
+    }
+    manifest_choices = {
+        (choice.choice_id, choice.beat_id, choice.scene_id)
+        for choice in getattr(manifest, "choices", ())
+    }
+    if derived_choices != manifest_choices:
+        return "sealed v2 manifest disagrees with pinned WorkRevision on Choice membership"
+    derived_options = {
+        (option.option_id, option.choice_id) for option in derived.options
+    }
+    manifest_options = {
+        (option.option_id, option.choice_id) for option in getattr(manifest, "options", ())
+    }
+    if derived_options != manifest_options:
+        return "sealed v2 manifest disagrees with pinned WorkRevision on Option membership"
+    derived_edges = {
+        (edge.option_id, edge.effect, edge.target_kind, edge.target_id)
+        for edge in derived.edges
+    }
+    manifest_edges = {
+        (edge.option_id, edge.effect, edge.target_kind, edge.target_id)
+        for edge in getattr(manifest, "edges", ())
+    }
+    if derived_edges != manifest_edges:
+        return "sealed v2 manifest disagrees with pinned WorkRevision on authored transition edges"
+    return None
+
+
+def ensure_v2_native_ready(root: Path, run_id: str) -> PlayRunRecord:
+    """Owning first-admission workflow: pinned authority preflight, then seed.
+
+    Load the exact Run + sealed manifest + pinned WorkRevision, prove the
+    behavior-bearing v2 contract, then persist the opening Beat only if
+    progress is still empty. Callers that observe CAS 409 must invoke this
+    again so the full authority set is rebound.
+    """
+    record = get_play_run(root, run_id)
+    from apps.live_control_server.services.play_run_reference_manifest import (
+        get_play_run_reference_manifest,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        get_committed_playable_revision,
+    )
+
+    manifest = get_play_run_reference_manifest(root, run_id)
+    if getattr(manifest, "schema_version", None) != "dmb_play_run_reference_manifest_v2":
+        return record
+    try:
+        committed = get_committed_playable_revision(
+            record.playable_artifact_id,
+            revision_n=record.playable_revision,
+            expected_sha256=record.playable_content_sha256,
+            kind="runbook",
+        )
+    except Exception as exc:
+        raise PlayRunRegistryError(str(exc), status_code=int(getattr(exc, "status_code", 500))) from exc
+    mismatch = compare_v2_sealed_structure(committed.markdown, manifest)
+    if mismatch:
+        raise PlayRunRegistryError(mismatch, status_code=409)
+    opening = derive_v2_opening_beat_id(committed.markdown)
+    if opening is None:
+        raise PlayRunRegistryError(
+            "v2 Playable has no Beat; native READY is fail-closed",
+            status_code=409,
+        )
+    if not _progress_is_empty(record.progress):
+        return record
+    return replace_play_run_progress(
+        root,
+        run_id=run_id,
+        expected_run_revision=record.run_revision,
+        progress=PlayRunProgress(
+            current_beat_id=opening,
+            current_scene_id=None,
+            resolved_beat_ids=[],
+            selections={},
+            notes_by_element_id={},
+        ),
+    )
 
 
 def _admit_progress_v2(

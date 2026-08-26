@@ -50,4 +50,18 @@ describe("v2RuntimeProjection", () => {
     expect(relevance).toEqual({ "beat:two": "emphasized" });
     expect(Object.keys(relevance)).not.toContain("relevance");
   });
+
+  it("ignores fenced Beat markers when deriving the opening Beat", () => {
+    const fenced = [
+      "```",
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:fenced-first beat_kind=spine -->",
+      "## Fenced",
+      "```",
+      "",
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:z-opening beat_kind=spine -->",
+      "## Opening",
+      "",
+    ].join("\n");
+    expect(deriveV2OpeningBeatIdFromMarkdown(fenced)).toBe("beat:z-opening");
+  });
 });

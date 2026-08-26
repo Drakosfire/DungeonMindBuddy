@@ -768,3 +768,25 @@ def test_v2_malformed_unknown_manifest_fails_closed(tmp_path: Path, application_
     with pytest.raises(PlayRunRegistryError) as exc_info:
         get_play_run(tmp_path, RUN_ID_A)
     assert exc_info.value.status_code == 500
+
+
+def test_v2_ready_run_rejects_empty_progress_clear(tmp_path: Path) -> None:
+    _seal_v2(tmp_path, name="v2-empty-clear")
+    seeded = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_v2_progress(),
+    )
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        replace_play_run_progress(
+            tmp_path,
+            run_id=RUN_ID_A,
+            expected_run_revision=seeded.run_revision,
+            progress=empty_play_run_progress(),
+        )
+    assert exc_info.value.status_code == 422
+    assert "cannot be cleared once READY" in str(exc_info.value)
+    preserved = get_play_run(tmp_path, RUN_ID_A)
+    assert preserved.run_revision == seeded.run_revision
+    assert preserved.progress.current_beat_id == "beat:one"

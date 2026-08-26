@@ -641,15 +641,44 @@ describe("admitNativeRunbook v2", () => {
     if (admitted.status === "ready") throw new Error("zero-Beat v2 must never be READY");
   });
 
-  it("fails closed when the sealed v2 manifest does not match the pinned revision", () => {
+  it("fails closed when sealed transition edges disagree with the pinned WorkRevision", () => {
+    const mutated = {
+      ...v2Manifest(),
+      edges: v2Manifest().edges.map((edge) => (
+        edge.option_id === "option:x1" && edge.effect === "activate"
+          ? { ...edge, effect: "suppress" as const }
+          : edge
+      )),
+    };
     const admitted = admitNativeRunbook({
       run: runRecord({
         progress: progress({ current_beat_id: "beat:one" }),
       }),
-      manifest: { ...v2Manifest(), playable_revision: 99 },
+      manifest: mutated,
       committed: committed({ markdown: V2_MARKDOWN }),
     });
     expect(admitted.status).toBe("integrity_failure");
+    if (admitted.status === "ready") throw new Error("corrupted edges must not be READY");
+    expect(admitted.reason).toMatch(/transition edges/);
+  });
+
+  it("fails closed when sealed Beat kind disagrees with the pinned WorkRevision", () => {
+    const mutated = {
+      ...v2Manifest(),
+      beats: v2Manifest().beats.map((beat) => (
+        beat.beat_id === "beat:two" ? { ...beat, beat_kind: "spine" as const } : beat
+      )),
+    };
+    const admitted = admitNativeRunbook({
+      run: runRecord({
+        progress: progress({ current_beat_id: "beat:one" }),
+      }),
+      manifest: mutated,
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    expect(admitted.status).toBe("integrity_failure");
+    if (admitted.status === "ready") throw new Error("corrupted beat_kind must not be READY");
+    expect(admitted.reason).toMatch(/Beat kind/);
   });
 });
 

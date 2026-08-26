@@ -585,12 +585,29 @@ function projectV2Beats(
   });
 }
 
-function admitNativeRunbookV2(input: {
+export type V2AuthorityPreflight =
+  | {
+    status: "ok";
+    structure: PlayableStructureIndexV2;
+    openingBeatId: string;
+    importedDoc: JSONContent;
+  }
+  | NativeRunbookFailure;
+
+export function preflightV2Authority(input: {
   run: PlayRunRecord;
   manifest: PlayRunReferenceManifestV2;
   committed: WorkspaceCommittedRevision;
-}): NativeRunbookAdmission {
+}): V2AuthorityPreflight {
   const { run, manifest, committed } = input;
+  if (run.schema_version !== "dmb_play_run_record_v1") {
+    return failed("integrity_failure", "Run schema_version is not dmb_play_run_record_v1");
+  }
+  if (!isCanonicalUuid(run.run_id) || !isCanonicalUuid(run.playable_artifact_id)) {
+    return failed("integrity_failure", "Run identity is not a canonical UUID");
+  }
+  const workspaceFailure = workspaceBindingFailure(run, committed);
+  if (workspaceFailure) return workspaceFailure;
   const manifestFailure = bindingMismatch(run, manifest);
   if (manifestFailure) return failed("integrity_failure", manifestFailure);
 
@@ -611,6 +628,22 @@ function admitNativeRunbookV2(input: {
   if (openingBeatId == null) {
     return failed("integrity_failure", "v2 Playable has no Beat; native READY is fail-closed");
   }
+  return {
+    status: "ok",
+    structure: indexed.index,
+    openingBeatId,
+    importedDoc: imported.doc,
+  };
+}
+
+function admitNativeRunbookV2(input: {
+  run: PlayRunRecord;
+  manifest: PlayRunReferenceManifestV2;
+  committed: WorkspaceCommittedRevision;
+}): NativeRunbookAdmission {
+  const { run, manifest, committed } = input;
+  const preflight = preflightV2Authority(input);
+  if (preflight.status !== "ok") return preflight;
 
   const currentBeatId = run.progress.current_beat_id;
   if (currentBeatId == null) {
@@ -620,14 +653,14 @@ function admitNativeRunbookV2(input: {
     );
   }
 
-  const knownBeats = new Set(indexed.index.beatOrder);
+  const knownBeats = new Set(preflight.structure.beatOrder);
   if (!knownBeats.has(currentBeatId)) {
     return failed("integrity_failure", "current_beat_id is not admitted by the sealed v2 Playable");
   }
 
   const currentSceneId = run.progress.current_scene_id;
   if (currentSceneId != null) {
-    const scene = indexed.index.scenes.find((entry) => entry.sceneId === currentSceneId);
+    const scene = preflight.structure.scenes.find((entry) => entry.sceneId === currentSceneId);
     if (scene == null) {
       return failed("integrity_failure", "current_scene_id is not admitted by the sealed v2 Playable");
     }
@@ -641,8 +674,8 @@ function admitNativeRunbookV2(input: {
     run.progress.selections,
     v2RelevanceTargetIds(manifest),
   );
-  const slices = slicePlayableBodies(imported.doc);
-  const beats = projectV2Beats(indexed.index, slices, relevanceByTargetId);
+  const slices = slicePlayableBodies(preflight.importedDoc);
+  const beats = projectV2Beats(preflight.structure, slices, relevanceByTargetId);
 
   return {
     status: "ready",
@@ -650,12 +683,12 @@ function admitNativeRunbookV2(input: {
     run,
     manifest,
     snapshot: snapshotFromCommitted(committed),
-    importedDoc: imported.doc,
-    structure: indexed.index,
+    importedDoc: preflight.importedDoc,
+    structure: preflight.structure,
     beats,
     currentBeatId,
     currentSceneId,
-    openingBeatId,
+    openingBeatId: preflight.openingBeatId,
     relevanceByTargetId,
   };
 }
