@@ -12,16 +12,12 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    ValidationError,
     field_validator,
     model_serializer,
 )
 
-from src.live_play.live_store import load_json
-
 PLAY_RUN_RECORD_SCHEMA = "dmb_play_run_record_v1"
 PLAY_RUNS_LIST_SCHEMA = "dmb_play_runs_list_v1"
-PLAY_RUNS_REL = "out/runtime/play/runs"
 
 
 def _iso_z(value: datetime | str) -> str:
@@ -216,19 +212,6 @@ class PlayRunsListResponse(BaseModel):
     records: list[PlayRunRecord] = Field(default_factory=list)
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-
-def play_runs_dir(root: Path) -> Path:
-    return root / PLAY_RUNS_REL
-
-
-def play_run_path(root: Path, run_id: str) -> Path:
-    canonical = _validate_run_id(run_id)
-    return play_runs_dir(root) / f"{canonical}.json"
-
-
 def _validate_run_id(run_id: str) -> str:
     try:
         return _canonical_uuid(run_id, field_name="run_id")
@@ -267,23 +250,6 @@ def _validate_expected_sha(expected_playable_content_sha256: str) -> str:
         )
     except ValueError as exc:
         raise PlayRunRegistryError(str(exc), status_code=422) from exc
-
-
-def _load_record(path: Path) -> PlayRunRecord:
-    try:
-        expected_run_id = _canonical_uuid(path.stem, field_name="run file name")
-        record = PlayRunRecord.model_validate(load_json(path))
-        if record.run_id != expected_run_id:
-            raise ValueError(
-                "persisted run_id does not match the Run file name: "
-                f"{record.run_id} != {expected_run_id}"
-            )
-        return record
-    except (OSError, TypeError, ValueError, ValidationError) as exc:
-        raise PlayRunRegistryError(
-            f"malformed persisted Play Run {path.name}: {exc}",
-            status_code=500,
-        ) from exc
 
 
 def _canonicalize_progress(progress: PlayRunProgress) -> PlayRunProgress:
@@ -356,55 +322,6 @@ def _admit_progress(
             "notes_by_element_id",
         )
     return canonical
-
-
-def _load_bound_manifest(root: Path, record: PlayRunRecord):
-    from apps.live_control_server.services.play_run_reference_manifest import (
-        PlayRunReferenceManifestError,
-        load_play_run_reference_manifest_for_record,
-    )
-
-    try:
-        return load_play_run_reference_manifest_for_record(root, record)
-    except PlayRunReferenceManifestError as exc:
-        raise PlayRunRegistryError(str(exc), status_code=exc.status_code) from exc
-
-
-def _revalidate_persisted_progress(root: Path, record: PlayRunRecord) -> None:
-    if _progress_is_empty(record.progress):
-        return
-    try:
-        manifest = _load_bound_manifest(root, record)
-    except PlayRunRegistryError as exc:
-        status = 500 if exc.status_code == 404 else exc.status_code
-        raise PlayRunRegistryError(
-            f"persisted Play Run progress cannot be admitted: {exc}",
-            status_code=status,
-        ) from exc
-    canonical = _admit_progress(record.progress, manifest=manifest, status_code=500)
-    if record.progress.resolved_beat_ids != canonical.resolved_beat_ids:
-        raise PlayRunRegistryError(
-            "persisted resolved_beat_ids must be duplicate-free and lexicographically sorted",
-            status_code=500,
-        )
-
-
-def _load_authoritative_record(root: Path, path: Path) -> PlayRunRecord:
-    record = _load_record(path)
-    _revalidate_persisted_progress(root, record)
-    return record
-
-
-def _require_no_pending_rebase(root: Path, run_id: str) -> None:
-    from apps.live_control_server.services.play_run_rebase import (
-        PlayRunRebaseError,
-        require_no_pending_rebase_intent,
-    )
-
-    try:
-        require_no_pending_rebase_intent(root, run_id)
-    except PlayRunRebaseError as exc:
-        raise PlayRunRegistryError(str(exc), status_code=exc.status_code) from exc
 
 
 def get_play_run(root: Path, run_id: str) -> PlayRunRecord:
