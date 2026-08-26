@@ -1,8 +1,9 @@
-"""First-world reviewed graph helpers (head-free contribution materialization).
+"""First-world reviewed graph helpers (storage-neutral plan materialization).
 
-Owns managed-world admission, graph-state classification, workspace lineage
-cross-check, and create_new-only contribution materialization against an empty
-in-memory baseline store — no production parent revision required.
+Owns managed-world admission, workspace lineage cross-check, and create_new-only
+contribution materialization. Native initialization state comes from
+``WorldGraphInitializationAuthority.probe()``. Filesystem classification remains
+only for explicit buddy_files compatibility.
 """
 
 from __future__ import annotations
@@ -34,7 +35,6 @@ from graph_memory.kernel.contributions import (
     compute_contribution_payload_sha256,
     create_graph_contribution,
 )
-from graph_memory.kernel.world_initialization import build_empty_technical_baseline_store
 from graph_memory.world_supergraph import paths as world_paths
 from graph_memory.world_supergraph.storage import try_open_world_graph_head
 from graph_memory.worldbuilding_write_plan import (
@@ -43,12 +43,13 @@ from graph_memory.worldbuilding_write_plan import (
     WORLDBUILDING_EXTRACTION_PROFILE,
     WorldbuildingDispositionInput,
     WorldbuildingWritePlanError,
-    _assert_create_new_id_is_free,
     _map_edge,
     _map_node,
     _validate_dispositions,
     materialize_worldbuilding_contribution,
 )
+
+FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v1"
 
 FirstWorldGraphState = Literal[
     "uninitialized",
@@ -105,6 +106,13 @@ def _digest(payload: object) -> str:
 
 def expected_source_root_relpath(world_id: str) -> str:
     return f"corpus/{world_id}-markdown"
+
+
+def first_world_initialization_id(world_id: str, plan_id: str) -> str:
+    """Deterministic DungeonMind initialization identity for one sealed plan."""
+    payload = _canonical_json({"world_id": world_id, "plan_id": plan_id})
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return f"dmb:first-world:{digest}"
 
 
 def admit_managed_world(repo: Path, world_id: str):
@@ -298,21 +306,42 @@ def resolve_first_world_capability(
             eligible=False,
             reason=f"world {cleaned!r} is not a managed world",
         )
-    state = classify_world_graph_state(world_root, cleaned)
-    if state == "initialized":
+    from apps.live_control_server.ports.world_graph_initialization import (
+        WorldGraphInitializationError,
+    )
+    from apps.live_control_server.ports.world_graph_initialization_access import (
+        get_world_graph_initialization_authority,
+    )
+
+    try:
+        probed = get_world_graph_initialization_authority(
+            world_root=world_root
+        ).probe(cleaned)
+    except WorldGraphInitializationError as exc:
+        return FirstWorldCapability(
+            world_id=cleaned,
+            world_state="unreadable",
+            eligible=False,
+            reason=str(exc),
+        )
+    state: FirstWorldGraphState
+    if probed.state == "initialized":
+        state = "initialized"
         return FirstWorldCapability(
             world_id=cleaned,
             world_state=state,
             eligible=False,
             reason="World Graph already exists",
         )
-    if state == "unreadable":
+    if probed.state == "unreadable":
+        state = "unreadable"
         return FirstWorldCapability(
             world_id=cleaned,
             world_state=state,
             eligible=False,
             reason="World Graph storage exists but is unreadable",
         )
+    state = "uninitialized"
     if source_artifact_id:
         try:
             cross_check_workspace_lineage(
@@ -375,7 +404,7 @@ def materialize_first_world_plan(
     workspace_document_revision: str,
     dispositions: Sequence[WorldbuildingDispositionInput | Mapping[str, Any]],
 ) -> FirstWorldMaterializedPlan:
-    """Materialize a sealed first-world plan against an empty in-memory store."""
+    """Materialize a sealed first-world plan with storage-neutral validation."""
     world = (world_id or "").strip()
     run = (run_id or "").strip()
     artifact = (source_artifact_id or "").strip()
@@ -398,15 +427,11 @@ def materialize_first_world_plan(
             code="run_scope_mismatch",
         )
 
-    # Empty baseline: create_new identity checks only — no production parent.
-    store = build_empty_technical_baseline_store(
-        campaign_id=campaign_scope or world,
-        focus_session_id="",
-    )
     disposition_map, decision_snapshot, nodes, edges = _validate_dispositions(
         preview, dispositions
     )
     _require_first_world_decisions(disposition_map, nodes=nodes, edges=edges)
+    accepted_create_new_ids: set[str] = set()
 
     try:
         require_single_verified_source_artifact(
@@ -434,7 +459,13 @@ def materialize_first_world_plan(
         decision, _target = disposition_map[node_id]
         diagnostics.extend(semantic_diagnostics(node))
         if decision == "create_new":
-            _assert_create_new_id_is_free(store, node_id)
+            if node_id in accepted_create_new_ids:
+                raise WorldbuildingWritePlanError(
+                    f"create_new node ID {node_id!r} is duplicated in this plan",
+                    code="new_node_id_conflict",
+                    status_code=409,
+                )
+            accepted_create_new_ids.add(node_id)
             assertion = _map_node(
                 node,
                 source_revision_id=revision,
@@ -552,7 +583,7 @@ def materialize_first_world_plan(
         "decision_snapshot": decision_snapshot,
     }
     plan_identity = {
-        "schema": "dmb_first_world_graph_plan_v1",
+        "schema": FIRST_WORLD_PLAN_SCHEMA,
         "world_id": world,
         "run_id": run,
         "source_domain": "worldbuilding",
