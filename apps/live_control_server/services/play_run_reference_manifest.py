@@ -13,18 +13,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from apps.live_control_server.services.play_run_registry import (
     PlayRunRecord,
     PlayRunRegistryError,
-    _load_authoritative_record,
-    _require_no_pending_rebase,
-    play_run_path,
-)
-from apps.live_control_server.services.registry_file_lock import (
-    registry_mutation_lock,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
     get_committed_playable_revision,
 )
-from src.live_play.live_store import load_json, write_json
+from src.live_play.live_store import load_json
 
 PLAY_RUN_REFERENCE_MANIFEST_SCHEMA = "dmb_play_run_reference_manifest_v1"
 PLAY_RUN_REFERENCE_MANIFESTS_REL = "out/runtime/play/reference-manifests"
@@ -414,6 +408,73 @@ class PlayRunReferenceManifestV2(BaseModel):
 
 
 AnyPlayRunReferenceManifest = PlayRunReferenceManifest | PlayRunReferenceManifestV2
+
+
+def parse_manifest_payload(payload: object, *, run_id: str) -> AnyPlayRunReferenceManifest:
+    if not isinstance(payload, dict):
+        raise PlayRunReferenceManifestError(
+            "manifest payload must be a JSON object",
+            status_code=500,
+        )
+    schema_version = payload.get("schema_version")
+    try:
+        if schema_version == PLAY_RUN_REFERENCE_MANIFEST_SCHEMA:
+            manifest: AnyPlayRunReferenceManifest = PlayRunReferenceManifest.model_validate(
+                payload
+            )
+        elif schema_version == PLAY_RUN_REFERENCE_MANIFEST_V2_SCHEMA:
+            manifest = PlayRunReferenceManifestV2.model_validate(payload)
+        else:
+            raise ValueError(f"unknown manifest schema version: {schema_version!r}")
+    except (TypeError, ValueError, ValidationError) as exc:
+        raise PlayRunReferenceManifestError(
+            f"malformed persisted Play Run reference manifest: {exc}",
+            status_code=500,
+        ) from exc
+    if manifest.run_id != run_id:
+        raise PlayRunReferenceManifestError(
+            "persisted run_id does not match the Run binding: "
+            f"{manifest.run_id} != {run_id}",
+            status_code=500,
+        )
+    return manifest
+
+
+def derive_sealed_manifest(
+    markdown: str,
+    *,
+    run_id: str,
+    playable_artifact_id: str,
+    playable_revision: int,
+    playable_content_sha256: str,
+    sealed_at: str,
+) -> AnyPlayRunReferenceManifest:
+    if detect_playable_grammar_version(markdown) == 2:
+        membership = derive_play_run_reference_elements_v2(markdown)
+        return PlayRunReferenceManifestV2(
+            run_id=run_id,
+            playable_artifact_id=playable_artifact_id,
+            playable_revision=playable_revision,
+            playable_content_sha256=playable_content_sha256,
+            sealed_at=sealed_at,
+            beats=membership.beats,
+            scenes=membership.scenes,
+            choices=membership.choices,
+            options=membership.options,
+            edges=membership.edges,
+        )
+    elements = sorted(
+        derive_play_run_reference_elements(markdown),
+        key=lambda element: element.element_id,
+    )
+    return PlayRunReferenceManifest(
+        run_id=run_id,
+        playable_artifact_id=playable_artifact_id,
+        playable_revision=playable_revision,
+        playable_content_sha256=playable_content_sha256,
+        elements=elements,
+        sealed_at=sealed_at,
+    )
 
 
 def play_run_reference_manifests_dir(root: Path) -> Path:
@@ -825,32 +886,39 @@ def load_play_run_reference_manifest_for_record(
     root: Path,
     record: PlayRunRecord,
 ) -> AnyPlayRunReferenceManifest:
-    """Load and bind-check the sealed sidecar for an already-loaded Run record.
+    """Load and bind-check the sealed postgres manifest for an already-loaded Run.
 
-    Does not consult workspace state and does not re-enter Run GET.
+    Does not consult workspace state. Sidecar files are import-only.
     """
-    path = play_run_reference_manifest_path(root, record.run_id)
-    if not path.is_file():
-        raise PlayRunReferenceManifestError(
-            f"Play Run reference manifest not found: {record.run_id}",
-            status_code=404,
-        )
-    manifest = _load_manifest(path)
+    del root
+    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
+    from application_state.play.service import get_play_run_manifest
+
+    try:
+        stored = get_play_run_manifest(record.run_id)
+    except ApplicationStateNotFoundError as exc:
+        raise PlayRunReferenceManifestError(str(exc), status_code=404) from exc
+    except ApplicationStateError as exc:
+        raise PlayRunReferenceManifestError(str(exc), status_code=exc.status_code) from exc
+    manifest = parse_manifest_payload(stored.manifest, run_id=record.run_id)
     _require_binding_match(manifest, record)
     return manifest
 
 
 def get_play_run_reference_manifest(root: Path, run_id: str) -> AnyPlayRunReferenceManifest:
-    run_file = play_run_path(root, run_id)
-    with registry_mutation_lock(run_file):
-        _require_no_pending_rebase(root, run_id)
-        if not run_file.is_file():
-            raise PlayRunRegistryError(
-                f"Play Run not found: {run_file.stem}",
-                status_code=404,
-            )
-        record = _load_authoritative_record(root, run_file)
-        return load_play_run_reference_manifest_for_record(root, record)
+    del root
+    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
+    from application_state.play.service import get_play_run_manifest
+    from apps.live_control_server.services.play_run_registry import _validate_run_id
+
+    canonical_run_id = _validate_run_id(run_id)
+    try:
+        stored = get_play_run_manifest(canonical_run_id)
+    except ApplicationStateNotFoundError as exc:
+        raise PlayRunRegistryError(str(exc), status_code=exc.status_code) from exc
+    except ApplicationStateError as exc:
+        raise PlayRunReferenceManifestError(str(exc), status_code=exc.status_code) from exc
+    return parse_manifest_payload(stored.manifest, run_id=str(stored.run_id))
 
 
 def _admit_snapshot(record: PlayRunRecord, root: Path) -> str:
@@ -885,69 +953,16 @@ def seal_or_replay_play_run_reference_manifest(
     root: Path,
     run_id: str,
 ) -> AnyPlayRunReferenceManifest:
-    run_file = play_run_path(root, run_id)
-    with registry_mutation_lock(run_file):
-        _require_no_pending_rebase(root, run_id)
-        if not run_file.is_file():
-            raise PlayRunRegistryError(
-                f"Play Run not found: {run_file.stem}",
-                status_code=404,
-            )
-        record = _load_authoritative_record(root, run_file)
-        path = play_run_reference_manifest_path(root, record.run_id)
+    del root
+    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
+    from application_state.play.service import replay_play_run_manifest
+    from apps.live_control_server.services.play_run_registry import _validate_run_id
 
-        with registry_mutation_lock(path):
-            if path.is_file():
-                manifest = _load_manifest(path)
-                _require_binding_match(manifest, record)
-                return manifest
-
-            try:
-                markdown = _admit_snapshot(record, root)
-                manifest: AnyPlayRunReferenceManifest
-                if detect_playable_grammar_version(markdown) == 2:
-                    membership = derive_play_run_reference_elements_v2(markdown)
-                    manifest = PlayRunReferenceManifestV2(
-                        run_id=record.run_id,
-                        playable_artifact_id=record.playable_artifact_id,
-                        playable_revision=record.playable_revision,
-                        playable_content_sha256=record.playable_content_sha256,
-                        sealed_at=_utc_now_iso(),
-                        beats=membership.beats,
-                        scenes=membership.scenes,
-                        choices=membership.choices,
-                        options=membership.options,
-                        edges=membership.edges,
-                    )
-                else:
-                    elements = sorted(
-                        derive_play_run_reference_elements(markdown),
-                        key=lambda element: element.element_id,
-                    )
-                    manifest = PlayRunReferenceManifest(
-                        run_id=record.run_id,
-                        playable_artifact_id=record.playable_artifact_id,
-                        playable_revision=record.playable_revision,
-                        playable_content_sha256=record.playable_content_sha256,
-                        elements=elements,
-                        sealed_at=_utc_now_iso(),
-                    )
-                path.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    write_json(path, _dump_manifest(manifest))
-                except (OSError, TypeError, ValueError) as exc:
-                    raise PlayRunReferenceManifestError(
-                        f"failed to persist Play Run reference manifest: {exc}",
-                        status_code=500,
-                    ) from exc
-                return manifest
-            except WorkspaceDocumentRegistryError as exc:
-                raise PlayRunReferenceManifestError(
-                    str(exc),
-                    status_code=exc.status_code,
-                ) from exc
-            except PlayRunRegistryError as exc:
-                raise PlayRunReferenceManifestError(
-                    str(exc),
-                    status_code=exc.status_code,
-                ) from exc
+    canonical_run_id = _validate_run_id(run_id)
+    try:
+        stored = replay_play_run_manifest(canonical_run_id)
+    except ApplicationStateNotFoundError as exc:
+        raise PlayRunRegistryError(str(exc), status_code=exc.status_code) from exc
+    except ApplicationStateError as exc:
+        raise PlayRunReferenceManifestError(str(exc), status_code=exc.status_code) from exc
+    return parse_manifest_payload(stored.manifest, run_id=str(stored.run_id))

@@ -16,7 +16,6 @@ from apps.live_control_server.services.play_run_reference_manifest import (
     _dump_manifest,
     _load_manifest,
     _require_binding_match,
-    derive_play_run_reference_elements,
     play_run_reference_manifest_path,
 )
 from apps.live_control_server.services.play_run_registry import (
@@ -24,10 +23,8 @@ from apps.live_control_server.services.play_run_registry import (
     PlayRunRecord,
     PlayRunRegistryError,
     _admit_progress,
-    _load_authoritative_record,
     _load_record,
     _progress_is_empty,
-    _utc_now_iso,
     play_run_path,
 )
 from apps.live_control_server.services.registry_file_lock import (
@@ -503,6 +500,14 @@ def rebase_or_replay_play_run(
     target_playable_revision: int,
     target_playable_content_sha256: str,
 ) -> PlayRunRecord:
+    del root
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import rebase_play_run
+    from apps.live_control_server.services.play_run_registry import (
+        _record_from_play_run,
+        _validate_run_id,
+    )
+
     try:
         request = RebasePlayRunRequest(
             expected_run_revision=expected_run_revision,
@@ -512,122 +517,61 @@ def rebase_or_replay_play_run(
     except ValidationError as exc:
         raise PlayRunRebaseError(str(exc), status_code=422) from exc
 
-    run_path = play_run_path(root, run_id)
-    intent_path = play_run_rebase_intent_path(root, run_id)
-    manifest_path = play_run_reference_manifest_path(root, run_id)
+    canonical_run_id = _validate_run_id(run_id)
+    try:
+        aggregate = rebase_play_run(
+            run_id=canonical_run_id,
+            expected_run_revision=request.expected_run_revision,
+            target_playable_revision=request.target_playable_revision,
+            target_playable_content_sha256=request.target_playable_content_sha256,
+        )
+    except ApplicationStateError as exc:
+        raise PlayRunRebaseError(str(exc), status_code=exc.status_code) from exc
+    return _record_from_play_run(aggregate.run)
 
-    with registry_mutation_lock(run_path):
-        if intent_path.is_file():
-            return _resume_intent(
-                root=root,
-                run_path=run_path,
-                manifest_path=manifest_path,
-                intent_path=intent_path,
-                request=request,
-            )
-        if not run_path.is_file():
-            raise PlayRunRebaseError(
-                f"Play Run not found: {run_path.stem}",
-                status_code=404,
-            )
-        try:
-            record = _load_authoritative_record(root, run_path)
-        except PlayRunRegistryError as exc:
-            _raise_registry(exc)
 
-        if _same_target_binding(record, request):
-            _prove_target_pair(root, record)
-            if record.run_revision == request.expected_run_revision:
-                return record
-            if (
-                record.run_revision == request.expected_run_revision + 1
-                and record.rebased_from_run_revision == request.expected_run_revision
-            ):
-                return record
-            raise PlayRunRebaseError(
-                "run_revision does not match the current Play Run",
-                status_code=409,
-            )
+def recover_legacy_rebase_intents(root: Path) -> int:
+    """Finish every pending file-era rebase intent using the predecessor protocol.
 
-        if request.expected_run_revision != record.run_revision:
-            raise PlayRunRebaseError(
-                "run_revision does not match the current Play Run",
-                status_code=409,
-            )
-        if request.target_playable_revision <= record.playable_revision:
-            raise PlayRunRebaseError(
-                "target_playable_revision must be strictly newer than the current Playable revision",
-                status_code=409,
-            )
-
-        with registry_mutation_lock(manifest_path):
-            source_manifest_token = registry_token(manifest_path)
-            if source_manifest_token != _ABSENT_TOKEN:
-                try:
-                    source_manifest = _load_manifest(manifest_path)
-                    _require_binding_match(source_manifest, record)
-                except PlayRunReferenceManifestError as exc:
-                    _raise_manifest(exc)
-            elif not _progress_is_empty(record.progress):
-                raise PlayRunRebaseError(
-                    "Play Run reference manifest is required before rebasing non-empty progress",
-                    status_code=409,
+    Import-only. Switched Runtime must not consult intent files.
+    """
+    recovered = 0
+    for name in pending_rebase_intent_names(root):
+        run_id = Path(name).stem
+        run_path = play_run_path(root, run_id)
+        intent_path = play_run_rebase_intent_path(root, run_id)
+        manifest_path = play_run_reference_manifest_path(root, run_id)
+        with registry_mutation_lock(run_path):
+            intent = _load_intent(intent_path)
+            with registry_mutation_lock(manifest_path):
+                stage = _classify_recovery_stage(
+                    run_path=run_path,
+                    manifest_path=manifest_path,
+                    intent=intent,
                 )
-
-            try:
-                markdown = _admit_target_snapshot(
-                    record,
-                    root=root,
-                    target_revision=request.target_playable_revision,
-                    target_sha=request.target_playable_content_sha256,
-                )
-                try:
-                    elements = sorted(
-                        derive_play_run_reference_elements(markdown),
-                        key=lambda element: element.element_id,
-                    )
-                except PlayRunReferenceManifestError as exc:
-                    _raise_manifest(exc)
-                sealed_at = _utc_now_iso()
-                updated_at = sealed_at
-                target_manifest = PlayRunReferenceManifest(
-                    run_id=record.run_id,
-                    playable_artifact_id=record.playable_artifact_id,
-                    playable_revision=request.target_playable_revision,
-                    playable_content_sha256=request.target_playable_content_sha256,
-                    elements=elements,
-                    sealed_at=sealed_at,
-                )
-                _admit_progress_for_rebase(record.progress, manifest=target_manifest)
-                target_run = record.model_copy(
-                    update={
-                        "playable_revision": request.target_playable_revision,
-                        "playable_content_sha256": request.target_playable_content_sha256,
-                        "run_revision": record.run_revision + 1,
-                        "updated_at": updated_at,
-                        "progress": record.progress,
-                        "rebased_from_run_revision": record.run_revision,
-                    }
-                )
-                intent = PlayRunRebaseIntent(
-                    run_id=record.run_id,
-                    expected_source_run_revision=record.run_revision,
-                    source_playable_artifact_id=record.playable_artifact_id,
-                    source_playable_revision=record.playable_revision,
-                    source_playable_content_sha256=record.playable_content_sha256,
-                    source_run_token=registry_token(run_path),
-                    source_manifest_token=source_manifest_token,
-                    target_run=target_run,
-                    target_manifest=target_manifest,
-                    prepared_at=sealed_at,
-                )
-                _write_intent(intent_path, intent)
-                return _complete_from_stage(
+                if stage in {"prepared", "manifest_installed"}:
+                    if not run_path.is_file():
+                        raise PlayRunRebaseError(
+                            "contradictory Play Run rebase recovery state",
+                            status_code=500,
+                        )
+                    try:
+                        source = _load_record(run_path)
+                    except PlayRunRegistryError as exc:
+                        _raise_registry(exc)
+                    _require_intent_preserves_source(source, intent)
+                _complete_from_stage(
                     run_path=run_path,
                     manifest_path=manifest_path,
                     intent_path=intent_path,
                     intent=intent,
-                    stage="prepared",
+                    stage=stage,
                 )
-            except WorkspaceDocumentRegistryError as exc:
-                raise PlayRunRebaseError(str(exc), status_code=exc.status_code) from exc
+        recovered += 1
+    leftover = pending_rebase_intent_names(root)
+    if leftover:
+        raise PlayRunRebaseError(
+            f"Play Run rebase recovery is pending: {Path(leftover[0]).stem}",
+            status_code=503,
+        )
+    return recovered

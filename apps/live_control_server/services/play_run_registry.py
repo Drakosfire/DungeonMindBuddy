@@ -17,18 +17,40 @@ from pydantic import (
     model_serializer,
 )
 
-from apps.live_control_server.services.registry_file_lock import (
-    registry_mutation_lock,
-)
-from apps.live_control_server.services.workspace_document_registry import (
-    WorkspaceDocumentRegistryError,
-    get_committed_playable_revision,
-)
-from src.live_play.live_store import load_json, write_json
+from src.live_play.live_store import load_json
 
 PLAY_RUN_RECORD_SCHEMA = "dmb_play_run_record_v1"
 PLAY_RUNS_LIST_SCHEMA = "dmb_play_runs_list_v1"
 PLAY_RUNS_REL = "out/runtime/play/runs"
+
+
+def _iso_z(value: datetime | str) -> str:
+    if isinstance(value, str):
+        return value
+    stamp = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    return stamp.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _map_application_state(exc: Exception) -> PlayRunRegistryError:
+    return PlayRunRegistryError(str(exc), status_code=int(getattr(exc, "status_code", 500)))
+
+
+def _record_from_play_run(run: object) -> PlayRunRecord:
+    progress = getattr(run, "progress")
+    return PlayRunRecord(
+        run_id=str(run.run_id),
+        campaign_id=run.campaign_id,
+        playable_artifact_id=str(run.playable_work_object_id),
+        playable_revision=int(run.playable_revision_n),
+        playable_content_sha256=str(run.playable_content_sha256),
+        run_revision=int(run.run_revision),
+        created_at=_iso_z(run.created_at),
+        updated_at=_iso_z(run.updated_at),
+        progress=PlayRunProgress.model_validate(progress),
+        rebased_from_run_revision=getattr(run, "rebased_from_run_revision", None),
+    )
+
+
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -386,33 +408,26 @@ def _require_no_pending_rebase(root: Path, run_id: str) -> None:
 
 
 def get_play_run(root: Path, run_id: str) -> PlayRunRecord:
-    path = play_run_path(root, run_id)
-    from apps.live_control_server.services.play_run_rebase import rebase_intent_exists
+    del root
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import get_play_run_aggregate
 
-    if not path.is_file() and not rebase_intent_exists(root, run_id):
-        raise PlayRunRegistryError(
-            f"Play Run not found: {_validate_run_id(run_id)}",
-            status_code=404,
+    canonical_run_id = _validate_run_id(run_id)
+    try:
+        aggregate = get_play_run_aggregate(canonical_run_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    record = _record_from_play_run(aggregate.run)
+    if not _progress_is_empty(record.progress):
+        from apps.live_control_server.services.play_run_reference_manifest import (
+            parse_manifest_payload,
         )
-    with registry_mutation_lock(path):
-        _require_no_pending_rebase(root, run_id)
-        if not path.is_file():
-            raise PlayRunRegistryError(
-                f"Play Run not found: {_validate_run_id(run_id)}",
-                status_code=404,
-            )
-        return _load_authoritative_record(root, path)
 
-
-def _require_no_pending_rebase_intents(root: Path) -> None:
-    from apps.live_control_server.services.play_run_rebase import pending_rebase_intent_names
-
-    names = pending_rebase_intent_names(root)
-    if names:
-        raise PlayRunRegistryError(
-            f"Play Run rebase recovery is pending: {Path(names[0]).stem}",
-            status_code=503,
+        parsed = parse_manifest_payload(
+            aggregate.manifest.manifest, run_id=record.run_id
         )
+        _admit_progress(record.progress, manifest=parsed, status_code=500)
+    return record
 
 
 def list_play_runs(
@@ -421,33 +436,21 @@ def list_play_runs(
     campaign_id: str | None = None,
     playable_artifact_id: str | None = None,
 ) -> list[PlayRunRecord]:
+    del root
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import list_play_run_aggregates
+
     resolved_artifact_id = None
     if playable_artifact_id is not None:
         resolved_artifact_id = _validate_playable_artifact_id(playable_artifact_id)
-
-    _require_no_pending_rebase_intents(root)
-    directory = play_runs_dir(root)
-    if not directory.is_dir():
-        return []
-
-    records: list[PlayRunRecord] = []
-    for path in sorted(directory.glob("*.json")):
-        with registry_mutation_lock(path):
-            _require_no_pending_rebase(root, path.stem)
-            records.append(_load_authoritative_record(root, path))
-    _require_no_pending_rebase_intents(root)
-    if campaign_id is not None:
-        records = [record for record in records if record.campaign_id == campaign_id]
-    if resolved_artifact_id is not None:
-        records = [
-            record
-            for record in records
-            if record.playable_artifact_id == resolved_artifact_id
-        ]
-
-    records.sort(key=lambda record: record.run_id)
-    records.sort(key=lambda record: _parse_utc_iso(record.created_at), reverse=True)
-    return records
+    try:
+        aggregates = list_play_run_aggregates(
+            campaign_id=campaign_id,
+            playable_artifact_id=resolved_artifact_id,
+        )
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    return [_record_from_play_run(aggregate.run) for aggregate in aggregates]
 
 
 def create_or_replay_play_run(
@@ -458,84 +461,24 @@ def create_or_replay_play_run(
     expected_playable_revision: int,
     expected_playable_content_sha256: str,
 ) -> PlayRunRecord:
+    del root
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import create_play_run
+
     canonical_run_id = _validate_run_id(run_id)
     canonical_artifact_id = _validate_playable_artifact_id(playable_artifact_id)
     expected_revision = _validate_expected_revision(expected_playable_revision)
     expected_sha = _validate_expected_sha(expected_playable_content_sha256)
-    path = play_runs_dir(root) / f"{canonical_run_id}.json"
-
-    with registry_mutation_lock(path):
-        _require_no_pending_rebase(root, canonical_run_id)
-        if path.is_file():
-            existing = _load_authoritative_record(root, path)
-            if (
-                existing.playable_artifact_id == canonical_artifact_id
-                and existing.playable_revision == expected_revision
-                and existing.playable_content_sha256 == expected_sha
-            ):
-                return existing
-            raise PlayRunRegistryError(
-                "run_id is already bound to a different Playable revision",
-                status_code=409,
-            )
-
-        try:
-            committed = get_committed_playable_revision(
-                canonical_artifact_id,
-                kind=None,
-            )
-            if committed.kind != "runbook":
-                raise PlayRunRegistryError(
-                    "playable_artifact_id must identify a runbook workspace document",
-                    status_code=422,
-                )
-            if committed.status != "active":
-                raise PlayRunRegistryError(
-                    "runbook workspace document is discarded",
-                    status_code=409,
-                )
-            if committed.has_divergent_working_copy:
-                raise PlayRunRegistryError(
-                    "runbook workspace document is not committed",
-                    status_code=409,
-                )
-            if committed.revision_n != expected_revision:
-                raise PlayRunRegistryError(
-                    "playable revision mismatch: "
-                    f"expected {expected_revision}, current {committed.revision_n}",
-                    status_code=409,
-                )
-            if committed.content_sha256 != expected_sha:
-                raise PlayRunRegistryError(
-                    "playable content SHA mismatch",
-                    status_code=409,
-                )
-
-            now = _utc_now_iso()
-            record = PlayRunRecord(
-                run_id=canonical_run_id,
-                campaign_id=committed.campaign_id,
-                playable_artifact_id=canonical_artifact_id,
-                playable_revision=committed.revision_n,
-                playable_content_sha256=committed.content_sha256,
-                created_at=now,
-                updated_at=now,
-                progress=empty_play_run_progress(),
-            )
-            path.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                write_json(path, record.model_dump(mode="json"))
-            except (OSError, TypeError, ValueError) as exc:
-                raise PlayRunRegistryError(
-                    f"failed to persist Play Run: {exc}",
-                    status_code=500,
-                ) from exc
-            return record
-        except WorkspaceDocumentRegistryError as exc:
-            raise PlayRunRegistryError(
-                str(exc),
-                status_code=exc.status_code,
-            ) from exc
+    try:
+        aggregate = create_play_run(
+            run_id=canonical_run_id,
+            playable_artifact_id=canonical_artifact_id,
+            expected_playable_revision=expected_revision,
+            expected_playable_content_sha256=expected_sha,
+        )
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    return _record_from_play_run(aggregate.run)
 
 
 def replace_play_run_progress(
@@ -545,6 +488,10 @@ def replace_play_run_progress(
     expected_run_revision: int,
     progress: PlayRunProgress,
 ) -> PlayRunRecord:
+    del root
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import replace_play_run_progress as replace_progress
+
     canonical_run_id = _validate_run_id(run_id)
     if (
         not isinstance(expected_run_revision, int)
@@ -555,66 +502,12 @@ def replace_play_run_progress(
             "expected_run_revision must be a positive integer",
             status_code=422,
         )
-    path = play_run_path(root, canonical_run_id)
-
-    with registry_mutation_lock(path):
-        _require_no_pending_rebase(root, canonical_run_id)
-        if not path.is_file():
-            raise PlayRunRegistryError(
-                f"Play Run not found: {canonical_run_id}",
-                status_code=404,
-            )
-        existing = _load_authoritative_record(root, path)
-        bytes_before = path.read_bytes()
-        try:
-            manifest = _load_bound_manifest(root, existing)
-        except PlayRunRegistryError as exc:
-            if exc.status_code == 404:
-                raise PlayRunRegistryError(
-                    "Play Run reference manifest is required before progress mutation",
-                    status_code=409,
-                ) from exc
-            raise
-        admitted = _admit_progress(progress, manifest=manifest, status_code=422)
-        current_progress = _canonicalize_progress(existing.progress)
-
-        if expected_run_revision == existing.run_revision:
-            if admitted == current_progress:
-                if path.read_bytes() != bytes_before:
-                    raise PlayRunRegistryError(
-                        "progress no-op rewrote Run bytes",
-                        status_code=500,
-                    )
-                return existing
-        elif (
-            expected_run_revision == existing.run_revision - 1
-            and admitted == current_progress
-        ):
-            if path.read_bytes() != bytes_before:
-                raise PlayRunRegistryError(
-                    "progress replay rewrote Run bytes",
-                    status_code=500,
-                )
-            return existing
-        else:
-            raise PlayRunRegistryError(
-                "run_revision does not match the current Play Run",
-                status_code=409,
-            )
-
-        updated = existing.model_copy(
-            update={
-                "run_revision": existing.run_revision + 1,
-                "updated_at": _utc_now_iso(),
-                "progress": admitted,
-                "rebased_from_run_revision": None,
-            }
+    try:
+        run = replace_progress(
+            run_id=canonical_run_id,
+            expected_run_revision=expected_run_revision,
+            progress=progress.model_dump(mode="json"),
         )
-        try:
-            write_json(path, updated.model_dump(mode="json"))
-        except (OSError, TypeError, ValueError) as exc:
-            raise PlayRunRegistryError(
-                f"failed to persist Play Run progress: {exc}",
-                status_code=500,
-            ) from exc
-        return updated
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    return _record_from_play_run(run)
