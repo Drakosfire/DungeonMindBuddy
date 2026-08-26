@@ -299,8 +299,6 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - this cockpit is not implemented until BF3
 
 3. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
-
-3. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
    - inspect material from other Beats without changing current moment
    - global/on-demand known object finder
    - fast NPC/location/Threat/table opening

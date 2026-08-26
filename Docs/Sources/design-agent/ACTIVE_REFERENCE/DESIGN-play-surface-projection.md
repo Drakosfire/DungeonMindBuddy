@@ -150,7 +150,7 @@ A Scene projection may show:
 
 When no Scene is current, the central board truthfully shows the Beat and available Scenes rather than auto-selecting one.
 
-### 3.4 Collapsible chrome and singular central workspace
+### 3.3 Collapsible chrome and singular central workspace
 
 These are **BF3/P4 target semantics**, not BF2 implementation claims. BF2 admits truthful v2 READY Runtime; it does not ship this cockpit.
 
@@ -162,7 +162,7 @@ At a Glance remains presence-first. Opening a category uses the same central wor
 
 Combat is one At-a-Glance entry, not a floating side rail. Opening Combat uses that same central workspace; Combat remains Combat-owned. The same open → central workspace → exact return rule applies to Scenes, Locations, NPCs, Threats, Roll tables, and Notes.
 
-### 3.5 Beat/Scene navigation
+### 3.4 Beat/Scene navigation
 
 Durable current position changes only through explicit Runtime actions.
 
