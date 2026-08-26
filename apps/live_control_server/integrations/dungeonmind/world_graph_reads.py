@@ -381,78 +381,6 @@ def _stabilize_genesis_snapshot(
     return _genesis_snapshot(bundle, world_id)
 
 
-def _enum_value(value: Any) -> Any:
-    return value.value if hasattr(value, "value") else value
-
-
-def _align_graph_payload_evidence(graph_payload: dict[str, Any], sources: Any) -> dict[str, Any]:
-    """Copy SourceArtifact domain onto graph evidence for native projection.
-
-    D.2C2 first-world mapping stamps ``SourceDomain.OTHER`` because the parent
-    evidence view is empty. Stored D_0 bytes stay immutable; this rewrite is
-    in-memory only so native projection can admit predecessor facts.
-    """
-    refs = graph_payload.get("evidence_refs")
-    if not isinstance(refs, list) or not refs:
-        return graph_payload
-    aligned: list[Any] = []
-    changed = False
-    for ref in refs:
-        if not isinstance(ref, dict):
-            aligned.append(ref)
-            continue
-        artifact_id = str(ref.get("source_artifact_id") or "").strip()
-        artifact = sources.get_artifact(artifact_id) if artifact_id else None
-        if artifact is None:
-            aligned.append(ref)
-            continue
-        update: dict[str, Any] = {}
-        expected_domain = _enum_value(getattr(artifact, "source_domain", None))
-        expected_key = getattr(artifact, "source_domain_key", None)
-        if expected_domain is not None and ref.get("source_domain") != expected_domain:
-            update["source_domain"] = expected_domain
-        if expected_key is not None and ref.get("source_domain_key") != expected_key:
-            update["source_domain_key"] = expected_key
-        if update:
-            aligned.append({**ref, **update})
-            changed = True
-        else:
-            aligned.append(ref)
-    if not changed:
-        return graph_payload
-    return {**graph_payload, "evidence_refs": aligned}
-
-
-def _align_stored_revision_evidence(stored: Any, sources: Any) -> Any:
-    if stored is None:
-        return None
-    payload = getattr(stored, "graph_payload", None)
-    if not isinstance(payload, dict):
-        return stored
-    aligned = _align_graph_payload_evidence(payload, sources)
-    if aligned is payload:
-        return stored
-    return stored.model_copy(update={"graph_payload": aligned})
-
-
-class _SourceAlignedWorldGraphRepository:
-    """Read wrapper that aligns graph evidence to source artifacts in memory."""
-
-    def __init__(self, inner: Any, sources: Any) -> None:
-        self._inner = inner
-        self._sources = sources
-
-    def get_head(self, world_id: str) -> Any:
-        return self._inner.get_head(world_id)
-
-    def get_revision(self, world_id: str, revision_id: str) -> Any:
-        stored = self._inner.get_revision(world_id, revision_id)
-        return _align_stored_revision_evidence(stored, self._sources)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
-
 def _load_direct_authority_binding(
     bundle: PostgresRepositoryBundle,
     world_id: str,
@@ -569,9 +497,8 @@ def direct_services_from_bundle(
     graph_reader = VersionedUnionGraphSnapshotReader(
         profile_registry=StaticSemanticProfileRegistry([load_builtin_v3_descriptor()])
     )
-    world_graph = _SourceAlignedWorldGraphRepository(bundle.world_graph, bundle.sources)
     projection = WorldGraphProjectionService(
-        world_graph=world_graph,
+        world_graph=bundle.world_graph,
         sources=bundle.sources,
         graph_reader=graph_reader,
     )
