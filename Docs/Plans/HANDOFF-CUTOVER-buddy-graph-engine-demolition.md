@@ -16,6 +16,7 @@ pr_body_template: |
   - Cycle 3 review: REQUEST-CHANGES-equivalent `5031642732` on `62e104bc57c75ad7cfd057213e4554bed7b30a63`
   - Cycle 4 review: REQUEST-CHANGES-equivalent `5033180568` on `2f3f061fae76282a13c9e2badcde8e80f93af76d`
   - Cycle 5 review: REQUEST-CHANGES-equivalent `5033557818` on `fadcaf68239df0ea4f81ad0ddb3dad0966296c80`
+  - Cycle 6 review: REQUEST-CHANGES-equivalent `5033906803` on `cfcc97f496fe5e2dad0a2dba05d2701254beb71c`
   - Parallel re-anchor: APP-STATE Play persistence demolition on `main` as `f1fd3f6aa4270de2af44a4e249f127332622b785`
   - #649 APP-STATE persist active Run continuity: MERGED; no remaining parallel APP-STATE PR
   - DungeonMind provider pin: `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`
@@ -46,7 +47,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.3: Buddy graph-engine demolition
 
 **Created:** 2026-08-25
-**Status:** CYCLE 5 REPAIR — awaiting Review Cycle 6
+**Status:** CYCLE 6 REPAIR — awaiting Review Cycle 7
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`
 **Workstream / flow:** `CUTOVER`
 **Direction:** DESIGN → REVIEW
@@ -58,6 +59,7 @@ pr_body_template: |
 **Cycle 3 review:** REQUEST-CHANGES-equivalent `5031642732` on `62e104bc57c75ad7cfd057213e4554bed7b30a63`
 **Cycle 4 review:** REQUEST-CHANGES-equivalent `5033180568` on `2f3f061fae76282a13c9e2badcde8e80f93af76d`
 **Cycle 5 review:** REQUEST-CHANGES-equivalent `5033557818` on `fadcaf68239df0ea4f81ad0ddb3dad0966296c80`
+**Cycle 6 review:** REQUEST-CHANGES-equivalent `5033906803` on `cfcc97f496fe5e2dad0a2dba05d2701254beb71c`
 **D.2C2 implementation:** Buddy #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`
 **D.2C2 accepted head:** `f772db17e00cbe2c0198ae53f169a10a6332a3ed`
 **D.2C2 review:** 2 distinct-head cycles; final PASS-equivalent `5026532158`
@@ -826,8 +828,11 @@ Graph Review selection / Author Draft bound to an exact sourceRunId
   → staged authored proposals
       object | link_existing | relationship
   → POST prepare  (graph-head-neutral; not overlay/event-log mutation)
-                   resolve Buddy ExtractionRun → map SourceArtifactV2 +
-                   SourceRevision → idempotently prove/admit that pair in
+                   resolve Buddy ExtractionRun → fail closed on
+                   world/campaign scope mismatch → catalog-aware
+                   DM revision ID (same as _build_pair_to_dm) →
+                   map SourceArtifactV2 + SourceRevision →
+                   idempotently prove/admit that pair in
                    DungeonMind source authority → only then return a
                    confirmable token + sealed DM source identity +
                    expected parent + deterministic authority_operation_id
@@ -836,9 +841,9 @@ Graph Review selection / Author Draft bound to an exact sourceRunId
     DungeonMind SourceRepository (publication does not insert sources)
   → GraphContribution
       source_kind = graph_review_authored_assertion
-      source_artifact_id + source_revision_id on contribution and
-      every assertion (DungeonMind IDs after mapping/admit, not
-      client-supplied Buddy tokens)
+      source_artifact_id from the resolved source
+      source_revision_id Buddy token on publish input
+      (publisher _build_pair_to_dm must yield the sealed DM revision ID)
   → WorldGraphAuthority.publish
       operation_namespace = "worldbuilding"
       authority_operation_id = D.2C4 grauth:… (Buddy-side)
@@ -854,6 +859,7 @@ merge_objects
 legacy merge-reconciliation file-apply
 source-less / manually-started draft with no sourceRunId
 Buddy-only source identity without DungeonMind SourceRepository admission
+cross-world / cross-campaign sourceRunId rewritten into authored scope
 overlay token as graph CAS
 previewUnionStorePath as write destination
 ```
@@ -947,17 +953,21 @@ require exact sourceRunId on prepare and confirm
   → server resolves its Buddy SourceArtifact + exact source revision token
      from the artifact's content digest, same family as
      promotable_ingest_run
+  → fail closed on world/campaign scope mismatch BEFORE map/admit
+     (do not rewrite foreign source provenance into the authored scope)
   → server maps that pair onto DungeonMind SourceArtifactV2 + SourceRevision
      using the already-landed Buddy→DM source mapping family
-     (artifact ID preserved; revision via _dm_revision_id collision rule;
+     (artifact ID preserved; revision ID = publisher catalog-aware
+     derivation, not _dm_revision_id with an empty colliding set;
      visibility = GM so scoped projection can admit; None is SCOPE_UNKNOWN)
   → WorldGraphSourceAdmissionAuthority.prove_or_admit(exact mapped pair)
      before a confirmable prepare is returned
-  → contribution.source_artifact_id / source_revision_id
-     and every assertion's pair are the admitted DungeonMind IDs
-  → prepare seals those IDs/digests into the confirm token
+  → GraphContribution into publish keeps Buddy source_revision_id tokens
+     (existing _build_pair_to_dm contract)
+  → wire / confirm token / SourceRepository put seal the derived
+     DungeonMind IDs; publisher lookup must converge on the same IDs
   → confirm re-proves the same pair via get_provenance_snapshot
-     and fails closed on missing/mismatch/drift
+     and fails closed on missing/mismatch/drift / derived-ID divergence
 ```
 
 Buddy source identity is not DungeonMind source authority. Cycle 5's gap:
@@ -1008,6 +1018,9 @@ Buddy port: WorldGraphSourceAdmissionAuthority
 prove_or_admit(mapped SourceArtifactV2, mapped SourceRevision)
   → AdmittedSourceIdentity {source_artifact_id, source_revision_id,
                             content_sha256}
+  mapped.source_revision_id MUST already be the catalog-aware publisher
+  ID (_build_pair_to_dm); the adapter does not mint via
+  _dm_revision_id(..., set())
   1. get_artifact + get_revision (or get_provenance_snapshot)
   2. both present + exact fingerprint match → return admitted identity
      (no-op put)
@@ -1035,20 +1048,87 @@ the same mapped pair; it must not be the first admission. A confirmable
 token is never issued against missing DungeonMind source rows.
 `publish_finalized_review` remains a graph publication, not a source insert.
 
-Sealed contribution IDs are the DungeonMind IDs after mapping/admit (artifact
-ID usually identical to Buddy; revision may carry the `::{artifact}` suffix
-from `_dm_revision_id`). Client Buddy tokens, paths, graph IDs, and selected
-prose are not the durable source record.
+Sealed wire/token/snapshot IDs are the DungeonMind IDs after catalog-aware
+derive + admit. GraphContribution fields fed to `WorldGraphAuthority.publish`
+keep the Buddy source_revision_id token so `_build_pair_to_dm` converges on
+that same DM ID (catalog hit after admit). Client Buddy tokens, paths, graph
+IDs, and selected prose are not the durable source record.
+
+Frozen catalog-aware revision-ID derivation:
+
+```text
+_dm_revision_id(token, artifact_id, colliding) is only the suffix step.
+It is not the derivation. First-world init's _dm_revision_id(..., set())
+is not this contract.
+
+Reuse the publisher helper _build_pair_to_dm (extract/share it; do not
+fork a second collision algorithm):
+
+  1. list_artifacts_for_world(authored_world) + list_revisions
+  2. reverse each stored DM revision ID to its Buddy token
+     (bare T, or T::{artifact} → token T)
+  3. union the candidate pair (artifact_id, buddy_token)
+  4. colliding = tokens bound to more than one artifact
+  5. if (artifact, token) already in the catalog map, use that stored
+     DM revision ID (replay)
+  6. else mint _dm_revision_id(token, artifact_id, colliding)
+
+Required collision: token T already owned by artifact A, new artifact B
+with the same Buddy token T seals and publishes as T::B — never as T,
+and never as a second owner of A's revision row.
+
+Confirm fail-closes if a fresh _build_pair_to_dm would derive a different
+DM revision ID than the sealed token (catalog drift).
+```
+
+Frozen source-scope verification (before map/admit):
+
+```text
+authored_world_id     = native world being authored (D.2C3 binding)
+authored_campaign_id  = Graph Review request.campaign_id
+resolved              = PromotableIngestRun for exact sourceRunId
+artifact              = Buddy SourceArtifact for resolved.source_artifact_id
+
+The resolver already exposes:
+  PromotableIngestRun.campaign_id
+  PromotableIngestRun.world_id   # canonical SourceArtifact world identity;
+                                 # None on legacy graph-ingest manifests;
+                                 # never invent DEFAULT_WORLD_ID
+
+fail closed source_scope_mismatch BEFORE prove_or_admit:
+  stripped run.campaign_id != authored_campaign_id
+  empty run.campaign_id is not a wildcard match
+  run.world_id is present and != authored_world_id
+  artifact.world_id is present and != authored_world_id
+  artifact.campaign_id is present and != authored_campaign_id
+
+do not:
+  rewrite a present foreign world_id / campaign_id onto the authored scope
+  map world_id = authored world while ignoring a mismatched source world
+  admit, then discover the source belonged to another world/campaign
+
+after the check passes:
+  mapped SourceArtifactV2.campaign_id = verified source campaign
+    (artifact.campaign_id or run.campaign_id; already equal to authored)
+  mapped SourceArtifactV2.world_id = artifact.world_id when present
+    (already equal to authored)
+  if canonical source world identity is absent (legacy recap world_id=None):
+    campaign match is still required
+    only then may DungeonMind membership world_id be the authored world
+    (SourceArtifactV2.world_id is required-non-blank; this is fill-after-
+    verify, not overwrite of mismatched provenance)
+```
 
 Mapping family freeze (already-landed; do not invent a second vocabulary):
 
 ```text
 reuse D.2C2 / adoption source mapping helpers as values
-  (_store_artifact_v2, _dm_revision_id, digest-from-Buddy-revision)
+  (_store_artifact_v2, digest-from-Buddy-revision)
+reuse publisher _build_pair_to_dm for DM source_revision_id
+  (not _dm_revision_id with an empty colliding set)
 do not import Kernel graph-engine runtime
 visibility = GM (Graph Review is the GM correction cockpit;
   None would be SCOPE_UNKNOWN even if the row exists)
-world_id = the authored world
 body_storage / locator follow the landed mapper (external/object_store
   with a required locator)
 status ACTIVE
@@ -1210,7 +1290,8 @@ bundle.sources SourceRepository
   get_provenance_snapshot
 already-landed reviewable ExtractionRun lookup
 already-landed Buddy→DM source mapping family
-  (_store_artifact_v2 / _dm_revision_id)
+  (_store_artifact_v2 / digest-from-Buddy-revision)
+publisher _build_pair_to_dm catalog-aware revision derivation
 D.2C3 DirectAuthorityBinding
 ```
 
@@ -1259,7 +1340,9 @@ boundaries (not a hidden adapter test as the owning proof):
 5. confirm: re-prove the pair still exists; WorldGraphAuthority.publish →
    one child, parent = sealed head
 6. prove the DungeonMind reviewed contribution is source-closed
-   (contribution and accepted assertions carry the sealed DungeonMind pair)
+   (publish input carries Buddy tokens; sealed wire/token/snapshot
+   carry the catalog-aware DungeonMind pair; _build_pair_to_dm on
+   confirm equals the sealed DM revision ID)
 7. native-project / native-retrieve the new object on that child as an
    *admitted* fact (not SCOPE_UNKNOWN / stored_provenance_invalid exclusion);
    source-anchor resolution for the sealed pair succeeds
@@ -1274,6 +1357,12 @@ boundaries (not a hidden adapter test as the owning proof):
 13. missing sourceRunId fails closed; no source-less publish
 13b. missing DungeonMind source rows → prepare is not confirmable
 13c. fingerprint-divergent existing DungeonMind rows → fail closed; no overwrite
+13d. collision: token T already owned by artifact A; new artifact B with
+     Buddy token T seals and publishes as T::B (not T); snapshot loads
+     T::B for B; A's row T is unchanged
+13e. sourceRunId whose run/artifact world or campaign differs from the
+     authored world/campaign fails closed before admit; mapped
+     SourceArtifactV2 is not rewritten into the authored scope
 14. prove extract-promote still publishes an ingest-run contribution on a
     distinct operation id; the two children are not interchangeable proofs
 15. prove UnionSupergraph file-apply was not the write destination
@@ -1294,6 +1383,8 @@ source identity drift on confirm   → fail closed
 DungeonMind source rows missing    → prepare not confirmable;
                                      confirm re-prove fails closed
 source fingerprint conflict        → source_identity_conflict; no overwrite
+revision-ID empty colliding set    → forbidden; must reuse _build_pair_to_dm
+cross-world / cross-campaign run   → source_scope_mismatch before admit
 stale expected parent              → stale_parent
 overlay token is not graph CAS     → confirm does not require it
 UnionSupergraph path not used      → prepare/confirm do not import
@@ -1316,7 +1407,8 @@ apps/live_control_server/services/graph_authoring_overlay_store.py
   audit trail only; not graph CAS
 apps/live_control_server/models/graph_authoring_overlay.py
 apps/live_control_server/services/promotable_ingest_run.py
-  consume already-landed source-run resolution only
+  consume already-landed source-run resolution + campaign/world identity
+  for scope verification only; do not change extract-promote semantics
 apps/live_control_server/ports/world_graph_authority.py
   only if Buddy-side prepare/confirm types need to *consume* it;
   do not add a new DungeonMind publication_family
@@ -1326,8 +1418,11 @@ apps/live_control_server/ports/world_graph_source_admission.py
 apps/live_control_server/ports/world_graph_source_admission_access.py
 apps/live_control_server/integrations/dungeonmind/world_graph_source_admission_adapter.py
   consume already-landed SourceRepository put/get/snapshot only
+  derive DM revision IDs via shared _build_pair_to_dm, not empty colliding set
+apps/live_control_server/integrations/dungeonmind/world_graph_writes.py
+  share/extract _build_pair_to_dm for admission; do not fork collision math
 apps/live_control_server/integrations/dungeonmind_kernel/eldyrwild_existing_world_adoption_bundle_v2.py
-  consume mapping helpers only (_store_artifact_v2, _dm_revision_id);
+  consume mapping helpers only (_store_artifact_v2, _dm_revision_id as suffix step);
   do not invoke adoption UoW or Kernel graph runtime
 apps/live_control_server/integrations/dungeonmind/world_graph_authority_adapter.py
   only to reuse _worldbuilding_expressible / publish; no new family
@@ -1390,8 +1485,9 @@ title   CUTOVER: migrate Graph Review authoring onto WorldGraphAuthority
 
 The wrapper pins execution metadata, write lease, evidence, state sync, and
 handback. It does not reopen this mapping, convert extract-promote into
-manual authoring, add `merge_objects` to the shipped surface, or skip
-DungeonMind source-authority admission.
+manual authoring, add `merge_objects` to the shipped surface, skip
+DungeonMind source-authority admission, derive revision IDs with an empty
+colliding set, or rewrite foreign source world/campaign into authored scope.
 
 **Dispatch law:** merge this design PR first. Dispatch D.2C3 from the
 **merged** design. Dispatch D.2C4 only after D.2C3 merges. Do not dispatch
@@ -1413,9 +1509,12 @@ Return:
    merge_objects fail-closed with no file-apply fallback;
 8. source closure: server-resolved source_artifact_id + source_revision_id
    on contribution and assertions; DungeonMind SourceRepository
-   prove_or_admit before confirmable prepare; get_provenance_snapshot
-   returns the sealed pair; no-source drafts fail closed;
-   native projection admits the authored fact and source-anchor resolves;
+   prove_or_admit before confirmable prepare; catalog-aware DM revision
+   IDs match _build_pair_to_dm (T owned by A ⇒ B seals as T::B);
+   foreign world/campaign sourceRunId fail-closed before admit;
+   get_provenance_snapshot returns the sealed pair; no-source drafts fail
+   closed; native projection admits the authored fact and source-anchor
+   resolves;
 9. overlay/event-log is post-publish audit only; overlay token is not CAS;
    honest wire (no dummy overlay success fields);
 10. deterministic `grauth:` authority_operation_id; lost-response + exact
@@ -1626,7 +1725,9 @@ D.2C4  REWRITE_PORT
   GraphProjectionReader graph-authoring-action
   authoring mode toggle
   → object / link_existing / relationship only
-  → source-bound sourceRunId → mapped SourceArtifactV2 + SourceRevision
+  → source-bound sourceRunId → scope-checked world/campaign
+  → catalog-aware DM revision ID (_build_pair_to_dm)
+  → mapped SourceArtifactV2 + SourceRevision
   → WorldGraphSourceAdmissionAuthority.prove_or_admit before confirmable prepare
   → sealed DungeonMind SourceArtifact/revision (snapshot-provable)
   → WorldGraphAuthority.publish, worldbuilding family
@@ -1685,7 +1786,7 @@ Handle 410 as retired if any call remains.
 | Mounted `dungeonmind_kernel` hydrated read passthrough (`route_service_read`, `bind_world_authority` requiring frozen Buddy store) | **FAIL_CLOSED** | Not a production path after D.3A. Do not extend it for first-world worlds. Historical modules may remain until D.3B. |
 | `routes/threat_query_hydration.py` → `graph_memory.union_supergraph.statblock_binding` | **REHOME_DTO** | Relocate still-used mechanics contracts per §6.4. Query/hydration stays mounted; it must not import `union_supergraph` after D.3A. |
 | `get_world_graph_authority(world_root=...)` / `get_world_graph_initialization_authority(world_root=...)` selecting `BuddyFiles*Adapter` for a non-production root | **FAIL_CLOSED** | After D.3A a different `world_root` argument must not select the file adapter. Tests/tools that need legacy fixtures construct them directly. Configuration failure, not HTTP 410. |
-| Graph Review `/graph-authoring/prepare` and `/commit` plus authoring cockpit UI | **REWRITE_PORT in D.2C4** | Object/link/relationship only; DungeonMind source admission before confirmable prepare; not a D.3A FAIL_CLOSED. D.3A only proves they remain import-block-safe after D.2C4. |
+| Graph Review `/graph-authoring/prepare` and `/commit` plus authoring cockpit UI | **REWRITE_PORT in D.2C4** | Object/link/relationship only; catalog-aware DM revision IDs; fail-closed world/campaign scope; DungeonMind source admission before confirmable prepare; not a D.3A FAIL_CLOSED. D.3A only proves they remain import-block-safe after D.2C4. |
 | Graph Review `/graph-authoring/merge-reconciliation/*` file-apply | **FAIL_CLOSED** | D.3A KEEP_MOUNTED_410 leftover UnionSupergraph writer. |
 
 If implementation discovers that a FAIL_CLOSED surface is still a real
@@ -2506,7 +2607,12 @@ STOP if:
 20. D.2C4 returns a confirmable prepare whose mapped SourceArtifactV2 +
     SourceRevision are not snapshot-provable in DungeonMind
     SourceRepository, or treats a stored-but-SCOPE_UNKNOWN child as the
-    owning native-read proof.
+    owning native-read proof;
+21. D.2C4 derives source_revision_id with an empty colliding set, or
+    a token T already owned by artifact A is sealed/published for
+    artifact B as T rather than T::B;
+22. D.2C4 admits or rewrites a sourceRunId whose world or campaign
+    identity differs from the authored world/campaign.
 
 ---
 
@@ -2526,16 +2632,17 @@ STOP if:
 
 ```text
 1. map authored object/link_existing/relationship onto GraphContribution
-2. require sourceRunId; map Buddy A/R → SourceArtifactV2 + SourceRevision
-3. add WorldGraphSourceAdmissionAuthority; prove_or_admit before
+2. require sourceRunId; fail closed on world/campaign scope mismatch
+3. catalog-aware DM revision IDs via shared _build_pair_to_dm (T::B collision)
+4. add WorldGraphSourceAdmissionAuthority; prove_or_admit before
    confirmable prepare; seal DungeonMind source IDs
-4. rewrite /graph-authoring/prepare|commit onto WorldGraphAuthority
-5. keep Graph Review authoring cockpit as the working write UX
-6. fail-close merge_objects; stop file-apply as durable write
-7. overlay/event-log as post-publish audit; grauth: operation id
-8. real-Postgres admitted-read witness (projection + source-anchor) +
-   extract-promote distinctness
-9. carry D.2C3 predecessor state sync; keep D.3A blocked
+5. rewrite /graph-authoring/prepare|commit onto WorldGraphAuthority
+6. keep Graph Review authoring cockpit as the working write UX
+7. fail-close merge_objects; stop file-apply as durable write
+8. overlay/event-log as post-publish audit; grauth: operation id
+9. real-Postgres admitted-read witness (projection + source-anchor +
+   collision + scope) + extract-promote distinctness
+10. carry D.2C3 predecessor state sync; keep D.3A blocked
 ```
 
 ### D.3A (after D.2C4 merges)
@@ -2619,7 +2726,9 @@ Review this repaired design specifically for:
    product decision versus explicit architecture-superseding deprecation? Is
    leftover merge-reconciliation 410 the right D.3A remainder?
 3c. **D.2C4 contracts:** is failing closed on merge_objects, requiring
-    sourceRunId source closure, admitting the mapped SourceArtifactV2 +
+    sourceRunId source closure, catalog-aware publisher revision IDs
+    (T owned by A ⇒ B seals as T::B), fail-closed world/campaign scope
+    before admission, admitting the mapped SourceArtifactV2 +
     SourceRevision into DungeonMind source authority before a confirmable
     prepare, and keeping overlay/event-log as post-publish degraded-audit
     the right freeze versus restrict-to-already-present sources, a new
