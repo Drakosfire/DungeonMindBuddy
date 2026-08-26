@@ -25,11 +25,11 @@ dependencies = [
     "httpx>=0.27.0",
     "uvicorn>=0.30.0",
     "hermes-agent @ git+https://github.com/NousResearch/hermes-agent.git@861d69c7bba8d2ea6a1cd170e989c901c74d32d1",
-    # Exact pin: DungeonMind PR #45 merge (R.3a native World Graph read-context
-    # optimization: reusable parsed revision + batched provenance snapshot).
+    # Exact pin: DungeonMind PR #46 merge (D.2C1 reviewed first-world
+    # initialization authority: zero-parent D_0 + durable reviewed-init receipt).
     # The postgres extra carries the in-process PostgreSQL adapter dependencies
     # used by the DungeonMind-backed World Graph authority (cutover).
-    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@c5d3688587b0f5d506e0f7d64f33eb0628bac896",
+    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@bf40e933bdedf3cf08bb23a07a135958bdb7cc6b",
     "psycopg[binary]>=3.2",
     "alembic>=1.16",
 ]
