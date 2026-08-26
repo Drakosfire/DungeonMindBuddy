@@ -657,6 +657,59 @@ describe("App inspector integration", () => {
     "",
   ].join("\n");
 
+  const PLAY_V2_MARKDOWN = [
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:one beat_kind=spine -->",
+    "## Beat 1",
+    "",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:a -->",
+    "### Scene A",
+    "",
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:two beat_kind=optional -->",
+    "## Beat 2",
+    "",
+  ].join("\n");
+
+  function v2Manifest() {
+    return {
+      schema_version: "dmb_play_run_reference_manifest_v2" as const,
+      run_id: PLAY_RUN_ID,
+      playable_artifact_id: PLAY_ARTIFACT_ID,
+      playable_revision: 3,
+      playable_content_sha256: PLAY_SHA,
+      sealed_at: "2026-08-17T00:00:00Z",
+      beats: [
+        { beat_id: "beat:one", beat_kind: "spine" as const },
+        { beat_id: "beat:two", beat_kind: "optional" as const },
+      ],
+      scenes: [{ scene_id: "scene:a", beat_id: "beat:one" }],
+      choices: [],
+      options: [],
+      edges: [],
+    };
+  }
+
+  function mockV2PlayRun(
+    progress: {
+      current_beat_id: string | null;
+      current_scene_id: string | null;
+    } = { current_beat_id: null, current_scene_id: null },
+  ) {
+    const record = {
+      ...playRunRecord(),
+      progress: {
+        ...playRunRecord().progress,
+        current_beat_id: progress.current_beat_id,
+        current_scene_id: progress.current_scene_id,
+      },
+    };
+    vi.mocked(liveApi.getPlayRun).mockResolvedValue(record);
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue(v2Manifest());
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockResolvedValue(
+      playCommittedRevision({ markdown: PLAY_V2_MARKDOWN }),
+    );
+    return record;
+  }
+
   function playCommittedRevision(
     overrides: Partial<WorkspaceCommittedRevision> = {},
   ): WorkspaceCommittedRevision {
@@ -1201,6 +1254,77 @@ describe("App inspector integration", () => {
     expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
     expect(screen.getByText(/R4 replacement beat that must not mix with R3 Approach body/i)).toBeInTheDocument();
     expect(screen.getByText(/Runbook revision 4/i)).toBeInTheDocument();
+  });
+
+  it("seeds an empty v2 Run before READY and does not mount the v1 table deck", async () => {
+    const empty = mockV2PlayRun();
+    const seeded = {
+      ...empty,
+      run_revision: 5,
+      progress: {
+        ...empty.progress,
+        current_beat_id: "beat:one",
+        current_scene_id: null,
+      },
+    };
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(seeded);
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-v2-runtime")).toBeInTheDocument();
+    expect(screen.getByTestId("play-v2-current-beat")).toHaveTextContent("beat:one");
+    expect(screen.getByTestId("play-v2-current-scene")).toHaveTextContent("none");
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    await waitFor(() => expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(liveApi.putPlayRunProgress).toHaveBeenCalledWith(PLAY_RUN_ID, {
+      expected_run_revision: empty.run_revision,
+      progress: {
+        current_beat_id: "beat:one",
+        current_scene_id: null,
+        resolved_beat_ids: [],
+        selections: {},
+        notes_by_element_id: {},
+      },
+    });
+  });
+
+  it("does not reseed a v2 Run that already has a durable current Beat", async () => {
+    mockV2PlayRun({ current_beat_id: "beat:two", current_scene_id: null });
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-v2-runtime")).toBeInTheDocument();
+    expect(screen.getByTestId("play-v2-current-beat")).toHaveTextContent("beat:two");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+  });
+
+  it("rereads after a seed CAS conflict and does not overwrite the persisted Beat", async () => {
+    const empty = mockV2PlayRun();
+    const persisted = {
+      ...empty,
+      run_revision: 6,
+      progress: {
+        ...empty.progress,
+        current_beat_id: "beat:one",
+        current_scene_id: null,
+      },
+    };
+    vi.mocked(liveApi.putPlayRunProgress).mockRejectedValue(
+      new liveApi.LiveApiError("run_revision does not match the current Play Run", 409),
+    );
+    vi.mocked(liveApi.getPlayRun)
+      .mockResolvedValueOnce(empty)
+      .mockResolvedValueOnce(persisted);
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-v2-runtime")).toBeInTheDocument();
+    expect(screen.getByTestId("play-v2-current-beat")).toHaveTextContent("beat:one");
+    expect(screen.queryByTestId("play-status-integrity_failure")).not.toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
+    expect(liveApi.getPlayRun).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
   });
 
 });

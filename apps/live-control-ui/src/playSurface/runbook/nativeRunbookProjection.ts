@@ -6,6 +6,7 @@ import type {
   PlayRunReferenceElement,
   PlayRunReferenceManifest,
   PlayRunReferenceManifestV1,
+  PlayRunReferenceManifestV2,
   WorkspaceCommittedRevision,
   WorkspaceDocumentSnapshot,
 } from "../../api/types";
@@ -13,12 +14,24 @@ import {
   hasBlockingMarkdownImportDiagnostics,
   markdownToTiptapDoc,
 } from "../../tiptap/markdown/markdownToTiptap";
-import type { PlayableElementKind } from "../../tiptap/playable/playableElementIdentity";
+import type {
+  PlayableBeatKind,
+  PlayableElementKind,
+} from "../../tiptap/playable/playableElementIdentity";
 import {
   indexPlayableStructure,
+  indexPlayableStructureV2,
   type PlayableStructureElement,
   type PlayableStructureIndex,
+  type PlayableStructureIndexV2,
 } from "../../tiptap/playable/playableStructureIndex";
+import {
+  compareV2Membership,
+  deriveAuthoredRelevance,
+  deriveV2OpeningBeatId,
+  v2RelevanceTargetIds,
+  type AuthoredRelevance,
+} from "./v2RuntimeProjection";
 
 export const CANONICAL_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -67,6 +80,7 @@ export type NativeRunbookScene = NativeRunbookAuthoredElement & {
 
 export type NativeRunbookReadyDeck = {
   status: "ready";
+  grammar: "v1";
   run: PlayRunRecord;
   manifest: PlayRunReferenceManifestV1;
   snapshot: WorkspaceDocumentSnapshot;
@@ -80,12 +94,80 @@ export type NativeRunbookReadyDeck = {
   currentIsPreview: boolean;
 };
 
+export type NativeRunbookOptionV2 = {
+  kind: "option";
+  id: string;
+  title: string;
+  bodyText: string;
+  choiceId: string;
+};
+
+export type NativeRunbookChoiceV2 = {
+  kind: "choice";
+  id: string;
+  title: string;
+  bodyText: string;
+  beatId: string;
+  sceneId: string | null;
+  options: NativeRunbookOptionV2[];
+};
+
+export type NativeRunbookSceneV2 = {
+  kind: "scene";
+  id: string;
+  title: string;
+  bodyText: string;
+  beatId: string;
+  relevance: AuthoredRelevance;
+};
+
+export type NativeRunbookBeatV2 = {
+  kind: "beat";
+  id: string;
+  title: string;
+  bodyText: string;
+  beatKind: PlayableBeatKind | null;
+  relevance: AuthoredRelevance;
+  scenes: NativeRunbookSceneV2[];
+  choices: NativeRunbookChoiceV2[];
+};
+
+export type NativeRunbookReadyV2 = {
+  status: "ready";
+  grammar: "v2";
+  run: PlayRunRecord;
+  manifest: PlayRunReferenceManifestV2;
+  snapshot: WorkspaceDocumentSnapshot;
+  importedDoc: JSONContent;
+  structure: PlayableStructureIndexV2;
+  beats: NativeRunbookBeatV2[];
+  currentBeatId: string;
+  currentSceneId: string | null;
+  openingBeatId: string;
+  relevanceByTargetId: Record<string, AuthoredRelevance>;
+};
+
 export type NativeRunbookFailure = {
   status: NativeRunbookFailureStatus;
   reason: string;
 };
 
-export type NativeRunbookAdmission = NativeRunbookReadyDeck | NativeRunbookFailure;
+export type NativeRunbookAdmission =
+  | NativeRunbookReadyDeck
+  | NativeRunbookReadyV2
+  | NativeRunbookFailure;
+
+export function isNativeRunbookReadyV2(
+  admission: NativeRunbookAdmission,
+): admission is NativeRunbookReadyV2 {
+  return admission.status === "ready" && admission.grammar === "v2";
+}
+
+export function isNativeRunbookReadyV1(
+  admission: NativeRunbookAdmission,
+): admission is NativeRunbookReadyDeck {
+  return admission.status === "ready" && admission.grammar === "v1";
+}
 
 export function isCanonicalUuid(value: string): boolean {
   return CANONICAL_UUID_RE.test(value);
@@ -264,7 +346,7 @@ function compareMembership(
 
 function bindingMismatch(
   run: PlayRunRecord,
-  manifest: PlayRunReferenceManifestV1,
+  manifest: PlayRunReferenceManifestV1 | PlayRunReferenceManifestV2,
 ): string | null {
   if (manifest.run_id !== run.run_id) {
     return "sealed reference manifest run_id does not match the Run";
@@ -446,6 +528,170 @@ export function overlayRuntimeOnDeck(
   };
 }
 
+function projectV2Beats(
+  structure: PlayableStructureIndexV2,
+  slices: Map<string, AuthoredSlice>,
+  relevanceByTargetId: Record<string, AuthoredRelevance>,
+): NativeRunbookBeatV2[] {
+  const choiceById = new Map(structure.choices.map((choice) => [choice.choiceId, choice]));
+  const sceneById = new Map(structure.scenes.map((scene) => [scene.sceneId, scene]));
+  return structure.beats.map((beat) => {
+    const beatSlice = slices.get(beat.beatId);
+    const scenes: NativeRunbookSceneV2[] = beat.sceneOrder.map((sceneId) => {
+      const scene = sceneById.get(sceneId);
+      const slice = slices.get(sceneId);
+      return {
+        kind: "scene",
+        id: sceneId,
+        beatId: scene?.beatId ?? beat.beatId,
+        title: slice?.title ?? sceneId,
+        bodyText: slice?.bodyText ?? "",
+        relevance: relevanceByTargetId[sceneId] ?? "default",
+      };
+    });
+    const choices: NativeRunbookChoiceV2[] = beat.choiceOrder.map((choiceId) => {
+      const choice = choiceById.get(choiceId);
+      const slice = slices.get(choiceId);
+      const options: NativeRunbookOptionV2[] = (choice?.optionOrder ?? []).map((optionId) => {
+        const optionSlice = slices.get(optionId);
+        return {
+          kind: "option",
+          id: optionId,
+          choiceId,
+          title: optionSlice?.title ?? optionId,
+          bodyText: optionSlice?.bodyText ?? "",
+        };
+      });
+      return {
+        kind: "choice",
+        id: choiceId,
+        beatId: choice?.beatId ?? beat.beatId,
+        sceneId: choice?.sceneId ?? null,
+        title: slice?.title ?? choiceId,
+        bodyText: slice?.bodyText ?? "",
+        options,
+      };
+    });
+    return {
+      kind: "beat",
+      id: beat.beatId,
+      beatKind: beat.beatKind,
+      title: beatSlice?.title ?? beat.beatId,
+      bodyText: beatSlice?.bodyText ?? "",
+      relevance: relevanceByTargetId[beat.beatId] ?? "default",
+      scenes,
+      choices,
+    };
+  });
+}
+
+function admitNativeRunbookV2(input: {
+  run: PlayRunRecord;
+  manifest: PlayRunReferenceManifestV2;
+  committed: WorkspaceCommittedRevision;
+}): NativeRunbookAdmission {
+  const { run, manifest, committed } = input;
+  const manifestFailure = bindingMismatch(run, manifest);
+  if (manifestFailure) return failed("integrity_failure", manifestFailure);
+
+  if (hasBlockingMarkdownImportDiagnostics(committed.markdown)) {
+    return failed("integrity_failure", "bound Runbook Markdown failed P1 admission");
+  }
+
+  const imported = markdownToTiptapDoc(committed.markdown);
+  const indexed = indexPlayableStructureV2(imported.doc);
+  if (indexed.status === "blocked") {
+    return failed("integrity_failure", "bound Runbook failed v2 Playable structure indexing");
+  }
+
+  const membershipFailure = compareV2Membership(indexed.index, manifest);
+  if (membershipFailure) return failed("integrity_failure", membershipFailure);
+
+  const openingBeatId = deriveV2OpeningBeatId(indexed.index);
+  if (openingBeatId == null) {
+    return failed("integrity_failure", "v2 Playable has no Beat; native READY is fail-closed");
+  }
+
+  const currentBeatId = run.progress.current_beat_id;
+  if (currentBeatId == null) {
+    return failed(
+      "integrity_failure",
+      "v2 READY requires a durable current_beat_id",
+    );
+  }
+
+  const knownBeats = new Set(indexed.index.beatOrder);
+  if (!knownBeats.has(currentBeatId)) {
+    return failed("integrity_failure", "current_beat_id is not admitted by the sealed v2 Playable");
+  }
+
+  const currentSceneId = run.progress.current_scene_id;
+  if (currentSceneId != null) {
+    const scene = indexed.index.scenes.find((entry) => entry.sceneId === currentSceneId);
+    if (scene == null) {
+      return failed("integrity_failure", "current_scene_id is not admitted by the sealed v2 Playable");
+    }
+    if (scene.beatId !== currentBeatId) {
+      return failed("integrity_failure", "current_scene_id does not belong to current_beat_id");
+    }
+  }
+
+  const relevanceByTargetId = deriveAuthoredRelevance(
+    manifest.edges,
+    run.progress.selections,
+    v2RelevanceTargetIds(manifest),
+  );
+  const slices = slicePlayableBodies(imported.doc);
+  const beats = projectV2Beats(indexed.index, slices, relevanceByTargetId);
+
+  return {
+    status: "ready",
+    grammar: "v2",
+    run,
+    manifest,
+    snapshot: snapshotFromCommitted(committed),
+    importedDoc: imported.doc,
+    structure: indexed.index,
+    beats,
+    currentBeatId,
+    currentSceneId,
+    openingBeatId,
+    relevanceByTargetId,
+  };
+}
+
+export function overlayRuntimeOnV2(
+  admission: NativeRunbookReadyV2,
+  run: PlayRunRecord,
+): NativeRunbookReadyV2 | null {
+  if (!sameAdmittedRunBinding(admission.run, run)) return null;
+  const currentBeatId = run.progress.current_beat_id;
+  if (currentBeatId == null) return null;
+  if (!admission.structure.beatOrder.includes(currentBeatId)) return null;
+  const currentSceneId = run.progress.current_scene_id;
+  if (currentSceneId != null) {
+    const scene = admission.structure.scenes.find((entry) => entry.sceneId === currentSceneId);
+    if (scene == null || scene.beatId !== currentBeatId) return null;
+  }
+  const relevanceByTargetId = deriveAuthoredRelevance(
+    admission.manifest.edges,
+    run.progress.selections,
+    v2RelevanceTargetIds(admission.manifest),
+  );
+  return {
+    ...admission,
+    run,
+    beats: projectV2Beats(
+      admission.structure,
+      slicePlayableBodies(admission.importedDoc),
+      relevanceByTargetId,
+    ),
+    currentBeatId,
+    currentSceneId,
+    relevanceByTargetId,
+  };
+}
+
 export function admitNativeRunbook(input: {
   run: PlayRunRecord;
   manifest: PlayRunReferenceManifest;
@@ -463,12 +709,13 @@ export function admitNativeRunbook(input: {
   const workspaceFailure = workspaceBindingFailure(run, committed);
   if (workspaceFailure) return workspaceFailure;
 
-  // Rollout gate (BF1): native Runbook admission is v1-only. A created+sealed
-  // v2 Run is refused here until BF2 lands v2 current-position semantics.
+  if (manifest.schema_version === "dmb_play_run_reference_manifest_v2") {
+    return admitNativeRunbookV2({ run, manifest, committed });
+  }
   if (manifest.schema_version !== "dmb_play_run_reference_manifest_v1") {
     return failed(
       "integrity_failure",
-      "sealed reference manifest schema_version is not dmb_play_run_reference_manifest_v1",
+      "sealed reference manifest schema_version is not admitted",
     );
   }
 
@@ -498,6 +745,7 @@ export function admitNativeRunbook(input: {
 
   return {
     status: "ready",
+    grammar: "v1",
     run,
     manifest,
     snapshot: snapshotFromCommitted(committed),

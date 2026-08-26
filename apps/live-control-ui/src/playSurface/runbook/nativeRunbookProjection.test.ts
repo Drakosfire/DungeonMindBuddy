@@ -13,9 +13,16 @@ import { indexPlayableStructure } from "../../tiptap/playable/playableStructureI
 import {
   admitNativeRunbook,
   displayedSceneAndBeat,
+  isNativeRunbookReadyV1,
+  isNativeRunbookReadyV2,
   overlayRuntimeOnDeck,
   slicePlayableBodies,
 } from "./nativeRunbookProjection";
+import {
+  deriveAuthoredRelevance,
+  deriveV2OpeningBeatId,
+  deriveV2OpeningBeatIdFromMarkdown,
+} from "./v2RuntimeProjection";
 
 const RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const ARTIFACT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -186,7 +193,7 @@ describe("admitNativeRunbook", () => {
       committed: committed(),
     });
     expect(admitted.status).toBe("ready");
-    if (admitted.status !== "ready") throw new Error("expected ready");
+    if (!isNativeRunbookReadyV1(admitted)) throw new Error("expected v1 ready");
     expect(admitted.scenes.map((scene) => scene.id)).toEqual(["scene:gate"]);
     expect(admitted.scenes[0]?.beats.map((beat) => beat.id)).toEqual([
       "beat:approach",
@@ -207,7 +214,7 @@ describe("admitNativeRunbook", () => {
       committed: committed({ object_revision: 18 }),
     });
     expect(admitted.status).toBe("ready");
-    if (admitted.status !== "ready") throw new Error("expected ready");
+    if (!isNativeRunbookReadyV1(admitted)) throw new Error("expected v1 ready");
     expect(admitted.snapshot.loaded_revision).toBe(3);
     expect(admitted.run.playable_revision).toBe(3);
   });
@@ -231,12 +238,7 @@ describe("admitNativeRunbook", () => {
     expect(admitted.status).toBe("integrity_failure");
   });
 
-  it("BF1 rollout gate: refuses a sealed v2 manifest even when binding fields agree", () => {
-    // BF1 allows v2 Runs to be created and sealed, but native Runbook
-    // admission stays v1-only until BF2 seeds currentBeatId. A genuinely
-    // sealed BF1 v2 manifest — typed against the canonical wire contract so
-    // the compiler rejects any drift from the backend schema — must fail
-    // closed here, at the owning boundary.
+  it("fails closed when a sealed v2 manifest is paired with v1 document bytes", () => {
     const v2Manifest: PlayRunReferenceManifestV2 = {
       schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: RUN_ID,
@@ -271,8 +273,7 @@ describe("admitNativeRunbook", () => {
       committed: committed(),
     });
     expect(admitted.status).toBe("integrity_failure");
-    if (admitted.status !== "integrity_failure") throw new Error("v2 must not reach READY in BF1");
-    expect(admitted.reason).toMatch(/schema|version|v1/i);
+    if (admitted.status === "ready") throw new Error("mixed v1 bytes / v2 manifest must not reach READY");
   });
 
   it("fails closed when client P1 structure disagrees with the sealed manifest", () => {
@@ -319,7 +320,7 @@ describe("admitNativeRunbook", () => {
       committed: committed({ has_divergent_working_copy: true }),
     });
     expect(admitted.status).toBe("ready");
-    if (admitted.status !== "ready") throw new Error("existing Run N must still project N");
+    if (!isNativeRunbookReadyV1(admitted)) throw new Error("existing Run N must still project N");
     expect(admitted.snapshot.loaded_revision).toBe(3);
   });
 
@@ -330,7 +331,7 @@ describe("admitNativeRunbook", () => {
       committed: committed({ target_relpath: null }),
     });
     expect(admitted.status).toBe("ready");
-    if (admitted.status !== "ready") throw new Error("file path is metadata, not byte authority");
+    if (!isNativeRunbookReadyV1(admitted)) throw new Error("file path is metadata, not byte authority");
     expect(admitted.snapshot.file_exists).toBe(false);
   });
 
@@ -346,7 +347,7 @@ describe("admitNativeRunbook", () => {
       committed: committed(),
     });
     expect(admitted.status).toBe("ready");
-    if (admitted.status !== "ready") throw new Error("expected ready");
+    if (!isNativeRunbookReadyV1(admitted)) throw new Error("expected v1 ready");
     expect(admitted.displayedSceneId).toBe("scene:gate");
     expect(admitted.displayedBeatId).toBe("beat:inside");
     expect(admitted.currentIsPreview).toBe(false);
@@ -360,7 +361,7 @@ describe("admitNativeRunbook", () => {
       committed: committed(),
     });
     expect(admitted.status).toBe("ready");
-    if (admitted.status !== "ready") throw new Error("expected ready");
+    if (!isNativeRunbookReadyV1(admitted)) throw new Error("expected v1 ready");
     expect(admitted.run.progress.current_scene_id).toBeNull();
     expect(admitted.run.progress.current_beat_id).toBeNull();
     expect(admitted.currentIsPreview).toBe(true);
@@ -377,7 +378,7 @@ describe("overlayRuntimeOnDeck", () => {
       committed: committed(),
     });
     expect(admitted.status).toBe("ready");
-    if (admitted.status !== "ready") throw new Error("expected ready");
+    if (!isNativeRunbookReadyV1(admitted)) throw new Error("expected v1 ready");
     const overlaid = overlayRuntimeOnDeck(
       admitted,
       runRecord({
@@ -401,7 +402,7 @@ describe("overlayRuntimeOnDeck", () => {
       committed: committed(),
     });
     expect(admitted.status).toBe("ready");
-    if (admitted.status !== "ready") throw new Error("expected ready");
+    if (!isNativeRunbookReadyV1(admitted)) throw new Error("expected v1 ready");
     const rebased = runRecord({
       playable_revision: 4,
       playable_content_sha256: OTHER_SHA,
@@ -423,9 +424,263 @@ describe("displayedSceneAndBeat", () => {
       committed: committed(),
     });
     expect(admitted.status).toBe("ready");
-    if (admitted.status !== "ready") throw new Error("expected ready");
+    if (!isNativeRunbookReadyV1(admitted)) throw new Error("expected v1 ready");
     const displayed = displayedSceneAndBeat(admitted.scenes, admitted.run.progress);
     expect(displayed.currentIsPreview).toBe(true);
     expect(admitted.run.progress.current_scene_id).toBeNull();
+  });
+});
+
+const V2_MARKDOWN = [
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:one beat_kind=spine -->",
+  "## Beat 1",
+  "",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:a -->",
+  "### Scene A",
+  "",
+  "<!-- dmb-playable-element:v2 kind=choice id=choice:x -->",
+  "### Decision X",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:x1 activates=beat:two -->",
+  "- Option X1",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:x2 suppresses=scene:b -->",
+  "- Option X2",
+  "",
+  "<!-- dmb-playable-element:v2 kind=choice id=choice:y -->",
+  "### Decision Y",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:y1 suppresses=beat:two -->",
+  "- Option Y1",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:two beat_kind=optional -->",
+  "## Beat 2",
+  "",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:b -->",
+  "### Scene B",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:three beat_kind=spine -->",
+  "## Beat 3",
+  "",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:c -->",
+  "### Scene C",
+  "",
+].join("\n");
+
+const V2_ORDER_MARKDOWN = [
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:z-opening beat_kind=spine -->",
+  "## Opening",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:a-later beat_kind=spine -->",
+  "## Later",
+  "",
+].join("\n");
+
+function v2Manifest(): PlayRunReferenceManifestV2 {
+  return {
+    schema_version: "dmb_play_run_reference_manifest_v2",
+    run_id: RUN_ID,
+    playable_artifact_id: ARTIFACT_ID,
+    playable_revision: 3,
+    playable_content_sha256: CONTENT_SHA,
+    sealed_at: "2026-08-17T00:00:00Z",
+    beats: [
+      { beat_id: "beat:one", beat_kind: "spine" },
+      { beat_id: "beat:three", beat_kind: "spine" },
+      { beat_id: "beat:two", beat_kind: "optional" },
+    ],
+    scenes: [
+      { scene_id: "scene:a", beat_id: "beat:one" },
+      { scene_id: "scene:b", beat_id: "beat:two" },
+      { scene_id: "scene:c", beat_id: "beat:three" },
+    ],
+    choices: [
+      { choice_id: "choice:x", beat_id: "beat:one" },
+      { choice_id: "choice:y", beat_id: "beat:one" },
+    ],
+    options: [
+      { option_id: "option:x1", choice_id: "choice:x" },
+      { option_id: "option:x2", choice_id: "choice:x" },
+      { option_id: "option:y1", choice_id: "choice:y" },
+    ],
+    edges: [
+      { option_id: "option:x1", effect: "activate", target_kind: "beat", target_id: "beat:two" },
+      { option_id: "option:x2", effect: "suppress", target_kind: "scene", target_id: "scene:b" },
+      { option_id: "option:y1", effect: "suppress", target_kind: "beat", target_id: "beat:two" },
+    ],
+  };
+}
+
+describe("admitNativeRunbook v2", () => {
+  it("admits a Beat-rooted READY deck against the exact pinned revision", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({
+        progress: progress({ current_beat_id: "beat:one" }),
+      }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    expect(admitted.status).toBe("ready");
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+    expect(admitted.beats.map((beat) => beat.id)).toEqual(["beat:one", "beat:two", "beat:three"]);
+    expect(admitted.currentBeatId).toBe("beat:one");
+    expect(admitted.currentSceneId).toBeNull();
+    expect(admitted.openingBeatId).toBe("beat:one");
+    expect(admitted.beats[0]?.scenes.map((scene) => scene.id)).toEqual(["scene:a"]);
+    expect(admitted.beats[0]?.choices[0]?.options.map((option) => option.id)).toEqual([
+      "option:x1",
+      "option:x2",
+    ]);
+    expect(admitted.run.progress).not.toHaveProperty("relevance");
+    expect(admitted.relevanceByTargetId["beat:two"]).toBe("default");
+  });
+
+  it("refuses READY when v2 progress has not been seeded", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({ progress: progress() }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    expect(admitted.status).toBe("integrity_failure");
+    if (admitted.status === "ready") throw new Error("empty v2 progress must not be READY");
+    expect(admitted.reason).toMatch(/current_beat_id/);
+  });
+
+  it("chooses the opening Beat from document order, not id-sorted manifest arrays", () => {
+    const orderManifest: PlayRunReferenceManifestV2 = {
+      schema_version: "dmb_play_run_reference_manifest_v2",
+      run_id: RUN_ID,
+      playable_artifact_id: ARTIFACT_ID,
+      playable_revision: 3,
+      playable_content_sha256: CONTENT_SHA,
+      sealed_at: "2026-08-17T00:00:00Z",
+      beats: [
+        { beat_id: "beat:a-later", beat_kind: "spine" },
+        { beat_id: "beat:z-opening", beat_kind: "spine" },
+      ],
+      scenes: [],
+      choices: [],
+      options: [],
+      edges: [],
+    };
+    expect(orderManifest.beats.map((beat) => beat.beat_id)).toEqual([
+      "beat:a-later",
+      "beat:z-opening",
+    ]);
+    expect(deriveV2OpeningBeatIdFromMarkdown(V2_ORDER_MARKDOWN)).toBe("beat:z-opening");
+    const admitted = admitNativeRunbook({
+      run: runRecord({
+        progress: progress({ current_beat_id: "beat:z-opening" }),
+      }),
+      manifest: orderManifest,
+      committed: committed({ markdown: V2_ORDER_MARKDOWN }),
+    });
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+    expect(admitted.openingBeatId).toBe("beat:z-opening");
+    expect(admitted.beats.map((beat) => beat.id)).toEqual(["beat:z-opening", "beat:a-later"]);
+  });
+
+  it("fails closed when a current Scene belongs to a different Beat", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({
+        progress: progress({
+          current_beat_id: "beat:one",
+          current_scene_id: "scene:b",
+        }),
+      }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    expect(admitted.status).toBe("integrity_failure");
+  });
+
+  it("keeps a suppressed Scene addressable and derives activation over suppression", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({
+        progress: progress({
+          current_beat_id: "beat:two",
+          current_scene_id: "scene:b",
+          selections: {
+            "choice:x": "option:x1",
+            "choice:y": "option:y1",
+          },
+        }),
+      }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+    expect(admitted.currentBeatId).toBe("beat:two");
+    expect(admitted.currentSceneId).toBe("scene:b");
+    expect(admitted.relevanceByTargetId["beat:two"]).toBe("emphasized");
+    expect(admitted.beats.some((beat) => beat.id === "beat:two")).toBe(true);
+    expect(admitted.beats.find((beat) => beat.id === "beat:two")?.scenes[0]?.id).toBe("scene:b");
+    expect(JSON.stringify(admitted.run.progress)).not.toMatch(/emphasized|de-emphasized|relevance/);
+  });
+
+  it("fails closed on a zero-Beat v2 Playable", () => {
+    const emptyManifest: PlayRunReferenceManifestV2 = {
+      schema_version: "dmb_play_run_reference_manifest_v2",
+      run_id: RUN_ID,
+      playable_artifact_id: ARTIFACT_ID,
+      playable_revision: 3,
+      playable_content_sha256: CONTENT_SHA,
+      sealed_at: "2026-08-17T00:00:00Z",
+      beats: [],
+      scenes: [],
+      choices: [],
+      options: [],
+      edges: [],
+    };
+    const admitted = admitNativeRunbook({
+      run: runRecord({ progress: progress({ current_beat_id: "beat:one" }) }),
+      manifest: emptyManifest,
+      committed: committed({ markdown: "# No playable Beats\n" }),
+    });
+    expect(admitted.status).toBe("integrity_failure");
+    if (admitted.status === "ready") throw new Error("zero-Beat v2 must never be READY");
+  });
+
+  it("fails closed when the sealed v2 manifest does not match the pinned revision", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({
+        progress: progress({ current_beat_id: "beat:one" }),
+      }),
+      manifest: { ...v2Manifest(), playable_revision: 99 },
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    expect(admitted.status).toBe("integrity_failure");
+  });
+});
+
+describe("deriveAuthoredRelevance", () => {
+  it("defaults when nothing is selected and never invents persisted branch state", () => {
+    const relevance = deriveAuthoredRelevance(v2Manifest().edges, {}, ["beat:two", "scene:b"]);
+    expect(relevance).toEqual({ "beat:two": "default", "scene:b": "default" });
+  });
+
+  it("emphasizes an activated target even when another selected Option suppresses it", () => {
+    const relevance = deriveAuthoredRelevance(
+      v2Manifest().edges,
+      { "choice:x": "option:x1", "choice:y": "option:y1" },
+      ["beat:two", "scene:b"],
+    );
+    expect(relevance["beat:two"]).toBe("emphasized");
+  });
+});
+
+describe("deriveV2OpeningBeatId", () => {
+  it("falls back to the first Beat when no spine exists", () => {
+    expect(deriveV2OpeningBeatId({
+      beatOrder: ["beat:optional-first", "beat:interrupt-second"],
+      beats: [
+        { beatId: "beat:optional-first", beatKind: "optional", order: 0, sceneOrder: [], choiceOrder: [] },
+        { beatId: "beat:interrupt-second", beatKind: "interrupt", order: 1, sceneOrder: [], choiceOrder: [] },
+      ],
+      scenes: [],
+      choices: [],
+      options: [],
+      elements: [],
+    })).toBe("beat:optional-first");
   });
 });
