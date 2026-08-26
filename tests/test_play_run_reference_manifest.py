@@ -7,12 +7,10 @@ from threading import Thread
 import psycopg
 import pytest
 
-from apps.live_control_server.services import play_run_reference_manifest as manifest_mod
 from apps.live_control_server.services.play_run_registry import (
     PlayRunRegistryError,
     create_or_replay_play_run,
     get_play_run,
-    play_run_path,
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
     PlayRunReferenceManifestError,
@@ -21,8 +19,6 @@ from apps.live_control_server.services.play_run_reference_manifest import (
     derive_play_run_reference_elements_v2,
     detect_playable_grammar_version,
     get_play_run_reference_manifest,
-    play_run_reference_manifest_path,
-    play_run_reference_manifests_dir,
     seal_or_replay_play_run_reference_manifest,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
@@ -43,6 +39,9 @@ from apps.live_control_server.services.workspace_document_registry import (
 
 pytest_plugins = ["tests.application_state.conftest"]
 
+from tests.application_state.play_runtime_helpers import (
+    leftover_manifest_path,
+)
 _PLAYABLE_BY_SHA: dict[tuple[str, str], int] = {}
 
 
@@ -331,7 +330,7 @@ def test_exact_first_seal_persists_without_mutating_run_or_runbook(tmp_path: Pat
 
     manifest = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
 
-    assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
     assert manifest.run_id == record.run_id
     assert manifest.playable_artifact_id == record.playable_artifact_id
     assert manifest.playable_revision == record.playable_revision
@@ -364,11 +363,14 @@ def test_identical_replay_returns_existing_bytes_and_skips_workspace(
     def boom(*args: object, **kwargs: object) -> None:
         raise AssertionError("replay must not read current workspace state")
 
-    monkeypatch.setattr(manifest_mod, "get_committed_playable_revision", boom)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.workspace_document_registry.get_committed_playable_revision",
+        boom,
+    )
     second = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
 
     assert second == first
-    assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_replay_after_runbook_advance_does_not_reread_workspace(
@@ -386,7 +388,10 @@ def test_replay_after_runbook_advance_does_not_reread_workspace(
     def boom(*args: object, **kwargs: object) -> None:
         raise AssertionError("replay after advance must not consult current workspace")
 
-    monkeypatch.setattr(manifest_mod, "get_committed_playable_revision", boom)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.workspace_document_registry.get_committed_playable_revision",
+        boom,
+    )
     replayed = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
 
     assert replayed == first
@@ -394,7 +399,7 @@ def test_replay_after_runbook_advance_does_not_reread_workspace(
     assert "scene:harbor" not in {
         element.element_id for element in replayed.elements
     }
-    assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_runbook_advance_before_first_seal_still_seals_bound_revision(tmp_path: Path) -> None:
@@ -406,7 +411,7 @@ def test_runbook_advance_before_first_seal_still_seals_bound_revision(tmp_path: 
     manifest = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
     assert manifest.playable_revision == record.playable_revision
     assert manifest.playable_content_sha256 == record.playable_content_sha256
-    assert not play_run_reference_manifest_path(tmp_path, record.run_id).exists()
+    assert not leftover_manifest_path(tmp_path, record.run_id).exists()
 
 
 def test_get_absent_does_not_create(tmp_path: Path) -> None:
@@ -414,7 +419,7 @@ def test_get_absent_does_not_create(tmp_path: Path) -> None:
         get_play_run_reference_manifest(tmp_path, RUN_ID_A)
 
     assert exc_info.value.status_code == 404
-    assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_unknown_and_invalid_run_ids_fail_closed(tmp_path: Path) -> None:
@@ -431,7 +436,7 @@ def test_filename_and_binding_mismatch_fail_closed(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     record = _create_run(tmp_path, snapshot)
     first = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
-    leftover = play_run_reference_manifest_path(tmp_path, RUN_ID_A)
+    leftover = leftover_manifest_path(tmp_path, RUN_ID_A)
     leftover.parent.mkdir(parents=True, exist_ok=True)
     payload = first.model_dump(mode="json", exclude_none=True)
     payload["run_id"] = RUN_ID_B
@@ -536,7 +541,7 @@ def test_seal_holds_runbook_mutation_lock_through_atomic_write(tmp_path: Path) -
     assert sealed == manifest_before
     assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == manifest_before
     assert sealed.playable_revision == record.playable_revision
-    assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -794,7 +799,7 @@ def test_v2_first_seal_still_seals_bound_revision_when_workspace_advanced(tmp_pa
     _advance_runbook(tmp_path, snapshot, ADVANCED_MARKDOWN)
     manifest = seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
     assert manifest.playable_revision == record.playable_revision
-    assert not play_run_reference_manifest_path(tmp_path, record.run_id).exists()
+    assert not leftover_manifest_path(tmp_path, record.run_id).exists()
 
 
 def test_v2_seal_fails_closed_on_invalid_document(tmp_path: Path) -> None:
@@ -809,7 +814,7 @@ def test_v2_seal_fails_closed_on_invalid_document(tmp_path: Path) -> None:
     with pytest.raises((PlayRunReferenceManifestError, PlayRunRegistryError)) as excinfo:
         _create_run(tmp_path, snapshot)
     assert excinfo.value.status_code in {409, 422}
-    assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
     with pytest.raises(PlayRunRegistryError) as seal_exc:
         seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
     assert seal_exc.value.status_code == 404

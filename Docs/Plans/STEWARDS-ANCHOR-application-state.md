@@ -3,7 +3,7 @@
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT
 **Line of work / flow:** `APP-STATE`
 **Created:** 2026-08-24
-**Updated:** 2026-08-25
+**Updated:** 2026-08-26
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Creation anchor:** `main` `54779636750ebf7a639aef8a6184cc61ead9c860` (merge of CUTOVER PR #632)
 **AS0 merge:** PR #636 @ `4c90df353bfb5d0f6857357e00eb8b2b6e142257`
@@ -23,8 +23,12 @@
 **AS3 accepted head:** `913cfe0bbce4db27250afd8277e3af50712ee029`
 **AS3 review:** 3 distinct-head cycles; final PASS-equivalent review `5026608908`
 **AS3 exact-head evidence:** PR #646 comment `5420273265`
-**Current implementation:** AS4 Play Continuity — this PR; do not mark AS4 DONE
-**Named successor still false:** AS5 Play persistence demolition
+**AS4 merge:** PR #649 @ `993f837b6f2fc601acf2ae3a4b7926af1858ac6c`
+**AS4 accepted head:** `be109c429460b6e22b0ded1c13e77dd0cc8e6b5e`
+**AS4 review:** 2 distinct-head cycles; final PASS-equivalent review `5033365385`
+**AS4 exact-head evidence:** PR #649 comment `5428663041`
+**Current implementation:** AS5 Play persistence demolition — this PR; do not mark AS5 DONE
+**Named successor still false:** no pre-authorized AS6; next family is evidence-driven
 **Repository law:** [`../../AGENTS.md`](../../AGENTS.md)
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)
 **Primary adjacent authorities:**
@@ -653,8 +657,12 @@ versus the 50 ms hypothesis and ~1 ms file baseline. Start Run + seal was about
 **75 ms p95**, inside the 250 ms hypothesis. The CAS figure was not a merge
 gate; keep it visible during interactive use.
 
-**AS4 is the active implementation slice** (this PR). Do not mark AS4 DONE and do
-not invent its merge SHA. AS5 remains false.
+**AS4 is complete** — merged PR #649 @ `993f837b6f2fc601acf2ae3a4b7926af1858ac6c`
+(accepted head `be109c42…`; 2 review cycles; final PASS-equivalent review `5033365385`;
+evidence comment `5428663041`).
+
+**AS5 is the active implementation slice** (this PR). Do not mark AS5 DONE and do
+not invent its merge SHA. AS6+ remains unselected.
 
 Expected artifacts (canonical owners):
 
@@ -710,8 +718,8 @@ AS0.1  STORAGE-TOPOLOGY            DONE — PR #639 merge dd09f7f7
 AS1    PLAN DOCUMENTS              DONE — PR #641 merge 29ff1584
 AS2    PLAYABLE                    DONE — PR #643 merge b4d63daa
 AS3    PLAY RUNTIME                DONE — PR #646 merge 9c946cd8
-AS4    PLAY CONTINUITY             THIS PR — active Run + resume/reload; unmerged
-AS5    PLAY DEMOLITION             still false / blocked on AS4
+AS4    PLAY CONTINUITY             DONE — PR #649 merge 993f837b
+AS5    PLAY DEMOLITION             THIS PR — unmerged
 AS6+   CANDIDATE FAMILIES          Ingest, Asset, statblock, Combat, card, …
                                    evidence-driven; not pre-authorized schemas
 ```
@@ -732,13 +740,13 @@ BF1 Beat-first grammar/manifest foundation is predecessor truth.
 
 Default steering decision:
 
-> **Do not deepen BF2/BF3 Runtime/cockpit implementation on `active-run.json`
-> until AS4 lands or the steward explicitly re-sequences.**
+> **AS4 removed the persistence reason for pausing BF2/BF3. Play Surface cockpit
+> work may proceed in parallel with AS5 when write leases are disjoint. AS5 does
+> not implement BF2/BF3.**
 
-The remaining Play persistence pause is the selected/active Run pointer, not
-the architecture or the Run/manifest aggregate. AS4 is the point where that
-pause ends. Existing PLAY-SURFACE file-backed active-run continuity work is
-not AS4 PostgreSQL dispatch.
+The selected/active Run pointer is PostgreSQL-owned. Remaining Play file
+helpers are demolished by this AS5 slice; they are not a semantic prerequisite
+for cockpit deepening.
 
 This is a sequencing decision, not permission for APP-STATE to redesign Beat/Scene/
 Decision semantics.
@@ -1014,7 +1022,8 @@ A new steward should be able to begin with this exact sequence:
 6. Trace current workspace-document + Play Run persistence end to end.
 7. Inventory path-keyed Ingest, location index, and generated-artifact durable state.
 8. Treat AS3 as DONE — PR #646 merge `9c946cd8…`, accepted head `913cfe0b…`.
-9. Treat AS4 as this unmerged Play Continuity implementation; keep AS5 (Play file demolition) unimplemented.
+9. Treat AS4 as DONE — PR #649 merge `993f837b…`, accepted head `be109c42…`, 2 cycles, PASS `5033365385`.
+10. Treat AS5 as this unmerged Play persistence demolition; leave AS6+ unselected.
 ```
 
 If a fresh steward cannot answer "what remains false after the first implementation

@@ -15,7 +15,6 @@ from apps.live_control_server.services.play_run_registry import (
     create_or_replay_play_run,
     get_play_run,
     list_play_runs,
-    play_runs_dir,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -36,6 +35,9 @@ from tests.application_state.playable_binding import (
 
 pytest_plugins = ["tests.application_state.conftest"]
 
+from tests.application_state.play_runtime_helpers import (
+    leftover_run_path,
+)
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 RUN_ID_C = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
@@ -45,7 +47,7 @@ SHA = "a" * 64
 
 
 def _persist_record(root: Path, *, run_id: str, created_at: str) -> Path:
-    path = play_runs_dir(root) / f"{run_id}.json"
+    path = leftover_run_path(root, run_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
@@ -152,7 +154,7 @@ def test_persisted_run_id_must_match_filename_identity(tmp_path: Path) -> None:
         run_id=RUN_ID_B,
         created_at="2026-08-15T12:00:00Z",
     )
-    mismatched = play_runs_dir(tmp_path) / f"{RUN_ID_A}.json"
+    mismatched = leftover_run_path(tmp_path, RUN_ID_A)
     path.replace(mismatched)
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
@@ -182,7 +184,7 @@ def test_unknown_playable_document_returns_404_and_creates_no_run(
     )
 
     assert response.status_code == 404
-    assert not (play_runs_dir(tmp_path) / f"{RUN_ID_A}.json").exists()
+    assert not (leftover_run_path(tmp_path, RUN_ID_A)).exists()
 
 
 def test_new_run_commit_holds_runbook_mutation_lock_through_atomic_write(

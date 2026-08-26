@@ -13,12 +13,10 @@ from apps.live_control_server.services.play_run_registry import (
     empty_play_run_progress,
     get_play_run,
     list_play_runs,
-    play_run_path,
     replace_play_run_progress,
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
     get_play_run_reference_manifest,
-    play_run_reference_manifest_path,
     seal_or_replay_play_run_reference_manifest,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
@@ -37,7 +35,11 @@ from tests.application_state.playable_binding import (
     playable_binding,
     remember_committed_playable,
 )
-from tests.application_state.play_runtime_helpers import fetch_play_runtime_state
+from tests.application_state.play_runtime_helpers import (
+    fetch_play_runtime_state,
+    leftover_manifest_path,
+    leftover_run_path,
+)
 
 pytest_plugins = ["tests.application_state.conftest"]
 
@@ -171,7 +173,7 @@ def _update_run_progress(dsn: str, run_id: str, progress: dict) -> None:
 def _write_leftover_run_file(root: Path, record) -> None:
     from src.live_play.live_store import write_json
 
-    path = play_run_path(root, RUN_ID_A)
+    path = leftover_run_path(root, RUN_ID_A)
     path.parent.mkdir(parents=True, exist_ok=True)
     write_json(path, record.model_dump(mode="json"))
 
@@ -218,7 +220,7 @@ def test_valid_snapshot_persists_and_reloads(tmp_path: Path) -> None:
     reloaded = get_play_run(tmp_path, RUN_ID_A)
     assert reloaded == updated
     assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == manifest
-    assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_unknown_and_cross_membership_references_are_422_without_write(
@@ -275,7 +277,7 @@ def test_missing_manifest_is_409_without_auto_seal_or_workspace(
     assert updated.progress == _progress()
     assert get_play_run(tmp_path, RUN_ID_A) == updated
     assert created.run_revision == 1
-    assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_runbook_advance_is_irrelevant_after_seal(
@@ -389,7 +391,7 @@ def test_current_token_same_state_is_byte_preserving_noop(tmp_path: Path) -> Non
     assert replayed == first
     assert replayed.run_revision == 2
     assert replayed.updated_at == first.updated_at
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_lost_response_replay_does_not_increment_again(tmp_path: Path) -> None:
@@ -411,7 +413,7 @@ def test_lost_response_replay_does_not_increment_again(tmp_path: Path) -> None:
 
     assert replayed == first
     assert replayed.run_revision == 2
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_stale_different_state_is_409(tmp_path: Path) -> None:
@@ -434,7 +436,7 @@ def test_stale_different_state_is_409(tmp_path: Path) -> None:
 
     assert exc_info.value.status_code == 409
     assert get_play_run(tmp_path, RUN_ID_A) == first
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_create_replay_after_progress_does_not_reset(tmp_path: Path) -> None:
@@ -459,7 +461,7 @@ def test_create_replay_after_progress_does_not_reset(tmp_path: Path) -> None:
     assert replayed == progressed
     assert replayed.run_revision == 2
     assert replayed.progress == _progress()
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_persisted_ghost_reference_fails_closed_on_reads(
@@ -580,7 +582,7 @@ def test_legacy_record_without_progress_reads_empty_and_can_mutate(
     assert updated.run_revision == 2
     assert updated.progress == _progress()
     assert updated.playable_artifact_id == created.playable_artifact_id
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_unknown_run_is_404(tmp_path: Path) -> None:

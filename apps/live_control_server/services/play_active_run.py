@@ -12,11 +12,8 @@ from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from application_state.errors import ApplicationStateError
 from application_state.play import service as play_service
-from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
-from src.live_play.live_store import load_json
 
 PLAY_ACTIVE_RUN_SCHEMA = "dmb_play_active_run_v1"
-PLAY_ACTIVE_RUN_REL = "out/runtime/play/active-run.json"
 _UTC_TIMESTAMP_RE = re.compile(r".*Z$")
 
 
@@ -103,34 +100,12 @@ class PlayActiveRunState(BaseModel):
         return self
 
 
-def play_active_run_path(root: Path) -> Path:
-    return root / PLAY_ACTIVE_RUN_REL
-
-
 def _empty_state() -> PlayActiveRunState:
     return PlayActiveRunState(run_id=None, selected_at=None)
 
 
 def _state_from_row(row: object) -> PlayActiveRunState:
     return PlayActiveRunState(run_id=str(row.run_id), selected_at=_iso_z(row.selected_at))
-
-
-def load_legacy_play_active_run_file(root: Path) -> PlayActiveRunState:
-    """Migration/inventory capture of active-run.json. Ordinary GET/PUT must not call this."""
-
-    path = play_active_run_path(root)
-    if not path.is_file():
-        return _empty_state()
-    with registry_mutation_lock(path):
-        if not path.is_file():
-            return _empty_state()
-        try:
-            return PlayActiveRunState.model_validate(load_json(path))
-        except (OSError, TypeError, ValueError) as exc:
-            raise PlayActiveRunError(
-                f"malformed persisted Play active-Run selection {path.name}: {exc}",
-                status_code=500,
-            ) from exc
 
 
 def get_play_active_run(root: Path) -> PlayActiveRunState:
