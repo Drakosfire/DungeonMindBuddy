@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class PlayRun(BaseModel):
@@ -41,15 +41,3 @@ class PlayRunAggregate(BaseModel):
 class PlayActiveRun(BaseModel):
     run_id: UUID
     selected_at: datetime
-
-
-class PlayActiveRunImportReport(BaseModel):
-    imported: int = 0
-    noop: int = 0
-
-
-class PlayRuntimeImportReport(BaseModel):
-    imported: int = 0
-    noop: int = 0
-    recovered_intents: int = 0
-    run_ids: list[str] = Field(default_factory=list)

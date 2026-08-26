@@ -9,7 +9,6 @@ from apps.live_control_server.main import create_app
 from apps.live_control_server.services.play_run_registry import get_play_run
 from apps.live_control_server.services.play_run_reference_manifest import (
     get_play_run_reference_manifest,
-    play_run_reference_manifest_path,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -30,6 +29,9 @@ from tests.application_state.playable_binding import (
 
 pytest_plugins = ["tests.application_state.conftest"]
 
+from tests.application_state.play_runtime_helpers import (
+    leftover_manifest_path,
+)
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
 PROGRESS_MARKDOWN = "\n".join(
@@ -167,7 +169,7 @@ def test_progress_put_round_trip_and_get_includes_snapshot(
     assert listed.status_code == 200
     assert listed.json()["records"] == [body]
     assert get_play_run_reference_manifest(root, RUN_ID_A) == manifest_before
-    assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()
+    assert not leftover_manifest_path(root, RUN_ID_A).exists()
 
 
 def _create_and_seal(
@@ -216,7 +218,7 @@ def test_missing_manifest_is_409(client: TestClient, root: Path) -> None:
     assert response.json()["run_revision"] == 2
     assert get_play_run(root, RUN_ID_A).run_revision == 2
     assert record_before.run_revision == 1
-    assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()
+    assert not leftover_manifest_path(root, RUN_ID_A).exists()
 
 
 def test_http_noop_and_lost_response_replay(client: TestClient, root: Path) -> None:

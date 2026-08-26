@@ -7,10 +7,8 @@ from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.play_run_registry import get_play_run
-from apps.live_control_server.services.play_run_rebase import play_run_rebase_intent_path
 from apps.live_control_server.services.play_run_reference_manifest import (
     get_play_run_reference_manifest,
-    play_run_reference_manifest_path,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -28,6 +26,10 @@ from apps.live_control_server.services.workspace_document_registry import (
 
 pytest_plugins = ["tests.application_state.conftest"]
 
+from tests.application_state.play_runtime_helpers import (
+    leftover_rebase_intent_path,
+    leftover_manifest_path,
+)
 _PLAYABLE_BY_SHA: dict[tuple[str, str], int] = {}
 
 
@@ -200,7 +202,7 @@ def test_http_rebase_round_trip_and_replay(client: TestClient, root: Path) -> No
     assert body["playable_revision"] == _playable(target)[0]
     assert body["playable_content_sha256"] == target.content_sha256
     assert body["progress"]["current_scene_id"] is None
-    assert not play_run_rebase_intent_path(root, RUN_ID_A).exists()
+    assert not leftover_rebase_intent_path(root, RUN_ID_A).exists()
 
     fetched = client.get(f"/api/live/play-runs/{RUN_ID_A}")
     assert fetched.status_code == 200
@@ -214,7 +216,7 @@ def test_http_rebase_round_trip_and_replay(client: TestClient, root: Path) -> No
     assert replay.status_code == 200
     assert replay.json() == body
     assert get_play_run(root, RUN_ID_A) == record_before
-    assert not play_run_rebase_intent_path(root, RUN_ID_A).exists()
+    assert not leftover_rebase_intent_path(root, RUN_ID_A).exists()
 
     current = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/rebase",
@@ -249,7 +251,7 @@ def test_http_removed_refs_are_409(client: TestClient, root: Path) -> None:
     assert response.status_code == 409
     assert "current_scene_id" in response.json()["detail"]
     assert get_play_run(root, RUN_ID_A) == run_before
-    assert not play_run_rebase_intent_path(root, RUN_ID_A).exists()
+    assert not leftover_rebase_intent_path(root, RUN_ID_A).exists()
 
 
 def test_http_pending_intent_is_503(
@@ -258,7 +260,7 @@ def test_http_pending_intent_is_503(
 ) -> None:
     source = _create_and_seal(client, root)
     target = _commit_record(root, source.record, SURVIVING_TARGET_MARKDOWN)
-    intent_path = play_run_rebase_intent_path(root, RUN_ID_A)
+    intent_path = leftover_rebase_intent_path(root, RUN_ID_A)
     intent_path.parent.mkdir(parents=True, exist_ok=True)
     intent_path.write_text("{}\n", encoding="utf-8")
     recovered = client.put(
@@ -280,7 +282,7 @@ def test_http_completed_replay_requires_intact_manifest(client: TestClient, root
     )
     assert first.status_code == 200
     manifest_before = get_play_run_reference_manifest(root, RUN_ID_A)
-    leftover = play_run_reference_manifest_path(root, RUN_ID_A)
+    leftover = leftover_manifest_path(root, RUN_ID_A)
     leftover.parent.mkdir(parents=True, exist_ok=True)
     leftover.write_text("{}\n", encoding="utf-8")
     replay = client.put(

@@ -9,8 +9,6 @@ from fastapi.testclient import TestClient
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.play_run_registry import (
     get_play_run,
-    play_run_path,
-    play_runs_dir,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -30,6 +28,9 @@ from apps.live_control_server.services.workspace_document_registry import (
 
 pytest_plugins = ["tests.application_state.conftest"]
 
+from tests.application_state.play_runtime_helpers import (
+    leftover_run_path,
+)
 _PLAYABLE_BY_SHA: dict[tuple[str, str], int] = {}
 
 
@@ -153,7 +154,7 @@ def test_real_app_mount_creates_gets_and_lists_exact_binding(
     assert created["playable_content_sha256"] == before.content_sha256
     assert created["run_revision"] == 1
     assert created["created_at"] == created["updated_at"]
-    assert not play_run_path(root, RUN_ID_A).exists()
+    assert not leftover_run_path(root, RUN_ID_A).exists()
 
     get_response = client.get(f"/api/live/play-runs/{RUN_ID_A}")
     assert get_response.status_code == 200
@@ -198,7 +199,7 @@ def test_identical_put_replay_is_exact_and_does_not_rewrite_file(
     assert second.json() == first.json()
     assert second.json()["run_revision"] == 1
     assert get_play_run(root, RUN_ID_A) == record_before
-    assert not play_run_path(root, RUN_ID_A).exists()
+    assert not leftover_run_path(root, RUN_ID_A).exists()
 
 
 def test_replay_after_runbook_advances_returns_stored_binding(
@@ -220,7 +221,7 @@ def test_replay_after_runbook_advances_returns_stored_binding(
 
     assert replay.status_code == 200
     assert replay.json() == first.json()
-    assert not play_run_path(root, RUN_ID_A).exists()
+    assert not leftover_run_path(root, RUN_ID_A).exists()
 
 
 def test_same_run_uuid_different_binding_returns_409_and_preserves_original(
@@ -261,7 +262,7 @@ def test_stale_revision_after_workspace_advance_returns_409_and_no_file(
     response = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=_request(old))
 
     assert response.status_code == 409
-    assert not play_run_path(root, RUN_ID_A).exists()
+    assert not leftover_run_path(root, RUN_ID_A).exists()
 
 
 def test_stale_sha_returns_409_and_no_file(client: TestClient, root: Path) -> None:
@@ -272,7 +273,7 @@ def test_stale_sha_returns_409_and_no_file(client: TestClient, root: Path) -> No
     response = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=body)
 
     assert response.status_code == 409
-    assert not play_run_path(root, RUN_ID_A).exists()
+    assert not leftover_run_path(root, RUN_ID_A).exists()
 
 
 def test_non_runbook_draft_and_discarded_are_rejected_over_http(
@@ -291,7 +292,7 @@ def test_non_runbook_draft_and_discarded_are_rejected_over_http(
         json=_request(committed_plan),
     )
     assert plan_response.status_code == 422
-    assert not play_run_path(root, RUN_ID_A).exists()
+    assert not leftover_run_path(root, RUN_ID_A).exists()
 
     draft = create_workspace_document(
         root,
@@ -308,7 +309,7 @@ def test_non_runbook_draft_and_discarded_are_rejected_over_http(
         json=_request(draft_snapshot),
     )
     assert draft_response.status_code == 409
-    assert not play_run_path(root, RUN_ID_A).exists()
+    assert not leftover_run_path(root, RUN_ID_A).exists()
 
     committed = _create_committed_runbook(root, name="live-discarded")
     discarded = discard_workspace_document(
@@ -322,7 +323,7 @@ def test_non_runbook_draft_and_discarded_are_rejected_over_http(
         json=_request(discarded_snapshot),
     )
     assert discarded_response.status_code == 409
-    assert not play_run_path(root, RUN_ID_A).exists()
+    assert not leftover_run_path(root, RUN_ID_A).exists()
 
 
 def test_two_run_ids_can_share_one_playable_binding(
@@ -351,7 +352,7 @@ def test_invalid_unknown_and_malformed_runs_fail_closed_over_http(
     unknown = client.get(f"/api/live/play-runs/{RUN_ID_A}")
     assert unknown.status_code == 404
 
-    path = play_runs_dir(root) / f"{RUN_ID_A}.json"
+    path = leftover_run_path(root, RUN_ID_A)
     path.parent.mkdir(parents=True)
     path.write_text("{broken\n", encoding="utf-8")
 

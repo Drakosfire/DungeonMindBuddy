@@ -6,7 +6,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
-from apps.live_control_server.services.play_active_run import play_active_run_path
 from apps.live_control_server.services.play_run_reference_manifest import (
     seal_or_replay_play_run_reference_manifest,
 )
@@ -27,6 +26,7 @@ from tests.application_state.playable_binding import (
     playable_binding,
     remember_committed_playable,
 )
+from tests.application_state.play_runtime_helpers import leftover_active_run_path
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
@@ -104,12 +104,12 @@ def test_put_validates_uuid_and_requires_existing_sealed_run(
 
     missing = client.put("/api/live/play-active-run", json={"run_id": RUN_ID_A})
     assert missing.status_code == 404
-    assert not play_active_run_path(tmp_path).exists()
+    assert not leftover_active_run_path(tmp_path).exists()
 
     _create_committed_run(tmp_path, run_id=RUN_ID_A, name="already-sealed")
     sealed = client.put("/api/live/play-active-run", json={"run_id": RUN_ID_A})
     assert sealed.status_code == 200
-    assert not play_active_run_path(tmp_path).exists()
+    assert not leftover_active_run_path(tmp_path).exists()
     assert sealed.json()["run_id"] == RUN_ID_A
 
 
@@ -129,7 +129,7 @@ def test_valid_selection_is_idempotent_and_last_explicit_run_wins(
     replay_response = client.put("/api/live/play-active-run", json={"run_id": RUN_ID_A})
     assert replay_response.status_code == 200
     assert replay_response.json() == first
-    assert not play_active_run_path(tmp_path).exists()
+    assert not leftover_active_run_path(tmp_path).exists()
 
     replaced = client.put("/api/live/play-active-run", json={"run_id": RUN_ID_B})
     assert replaced.status_code == 200
@@ -144,7 +144,7 @@ def test_legacy_file_malformation_is_ignored_over_http(
     client: TestClient,
     tmp_path: Path,
 ) -> None:
-    path = play_active_run_path(tmp_path)
+    path = leftover_active_run_path(tmp_path)
     path.parent.mkdir(parents=True)
     payload = '{"schema_version":"dmb_play_active_run_v1","run_id":"broken"}\n'
     path.write_text(payload)

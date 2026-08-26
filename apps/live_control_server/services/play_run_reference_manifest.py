@@ -11,17 +11,10 @@ from typing import Literal, NamedTuple
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from apps.live_control_server.services.play_run_registry import (
-    PlayRunRecord,
     PlayRunRegistryError,
 )
-from apps.live_control_server.services.workspace_document_registry import (
-    WorkspaceDocumentRegistryError,
-    get_committed_playable_revision,
-)
-from src.live_play.live_store import load_json
 
 PLAY_RUN_REFERENCE_MANIFEST_SCHEMA = "dmb_play_run_reference_manifest_v1"
-PLAY_RUN_REFERENCE_MANIFESTS_REL = "out/runtime/play/reference-manifests"
 MARKER_PREFIX = "dmb-playable-element:"
 CANONICAL_MARKER_RE = re.compile(
     r"^<!-- dmb-playable-element:v1 kind=(scene|beat|choice|option) "
@@ -477,22 +470,6 @@ def derive_sealed_manifest(
     )
 
 
-def play_run_reference_manifests_dir(root: Path) -> Path:
-    return root / PLAY_RUN_REFERENCE_MANIFESTS_REL
-
-
-def play_run_reference_manifest_path(root: Path, run_id: str) -> Path:
-    try:
-        canonical = _canonical_uuid(run_id, field_name="run_id")
-    except ValueError as exc:
-        raise PlayRunReferenceManifestError(str(exc), status_code=422) from exc
-    return play_run_reference_manifests_dir(root) / f"{canonical}.json"
-
-
-def _dump_manifest(manifest: AnyPlayRunReferenceManifest) -> dict[str, object]:
-    return manifest.model_dump(mode="json", exclude_none=True)
-
-
 def _opening_fence(line: str) -> tuple[str, int] | None:
     match = _FENCE_OPEN_RE.fullmatch(line)
     if match is None:
@@ -842,69 +819,6 @@ def derive_play_run_reference_elements_v2(markdown: str) -> DerivedV2Membership:
     )
 
 
-def _load_manifest(path: Path) -> AnyPlayRunReferenceManifest:
-    try:
-        expected_run_id = path.stem
-        payload = load_json(path)
-        if not isinstance(payload, dict):
-            raise ValueError("manifest payload must be a JSON object")
-        schema_version = payload.get("schema_version")
-        manifest: AnyPlayRunReferenceManifest
-        if schema_version == PLAY_RUN_REFERENCE_MANIFEST_SCHEMA:
-            manifest = PlayRunReferenceManifest.model_validate(payload)
-        elif schema_version == PLAY_RUN_REFERENCE_MANIFEST_V2_SCHEMA:
-            manifest = PlayRunReferenceManifestV2.model_validate(payload)
-        else:
-            raise ValueError(f"unknown manifest schema version: {schema_version!r}")
-        if manifest.run_id != expected_run_id:
-            raise ValueError(
-                "persisted run_id does not match the manifest file name: "
-                f"{manifest.run_id} != {expected_run_id}"
-            )
-        return manifest
-    except (OSError, TypeError, ValueError, ValidationError) as exc:
-        raise PlayRunReferenceManifestError(
-            f"malformed persisted Play Run reference manifest {path.name}: {exc}",
-            status_code=500,
-        ) from exc
-
-
-def _require_binding_match(manifest: AnyPlayRunReferenceManifest, record: PlayRunRecord) -> None:
-    if (
-        manifest.run_id != record.run_id
-        or manifest.playable_artifact_id != record.playable_artifact_id
-        or manifest.playable_revision != record.playable_revision
-        or manifest.playable_content_sha256 != record.playable_content_sha256
-    ):
-        raise PlayRunReferenceManifestError(
-            "persisted reference manifest identity does not match the Run binding",
-            status_code=500,
-        )
-
-
-def load_play_run_reference_manifest_for_record(
-    root: Path,
-    record: PlayRunRecord,
-) -> AnyPlayRunReferenceManifest:
-    """Load and bind-check the sealed postgres manifest for an already-loaded Run.
-
-    Does not consult workspace state. Sidecar files are import-only.
-    """
-    del root
-    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
-    from application_state.play.service import get_play_run_manifest
-
-    try:
-        stored = get_play_run_manifest(record.run_id)
-    except ApplicationStateNotFoundError as exc:
-        raise PlayRunReferenceManifestError(str(exc), status_code=404) from exc
-    except ApplicationStateError as exc:
-        raise PlayRunReferenceManifestError(str(exc), status_code=exc.status_code) from exc
-    manifest = parse_manifest_payload(stored.manifest, run_id=record.run_id)
-    _require_binding_match(manifest, record)
-    return manifest
-
-
 def get_play_run_reference_manifest(root: Path, run_id: str) -> AnyPlayRunReferenceManifest:
     del root
     from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
@@ -919,34 +833,6 @@ def get_play_run_reference_manifest(root: Path, run_id: str) -> AnyPlayRunRefere
     except ApplicationStateError as exc:
         raise PlayRunReferenceManifestError(str(exc), status_code=exc.status_code) from exc
     return parse_manifest_payload(stored.manifest, run_id=str(stored.run_id))
-
-
-def _admit_snapshot(record: PlayRunRecord, root: Path) -> str:
-    del root
-    try:
-        committed = get_committed_playable_revision(
-            record.playable_artifact_id,
-            revision_n=record.playable_revision,
-            expected_sha256=record.playable_content_sha256,
-        )
-    except WorkspaceDocumentRegistryError as exc:
-        raise PlayRunReferenceManifestError(str(exc), status_code=exc.status_code) from exc
-    if committed.kind != "runbook":
-        raise PlayRunReferenceManifestError(
-            "playable_artifact_id must identify a runbook workspace document",
-            status_code=422,
-        )
-    if committed.document_id != record.playable_artifact_id:
-        raise PlayRunReferenceManifestError(
-            "workspace document id does not match the Run binding",
-            status_code=409,
-        )
-    if committed.status != "active":
-        raise PlayRunReferenceManifestError(
-            "runbook workspace document is discarded",
-            status_code=409,
-        )
-    return committed.markdown
 
 
 def seal_or_replay_play_run_reference_manifest(

@@ -12,13 +12,11 @@ from apps.live_control_server.services.play_run_registry import (
     create_or_replay_play_run,
     get_play_run,
     list_play_runs,
-    play_run_path,
     replace_play_run_progress,
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
     PlayRunReferenceManifestError,
     get_play_run_reference_manifest,
-    play_run_reference_manifest_path,
     seal_or_replay_play_run_reference_manifest,
 )
 from apps.live_control_server.services.workspace_document_registry import (
@@ -32,15 +30,17 @@ from tests.application_state.play_runtime_helpers import (
     RUN_ID_B,
     SURVIVING_TARGET_MARKDOWN,
     commit_runbook_markdown,
-    count_play_rows,
     corrupt_play_run_manifest_document,
     corrupt_play_run_progress,
+    count_play_rows,
     create_committed_runbook,
     create_run,
     empty_progress,
     fetch_play_runtime_state,
     gate_progress,
     hidden_legacy_runtime_dirs,
+    leftover_manifest_path,
+    leftover_run_path,
     measure_file_backed_baseline_latency,
     measure_ms,
     playable_of,
@@ -60,8 +60,8 @@ def test_create_seals_manifest_atomically_and_writes_no_files(
     replayed = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
     assert replayed == manifest
     assert manifest.playable_revision == record.playable_revision
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
-    assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
     assert count_play_rows(application_state_dsn) == (1, 1)
 
 
@@ -74,7 +74,7 @@ def test_manifest_derivation_failure_writes_neither_row(
     with pytest.raises((PlayRunRegistryError, ApplicationStateValidationError)):
         create_run(tmp_path, snapshot)
     assert count_play_rows(application_state_dsn) == (0, 0)
-    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_forced_manifest_insert_failure_rolls_back_run(

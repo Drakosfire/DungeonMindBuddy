@@ -6,7 +6,6 @@ import pytest
 
 from apps.live_control_server.services.play_run_rebase import (
     PlayRunRebaseError,
-    play_run_rebase_intent_path,
     rebase_or_replay_play_run,
 )
 from apps.live_control_server.services.play_run_registry import get_play_run
@@ -28,6 +27,7 @@ from tests.application_state.play_runtime_helpers import (
     create_committed_runbook,
     create_run,
     fetch_play_runtime_state,
+    leftover_rebase_intent_path,
     playable_of,
     unknown_schema_manifest,
 )
@@ -64,7 +64,7 @@ def test_successful_rebase_moves_binding_and_manifest_once(
     manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
     assert manifest.playable_revision == target_revision
     assert manifest.playable_content_sha256 == target_sha
-    assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_rebase_exact_replay_does_not_mutate_again(
@@ -125,7 +125,7 @@ def test_rebase_failure_before_commit_leaves_source_and_writes_no_intent(
     assert leftover.run_revision == created.run_revision
     assert leftover.rebased_from_run_revision is None
     assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == source_manifest
-    assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_stale_rebase_expected_revision_is_409(
@@ -144,7 +144,7 @@ def test_stale_rebase_expected_revision_is_409(
         )
     assert exc_info.value.status_code == 409
     assert get_play_run(tmp_path, RUN_ID_A).run_revision == created.run_revision
-    assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
 
 def _assert_cross_grammar_rebase_is_terminal(
@@ -179,7 +179,7 @@ def _assert_cross_grammar_rebase_is_terminal(
     assert leftover.run_revision == created.run_revision
     assert leftover.rebased_from_run_revision is None
     assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == source_manifest
-    assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_v1_to_v2_rebase_is_fail_closed(tmp_path: Path, application_state_dsn: str) -> None:
@@ -219,7 +219,7 @@ def test_same_grammar_v2_rebase_is_preserve_only(
     assert get_play_run_reference_manifest(tmp_path, RUN_ID_A).schema_version == (
         "dmb_play_run_reference_manifest_v2"
     )
-    assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
+    assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_exact_rebase_replay_rejects_corrupt_stored_manifest(
@@ -272,4 +272,4 @@ def test_exact_rebase_replay_rejects_corrupt_stored_manifest(
         assert leftover["run"]["rebased_from_run_revision"] == created.run_revision
         assert leftover["manifest"]["manifest"] == document
         assert leftover["manifest"]["playable_revision_n"] == first.playable_revision
-        assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
+        assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
