@@ -9,7 +9,7 @@ pr_body_template: |
   - Exact implementation/dispatch base: `d96a21363fd0decbcb8c4390f951a6316b53060c`
   - Exact #647 design base: `f1fd3f6aa4270de2af44a4e249f127332622b785`
   - Design PR #647 merge: `d96a21363fd0decbcb8c4390f951a6316b53060c`
-  - Current Buddy `main`: `cc016661f80416e0816f56349217cf33c53a195f`
+  - Current Buddy `main`: `555a9c7965aca47a24536277b9b36ae569a7285a`
   - Accepted design head: `1f5676c204ee917d18efd553106c07306541e820`
   - Design review: Cycle 7 PASS-equivalent `5034239255`
   - D.2C2 implementation #645 merge: `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`
@@ -42,7 +42,7 @@ pr_body_template: |
 **Branch:** `cutover/native-genesis-read-write-continuity`  
 **Base revision:** `d96a21363fd0decbcb8c4390f951a6316b53060c` (#647 merge / original dispatch)  
 **#647 exact design base:** `f1fd3f6aa4270de2af44a4e249f127332622b785`  
-**Current Buddy `main`:** `cc016661f80416e0816f56349217cf33c53a195f` (#650; merged into this repaired head)  
+**Current Buddy `main`:** `555a9c7965aca47a24536277b9b36ae569a7285a` (PLAY-SURFACE cockpit re-anchor; merged into this repaired head)  
 **PR title:** `CUTOVER: native genesis read/write continuity`  
 **Frozen design authority:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` §4  
 **Design PR #647 merge:** `d96a21363fd0decbcb8c4390f951a6316b53060c`  
@@ -82,7 +82,7 @@ pr_body_template: |
 | What remains false | Manual Graph Review authoring still targets legacy overlay/file semantics; mounted legacy graph-engine imports/routes still exist; D.3A/D.3B are not begun. |
 | Explicit non-goals | No D.2C4, D.3A/D.3B, authority-mode parser rehome, import blocker, buddy_files removal, UI changes, APP-STATE, provider changes. |
 | Branch / isolated checkout | `cutover/native-genesis-read-write-continuity` from exact base above; isolated checkout/worktree required. |
-| Parallel lanes / collision hotspots | APP-STATE #650 is MERGED at `cc016661f80416e0816f56349217cf33c53a195f`; its lease was Play/runtime persistence only. This repaired head re-anchored by merging that `main`. CUTOVER state-authority docs remain this lane's hotspot. |
+| Parallel lanes / collision hotspots | APP-STATE #650 is MERGED at `cc016661f80416e0816f56349217cf33c53a195f`. PLAY-SURFACE current `main` is `555a9c7965aca47a24536277b9b36ae569a7285a` (cockpit re-anchor; disjoint). Open PLAY-SURFACE #652 does not overlap this lease. This repaired head merged that `main`. CUTOVER state-authority docs remain this lane's hotspot. |
 | Runtime/state ownership | Real PostgreSQL authority witness must use an isolated test DB/schema/world IDs; do not share mutable world IDs with another worker. No Buddy world-file mutation is required by the native witness. |
 | State-authority sync set after merge | `Docs/Plans/STEWARDS-ANCHOR-cutover.md`; `Docs/Plans/PR-TRACKER-campaign-supergraph.md`; `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`; ACTIVE_AUTHORITY tracker/roadmap mirrors; `Docs/Design/STATUS-world-graph-continuity-spine.md` if stale; merged #647 design handoff status/facts. |
 
@@ -118,7 +118,7 @@ Adversarial sequences:
 
 | Action | Path | Purpose |
 |---|---|---|
-| Modify | `apps/live_control_server/integrations/dungeonmind/world_graph_reads.py` | Generalize receipt-backed binder, optional legacy revision, genesis discriminator, pin/integrity algebra, and in-memory predecessor evidence-domain admission. |
+| Modify | `apps/live_control_server/integrations/dungeonmind/world_graph_reads.py` | Generalize receipt-backed binder, optional legacy revision, genesis discriminator, and pin/integrity algebra. Do not rewrite DungeonMind graph-payload evidence. |
 | Modify | `apps/live_control_server/integrations/dungeonmind/world_graph_writes.py` | Make parent/write classification consume optional legacy bridge without changing publication semantics. |
 | Modify if required | `apps/live_control_server/integrations/dungeonmind/world_graph_authority_adapter.py` | Consume shared generalized binding only; no new authority family. |
 | Modify if required | `apps/live_control_server/integrations/dungeonmind/world_graph_initialization_adapter.py` | Share verified reviewed-init receipt error mapping only if needed; do not alter first-world initialization semantics. |
@@ -288,17 +288,31 @@ Evidence captured: test output + exact world/init/revision IDs and receipt count
 
 If any required cohort fails or skips on the exact base, record the same command at base and head. The implementation must not add failures/skips. A required D.2C3 PostgreSQL witness skip has no waiver in this handoff.
 
-## Execution record — Review Cycle 2 repairs, not DONE
+## Execution record — Review Cycle 3 stop/rebrief, not DONE
 
-This PR remains `DOING`. Do not treat the following as merge-ready `DONE`.
+This PR remains `DOING`. Do not treat the following as merge-ready `DONE`. Native projection of #645 `D_0` facts is **not** claimed.
 
-**Cycle 1 blocker 1 resolution:** `#651` owns a *read-side* compatibility contract, not a D.2C2 command mutation. `_align_first_world_evidence_domains()` was removed from `_build_command()`. Native projection aligns graph-payload evidence domains in memory to the stored SourceArtifact. Stored `#645`-shaped `D_0` bytes remain `source_domain=other`. Exact first-world retry must reuse the predecessor `command_sha256`.
+**Cycle 1 blockers 2–4 remain closed:** genesis reread; parent `PersistenceIntegrityError` → integrity; #647 exact design base `f1fd3f6…` vs merge `d96a2136…`.
 
-**Cycle 1 blocker 2 resolution:** contradictory genesis observations are reread once before `authority_integrity`. A transition that produces a coherent second snapshot binds or misses; only a stable contradiction is integrity.
+**Cycle 2 blocker 1 is reopened as a stop.** `_SourceAlignedWorldGraphRepository` rewrote `evidence_refs.source_domain` in memory before DungeonMind scoped an immutable revision. That broadens admissibility and is forbidden by the native-read contract. The shim is removed. Projection/retrieval consume `bundle.world_graph` exactly.
 
-**Cycle 1 blocker 3 resolution:** `_classify_parent_revision()` maps `PersistenceIntegrityError` to `authority_integrity` and `PersistenceUnavailableError` to `authority_unavailable`.
-
-**Cycle 1 blocker 4 resolution:** #647 exact design base restored to `f1fd3f6aa4270de2af44a4e249f127332622b785`; merge SHA remains `d96a2136…`. Current `main` recorded as `cc016661f80416e0816f56349217cf33c53a195f` (#650). This head merged that `main`.
+```text
+Stop condition:
+  making first-world native projection work requires rewriting DungeonMind graph-payload provenance (or a new provider/mutation capability)
+Invariant clause affected:
+  D.2C2 D_0 is natively projectable/retrievable from the exact stored revision
+Why current mission cannot absorb it:
+  #645 stamps SourceDomain.OTHER on first-world contribution evidence. DungeonMind treats artifact/graph domain disagreement as invalid evidence. Buddy may not reconstruct graph truth or broaden admissibility. Changing durable initialization command bytes was already rejected (Cycle 1). A global in-memory rewrite was rejected (Cycle 2) because it would also mask genuine provenance corruption.
+Required evidence now missing:
+  native admitted projection/retrieval of #645-shaped D_0 facts from unmodified stored revision bytes
+Affected paths/ownership layers:
+  D.2C2 first-world mapping / stored D_0 graph_payload evidence_refs; DungeonMind graph_scope provenance check; not D.2C3 binder algebra
+Proposed successor or re-brief:
+  D.2C2 provenance compatibility/repair (reviewed DESIGN, then CODE) precedes remaining D.2C3 native-projection proof
+  sequence: D.2C2 provenance → D.2C3 two-genesis binder (#651 resumes original job) → D.2C4
+State-authority update needed:
+  record the provenance predecessor as REQUIRED / not dispatched; keep D.2C3 DOING / merge blocked on that predecessor for native projection; D.2C4 remains BLOCKED
+```
 
 **Owning cohort** (`DMB_CUTOVER_TEST_DATABASE_URL=postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dungeonmind_cutover_test`):
 
@@ -307,17 +321,17 @@ uv run pytest tests/test_cutover_dungeonmind_first_world_initialization.py \
   tests/test_cutover_direct_dungeonmind_world_graph_reads.py \
   tests/test_cutover_dungeonmind_world_graph_authority.py \
   tests/test_cutover_native_genesis_continuity.py -q
-120 passed, 12 skipped, 10 warnings in 101.58s
+119 passed, 12 skipped, 10 warnings in 190.59s
 ```
 
-The 12 skips are pre-existing D.1 Buddy-hydration retirement skips in `tests/test_cutover_dungeonmind_world_graph_authority.py`. The D.2C3 PostgreSQL witness `test_reviewed_init_d0_native_read_write_continuity` did not skip: stored `D_0` evidence domains remained `{"other"}`, exact first-world confirm reused `command_sha256` / `already_initialized`, and native projection admitted `obj_session22_vial` and `mystery_puddles`.
+The 12 skips are pre-existing D.1 Buddy-hydration retirement skips in `tests/test_cutover_dungeonmind_world_graph_authority.py`. The D.2C3 PostgreSQL witness `test_reviewed_init_d0_native_read_write_continuity` did not skip: stored `D_0` evidence domains remained `{"other"}`, exact first-world confirm reused `command_sha256` / `already_initialized`, the two-genesis binder bound reviewed-init with `legacy_buddy_revision_id=None`, one child published under `D_0`, and native projection did **not** admit `obj_session22_vial` / `mystery_puddles`.
 
 **D.2A / D.2B regression:**
 
 ```text
 uv run pytest tests/test_cutover_threat_authority_port_integration.py \
   tests/test_cutover_worldbuilding_authority_port_integration.py -q
-4 passed, 10 warnings in 56.81s
+4 passed, 10 warnings in 85.13s
 ```
 
 **Ruff:** `All checks passed!` on the leased Python paths including `tests/test_cutover_native_genesis_continuity.py`.

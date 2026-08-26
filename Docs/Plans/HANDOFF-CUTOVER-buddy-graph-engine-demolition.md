@@ -57,7 +57,7 @@ pr_body_template: |
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`
 **Exact design base:** `f1fd3f6aa4270de2af44a4e249f127332622b785` — APP-STATE Play persistence demolition on top of #649
 **Design merge:** `d96a21363fd0decbcb8c4390f951a6316b53060c`
-**Current `main`:** `cc016661f80416e0816f56349217cf33c53a195f` — #650 APP-STATE merge; disjoint from this design
+**Current `main`:** `555a9c7965aca47a24536277b9b36ae569a7285a` — PLAY-SURFACE cockpit re-anchor; disjoint from this design. Historical #650: `cc016661f80416e0816f56349217cf33c53a195f`.
 **Accepted design head:** `1f5676c204ee917d18efd553106c07306541e820`
 **Cycle 7 review:** PASS-equivalent `5034239255`
 **Cycle 1 review:** REQUEST-CHANGES-equivalent `5026690745` on `e7b34502eb3a7a3fcc8b716ef4a25a5bb7fc9db2`

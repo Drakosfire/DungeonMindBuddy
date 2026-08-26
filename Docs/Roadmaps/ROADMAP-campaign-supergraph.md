@@ -1,8 +1,8 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-26 — #645 D.2C2 `DONE`; #647 D.2C3 design `DONE`; D.2C3 implementation `DOING` / Buddy #651; D.2C4/D.3A/D.3B `BLOCKED`; D.3 not `DONE`  
-**Repository anchor / current Buddy `main`:** `cc016661f80416e0816f56349217cf33c53a195f` (#650 APP-STATE Play persistence demolition). D.2C3 dispatch base remains #647 merge `d96a21363fd0decbcb8c4390f951a6316b53060c`. Historical D.2C2 implementation #645 merge: `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`. Historical D.2C2 design #644 merge: `f1eae2a3d27e430ee19e254d5b52fa556b2632ff`. Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
+**Updated:** 2026-08-26 — #645 D.2C2 `DONE`; #647 D.2C3 design `DONE`; D.2C2 provenance compatibility `REQUIRED` / not dispatched; D.2C3 implementation `DOING` / Buddy #651 (native projection merge-blocked on provenance); D.2C4/D.3A/D.3B `BLOCKED`; D.3 not `DONE`  
+**Repository anchor / current Buddy `main`:** `555a9c7965aca47a24536277b9b36ae569a7285a` (PLAY-SURFACE cockpit re-anchor). Historical #650 APP-STATE merge: `cc016661f80416e0816f56349217cf33c53a195f`. D.2C3 dispatch base remains #647 merge `d96a21363fd0decbcb8c4390f951a6316b53060c`. Historical D.2C2 implementation #645 merge: `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`. Historical D.2C2 design #644 merge: `f1eae2a3d27e430ee19e254d5b52fa556b2632ff`. Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b` (PR #46 merge / reviewed first-world initialization)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
@@ -266,6 +266,12 @@ DONE    D.2C2 mounted first-world authority migration / Buddy #645
         5026532158.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-mounted-first-world-authority-migration-code.md.
 
+REQUIRED D.2C2 first-world provenance compatibility
+        Repair or authorize #645-era D_0 evidence domains so DungeonMind
+        can admit those facts from the exact stored revision. Buddy must
+        not rewrite graph-payload provenance. Not yet dispatched.
+        Required predecessor of D.2C3 native projection.
+
 DONE    D.2C3 native genesis read/write continuity DESIGN / Buddy #647
         Frozen two-genesis binder and D.2C3/D.2C4/D.3A/D.3B sequence.
         Merge d96a21363fd0decbcb8c4390f951a6316b53060c; accepted design
@@ -276,7 +282,9 @@ DONE    D.2C3 native genesis read/write continuity DESIGN / Buddy #647
 DOING   D.2C3 native genesis read/write continuity / Buddy #651
         Shared DirectAuthorityBinding recognizes existing-world adoption
         and reviewed first-world initialization; D_0 is a legal native parent.
-        This implementation PR is in-flight; do not invent its merge SHA.
+        Native projection of #645 OTHER-stamped D_0 facts waits on the
+        provenance predecessor. This implementation PR is in-flight; do not
+        invent its merge SHA.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md.
 
 BLOCKED D.2C4 manual Graph Review authoring continuity
