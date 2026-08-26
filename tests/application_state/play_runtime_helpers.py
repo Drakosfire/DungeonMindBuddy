@@ -190,6 +190,31 @@ def count_play_rows(dsn: str) -> tuple[int, int]:
     return int(runs), int(manifests)
 
 
+def count_active_run_rows(dsn: str) -> int:
+    import psycopg
+
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        count = conn.execute("SELECT count(*) FROM play.active_run").fetchone()[0]
+    return int(count)
+
+
+def fetch_play_active_run_row(dsn: str) -> dict | None:
+    import psycopg
+    from psycopg.rows import dict_row
+
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                "SELECT scope_key, run_id, selected_at FROM play.active_run"
+            )
+            row = cur.fetchone()
+    if row is None:
+        return None
+    payload = dict(row)
+    payload["run_id"] = str(payload["run_id"])
+    return payload
+
+
 @contextmanager
 def hidden_legacy_runtime_dirs(root: Path) -> Iterator[None]:
     dirs = [
@@ -205,6 +230,18 @@ def hidden_legacy_runtime_dirs(root: Path) -> Iterator[None]:
     finally:
         for directory in dirs:
             os.chmod(directory, 0o755)
+
+
+@contextmanager
+def unreadable_path(path: Path) -> Iterator[None]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_bytes(b"")
+    os.chmod(path, 0)
+    try:
+        yield
+    finally:
+        os.chmod(path, 0o644)
 
 
 def write_legacy_run_and_manifest(
@@ -568,6 +605,187 @@ def measure_file_backed_baseline_latency() -> dict[str, float]:
         )
         output = subprocess.check_output(
             [sys.executable, "-c", _BASELINE_LATENCY_SCRIPT],
+            cwd=worktree,
+            env=env,
+            text=True,
+        )
+        payload = json.loads(output.strip().splitlines()[-1])
+        return {key: float(value) for key, value in payload.items()}
+    finally:
+        if created_db:
+            with psycopg.connect(admin, autocommit=True) as conn:
+                conn.execute(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s",
+                    (db_name,),
+                )
+                conn.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name)))
+        if added_worktree:
+            subprocess.call(
+                ["git", "worktree", "remove", "--force", str(worktree)],
+                cwd=repo,
+            )
+
+
+AS3_FILE_BACKED_ACTIVE_RUN_SHA = "9c946cd8c24effccec8d06cfc1cb5e310c9edc5e"
+
+_ACTIVE_RUN_BASELINE_SCRIPT = r"""
+from __future__ import annotations
+
+import json
+import statistics
+import time
+from pathlib import Path
+
+from apps.live_control_server.services.play_active_run import get_play_active_run, set_play_active_run
+from apps.live_control_server.services.play_run_registry import create_or_replay_play_run
+from apps.live_control_server.services.tiptap_markdown_write import (
+    TiptapMarkdownWriteCommitRequest,
+    TiptapMarkdownWritePrepareRequest,
+    commit_tiptap_markdown_write,
+    prepare_tiptap_markdown_write,
+)
+from apps.live_control_server.services.workspace_document_registry import (
+    create_workspace_document,
+    get_committed_playable_revision,
+)
+
+MARKDOWN = "\n".join(
+    [
+        "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+        "## The Gate",
+        "",
+        "<!-- dmb-playable-element:v1 kind=beat id=beat:arrival -->",
+        "### Arrival",
+        "",
+        "<!-- dmb-playable-element:v1 kind=beat id=beat:briefing -->",
+        "### Briefing",
+        "",
+        "<!-- dmb-playable-element:v1 kind=choice id=choice:route -->",
+        "### Which route do they take?",
+        "",
+        "<!-- dmb-playable-element:v1 kind=option id=option:fire -->",
+        "#### Burn through the growth",
+        "",
+        "<!-- dmb-playable-element:v1 kind=option id=option:wait -->",
+        "#### Wait and watch",
+        "",
+    ]
+)
+SAMPLES = 30
+RUN_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+RUN_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+
+
+def percentile(samples, p):
+    ordered = sorted(samples)
+    index = min(len(ordered) - 1, max(0, round((p / 100) * (len(ordered) - 1))))
+    return ordered[index]
+
+
+def measure(fn):
+    timings = []
+    for _ in range(SAMPLES):
+        started = time.perf_counter()
+        fn()
+        timings.append((time.perf_counter() - started) * 1000)
+    return statistics.median(timings), percentile(timings, 95)
+
+root = Path("baseline-root")
+root.mkdir()
+record = create_workspace_document(
+    root,
+    title="Runbook latency",
+    campaign_id="longmont-c2",
+    kind="runbook",
+    target_relpath="evals/c2_live_prep/mireward-prep/content/tiptap/latency.md",
+)
+prepared = prepare_tiptap_markdown_write(
+    root=root,
+    request=TiptapMarkdownWritePrepareRequest(
+        document_id=record.document_id,
+        markdown=MARKDOWN,
+        expected_revision=record.revision,
+    ),
+)
+commit_tiptap_markdown_write(
+    root=root,
+    request=TiptapMarkdownWriteCommitRequest(
+        document_id=record.document_id,
+        markdown=MARKDOWN,
+        writer_confirm_token=prepared.writer_confirm_token,
+        expected_revision=record.revision,
+    ),
+)
+committed = get_committed_playable_revision(record.document_id, kind=None)
+for run_id in (RUN_A, RUN_B):
+    create_or_replay_play_run(
+        root,
+        run_id=run_id,
+        playable_artifact_id=record.document_id,
+        expected_playable_revision=committed.revision_n,
+        expected_playable_content_sha256=committed.content_sha256,
+    )
+set_play_active_run(root, run_id=RUN_A)
+get_p50, get_p95 = measure(lambda: get_play_active_run(root))
+
+def switch():
+    current = get_play_active_run(root)
+    set_play_active_run(root, run_id=RUN_B if current.run_id == RUN_A else RUN_A)
+
+put_p50, put_p95 = measure(switch)
+print(json.dumps({
+    "get_p50_ms": get_p50,
+    "get_p95_ms": get_p95,
+    "put_p50_ms": put_p50,
+    "put_p95_ms": put_p95,
+}))
+"""
+
+
+def measure_file_backed_active_run_latency() -> dict[str, float]:
+    """Time AS3 file-backed active GET/PUT at the merged AS3 SHA."""
+    import psycopg
+    from psycopg import sql
+
+    from application_state.config import APPLICATION_STATE_DSN_ENV, TEST_ADMIN_DSN_ENV
+    from application_state.naming import assert_safe_application_state_database_name
+
+    repo = Path(__file__).resolve().parents[2]
+    worktree = Path(tempfile.gettempdir()) / f"as4-as3-baseline-{uuid.uuid4().hex}"
+    admin = os.environ.get(TEST_ADMIN_DSN_ENV, "").strip() or (
+        "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/postgres"
+    )
+    db_name = f"dungeonbuddy_app_state_test_{uuid.uuid4().hex[:12]}"
+    parsed = urlparse(admin)
+    dsn = urlunparse(parsed._replace(path=f"/{db_name}"))
+    created_db = False
+    added_worktree = False
+    try:
+        subprocess.check_call(
+            ["git", "worktree", "add", "--detach", str(worktree), AS3_FILE_BACKED_ACTIVE_RUN_SHA],
+            cwd=repo,
+        )
+        added_worktree = True
+        assert_safe_application_state_database_name(db_name)
+        with psycopg.connect(admin, autocommit=True) as conn:
+            conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
+        created_db = True
+        env = {
+            **os.environ,
+            APPLICATION_STATE_DSN_ENV: dsn,
+            "PYTHONPATH": os.pathsep.join((str(worktree / "src"), str(worktree))),
+        }
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-c",
+                "from application_state.cli import upgrade_to_head; upgrade_to_head()",
+            ],
+            cwd=worktree,
+            env=env,
+        )
+        output = subprocess.check_output(
+            [sys.executable, "-c", _ACTIVE_RUN_BASELINE_SCRIPT],
             cwd=worktree,
             env=env,
             text=True,
