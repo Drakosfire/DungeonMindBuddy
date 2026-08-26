@@ -10,7 +10,11 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from application_state.errors import ApplicationStateIntegrityError
-from application_state.play.types import PlayRun, PlayRunManifest
+from application_state.play.types import PlayActiveRun, PlayRun, PlayRunManifest
+
+LOCAL_ACTIVE_RUN_SCOPE = "local"
+
+_ACTIVE_RUN_COLUMNS = "run_id, selected_at"
 
 _RUN_COLUMNS = """
     run_id, campaign_id, playable_work_object_id, playable_revision_n,
@@ -189,6 +193,74 @@ def cas_replace_progress(
         )
         row = cur.fetchone()
     return None if row is None else _run_from_row(row)
+
+
+def _active_run_from_row(row: dict) -> PlayActiveRun:
+    return PlayActiveRun.model_validate(row)
+
+
+def get_active_run(conn: psycopg.Connection) -> PlayActiveRun | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            SELECT {_ACTIVE_RUN_COLUMNS}
+            FROM play.active_run
+            WHERE scope_key = %s
+            """,
+            (LOCAL_ACTIVE_RUN_SCOPE,),
+        )
+        row = cur.fetchone()
+    return None if row is None else _active_run_from_row(row)
+
+
+def lock_active_run(conn: psycopg.Connection) -> PlayActiveRun | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            SELECT {_ACTIVE_RUN_COLUMNS}
+            FROM play.active_run
+            WHERE scope_key = %s
+            FOR UPDATE
+            """,
+            (LOCAL_ACTIVE_RUN_SCOPE,),
+        )
+        row = cur.fetchone()
+    return None if row is None else _active_run_from_row(row)
+
+
+def upsert_active_run(
+    conn: psycopg.Connection,
+    *,
+    run_id: UUID,
+    selected_at: datetime,
+) -> PlayActiveRun:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            INSERT INTO play.active_run (scope_key, run_id, selected_at)
+            VALUES (%(scope_key)s, %(run_id)s, %(selected_at)s)
+            ON CONFLICT (scope_key) DO UPDATE SET
+                run_id = EXCLUDED.run_id,
+                selected_at = EXCLUDED.selected_at
+            RETURNING {_ACTIVE_RUN_COLUMNS}
+            """,
+            {
+                "scope_key": LOCAL_ACTIVE_RUN_SCOPE,
+                "run_id": run_id,
+                "selected_at": selected_at,
+            },
+        )
+        row = cur.fetchone()
+    if row is None:
+        raise ApplicationStateIntegrityError("play.active_run upsert did not persist")
+    return _active_run_from_row(row)
+
+
+def delete_active_run(conn: psycopg.Connection) -> None:
+    conn.execute(
+        "DELETE FROM play.active_run WHERE scope_key = %s",
+        (LOCAL_ACTIVE_RUN_SCOPE,),
+    )
 
 
 def update_run_binding(
