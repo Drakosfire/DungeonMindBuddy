@@ -2,8 +2,10 @@
 
 Unit proofs cover parent classification for reviewed-init ``D_0``. The owning
 PostgreSQL witness creates a pristine world through real D.2C2 first-world
-confirm, then exercises native projection/retrieval, ``WorldGraphAuthority``,
-one existing-parent child, and exact retry/recovery.
+confirm, then exercises the two-genesis binder, ``WorldGraphAuthority``,
+one existing-parent child, and exact retry/recovery. Native projection of
+#645 ``SourceDomain.OTHER`` facts is fail-closed until a D.2C2 provenance
+predecessor repairs stored evidence without Buddy rewriting graph semantics.
 """
 
 from __future__ import annotations
@@ -30,10 +32,6 @@ from dungeonmind.contracts.graph import PublishRevisionCommand
 from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
 from fastapi.testclient import TestClient
 from graph_memory.projection.world_projection import WorldGraphProjectionRequest
-from graph_memory.retrieval.models import (
-    WorldGraphObjectRequest,
-    WorldGraphSearchRequest,
-)
 from tests.test_cutover_dungeonmind_first_world_initialization import (
     _bundle,
     _counts,
@@ -146,31 +144,6 @@ def test_classify_parent_maps_provider_integrity_not_unavailable() -> None:
     assert excinfo.value.code == "authority_unavailable"
 
 
-def test_graph_payload_evidence_aligns_to_source_artifact_in_memory_only() -> None:
-    from dungeonmind.contracts.evidence import SourceDomain
-
-    payload = {
-        "evidence_refs": [
-            {
-                "evidence_ref_id": "ev:1",
-                "source_artifact_id": "artifact:worldbuilding:test",
-                "source_domain": "other",
-                "source_domain_key": "other",
-            }
-        ]
-    }
-    sources = SimpleNamespace(
-        get_artifact=lambda _artifact_id: SimpleNamespace(
-            source_domain=SourceDomain.WORLDBUILDING,
-            source_domain_key="worldbuilding",
-        )
-    )
-    aligned = direct._align_graph_payload_evidence(payload, sources)
-    assert payload["evidence_refs"][0]["source_domain"] == "other"
-    assert aligned["evidence_refs"][0]["source_domain"] == "worldbuilding"
-    assert aligned["evidence_refs"][0]["source_domain_key"] == "worldbuilding"
-
-
 @pytest.fixture
 def native_first_world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     dsn = _test_dsn()
@@ -234,18 +207,6 @@ def _projection_request(*, revision_pin: str | None = None) -> WorldGraphProject
         scope_mode="campaign",
         revision_pin=revision_pin,
     )
-
-
-def _retrieval_context(*, revision_pin: str | None = None) -> dict:
-    fields = {
-        "worldId": GLASS_ORCHARD_WORLD_ID,
-        "campaignId": GLASS_ORCHARD_WORLD_ID,
-        "admissibility": "gm",
-        "scopeMode": "campaign",
-    }
-    if revision_pin is not None:
-        fields["revisionPin"] = revision_pin
-    return fields
 
 
 @pytest.mark.integration
@@ -314,29 +275,11 @@ def test_reviewed_init_d0_native_read_write_continuity(
         services, _projection_request(revision_pin=d0)
     )
     node_ids = {node.node_id for node in projection.nodes}
-    assert "obj_session22_vial" in node_ids
-    assert "mystery_puddles" in node_ids
+    # #645 stamps SourceDomain.OTHER. DungeonMind rejects that mismatch.
+    # Buddy must not rewrite evidence_refs to admit these facts.
+    assert "obj_session22_vial" not in node_ids
+    assert "mystery_puddles" not in node_ids
     assert projection.snapshot.revision_id == d0
-
-    search = direct.search_world_graph_direct(
-        services,
-        WorldGraphSearchRequest(
-            schema="dmb_world_graph_search_request_v1",
-            queryText="vial",
-            **_retrieval_context(revision_pin=d0),
-        ),
-    )
-    assert any(node.node_id == "obj_session22_vial" for node in search.nodes)
-
-    hit = direct.get_object_direct(
-        services,
-        WorldGraphObjectRequest(
-            schema="dmb_world_graph_object_request_v1",
-            nodeId="obj_session22_vial",
-            **_retrieval_context(revision_pin=d0),
-        ),
-    )
-    assert [node.node_id for node in hit.nodes] == ["obj_session22_vial"]
 
     adapter = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
     assert adapter.current_head(GLASS_ORCHARD_WORLD_ID).revision_id == d0
@@ -429,14 +372,5 @@ def test_reviewed_init_d0_native_read_write_continuity(
         child_services, _projection_request(revision_pin=d1)
     )
     child_ids = {node.node_id for node in child_projection.nodes}
-    assert "obj_session22_vial" in child_ids
+    assert "obj_session22_vial" not in child_ids
     assert child_projection.snapshot.revision_id == d1
-    child_hit = direct.get_object_direct(
-        child_services,
-        WorldGraphObjectRequest(
-            schema="dmb_world_graph_object_request_v1",
-            nodeId="obj_session22_vial",
-            **_retrieval_context(revision_pin=d1),
-        ),
-    )
-    assert [node.node_id for node in child_hit.nodes] == ["obj_session22_vial"]
