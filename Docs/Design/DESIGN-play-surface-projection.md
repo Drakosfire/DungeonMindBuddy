@@ -150,7 +150,19 @@ A Scene projection may show:
 
 When no Scene is current, the central board truthfully shows the Beat and available Scenes rather than auto-selecting one.
 
-### 3.3 Beat/Scene navigation
+### 3.4 Collapsible chrome and singular central workspace
+
+These are **BF3/P4 target semantics**, not BF2 implementation claims. BF2 admits truthful v2 READY Runtime; it does not ship this cockpit.
+
+The central workspace is the main instrument. Default content is the current Scene, or the current Beat / available Scenes when no Scene is current.
+
+Beat Context and At a Glance are collapsible presentation chrome. Collapsing either does not mutate Run progress, admitted references, Runtime current position, or Combat. No durable collapse fields are authorized on the Run.
+
+At a Glance remains presence-first. Opening a category uses the same central workspace. Opening does not change Runtime current position. Closing returns to the exact current Scene.
+
+Combat is one At-a-Glance entry, not a floating side rail. Opening Combat uses that same central workspace; Combat remains Combat-owned. The same open → central workspace → exact return rule applies to Scenes, Locations, NPCs, Threats, Roll tables, and Notes.
+
+### 3.5 Beat/Scene navigation
 
 Durable current position changes only through explicit Runtime actions.
 
@@ -285,7 +297,21 @@ Notes        2
 Combat       collapsed
 ```
 
-The current Beat and Scene's authored references seed the region. Small Runtime state may contribute. Exact mechanics bindings make Threat entries directly useful.
+### 6.1 Opening a category uses the central workspace
+
+At a Glance may collapse entirely or to a compact affordance. That collapse is presentation-only; it does not change Runtime current position.
+
+Opening a category is not inline expansion. It uses the same central workspace:
+
+```text
+At a Glance category
+→ inspect projection
+→ central workspace temporarily shows that category
+→ close / back
+→ exact current Scene
+```
+
+Combat is listed here as one category, not a separate floating rail. The same rule applies to Scenes, Locations, NPCs, Threats, Roll tables, and Notes. These are BF3/P4 target semantics.
 
 The region is curated and contextual, not exhaustive campaign adjacency.
 
@@ -436,18 +462,18 @@ When exact mechanics are absent, Play says so truthfully and offers the best adm
 
 ### 10.3 Combat workspace
 
-Combat is collapsed until needed.
+Combat is one At-a-Glance entry, not a dedicated right-side rail. Compact status may appear in At a Glance.
 
-When expanded, Combat may occupy the same central working region normally occupied by the Scene:
+Combat is collapsed until needed. Opening it makes Combat the central workspace; closing restores the exact current Scene. Runtime current Beat/Scene never changed.
 
 ```text
 Beat context retained
 Scene origin retained
-Combat expanded → central instrument
-Combat collapsed → exact Scene restored
+Combat opened → central instrument
+Combat closed → exact Scene restored
 ```
 
-This is presentation composition only. Combat continues to own combatant state, HP, initiative, conditions, and encounter persistence.
+This is presentation composition only. Combat continues to own combatant state, HP, initiative, conditions, and encounter persistence. Play owns open/close/projection and an origin Scene pointer.
 
 Quantity/team controls for Add to Combat should be table-useful without requiring an authoring workflow.
 

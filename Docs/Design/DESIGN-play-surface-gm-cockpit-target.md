@@ -32,6 +32,16 @@ It establishes the operator experience we are designing toward:
 
 The image remains the hierarchy and interaction anchor. The 2026-08-26 re-anchor below clarifies how to read that image after BF1 and APP-STATE AS2–AS5. It is **not** a pixel-perfect implementation specification and does not override the architecture authorities named above.
 
+The 2026-08-26 composition refinement **overrides any implication in the older image** that:
+
+- Beat Context must always remain expanded;
+- At a Glance must always remain expanded;
+- Combat occupies a dedicated right-side rail.
+
+The image may remain as directional evidence. Do not treat those three visual implications as the product target.
+
+These composition rules are **BF3/P4 target semantics**. They are not implemented by BF2.
+
 ## 2026-08-26 interpretation lock
 
 ### 1. Beat-first structure, Scene-centered table projection
@@ -158,23 +168,25 @@ context or search
 
 This must not require navigating through Plan/Build, finding the parent Runbook Scene, reconstructing JSON, or waiting on generation when exact mechanics already exist.
 
-### 7. Combat is a collapsible working instrument
+### 7. Combat is an At-a-Glance capability, not a side rail
 
-Combat is part of the same session instrument without becoming Play-owned state.
+Combat is part of the same session instrument without becoming Play-owned state. Compact status may appear in At a Glance. Opening Combat makes it the **central workspace**; closing restores the exact current Scene. Runtime current Beat/Scene does not change.
 
 The desired interaction is:
 
 ```text
 current Beat context
 + active Scene
-→ expand Combat
+→ open Combat from At a Glance
 → Combat temporarily occupies the central working area
 → Combat owns HP / initiative / conditions / encounter state
-→ collapse Combat
+→ close Combat
 → exact originating Scene is still there
 ```
 
-Visually Combat may behave like a fully expanded Scene workspace. Architecturally it remains Combat-owned and linked from Play.
+Visually Combat may behave like a fully expanded Scene workspace. Architecturally it remains Combat-owned and linked from Play. It is not a permanent floating Combat rail.
+
+Beat Context and At a Glance are likewise collapsible chrome around that singular central workspace. Collapsing them is presentation-only. At a Glance stays presence-first: opening any category uses the same central workspace and exact-return rule. These are BF3/P4 targets, not BF2 implementation.
 
 ### 8. Resume / Start New is explicit
 
