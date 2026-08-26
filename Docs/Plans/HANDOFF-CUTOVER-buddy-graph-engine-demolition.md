@@ -14,6 +14,7 @@ pr_body_template: |
   - Cycle 1 addendum: `5420568935` (same head; not Cycle 2)
   - Cycle 2 review: REQUEST-CHANGES-equivalent `5031234283` on `1d99c5e7a23cf864b671c6d3f0d17c65618a9327`
   - Cycle 3 review: REQUEST-CHANGES-equivalent `5031642732` on `62e104bc57c75ad7cfd057213e4554bed7b30a63`
+  - Cycle 4 review: REQUEST-CHANGES-equivalent `5033180568` on `2f3f061fae76282a13c9e2badcde8e80f93af76d`
   - Parallel re-anchor: APP-STATE Play-continuity docs on `main` as `764d9d1ddbebbf398cb1f701d23de83c4c67a454`
   - DungeonMind provider pin: `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`
 
@@ -43,7 +44,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.3: Buddy graph-engine demolition
 
 **Created:** 2026-08-25
-**Status:** CYCLE 3 REPAIR — awaiting Review Cycle 4
+**Status:** CYCLE 4 REPAIR — awaiting Review Cycle 5
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`
 **Workstream / flow:** `CUTOVER`
 **Direction:** DESIGN → REVIEW
@@ -53,6 +54,7 @@ pr_body_template: |
 **Cycle 1 addendum:** issue comment `5420568935` on the same head; not Review Cycle 2
 **Cycle 2 review:** REQUEST-CHANGES-equivalent `5031234283` on `1d99c5e7a23cf864b671c6d3f0d17c65618a9327`
 **Cycle 3 review:** REQUEST-CHANGES-equivalent `5031642732` on `62e104bc57c75ad7cfd057213e4554bed7b30a63`
+**Cycle 4 review:** REQUEST-CHANGES-equivalent `5033180568` on `2f3f061fae76282a13c9e2badcde8e80f93af76d`
 **D.2C2 implementation:** Buddy #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`
 **D.2C2 accepted head:** `f772db17e00cbe2c0198ae53f169a10a6332a3ed`
 **D.2C2 review:** 2 distinct-head cycles; final PASS-equivalent `5026532158`
@@ -395,8 +397,9 @@ Plan GraphIngestProjectionPanel          Open Union Graph
                                          D.3A intentional store-preview retirement
 Graph Review live/candidate projection   getUnionSupergraphProjection
                                          D.3A intentional store-preview retirement
-Graph Review authoring workspace         prepare/commit  — D.2C4 keeps as cockpit
-                                         merge-reconciliation file-apply — D.3A 410
+Graph Review authoring workspace         prepare/commit  — D.2C4 keeps object/
+                                         link/relationship cockpit; merge_objects
+                                         unavailable; merge-reconciliation — D.3A 410
 Statblock workbench create-context       getWorldGraphBootstrapStatus
                                          D.3A native-head replacement
 ```
@@ -746,14 +749,17 @@ not. Cycle 2's "retire the entire authoring UI/workflow in D.3A" is withdrawn.
 
 ### 5.1 Merge-ready invariant
 
-> **Graph Review can stage a manual authored proposal (object, link-existing,
-> relationship, or expressible identity merge), prepare a sealed reviewed
-> write, and confirm it into one DungeonMind child through
-> `WorldGraphAuthority.publish`, using already-landed GraphContribution and
-> worldbuilding publication-family contracts. Exact-run extract-promote stays
-> a distinct ingest-run promotion path. The UnionSupergraph file-apply writer
-> is no longer the durable authoring destination. No new DungeonMind provider
-> contract is introduced.**
+> **Graph Review can stage a source-bound manual authored proposal (object,
+> link-existing, or relationship), prepare a sealed reviewed write whose
+> SourceArtifact + source revision are server-resolved from an exact
+> `sourceRunId`, and confirm it into one DungeonMind child through
+> `WorldGraphAuthority.publish` using already-landed GraphContribution and
+> worldbuilding publication-family contracts. `merge_objects` is not a
+> durable D.2C4 action. Overlay/event-log, if written at all, is a
+> non-authoritative idempotent audit trail after publication. Exact-run
+> extract-promote stays a distinct ingest-run path. The UnionSupergraph
+> file-apply writer is not a fallback. No new DungeonMind provider contract
+> is introduced.**
 
 ### 5.2 Why this is a D.2 predecessor, not D.3A FAIL_CLOSED
 
@@ -763,12 +769,13 @@ not. Cycle 2's "retire the entire authoring UI/workflow in D.3A" is withdrawn.
 still-intended product capability
   Graph Review correction cockpit
   selection → staged authored proposal → explicit reviewed confirm
-  durable campaign-graph correction
+  durable campaign-graph correction of objects, aliases, and relationships
 
 obsolete implementation
   authored overlay + event log as authority
   apply_union_supergraph_merge_plan_to_file
   UnionSupergraphStore as write destination
+  overlay CAS tokens as graph head
 ```
 
 Architecture says keep the first and discard the second. Exact-run
@@ -782,25 +789,60 @@ manual authoring    GM-staged corrections  → GraphContribution → WorldGraphA
 ```
 
 Same governed destination. Different proposal source. D.3A may 410 the
-obsolete writer only after this slice has moved the cockpit onto the governed
-path.
+obsolete writer only after this slice has moved object/link/relationship
+authoring onto the governed path.
+
+Existing-existing `merge_objects` is **not** in that D.2C4 capability. The
+current publisher cannot express it:
+
+```text
+ContributionAssertionKind = node | edge | alias | attribute | evidence_ref
+  — no identity_decision kind
+_build_v2_candidate() sets identity_decision_ids=[]
+_build_identity_dispositions() only CREATE_NEW / CONFIRM_EXISTING
+  on accepted node/alias assertions
+_worldbuilding_expressible() only remaps identity_resolution_outcome strings
+WorldGraphAuthority has no existing-existing merge append
+```
+
+D.2C4 therefore ships object / link_existing / relationship. It does not
+claim `merge_objects` is already expressible. Preserving existing-existing
+manual identity merge would be a separate bounded authority/provider
+predecessor under STOP/re-brief — not this slice, and not a UnionSupergraph
+fallback.
 
 ### 5.3 Frozen write path
 
-One capability:
+Shipped D.2C4 capability:
 
 ```text
-Graph Review selection / Author Draft
+Graph Review selection / Author Draft bound to an exact sourceRunId
   → staged authored proposals
-      object | link_existing | relationship | merge_objects
-  → POST prepare  (no mutation; sealed proposal + confirm token + expected parent)
+      object | link_existing | relationship
+  → POST prepare  (no mutation; sealed proposal + confirm token +
+                   expected parent + sealed source identity +
+                   deterministic authority_operation_id)
   → explicit GM confirm
   → GraphContribution
-      source_kind = graph_review_authored_assertion   (already-landed)
+      source_kind = graph_review_authored_assertion
+      source_artifact_id + source_revision_id on contribution and
+      every assertion (server-resolved, not client-supplied)
   → WorldGraphAuthority.publish
-      operation_namespace = "worldbuilding"           (already-landed family)
+      operation_namespace = "worldbuilding"
+      authority_operation_id = D.2C4 grauth:… (Buddy-side)
   → one DungeonMind child / atomic graph-head advancement
+  → optional non-authoritative overlay/event-log audit trail
   → native projection/retrieval of the child
+```
+
+Not shipped as a successful durable action:
+
+```text
+merge_objects
+legacy merge-reconciliation file-apply
+source-less / manually-started draft with no sourceRunId
+overlay token as graph CAS
+previewUnionStorePath as write destination
 ```
 
 HTTP freeze:
@@ -812,49 +854,48 @@ POST /api/live/graph-authoring/prepare
 POST /api/live/graph-authoring/commit
   remain the Graph Review authoring prepare/confirm paths
   D.2C4 changes their implementation to WorldGraphAuthority
-  bounded wire additions are allowed for expected parent, publication
-  receipt, and native child revision
-  overlay-as-durable-write and union-store materialization are not the
-  write destination after this slice
+  wire contract is versioned honestly (see §5.6); no dummy overlay
+  tokens/paths for compatibility
 
 POST /api/live/graph-authoring/merge-reconciliation/prepare
 POST /api/live/graph-authoring/merge-reconciliation/apply
   remain the obsolete UnionSupergraph file-apply writer
-  D.2C4 does not keep them as the durable identity-merge path
-  D.3A KEEP_MOUNTED_410s them after D.2C4 has folded expressible merges
-  into governed prepare/confirm
+  D.2C4 does not keep them as a merge fallback
+  D.2C4 does not fold merge_objects into governed prepare/confirm
+  D.3A KEEP_MOUNTED_410s them
 ```
 
 UI freeze:
 
 ```text
-Keep Graph Review as the correction cockpit.
+Keep Graph Review as the correction cockpit for object / link_existing /
+  relationship prepare/confirm.
 Keep GraphReviewAuthorDraftWorkspace / prepare-commit panel / authoring
-  mode / GraphProjectionReader graph-authoring-action as working write UX.
-Retarget merge-reconciliation-to-file so it is not presented as a successful
-  durable UnionSupergraph write. Expressible identity merge confirms through
-  the governed prepare/commit panel.
-Do not disable the authoring workspace in D.3A.
+  mode / GraphProjectionReader graph-authoring-action as working write UX
+  for those three kinds, and only when an exact sourceRunId is bound.
+Do not present merge_objects, merge-candidates-as-durable-write, or
+  GraphMergeReconciliationMaterializationPanel file-apply as a successful
+  durable action.
+Do not offer confirm for a source-less manual draft.
+Do not disable the remaining authoring workspace in D.3A.
 Do not copy apply_union_supergraph_merge_plan_to_file into a new namespace.
 ```
 
 ### 5.4 Assertion mapping onto already-landed GraphContribution
 
-Authored overlay kinds map onto already-landed
-`ContributionAssertionKind` values. They are not a new provider vocabulary.
+Shipped authored kinds map onto already-landed `ContributionAssertionKind`
+values. They are not a new provider vocabulary.
 
 ```text
 authored object          → node     identity created_new
 authored link_existing   → alias    identity resolved_existing
 authored relationship    → edge     identity remains inexpressible-as-create
                                    (same neutrality as D.2C2 accepted edges)
-authored merge_objects   → identity_decision / worldbuilding identity
-                           vocabulary already accepted by
-                           _worldbuilding_expressible
-                             created_new
-                             human_override → resolved_existing
-                             resolved_existing
-                             rejected_by_operator → rejected
+
+authored merge_objects   → INEXPRESSIBLE on the current pin
+                           prepare/confirm fail closed
+                           UI does not present it as a working write
+                           UnionSupergraph file-apply is not a fallback
 ```
 
 `ContributionSourceKind` already includes `graph_review_authored_assertion`.
@@ -865,19 +906,148 @@ via `WorldGraphPublishRequest.operation_namespace="worldbuilding"`. Do **not**
 add `authored_correction` (or any other new value) as a DungeonMind
 `publication_family`. A new publication family is a new provider contract.
 
-If a required authored fact cannot be expressed as `GraphContribution` +
-`WorldGraphAuthority.publish` + `_worldbuilding_expressible` on the current
-pin, **STOP and re-brief**. That includes:
+Fail closed as `inexpressible` for `merge_objects` and for any other
+out-of-contract proposal. Do not silently drop facts. Do not keep a dual
+writer "for merges."
 
-- identity merge that requires UnionSupergraph file-apply semantics;
-- an authored assertion kind that is not node/alias/edge/identity_decision;
-- a need for a new DungeonMind publication family, review-operation type,
-  or identity-outcome vocabulary.
+### 5.5 Source/evidence closure
 
-Fail closed as `inexpressible` for a single out-of-contract proposal. Do not
-silently drop facts. Do not keep a dual writer "for merges."
+`source_kind = graph_review_authored_assertion` is not enough to publish.
+The native publisher's `_build_pair_to_dm()` requires exact
+`source_artifact_id` **and** `source_revision_id` on the contribution and
+on every candidate/accepted/rejected assertion. Missing either is
+`governed_write_inexpressible / source_identity_missing`.
 
-### 5.5 Shared authority, not a second factory
+Current graph-authoring requests carry product context (`sourceRunId`,
+`sourceGraphId`, campaign/session, selection/provenance). Those are not
+source authority. Client paths, labels, graph IDs, and selected prose must
+not become the durable source record by accident.
+
+Frozen source-bound path:
+
+```text
+require exact sourceRunId on prepare and confirm
+  → server resolves that exact ExtractionRun
+     (reuse already-landed reviewable/promotable run lookup;
+      this is source identity, not extract-promote candidate selection)
+  → server resolves its SourceArtifact + exact source revision token
+     from the artifact's content digest, same family as
+     promotable_ingest_run
+  → contribution.source_artifact_id / source_revision_id
+     and every assertion's pair are that same admitted identity
+  → prepare seals those IDs/digests into the confirm token
+  → confirm re-resolves the same run and fails closed on drift
+```
+
+Frozen no-source path:
+
+```text
+missing / blank / unresolvable sourceRunId
+  → fail closed (source_run_required / source_identity_missing)
+  → do not offer that mode in D.2C4
+  → do not invent a Buddy-owned authored-source artifact/revision
+     contract in this slice
+```
+
+Evidence:
+
+```text
+authored facts are admitted against the sealed SourceArtifact/revision
+optional source-span / selection locators become evidence refs only when
+  they can be verified against that same sealed artifact/revision
+unverified client locators are diagnostics, not source authority
+exact retry reconstructs the same source identity from the sealed run,
+  not from overlay files or client-supplied artifact IDs
+```
+
+Do not trust `sourceArtifactPath`, `sourceGraphId`, `sourceProjectionId`,
+selected prose, or client-supplied source IDs as the durable source record.
+
+The owning PostgreSQL witness must prove the DungeonMind reviewed
+contribution is source-closed, not merely that a node appears on the child.
+
+### 5.6 Overlay/event-log, wire contract, and authority operation ID
+
+Canonical architecture keeps the *lesson* of overlay + event log as a
+correction trail and discards preview-store materialization as the durable
+write destination. Current prepare/commit are overlay-shaped
+(`overlay_path`, `event_log_path`, `current_overlay_token`, overlay CAS,
+union-store materialization). There is no cross-authority transaction.
+
+**Chosen contract: Option A — non-authoritative audit trail after
+authoritative publication.** Option B (retire overlay/event-log from this
+product path) is not chosen. The architecture's correction-trail lesson is
+kept as a post-publish audit, not as graph authority. Dummy legacy overlay
+fields are forbidden under either option.
+
+```text
+prepare        → no durable overlay / event-log / union-store mutation
+confirm        → DungeonMind publication is the authoritative commit
+                 expected_parent_revision_id is graph CAS
+                 current_overlay_token is not graph CAS and is not required
+trail write    → after successful or recovered publication only
+                 best-effort / idempotent side record
+                 keyed by the D.2C4 authority_operation_id
+                 (and published_revision_id)
+trail failure  → cannot roll back or unpublish the child
+                 return truthful degraded audit state
+exact retry    → recover the exact DungeonMind child
+                 converge on at most one logical trail record
+```
+
+Honest wire versioning. Do not populate legacy overlay fields with dummy
+values for compatibility.
+
+Prepare/commit **must** carry/return:
+
+```text
+source_run_id
+sealed source_artifact_id + source_revision_id
+expected_parent_revision_id
+authority_operation_id
+confirm token bound to the sealed plan
+publication receipt / published_revision_id on commit
+audit_status: recorded | degraded | skipped
+```
+
+Prepare/commit **must not** require or treat as graph success:
+
+```text
+current_overlay_token as CAS
+overlay_path / event_log_path as proof the World Graph advanced
+previewUnionStorePath / union_store_materialization success
+```
+
+If `audit_status=recorded`, overlay/event-log paths may be reported as
+audit locations. If `degraded` or `skipped`, those paths are absent or
+explicitly null — never fake tokens. UI copy reports World Graph
+publication, not "authored overlay saved."
+
+Deterministic D.2C4 Buddy-side operation ID:
+
+```text
+schema = dmb_graph_review_authoring_authority_operation_v1
+payload = {
+  world_id,
+  campaign_id,
+  campaign_rel,                 # null if absent
+  source_artifact_id,
+  source_revision_id,
+  sealed_proposal_digest,       # object | link_existing | relationship only
+  expected_parent_revision_id
+}
+authority_operation_id = "grauth:" + sha256(canonical(payload))
+```
+
+Publish with `operation_namespace="worldbuilding"`. The already-landed
+worldbuilding review-op mapper hashes this Buddy ID into `reviewop:…`.
+Do not reuse Threat's hash schema. Do not reuse `wbop:` worldbuilding
+plan IDs. Do not include overlay tokens in the digest.
+
+Lost-response / fresh instance + exact retry of the same sealed confirm
+must recover one DungeonMind child and produce truthful audit/wire state.
+
+### 5.7 Shared authority, not a second factory
 
 D.2C4 consumes the same `WorldGraphAuthority` as D.2A/D.2B:
 
@@ -889,8 +1059,9 @@ recover(...)
 
 Prepare is storage-neutral and must not write overlay, event log, or
 UnionSupergraph files as authority. Confirm publishes one child against the
-sealed expected parent. Exact retry / lost-response restart / stale parent
-follow the already-landed publication/recovery algebra.
+sealed expected parent, then may attempt the audit trail. Exact retry /
+lost-response restart / stale parent follow the already-landed
+publication/recovery algebra.
 
 Reads of the resulting child use the D.2C3 `DirectAuthorityBinding` path.
 D.2C4 does not reopen genesis binding.
@@ -899,7 +1070,7 @@ Do not route manual authoring through extract-promote prepare/confirm.
 Do not treat a successful extract-promote as proof that manual authoring
 works.
 
-### 5.6 No new DungeonMind provider contract
+### 5.8 No new DungeonMind provider contract
 
 Already-landed contracts D.2C4 may use:
 
@@ -908,18 +1079,25 @@ WorldGraphAuthority (threat | worldbuilding namespaces only)
 GraphContribution / GraphContributionAssertion
 ContributionSourceKind.graph_review_authored_assertion
 worldbuilding identity-outcome remap (_worldbuilding_expressible)
+  for created_new / resolved_existing on node/alias only
 bundle.world_graph head/revision repositories
+bundle.sources / already-landed reviewable ExtractionRun lookup
 D.2C3 DirectAuthorityBinding
 ```
 
-D.2C4 may add Buddy-owned prepare-binding/confirm-token fields analogous to
-D.2B worldbuilding. That is product orchestration, not a provider feature.
+D.2C4 may add Buddy-owned prepare-binding/confirm-token fields and the
+`grauth:` operation-id schema analogous to D.2B. That is product
+orchestration, not a provider feature.
 
-If implementation discovers that required manual authoring cannot execute
-with those contracts, STOP. That is not permission to extend DungeonMind
-inside this slice or to delete the cockpit in D.3A instead.
+If implementation discovers that required *shipped* object / link_existing /
+relationship authoring cannot execute with those contracts, STOP. That is
+not permission to extend DungeonMind inside this slice, to ship
+`merge_objects` anyway, or to delete the cockpit in D.3A instead.
 
-### 5.7 Required owning proof
+`merge_objects` being inexpressible is the frozen D.2C4 outcome, not a
+STOP that expands this slice into a new identity-merge authority.
+
+### 5.9 Required owning proof
 
 One real-PostgreSQL witness, using the real mounted Graph Review authoring
 boundaries (not a hidden adapter test as the owning proof):
@@ -927,20 +1105,29 @@ boundaries (not a hidden adapter test as the owning proof):
 ```text
 1. start from a world that already has a native DungeonMind head
    (Eldyrwild adoption *or* a D.2C2/D.2C3 first-world D_0)
-2. stage one manual authored object proposal in Graph Review
-3. prepare: no overlay/event-log/UnionSupergraph mutation; sealed parent
-4. confirm: WorldGraphAuthority.publish → one child, parent = sealed head
-5. native-project / native-retrieve the new object on that child
-6. exact retry of the same confirm recovers already_applied; no second child
-7. a changed proposal against the same operation id fails closed
-8. stage and confirm one expressible relationship (edge) the same way
-9. if merge_objects is in the shipped D.2C4 surface, confirm one
-   expressible identity merge the same governed way; otherwise the
-   merge-to-file panel is not presented as a working durable write
-10. prove extract-promote still publishes an ingest-run contribution on a
+2. bind an exact sourceRunId whose SourceArtifact/revision the server
+   can resolve
+3. stage one manual authored object proposal
+4. prepare: no overlay/event-log/UnionSupergraph mutation; sealed parent;
+   sealed source_artifact_id + source_revision_id; grauth operation id
+5. confirm: WorldGraphAuthority.publish → one child, parent = sealed head
+6. prove the DungeonMind reviewed contribution is source-closed
+   (contribution and accepted assertions carry the sealed pair)
+7. native-project / native-retrieve the new object on that child
+8. exact retry of the same confirm recovers already_applied; no second child
+9. lost-response / fresh instance recovers that same child and truthful
+   audit/wire state
+10. a changed proposal against the same operation id fails closed
+11. stage and confirm one relationship (edge) the same way
+12. merge_objects prepare/confirm fails closed as inexpressible; UI does
+    not present merge/file-apply as a working durable write
+13. missing sourceRunId fails closed; no source-less publish
+14. prove extract-promote still publishes an ingest-run contribution on a
     distinct operation id; the two children are not interchangeable proofs
-11. prove UnionSupergraph file-apply was not the write destination
+15. prove UnionSupergraph file-apply was not the write destination
     (no apply_union_supergraph_merge_plan_to_file; no new union-store bytes)
+16. if the audit trail is enabled, a forced trail failure still leaves the
+    DungeonMind child published and returns audit_status=degraded
 ```
 
 Required integration proofs must not silently skip. Report exact
@@ -949,13 +1136,16 @@ pass/fail/skip counts. Zero required skips for this witness.
 Also prove fail-closed cases at unit/adapter scope:
 
 ```text
-inexpressible authored fact        → WorldGraphAuthorityError inexpressible
+merge_objects                      → inexpressible; no file-apply fallback
+missing sourceRunId                → source_run_required / source_identity_missing
+source identity drift on confirm   → fail closed
 stale expected parent              → stale_parent
+overlay token is not graph CAS     → confirm does not require it
 UnionSupergraph path not used      → prepare/confirm do not import
                                      merge_reconciliation_apply at runtime
 ```
 
-### 5.8 D.2C4 implementation write lease
+### 5.10 D.2C4 implementation write lease
 
 #### Core owned paths
 
@@ -965,7 +1155,13 @@ apps/live_control_server/services/graph_object_authoring_prepare.py
 apps/live_control_server/services/graph_object_authoring_commit.py
 apps/live_control_server/services/graph_object_authoring_merge_guard.py
 apps/live_control_server/services/graph_object_authoring_overlap.py
+apps/live_control_server/services/graph_authoring_event_log.py
+  audit trail only; not graph authority
+apps/live_control_server/services/graph_authoring_overlay_store.py
+  audit trail only; not graph CAS
 apps/live_control_server/models/graph_authoring_overlay.py
+apps/live_control_server/services/promotable_ingest_run.py
+  consume already-landed source-run resolution only
 apps/live_control_server/ports/world_graph_authority.py
   only if Buddy-side prepare/confirm types need to *consume* it;
   do not add a new DungeonMind publication_family
@@ -977,7 +1173,9 @@ apps/live-control-ui/src/api/types.ts
 apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorDraftWorkspace.tsx
 apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringPrepareCommitPanel.tsx
 apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthoringRail.tsx
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewMergeCandidatesPanel.tsx
 apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphMergeReconciliationMaterializationPanel.tsx
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphObjectAuthoringDraft.ts
 apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.tsx
 owning Graph Review authoring UI tests
 ```
@@ -1007,13 +1205,14 @@ buddy_files compatibility removal
 Kernel / world_supergraph / union_supergraph deletion
 Plan UX redesign
 extract-promote semantic change
+existing-existing identity-merge authority / new provider contract
 APP-STATE
 DungeonMind repository/provider code
 new World Graph semantics / publication families
 deprecating DESIGN-graph-object-authoring-surface.md
 ```
 
-### 5.9 D.2C4 CODE successor shape
+### 5.11 D.2C4 CODE successor shape
 
 Suggested wrapper:
 
@@ -1024,14 +1223,14 @@ title   CUTOVER: migrate Graph Review authoring onto WorldGraphAuthority
 ```
 
 The wrapper pins execution metadata, write lease, evidence, state sync, and
-handback. It does not reopen this mapping or convert extract-promote into
-manual authoring.
+handback. It does not reopen this mapping, convert extract-promote into
+manual authoring, or add `merge_objects` to the shipped surface.
 
 **Dispatch law:** merge this design PR first. Dispatch D.2C3 from the
 **merged** design. Dispatch D.2C4 only after D.2C3 merges. Do not dispatch
 D.2C4 from an accepted-but-unmerged design head.
 
-### 5.10 D.2C4 review handback contract
+### 5.12 D.2C4 review handback contract
 
 Return:
 
@@ -1043,18 +1242,24 @@ Return:
 5. active parallel PRs checked;
 6. prepare/confirm now publish through WorldGraphAuthority worldbuilding
    family; GraphContribution source_kind is graph_review_authored_assertion;
-7. assertion mapping evidence for object/link_existing/relationship and,
-   if shipped, expressible merge_objects;
-8. proof extract-promote remains a distinct ingest-run path;
-9. proof UnionSupergraph file-apply is not the write destination;
-10. Graph Review authoring UI still presents a working governed write,
-    not a 410/retired cockpit;
-11. real-Postgres witness counts from §5.7; zero required skips;
-12. exact commands with pass/fail/skip counts;
-13. ruff + `git diff --check`;
-14. state sync showing #645 DONE, this design's known facts, D.2C3 DONE,
+7. assertion mapping evidence for object/link_existing/relationship;
+   merge_objects fail-closed with no file-apply fallback;
+8. source closure: server-resolved source_artifact_id + source_revision_id
+   on contribution and assertions; no-source drafts fail closed;
+9. overlay/event-log is post-publish audit only; overlay token is not CAS;
+   honest wire (no dummy overlay success fields);
+10. deterministic `grauth:` authority_operation_id; lost-response + exact
+    retry recover one DungeonMind child;
+11. proof extract-promote remains a distinct ingest-run path;
+12. proof UnionSupergraph file-apply is not the write destination;
+13. Graph Review authoring UI still presents a working governed write for
+    object/link/relationship, not a 410/retired cockpit;
+14. real-Postgres witness counts from §5.9; zero required skips;
+15. exact commands with pass/fail/skip counts;
+16. ruff + `git diff --check`;
+17. state sync showing #645 DONE, this design's known facts, D.2C3 DONE,
     D.2C4 active, D.3A blocked, D.3 not DONE;
-15. stop conditions or `none`.
+18. stop conditions or `none`.
 
 The D.2C4 dispatch seed is not Review Cycle 1. Review begins with executable
 implementation and owning evidence.
@@ -1250,14 +1455,19 @@ D.2C4  REWRITE_PORT
   GraphObjectAuthoringPrepareCommitPanel
   GraphProjectionReader graph-authoring-action
   authoring mode toggle
+  → object / link_existing / relationship only
+  → source-bound sourceRunId → sealed SourceArtifact/revision
   → WorldGraphAuthority.publish, worldbuilding family
   → GraphContribution source_kind=graph_review_authored_assertion
+  → overlay/event-log is post-publish audit only
 
 D.3A   KEEP_MOUNTED_410 leftover writer only
   POST /api/live/graph-authoring/merge-reconciliation/prepare
   POST /api/live/graph-authoring/merge-reconciliation/apply
   GraphMergeReconciliationMaterializationPanel file-apply UX
   → 410 code=graph_authoring_store_retired
+  D.2C4 already made merge_objects unavailable; D.3A does not
+  fold merges into governed confirm
 ```
 
 D.3A must **not**:
@@ -2097,10 +2307,17 @@ STOP if:
     required as a local store;
 14. a live UI still presents store-backed Union Graph preview as a working
     open action after the frozen 410 retirement;
-15. D.2C4 cannot express required manual authoring as GraphContribution +
-    WorldGraphAuthority.publish without a new DungeonMind provider contract;
+15. D.2C4 cannot express required shipped object / link_existing /
+    relationship authoring as GraphContribution + WorldGraphAuthority.publish
+    without a new DungeonMind provider contract;
 16. D.3A 410s or disables the Graph Review authoring cockpit, or treats
-    extract-promote as a substitute for that capability.
+    extract-promote as a substitute for that capability;
+17. D.2C4 ships merge_objects as a durable write, or keeps UnionSupergraph
+    merge/file-apply as a fallback;
+18. D.2C4 publishes without server-sealed source_artifact_id +
+    source_revision_id, or offers a source-less draft as a working write;
+19. D.2C4 keeps overlay token as graph CAS, or returns fake overlay /
+    event-log success fields after publication is the authority.
 
 ---
 
@@ -2120,12 +2337,13 @@ STOP if:
 
 ```text
 1. map authored object/link_existing/relationship onto GraphContribution
-2. rewrite /graph-authoring/prepare|commit onto WorldGraphAuthority
-3. keep Graph Review authoring cockpit as the working write UX
-4. fold expressible identity merge into governed confirm; stop file-apply
-   as durable write
-5. real-Postgres witness + extract-promote distinctness proof
-6. carry D.2C3 predecessor state sync; keep D.3A blocked
+2. require sourceRunId; seal source_artifact_id + source_revision_id
+3. rewrite /graph-authoring/prepare|commit onto WorldGraphAuthority
+4. keep Graph Review authoring cockpit as the working write UX
+5. fail-close merge_objects; stop file-apply as durable write
+6. overlay/event-log as post-publish audit; grauth: operation id
+7. real-Postgres source-closed witness + extract-promote distinctness
+8. carry D.2C3 predecessor state sync; keep D.3A blocked
 ```
 
 ### D.3A (after D.2C4 merges)
@@ -2208,6 +2426,10 @@ Review this repaired design specifically for:
 3. **Authoring fate:** is D.2C4 REWRITE_PORT onto WorldGraphAuthority the right
    product decision versus explicit architecture-superseding deprecation? Is
    leftover merge-reconciliation 410 the right D.3A remainder?
+3c. **D.2C4 contracts:** is failing closed on merge_objects, requiring
+    sourceRunId source closure, and keeping overlay/event-log as
+    post-publish degraded-audit the right freeze versus a new identity-merge
+    predecessor or Option B trail deletion?
 3b. **Boot fate:** are KEEP_MOUNTED_410 + endpoint-level graph-preview +
    Open Union Graph / bootstrap UI retirement the right product decisions,
    vs STOP?
