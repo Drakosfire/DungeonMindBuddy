@@ -221,27 +221,68 @@ def _profile_ref() -> dict:
 
 
 class _FakeAdoptionRepository:
-    def __init__(self, receipt: ExistingWorldAdoptionReceiptV3 | None) -> None:
+    def __init__(
+        self,
+        receipt: ExistingWorldAdoptionReceiptV3 | None,
+        *,
+        error: BaseException | None = None,
+    ) -> None:
         self._receipt = receipt
+        self._error = error
 
     def get_for_world(self, world_id: str):
+        if self._error is not None:
+            raise self._error
+        if self._receipt is not None and self._receipt.world_id == world_id:
+            return self._receipt
+        return None
+
+
+class _FakeReviewedInitReceipt:
+    def __init__(self, world_id: str, published_revision_id: str) -> None:
+        self.world_id = world_id
+        self.published_revision_id = published_revision_id
+
+
+class _FakeReviewedInitRepository:
+    def __init__(
+        self,
+        receipt: _FakeReviewedInitReceipt | None,
+        *,
+        error: BaseException | None = None,
+    ) -> None:
+        self._receipt = receipt
+        self._error = error
+
+    def get_for_world(self, world_id: str):
+        if self._error is not None:
+            raise self._error
         if self._receipt is not None and self._receipt.world_id == world_id:
             return self._receipt
         return None
 
 
 class _FakeBundle:
-    """Duck-typed repository bundle: real in-memory repos + adoption fake."""
+    """Duck-typed repository bundle: real in-memory repos + genesis fakes."""
 
     def __init__(
         self,
         world_graph: InMemoryWorldGraphRepository,
         sources: InMemorySourceRepository,
         receipt: ExistingWorldAdoptionReceiptV3 | None,
+        init_receipt: _FakeReviewedInitReceipt | None = None,
+        *,
+        adoption_error: BaseException | None = None,
+        init_error: BaseException | None = None,
     ) -> None:
         self.world_graph = world_graph
         self.sources = sources
-        self.existing_world_adoptions = _FakeAdoptionRepository(receipt)
+        self.existing_world_adoptions = _FakeAdoptionRepository(
+            receipt, error=adoption_error
+        )
+        self.reviewed_world_initializations = _FakeReviewedInitRepository(
+            init_receipt, error=init_error
+        )
 
 
 def _seed_sources() -> InMemorySourceRepository:
@@ -468,7 +509,16 @@ def test_revision_pin_unknown_fails_closed(services):
     assert excinfo.value.status_code == 404
 
 
-def test_missing_receipt_fails_closed():
+def test_uninitialized_world_is_not_integrity():
+    world_graph = InMemoryWorldGraphRepository()
+    bundle = _FakeBundle(world_graph, _seed_sources(), None)
+    with pytest.raises(direct.DirectWorldGraphReadError) as excinfo:
+        direct.direct_services_from_bundle(bundle, WORLD_ID)
+    assert excinfo.value.code == "authority_receipt_missing"
+    assert excinfo.value.status_code == 503
+
+
+def test_head_without_genesis_is_integrity():
     world_graph = InMemoryWorldGraphRepository()
     world_graph.publish_revision(
         PublishRevisionCommand(
@@ -484,19 +534,120 @@ def test_missing_receipt_fails_closed():
     bundle = _FakeBundle(world_graph, _seed_sources(), None)
     with pytest.raises(direct.DirectWorldGraphReadError) as excinfo:
         direct.direct_services_from_bundle(bundle, WORLD_ID)
-    assert excinfo.value.code == "authority_receipt_missing"
-    assert excinfo.value.status_code == 503
+    assert excinfo.value.code == "authority_integrity"
+    assert excinfo.value.status_code == 500
+    assert excinfo.value.diagnostics[0]["reason"] == "head_without_genesis"
 
 
-def test_missing_head_fails_closed():
+def test_adoption_receipt_without_head_is_integrity():
     world_graph = InMemoryWorldGraphRepository()
     bundle = _FakeBundle(
         world_graph, _seed_sources(), _receipt(WORLD_ID, "rev:never-published")
     )
     with pytest.raises(direct.DirectWorldGraphReadError) as excinfo:
         direct.direct_services_from_bundle(bundle, WORLD_ID)
-    assert excinfo.value.code == "authority_head_missing"
-    assert excinfo.value.status_code == 503
+    assert excinfo.value.code == "authority_integrity"
+    assert excinfo.value.status_code == 500
+    assert excinfo.value.diagnostics[0]["reason"] == "genesis_receipt_without_head"
+
+
+def test_reviewed_init_receipt_without_head_is_integrity():
+    world_graph = InMemoryWorldGraphRepository()
+    bundle = _FakeBundle(
+        world_graph,
+        _seed_sources(),
+        None,
+        _FakeReviewedInitReceipt(WORLD_ID, "rev:never-published"),
+    )
+    with pytest.raises(direct.DirectWorldGraphReadError) as excinfo:
+        direct.direct_services_from_bundle(bundle, WORLD_ID)
+    assert excinfo.value.code == "authority_integrity"
+    assert excinfo.value.diagnostics[0]["reason"] == "genesis_receipt_without_head"
+
+
+def test_both_genesis_receipts_are_integrity():
+    world_graph = InMemoryWorldGraphRepository()
+    published = world_graph.publish_revision(
+        PublishRevisionCommand(
+            world_id=WORLD_ID,
+            parent_revision_id=None,
+            expected_parent_revision_id=None,
+            operation_ids=["op:r3-test"],
+            graph_schema="dm_union_graph_v6",
+            graph_payload=_payload(),
+            created_at=NOW,
+        )
+    )
+    bundle = _FakeBundle(
+        world_graph,
+        _seed_sources(),
+        _receipt(WORLD_ID, published.revision_id),
+        _FakeReviewedInitReceipt(WORLD_ID, published.revision_id),
+    )
+    with pytest.raises(direct.DirectWorldGraphReadError) as excinfo:
+        direct.direct_services_from_bundle(bundle, WORLD_ID)
+    assert excinfo.value.code == "authority_integrity"
+    assert excinfo.value.diagnostics[0]["reason"] == "both_genesis_receipts"
+
+
+def test_reviewed_init_binding_has_no_legacy_bridge():
+    world_graph = InMemoryWorldGraphRepository()
+    published = world_graph.publish_revision(
+        PublishRevisionCommand(
+            world_id=WORLD_ID,
+            parent_revision_id=None,
+            expected_parent_revision_id=None,
+            operation_ids=["op:r3-test"],
+            graph_schema="dm_union_graph_v6",
+            graph_payload=_payload(),
+            created_at=NOW,
+        )
+    )
+    bundle = _FakeBundle(
+        world_graph,
+        _seed_sources(),
+        None,
+        _FakeReviewedInitReceipt(WORLD_ID, published.revision_id),
+    )
+    svc = direct.direct_services_from_bundle(bundle, WORLD_ID)
+    assert svc.binding.genesis == "reviewed_world_initialization"
+    assert svc.binding.legacy_buddy_revision_id is None
+    assert svc.binding.dungeonmind_first_revision_id == published.revision_id
+    assert svc.binding.dungeonmind_head_revision_id == published.revision_id
+    projection = direct.project_world_graph_direct(
+        svc, _projection_request(revision_pin=published.revision_id)
+    )
+    assert projection.snapshot.revision_id == published.revision_id
+
+
+def test_adoption_binding_preserves_legacy_bridge(services):
+    svc, head_revision = services
+    assert svc.binding.genesis == "existing_world_adoption"
+    assert svc.binding.legacy_buddy_revision_id == LEGACY_BUDDY_A_REVISION
+    assert svc.binding.dungeonmind_first_revision_id == head_revision
+    assert (
+        direct._resolve_revision_pin(LEGACY_BUDDY_A_REVISION, svc.binding)
+        == head_revision
+    )
+    assert direct._resolve_revision_pin(head_revision, svc.binding) == head_revision
+
+
+def test_provider_receipt_integrity_is_not_unavailable():
+    from dungeonmind.domain.errors import PersistenceIntegrityError
+
+    world_graph = InMemoryWorldGraphRepository()
+    bundle = _FakeBundle(
+        world_graph,
+        _seed_sources(),
+        None,
+        adoption_error=PersistenceIntegrityError(
+            "existing-world adoption receipt references a missing revision"
+        ),
+    )
+    with pytest.raises(direct.DirectWorldGraphReadError) as excinfo:
+        direct.direct_services_from_bundle(bundle, WORLD_ID)
+    assert excinfo.value.code == "authority_integrity"
+    assert excinfo.value.status_code == 500
 
 
 # ---------------------------------------------------------------------------
