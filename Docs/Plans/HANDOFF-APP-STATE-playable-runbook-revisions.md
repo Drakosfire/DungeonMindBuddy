@@ -22,7 +22,10 @@ pr_body_template: |
 # HANDOFF — AS2: Playable Runbooks as historical WorkRevisions
 
 **Created:** 2026-08-25  
-**Status:** READY — AS1 merged; dispatch from the exact base below  
+**Status:** DONE — merged PR #643 at `b4d63daab3eeb8150ca73fe9492d7a3d8744a4e0`  
+**Accepted head:** `6b1c2e77648eee6180d293c92d2c97a428e9002f`  
+**Review:** 3 distinct-head cycles; final PASS-equivalent review `5024971680`  
+**Exact-head evidence:** PR #643 comment `5417774447`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-APP-STATE-playable-runbook-revisions.md`  
 **Workstream / flow:** `APP-STATE`  
 **Direction:** CODE → REVIEW  
