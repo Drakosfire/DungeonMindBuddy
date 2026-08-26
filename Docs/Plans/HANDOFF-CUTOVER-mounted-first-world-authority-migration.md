@@ -46,13 +46,13 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2C2: mounted first-world authority migration
 
 **Created:** 2026-08-25  
-**Status:** CYCLE 1 REPAIR — awaiting Review Cycle 2  
+**Status:** DESIGN ACCEPTED — merged #644; implementation is Buddy #645 (`DOING`; not yet merged)  
 **Workstream / flow:** `CUTOVER`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
 **Buddy design base:** `d80c8688774602972e07593b83e3d8d09d4b0a7b` — merge of Buddy PR #642  
-**Current Buddy `main` (re-anchor before CODE):** `2de68441dd2b0adaf934526236d2c8983f9a7e9e` — AS2 #643 merged; AS3 dispatched, lease disjoint from D.2C2 CUTOVER paths  
-**Cycle 1 reviews (same head `a9e1d713`; not Cycle 2):** REQUEST-CHANGES-equivalent `5025040987`; addendum `5025096047`  
+**Current Buddy `main` (D.2C2 implementation base):** `f1eae2a3d27e430ee19e254d5b52fa556b2632ff` — merge of Buddy PR #644  
+**Cycle 2 review:** PASS-equivalent `5025378684` on accepted design head `ded066cec49c3840c3b19c3e817ffa569a116f39`  
 **DungeonMind provider pin to consume:** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b` — merge of DungeonMind PR #46  
 **DungeonMind accepted provider head:** `bc2800b1d09aa70cf33d92ea6b8fc4a786f4b999`  
 **DungeonMind provider review:** Cycle 3 PASS-equivalent `5024825675`  
@@ -152,20 +152,26 @@ Buddy**:
 - reciprocal exclusion with existing-world adoption;
 - historical initialization receipt remains valid after later descendants.
 
-### 2.2 Buddy is still pinned to the pre-provider DungeonMind revision
+### 2.2 D.2C2 owns the exact DungeonMind #46 repin
 
-`pyproject.toml` currently pins:
+At #644 design merge, Buddy still pinned:
 
 ```text
 c5d3688587b0f5d506e0f7d64f33eb0628bac896
 ```
 
-D.2C2 owns the exact repin to `bf40e933...` and corresponding `uv.lock` refresh.
-Do not widen DungeonMind versions or move to a floating branch/tag.
+This implementation PR applies the exact repin to:
 
-### 2.3 Mounted first-world authority is still legacy Buddy runtime
+```text
+bf40e933bdedf3cf08bb23a07a135958bdb7cc6b
+```
 
-Current production first-world code still does all of the following:
+and the corresponding `uv.lock` refresh. Do not widen DungeonMind versions or
+move to a floating branch/tag.
+
+### 2.3 Mounted first-world authority at design time was still legacy Buddy runtime
+
+At #644 design merge, production first-world code still did all of the following:
 
 - `first_world_graph.classify_world_graph_state(...)` opens Buddy world dirs,
   heads, and revisions;
@@ -802,8 +808,9 @@ final provider review: Cycle 3 PASS-equivalent 5024825675
 
 ### D.2C2
 
-Mark active during implementation and DONE only after its own accepted head is
-merged. D.3 remains blocked/false until then.
+Buddy #645 implementation is ACTIVE / this PR. Mark DONE only after its own
+accepted head is merged. Do not invent this PR's merge SHA. D.3 remains
+blocked/false until then.
 
 ---
 

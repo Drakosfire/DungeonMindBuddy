@@ -40,7 +40,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2C1: DungeonMind reviewed first-world initialization authority
 
 **Created:** 2026-08-25  
-**Status:** READY FOR IMPLEMENTATION  
+**Status:** DONE — design #642 merged; provider DungeonMind #46 merged  
 **Workstream / flow:** `CUTOVER`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMind`  
@@ -48,8 +48,8 @@ pr_body_template: |
 **Buddy D.2B merge:** `6ef7aefa741a82f512f5918b460cbee1a427cae4`  
 **Buddy D.2B accepted head:** `caa9d84e4431db1b90ea58dab2e74d270fbcffee`  
 **Buddy D.2B review cycles:** 3; Cycle 3 PASS-equivalent review `5020798053`  
-**This design PR:** Buddy #642; Cycle 1 REQUEST-CHANGES-equivalent review `5023633280`  
-**DungeonMind implementation base:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` — current `main`, merge of PR #45  
+**This design PR:** Buddy #642 merge `d80c8688774602972e07593b83e3d8d09d4b0a7b`; accepted design head `0f9e07686dfd157bb35acbd10765bfe3de68166f`; 2 review cycles; Cycle 2 PASS-equivalent `5023757627`  
+**DungeonMind implementation:** PR #46 merge `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`; accepted head `bc2800b1d09aa70cf33d92ea6b8fc4a786f4b999`; 3 review cycles; Cycle 3 PASS-equivalent `5024825675`  
 **Suggested DungeonMind branch:** `cutover/reviewed-first-world-initialization`  
 **Suggested PR title:** `CUTOVER: add reviewed first-world initialization authority`  
 **Predecessor:** Buddy D.2B / PR #640  
@@ -212,7 +212,7 @@ source authority is not complete.
 The command therefore carries the exact `SourceArtifactV2` /
 `SourceRevision` records required by the reviewed contribution and accepted
 evidence. Those are the repository-true types at DungeonMind pin
-`c5d3688587b0f5d506e0f7d64f33eb0628bac896` (`dm_source_artifact_v2` and
+`bf40e933bdedf3cf08bb23a07a135958bdb7cc6b` (`dm_source_artifact_v2` and
 `dm_source_revision_v1`). Do not invent `SourceRevisionV2` or another
 source-revision schema in this PR. Validate:
 
@@ -768,13 +768,8 @@ explicit lease transfer/serialization decision.
 
 ## 13. State-authority sync
 
-Buddy PR #640 is now merged, but the current Campaign Supergraph tracker/roadmap
-and CUTOVER steward anchor still say D.2B is `DOING` and still name the pre-#640
-Buddy main.
-
-Do not edit Buddy state authorities from this DungeonMind implementation PR.
-The next Buddy implementation consumer, D.2C2, owns the backward-looking atomic
-sync and must record:
+Buddy PR #640, Buddy design PR #642, and DungeonMind PR #46 are merged.
+D.2C2 / Buddy #645 now owns the backward-looking atomic sync and records:
 
 ```text
 D.2B / Buddy #640 = DONE
@@ -784,11 +779,12 @@ review cycles = 3
 Cycle 3 PASS-equivalent = 5020798053
 D.2C decomposed into provider D.2C1 + Buddy consumer D.2C2
 D.2C1 exact DungeonMind merge/review truth
-D.2C2 = active
+D.2C2 = ACTIVE / Buddy #645
 D.3 = still blocked on D.2C2
 ```
 
-Do not mark D.2C done when only the DungeonMind provider exists.
+Do not mark D.2C done when only the DungeonMind provider exists. Do not invent
+#645's merge SHA.
 
 ---
 
@@ -815,4 +811,5 @@ Do not mark D.2C done when only the DungeonMind provider exists.
 - [ ] Migration upgrade proof passes from current migration head.
 - [ ] No Buddy production code or APP-STATE scope enters this PR.
 
-When these are true, D.2C1 is `DONE`; D.2C2 becomes the next CUTOVER implementation slice.
+When these are true, D.2C1 is `DONE`; D.2C2 / Buddy #645 is the active CUTOVER
+implementation slice. D.3 remains false.

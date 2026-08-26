@@ -84,9 +84,12 @@ Buddy main = f1eae2a3d27e430ee19e254d5b52fa556b2632ff
 #644 design = merged
 AS2 #643 = merged
 AS3 = dispatched by handoff on main; declared lease is disjoint from this CUTOVER lease
-DungeonMind Buddy pin = still c5d3688587b0f5d506e0f7d64f33eb0628bac896
+DungeonMind Buddy pin at dispatch = c5d3688587b0f5d506e0f7d64f33eb0628bac896
 required DungeonMind pin = bf40e933bdedf3cf08bb23a07a135958bdb7cc6b
 ```
+
+This implementation PR applies the required pin in `pyproject.toml` and `uv.lock`.
+D.2C2 remains ACTIVE / this PR. D.3 remains false.
 
 Immediately before implementation, re-check:
 

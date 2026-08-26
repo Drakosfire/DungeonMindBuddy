@@ -1,12 +1,12 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-18 — CUTOVER_COMPLETE: Buddy #620 merged; live D_A→D_B published; DungeonMind is living Eldyrwild World Graph authority
-**Active CUTOVER slice:** none — whole-world authority transfer is `CUTOVER_COMPLETE` per [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](../Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md). Buddy PR #620 is `DONE` (merge `18bcb18475ac30679ebec84bec17c4e81390f674`; 4 review cycles; final PASS review `4966969478` on head `8b9e5e8a68b8a5b766c7684234807c3df4944141`). Buddy PR #619 is the merged adapter predecessor (`6c2fe9d37dcecf34e025db8373fce072de30b62e`). DungeonMind PR #37 is `DONE` (merge `2edc07ff27a21b1c83aed847edf95b77d297910e`). Live authority: DungeonMind PostgreSQL head `D_B = rev:680c246047d67f9fe0293ee90526f670` (parent `D_A = rev:34b1f8e2625d5ba693fc726a2a1a4720`); V3 membership `538195e399158bfb4fafce01f9c5af3c63e2137f70694fdead7a26e5800e0890`; Buddy local World Graph writer fail-closed under `DUNGEONMIND_WORLD_GRAPH_AUTHORITY=dungeonmind`. Accepted snapshot A remains blob `274cdd9e6d38d5a00aa43d780779e95a7919d975`; bundle SHA-256 `90574dfc4101e4198c7fd96478d6f49e65aa534d0aa91fa41a9a17da9d49695f`; frozen Buddy head `rev:0c644e56b45bcaac709012206e3e41c2` / payload `0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2` unchanged through the first DungeonMind-owned mutation.
-**Repository anchor:** `18bcb18475ac30679ebec84bec17c4e81390f674` (Buddy `main` at #620 merge / live cutover base)
-**Dispatch gate:** none for CUTOVER. Fix-forward only under living DungeonMind authority. Do not re-enable Buddy World Graph writers after `D_B`. Do not dispatch the parked catch-up handoff absent a newly observed `STALE`.
+**Updated:** 2026-08-25 — D.2B/#640, D.2C1/#642+#46, and D.2C2 design/#644 are `DONE`; D.2C2 implementation is `DOING` / Buddy #645; D.3 remains false
+**Active CUTOVER slice:** D.2C2 mounted first-world authority migration / Buddy #645 (`cutover/mounted-first-world-authority-migration`). Whole-world authority transfer remains `CUTOVER_COMPLETE` per [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](../Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md). Buddy PR #620 is `DONE` (merge `18bcb18475ac30679ebec84bec17c4e81390f674`; 4 review cycles; final PASS review `4966969478` on head `8b9e5e8a68b8a5b766c7684234807c3df4944141`). Buddy PR #619 is the merged adapter predecessor (`6c2fe9d37dcecf34e025db8373fce072de30b62e`). DungeonMind PR #37 is `DONE` (merge `2edc07ff27a21b1c83aed847edf95b77d297910e`). DungeonMind PR #46 is `DONE` (merge `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`). Live authority: DungeonMind PostgreSQL head `D_B = rev:680c246047d67f9fe0293ee90526f670` (parent `D_A = rev:34b1f8e2625d5ba693fc726a2a1a4720`); V3 membership `538195e399158bfb4fafce01f9c5af3c63e2137f70694fdead7a26e5800e0890`; Buddy local World Graph writer fail-closed under `DUNGEONMIND_WORLD_GRAPH_AUTHORITY=dungeonmind`. Accepted snapshot A remains blob `274cdd9e6d38d5a00aa43d780779e95a7919d975`; bundle SHA-256 `90574dfc4101e4198c7fd96478d6f49e65aa534d0aa91fa41a9a17da9d49695f`; frozen Buddy head `rev:0c644e56b45bcaac709012206e3e41c2` / payload `0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2` unchanged through the first DungeonMind-owned mutation.
+**Repository anchor:** `f1eae2a3d27e430ee19e254d5b52fa556b2632ff` (Buddy `main` at #644 D.2C2 design merge / D.2C2 implementation base)
+**Dispatch gate:** D.2C2 implementation / Buddy #645 owns the mounted first-world write lease. Fix-forward only under living DungeonMind authority. Do not re-enable Buddy World Graph writers after `D_B`. Do not dispatch D.3 or the parked catch-up handoff absent a newly observed `STALE`. Do not invent #645's merge SHA.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
-**DungeonMind pin:** `2edc07ff27a21b1c83aed847edf95b77d297910e` (PR #37 merge / Buddy runtime pin)
+**DungeonMind pin:** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b` (PR #46 merge / reviewed first-world initialization; Buddy runtime pin of D.2C2)
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`../Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Tracker:** [`../Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
@@ -202,12 +202,12 @@ merged the bounded read-only correspondence implementation; its Cycle 3
 exact-membership residual is closed by DungeonMind PR #36 (`DONE`: exact
 adopted-membership receipt V3, `membership_sha256`, steward-supervised
 Eldyrwild V2→V3 promotion; head `6a249b48…`, merge `9a19584d…`, Review
-Cycle 3 PASS). The whole-world authority transfer is now the active CUTOVER
-work (`DOING`) per
-[`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](../Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md):
-preparation is over, concrete failures become repair work, and pinned
-exact-snapshot catch-up is `DEFERRED` (activates only on an observed
-`STALE`).
+Cycle 3 PASS). The whole-world authority transfer is `CUTOVER_COMPLETE` per
+[`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](../Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md).
+The remaining CUTOVER write-side lane is D.2C2 mounted first-world authority
+migration (`DOING` / Buddy #645). D.3 remains false until that implementation
+merges. Pinned exact-snapshot catch-up is `DEFERRED` (activates only on an
+observed `STALE`).
 
 ### Current Eldyrwild semantic state
 

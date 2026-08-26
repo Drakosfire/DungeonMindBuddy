@@ -1,13 +1,13 @@
 # STEWARD'S ANCHOR — CUTOVER
 
-**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; native DungeonMind reads are production (#633 `DONE`); D.1 native governed writes are `DONE` (#634); D.2A Threat authority port is `DONE` (#637); remaining debt is D.2B worldbuilding then D.2C first-world/bootstrap then D.3 graph-engine demolition (D.2B `DOING`)  
+**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; native DungeonMind reads are production (#633 `DONE`); D.1 native governed writes are `DONE` (#634); D.2A Threat authority port is `DONE` (#637); D.2B worldbuilding is `DONE` (#640); D.2C1 provider is `DONE` (Buddy #642 + DungeonMind #46); remaining debt is D.2C2 mounted first-world authority migration (`DOING` / Buddy #645) then D.3 graph-engine demolition (`false` until D.2C2 implementation merges)  
 **Line of work:** `CUTOVER`  
 **Created:** 2026-08-17  
 **Completed:** 2026-08-18 (live D_A→D_B)  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Current Buddy `main`:** `879c1b8c8794d4774cc17f6ec7c91eebf999f77c` (APP-STATE AS1 PostgreSQL Plan foundation; D.2B implementation base). Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **Cycle 2 approval:** `5011598382`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`.  
+**Current Buddy `main`:** `f1eae2a3d27e430ee19e254d5b52fa556b2632ff` (#644 D.2C2 design merged; D.2C2 implementation base). Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **Cycle 2 approval:** `5011598382`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`.  
 **Buddy integration tip at completion:** `18bcb18475ac30679ebec84bec17c4e81390f674` (merge of Buddy PR #620)  
-**DungeonMind authority anchor:** `c5d3688587b0f5d506e0f7d64f33eb0628bac896` (merge of DungeonMind PR #45 — R.3a native read-context optimization; Buddy runtime pin of this slice. Historical R.3 pin was PR #43 `519b2c96…`)  
+**DungeonMind authority anchor:** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b` (merge of DungeonMind PR #46 — reviewed first-world initialization; Buddy runtime pin of D.2C2. Historical R.3a pin was PR #45 `c5d36885…`; historical R.3 pin was PR #43 `519b2c96…`)  
 **Completed implementation handoffs:** Buddy PR #619 (`6c2fe9d37dcecf34e025db8373fce072de30b62e`) + Buddy PR #620 (`18bcb18475ac30679ebec84bec17c4e81390f674`; 4 review cycles; final PASS review `4966969478`) + parent [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md)  
 **Live authority:** DungeonMind PostgreSQL (`dungeonmind_cutover_live@127.0.0.1:54329`); head `D_B = rev:680c246047d67f9fe0293ee90526f670`; parent `D_A = rev:34b1f8e2625d5ba693fc726a2a1a4720`; Buddy local World Graph writer fail-closed under `DUNGEONMIND_WORLD_GRAPH_AUTHORITY=dungeonmind`  
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)  
