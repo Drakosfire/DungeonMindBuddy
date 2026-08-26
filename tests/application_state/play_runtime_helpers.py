@@ -290,6 +290,56 @@ def corrupt_play_run_progress(dsn: str, run_id: str, progress: dict) -> None:
         )
 
 
+def corrupt_play_run_manifest_document(dsn: str, run_id: str, manifest: dict) -> None:
+    import psycopg
+    from psycopg.types.json import Jsonb
+
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE play.run_manifest SET manifest = %(manifest)s WHERE run_id = %(run_id)s",
+            {"manifest": Jsonb(manifest), "run_id": run_id},
+        )
+
+
+def fetch_play_runtime_state(dsn: str, run_id: str) -> dict:
+    import psycopg
+    from psycopg.rows import dict_row
+
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT run_revision, progress, playable_revision_n,
+                       playable_content_sha256, rebased_from_run_revision,
+                       created_at, updated_at
+                FROM play.run
+                WHERE run_id = %s
+                """,
+                (run_id,),
+            )
+            run = cur.fetchone()
+            cur.execute(
+                """
+                SELECT playable_work_object_id, playable_revision_n,
+                       playable_work_revision_id, playable_content_sha256,
+                       manifest, sealed_at
+                FROM play.run_manifest
+                WHERE run_id = %s
+                """,
+                (run_id,),
+            )
+            manifest = cur.fetchone()
+    assert run is not None
+    assert manifest is not None
+    return {"run": dict(run), "manifest": dict(manifest)}
+
+
+def unknown_schema_manifest(document: dict) -> dict:
+    corrupted = dict(document)
+    corrupted["schema_version"] = "dmb_play_run_reference_manifest_v9"
+    return corrupted
+
+
 def write_legacy_active_run_pointer(root: Path, *, run_id: str, selected_at: str) -> Path:
     from apps.live_control_server.services.play_active_run import (
         PLAY_ACTIVE_RUN_SCHEMA,

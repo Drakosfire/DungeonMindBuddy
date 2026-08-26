@@ -37,6 +37,7 @@ from tests.application_state.playable_binding import (
     playable_binding,
     remember_committed_playable,
 )
+from tests.application_state.play_runtime_helpers import fetch_play_runtime_state
 
 pytest_plugins = ["tests.application_state.conftest"]
 
@@ -476,6 +477,7 @@ def test_persisted_ghost_reference_fails_closed_on_reads(
     progress = _progress().model_dump(mode="json")
     progress["current_scene_id"] = "scene:ghost"
     _update_run_progress(application_state_dsn, RUN_ID_A, progress)
+    before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         get_play_run(tmp_path, RUN_ID_A)
@@ -490,9 +492,10 @@ def test_persisted_ghost_reference_fails_closed_on_reads(
             tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=2,
-            progress=_progress(current_scene_id="scene:ghost"),
+            progress=_progress(),
         )
-    assert exc_info.value.status_code == 422
+    assert exc_info.value.status_code == 500
+    assert fetch_play_runtime_state(application_state_dsn, RUN_ID_A) == before
 
 
 def test_persisted_cross_choice_selection_fails_closed(
@@ -539,6 +542,7 @@ def test_persisted_resolved_beats_must_be_duplicate_free_and_sorted(
     progress = _progress(resolved_beat_ids=["beat:arrival", "beat:briefing"]).model_dump(mode="json")
     progress["resolved_beat_ids"] = tampered_beats
     _update_run_progress(application_state_dsn, RUN_ID_A, progress)
+    before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         get_play_run(tmp_path, RUN_ID_A)
@@ -547,6 +551,16 @@ def test_persisted_resolved_beats_must_be_duplicate_free_and_sorted(
     with pytest.raises(PlayRunRegistryError) as exc_info:
         list_play_runs(tmp_path)
     assert exc_info.value.status_code == 500
+
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        replace_play_run_progress(
+            tmp_path,
+            run_id=RUN_ID_A,
+            expected_run_revision=2,
+            progress=_progress(resolved_beat_ids=["beat:arrival", "beat:briefing"]),
+        )
+    assert exc_info.value.status_code == 500
+    assert fetch_play_runtime_state(application_state_dsn, RUN_ID_A) == before
 
 
 def test_legacy_record_without_progress_reads_empty_and_can_mutate(

@@ -16,6 +16,7 @@ from apps.live_control_server.services.play_run_registry import (
     replace_play_run_progress,
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
+    PlayRunReferenceManifestError,
     get_play_run_reference_manifest,
     play_run_reference_manifest_path,
     seal_or_replay_play_run_reference_manifest,
@@ -32,15 +33,18 @@ from tests.application_state.play_runtime_helpers import (
     SURVIVING_TARGET_MARKDOWN,
     commit_runbook_markdown,
     count_play_rows,
+    corrupt_play_run_manifest_document,
     corrupt_play_run_progress,
     create_committed_runbook,
     create_run,
     empty_progress,
+    fetch_play_runtime_state,
     gate_progress,
     hidden_legacy_runtime_dirs,
     measure_file_backed_baseline_latency,
     measure_ms,
     playable_of,
+    unknown_schema_manifest,
 )
 
 
@@ -240,6 +244,69 @@ def test_get_and_list_reject_corrupt_persisted_progress(
         with pytest.raises(PlayRunRegistryError) as list_exc:
             list_play_runs(tmp_path)
         assert list_exc.value.status_code == 500
+
+
+def test_progress_write_does_not_repair_corrupt_stored_progress(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    create_run(tmp_path, create_committed_runbook(tmp_path))
+    replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=gate_progress(),
+    )
+    cases = [
+        gate_progress().model_dump(mode="json") | {"current_scene_id": "scene:ghost"},
+        gate_progress().model_dump(mode="json")
+        | {"resolved_beat_ids": ["beat:briefing", "beat:arrival"]},
+        gate_progress().model_dump(mode="json")
+        | {"resolved_beat_ids": ["beat:arrival", "beat:arrival"]},
+    ]
+    for progress in cases:
+        corrupt_play_run_progress(application_state_dsn, RUN_ID_A, progress)
+        before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
+        with pytest.raises(PlayRunRegistryError) as exc_info:
+            replace_play_run_progress(
+                tmp_path,
+                run_id=RUN_ID_A,
+                expected_run_revision=before["run"]["run_revision"],
+                progress=gate_progress(),
+            )
+        assert exc_info.value.status_code == 500
+        assert fetch_play_runtime_state(application_state_dsn, RUN_ID_A) == before
+
+
+def test_create_replay_rejects_corrupt_stored_manifest(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    snapshot = create_committed_runbook(tmp_path, name="corrupt-manifest-create")
+    created = create_run(tmp_path, snapshot)
+    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    cases = [
+        {},
+        unknown_schema_manifest(manifest.model_dump(mode="json", exclude_none=True)),
+    ]
+    for document in cases:
+        corrupt_play_run_manifest_document(application_state_dsn, RUN_ID_A, document)
+        before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
+        with pytest.raises(PlayRunRegistryError) as create_exc:
+            create_run(tmp_path, snapshot)
+        assert create_exc.value.status_code == 500
+        with pytest.raises(PlayRunRegistryError) as get_exc:
+            get_play_run(tmp_path, RUN_ID_A)
+        assert get_exc.value.status_code == 500
+        with pytest.raises(PlayRunRegistryError) as list_exc:
+            list_play_runs(tmp_path)
+        assert list_exc.value.status_code == 500
+        with pytest.raises(PlayRunReferenceManifestError) as manifest_exc:
+            get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        assert manifest_exc.value.status_code == 500
+        leftover = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
+        assert leftover == before
+        assert leftover["run"]["run_revision"] == created.run_revision
+        assert leftover["run"]["progress"] == empty_progress().model_dump(mode="json")
+        assert leftover["manifest"]["manifest"] == document
 
 
 def test_play_runtime_latency_samples(

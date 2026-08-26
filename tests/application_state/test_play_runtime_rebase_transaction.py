@@ -11,6 +11,7 @@ from apps.live_control_server.services.play_run_rebase import (
 )
 from apps.live_control_server.services.play_run_registry import get_play_run
 from apps.live_control_server.services.play_run_reference_manifest import (
+    PlayRunReferenceManifestError,
     get_play_run_reference_manifest,
 )
 from apps.live_control_server.services.workspace_document_registry import (
@@ -23,9 +24,12 @@ from tests.application_state.play_runtime_helpers import (
     V2_SOURCE_MARKDOWN,
     V2_SURVIVING_TARGET_MARKDOWN,
     commit_runbook_markdown,
+    corrupt_play_run_manifest_document,
     create_committed_runbook,
     create_run,
+    fetch_play_runtime_state,
     playable_of,
+    unknown_schema_manifest,
 )
 
 
@@ -216,3 +220,56 @@ def test_same_grammar_v2_rebase_is_preserve_only(
         "dmb_play_run_reference_manifest_v2"
     )
     assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
+
+
+def test_exact_rebase_replay_rejects_corrupt_stored_manifest(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    snapshot = create_committed_runbook(tmp_path, markdown=SOURCE_MARKDOWN)
+    created = create_run(tmp_path, snapshot)
+    target_revision, target_sha = _advance_to_surviving_target(tmp_path, snapshot)
+    first = rebase_or_replay_play_run(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=created.run_revision,
+        target_playable_revision=target_revision,
+        target_playable_content_sha256=target_sha,
+    )
+    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    cases = [
+        {},
+        unknown_schema_manifest(manifest.model_dump(mode="json", exclude_none=True)),
+    ]
+    for document in cases:
+        corrupt_play_run_manifest_document(application_state_dsn, RUN_ID_A, document)
+        before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
+        with pytest.raises(PlayRunRebaseError) as completed_exc:
+            rebase_or_replay_play_run(
+                tmp_path,
+                run_id=RUN_ID_A,
+                expected_run_revision=created.run_revision,
+                target_playable_revision=target_revision,
+                target_playable_content_sha256=target_sha,
+            )
+        assert completed_exc.value.status_code == 500
+        with pytest.raises(PlayRunRebaseError) as same_head_exc:
+            rebase_or_replay_play_run(
+                tmp_path,
+                run_id=RUN_ID_A,
+                expected_run_revision=first.run_revision,
+                target_playable_revision=target_revision,
+                target_playable_content_sha256=target_sha,
+            )
+        assert same_head_exc.value.status_code == 500
+        with pytest.raises(PlayRunReferenceManifestError) as manifest_exc:
+            get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        assert manifest_exc.value.status_code == 500
+        leftover = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
+        assert leftover == before
+        assert leftover["run"]["run_revision"] == first.run_revision
+        assert leftover["run"]["playable_revision_n"] == first.playable_revision
+        assert leftover["run"]["playable_content_sha256"] == first.playable_content_sha256
+        assert leftover["run"]["rebased_from_run_revision"] == created.run_revision
+        assert leftover["manifest"]["manifest"] == document
+        assert leftover["manifest"]["playable_revision_n"] == first.playable_revision
+        assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
