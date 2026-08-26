@@ -11,28 +11,32 @@ pr_body_template: |
   - Architecture: Docs/Design/ARCHITECTURE-application-state-layer.md v1.1
   - Play authority: Docs/Design/ARCHITECTURE-playable-material-and-runtime.md v1.1
   - Product predecessor: Docs/Plans/HANDOFF-PLAY-SURFACE-active-run-continuity.md
-  - Predecessor: AS3 PR #646 merge 9c946cd8c24effccec8d06cfc1cb5e310c9edc5e
-  - Accepted predecessor head: 913cfe0bbce4db27250afd8277e3af50712ee029
-  - Predecessor review: 3 distinct-head cycles; final PASS-equivalent review 5026608908
-  - Predecessor exact-head evidence: PR #646 comment 5420273265
+  - AS3 merge: PR #646 @ 9c946cd8c24effccec8d06cfc1cb5e310c9edc5e
+  - AS3 accepted head: 913cfe0bbce4db27250afd8277e3af50712ee029
+  - AS3 final review: 3 distinct-head cycles; PASS-equivalent 5026608908
+  - AS3 exact-head evidence: PR #646 comment 5420273265
+  - Post-AS3 state sync: PR #648 merge dd6c36abd3943f2a51ab2c69b8e789f005cc2b99
   - Production consumer: bare /play resume + exact-Run open + active selection GET/PUT
 
-  The checked-in handoff, cumulative diff, nano-commit story, and independently
-  rerun evidence are the review contract. This body is transport metadata.
+  Branch from current main containing this handoff. Record that exact branch/base SHA
+  in the PR body and use it for the cumulative lease check. The checked-in handoff,
+  actual PR-base diff, nano-commit story, and independently rerun evidence are the
+  review contract.
 ---
 
 # HANDOFF — AS4: Play Continuity on PostgreSQL
 
 **Created:** 2026-08-25  
 **Status:** READY — next APP-STATE implementation slice  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-APP-STATE-play-continuity-postgres.md`  
+**Canonical handoff:** `Docs/Plans/HANDOFF-APP-STATE-play-continuity-postgres.md`  
 **Workstream / flow:** `APP-STATE`  
-**Direction:** CODE → REVIEW  
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
-**Exact implementation base:** `9c946cd8c24effccec8d06cfc1cb5e310c9edc5e` — merge of PR #646  
+**AS3 predecessor merge:** `9c946cd8c24effccec8d06cfc1cb5e310c9edc5e` — PR #646  
 **AS3 accepted head:** `913cfe0bbce4db27250afd8277e3af50712ee029`  
-**AS3 review:** 3 distinct-head review cycles; final PASS-equivalent review `5026608908`  
-**AS3 exact-head evidence:** PR #646 comment `5420273265` — real-PostgreSQL owning-boundary `28 passed`; full APP-STATE `72 passed, 0 skipped`; leased Play regressions `71 + 60 passed, 0 skipped`; Start Run UI `14 passed`; clean `git diff --check`  
+**AS3 review:** 3 distinct-head cycles; final PASS-equivalent `5026608908`  
+**AS3 exact-head evidence:** PR #646 comment `5420273265`  
+**Post-AS3 state-sync merge:** `dd6c36abd3943f2a51ab2c69b8e789f005cc2b99` — PR #648  
+**Branching rule:** create the implementation branch from the current `main` that contains this handoff, record that exact SHA as the PR base, and review `PR_BASE...HEAD`; do not branch from the historical AS3 merge.  
 **Suggested branch:** `agent/app-state-play-continuity`  
 **Suggested PR title:** `APP-STATE: persist active Run continuity`  
 **Named successor:** AS5 — Play persistence demolition — remains false until AS4 merges  
@@ -43,82 +47,61 @@ pr_body_template: |
 
 ## §1 Mission and merge-ready invariant
 
-**Mission:** Move Play's durable active-Run selection from `out/runtime/play/active-run.json` into the Buddy Application State PostgreSQL database so ordinary `/play` re-entry survives backend restart, checkout/worktree changes, and missing legacy Play files while still resuming the exact Run the GM explicitly selected.
+**Mission:** Move Play's durable active-Run selection from `out/runtime/play/active-run.json` into Buddy Application State PostgreSQL so ordinary `/play` re-entry survives backend restart and checkout/worktree changes while still resuming the exact Run the GM explicitly selected.
 
 **Merge-ready invariant:**
 
-> **After AS4, `play.active_run` is the sole durable authority for the local operator's active Play Run. A missing row means no active selection. Setting an active Run first proves that exact PostgreSQL Run + sealed manifest aggregate is coherent, then records only `run_id + selected_at`; selecting the already-active Run is idempotent and does not churn `selected_at`; selecting a different valid Run is last-explicit-selection-wins. Bare `/play` reads this PostgreSQL selection and then follows the existing exact Run + manifest + pinned WorkRevision admission path — the pointer never makes an invalid Run valid, never chooses latest/first, and never allocates a Run. Explicit chooser mode still bypasses automatic resume, and Start New never clears the prior active selection before a replacement reaches READY. Ordinary active-Run reads/writes never read or write `active-run.json` after the switch; DB unavailable fails closed without file fallback. Physical deletion of the replaced Play file/lock modules remains AS5.**
-
-Target transition:
+> **After AS4, `play.active_run` is the sole durable authority for the local operator's active Play Run. Missing row means no selection. Setting an active Run first proves that exact PostgreSQL Run + sealed manifest aggregate is coherent, then records only `run_id + selected_at`; selecting the already-active Run is idempotent and does not churn `selected_at`; selecting a different valid Run is last-explicit-selection-wins. Bare `/play` reads this PostgreSQL pointer and then follows the existing exact Run + manifest + pinned WorkRevision admission path — the pointer never makes a Run valid, never chooses latest/first, and never allocates a Run. Explicit chooser mode still bypasses automatic resume, and Start New never clears the prior active selection before a replacement reaches READY. Ordinary active-Run reads/writes never read or write `active-run.json` after the switch; DB unavailable fails closed without file fallback. Physical deletion remains AS5.**
 
 ```text
 AS3
-play.run + play.run_manifest       PostgreSQL authority
+play.run + play.run_manifest       PostgreSQL
 active-run.json                    file authority
-        ↓
-/play
-  → read file pointer
-  → load exact Run
-  → load manifest
-  → load pinned WorkRevision
-  → READY / truthful block
 
 AS4
-play.run + play.run_manifest       PostgreSQL authority
-play.active_run                    PostgreSQL authority
-        ↓
+play.run + play.run_manifest       PostgreSQL
+play.active_run                    PostgreSQL
+
 /play
-  → read DB pointer
-  → load exact Run
-  → load manifest
-  → load pinned WorkRevision
-  → READY / truthful block
+  → active Run id
+  → exact Run + manifest
+  → exact pinned WorkRevision
+  → READY / truthful blocked state
 ```
 
-### Pre-dispatch critique
+### Pre-dispatch traps
 
-| Question | Frozen answer |
+| Trap | Frozen ruling |
 |---|---|
-| Most likely false-positive implementation | Add `play.active_run`, but leave `get_play_active_run()` reading the file first or as fallback. That is not a switch. |
-| Most dangerous semantic regression | Treat the active pointer as Run validity and skip exact Run/manifest/WorkRevision admission on `/play`. The pointer records operator intent only. |
-| Most dangerous UX regression | Clear the old active Run when the user clicks `Start New Run`, so a failed/blocked new start destroys ordinary resume. Preserve the current READY-first replacement rule. |
-| Most dangerous migration trap | Import the pointer before AS3 Runs exist, or silently overwrite a conflicting DB selection. Import only after the referenced Run is present and coherent; conflicting durable state is a stop. |
-| Most dangerous identity trap | Add campaign path, checkout root, browser id, DB row id, or account-shaped fields as product identity. Current product semantics are one local-operator active selection; do not invent multi-user/account architecture. |
-| Most dangerous cleanup trap | Delete `play_active_run.py`, registry locking, or all `out/runtime/play` helpers here. AS4 switches the active pointer. AS5 proves and performs demolition of replaced Play filesystem machinery. |
-| Performance trap | Hide the AS3 Runtime CAS measurement because it exceeded the original 50 ms hypothesis. AS4 records continuity/resume measurements honestly; performance hypotheses are evidence, not license to weaken correctness. |
+| Add the table but keep file fallback | Not AS4. Ordinary active selection must be DB-only after switch. |
+| Trust the pointer as Run validity | Wrong. The pointer records operator intent only; exact admission remains unchanged. |
+| Clear active selection on `Start New Run` | Wrong. Failed/blocked new starts must leave the prior active Run intact. |
+| Import before AS3 Runtime exists | Wrong. Legacy pointer may be adopted only after its referenced PostgreSQL Run aggregate exists and is coherent. |
+| Invent campaign/account/browser/worktree identity | Prohibited. Preserve one local-operator singleton until product evidence earns another model. |
+| Delete old Play modules now | AS5. AS4 switches authority; AS5 demolishes replaced topology. |
 
 ---
 
-## §2 Re-anchored authority and lane
+## §2 Re-anchor and current behavior
 
-### 2.1 Accepted predecessor truth
+### 2.1 Predecessor truth
 
-AS3 / PR #646 is merged at:
+AS3 / #646 is DONE. It established:
 
-```text
-merge:         9c946cd8c24effccec8d06cfc1cb5e310c9edc5e
-accepted head: 913cfe0bbce4db27250afd8277e3af50712ee029
-review cycles: 3 distinct heads
-final review:  5026608908 PASS-equivalent
-exact evidence: PR #646 comment 5420273265
-```
-
-AS3 established:
-
-- `play.run` as the sole ordinary Run binding + mutable Runtime authority;
-- `play.run_manifest` as the sole ordinary sealed-manifest authority;
-- Run create + manifest seal in one PostgreSQL transaction;
+- `play.run` as Run binding + mutable Runtime authority;
+- `play.run_manifest` as sealed-manifest authority;
+- atomic Run create + manifest seal;
 - SQL `run_revision` CAS;
-- preserve-only rebase as one PostgreSQL transaction;
-- no ordinary Run/manifest/rebase fallback to legacy Run files, manifest sidecars, or rebase-intent files;
-- coherent legacy Run + manifest import;
-- existing `active-run.json` deliberately remained file-backed and was only verified as referencing an imported Run.
+- transactional preserve-only rebase;
+- no ordinary Run/manifest/rebase fallback to legacy files;
+- coherent legacy Run+manifest import;
+- `active-run.json` deliberately remained file-backed.
 
-Do not reopen AS3's aggregate model in AS4.
+PR #648 then synchronized the living APP-STATE roadmap/anchor to record AS3 DONE and AS4 NEXT. Do **not** repeat that backward-looking repair. The AS4 implementation PR may update those authorities only to say **AS4 = THIS PR / unmerged** and **AS5 remains false**.
 
-### 2.2 Current active-selection authority
+### 2.2 Current active-selection contract to preserve
 
-At the exact AS4 base, `apps/live_control_server/services/play_active_run.py` owns:
+`apps/live_control_server/services/play_active_run.py` currently owns:
 
 ```text
 out/runtime/play/active-run.json
@@ -129,129 +112,76 @@ PlayActiveRunState
   selected_at: UTC timestamp | null
 ```
 
-Current behavior worth preserving:
-
-- missing file → normal null state;
-- malformed persisted file → fail closed;
-- setting requires a canonical UUID and an existing coherent Run/manifest;
-- selecting the same exact Run is idempotent and preserves `selected_at`;
-- selecting a different valid Run replaces the pointer;
-- the file duplicates no progress, Playable bytes, manifest bytes, campaign truth, or lifecycle state.
-
-The current Play UI already implements the desired product state machine:
+Current product state machine:
 
 ```text
 /play?choose=1
-  → explicit chooser
-  → do not auto-resume
+  → explicit chooser; do not auto-resume
 
 /play?run=<uuid>
-  → exact Run + manifest + pinned committed WorkRevision admission
-  → only after READY, persist that exact Run as active
+  → exact Run + manifest + pinned WorkRevision admission
+  → only after READY, persist this Run as active
 
 /play
   → read active selection
-  → if none, explicit chooser
-  → if present, replace URL with exact ?run=<uuid>
-  → run the same exact admission path
+  → none: chooser
+  → selected: navigate to exact ?run=<uuid>
+  → use the same exact admission path
 
 Start New Run
-  → enter chooser/start mode
-  → prior active selection remains intact
-  → a new Run replaces it only after normal READY admission
+  → chooser/start mode
+  → old active selection remains until a new Run reaches READY
 ```
 
-AS4 changes the persistence boundary underneath this behavior. It does not redesign it.
+AS4 changes storage under this behavior. Prefer zero production UI changes.
 
-### 2.3 Application-state architecture already freezes the target
+### 2.3 Parallel lane
 
-The accepted Application State architecture classifies Play active Run as Play-owned durable continuity state and names its target disposition:
-
-```text
-play.active_run
-  singleton for the current local operator context
-  → run_id references play.run inside the Play schema
-  → selected_at records last explicit successful selection
-```
-
-Do not introduce:
-
-- account/user/team tables;
-- browser/session identifiers;
-- per-worktree or filesystem-root identity;
-- a campaign-scoped list of active Runs;
-- a generic key/value preference table;
-- CAS/version history for this pointer;
-- Run lifecycle (`active/completed/abandoned`) fields.
-
-There is one current product question: **which exact existing Run should ordinary Play entry resume?** Preserve that question exactly.
-
-### 2.4 Parallel lane
-
-At dispatch, open PR #647 is CUTOVER D.3 design-only and changes only:
-
-```text
-Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md
-```
-
-It is disjoint from AS4. Re-check active PR paths immediately before implementation. If a later D.3 implementation acquires an AS4 production/doc path, serialize that path explicitly. APP-STATE owns Buddy Play continuity; CUTOVER owns removal of Buddy World Graph authority.
+At dispatch, CUTOVER #647 is D.3 design-only and leases only `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`. It is disjoint from AS4. Re-check active PRs before implementation; serialize any later overlapping path explicitly.
 
 ---
 
-## §3 Required observable behavior and contracts
+## §3 Required implementation contract
 
-### 3.1 Add one forward migration only
+### 3.1 One forward migration
 
-Create the next Buddy Alembic revision after `20260825_0003_play_runtime.py`.
-
-Expected migration:
+Create the next migration after `20260825_0003_play_runtime.py`:
 
 ```text
 src/application_state/migrations/versions/20260825_0004_play_active_run.py
 ```
 
-AS4 creates only:
+Create only:
 
 ```text
 play.active_run
-```
-
-Recommended physical shape:
-
-```text
-play.active_run
-  scope_key TEXT PRIMARY KEY
-    CHECK (scope_key = 'local')
-  run_id UUID NOT NULL
-    REFERENCES play.run(run_id)
+  scope_key TEXT PRIMARY KEY CHECK (scope_key = 'local')
+  run_id UUID NOT NULL REFERENCES play.run(run_id)
   selected_at TIMESTAMPTZ NOT NULL
 ```
 
 Rules:
 
-- exactly zero or one row may represent the current local selection;
-- missing row = `run_id: null, selected_at: null` at the public adapter;
-- `scope_key='local'` is a persistence singleton key, not user-facing identity;
-- the FK is inside the Play schema and is allowed;
-- do not add SQL FK to Content or DungeonMind;
-- do not add `schema_version` to the table merely because the HTTP model has one;
-- do not use `ON DELETE CASCADE` to silently clear operator intent if Run lifecycle later changes — future Run deletion must address active continuity deliberately;
-- ordinary application boot still verifies migration head and never auto-upgrades.
+- zero or one row;
+- missing row is the durable null state;
+- `scope_key='local'` is persistence machinery, not public identity;
+- FK stays inside Play; no FK to Content or DungeonMind;
+- do not store HTTP `schema_version` in SQL merely because the wire has one;
+- do not use `ON DELETE CASCADE` to silently erase operator intent;
+- no app-boot auto migration;
+- do not edit migrations `0001`–`0003`.
 
-Do not modify already-applied `20260825_0001`, `0002`, or `0003` migrations.
+### 3.2 Extend the existing Play package
 
-### 3.2 Extend the existing Play domain package, not a new subsystem
-
-Use the AS3 Play package:
+Use:
 
 ```text
-src/application_state/play/
-  types.py
-  repository.py
-  service.py
+src/application_state/play/types.py
+src/application_state/play/repository.py
+src/application_state/play/service.py
 ```
 
-Conceptual durable type:
+Conceptual storage type:
 
 ```text
 PlayActiveRun
@@ -259,36 +189,11 @@ PlayActiveRun
   selected_at: datetime
 ```
 
-The public `PlayActiveRunState` wire type may remain in the existing server compatibility adapter. The DB model should not absorb wire-only `schema_version` or null-pair representation; absence is represented by no row.
+Repository owns SQL only and never commits. Service owns UoW, aggregate proof, idempotency, replacement, clear/null semantics, and fail-closed behavior. Do not create a generic preference/KV store.
 
-Repository responsibilities:
+### 3.3 GET remains the existing wire contract
 
-- get singleton row;
-- set/upsert singleton row;
-- clear/delete singleton row if the domain clear operation is implemented;
-- never commit;
-- SQL only inside `play.*`.
-
-Service responsibilities:
-
-- transaction/UoW;
-- exact Run aggregate integrity before set;
-- idempotent same-Run semantics;
-- last-explicit-selection-wins different-Run semantics;
-- DB unavailable/integrity error behavior;
-- no legacy-file reads.
-
-Do not create a generic preferences/settings repository.
-
-### 3.3 GET active Run is PostgreSQL authority
-
-After switch:
-
-```text
-GET /api/live/play-active-run
-```
-
-keeps the existing response contract:
+`GET /api/live/play-active-run` remains:
 
 ```json
 {
@@ -298,234 +203,163 @@ keeps the existing response contract:
 }
 ```
 
-or the selected exact Run UUID + UTC timestamp.
+or the exact selected UUID/timestamp.
 
-Required behavior:
+Required:
 
-- no DB row → 200 null state;
-- one valid DB row → 200 exact selection;
-- malformed/impossible persisted DB state → integrity failure, never silent reset;
-- DB unavailable → fail closed (normal application-state unavailable status), never read `active-run.json`;
-- GET does not choose newest/first Run;
-- GET does not allocate a Run;
-- GET does not need to re-admit Content/Playable bytes. The client subsequently performs existing exact Run admission.
+- no row → 200 null state;
+- row → exact value;
+- DB unavailable → application-state fail-closed status, no file fallback;
+- impossible persisted state → integrity failure, not silent reset;
+- never infer newest/first Run;
+- GET need not re-admit WorkRevision bytes; `/play` does that next.
 
-### 3.4 PUT active Run proves the existing Runtime aggregate, then records intent
+### 3.4 PUT proves the AS3 aggregate before changing intent
 
-Preserve the existing wire endpoint:
+`PUT /api/live/play-active-run { run_id }` remains compatible.
 
-```text
-PUT /api/live/play-active-run
-body: { "run_id": "<canonical uuid>" }
-```
-
-Required transaction:
+Inside one UoW:
 
 ```text
-BEGIN
-  validate canonical UUID
-  load/prove play.run + play.run_manifest aggregate
-  require persisted manifest/progress integrity using AS3 owning seam
-  read active singleton
+validate canonical UUID
+load play.run + play.run_manifest
+prove the same persisted aggregate integrity used by AS3 get/list/mutation
+read active singleton
 
-  if same run_id:
-    return existing selection unchanged
-    selected_at does not churn
+same run_id
+  → return existing row unchanged
+  → selected_at unchanged
 
-  else:
-    insert/update singleton to run_id
-    selected_at = current UTC time
-COMMIT
+different valid run_id
+  → upsert singleton
+  → selected_at = now UTC
 ```
-
-Do **not** make active selection a second Run admission system. The set operation proves that the durable Run aggregate exists and is internally coherent; the Play surface still owns the full exact Run + manifest + pinned WorkRevision READY admission before it chooses to call PUT.
 
 Required outcomes:
 
-- noncanonical UUID → 422 before write;
+- noncanonical UUID → 422, no write;
 - missing Run → 404;
-- Run missing/incoherent manifest or corrupt persisted progress → fail closed with no pointer mutation;
-- same Run retry → identical public state, including `selected_at`;
-- different valid Run → new selected Run and new `selected_at`;
-- two concurrent different valid selections require no CAS; the last successfully committed explicit selection is authoritative;
-- no Run row/progress/manifest mutation occurs while changing the pointer.
+- missing/incoherent manifest or corrupt persisted progress → fail closed, pointer unchanged;
+- same-Run retry preserves timestamp exactly;
+- different valid Run changes pointer without mutating either Run/manifest;
+- concurrent different valid selections need no CAS; last committed explicit selection wins.
 
-### 3.5 Preserve the null/clear state without changing Start New semantics
+The server set operation proves Runtime coherence, not full Playable READY. The UI already calls it only after exact admission reaches READY; preserve that boundary.
 
-The roadmap requires the owning boundary to prove set/get/clear semantics. Representing “clear” means deleting the singleton row, not writing a row whose `run_id` is null.
+### 3.5 Null/clear semantics
 
-A small domain clear operation is allowed in AS4. If exposed over HTTP, use a narrow explicit operation (for example `DELETE /api/live/play-active-run`) returning the existing null-state wire shape. Do **not** add a new client/UI control unless product evidence requires it.
+The roadmap names set/get/clear evidence. “Clear” means deleting the singleton row, never writing a null `run_id` row.
 
-Regardless of whether the HTTP clear route is exposed:
+A small Play-domain clear operation is allowed. An HTTP DELETE may be added only if useful to expose that owning behavior; do not add UI for it in AS4 without product evidence.
 
-- `Start New Run` must **not** clear active selection;
-- entering `?choose=1` must **not** clear active selection;
-- failed/blocked/incomplete new Run creation/admission must leave the prior active Run unchanged;
-- clearing the pointer is not Run deletion, completion, abandonment, or lifecycle state.
+Regardless:
 
-If the implementation cannot satisfy the roadmap clear evidence without widening product behavior, stop and report rather than silently redefining Start New.
+- `Start New Run` must not clear;
+- `?choose=1` must not clear;
+- failed/blocked/incomplete new admission must leave prior active selection unchanged;
+- clear is not Run completion/abandonment/deletion.
 
-### 3.6 Preserve PlaySurfacePage behavior; prefer zero UI production changes
+### 3.6 Honest legacy pointer adoption
 
-AS4 should be able to switch persistence without changing the existing UI protocol.
-
-Current client calls already suffice:
+Add explicit migration tooling, preferably:
 
 ```text
-getPlayActiveRun()
-putPlayActiveRun(run_id)
+src/application_state/play/import_active_run.py
 ```
 
-Preferred outcome:
-
-- no production changes under `apps/live-control-ui/`;
-- existing continuity tests become PostgreSQL-backed through the server switch;
-- exact chooser/resume behavior remains byte-for-behavior compatible.
-
-A production UI change is a stop-and-report condition unless it is strictly necessary to preserve the existing AS4 invariant. Do not use AS4 to deepen BF2/BF3 cockpit semantics.
-
-### 3.7 Honest legacy `active-run.json` adoption
-
-AS3 already proved that a pre-existing active pointer must reference a Run captured/imported into PostgreSQL. AS4 now adopts the pointer itself.
-
-Explicit pre-switch import procedure:
+Procedure:
 
 ```text
-1. require AS3 play.run + run_manifest migration/import complete
-2. inspect legacy active-run.json under the predecessor file lock
-3. if file is absent:
-     import no row
-4. if file contains a valid null pair:
-     import no row
-5. if file contains run_id + selected_at:
-     parse exact canonical UUID + UTC timestamp
-     require referenced PostgreSQL Run aggregate exists and is coherent
-     insert play.active_run with exact selected_at
-6. verify stored row exactly matches captured pointer
-7. only then switch ordinary active-Run authority
+1. require AS3 Run/manifest state already in PostgreSQL
+2. capture active-run.json under predecessor file lock
+3. absent file or valid null pair → import no row
+4. selected run → parse exact UUID + selected_at
+5. require referenced PostgreSQL Run aggregate exists and is coherent
+6. insert exact run_id + exact selected_at
+7. verify exact stored state
+8. only then switch ordinary authority
 ```
 
-Import replay:
+Replay rules:
 
-- same captured pointer + same DB selection → no-op;
-- absent/null legacy pointer + no DB row → no-op;
-- legacy pointer references missing/unreadable/incoherent Run → fail closed;
-- DB row exists with a different Run or different preserved `selected_at` during import → conflict; do not overwrite;
-- malformed legacy pointer → fail closed and leave DB state unchanged;
-- do not infer selection from Run ordering when no pointer exists.
+- exact legacy pointer + exact DB row → no-op;
+- absent/null pointer + no DB row → no-op;
+- malformed legacy pointer → fail, no DB mutation;
+- referenced Run missing/incoherent → fail;
+- conflicting existing DB selection or timestamp → conflict, never overwrite;
+- never infer selection from Run ordering.
 
-Migration tooling is the **only** AS4 code permitted to read `active-run.json` after the new service exists.
+Migration tooling is the only AS4 path allowed to read the legacy pointer after the new service exists.
 
-### 3.8 Authority switch: legacy file may remain, but must become irrelevant
+### 3.7 No legacy authority after switch
 
-After switch, prove all of these:
+Prove all three:
 
 ```text
-legacy active-run.json absent
-  → bare /play still resumes DB-selected Run
-
-legacy active-run.json unreadable
-  → GET/PUT active Run still operate from PostgreSQL
-
-legacy active-run.json contains a different valid UUID
-  → GET returns PostgreSQL selection
-  → ordinary /play resumes PostgreSQL selection
-  → no reconciliation/fallback occurs
+active-run.json absent      → GET/PUT and bare /play work from DB
+active-run path unreadable  → GET/PUT and bare /play work from DB
+legacy file says Run Y while DB says Run X
+                            → ordinary behavior uses X; no reconciliation
 ```
 
-Do not delete the file/module merely to prove this. AS5 owns physical demolition.
+Do not delete the file/module merely to prove this. `play_active_run_path()` may remain for migration/AS5 inventory, but ordinary production GET/PUT must not call it.
 
-`play_active_run_path()` may remain temporarily for explicit migration/tests and AS5 inventory, but no ordinary production read/write may call it after the switch.
+### 3.8 Restart/worktree continuity is the product proof
 
-### 3.9 Restart / worktree continuity is the product proof
-
-AS4 is independently useful only if it closes the checkout-local continuity defect.
-
-Required witness:
+Required literal witness:
 
 ```text
 shared Buddy PostgreSQL
 
-repo root/worktree A
-  Run X exists in play.run
-  set active Run X
-  no active-run.json needed
+root/worktree A
+  Run X + manifest + progress in DB
+  set active X
 
-backend process ends
+recreate backend/app boundary
 
-repo root/worktree B
+root/worktree B
   same application-state DSN
-  legacy out/runtime/play directory absent/unreadable
-  GET active Run → X
-  GET Run + manifest → exact X
-  GET pinned WorkRevision → exact bound revision
-  native Play admission → READY
-  current Runtime progress → exactly the stored run_revision/progress
+  legacy out/runtime/play absent/unreadable
+  GET active → X
+  GET Run + manifest → X
+  GET pinned WorkRevision → exact revision
+  Play admission → READY
+  Runtime current moment → exact stored run_revision/progress
 ```
 
-Do not call “server restart” a test that merely reuses an in-memory service object. Recreate the app/service boundary and prove the selection from PostgreSQL.
+Do not call two calls on the same in-memory object a restart test.
 
-### 3.10 Resume must preserve exact current moment
+### 3.9 Exact current moment remains Runtime-owned
 
-The active pointer stores only Run identity. Exact current moment remains owned by `play.run.progress` and the sealed manifest/Playable revision.
+Resume must preserve exactly:
 
-Required acceptance after selection/restart:
+- `run_id`;
+- `run_revision`;
+- current Beat;
+- optional current Scene;
+- resolved Beats;
+- selections;
+- notes;
+- Playable revision + SHA;
+- sealed manifest grammar/membership.
 
-- same `run_id`;
-- same `run_revision`;
-- same `current_beat_id`;
-- same optional `current_scene_id`;
-- same resolved beats;
-- same durable selections;
-- same notes;
-- same Playable revision + content SHA;
-- same manifest grammar/membership;
-- no “latest Runbook” substitution;
-- no Runtime canonicalization/repair during resume.
+No latest-Runbook substitution. No Runtime repair/canonicalization during resume. If the selected Run aggregate is corrupt, fail truthfully; never auto-select another Run.
 
-A valid pointer to a Run whose authoritative aggregate is corrupt must fail through normal exact admission. It must not select another Run automatically.
+### 3.10 Latency evidence
 
-### 3.11 Failure posture
+Capture predecessor-vs-head p50/p95, preferably 30+ samples, for:
 
-AS4 preserves the shared application-state failure rules:
+- active GET;
+- switching active PUT;
+- bare `/play` server-side continuity/admission path if browser timing is noisy.
 
-- wrong/missing migration head → ordinary boot/service use fails; no auto-upgrade;
-- database unavailable → fail closed; no active-run file fallback;
-- missing selection → normal null state, not error;
-- malformed DB row / impossible FK-integrity condition → named integrity failure;
-- stale or conflicting legacy import → stop, not overwrite;
-- no World Graph DSN fallback;
-- no localStorage active-Run authority.
-
-### 3.12 Latency evidence
-
-Measure, do not tune prematurely.
-
-Capture comparable predecessor-vs-head p50/p95, preferably 30+ samples, for:
-
-```text
-GET active selection
-PUT different active selection
-bare /play continuity admission (server-side equivalent if browser timing is noisy)
-```
-
-Use predecessor `9c946cd8…` file-backed active pointer versus AS4 PostgreSQL head in the same local environment where practical.
-
-Record:
-
-- p50;
-- p95;
-- max if useful;
-- environment/sample count;
-- whether the existing UI interaction still feels immediate.
-
-Do not turn an architecture hypothesis into a hidden test threshold. AS3's Runtime CAS p95 was ~74 ms against a 50 ms hypothesis and was correctly reported as measurement rather than hidden.
+Use the file-backed AS3 state as baseline and report sample count/environment. Measurements are not hidden gates. Retain the AS3 note that Runtime CAS was ~74 ms p95 vs the original 50 ms hypothesis.
 
 ---
 
-## §4 Implementation write lease
+## §4 Write lease
 
-The implementation PR may write only these production/migration/doc paths unless bounded discovery below is exercised:
+Production/migration/doc lease:
 
 ```text
 src/application_state/migrations/versions/20260825_0004_play_active_run.py
@@ -542,176 +376,132 @@ Docs/Roadmaps/ROADMAP-application-state.md
 Docs/Plans/STEWARDS-ANCHOR-application-state.md
 ```
 
-Required/expected test paths:
+Expected test lease:
 
 ```text
 tests/application_state/test_play_active_run_postgres.py
 tests/application_state/test_play_active_run_existing_state_import.py
+tests/application_state/play_runtime_helpers.py
 tests/test_play_active_run.py
 tests/test_live_play_active_run.py
 apps/live-control-ui/src/App.test.tsx
 apps/live-control-ui/src/api/liveApi.test.ts
 ```
 
-Existing test helpers may be changed only if directly required to establish the owning-boundary fixtures:
+Bounded discovery:
 
 ```text
-tests/application_state/play_runtime_helpers.py
+tests/application_state/  +3 direct test/helper paths
+apps/live-control-ui/src/ +2 test-only paths
+migrations/versions/      +1 forward migration only
 ```
 
-### Bounded discovery
+Any required **production** path outside the named lease is a stop/re-brief. In particular, do not quietly add AppChrome, PlaySurfacePage production changes, StartRunPanel changes, Content changes, or AS5 deletion.
 
-The agent may add at most:
+### Current-state doc update carried by the implementation PR
+
+PR #648 already recorded AS3 DONE. Do not redo that history. If the implementation PR updates the two APP-STATE state authorities, record only:
 
 ```text
-tests/application_state/          +3 directly relevant test/helper paths
-apps/live-control-ui/src/         +2 test-only paths
-src/application_state/migrations/versions/ +1 forward migration path only
+AS3  DONE — #646 merge 9c946cd8; accepted head 913cfe0b; 3 cycles; PASS 5026608908
+AS4  THIS PR — unmerged; do not invent merge SHA
+AS5  still false / blocked on AS4
 ```
 
-Rules:
-
-- test discovery is for direct evidence, not production expansion;
-- a required **production** path outside the named lease is a stop-and-report/re-brief condition;
-- do not quietly widen into AppChrome, Start Run state-machine redesign, Play Run schema changes, Content schema changes, or AS5 deletion.
-
-### Backward-looking state-authority sync carried by this PR
-
-Because #646 could not truthfully record its own merge before merge, AS4 must atomically synchronize current state while keeping AS4 itself unmerged:
-
-```text
-AS3
-  DONE — PR #646 merge 9c946cd8c24effccec8d06cfc1cb5e310c9edc5e
-  accepted head 913cfe0bbce4db27250afd8277e3af50712ee029
-  3 distinct-head review cycles
-  final PASS-equivalent review 5026608908
-  exact-head evidence comment 5420273265
-
-AS4
-  THIS PR — do not claim merged
-
-AS5
-  still false / blocked on AS4
-```
-
-Update both current state authorities:
-
-```text
-Docs/Roadmaps/ROADMAP-application-state.md
-Docs/Plans/STEWARDS-ANCHOR-application-state.md
-```
-
-Do not rewrite historical review-cycle counts or invent an AS4 merge SHA.
+Preserve the AS3 latency note and exact evidence IDs.
 
 ---
 
-## §5 Explicitly out of scope / forbidden
+## §5 Explicitly forbidden / out of scope
 
-Do not touch or claim:
+Do not add or claim:
 
-- `play.run` / `play.run_manifest` model redesign;
-- Beat / Scene / Decision / Option persistence redesign;
-- Run mutation-history/event-sourcing tables;
-- Run lifecycle (`active`, `completed`, `abandoned`) fields;
-- account/user/team/operator identity systems;
-- campaign-scoped multiple active pointers;
+- `play.run` / manifest model redesign;
+- Beat/Scene/Decision persistence changes;
+- Run mutation history/event sourcing;
+- Run lifecycle fields;
+- accounts/users/teams/operators;
+- per-campaign multiple active pointers;
 - browser/localStorage active authority;
-- Content WorkObject / WorkRevision / WorkingCopy schema changes;
-- `worldbuilding_source` migration;
-- Combat persistence;
-- Ingest / Source / Asset / generated-artifact schemas;
-- DungeonMind schema or World Graph behavior;
-- DungeonMindServer storage/CDN;
+- Content schema changes;
+- Combat, Ingest, Source, Asset, generated-artifact migrations;
+- DungeonMind/World changes;
 - BF2/BF3 cockpit deepening;
 - AppChrome navigation redesign;
-- physical deletion of Play Run/manifest/rebase/active file helpers;
-- global `registry_file_lock.py` demolition;
-- cleanup/deletion of production `out/runtime/play/**` user state;
+- physical deletion of Play file helpers or registry locks;
+- deletion of production `out/runtime/play/**` state;
 - CUTOVER D.3 implementation;
-- generic preference/KV/object tables;
-- permanent feature toggle between file and DB active-Run authority.
+- generic preference/KV tables;
+- permanent DB/file toggle.
 
-AS4 is complete when **active selection authority switches**. AS5 exists specifically so AS4 does not disguise demolition as migration.
+AS4 switches active-selection authority. AS5 demolishes replaced Play filesystem machinery.
 
 ---
 
-## §6 Required acceptance matrix
+## §6 Acceptance matrix
 
-### 6.1 PostgreSQL active selection
-
-Prove on a real disposable PostgreSQL database:
+### PostgreSQL selection
 
 1. no row → public null state;
-2. valid Run X → set persists X;
-3. restart/new service instance → get returns X;
-4. same-X retry → exact same state and `selected_at`;
-5. valid Run Y → selection changes to Y; Runs/manifests unchanged;
-6. clear operation (owning boundary) → row absent/null state;
-7. set missing Run → fail, no row mutation;
-8. set Run with corrupt/missing manifest → fail, no row mutation;
-9. set Run with corrupt persisted progress → fail, no row mutation;
-10. database unavailable → fail closed; no file fallback.
+2. valid X → persist X;
+3. recreate service/app → get X;
+4. set X again → identical timestamp;
+5. valid Y → pointer changes, Runs unchanged;
+6. clear owning operation → row absent/null;
+7. missing Run → no pointer mutation;
+8. corrupt/missing manifest → no pointer mutation;
+9. corrupt persisted progress → no pointer mutation;
+10. DB unavailable → fail closed, no file read.
 
-### 6.2 Honest legacy adoption
+### Legacy import
 
-Prove:
+1. pre-AS4 X/T pointer → DB X/T exactly;
+2. exact import replay → no-op;
+3. absent/null pointer → no row, no inference;
+4. malformed pointer → no write;
+5. missing/incoherent referenced Run → fail;
+6. conflicting DB selection/timestamp → conflict, no overwrite.
 
-1. pre-AS4 `active-run.json` selecting imported Run X + timestamp T → DB row X/T exactly;
-2. rereun exact import → no-op;
-3. absent file → no row, no inferred Run;
-4. valid null-pair legacy file → no row;
-5. malformed legacy file → no DB write;
-6. pointer to Run absent from PostgreSQL → import failure;
-7. pointer to incoherent PostgreSQL Run → import failure;
-8. existing DB selection different from legacy pointer → conflict, no overwrite;
-9. exact matching existing DB selection → no-op.
+### File-independence
 
-### 6.3 No legacy file authority after switch
+1. legacy file absent → DB GET/PUT works;
+2. legacy path unreadable → DB GET/PUT works;
+3. contradictory legacy file → DB wins;
+4. ordinary code never recreates file;
+5. ordinary active GET/PUT acquires no file lock.
 
-With a valid DB selection:
+### Product continuity
 
-1. delete/hide `out/runtime/play/active-run.json` → GET/PUT work;
-2. make legacy active file directory unreadable → GET/PUT work;
-3. write a contradictory legacy pointer to another Run → GET returns DB Run;
-4. no ordinary code recreates the file;
-5. no file lock is acquired for ordinary active GET/PUT.
+1. bare `/play` + no row → chooser;
+2. bare `/play` + X → exact X READY admission;
+3. `?choose=1` bypasses X without clearing it;
+4. explicit Y reaches READY → Y becomes active;
+5. Y fails before READY → X remains active;
+6. Start New does not clear X;
+7. successful new Run reaches READY → becomes active;
+8. backend restart + same DB → exact same current moment;
+9. different root/worktree + same DB + no legacy Play files → same result;
+10. corrupt selected Run → truthful failure, no heuristic fallback.
 
-### 6.4 Product continuity
+### AS3 regression floor
 
-Prove existing UI/state-machine behavior:
+Keep green:
 
-1. bare `/play` + no active row → chooser;
-2. bare `/play` + active Run X → exact X admission;
-3. `?choose=1` bypasses active X and shows chooser without clearing X;
-4. explicit exact Run Y reaches READY → Y becomes active;
-5. exact Run Y fails before READY → X remains active;
-6. Start New enters chooser/start mode without clearing X;
-7. successful new Run reaches READY → new Run becomes active;
-8. backend restart + same DB → bare `/play` resumes same exact Run/current moment;
-9. different repo root/worktree + same DB + no legacy Play files → same result;
-10. active X whose authoritative Run aggregate becomes corrupt → fail truthfully; do not auto-select another Run.
-
-### 6.5 AS3 regressions remain green
-
-AS4 must not weaken:
-
-- Run + manifest atomic create;
+- atomic Run+manifest create;
 - historical Playable revision pinning;
 - persisted-progress integrity;
 - SQL Run CAS;
 - transactional preserve-only rebase;
-- cross-grammar rebase fail-closed;
-- legacy Run/manifest import;
-- Plan AS1 and Runbook AS2 isolation;
-- no World DB usage.
+- cross-grammar fail-closed;
+- legacy Runtime import;
+- Plan/Runbook DB isolation;
+- no World DB fallback.
 
 ---
 
 ## §7 Required execution evidence
 
-No required test may skip because PostgreSQL is unavailable. Use the existing disposable product-safe database fixture/guard.
-
-At minimum run and report exact counts for:
+No required test may skip because PostgreSQL is unavailable.
 
 ```bash
 uv run pytest \
@@ -741,135 +531,109 @@ pnpm --dir apps/live-control-ui test -- \
 
 git diff --check
 
-git diff --name-only 9c946cd8c24effccec8d06cfc1cb5e310c9edc5e...HEAD
+git diff --name-only <RECORDED_PR_BASE_SHA>...HEAD
 ```
 
-Also attach concise exact-head evidence for:
+The implementation handback must state the exact recorded PR base SHA used in the final command.
 
-- migration head before/after;
-- DB row shape/invariants;
-- restart/new-app-instance continuity;
-- different-root/worktree continuity with same DB;
-- contradictory legacy file ignored after switch;
-- no legacy active file recreation;
-- malformed legacy import no-write;
-- same-Run idempotency preserving `selected_at`;
-- failed replacement preserving previous selection;
+Also attach exact-head evidence for:
+
+- migration head;
+- DB singleton constraints;
+- restart/new-app-instance witness;
+- different-root/worktree witness;
+- contradictory legacy file ignored;
+- no file recreation/lock on ordinary path;
+- legacy import no-write conflicts;
+- same-Run timestamp idempotency;
+- failed replacement preserves previous selection;
 - exact-current-moment resume;
-- baseline-vs-head active GET/PUT/resume p50/p95;
-- open-PR collision check;
-- final cumulative lease ledger.
+- baseline/head latency;
+- current open-PR collision check;
+- final lease ledger.
 
-### Evidence quality rule
-
-A test name is not evidence by itself. For the migration/continuity boundary, the witness must literally establish predecessor state **before** switching/import/restart, then exercise the real switched service/admission path.
-
-Do not call a test “restart” if it simply calls the same in-memory object twice.
+Evidence rule: establish predecessor state first, then cross the real import/switch/restart boundary. Test names alone are not proof.
 
 ---
 
-## §8 Preferred nano-commit story
-
-Keep the PR reviewable as independent semantic steps:
+## §8 Preferred nano-commits
 
 ```text
-1. play.active_run forward migration + Play repository/type
-2. PostgreSQL active-selection service invariants
-3. honest legacy active-run import
-4. switch existing play_active_run compatibility adapter/routes to DB authority
-5. owning-boundary + migration + restart/worktree evidence
-6. existing Play UI continuity regressions + latency capture
-7. backward-looking AS3 roadmap/anchor sync
+1. play.active_run migration + repository/type
+2. active-selection service invariants
+3. honest active-run.json import
+4. switch compatibility adapter/routes to DB authority
+5. owning-boundary/import/restart/worktree evidence
+6. existing UI continuity regressions + latency capture
+7. roadmap/anchor mark AS4 THIS PR; keep AS5 false
 ```
 
-Do not mix unrelated formatting or cleanup into these commits.
+No unrelated cleanup.
 
 ---
 
-## §9 Reviewer questions / exact invariant pass
+## §9 Reviewer checklist
 
-A reviewer should answer all of these against the exact PR head:
+Block merge unless all are true:
 
-1. Is `play.active_run` the only ordinary durable active-selection authority?
-2. Can the legacy file be absent, unreadable, or contradictory without changing ordinary behavior?
-3. Does missing row mean null selection without choosing another Run?
-4. Does set prove the PostgreSQL Run + manifest aggregate before changing intent?
-5. Can corrupt persisted progress/manifest be silently legitimized by selecting that Run?
-6. Does same-Run retry preserve `selected_at` exactly?
-7. Does a different explicit valid Run replace the pointer without mutating either Run?
-8. Does bare `/play` still perform full exact admission rather than trusting the pointer?
-9. Can `?choose=1` or Start New accidentally clear the prior active selection?
-10. Can a failed new/exact Run admission displace the prior active Run?
-11. Does restart/worktree continuity use the same DB rather than checkout-local files?
-12. Does resume restore the exact stored Runtime/current moment and pinned Playable revision?
-13. Is legacy import exact and conflict-safe rather than heuristic?
-14. Did AS4 avoid account systems, campaign-multipointer semantics, lifecycle fields, and generic KV storage?
-15. Are AS3 Runtime invariants still green?
-16. Is AS5 still visibly false?
-17. Does the cumulative diff stay inside the §4 write lease plus recorded bounded discovery?
-
-Any “no” on 1–13 or 15–17 is a blocker.
+1. `play.active_run` is sole ordinary active-selection authority.
+2. Legacy file can be absent/unreadable/contradictory without affecting ordinary behavior.
+3. Missing row means null; no newest/first heuristic.
+4. Set proves AS3 Runtime aggregate integrity before mutation.
+5. Corrupt progress/manifest cannot be legitimized by selecting the Run.
+6. Same-Run retry preserves timestamp.
+7. Different valid Run replaces only the pointer.
+8. Bare `/play` still performs full exact admission.
+9. Chooser/Start New cannot clear prior active selection accidentally.
+10. Failed new/exact admission cannot displace prior selection.
+11. Restart/worktree continuity comes from DB, not checkout-local files.
+12. Exact Runtime current moment + pinned Playable revision survive resume.
+13. Legacy import is exact/conflict-safe, never heuristic.
+14. No account/campaign-multipointer/lifecycle/KV expansion.
+15. AS3 regressions remain green.
+16. AS5 remains false.
+17. Diff stays inside §4 + recorded bounded discovery.
 
 ---
 
-## §10 Handback contract and what remains false
+## §10 Handback and what remains false
 
-The implementation handback must include:
-
-```text
-Exact base
-Exact head
-Nano-commit list
-Changed-path lease ledger
-Bounded-discovery ledger, if used
-Test commands + exact pass/skip counts
-Real-PostgreSQL confirmation
-Migration head
-Legacy import witness
-Restart/worktree witness
-No-file/no-fallback witness
-Latency baseline/head
-Open PR collision check
-Stop conditions encountered
-What remains false
-```
-
-### What remains false after AS4
-
-Even after a successful AS4 merge:
+Handback must include:
 
 ```text
-legacy Play file modules/helpers       still physically present until AS5
-legacy Run/manifest file code          may remain for migration/forensics until AS5
-legacy rebase-intent code              may remain for migration/forensics until AS5
-registry file-lock machinery           still exists for other file-backed domains
-out/runtime/play filesystem state      not automatically deleted
-Play demolition                        not AS4
-Combat persistence                     unchanged
-worldbuilding_source                   still file-backed
-Ingest / Source / Asset schemas        not implemented
-Generated artifact lifecycles          not selected by this PR
-Run mutation history                   not implemented
-multi-user/account active selection    not implemented
-BF2/BF3 cockpit deepening              not bundled here
-CUTOVER D.3                             separate lane
+recorded PR base
+exact head
+nano-commits
+lease/bounded-discovery ledger
+test counts / skips
+real PostgreSQL confirmation
+migration head
+legacy import witness
+restart/worktree witness
+no-file/no-fallback witness
+latency baseline/head
+open PR collision check
+stop conditions
+what remains false
 ```
 
-### What AS4 unlocks
-
-After AS4, the APP-STATE Play-first migration has moved all user-relied-on Play continuity authority off checkout-local files:
+After AS4, these remain false:
 
 ```text
-Plan / Runbook authoring      PostgreSQL
-Playable historical revision PostgreSQL
-Run + sealed manifest        PostgreSQL
-Runtime CAS + rebase         PostgreSQL
-active Run continuity        PostgreSQL
+Play file/helper demolition          AS5
+physical deletion of out/runtime     not automatic
+registry lock removal                still used elsewhere
+Combat persistence                   unchanged
+worldbuilding_source                 file-backed
+Ingest / Source / Asset schemas      not implemented
+Generated artifact migrations        not selected
+Run mutation history                 absent
+multi-user active selection          absent
+BF2/BF3 cockpit work                 not bundled
+CUTOVER D.3                           separate lane
 ```
 
-That removes application-state persistence as the reason BF2/BF3 Play Surface cockpit work was paused. The steward may then choose to resume Play Surface deepening in parallel with AS5 **only with disjoint write leases**.
-
-AS5 remains necessary because switched authority is not the same thing as demolition. AS5 must prove Play operates with the replaced filesystem machinery physically absent and then delete it rather than preserving fallback topology.
+AS4 does unlock a sequencing change: once active continuity is PostgreSQL-owned, APP-STATE persistence is no longer the reason BF2/BF3 Play Surface cockpit work is paused. The steward may resume Play Surface deepening in parallel with AS5 only under disjoint leases.
 
 ---
 
@@ -878,11 +642,12 @@ AS5 remains necessary because switched authority is not the same thing as demoli
 ```text
 PR: APP-STATE: persist active Run continuity
 branch: agent/app-state-play-continuity
-base: 9c946cd8c24effccec8d06cfc1cb5e310c9edc5e
+branch from: current main containing this handoff
+record: exact branch/PR base SHA in PR body
 
-Build exactly AS4:
+Build only AS4:
 - one play.active_run singleton
-- missing row = no active selection
+- missing row = no selection
 - exact Run+manifest integrity before set
 - same-run idempotency preserves selected_at
 - last explicit valid selection wins
@@ -890,9 +655,9 @@ Build exactly AS4:
 - GET/PUT switch to PostgreSQL only
 - bare /play exact resume survives restart/worktree
 - no file fallback
-- no UX/cockpit redesign
+- no UI/cockpit redesign
 - no AS5 demolition
-- carry AS3 DONE state sync into roadmap + steward anchor
+- roadmap/anchor may say AS4 THIS PR, never merged
 
-Review from the checked-in handoff, not from this capsule.
+Review against the recorded actual PR base, not the historical AS3 merge.
 ```
