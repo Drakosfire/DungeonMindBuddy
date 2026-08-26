@@ -96,44 +96,6 @@ def _qualify_first_world_contribution(contribution: Any) -> Any:
     return contribution.model_copy(update={"assertions": qualified})
 
 
-def _align_first_world_evidence_domains(contribution: Any, artifacts: list[Any]) -> Any:
-    """Stamp contribution evidence to the mapped SourceArtifactV2 domain.
-
-    First-world mapping uses an empty parent-graph evidence view, so
-    ``_map_contribution_evidence_ref`` falls back to ``SourceDomain.OTHER``.
-    Native projection then rejects every D_0 fact as
-    ``evidence_source_domain_mismatch`` against the worldbuilding artifact.
-    """
-    domain_by_artifact = {
-        str(artifact.source_artifact_id): artifact.source_domain
-        for artifact in artifacts
-        if getattr(artifact, "source_artifact_id", None)
-        and getattr(artifact, "source_domain", None) is not None
-    }
-    if not domain_by_artifact:
-        return contribution
-    updated: list[Any] = []
-    changed = False
-    for assertion in contribution.assertions:
-        refs = []
-        assertion_changed = False
-        for ref in list(getattr(assertion, "evidence_refs", None) or []):
-            expected = domain_by_artifact.get(str(ref.source_artifact_id))
-            if expected is not None and ref.source_domain != expected:
-                refs.append(ref.model_copy(update={"source_domain": expected}))
-                assertion_changed = True
-            else:
-                refs.append(ref)
-        if assertion_changed:
-            updated.append(assertion.model_copy(update={"evidence_refs": refs}))
-            changed = True
-        else:
-            updated.append(assertion)
-    if not changed:
-        return contribution
-    return contribution.model_copy(update={"assertions": updated})
-
-
 def _map_sources(request: WorldGraphInitializationRequest) -> tuple[list[Any], list[Any], dict[tuple[str, str], str]]:
     from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
         _digest_from_buddy_revision,
@@ -240,10 +202,7 @@ def _build_command(
     )
 
     artifacts, revisions, pair_to_dm = _map_sources(request)
-    contribution = _align_first_world_evidence_domains(
-        _map_contribution(request, pair_to_dm),
-        artifacts,
-    )
+    contribution = _map_contribution(request, pair_to_dm)
     return ReviewedWorldInitializationCommandV1(
         initialization_id=request.initialization_id,
         world_id=request.world_id,

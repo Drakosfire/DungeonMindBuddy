@@ -315,16 +315,20 @@ def _integrity_error(world_id: str, *, reason: str, message: str) -> DirectWorld
     )
 
 
-def _load_direct_authority_binding(
+def _optional_revision_id(record: Any, field: str) -> str | None:
+    value = str(getattr(record, field, "") or "").strip()
+    return value or None
+
+
+def _head_revision_id(head: Any) -> str | None:
+    return _optional_revision_id(head, "head_revision_id")
+
+
+def _genesis_snapshot(
     bundle: PostgresRepositoryBundle,
     world_id: str,
-) -> DirectAuthorityBinding:
-    """Bind native reads/writes to exactly one recognized genesis family.
-
-    Fail-closed: contradictory or unrecognized genesis is integrity, never a
-    fallback to Buddy files. Uninitialized worlds (no head, neither receipt)
-    keep the ordinary not-adopted/not-initialized miss.
-    """
+) -> tuple[Any, Any, Any]:
+    """One non-transactional observation of adoption, reviewed-init, and head."""
     adoption = _verified_authority_lookup(
         bundle.existing_world_adoptions.get_for_world,
         world_id,
@@ -344,10 +348,127 @@ def _load_direct_authority_binding(
         world_id,
         what="world graph head",
     )
+    return adoption, reviewed, head
+
+
+def _contradictory_genesis(adoption: Any, reviewed: Any, head: Any) -> bool:
     has_adoption = adoption is not None
     has_reviewed = reviewed is not None
-    head_revision_id = str(getattr(head, "head_revision_id", "") or "").strip()
-    has_head = head is not None and bool(head_revision_id)
+    has_head = bool(_head_revision_id(head))
+    if has_adoption and has_reviewed:
+        return True
+    if (has_adoption or has_reviewed) and not has_head:
+        return True
+    if has_head and not has_adoption and not has_reviewed:
+        return True
+    return False
+
+
+def _stabilize_genesis_snapshot(
+    bundle: PostgresRepositoryBundle,
+    world_id: str,
+) -> tuple[Any, Any, Any]:
+    """Reread contradictory observations before treating them as durable corruption.
+
+    Each repository getter uses its own PostgreSQL transaction. A binder can
+    straddle D.2C2's atomic receipt+head commit and see ``head_without_genesis``
+    even though the database was never inconsistent. One coherent reread is
+    enough to resolve that transition; a stable contradiction remains integrity.
+    """
+    adoption, reviewed, head = _genesis_snapshot(bundle, world_id)
+    if not _contradictory_genesis(adoption, reviewed, head):
+        return adoption, reviewed, head
+    return _genesis_snapshot(bundle, world_id)
+
+
+def _enum_value(value: Any) -> Any:
+    return value.value if hasattr(value, "value") else value
+
+
+def _align_graph_payload_evidence(graph_payload: dict[str, Any], sources: Any) -> dict[str, Any]:
+    """Copy SourceArtifact domain onto graph evidence for native projection.
+
+    D.2C2 first-world mapping stamps ``SourceDomain.OTHER`` because the parent
+    evidence view is empty. Stored D_0 bytes stay immutable; this rewrite is
+    in-memory only so native projection can admit predecessor facts.
+    """
+    refs = graph_payload.get("evidence_refs")
+    if not isinstance(refs, list) or not refs:
+        return graph_payload
+    aligned: list[Any] = []
+    changed = False
+    for ref in refs:
+        if not isinstance(ref, dict):
+            aligned.append(ref)
+            continue
+        artifact_id = str(ref.get("source_artifact_id") or "").strip()
+        artifact = sources.get_artifact(artifact_id) if artifact_id else None
+        if artifact is None:
+            aligned.append(ref)
+            continue
+        update: dict[str, Any] = {}
+        expected_domain = _enum_value(getattr(artifact, "source_domain", None))
+        expected_key = getattr(artifact, "source_domain_key", None)
+        if expected_domain is not None and ref.get("source_domain") != expected_domain:
+            update["source_domain"] = expected_domain
+        if expected_key is not None and ref.get("source_domain_key") != expected_key:
+            update["source_domain_key"] = expected_key
+        if update:
+            aligned.append({**ref, **update})
+            changed = True
+        else:
+            aligned.append(ref)
+    if not changed:
+        return graph_payload
+    return {**graph_payload, "evidence_refs": aligned}
+
+
+def _align_stored_revision_evidence(stored: Any, sources: Any) -> Any:
+    if stored is None:
+        return None
+    payload = getattr(stored, "graph_payload", None)
+    if not isinstance(payload, dict):
+        return stored
+    aligned = _align_graph_payload_evidence(payload, sources)
+    if aligned is payload:
+        return stored
+    return stored.model_copy(update={"graph_payload": aligned})
+
+
+class _SourceAlignedWorldGraphRepository:
+    """Read wrapper that aligns graph evidence to source artifacts in memory."""
+
+    def __init__(self, inner: Any, sources: Any) -> None:
+        self._inner = inner
+        self._sources = sources
+
+    def get_head(self, world_id: str) -> Any:
+        return self._inner.get_head(world_id)
+
+    def get_revision(self, world_id: str, revision_id: str) -> Any:
+        stored = self._inner.get_revision(world_id, revision_id)
+        return _align_stored_revision_evidence(stored, self._sources)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+def _load_direct_authority_binding(
+    bundle: PostgresRepositoryBundle,
+    world_id: str,
+) -> DirectAuthorityBinding:
+    """Bind native reads/writes to exactly one recognized genesis family.
+
+    Fail-closed: contradictory or unrecognized genesis is integrity, never a
+    fallback to Buddy files. Uninitialized worlds (no head, neither receipt)
+    keep the ordinary not-adopted/not-initialized miss. Contradictory
+    observations are reread once before being treated as durable corruption.
+    """
+    adoption, reviewed, head = _stabilize_genesis_snapshot(bundle, world_id)
+    has_adoption = adoption is not None
+    has_reviewed = reviewed is not None
+    head_revision_id = _head_revision_id(head) or ""
+    has_head = bool(head_revision_id)
 
     if has_adoption and has_reviewed:
         raise _integrity_error(
@@ -448,8 +569,9 @@ def direct_services_from_bundle(
     graph_reader = VersionedUnionGraphSnapshotReader(
         profile_registry=StaticSemanticProfileRegistry([load_builtin_v3_descriptor()])
     )
+    world_graph = _SourceAlignedWorldGraphRepository(bundle.world_graph, bundle.sources)
     projection = WorldGraphProjectionService(
-        world_graph=bundle.world_graph,
+        world_graph=world_graph,
         sources=bundle.sources,
         graph_reader=graph_reader,
     )

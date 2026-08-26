@@ -1522,8 +1522,33 @@ def _classify_parent_revision(
                 "reason": "buddy_a_revision",
             },
         )
+    from dungeonmind.domain.errors import (
+        PersistenceIntegrityError,
+        PersistenceUnavailableError,
+    )
+
     try:
         stored = bundle.world_graph.get_revision(world_id, parent_revision_id)
+    except PersistenceIntegrityError as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind parent revision failed an integrity check",
+            code="authority_integrity",
+            details={
+                "world_id": world_id,
+                "parent_revision_id": parent_revision_id,
+                "reason": "provider_persistence_integrity",
+            },
+        ) from exc
+    except PersistenceUnavailableError as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind authority is unavailable during parent lookup",
+            code="authority_unavailable",
+            details={
+                "world_id": world_id,
+                "parent_revision_id": parent_revision_id,
+                "reason": "provider_unavailable",
+            },
+        ) from exc
     except Exception as exc:
         raise WorldGraphWriteError(
             "DungeonMind authority read failed during confirm",
