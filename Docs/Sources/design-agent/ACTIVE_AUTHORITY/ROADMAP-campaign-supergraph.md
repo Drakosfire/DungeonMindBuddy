@@ -1,8 +1,8 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-25 — #640 D.2B `DONE`; #642/#46 D.2C1 `DONE`; #644 D.2C2 design `DONE`; D.2C2 implementation `DOING` / Buddy #645; D.3 `false`  
-**Repository anchor / current Buddy `main`:** `f1eae2a3d27e430ee19e254d5b52fa556b2632ff` (#644 D.2C2 design merged; D.2C2 implementation base). Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
+**Updated:** 2026-08-26 — #645 D.2C2 `DONE`; #647 D.2C3 design `DONE`; D.2C3 implementation `DOING` / Buddy #651; D.2C4/D.3A/D.3B `BLOCKED`; D.3 not `DONE`  
+**Repository anchor / current Buddy `main`:** `d96a21363fd0decbcb8c4390f951a6316b53060c` (#647 D.2C3 design merged; D.2C3 implementation base). Historical D.2C2 implementation #645 merge: `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`. Historical D.2C2 design #644 merge: `f1eae2a3d27e430ee19e254d5b52fa556b2632ff`. Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b` (PR #46 merge / reviewed first-world initialization)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
@@ -258,16 +258,38 @@ DONE    D.2C2 mounted first-world authority migration DESIGN / Buddy #644
         PASS-equivalent 5025378684.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-mounted-first-world-authority-migration.md.
 
-DOING   D.2C2 mounted first-world authority migration / Buddy #645
+DONE    D.2C2 mounted first-world authority migration / Buddy #645
         Move mounted first-world review/prepare/confirm onto
         WorldGraphInitializationAuthority and one DungeonMind D_0.
-        This implementation PR is in-flight; do not invent its merge SHA.
+        Merge 3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c; accepted head
+        f772db17e00cbe2c0198ae53f169a10a6332a3ed; Cycle 2 PASS-equivalent
+        5026532158.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-mounted-first-world-authority-migration-code.md.
 
-BLOCKED D.3 final Buddy graph-engine deletion
-        Delete kernel/world_supergraph/union_supergraph production
-        imports and prove the old graph is physically absent.
-        D.3 remains false until D.2C2 implementation merges.
+DONE    D.2C3 native genesis read/write continuity DESIGN / Buddy #647
+        Frozen two-genesis binder and D.2C3/D.2C4/D.3A/D.3B sequence.
+        Merge d96a21363fd0decbcb8c4390f951a6316b53060c; accepted design
+        head 1f5676c204ee917d18efd553106c07306541e820; Cycle 7
+        PASS-equivalent 5034239255.
+        Handoff: Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md §4.
+
+DOING   D.2C3 native genesis read/write continuity / Buddy #651
+        Shared DirectAuthorityBinding recognizes existing-world adoption
+        and reviewed first-world initialization; D_0 is a legal native parent.
+        This implementation PR is in-flight; do not invent its merge SHA.
+        Handoff: Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md.
+
+BLOCKED D.2C4 manual Graph Review authoring continuity
+        Migrate Graph Review manual authoring onto WorldGraphAuthority.
+        Not dispatched until D.2C3 implementation merges.
+
+BLOCKED D.3A mounted graph-engine excision
+        Excise Buddy graph engine from production imports/routes.
+        Not dispatched until D.2C4 merges.
+
+BLOCKED D.3B physical legacy-package deletion
+        Delete kernel/world_supergraph/union_supergraph source and prove
+        physical absence. D.3 is not DONE until D.3B merges.
 ```
 
 Historical correction/heal slices (integrity heal, Lysandra, Session-24, closure, #566) remain `DONE` and are not current dispatch. The tracker, not this roadmap, decides which `READY` slice is dispatched next.

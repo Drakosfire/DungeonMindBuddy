@@ -31,7 +31,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2C3 CODE: native genesis read/write continuity
 
 **Created:** 2026-08-26  
-**Status:** ACTIVE — IMPLEMENTATION DISPATCH  
+**Status:** ACTIVE — IMPLEMENTATION IN PROGRESS / Buddy #651  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md`  
 **Conversation/workstream:** `DungeonBuddy / Campaign Supergraph CUTOVER`  
 **Flow / owner:** `CUTOVER`  
@@ -78,7 +78,7 @@ pr_body_template: |
 | What remains false | Manual Graph Review authoring still targets legacy overlay/file semantics; mounted legacy graph-engine imports/routes still exist; D.3A/D.3B are not begun. |
 | Explicit non-goals | No D.2C4, D.3A/D.3B, authority-mode parser rehome, import blocker, buddy_files removal, UI changes, APP-STATE, provider changes. |
 | Branch / isolated checkout | `cutover/native-genesis-read-write-continuity` from exact base above; isolated checkout/worktree required. |
-| Parallel lanes / collision hotspots | APP-STATE #650 is active from older base `f1fd3f6...`; its observed lease is Play/runtime persistence only and does not overlap this lease. Re-check before code/merge. CUTOVER state-authority docs are this lane's hotspot. |
+| Parallel lanes / collision hotspots | APP-STATE #650 is MERGED; its observed lease was Play/runtime persistence only and does not overlap this lease. Re-check before code/merge. CUTOVER state-authority docs are this lane's hotspot. |
 | Runtime/state ownership | Real PostgreSQL authority witness must use an isolated test DB/schema/world IDs; do not share mutable world IDs with another worker. No Buddy world-file mutation is required by the native witness. |
 | State-authority sync set after merge | `Docs/Plans/STEWARDS-ANCHOR-cutover.md`; `Docs/Plans/PR-TRACKER-campaign-supergraph.md`; `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`; ACTIVE_AUTHORITY tracker/roadmap mirrors; `Docs/Design/STATUS-world-graph-continuity-spine.md` if stale; merged #647 design handoff status/facts. |
 
@@ -262,9 +262,9 @@ Alias/label/normalized-key identity is not applicable to genesis revision bindin
 Exact verification commands, adjusting only test selection if an owning test is created under the bounded exception:
 
 ```bash
-uv run pytest tests/test_cutover_dungeonmind_first_world_initialization.py tests/test_cutover_direct_dungeonmind_world_graph_reads.py tests/test_cutover_dungeonmind_world_graph_authority.py -q
+uv run pytest tests/test_cutover_dungeonmind_first_world_initialization.py tests/test_cutover_direct_dungeonmind_world_graph_reads.py tests/test_cutover_dungeonmind_world_graph_authority.py tests/test_cutover_native_genesis_continuity.py -q
 uv run pytest tests/test_cutover_threat_authority_port_integration.py tests/test_cutover_worldbuilding_authority_port_integration.py -q
-uv run ruff check apps/live_control_server/integrations/dungeonmind tests/test_cutover_dungeonmind_first_world_initialization.py tests/test_cutover_direct_dungeonmind_world_graph_reads.py tests/test_cutover_dungeonmind_world_graph_authority.py
+uv run ruff check apps/live_control_server/integrations/dungeonmind tests/test_cutover_dungeonmind_first_world_initialization.py tests/test_cutover_direct_dungeonmind_world_graph_reads.py tests/test_cutover_dungeonmind_world_graph_authority.py tests/test_cutover_native_genesis_continuity.py
 git diff --check
 git diff --name-only d96a21363fd0decbcb8c4390f951a6316b53060c...HEAD
 ```
@@ -283,6 +283,36 @@ Evidence captured: test output + exact world/init/revision IDs and receipt count
 ### Baseline failure handling
 
 If any required cohort fails or skips on the exact base, record the same command at base and head. The implementation must not add failures/skips. A required D.2C3 PostgreSQL witness skip has no waiver in this handoff.
+
+## Execution record — implementation in progress, not DONE
+
+This PR remains `DOING`. Do not treat the following as merge-ready `DONE`.
+
+**Lease exception used:** `world_graph_initialization_adapter.py` `_align_first_world_evidence_domains()`. Real D.2C2 `D_0` was bindable, but native projection admitted zero nodes because first-world mapping uses an empty parent-graph evidence view and `_map_contribution_evidence_ref` stamped `SourceDomain.OTHER` against worldbuilding artifacts. Alignment does not change genesis, retry, or `D_0.parent=None`.
+
+**Owning cohort** (`DMB_CUTOVER_TEST_DATABASE_URL=postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dungeonmind_cutover_test`):
+
+```text
+uv run pytest tests/test_cutover_dungeonmind_first_world_initialization.py \
+  tests/test_cutover_direct_dungeonmind_world_graph_reads.py \
+  tests/test_cutover_dungeonmind_world_graph_authority.py \
+  tests/test_cutover_native_genesis_continuity.py -q
+118 passed, 12 skipped, 10 warnings in 128.85s
+```
+
+The 12 skips are pre-existing D.1 Buddy-hydration retirement skips in `tests/test_cutover_dungeonmind_world_graph_authority.py` (`hydrated` fixture and `@pytest.mark.skip`). The D.2C3 PostgreSQL witness `test_reviewed_init_d0_native_read_write_continuity` did not skip.
+
+**D.2A / D.2B regression:**
+
+```text
+uv run pytest tests/test_cutover_threat_authority_port_integration.py \
+  tests/test_cutover_worldbuilding_authority_port_integration.py -q
+4 passed, 10 warnings in 37.96s
+```
+
+**Ruff:** `All checks passed!` on the leased Python paths including `tests/test_cutover_native_genesis_continuity.py`.
+
+**`git diff --check`:** clean on the unstaged implementation/docs diff. Dispatch-seed markdown hard-break trailing spaces on this handoff header remain from `a31a014c` and are unchanged in style.
 
 ## §8 Required review handback
 
