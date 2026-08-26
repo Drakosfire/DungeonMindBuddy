@@ -5,6 +5,7 @@ PostgreSQL, DungeonMind models, and graph payloads stay inside this adapter.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -218,6 +219,40 @@ def _build_command(
     )
 
 
+def _head_revision_id(head: Any) -> str | None:
+    if head is None:
+        return None
+    return str(getattr(head, "head_revision_id", "") or "").strip() or None
+
+
+def _require_receipt_head_coherent(world_id: str, receipt: Any, head: Any) -> None:
+    """A verified receipt without a current head is contradictory, not initialized."""
+    if receipt is None:
+        return
+    if _head_revision_id(head) is not None:
+        return
+    raise WorldGraphInitializationError(
+        "reviewed-init receipt exists without a current world head",
+        code="integrity_failure",
+        details={
+            "world_id": world_id,
+            "reason": "reviewed_init_receipt_without_head",
+            "initialization_id": str(receipt.initialization_id),
+            "published_revision_id": str(receipt.published_revision_id),
+        },
+    )
+
+
+def _get_verified_reviewed_init_receipt(repository: Any, world_id: str) -> Any:
+    """Verified reviewed-init read. Maps DungeonMind errors onto the port."""
+    try:
+        return repository.get_for_world(world_id)
+    except WorldGraphInitializationError:
+        raise
+    except Exception as exc:
+        raise _map_provider_error(exc) from exc
+
+
 def _receipt_from_provider(provider_receipt: Any, *, had_receipt: bool) -> WorldGraphInitializationReceipt:
     accepted = tuple(provider_receipt.accepted_assertion_ids)
     return WorldGraphInitializationReceipt(
@@ -307,8 +342,16 @@ def _map_provider_error(exc: BaseException) -> WorldGraphInitializationError:
 class DungeonMindWorldGraphInitializationAdapter:
     """Production first-world initialization. PostgreSQL stays inside this class."""
 
-    def __init__(self, *, database_url: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        database_url: str | None = None,
+        now: Callable[[], datetime] | None = None,
+        after_uninitialized_receipt: Callable[[], None] | None = None,
+    ) -> None:
         self._database_url = database_url
+        self._now = now
+        self._after_uninitialized_receipt = after_uninitialized_receipt
 
     def _bundle(self):
         try:
@@ -322,37 +365,28 @@ class DungeonMindWorldGraphInitializationAdapter:
         try:
             bundle = self._bundle()
             head = bundle.world_graph.get_head(world_id)
-            receipt = bundle.reviewed_world_initializations.get_for_world(world_id)
+            receipt = _get_verified_reviewed_init_receipt(
+                bundle.reviewed_world_initializations, world_id
+            )
         except WorldGraphInitializationError:
             raise
         except Exception as exc:
-            raise WorldGraphInitializationError(
-                "DungeonMind initialization authority is unavailable",
-                code="authority_unavailable",
-                details={"world_id": world_id, "reason": type(exc).__name__},
-            ) from exc
-        head_id = None
-        if head is not None:
-            head_id = str(getattr(head, "head_revision_id", "") or "").strip() or None
-        receipt_id = None
-        published = None
+            raise _map_provider_error(exc) from exc
+        _require_receipt_head_coherent(world_id, receipt, head)
+        head_id = _head_revision_id(head)
         if receipt is not None:
-            receipt_id = str(receipt.initialization_id)
-            published = str(receipt.published_revision_id)
-        if head_id and receipt is not None and published and published != head_id:
-            # Head may have advanced past D_0; receipt still names genesis.
             return WorldGraphInitializationState(
                 world_id=world_id,
                 state="initialized",
-                initialization_id=receipt_id,
-                published_revision_id=published,
+                initialization_id=str(receipt.initialization_id),
+                published_revision_id=str(receipt.published_revision_id),
             )
-        if head_id or receipt is not None:
+        if head_id:
             return WorldGraphInitializationState(
                 world_id=world_id,
                 state="initialized",
-                initialization_id=receipt_id,
-                published_revision_id=published or head_id,
+                initialization_id=None,
+                published_revision_id=head_id,
             )
         return WorldGraphInitializationState(world_id=world_id, state="uninitialized")
 
@@ -368,23 +402,34 @@ class DungeonMindWorldGraphInitializationAdapter:
         bundle = self._bundle()
         repository = bundle.reviewed_world_initializations
         reader = _build_graph_reader()
-        existing = repository.get_for_world(request.world_id)
-        if existing is not None and existing.initialization_id != request.initialization_id:
-            raise WorldGraphInitializationError(
-                "world already has a reviewed initialization with a different id",
-                code="already_initialized",
-                details={
-                    "world_id": request.world_id,
-                    "initialization_id": existing.initialization_id,
-                },
-            )
+        existing = _get_verified_reviewed_init_receipt(repository, request.world_id)
+        if existing is not None:
+            try:
+                head = bundle.world_graph.get_head(request.world_id)
+            except WorldGraphInitializationError:
+                raise
+            except Exception as exc:
+                raise _map_provider_error(exc) from exc
+            _require_receipt_head_coherent(request.world_id, existing, head)
+            if existing.initialization_id != request.initialization_id:
+                raise WorldGraphInitializationError(
+                    "world already has a reviewed initialization with a different id",
+                    code="already_initialized",
+                    details={
+                        "world_id": request.world_id,
+                        "initialization_id": existing.initialization_id,
+                    },
+                )
+        elif self._after_uninitialized_receipt is not None:
+            self._after_uninitialized_receipt()
         had_matching_receipt = (
             existing is not None and existing.initialization_id == request.initialization_id
         )
         if had_matching_receipt:
             requested_at = existing.initialized_at
         else:
-            requested_at = datetime.now(UTC)
+            clock = self._now or (lambda: datetime.now(UTC))
+            requested_at = clock()
         command = _build_command(request, requested_initialized_at=requested_at)
         try:
             provider_receipt = initialize_reviewed_world(
@@ -403,7 +448,9 @@ class DungeonMindWorldGraphInitializationAdapter:
                         details={"initialization_id": request.initialization_id},
                     )
                 ) from None
-            refreshed = repository.get_for_world(request.world_id)
+            refreshed = _get_verified_reviewed_init_receipt(
+                repository, request.world_id
+            )
             if refreshed is None:
                 raise _map_provider_error(
                     IdempotencyConflictError(
@@ -420,6 +467,13 @@ class DungeonMindWorldGraphInitializationAdapter:
                         "initialization_id": refreshed.initialization_id,
                     },
                 ) from None
+            try:
+                refreshed_head = bundle.world_graph.get_head(request.world_id)
+            except WorldGraphInitializationError:
+                raise
+            except Exception as exc:
+                raise _map_provider_error(exc) from exc
+            _require_receipt_head_coherent(request.world_id, refreshed, refreshed_head)
             replay_command = _build_command(
                 request, requested_initialized_at=refreshed.initialized_at
             )
