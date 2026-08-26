@@ -112,51 +112,63 @@ def test_classify_parent_still_rejects_exact_legacy_bridge_id() -> None:
     assert excinfo.value.details["reason"] == "buddy_a_revision"
 
 
-def test_first_world_evidence_domains_align_to_mapped_artifact() -> None:
-    from dungeonmind.contracts.contribution import (
-        AcceptanceState,
-        ContributionSourceKind,
-        GraphContributionAssertionV2,
-        GraphContributionV2,
-    )
-    from dungeonmind.contracts.evidence import EvidenceRef, EvidenceRole, SourceDomain
-    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
-        _align_first_world_evidence_domains,
+def test_classify_parent_maps_provider_integrity_not_unavailable() -> None:
+    from dungeonmind.domain.errors import (
+        PersistenceIntegrityError,
+        PersistenceUnavailableError,
     )
 
-    contribution = GraphContributionV2(
-        contribution_id="contrib:d2c3",
-        world_id=GLASS_ORCHARD_WORLD_ID,
-        source_kind=ContributionSourceKind.EXTRACTION,
-        source_artifact_id="artifact:worldbuilding:test",
-        source_revision_id="sha256:abc",
-        produced_at=NOW,
-        assertions=[
-            GraphContributionAssertionV2(
-                assertion_id="asrt:1",
-                assertion_kind="node",
-                subject_object_id="obj:vial",
-                source_artifact_id="artifact:worldbuilding:test",
-                source_revision_id="sha256:abc",
-                acceptance_state=AcceptanceState.ACCEPTED,
-                evidence_refs=[
-                    EvidenceRef(
-                        evidence_ref_id="ev:1",
-                        source_artifact_id="artifact:worldbuilding:test",
-                        source_revision_id="sha256:abc",
-                        source_domain=SourceDomain.OTHER,
-                        evidence_role=EvidenceRole.SUPPORT,
-                    )
-                ],
-            )
-        ],
+    class _CorruptGraph:
+        def get_revision(self, world_id: str, revision_id: str):
+            raise PersistenceIntegrityError("corrupt revision fingerprint")
+
+    with pytest.raises(WorldGraphWriteError) as excinfo:
+        _classify_parent_revision(
+            SimpleNamespace(world_graph=_CorruptGraph()),
+            "world:d2c3-parent",
+            "rev:d0",
+            legacy_buddy_revision_id=None,
+        )
+    assert excinfo.value.code == "authority_integrity"
+    assert excinfo.value.details["reason"] == "provider_persistence_integrity"
+
+    class _DownGraph:
+        def get_revision(self, world_id: str, revision_id: str):
+            raise PersistenceUnavailableError("connection lost")
+
+    with pytest.raises(WorldGraphWriteError) as excinfo:
+        _classify_parent_revision(
+            SimpleNamespace(world_graph=_DownGraph()),
+            "world:d2c3-parent",
+            "rev:d0",
+            legacy_buddy_revision_id=None,
+        )
+    assert excinfo.value.code == "authority_unavailable"
+
+
+def test_graph_payload_evidence_aligns_to_source_artifact_in_memory_only() -> None:
+    from dungeonmind.contracts.evidence import SourceDomain
+
+    payload = {
+        "evidence_refs": [
+            {
+                "evidence_ref_id": "ev:1",
+                "source_artifact_id": "artifact:worldbuilding:test",
+                "source_domain": "other",
+                "source_domain_key": "other",
+            }
+        ]
+    }
+    sources = SimpleNamespace(
+        get_artifact=lambda _artifact_id: SimpleNamespace(
+            source_domain=SourceDomain.WORLDBUILDING,
+            source_domain_key="worldbuilding",
+        )
     )
-    artifact = SimpleNamespace(
-        source_artifact_id="artifact:worldbuilding:test",
-        source_domain=SourceDomain.WORLDBUILDING,
-    )
-    aligned = _align_first_world_evidence_domains(contribution, [artifact])
-    assert aligned.assertions[0].evidence_refs[0].source_domain is SourceDomain.WORLDBUILDING
+    aligned = direct._align_graph_payload_evidence(payload, sources)
+    assert payload["evidence_refs"][0]["source_domain"] == "other"
+    assert aligned["evidence_refs"][0]["source_domain"] == "worldbuilding"
+    assert aligned["evidence_refs"][0]["source_domain_key"] == "worldbuilding"
 
 
 @pytest.fixture
@@ -274,6 +286,21 @@ def test_reviewed_init_d0_native_read_write_continuity(
     init = bundle.reviewed_world_initializations.get_for_world(GLASS_ORCHARD_WORLD_ID)
     assert init is not None
     assert init.published_revision_id == d0
+    evidence = stored_d0.graph_payload.get("evidence_refs") or []
+    assert evidence
+    stored_domains = {item.get("source_domain") for item in evidence}
+    assert stored_domains == {"other"}
+
+    retry_init = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert retry_init.status_code == 200, retry_init.text
+    assert retry_init.json()["outcome"] == "already_initialized"
+    assert retry_init.json()["committedRevisionId"] == d0
+    replayed = bundle.reviewed_world_initializations.get_for_world(GLASS_ORCHARD_WORLD_ID)
+    assert replayed is not None
+    assert replayed.command_sha256 == init.command_sha256
+    assert replayed.published_revision_id == d0
+    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 1
+    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["receipts"] == 1
 
     _explode_kernel(monkeypatch)
     services = direct.direct_services_from_bundle(bundle, GLASS_ORCHARD_WORLD_ID)
@@ -287,10 +314,6 @@ def test_reviewed_init_d0_native_read_write_continuity(
         services, _projection_request(revision_pin=d0)
     )
     node_ids = {node.node_id for node in projection.nodes}
-    evidence = stored_d0.graph_payload.get("evidence_refs") or []
-    assert evidence
-    assert {item.get("source_domain") for item in evidence} == {"worldbuilding"}
-    assert {item.get("source_domain_key") for item in evidence} == {"worldbuilding"}
     assert "obj_session22_vial" in node_ids
     assert "mystery_puddles" in node_ids
     assert projection.snapshot.revision_id == d0

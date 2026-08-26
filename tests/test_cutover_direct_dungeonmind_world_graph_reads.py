@@ -539,6 +539,42 @@ def test_head_without_genesis_is_integrity():
     assert excinfo.value.diagnostics[0]["reason"] == "head_without_genesis"
 
 
+class _FirstNoneThenReceipt:
+    def __init__(self, receipt: _FakeReviewedInitReceipt) -> None:
+        self._receipt = receipt
+        self.calls = 0
+
+    def get_for_world(self, world_id: str):
+        self.calls += 1
+        if self.calls == 1:
+            return None
+        if self._receipt.world_id == world_id:
+            return self._receipt
+        return None
+
+
+def test_head_without_genesis_reread_binds_when_receipt_appears() -> None:
+    world_graph = InMemoryWorldGraphRepository()
+    published = world_graph.publish_revision(
+        PublishRevisionCommand(
+            world_id=WORLD_ID,
+            parent_revision_id=None,
+            expected_parent_revision_id=None,
+            operation_ids=["op:r3-test"],
+            graph_schema="dm_union_graph_v6",
+            graph_payload=_payload(),
+            created_at=NOW,
+        )
+    )
+    receipt = _FakeReviewedInitReceipt(WORLD_ID, published.revision_id)
+    bundle = _FakeBundle(world_graph, _seed_sources(), None)
+    bundle.reviewed_world_initializations = _FirstNoneThenReceipt(receipt)
+    services = direct.direct_services_from_bundle(bundle, WORLD_ID)
+    assert services.binding.genesis == "reviewed_world_initialization"
+    assert services.binding.dungeonmind_first_revision_id == published.revision_id
+    assert bundle.reviewed_world_initializations.calls == 2
+
+
 def test_adoption_receipt_without_head_is_integrity():
     world_graph = InMemoryWorldGraphRepository()
     bundle = _FakeBundle(
