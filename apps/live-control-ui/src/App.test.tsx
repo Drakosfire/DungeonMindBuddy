@@ -5,7 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import * as liveApi from "./api/liveApi";
-import type { WorkspaceDocumentSnapshot } from "./api/types";
+import type {
+  WorldGraphProjection,
+  WorldGraphProjectionRequest,
+  WorkspaceCommittedRevision,
+  WorkspaceDocumentSnapshot,
+} from "./api/types";
 import type { AppChromeTools, AppChromeToolsGeneration } from "./chrome/AppChrome";
 import { buildViewExactTestSeam } from "./buildSurface/reference/BuildReferenceCapability";
 import { fixtureWorkspaceDocumentRecord, FIXTURE_DOC_ID } from "./planSurface/config/planSessionDescriptor";
@@ -84,6 +89,7 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     getWorkspaceDocumentSnapshot: vi.fn(),
     getPlayActiveRun: vi.fn(),
     putPlayActiveRun: vi.fn(),
+    getCommittedWorkspaceRevision: vi.fn(),
     createWorkspaceDocument: vi.fn(),
     postWorldGraphProjection: vi.fn(),
     listPlayRuns: vi.fn(),
@@ -119,6 +125,38 @@ function fixtureSnapshot(
     file_exists: false,
     loaded_revision: record.revision,
     ...overrides,
+  };
+}
+
+function matchingWorldGraphProjection(
+  request: WorldGraphProjectionRequest,
+): WorldGraphProjection {
+  return {
+    schema: "dmb_world_graph_projection_v1",
+    snapshot: {
+      worldId: request.worldId,
+      campaignId: request.campaignId,
+      revisionId: "rev-1",
+      headRevisionId: "rev-1",
+      isHead: true,
+      focus: request.focus,
+      admissibility: request.admissibility,
+      scopeMode: request.scopeMode,
+    },
+    summary: {
+      nodeCount: 0,
+      relationshipCount: 0,
+      attributeCount: 0,
+      evidenceCount: 0,
+      sourceArtifactCount: 0,
+      projectionTruncated: false,
+    },
+    nodes: [],
+    relationships: [],
+    attributes: [],
+    evidence: [],
+    sourceArtifacts: [],
+    diagnostics: [],
   };
 }
 
@@ -235,6 +273,12 @@ describe("App inspector integration", () => {
     vi.mocked(liveApi.putPlayRun).mockRejectedValue(new liveApi.LiveApiError("not found", 404));
     vi.mocked(liveApi.putPlayRunReferenceManifest).mockRejectedValue(new liveApi.LiveApiError("not found", 404));
     vi.mocked(liveApi.putPlayRunProgress).mockRejectedValue(new liveApi.LiveApiError("not found", 404));
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockRejectedValue(
+      new liveApi.LiveApiError("not found", 404),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockImplementation(async (request) =>
+      matchingWorldGraphProjection(request),
+    );
   });
 
   it("renders the launcher at the root route", () => {
@@ -613,6 +657,27 @@ describe("App inspector integration", () => {
     "",
   ].join("\n");
 
+  function playCommittedRevision(
+    overrides: Partial<WorkspaceCommittedRevision> = {},
+  ): WorkspaceCommittedRevision {
+    return {
+      schema_version: "dmb_workspace_committed_revision_v1",
+      document_id: PLAY_ARTIFACT_ID,
+      kind: "runbook",
+      campaign_id: "longmont-c2",
+      title: "North Gate Runbook",
+      status: "active",
+      object_revision: 3,
+      work_revision_id: "11111111-1111-4111-8111-111111111111",
+      revision_n: 3,
+      markdown: PLAY_MARKDOWN,
+      content_sha256: PLAY_SHA,
+      has_divergent_working_copy: false,
+      target_relpath: `out/workspace/runbooks/${PLAY_ARTIFACT_ID}.md`,
+      ...overrides,
+    };
+  }
+
   function playRunRecord() {
     return {
       schema_version: "dmb_play_run_record_v1" as const,
@@ -665,6 +730,7 @@ describe("App inspector integration", () => {
         file_fingerprint: "present",
       }),
     );
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockResolvedValue(playCommittedRevision());
     return record;
   }
 
@@ -734,7 +800,7 @@ describe("App inspector integration", () => {
     expect(liveApi.getPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayActiveRun).not.toHaveBeenCalled();
-    expect(screen.getByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
       "href",
       `/play?run=${PLAY_RUN_ID}`,
     );
@@ -839,6 +905,7 @@ describe("App inspector integration", () => {
         file_fingerprint: "present",
       }),
     );
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockResolvedValue(playCommittedRevision());
     vi.mocked(liveApi.putPlayActiveRun).mockImplementation(async (runId) => (
       runId === PLAY_RUN_ID ? delayedFirst : activeState(runId)
     ));
@@ -957,33 +1024,24 @@ describe("App inspector integration", () => {
     expect(screen.queryByRole("checkbox", { name: "Resolved" })).not.toBeInTheDocument();
   });
 
-  it("blocks a newer workspace Runbook as rebase required without overlaying Runtime", async () => {
+  it("blocks a newer committed Runbook without overlaying Runtime", async () => {
     mockReadyPlayRun();
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
-      fixtureSnapshot({
-        record: fixtureWorkspaceDocumentRecord({
-          document_id: PLAY_ARTIFACT_ID,
-          title: "North Gate Runbook",
-          kind: "runbook",
-          revision: 4,
-          content_status: "committed",
-        }),
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockResolvedValue(
+      playCommittedRevision({
+        object_revision: 4,
+        revision_n: 4,
         markdown: `${PLAY_MARKDOWN}\nNewer prose that must not render.\n`,
-        content_sha256: PLAY_SHA,
-        loaded_revision: 4,
-        file_exists: true,
-        file_fingerprint: "present",
       }),
     );
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("play-status-rebase_required")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-status-integrity_failure")).toBeInTheDocument();
     expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
     expect(screen.queryByText(/Newer prose that must not render/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: "Resolved" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("play-status-rebase_required")).toHaveAttribute("data-play-campaign-id", "");
-    expect(screen.getByTestId("play-status-rebase_required")).toHaveAttribute("data-play-document-id", "");
+    expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-campaign-id", "");
+    expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-document-id", "");
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "play");
     expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveTextContent(PLAY_ARTIFACT_ID);
   });
@@ -1052,6 +1110,7 @@ describe("App inspector integration", () => {
         file_fingerprint: "present",
       }),
     );
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockResolvedValue(playCommittedRevision());
 
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
@@ -1115,6 +1174,14 @@ describe("App inspector integration", () => {
         loaded_revision: boundRevision,
         file_exists: true,
         file_fingerprint: "present",
+      }),
+    );
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockImplementation(async () =>
+      playCommittedRevision({
+        object_revision: boundRevision,
+        revision_n: boundRevision,
+        markdown: boundRevision === 3 ? PLAY_MARKDOWN : PLAY_MARKDOWN_R4,
+        content_sha256: boundRevision === 3 ? PLAY_SHA : PLAY_SHA_R4,
       }),
     );
 
