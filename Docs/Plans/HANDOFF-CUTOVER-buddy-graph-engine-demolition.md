@@ -13,12 +13,14 @@ pr_body_template: |
   - Cycle 1 review: REQUEST-CHANGES-equivalent `5026690745` on `e7b34502eb3a7a3fcc8b716ef4a25a5bb7fc9db2`
   - Cycle 1 addendum: `5420568935` (same head; not Cycle 2)
   - Cycle 2 review: REQUEST-CHANGES-equivalent `5031234283` on `1d99c5e7a23cf864b671c6d3f0d17c65618a9327`
+  - Cycle 3 review: REQUEST-CHANGES-equivalent `5031642732` on `62e104bc57c75ad7cfd057213e4554bed7b30a63`
   - Parallel re-anchor: APP-STATE Play-continuity docs on `main` as `764d9d1ddbebbf398cb1f701d23de83c4c67a454`
   - DungeonMind provider pin: `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`
 
-  This design freezes one remaining D.2 continuity predecessor, then decomposes
-  demolition into D.3A mounted production graph-engine excision followed by
-  D.3B physical legacy-package deletion.
+  This design freezes two remaining D.2 continuity predecessors — native
+  genesis binding, then Graph Review manual-authoring continuity — then
+  decomposes demolition into D.3A mounted production graph-engine excision
+  followed by D.3B physical legacy-package deletion.
 
   Sequence:
 
@@ -26,19 +28,22 @@ pr_body_template: |
          ↓
       D.2C3  native genesis read/write continuity      REQUIRED
          ↓
+      D.2C4  manual-authoring continuity               REQUIRED
+         ↓
       D.3A   mounted graph-engine excision
          ↓
       D.3B   physical legacy-package deletion
 
   D.3 is not DONE until D.3B merges and the final absence proof passes.
   D.2C3 is not dispatched until this design PR merges.
-  D.3A is not dispatched until D.2C3 merges.
+  D.2C4 is not dispatched until D.2C3 merges.
+  D.3A is not dispatched until D.2C4 merges.
 ---
 
 # HANDOFF — CUTOVER D.3: Buddy graph-engine demolition
 
 **Created:** 2026-08-25
-**Status:** CYCLE 2 REPAIR — awaiting Review Cycle 3
+**Status:** CYCLE 3 REPAIR — awaiting Review Cycle 4
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`
 **Workstream / flow:** `CUTOVER`
 **Direction:** DESIGN → REVIEW
@@ -47,6 +52,7 @@ pr_body_template: |
 **Cycle 1 review:** REQUEST-CHANGES-equivalent `5026690745` on `e7b34502eb3a7a3fcc8b716ef4a25a5bb7fc9db2`
 **Cycle 1 addendum:** issue comment `5420568935` on the same head; not Review Cycle 2
 **Cycle 2 review:** REQUEST-CHANGES-equivalent `5031234283` on `1d99c5e7a23cf864b671c6d3f0d17c65618a9327`
+**Cycle 3 review:** REQUEST-CHANGES-equivalent `5031642732` on `62e104bc57c75ad7cfd057213e4554bed7b30a63`
 **D.2C2 implementation:** Buddy #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`
 **D.2C2 accepted head:** `f772db17e00cbe2c0198ae53f169a10a6332a3ed`
 **D.2C2 review:** 2 distinct-head cycles; final PASS-equivalent `5026532158`
@@ -56,6 +62,8 @@ pr_body_template: |
 **Design PR title:** `CUTOVER: design Buddy graph-engine demolition`
 **First implementation successor:** D.2C3 / `cutover/native-genesis-read-write-continuity`
 **Suggested D.2C3 PR title:** `CUTOVER: native genesis read/write continuity`
+**Named D.2C4 successor:** `cutover/manual-authoring-continuity`
+**Suggested D.2C4 PR title:** `CUTOVER: migrate Graph Review authoring onto WorldGraphAuthority`
 **Named D.3A successor:** `cutover/mounted-graph-engine-excision`
 **Suggested D.3A PR title:** `CUTOVER: excise Buddy graph engine from production`
 **Named D.3B successor:** `cutover/delete-legacy-graph-engine`
@@ -79,13 +87,15 @@ historical Buddy-A → DungeonMind-D_A existing-world adoption bridge. Reviewed
 initialization is reciprocally exclusive with that bridge: it publishes a real
 `D_0` with `parent_revision_id = None` and no adoption receipt.
 
-Demolition cannot begin until that continuity seam is closed. The frozen
-sequence is:
+Demolition cannot begin until both remaining D.2 continuity seams are closed.
+The frozen sequence is:
 
 ```text
 D.2C2  reviewed first-world initialization       DONE
   ↓
 D.2C3  native genesis read/write continuity      REQUIRED
+  ↓
+D.2C4  manual-authoring continuity               REQUIRED
   ↓
 D.3A   mounted production graph-engine excision
   ↓
@@ -97,8 +107,10 @@ D.3B   physical legacy graph-engine package deletion
        retired source/compatibility implementation disappears
 ```
 
-D.2C3 is the last D.2 authority-migration slice. After it merges, D.3 is
-demolition, not another semantic migration.
+D.2C3 closes native genesis binding. D.2C4 closes Graph Review manual
+authoring onto `WorldGraphAuthority`. After D.2C4 merges, D.3 is demolition,
+not another semantic migration. Cycle 3 withdrew retiring the authoring
+cockpit as a D.3A FAIL_CLOSED product choice.
 
 **D.3 is not DONE after D.3A.** D.3 becomes DONE only after D.3B merges and the
 final source/runtime absence proof passes.
@@ -106,16 +118,20 @@ final source/runtime absence proof passes.
 **D.2C3 is not dispatched until this design PR merges.** Then re-anchor
 current `main` and dispatch the parseable D.2C3 CODE wrapper.
 
-**D.3A is not dispatched until D.2C3 merges.** The D.3A → D.3B split remains
-the demolition boundary. What changed is that repository inspection exposed
-one remaining D.2 continuity seam that must close first.
+**D.2C4 is not dispatched until D.2C3 merges.**
 
-After D.2C3, all mounted World Graph authority is DungeonMind-owned for both
-legal genesis families:
+**D.3A is not dispatched until D.2C4 merges.** The D.3A → D.3B split remains
+the demolition boundary. What changed is that repository inspection exposed
+two remaining D.2 continuity seams that must close first: genesis binding,
+then manual-authoring continuity.
+
+After D.2C3 and D.2C4, all mounted World Graph authority is DungeonMind-owned
+for both legal genesis families, including Graph Review corrections:
 
 ```text
 reads                         → DungeonMind native
 exact-run Graph Review writes → DungeonMind native
+manual Graph Review authoring → WorldGraphAuthority → DungeonMind
 Threat publication            → WorldGraphAuthority → DungeonMind
 existing-world worldbuilding  → WorldGraphAuthority → DungeonMind
 first-world/bootstrap         → WorldGraphInitializationAuthority → DungeonMind
@@ -156,8 +172,9 @@ The sets overlap. Count is not an authority classification. The previous
 One PR that relocates surviving product values, removes production routing,
 deletes historical tools, and removes three package trees would violate the
 one-capability rule and make semantic regressions hard to distinguish from
-bulk deletion fallout. D.2C3 is likewise one capability: native genesis
-binding. It does not excavate the engine.
+bulk deletion fallout. D.2C3 is one capability: native genesis binding. D.2C4 is one capability:
+Graph Review manual authoring onto governed publication. Neither excavates
+the engine.
 
 ---
 
@@ -188,7 +205,7 @@ It proved first-world *creation*:
 It did **not** prove that the resulting `D_0` can be read or parented through
 the shared native projection/retrieval/`WorldGraphAuthority` path.
 
-### 2.2 The remaining D.2 seam is native genesis binding
+### 2.2 The first remaining D.2 seam is native genesis binding
 
 `apps/live_control_server/integrations/dungeonmind/world_graph_reads.py::_load_direct_authority_binding()`
 unconditionally requires:
@@ -223,6 +240,33 @@ This is this design's own STOP condition: a concrete post-cutover gap showing
 D.2 authority migration is incomplete. Hide it inside D.3A and demolition
 starts from a lie.
 
+### 2.2b The second remaining D.2 seam is Graph Review manual authoring
+
+Canonical architecture still in force:
+
+```text
+ARCHITECTURE-campaign-supergraph.md
+  DESIGN-graph-object-authoring-surface.md remains a surface-product contract
+  Graph Review authors write-path corrections as durable contributions
+  discard preview-store-only materialization as the durable write destination
+
+DESIGN-graph-object-authoring-surface.md
+  Graph Review is the correction cockpit
+  destination is the authored campaign graph
+  target is GraphContribution → atomic graph-head advancement
+```
+
+The mounted `/api/live/graph-authoring` implementation is the expired PR003
+UnionSupergraph file writer. That writer is obsolete. The cockpit is not.
+Cycle 2 retired the entire authoring UI/workflow in D.3A; Cycle 3 rejects
+that as implicit product-capability deletion.
+
+Preferred repair, frozen here: bounded **D.2C4 manual-authoring continuity**
+before D.3A. Do not keep the UnionSupergraph writer. Do not pretend
+exact-run extract-promote is arbitrary/manual correction. Explicit product
+deprecation of manual authoring is the rejected alternative unless a later
+review supersedes the stable architecture documents named above.
+
 ### 2.3 APP-STATE merged during design authoring and Cycle 1 repair
 
 APP-STATE #646 merged after #645 and before the original design head:
@@ -245,21 +289,18 @@ f27bf550  APP-STATE: record AS3 done and keep AS4 next
 Those commits are now part of the design base rather than a parallel lease.
 This design intentionally does not touch them.
 
-At this Cycle 2 repair the open PRs are:
+At this Cycle 3 repair the open PRs are:
 
 ```text
 this D.3 design PR                          #647  this lease (design file only)
 APP-STATE persist active Run continuity     #649  disjoint Play/AS4
 ```
 
-`#649` currently touches `apps/live-control-ui/src/api/liveApi.test.ts` as a
-test-only path. D.3A names `liveApi.ts` and Statblock/Graph Review UI in
-§6.3; that is a **future** implementation lease. If #649 is still open when
-D.3A is dispatched, serialize or split `liveApi.ts` / its tests rather than
-editing through AS4.
-
-D.2C3 and D.3A must still repeat the active-PR/write-lease check immediately
-before implementation.
+Do not freeze a file-overlap claim against #649 from an earlier cycle.
+D.2C3, D.2C4, and D.3A each re-check active PRs / write leases immediately
+before implementation. If #649 (or any later AS4 PR) still touches a named
+D.2C4 or D.3A path at dispatch, serialize or split rather than editing
+through that lease.
 
 ### 2.4 Current state docs are behind both #645 and this repair
 
@@ -280,12 +321,16 @@ Do not open a routine docs-only sync PR.
 
 this D.3 design             DONE only with its real merge/review facts
 D.2C3                       active / DOING in its implementation PR
-D.3A                        BLOCKED on D.2C3
+D.2C4                       BLOCKED on D.2C3
+D.3A                        BLOCKED on D.2C4
 D.3B                        BLOCKED on D.3A
 D.3                         not DONE
 ```
 
-**D.3A implementation owns the D.2C3 predecessor sync** after that merge is
+**D.2C4 implementation owns the D.2C3 predecessor sync** after that merge is
+knowable. Mark D.2C4 active. Keep D.3A blocked and D.3 not DONE.
+
+**D.3A implementation owns the D.2C4 predecessor sync** after that merge is
 knowable. Mark D.3A active. Keep D.3B blocked and D.3 not DONE. Do not invent
 future merge/review facts.
 
@@ -325,12 +370,14 @@ Hermes / agent graph reads
 ```
 
 The following are mounted FastAPI surface *today*, not historical scripts.
-Their D.3A fate is frozen in §5.1 at **endpoint / UI** granularity, not
-router-unmount granularity. D.2C3 does not change them.
+Their fate is frozen in §5 / §6.1 at **endpoint / UI** granularity, not
+router-unmount granularity. D.2C4 rewrites Graph Review prepare/commit onto
+`WorldGraphAuthority`. D.3A 410s only leftover UnionSupergraph writer paths.
 
 ```text
 /api/live/world-graph-bootstrap/*                Kernel Eldyrwild bootstrap
-/api/live/graph-authoring/*                      UnionSupergraph file apply
+/api/live/graph-authoring/prepare|commit         D.2C4 REWRITE_PORT; not D.3A 410
+/api/live/graph-authoring/merge-reconciliation/* leftover UnionSupergraph apply
 /api/live/graph-preview/union-supergraph/projection
                                                 store-backed Plan/GR preview
 remaining /api/live/graph-preview/*              mixed live product router
@@ -341,14 +388,20 @@ routes.world_graph_retrieval                     module-level kernel import
 routes.threat_query_hydration                    union_supergraph.statblock_binding
 ```
 
-Active UI callers that D.3A must not orphan:
+Active UI callers:
 
 ```text
 Plan GraphIngestProjectionPanel          Open Union Graph
+                                         D.3A intentional store-preview retirement
 Graph Review live/candidate projection   getUnionSupergraphProjection
-Graph Review authoring workspace         prepare/commit/merge-reconciliation
+                                         D.3A intentional store-preview retirement
+Graph Review authoring workspace         prepare/commit  — D.2C4 keeps as cockpit
+                                         merge-reconciliation file-apply — D.3A 410
 Statblock workbench create-context       getWorldGraphBootstrapStatus
+                                         D.3A native-head replacement
 ```
+
+D.3A must not orphan the authoring cockpit. D.2C4 owns keeping it working.
 
 Historical migration/conformance scripts and explicit legacy fixtures are not
 mounted product merely because they live under `apps/` or `tests/`.
@@ -524,7 +577,7 @@ one binder. Do not create a first-world-only read adapter that bypasses
 `dungeonmind_kernel.world_graph_authority.bind_world_authority()` remains the
 historical hydrated/frozen-store adoption binder. D.2C3 does not extend it
 and does not put first-world worlds on that path. D.3A retires it from
-mounted production (§5.1).
+mounted production (§6.1).
 
 ### 4.6 No new DungeonMind provider contract
 
@@ -600,7 +653,8 @@ existing Eldyrwild adoption / D.2A / D.2B regression cohorts named in §4.7
 #### Explicitly outside D.2C3
 
 ```text
-boot-imported engine stores in §5.1
+boot-imported engine stores in §6.1
+D.2C4 Graph Review authoring rewrite
 authority-mode parser rehome
 import blocker / filesystem-absence witnesses
 buddy_files compatibility removal
@@ -655,7 +709,7 @@ Return:
 12. exact commands with pass/fail/skip counts; zero required skips;
 13. ruff + `git diff --check`;
 14. state sync showing #645 DONE, this design's known facts, D.2C3 active,
-    D.3A blocked, D.3 not DONE;
+    D.2C4 blocked, D.3A blocked, D.3 not DONE;
 15. stop conditions or `none`.
 
 The D.2C3 dispatch seed is not Review Cycle 1. Review begins with executable
@@ -663,11 +717,357 @@ implementation and owning evidence.
 
 ---
 
-## 5. Frozen demolition architecture decisions
+## 5. D.2C4 — manual-authoring continuity
 
-These decisions apply to D.3A/D.3B. D.2C3 does not execute them.
+D.2C4 is a bounded Buddy-side predecessor. It migrates Graph Review's still-
+authoritative **manual correction/authoring capability** onto already-landed
+governed DungeonMind / `WorldGraphAuthority` publication. It is not demolition
+and it is not extract-promote.
 
-### 5.1 Boot-imported engine stores — frozen product fate
+Canonical architecture remains in force:
+
+```text
+Docs/Design/ARCHITECTURE-campaign-supergraph.md
+  DESIGN-graph-object-authoring-surface.md is still in force
+  Graph Review consumes projections and authors write-path corrections
+  discard preview-store-only materialization as the durable write destination
+  keep authored overlay + event log as the correction-trail *lesson*
+
+Docs/Design/DESIGN-graph-object-authoring-surface.md
+  Graph Review is the correction cockpit
+  primary destination is the authored campaign graph
+  target path is reviewed GraphContribution → atomic graph-head advancement
+  extract-promote replaces extraction promotion, then later broader authoring
+  — it does not delete broader authoring
+```
+
+The obsolete UnionSupergraph *file writer* dies. The product capability does
+not. Cycle 2's "retire the entire authoring UI/workflow in D.3A" is withdrawn.
+
+### 5.1 Merge-ready invariant
+
+> **Graph Review can stage a manual authored proposal (object, link-existing,
+> relationship, or expressible identity merge), prepare a sealed reviewed
+> write, and confirm it into one DungeonMind child through
+> `WorldGraphAuthority.publish`, using already-landed GraphContribution and
+> worldbuilding publication-family contracts. Exact-run extract-promote stays
+> a distinct ingest-run promotion path. The UnionSupergraph file-apply writer
+> is no longer the durable authoring destination. No new DungeonMind provider
+> contract is introduced.**
+
+### 5.2 Why this is a D.2 predecessor, not D.3A FAIL_CLOSED
+
+`/api/live/graph-authoring` today is two different things glued together:
+
+```text
+still-intended product capability
+  Graph Review correction cockpit
+  selection → staged authored proposal → explicit reviewed confirm
+  durable campaign-graph correction
+
+obsolete implementation
+  authored overlay + event log as authority
+  apply_union_supergraph_merge_plan_to_file
+  UnionSupergraphStore as write destination
+```
+
+Architecture says keep the first and discard the second. Exact-run
+extract-promote (`/api/live/extract-promote/*`) publishes *reviewed ingest-run
+extractions*. It cannot be used as the justification for removing arbitrary
+or manual graph correction. They are distinct capabilities:
+
+```text
+extract-promote     ingest-run candidates → GraphContribution → WorldGraphAuthority
+manual authoring    GM-staged corrections  → GraphContribution → WorldGraphAuthority
+```
+
+Same governed destination. Different proposal source. D.3A may 410 the
+obsolete writer only after this slice has moved the cockpit onto the governed
+path.
+
+### 5.3 Frozen write path
+
+One capability:
+
+```text
+Graph Review selection / Author Draft
+  → staged authored proposals
+      object | link_existing | relationship | merge_objects
+  → POST prepare  (no mutation; sealed proposal + confirm token + expected parent)
+  → explicit GM confirm
+  → GraphContribution
+      source_kind = graph_review_authored_assertion   (already-landed)
+  → WorldGraphAuthority.publish
+      operation_namespace = "worldbuilding"           (already-landed family)
+  → one DungeonMind child / atomic graph-head advancement
+  → native projection/retrieval of the child
+```
+
+HTTP freeze:
+
+```text
+Rewrite in place, do not invent a second cockpit.
+
+POST /api/live/graph-authoring/prepare
+POST /api/live/graph-authoring/commit
+  remain the Graph Review authoring prepare/confirm paths
+  D.2C4 changes their implementation to WorldGraphAuthority
+  bounded wire additions are allowed for expected parent, publication
+  receipt, and native child revision
+  overlay-as-durable-write and union-store materialization are not the
+  write destination after this slice
+
+POST /api/live/graph-authoring/merge-reconciliation/prepare
+POST /api/live/graph-authoring/merge-reconciliation/apply
+  remain the obsolete UnionSupergraph file-apply writer
+  D.2C4 does not keep them as the durable identity-merge path
+  D.3A KEEP_MOUNTED_410s them after D.2C4 has folded expressible merges
+  into governed prepare/confirm
+```
+
+UI freeze:
+
+```text
+Keep Graph Review as the correction cockpit.
+Keep GraphReviewAuthorDraftWorkspace / prepare-commit panel / authoring
+  mode / GraphProjectionReader graph-authoring-action as working write UX.
+Retarget merge-reconciliation-to-file so it is not presented as a successful
+  durable UnionSupergraph write. Expressible identity merge confirms through
+  the governed prepare/commit panel.
+Do not disable the authoring workspace in D.3A.
+Do not copy apply_union_supergraph_merge_plan_to_file into a new namespace.
+```
+
+### 5.4 Assertion mapping onto already-landed GraphContribution
+
+Authored overlay kinds map onto already-landed
+`ContributionAssertionKind` values. They are not a new provider vocabulary.
+
+```text
+authored object          → node     identity created_new
+authored link_existing   → alias    identity resolved_existing
+authored relationship    → edge     identity remains inexpressible-as-create
+                                   (same neutrality as D.2C2 accepted edges)
+authored merge_objects   → identity_decision / worldbuilding identity
+                           vocabulary already accepted by
+                           _worldbuilding_expressible
+                             created_new
+                             human_override → resolved_existing
+                             resolved_existing
+                             rejected_by_operator → rejected
+```
+
+`ContributionSourceKind` already includes `graph_review_authored_assertion`.
+Use it. Do not mint a parallel source kind.
+
+Publication family is the already-landed DungeonMind `worldbuilding` family
+via `WorldGraphPublishRequest.operation_namespace="worldbuilding"`. Do **not**
+add `authored_correction` (or any other new value) as a DungeonMind
+`publication_family`. A new publication family is a new provider contract.
+
+If a required authored fact cannot be expressed as `GraphContribution` +
+`WorldGraphAuthority.publish` + `_worldbuilding_expressible` on the current
+pin, **STOP and re-brief**. That includes:
+
+- identity merge that requires UnionSupergraph file-apply semantics;
+- an authored assertion kind that is not node/alias/edge/identity_decision;
+- a need for a new DungeonMind publication family, review-operation type,
+  or identity-outcome vocabulary.
+
+Fail closed as `inexpressible` for a single out-of-contract proposal. Do not
+silently drop facts. Do not keep a dual writer "for merges."
+
+### 5.5 Shared authority, not a second factory
+
+D.2C4 consumes the same `WorldGraphAuthority` as D.2A/D.2B:
+
+```text
+current_head / read_revision / mutation_context
+publish(WorldGraphPublishRequest)
+recover(...)
+```
+
+Prepare is storage-neutral and must not write overlay, event log, or
+UnionSupergraph files as authority. Confirm publishes one child against the
+sealed expected parent. Exact retry / lost-response restart / stale parent
+follow the already-landed publication/recovery algebra.
+
+Reads of the resulting child use the D.2C3 `DirectAuthorityBinding` path.
+D.2C4 does not reopen genesis binding.
+
+Do not route manual authoring through extract-promote prepare/confirm.
+Do not treat a successful extract-promote as proof that manual authoring
+works.
+
+### 5.6 No new DungeonMind provider contract
+
+Already-landed contracts D.2C4 may use:
+
+```text
+WorldGraphAuthority (threat | worldbuilding namespaces only)
+GraphContribution / GraphContributionAssertion
+ContributionSourceKind.graph_review_authored_assertion
+worldbuilding identity-outcome remap (_worldbuilding_expressible)
+bundle.world_graph head/revision repositories
+D.2C3 DirectAuthorityBinding
+```
+
+D.2C4 may add Buddy-owned prepare-binding/confirm-token fields analogous to
+D.2B worldbuilding. That is product orchestration, not a provider feature.
+
+If implementation discovers that required manual authoring cannot execute
+with those contracts, STOP. That is not permission to extend DungeonMind
+inside this slice or to delete the cockpit in D.3A instead.
+
+### 5.7 Required owning proof
+
+One real-PostgreSQL witness, using the real mounted Graph Review authoring
+boundaries (not a hidden adapter test as the owning proof):
+
+```text
+1. start from a world that already has a native DungeonMind head
+   (Eldyrwild adoption *or* a D.2C2/D.2C3 first-world D_0)
+2. stage one manual authored object proposal in Graph Review
+3. prepare: no overlay/event-log/UnionSupergraph mutation; sealed parent
+4. confirm: WorldGraphAuthority.publish → one child, parent = sealed head
+5. native-project / native-retrieve the new object on that child
+6. exact retry of the same confirm recovers already_applied; no second child
+7. a changed proposal against the same operation id fails closed
+8. stage and confirm one expressible relationship (edge) the same way
+9. if merge_objects is in the shipped D.2C4 surface, confirm one
+   expressible identity merge the same governed way; otherwise the
+   merge-to-file panel is not presented as a working durable write
+10. prove extract-promote still publishes an ingest-run contribution on a
+    distinct operation id; the two children are not interchangeable proofs
+11. prove UnionSupergraph file-apply was not the write destination
+    (no apply_union_supergraph_merge_plan_to_file; no new union-store bytes)
+```
+
+Required integration proofs must not silently skip. Report exact
+pass/fail/skip counts. Zero required skips for this witness.
+
+Also prove fail-closed cases at unit/adapter scope:
+
+```text
+inexpressible authored fact        → WorldGraphAuthorityError inexpressible
+stale expected parent              → stale_parent
+UnionSupergraph path not used      → prepare/confirm do not import
+                                     merge_reconciliation_apply at runtime
+```
+
+### 5.8 D.2C4 implementation write lease
+
+#### Core owned paths
+
+```text
+apps/live_control_server/routes/graph_authoring.py
+apps/live_control_server/services/graph_object_authoring_prepare.py
+apps/live_control_server/services/graph_object_authoring_commit.py
+apps/live_control_server/services/graph_object_authoring_merge_guard.py
+apps/live_control_server/services/graph_object_authoring_overlap.py
+apps/live_control_server/models/graph_authoring_overlay.py
+apps/live_control_server/ports/world_graph_authority.py
+  only if Buddy-side prepare/confirm types need to *consume* it;
+  do not add a new DungeonMind publication_family
+apps/live_control_server/ports/world_graph_authority_access.py
+apps/live_control_server/integrations/dungeonmind/world_graph_authority_adapter.py
+  only to reuse _worldbuilding_expressible / publish; no new family
+apps/live-control-ui/src/api/liveApi.ts
+apps/live-control-ui/src/api/types.ts
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorDraftWorkspace.tsx
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringPrepareCommitPanel.tsx
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthoringRail.tsx
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphMergeReconciliationMaterializationPanel.tsx
+apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.tsx
+owning Graph Review authoring UI tests
+```
+
+Touch merge-reconciliation materialize services only to stop presenting
+file-apply as the durable merge. Do not rewrite UnionSupergraph apply.
+
+#### Owning tests
+
+```text
+new focused tests/test_cutover_manual_authoring_continuity.py
+  (or equivalently named)
+existing Graph Review authoring prepare/commit tests, retargeted
+tests/test_cutover_dungeonmind_world_graph_authority.py regressions
+extract-promote tests proving the paths remain distinct
+```
+
+#### Explicitly outside D.2C4
+
+```text
+D.2C3 genesis binder
+boot-imported engine stores in §6.1 except graph-authoring REWRITE_PORT
+Open Union Graph / store-backed preview retirement
+world-graph-bootstrap 410
+import blocker / filesystem-absence witnesses
+buddy_files compatibility removal
+Kernel / world_supergraph / union_supergraph deletion
+Plan UX redesign
+extract-promote semantic change
+APP-STATE
+DungeonMind repository/provider code
+new World Graph semantics / publication families
+deprecating DESIGN-graph-object-authoring-surface.md
+```
+
+### 5.9 D.2C4 CODE successor shape
+
+Suggested wrapper:
+
+```text
+Docs/Plans/HANDOFF-CUTOVER-manual-authoring-continuity-code.md
+branch  cutover/manual-authoring-continuity
+title   CUTOVER: migrate Graph Review authoring onto WorldGraphAuthority
+```
+
+The wrapper pins execution metadata, write lease, evidence, state sync, and
+handback. It does not reopen this mapping or convert extract-promote into
+manual authoring.
+
+**Dispatch law:** merge this design PR first. Dispatch D.2C3 from the
+**merged** design. Dispatch D.2C4 only after D.2C3 merges. Do not dispatch
+D.2C4 from an accepted-but-unmerged design head.
+
+### 5.10 D.2C4 review handback contract
+
+Return:
+
+1. exact PR / branch / final head SHA;
+2. exact implementation base and rebase status;
+3. this design PR's merge SHA / accepted head / PASS-equivalent review, and
+   the merged D.2C3 SHA/review authorizing D.2C4;
+4. cumulative changed paths against the D.2C4 lease;
+5. active parallel PRs checked;
+6. prepare/confirm now publish through WorldGraphAuthority worldbuilding
+   family; GraphContribution source_kind is graph_review_authored_assertion;
+7. assertion mapping evidence for object/link_existing/relationship and,
+   if shipped, expressible merge_objects;
+8. proof extract-promote remains a distinct ingest-run path;
+9. proof UnionSupergraph file-apply is not the write destination;
+10. Graph Review authoring UI still presents a working governed write,
+    not a 410/retired cockpit;
+11. real-Postgres witness counts from §5.7; zero required skips;
+12. exact commands with pass/fail/skip counts;
+13. ruff + `git diff --check`;
+14. state sync showing #645 DONE, this design's known facts, D.2C3 DONE,
+    D.2C4 active, D.3A blocked, D.3 not DONE;
+15. stop conditions or `none`.
+
+The D.2C4 dispatch seed is not Review Cycle 1. Review begins with executable
+implementation and owning evidence.
+
+---
+
+## 6. Frozen demolition architecture decisions
+
+These decisions apply to D.3A/D.3B. D.2C3 does not execute them. D.2C4
+executes the Graph Review prepare/commit **REWRITE_PORT** in §5 / §6.1.4
+before D.3A may 410 leftover UnionSupergraph writer paths.
+
+### 6.1 Boot-imported engine stores — frozen product fate
 
 D.3A's merge-ready proof installs an import blocker for
 `graph_memory.kernel`, `graph_memory.world_supergraph`, and
@@ -681,16 +1081,17 @@ Dispositions:
 
 ```text
 FAIL_CLOSED   retire the named capability; no engine import remains on the
-              boot graph; HTTP/UI contract is frozen in §5.1.1
+              boot graph; HTTP/UI contract is frozen in §6.1.1
 REHOME_DTO    consume already-landed DungeonMind projection/retrieval/value
               contracts only; byte/ID/digest parity where values move
 REWRITE_PORT  already-frozen WorldGraphAuthority / initialization port;
-              no new provider contract
+              no new provider contract. D.2C4 uses this for Graph Review
+              prepare/commit. D.3A does not 410 those paths.
 STOP          still requires local head/revision/UnionSupergraphStore
               semantics; D.2 incomplete or split a predecessor
 ```
 
-#### 5.1.1 Observable retired-HTTP contract
+#### 6.1.1 Observable retired-HTTP contract
 
 `FAIL_CLOSED` does **not** mean “unmount the router and hope.” An unmounted
 route is 404. Live UI currently treats some 404s as “missing artifact,” not
@@ -713,11 +1114,10 @@ Frozen retired codes:
 /api/live/graph-preview/union-supergraph/projection
   → 410  code=union_supergraph_preview_retired
 
-/api/live/graph-authoring/prepare
-/api/live/graph-authoring/commit
 /api/live/graph-authoring/merge-reconciliation/prepare
 /api/live/graph-authoring/merge-reconciliation/apply
   → 410  code=graph_authoring_store_retired
+  (leftover UnionSupergraph file-apply only; prepare/commit are D.2C4)
 
 /api/live/world-graph-bootstrap/status
 /api/live/world-graph-bootstrap/prepare
@@ -730,12 +1130,15 @@ Never:
 - unmount a still-public path so callers observe 404;
 - keep the engine implementation behind a 410;
 - leave a live button/workspace that presents 404 as “missing projection”
-  or “write succeeded.”
+  or “write succeeded”;
+- 410 Graph Review `/graph-authoring/prepare` or `/commit` after D.2C4
+  rewrote them onto `WorldGraphAuthority`;
+- disable the Graph Review authoring cockpit as if the capability were retired.
 
 Engine implementation modules may remain on disk until D.3B DELETE. They must
 not be imported by `create_app()`, retained routers, or lifespan.
 
-#### 5.1.2 `/api/live/graph-preview` is endpoint-level, not router-level
+#### 6.1.2 `/api/live/graph-preview` is endpoint-level, not router-level
 
 `routes/graph_preview.py` is a mixed router. **Keep it mounted.** Do not
 treat the whole `graph_preview.py` path as FAIL_CLOSED in the D.3A static
@@ -805,7 +1208,7 @@ Graph. Do not pretend native DungeonMind projection is the same product.
 Plan/Graph Review may keep using `/api/live/world-graph-projection` and
 `/api/live/world-graph-retrieval` for published authority.
 
-#### 5.1.3 Live UI callers — Open Union Graph / candidate store preview
+#### 6.1.3 Live UI callers — Open Union Graph / candidate store preview
 
 Live callers of `getUnionSupergraphProjection` today:
 
@@ -834,42 +1237,45 @@ Same PR must:
    as a missing artifact;
 6. update owning UI tests.
 
-#### 5.1.4 Graph authoring — intentional retirement, not STOP
+#### 6.1.4 Graph authoring — D.2C4 REWRITE_PORT, leftover writer 410
 
-`/api/live/graph-authoring` is the expired PR003 UnionSupergraph *file
-writer*. Exact-run Graph Review already publishes through DungeonMind.
-This is **not** a remaining intended World Graph write capability, so D.3A
-does **not** insert a predecessor migration and does **not** rewrite it
-onto `WorldGraphAuthority`.
+The UnionSupergraph *file writer* is obsolete. The Graph Review correction
+cockpit is not. Cycle 2's "intentional UI/workflow retirement" is withdrawn.
 
-It is also not abandoned backend: Graph Review currently calls
-`prepareGraphObjectAuthoringWrite` / `commitGraphObjectAuthoringWrite`,
-mounts `GraphReviewAuthorDraftWorkspace`, and presents successful durable
-writes.
+```text
+D.2C4  REWRITE_PORT
+  POST /api/live/graph-authoring/prepare
+  POST /api/live/graph-authoring/commit
+  GraphReviewAuthorDraftWorkspace
+  GraphObjectAuthoringPrepareCommitPanel
+  GraphProjectionReader graph-authoring-action
+  authoring mode toggle
+  → WorldGraphAuthority.publish, worldbuilding family
+  → GraphContribution source_kind=graph_review_authored_assertion
 
-D.3A product choice: **intentional retirement of the authoring UI/workflow
-in the same PR as the backend 410.** Do not 410 the backend while a live
-authoring surface remains.
+D.3A   KEEP_MOUNTED_410 leftover writer only
+  POST /api/live/graph-authoring/merge-reconciliation/prepare
+  POST /api/live/graph-authoring/merge-reconciliation/apply
+  GraphMergeReconciliationMaterializationPanel file-apply UX
+  → 410 code=graph_authoring_store_retired
+```
 
-Same PR must:
+D.3A must **not**:
 
-1. KEEP_MOUNTED_410 on all four authoring endpoints;
-2. disable/remove the Graph Review authoring prepare/commit/merge-reconciliation
-   workspace so users cannot operate a dead write flow, including at least:
-   `GraphReviewAuthorDraftWorkspace`,
-   `GraphObjectAuthoringPrepareCommitPanel`,
-   `GraphReviewAuthoringRail` merge-reconciliation,
-   `GraphProjectionReader` `graph-authoring-action`,
-   authoring mode toggle;
-3. keep exact-run extract-promote Graph Review mounted and working;
-4. not copy `apply_union_supergraph_merge_plan_to_file` into a new namespace;
-5. update owning UI tests.
+- 410 `/graph-authoring/prepare` or `/commit`;
+- disable/remove the Graph Review authoring workspace;
+- treat extract-promote as a substitute for manual correction;
+- copy `apply_union_supergraph_merge_plan_to_file` into a new namespace.
+
+After D.2C4, those prepare/commit handlers must be import-block-safe
+(`WorldGraphAuthority` only). D.3A's static gate treats them as mounted
+REWRITE_PORT survivors, not FAIL_CLOSED.
 
 Gold-authoring under `/api/live/graph-preview/gold-authoring/*` is fixture
 JSON preview, not the UnionSupergraph file writer. It stays mounted unless
 inventory proves a retired-namespace import on the boot graph.
 
-#### 5.1.5 World-graph-bootstrap — 410, not unmount
+#### 6.1.5 World-graph-bootstrap — 410, not unmount
 
 Kernel Eldyrwild bootstrap prepare/confirm is retired. First-world creation
 is `WorldGraphInitializationAuthority`; Eldyrwild living authority is
@@ -884,25 +1290,28 @@ create-context to pin from already-landed World Graph / DungeonMind head
 (`WorldGraphAuthority` / native projection), not Kernel bootstrap status.
 Handle 410 as retired if any call remains.
 
-#### 5.1.6 Remaining boot-imported surfaces
+#### 6.1.6 Remaining boot-imported surfaces
 
 | Boot-imported surface | Disposition | D.3A meaning |
 |---|---|---|
 | Retained `/api/live/graph-preview/*` except `/union-supergraph/projection` | **keep mounted** | Import-block-safe. Not FAIL_CLOSED as a router. |
 | Plan graph-preview / recap DTOs that do not import the three retired namespaces | **REHOME_DTO** | Keep storage-neutral `graph_memory.projection` / retrieval DTO modules. After D.3A they must not import kernel / world_supergraph / union_supergraph. Do not churn public wire schemas merely to rename a package. |
 | `world_graph_prewarm` Kernel coordinator (`services/world_graph_prewarm.py`, app lifespan) | **FAIL_CLOSED** | No Kernel resident/prewarm worker. Lifespan start/stop may remain as a no-op so shutdown ownership does not import `graph_memory.kernel`. No HTTP 410; there is no public route. |
-| `config.world_graph_authority_mode()` parser currently in `graph_memory.world_supergraph.storage` | **REHOME_DTO** | D.3A **must** rehome the parser/constants into Buddy-owned `config` / ports and apply §5.2. App boot cannot be import-blocked while `config.py` imports `world_supergraph.storage`. D.3B deletion of the old parser is not a substitute. |
+| `config.world_graph_authority_mode()` parser currently in `graph_memory.world_supergraph.storage` | **REHOME_DTO** | D.3A **must** rehome the parser/constants into Buddy-owned `config` / ports and apply §6.2. App boot cannot be import-blocked while `config.py` imports `world_supergraph.storage`. D.3B deletion of the old parser is not a substitute. |
 | Module-level `import graph_memory.kernel` on `services/world_graph_projection.py` and `services/world_graph_retrieval.py` | **FAIL_CLOSED** for the file/kernel branch; production already uses DungeonMind | Remove the top-level kernel import. Production native methods stay. `_route_authority_read` / `dungeonmind_kernel.route_service_read` buddy_files passthrough is not a mounted production path after D.3A. Lazy kernel import is not an escape: these modules are imported at app construction. |
 | Mounted `dungeonmind_kernel` hydrated read passthrough (`route_service_read`, `bind_world_authority` requiring frozen Buddy store) | **FAIL_CLOSED** | Not a production path after D.3A. Do not extend it for first-world worlds. Historical modules may remain until D.3B. |
-| `routes/threat_query_hydration.py` → `graph_memory.union_supergraph.statblock_binding` | **REHOME_DTO** | Relocate still-used mechanics contracts per §5.4. Query/hydration stays mounted; it must not import `union_supergraph` after D.3A. |
+| `routes/threat_query_hydration.py` → `graph_memory.union_supergraph.statblock_binding` | **REHOME_DTO** | Relocate still-used mechanics contracts per §6.4. Query/hydration stays mounted; it must not import `union_supergraph` after D.3A. |
 | `get_world_graph_authority(world_root=...)` / `get_world_graph_initialization_authority(world_root=...)` selecting `BuddyFiles*Adapter` for a non-production root | **FAIL_CLOSED** | After D.3A a different `world_root` argument must not select the file adapter. Tests/tools that need legacy fixtures construct them directly. Configuration failure, not HTTP 410. |
+| Graph Review `/graph-authoring/prepare` and `/commit` plus authoring cockpit UI | **REWRITE_PORT in D.2C4** | Not a D.3A FAIL_CLOSED. D.3A only proves they remain import-block-safe after D.2C4. |
+| Graph Review `/graph-authoring/merge-reconciliation/*` file-apply | **FAIL_CLOSED** | D.3A KEEP_MOUNTED_410 leftover UnionSupergraph writer. |
 
 If implementation discovers that a FAIL_CLOSED surface is still a real
 operational dependency that requires local store semantics, STOP and re-brief.
-Do not silently convert FAIL_CLOSED into REWRITE_PORT. Do not convert
-intentional authoring retirement into STOP without a re-brief.
+Do not silently convert FAIL_CLOSED into REWRITE_PORT. Do not convert the
+Graph Review authoring cockpit into FAIL_CLOSED; that is D.2C4 or a later
+architecture-superseding product deprecation, not demolition.
 
-### 5.2 Production authority selection is retired
+### 6.2 Production authority selection is retired
 
 `DUNGEONMIND_WORLD_GRAPH_AUTHORITY` was a migration control plane. Its old
 values currently include `buddy_files`, `quiesced`, and `dungeonmind`.
@@ -926,7 +1335,7 @@ resurrect the old graph.
 D.3B may delete the obsolete selector parser/constant entirely once no retained
 tooling needs its diagnostic compatibility.
 
-### 5.3 Mounted authority factories become one-way DungeonMind
+### 6.3 Mounted authority factories become one-way DungeonMind
 
 Today:
 
@@ -958,7 +1367,7 @@ Tests/tools that intentionally need legacy fixtures must construct an explicit
 fixture helper directly. Do not recreate the selector as `test_mode`, a hidden
 env var, API parameter, query parameter, or header.
 
-### 5.4 Relocate pure product values, not graph authority
+### 6.4 Relocate pure product values, not graph authority
 
 #### Contribution values
 
@@ -1021,9 +1430,9 @@ After D.3A, however, no mounted projection DTO module may import `kernel`,
 
 Do not churn public wire schemas merely to rename a package during demolition.
 
-### 5.5 Classify remaining hits before moving code
+### 6.5 Classify remaining hits before moving code
 
-For each old-engine dependency *other than* the frozen §5.1 table:
+For each old-engine dependency *other than* the frozen §6.1 table:
 
 ```text
 PURE VALUE / PURE TRANSFORM still needed → relocate to bounded Buddy owner
@@ -1034,10 +1443,10 @@ UNKNOWN                                  → STOP and re-brief
 ```
 
 Moving the old Kernel wholesale to a new module name does not satisfy D.3.
-Do not reclassify a §5.1 FAIL_CLOSED surface as PURE VALUE in order to keep
+Do not reclassify a §6.1 FAIL_CLOSED surface as PURE VALUE in order to keep
 it mounted.
 
-### 5.6 “Physically absent” is a runtime proof, not data destruction
+### 6.6 “Physically absent” is a runtime proof, not data destruction
 
 The product must work when:
 
@@ -1054,7 +1463,7 @@ add `rm -rf`, `shutil.rmtree`, startup cleanup, or equivalent destructive code.
 Historical local graph bytes may be archived/removed later only by an explicit
 operator action.
 
-### 5.7 `world_graph_root` may survive only as a non-authority designation
+### 6.7 `world_graph_root` may survive only as a non-authority designation
 
 If a configured graph-root path still has a real safety/fixture role, D.3A need
 not rename it for aesthetics.
@@ -1069,25 +1478,26 @@ After D.3A:
 If inventory shows the path has no remaining purpose, remove the obsolete config
 in D.3A. Otherwise retain only the narrow safety/fixture designation.
 
-### 5.8 Hydration/cache compatibility has no production owner
+### 6.8 Hydration/cache compatibility has no production owner
 
 The DungeonMind→Buddy hydrated read model and cache existed for migration. After
-D.2C3, D.2 native authority is complete.
+D.2C3 and D.2C4, D.2 native authority — including Graph Review corrections — is
+complete.
 
 D.3A deletes mounted hydration routing/configuration once inventory confirms no
 remaining product consumer. Tests must move to native DungeonMind or explicit
 legacy fixtures; tests do not justify product fallback.
 
-### 5.9 DungeonMind contracts are frozen during demolition
+### 6.9 DungeonMind contracts are frozen during demolition
 
-D.3 adds no new provider capability. D.2C3 also adds none.
+D.3 adds no new provider capability. D.2C3 and D.2C4 also add none.
 
 If D.3A discovers a mounted behavior that cannot execute using already-landed
-DungeonMind read, governed publication, and reviewed initialization contracts
-*after D.2C3*, STOP. That means D.2 is still incomplete; do not smuggle a
-provider feature into a deletion slice.
+DungeonMind read, governed publication, reviewed initialization, and D.2C4
+manual-authoring contracts *after D.2C4*, STOP. That means D.2 is still
+incomplete; do not smuggle a provider feature into a deletion slice.
 
-### 5.10 No semantic rewrite
+### 6.10 No semantic rewrite
 
 Preserve accepted behavior for:
 
@@ -1100,23 +1510,25 @@ Threat mechanics separation
 existing-world worldbuilding publish/recovery
 first-world initialization/retry/restart/concurrency
 native D_0 read/write continuity after D.2C3
+Graph Review manual authoring after D.2C4
 source/evidence closure
 current API/wire schemas for remaining mounted routes
 stable contribution/source IDs and digests
 ```
 
-FAIL_CLOSED retired capabilities in §5.1 keep their public paths as
+FAIL_CLOSED retired capabilities in §6.1 keep their public paths as
 KEEP_MOUNTED_410 stubs; engine implementations are not rewritten onto
-DungeonMind.
+DungeonMind. Graph Review prepare/commit is the D.2C4 exception: it is
+rewritten onto `WorldGraphAuthority` before demolition, not 410'd.
 
 ---
 
-## 6. D.3A — mounted production graph-engine excision
+## 7. D.3A — mounted production graph-engine excision
 
-Blocked until D.2C3 is merged and its native-genesis witness is green on
-current `main`.
+Blocked until D.2C4 is merged and its manual-authoring witness is green on
+current `main`. D.2C3 must already be merged on that base.
 
-### 6.1 Merge-ready invariant
+### 7.1 Merge-ready invariant
 
 D.3A is merge-ready only when:
 
@@ -1125,21 +1537,24 @@ D.3A is merge-ready only when:
 > `graph_memory.kernel`, `graph_memory.world_supergraph`, and
 > `graph_memory.union_supergraph` blocked before app import, while the legacy
 > Buddy graph filesystem is absent. All authoritative graph I/O remains
-> DungeonMind-owned. Boot-imported engine stores named in §5.1 are FAIL_CLOSED
-> or REHOME_DTO as frozen. Any retained legacy consumer is explicit test/tooling/
-> historical code and unreachable from mounted product accessors.**
+> DungeonMind-owned. Boot-imported engine stores named in §6.1 are FAIL_CLOSED
+> or REHOME_DTO as frozen, except Graph Review prepare/commit which D.2C4
+> already rewrote onto `WorldGraphAuthority`. Any retained legacy consumer is
+> explicit test/tooling/ historical code and unreachable from mounted product
+> accessors.**
 
 D.3A gives D.3B a production dependency count of zero. That is independently
 useful and reviewable.
 
-### 6.2 Required implementation sequence
+### 7.2 Required implementation sequence
 
 #### Step 0 — re-anchor and freeze inventory
 
 Re-read current `main`, active PRs, this handoff, the accepted design PR, and
-the merged D.2C3 implementation.
+the merged D.2C3 and D.2C4 implementations.
 
-Confirm D.2C3's native-genesis witness is on the implementation base.
+Confirm D.2C3's native-genesis witness and D.2C4's manual-authoring witness
+are on the implementation base.
 
 At minimum inventory:
 
@@ -1164,7 +1579,7 @@ HISTORICAL_TOOL
 DEAD
 ```
 
-Apply §5.1 dispositions to the named boot-imported surfaces *before* inventing
+Apply §6.1 dispositions to the named boot-imported surfaces *before* inventing
 new ones. Handback must explain every retained executable occurrence.
 
 If a `MOUNTED_PRODUCT` hit represents a new semantic dependency not covered by
@@ -1203,18 +1618,20 @@ BuddyFilesWorldGraphInitializationAdapter
 Retired environment values fail closed. Explicit legacy tests construct fixtures
 directly. A non-production `world_root` does not select the file adapter.
 
-#### Step 3 — execute §5.1 and remaining mounted engine imports
+#### Step 3 — execute §6.1 and remaining mounted engine imports
 
 Keep `routes.graph_preview` mounted. Replace store-backed
 `/union-supergraph/projection` with an import-free 410 stub and drop the
 adapter import from the retained router.
 
-Keep `routes.graph_authoring` and `routes.world_graph_bootstrap` registered
-as import-free 410 stubs (KEEP_MOUNTED_410). Do not `include_router`-remove
-them into 404.
+Keep `routes.world_graph_bootstrap` registered as import-free 410 stubs
+(KEEP_MOUNTED_410). Keep `routes.graph_authoring` mounted: prepare/commit stay
+the D.2C4 governed cockpit; only merge-reconciliation becomes KEEP_MOUNTED_410.
+Do not `include_router`-remove public paths into 404.
 
-In the same PR, apply the §5.1.3–§5.1.5 UI retirements so no live button
-or authoring workspace still presents store writes/preview as working.
+In the same PR, apply the §6.1.3 and §6.1.5 UI retirements so no live button
+still presents store-backed preview or Kernel bootstrap as working. Do **not**
+disable the Graph Review authoring workspace.
 
 Switch every remaining `MOUNTED_PRODUCT` / `PURE_PRODUCT_VALUE` dependency to:
 
@@ -1223,7 +1640,7 @@ Switch every remaining `MOUNTED_PRODUCT` / `PURE_PRODUCT_VALUE` dependency to:
 - the new Buddy-owned pure value boundary.
 
 Do not rewrite historical tooling unless app boot or a mounted route still
-imports it after §5.1. The §5.1 consumers *are* boot-imported; their fate is
+imports it after §6.1. The §6.1 consumers *are* boot-imported; their fate is
 already frozen.
 
 #### Step 4 — retire hydration/file fallback
@@ -1274,6 +1691,7 @@ Threat D.2A
 worldbuilding D.2B
 first-world D.2C2
 native genesis D.2C3 (fresh D_0 read + existing-parent child)
+manual Graph Review authoring D.2C4 (governed prepare/confirm)
 Hermes/latest-recap graph reads
 ```
 
@@ -1282,9 +1700,9 @@ accepted handoffs require it. Required integration proofs must not silently skip
 
 #### Step 8 — carry backward state-authority sync
 
-D.3A owns the D.2C3 predecessor sync from §2.4.
+D.3A owns the D.2C4 predecessor sync from §2.4.
 
-At minimum update current mutable CUTOVER authorities that still claim D.2C3
+At minimum update current mutable CUTOVER authorities that still claim D.2C4
 or D.3A is in flight:
 
 ```text
@@ -1297,11 +1715,11 @@ Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-campaign-supergraph.md
 this handoff / D.3A implementation handoff as appropriate
 ```
 
-Record #645 and D.2C3 real merge/head/review. Record this design PR's real
-completion only when known. Mark D.3A active. Keep D.3B blocked and D.3 not
-DONE. Do not invent D.3A future merge/review facts.
+Record #645, D.2C3, and D.2C4 real merge/head/review. Record this design PR's
+real completion only when known. Mark D.3A active. Keep D.3B blocked and D.3
+not DONE. Do not invent D.3A future merge/review facts.
 
-### 6.3 D.3A implementation write lease
+### 7.3 D.3A implementation write lease
 
 #### Core owned paths
 
@@ -1318,10 +1736,10 @@ apps/live_control_server/models/extract_promote.py
 apps/live_control_server/models/threat_query_hydration.py
 apps/live_control_server/routes/world_graph_bootstrap.py
 apps/live_control_server/routes/graph_authoring.py
+  leftover merge-reconciliation 410 only; do not 410 prepare/commit
 apps/live_control_server/routes/graph_preview.py
 apps/live_control_server/routes/threat_query_hydration.py
 apps/live_control_server/services/world_graph_bootstrap.py
-apps/live_control_server/services/graph_object_authoring_commit.py
 apps/live_control_server/services/graph_merge_reconciliation_materialize.py
 apps/live_control_server/services/union_supergraph_projection_adapter.py
 apps/live_control_server/services/graph_object_candidate_sources.py
@@ -1330,13 +1748,10 @@ apps/live_control_server/services/world_graph_prewarm.py
 apps/live-control-ui/src/api/liveApi.ts
 apps/live-control-ui/src/planSurface/graphPreview/GraphIngestProjectionPanel.tsx
 apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewLiveReviewState.ts
-apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorDraftWorkspace.tsx
-apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringPrepareCommitPanel.tsx
-apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthoringRail.tsx
 apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphMergeReconciliationMaterializationPanel.tsx
-apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.tsx
 apps/live-control-ui/src/surface/modules/StatblockWorkbenchModule.tsx
-owning UI tests for those retired actions / workspaces
+owning UI tests for Open Union Graph / store-preview / merge-reconciliation
+  410 / Statblock bootstrap-status
 apps/live_control_server/services/first_world_graph.py
 apps/live_control_server/services/first_world_graph_publication.py
 apps/live_control_server/services/world_graph_*.py
@@ -1344,13 +1759,13 @@ apps/live_control_server/services/graph_review_*.py
 apps/live_control_server/services/worldbuilding_graph_publication.py
 apps/live_control_server/services/threat_*.py
 src/graph_memory/projection/**
-new narrowly named Buddy-owned contribution/mechanics value modules required by §5.4
+new narrowly named Buddy-owned contribution/mechanics value modules required by §6.4
 ```
 
-The named boot-imported routes/adapters and the §5.1.3–§5.1.5 UI files are
-the lease. Bounded `apps/live_control_server/**` or `apps/live-control-ui/**`
-discovery is **not** permission to redesign Plan/Graph Review. FAIL_CLOSED
-means KEEP_MOUNTED_410 plus the frozen minimal UI retirement, not a new UX.
+The named boot-imported routes/adapters and the §6.1.3 / leftover
+merge-reconciliation / §6.1.5 UI files are the lease. Graph Review authoring
+cockpit files belong to D.2C4, not D.3A. Bounded discovery is **not**
+permission to redesign Plan/Graph Review or to retire the correction cockpit.
 
 #### Bounded discovery lease
 
@@ -1359,9 +1774,10 @@ added only when all are true:
 
 1. it has a base-revision executable import from a retired namespace;
 2. D.3A only replaces that import/call with a frozen owner from this design
-   or executes a §5.1 KEEP_MOUNTED_410 / import-free stub;
+   or executes a §6.1 KEEP_MOUNTED_410 / import-free stub;
 3. no remaining mounted wire/public semantics change except the frozen
-   410 retirement responses and the frozen minimal UI disable/removal;
+   410 retirement responses and the frozen minimal store-preview / bootstrap
+   UI disable/removal;
 4. it is not leased by another active PR at implementation re-anchor;
 5. handback names the file and original classification.
 
@@ -1376,10 +1792,11 @@ tests/test_first_world_graph.py
 tests/test_live_extract_promote_api.py
 focused Graph Review / Threat / worldbuilding / Hermes tests owning changed seams
 new D.3 import-blocker / filesystem-absence tests
-FAIL_CLOSED proofs for KEEP_MOUNTED_410 bootstrap / graph-authoring /
+FAIL_CLOSED proofs for KEEP_MOUNTED_410 bootstrap / merge-reconciliation /
   union-supergraph projection; retained graph-preview endpoints still boot;
-  Open Union Graph / authoring workspace / Statblock bootstrap-status UI
-  / prewarm / retired selector / non-production world_root
+  Graph Review prepare/commit still governed-write; Open Union Graph /
+  Statblock bootstrap-status UI / prewarm / retired selector /
+  non-production world_root
 ```
 
 Do not claim all `tests/**` as a lease.
@@ -1399,13 +1816,15 @@ new World Graph semantics
 broad historical Eldyrwild correction/conformance deletion
 source-artifact/evidence/extraction redesign
 Combat/application-state work
-Plan UX replacement beyond the frozen §5.1.3–§5.1.5 retirements
+Plan UX replacement beyond the frozen §6.1.3 / §6.1.5 retirements
+Graph Review authoring cockpit rewrite (D.2C4 lease)
+deprecating DESIGN-graph-object-authoring-surface.md
 ```
 
 D.3A must re-check active PRs at implementation time. Any new lease overlap is
 a serialization/transfer decision, not permission to edit through it.
 
-### 6.4 Required D.3A evidence
+### 7.4 Required D.3A evidence
 
 #### Static dependency gate
 
@@ -1423,6 +1842,8 @@ At accepted head:
 0 lifespan Kernel prewarm import
 graph-preview router remains mounted; retained endpoints besides
   /union-supergraph/projection still registered
+graph-authoring prepare/commit remain registered as governed write
+graph-authoring merge-reconciliation is KEEP_MOUNTED_410
 ```
 
 Historical docs are excluded. Named legacy tooling/tests may remain for D.3B.
@@ -1443,9 +1864,10 @@ native D_0 projection/retrieval + one existing-parent child (D.2C3)
 Threat publish/recover
 worldbuilding publish/recover
 Hermes/latest-recap graph comparison or owning service boundary
-FAIL_CLOSED retired bootstrap/authoring/store-preview paths as 410
+FAIL_CLOSED retired bootstrap / merge-reconciliation / store-preview paths as 410
 retained graph-preview extraction/gold/manual/recap endpoints still boot
-Open Union Graph / authoring workspace / Statblock bootstrap-status UI
+Graph Review manual authoring prepare/confirm still publishes (D.2C4)
+Open Union Graph / Statblock bootstrap-status UI
 ```
 
 Route-level + owning service tests may be combined, but the blocker remains active
@@ -1487,6 +1909,7 @@ existing-world worldbuilding: one DungeonMind child + exact retry/recovery
 first-world: one D_0 parent=None + one reviewed-init receipt + exact retry +
              lost-response restart + synchronized concurrent confirm
 native genesis: D.2C3 witness still green under the import blocker
+manual authoring: D.2C4 witness still green under the import blocker
 Eldyrwild adoption bridge: Buddy-A → D_A unchanged
 ```
 
@@ -1505,12 +1928,12 @@ skips.
 
 ---
 
-## 7. D.3B — physical legacy graph-engine deletion
+## 8. D.3B — physical legacy graph-engine deletion
 
 D.3B is blocked until D.3A is merged and its import-blocked production proof is
 green on current `main`.
 
-### 7.1 Merge-ready invariant
+### 8.1 Merge-ready invariant
 
 > **Retired Buddy graph-engine source packages and compatibility adapters no
 > longer exist as executable implementation; every intentionally retained
@@ -1518,7 +1941,7 @@ green on current `main`.
 > DungeonBuddy remains green on DungeonMind; and the legacy-filesystem absence
 > proof still passes.**
 
-### 7.2 Primary deletion targets
+### 8.2 Primary deletion targets
 
 Subject to D.3A's inventory:
 
@@ -1528,8 +1951,8 @@ src/graph_memory/world_supergraph/**
 src/graph_memory/union_supergraph/**
 apps/live_control_server/integrations/buddy_files/**
 retired hydration/cache implementation
-FAIL_CLOSED bootstrap/authoring/store-preview implementations replaced by
-  import-free 410 stubs in D.3A
+FAIL_CLOSED bootstrap / merge-reconciliation / store-preview implementations
+  replaced by import-free 410 stubs in D.3A
 legacy-only tests whose sole purpose is deleted authority behavior
 ```
 
@@ -1537,7 +1960,7 @@ If a storage-neutral product value still lives in those directories after D.3A,
 D.3A is incomplete. Do not rescue it during bulk deletion by creating a second
 owner.
 
-### 7.3 Historical tooling classification
+### 8.3 Historical tooling classification
 
 Before deleting package trees, inventory executable imports in:
 
@@ -1555,7 +1978,7 @@ fully preserved by merged history, sealed source artifacts, current DungeonMind
 state, and non-executable evidence. Do not delete source/evidence artifacts merely
 because a producer tool retires.
 
-### 7.4 Final D.3 evidence
+### 8.4 Final D.3 evidence
 
 At D.3B accepted head:
 
@@ -1565,6 +1988,7 @@ buddy_files integration absent
 production import-blocker still green
 legacy graph filesystem absence still green
 current DungeonMind read/write cohorts green, including D.2C3 genesis
+  and D.2C4 manual authoring
 no product selector can recreate Buddy graph ownership
 no automatic user-data deletion introduced
 ```
@@ -1581,7 +2005,7 @@ carry that truth.
 
 ---
 
-## 8. Final production architecture
+## 9. Final production architecture
 
 ```text
 DungeonBuddy product
@@ -1595,6 +2019,8 @@ DungeonBuddy product
   +-- one DirectAuthorityBinding covering
         existing-world adoption  (Buddy-A → D_A)
         reviewed first-world     (D_0, no legacy bridge)
+  +-- Graph Review correction cockpit
+        staged proposal → reviewed confirm → WorldGraphAuthority
 
 Buddy-owned product state
   +-- source/corpus/workspace authority
@@ -1610,6 +2036,7 @@ NO buddy_files/quiesced production mode
 NO DungeonMind→Buddy hydration runtime
 NO mounted Kernel bootstrap / UnionSupergraph file apply /
    UnionSupergraphStore Plan preview / Kernel prewarm
+YES Graph Review manual authoring as governed DungeonMind publication
 ```
 
 This is the CUTOVER completion condition: DungeonMind authority no longer relies
@@ -1618,16 +2045,17 @@ absent from the production dependency graph, then absent from source.
 
 ---
 
-## 9. Explicitly out of scope
+## 10. Explicitly out of scope
 
-Do not use D.2C3 or D.3 to:
+Do not use D.2C3, D.2C4, or D.3 to:
 
 - change DungeonMind semantics/public contracts;
 - reopen ExistingWorldAdoption or catch-up without a real `STALE` event;
 - create another Buddy graph database/schema;
 - move mechanics/statblocks into semantic World Graph authority;
-- redesign Graph Review UX/API;
-- redesign Plan/Play/Build/Hermes behavior beyond the frozen §5.1.3–§5.1.5
+- redesign Graph Review UX/API beyond D.2C4's bounded prepare/confirm retarget
+  and D.3A's leftover merge-reconciliation 410;
+- redesign Plan/Play/Build/Hermes behavior beyond the frozen §6.1.3 / §6.1.5
   retirements (410 + disable dead store actions is not a replacement UX);
 - merge APP-STATE feature work into CUTOVER;
 - delete source artifacts/evidence/candidate/workspace state;
@@ -1636,17 +2064,20 @@ Do not use D.2C3 or D.3 to:
 - automatically delete user/local graph data;
 - introduce generic JSON/CRUD replacement abstractions;
 - move the old Kernel wholesale under a new namespace;
-- smuggle D.2C3 into D.3A or D.3A into D.3B;
+- smuggle D.2C3 or D.2C4 into D.3A, or D.3A into D.3B;
+- treat extract-promote as equivalent to manual graph correction;
+- deprecate DESIGN-graph-object-authoring-surface.md from this demolition
+  handoff;
 - broaden into optimization unless a concrete correctness blocker appears.
 
 ---
 
-## 10. Stop / re-brief conditions
+## 11. Stop / re-brief conditions
 
 STOP if:
 
 1. a mounted behavior still requires local Buddy head/revision/store semantics
-   after the §5.1 FAIL_CLOSED retirements;
+   after the §6.1 FAIL_CLOSED retirements;
 2. a required path is leased by another active lane and cannot be serialized;
 3. value relocation changes durable IDs, canonical bytes, digests, acceptance
    semantics, or public API shape for remaining mounted routes;
@@ -1656,20 +2087,24 @@ STOP if:
    than tests/tooling;
 7. filesystem absence would require deleting user data;
 8. an operational historical tool cannot be rehomed without the engine;
-9. the app cannot boot under a true pre-import blocker after §5.1;
+9. the app cannot boot under a true pre-import blocker after §6.1;
 10. implementation needs broad Play/Application-State changes;
 11. D.2C3 cannot bind a reviewed-init world without an adoption receipt using
     already-landed repositories;
 12. a concrete post-cutover failure shows D.2 authority migration was incomplete
-    *beyond* the frozen D.2C3 seam;
-13. a §5.1 FAIL_CLOSED / KEEP_MOUNTED_410 surface is still operationally
+    *beyond* the frozen D.2C3 and D.2C4 seams;
+13. a §6.1 FAIL_CLOSED / KEEP_MOUNTED_410 surface is still operationally
     required as a local store;
-14. a live UI still presents store-backed preview or authoring as a working
-    write/open action after the frozen 410 retirement.
+14. a live UI still presents store-backed Union Graph preview as a working
+    open action after the frozen 410 retirement;
+15. D.2C4 cannot express required manual authoring as GraphContribution +
+    WorldGraphAuthority.publish without a new DungeonMind provider contract;
+16. D.3A 410s or disables the Graph Review authoring cockpit, or treats
+    extract-promote as a substitute for that capability.
 
 ---
 
-## 11. Suggested nano-commit stories
+## 12. Suggested nano-commit stories
 
 ### D.2C3
 
@@ -1678,37 +2113,50 @@ STOP if:
 2. optional legacy bridge; pin/parent algebra; integrity cases
 3. first-world D_0 native read + existing-parent child witness
 4. Eldyrwild adoption-bridge regression
-5. carry #645 predecessor state sync; keep D.3A blocked
+5. carry #645 predecessor state sync; keep D.2C4 blocked
 ```
 
-### D.3A (after D.2C3 merges)
+### D.2C4 (after D.2C3 merges)
+
+```text
+1. map authored object/link_existing/relationship onto GraphContribution
+2. rewrite /graph-authoring/prepare|commit onto WorldGraphAuthority
+3. keep Graph Review authoring cockpit as the working write UX
+4. fold expressible identity merge into governed confirm; stop file-apply
+   as durable write
+5. real-Postgres witness + extract-promote distinctness proof
+6. carry D.2C3 predecessor state sync; keep D.3A blocked
+```
+
+### D.3A (after D.2C4 merges)
 
 ```text
 1. establish Buddy-owned contribution/mechanics values + parity tests
 2. switch mounted DTOs/services off legacy value imports
 3. rehome selector parser; make factories DungeonMind-only; retire old modes
-4. KEEP_MOUNTED_410 stubs + §5.1.3–§5.1.5 UI retirement; drop engine
-   imports from retained routers; Kernel prewarm no-op
+4. KEEP_MOUNTED_410 stubs for bootstrap / leftover merge-reconciliation /
+   store-preview; §6.1.3 / §6.1.5 UI retirement; drop engine imports from
+   retained routers; Kernel prewarm no-op
 5. add import-blocked + legacy-filesystem-absent witnesses
-6. run D.1/D.2/D.2C3 regressions and close the dependency inventory
-7. carry D.2C3 + accepted-design predecessor state sync
+6. run D.1/D.2/D.2C3/D.2C4 regressions and close the dependency inventory
+7. carry D.2C4 + accepted-design predecessor state sync
 ```
 
-Do not mix D.2C3 into D.3A. Do not mix D.3B bulk deletion into D.3A.
+Do not mix D.2C3 or D.2C4 into D.3A. Do not mix D.3B bulk deletion into D.3A.
 
 ---
 
-## 12. D.3A review handback contract
+## 13. D.3A review handback contract
 
 Return:
 
 1. exact PR / branch / final head SHA;
 2. exact implementation base and rebase status;
 3. accepted D.3 design merge/head/review authorizing D.3A;
-4. merged D.2C3 SHA/review authorizing demolition to begin;
+4. merged D.2C3 and D.2C4 SHA/review authorizing demolition to begin;
 5. cumulative changed paths against lease;
 6. active parallel PRs checked and serialization decisions;
-7. complete legacy-import classification summary, including §5.1 outcomes;
+7. complete legacy-import classification summary, including §6.1 outcomes;
 8. relocated value families and canonical owners;
 9. serialization/ID/digest/validation parity evidence;
 10. final selector behavior for unset/dungeonmind/buddy_files/quiesced/unknown
@@ -1717,21 +2165,22 @@ Return:
 12. import-blocker witness installed before app import;
 13. legacy graph filesystem absent-before/after proof;
 14. no hydration/cache/local fallback on DungeonMind failure;
-15. KEEP_MOUNTED_410 proofs for bootstrap / graph-authoring /
+15. KEEP_MOUNTED_410 proofs for bootstrap / leftover merge-reconciliation /
     `/union-supergraph/projection`; retained graph-preview endpoints still
-    boot; Open Union Graph / authoring workspace / Statblock bootstrap-status
-    UI plus Kernel prewarm;
+    boot; Graph Review prepare/commit still governed-write; Open Union Graph /
+    Statblock bootstrap-status UI plus Kernel prewarm;
 16. projection/retrieval/evidence/anchor results;
 17. D.1 Graph Review results;
 18. D.2A Threat PostgreSQL publish/recovery results;
 19. D.2B worldbuilding PostgreSQL publish/recovery results;
 20. D.2C2 first-world PostgreSQL init/retry/restart/concurrency results;
 21. D.2C3 native genesis read/write results under the blocker;
+21b. D.2C4 manual-authoring prepare/confirm results under the blocker;
 22. Hermes/latest-recap graph-read result;
 23. exact commands with pass/fail/skip counts;
 24. ruff + `git diff --check`;
-25. state sync showing #645 DONE, D.2C3 DONE, design DONE, D.3A active,
-    D.3B blocked, D.3 not DONE;
+25. state sync showing #645 DONE, D.2C3 DONE, D.2C4 DONE, design DONE,
+    D.3A active, D.3B blocked, D.3 not DONE;
 26. executable legacy consumers deferred to D.3B with
     DELETE/REHOME/REWRITE classification;
 27. stop conditions or `none`.
@@ -1747,26 +2196,31 @@ implementation and owning evidence.
 
 ---
 
-## 13. Design review focus
+## 14. Design review focus
 
 Review this repaired design specifically for:
 
-1. **Predecessor:** is D.2C3 the right one-capability closure before demolition,
-   and is the two-family genesis binder complete enough to dispatch?
-2. **Decomposition:** after D.2C3, is D.3A production excision → D.3B physical
+1. **Predecessors:** are D.2C3 genesis binding and D.2C4 manual-authoring
+   continuity the right one-capability closures before demolition, and is the
+   two-family genesis binder complete enough to dispatch?
+2. **Decomposition:** after D.2C4, is D.3A production excision → D.3B physical
    deletion still the right demolition boundary?
-3. **Boot fate:** are KEEP_MOUNTED_410 + endpoint-level graph-preview +
-   intentional UI retirement the right product decisions, vs STOP?
+3. **Authoring fate:** is D.2C4 REWRITE_PORT onto WorldGraphAuthority the right
+   product decision versus explicit architecture-superseding deprecation? Is
+   leftover merge-reconciliation 410 the right D.3A remainder?
+3b. **Boot fate:** are KEEP_MOUNTED_410 + endpoint-level graph-preview +
+   Open Union Graph / bootstrap UI retirement the right product decisions,
+   vs STOP?
 4. **Authority retirement:** should `buddy_files` / `quiesced` / non-production
    `world_root` fail closed rather than be silently ignored?
 5. **Value ownership:** are contribution/projection/mechanics values preserved
    without copying graph authority into a new namespace?
 6. **Absence proof:** does pre-import blocking + real DungeonMind flows + missing
-   legacy graph directory prove production independence *after* §5.1?
+   legacy graph directory prove production independence *after* §6.1?
 7. **Historical tooling:** is DELETE/REHOME/REWRITE/STOP sufficient to keep
    forensic compatibility from preserving the engine indefinitely?
-8. **Parallelism:** are the D.2C3 and D.3A leases compatible with future lanes
-   after mandatory implementation-time re-anchor?
+8. **Parallelism:** are the D.2C3, D.2C4, and D.3A leases compatible with
+   future lanes after mandatory implementation-time re-anchor?
 9. **Data safety:** is “physically absent” correctly defined as runtime
    independence rather than automatic deletion of user graph data?
 
@@ -1774,6 +2228,8 @@ Do not dispatch D.2C3 until this design PR **merges** after a formal
 PASS-equivalent review. An accepted-but-unmerged design head is not
 dispatch authority.
 
-Do not dispatch D.3A until D.2C3 is merged.
+Do not dispatch D.2C4 until D.2C3 is merged.
+
+Do not dispatch D.3A until D.2C4 is merged.
 
 Do not merge D.3 as DONE from D.3A.
