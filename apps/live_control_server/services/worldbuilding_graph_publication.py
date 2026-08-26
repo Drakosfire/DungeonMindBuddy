@@ -1,7 +1,8 @@
 """Existing-world worldbuilding prepare → confirm (CUTOVER D.2B).
 
-Owns the mounted worldbuilding authority boundary. First-world/bootstrap stays
-in ``extract_promote.py``. Product code talks only to ``WorldGraphAuthority``.
+Owns the mounted worldbuilding authority boundary. First-world/bootstrap lives
+in ``first_world_graph_publication.py``. Product code talks only to
+``WorldGraphAuthority``.
 """
 
 from __future__ import annotations
