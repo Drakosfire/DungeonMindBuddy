@@ -67,6 +67,7 @@ TRUNCATE TABLE
     dungeonmind.source_revisions,
     dungeonmind.source_artifacts,
     dungeonmind.existing_world_adoptions,
+    dungeonmind.reviewed_world_initializations,
     dungeonmind.world_graph_head_events,
     dungeonmind.world_graph_heads,
     dungeonmind.graph_revisions,
@@ -914,7 +915,7 @@ def test_dungeonmind_pin_exposes_typed_v4_receipt_contract():
         ExistingWorldAdoptionReceiptV4,
     )
 
-    pin = "c5d3688587b0f5d506e0f7d64f33eb0628bac896"
+    pin = "bf40e933bdedf3cf08bb23a07a135958bdb7cc6b"
     assert pin in (REPO_ROOT / "pyproject.toml").read_text()
     assert pin in (REPO_ROOT / "uv.lock").read_text()
     assert ExistingWorldAdoptionReceiptV4.model_fields["schema_version"].default == (
@@ -1810,7 +1811,12 @@ def _ensure_migrated(dsn: str) -> None:
             "SELECT 1 FROM information_schema.tables "
             "WHERE table_schema = 'dungeonmind' AND table_name = 'worlds'"
         ).fetchone()
-    if row is not None:
+        init_row = conn.execute(
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema = 'dungeonmind' "
+            "AND table_name = 'reviewed_world_initializations'"
+        ).fetchone()
+    if row is not None and init_row is not None:
         return
     repo = os.environ.get(DUNGEONMIND_REPO_ENV, "").strip()
     if not repo:
