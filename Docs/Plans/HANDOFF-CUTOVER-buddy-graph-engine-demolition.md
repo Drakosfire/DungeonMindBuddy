@@ -6,38 +6,57 @@ pr_body_template: |
   - Direction: DESIGN → REVIEW
   - Handoff: `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`
   - Implementation repository: `Drakosfire/DungeonMindBuddy`
-  - Exact design base: `9c946cd8c24effccec8d06cfc1cb5e310c9edc5e`
+  - Exact design base: `764d9d1ddbebbf398cb1f701d23de83c4c67a454`
   - Predecessor: Buddy #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`
   - #645 accepted head: `f772db17e00cbe2c0198ae53f169a10a6332a3ed`
   - #645 final review: Review Cycle 2 PASS-equivalent `5026532158`
-  - Parallel re-anchor: APP-STATE #646 merged into main as `9c946cd8c24effccec8d06cfc1cb5e310c9edc5e`
+  - Cycle 1 review: REQUEST-CHANGES-equivalent `5026690745` on `e7b34502eb3a7a3fcc8b716ef4a25a5bb7fc9db2`
+  - Cycle 1 addendum: `5420568935` (same head; not Cycle 2)
+  - Parallel re-anchor: APP-STATE Play-continuity docs on `main` as `764d9d1ddbebbf398cb1f701d23de83c4c67a454`
   - DungeonMind provider pin: `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`
 
-  This design decomposes final CUTOVER demolition into D.3A mounted production
-  graph-engine excision followed by D.3B physical legacy-package deletion.
+  This design freezes one remaining D.2 continuity predecessor, then decomposes
+  demolition into D.3A mounted production graph-engine excision followed by
+  D.3B physical legacy-package deletion.
+
+  Sequence:
+
+      D.2C2  reviewed first-world initialization       DONE
+         ↓
+      D.2C3  native genesis read/write continuity      REQUIRED
+         ↓
+      D.3A   mounted graph-engine excision
+         ↓
+      D.3B   physical legacy-package deletion
+
   D.3 is not DONE until D.3B merges and the final absence proof passes.
+  D.3A is not dispatched until D.2C3 merges.
 ---
 
 # HANDOFF — CUTOVER D.3: Buddy graph-engine demolition
 
-**Created:** 2026-08-25  
-**Status:** DESIGN — steward review required before implementation dispatch  
-**Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`  
-**Workstream / flow:** `CUTOVER`  
-**Direction:** DESIGN → REVIEW  
-**Implementation repository:** `Drakosfire/DungeonMindBuddy`  
-**Exact design base / current `main`:** `9c946cd8c24effccec8d06cfc1cb5e310c9edc5e` — merge of APP-STATE #646 on top of #645  
-**D.2C2 implementation:** Buddy #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`  
-**D.2C2 accepted head:** `f772db17e00cbe2c0198ae53f169a10a6332a3ed`  
-**D.2C2 review:** 2 distinct-head cycles; final PASS-equivalent `5026532158`  
-**D.2C2 design:** Buddy #644 merge `f1eae2a3d27e430ee19e254d5b52fa556b2632ff`; accepted head `ded066cec49c3840c3b19c3e817ffa569a116f39`; Cycle 2 PASS-equivalent `5025378684`  
-**DungeonMind pin:** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b` — PR #46 reviewed zero-parent initialization authority  
-**Design branch:** `cutover/design-buddy-graph-engine-demolition`  
-**Design PR title:** `CUTOVER: design Buddy graph-engine demolition`  
-**First implementation successor:** D.3A / `cutover/mounted-graph-engine-excision`  
-**Suggested D.3A PR title:** `CUTOVER: excise Buddy graph engine from production`  
-**Named D.3B successor:** `cutover/delete-legacy-graph-engine`  
-**Suggested D.3B PR title:** `CUTOVER: delete legacy Buddy graph engine`  
+**Created:** 2026-08-25
+**Status:** CYCLE 1 REPAIR — awaiting Review Cycle 2
+**Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`
+**Workstream / flow:** `CUTOVER`
+**Direction:** DESIGN → REVIEW
+**Implementation repository:** `Drakosfire/DungeonMindBuddy`
+**Exact design base / current `main`:** `764d9d1ddbebbf398cb1f701d23de83c4c67a454` — APP-STATE Play-continuity re-anchor on top of #646/#645
+**Cycle 1 review:** REQUEST-CHANGES-equivalent `5026690745` on `e7b34502eb3a7a3fcc8b716ef4a25a5bb7fc9db2`
+**Cycle 1 addendum:** issue comment `5420568935` on the same head; not Review Cycle 2
+**D.2C2 implementation:** Buddy #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`
+**D.2C2 accepted head:** `f772db17e00cbe2c0198ae53f169a10a6332a3ed`
+**D.2C2 review:** 2 distinct-head cycles; final PASS-equivalent `5026532158`
+**D.2C2 design:** Buddy #644 merge `f1eae2a3d27e430ee19e254d5b52fa556b2632ff`; accepted head `ded066cec49c3840c3b19c3e817ffa569a116f39`; Cycle 2 PASS-equivalent `5025378684`
+**DungeonMind pin:** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b` — PR #46 reviewed zero-parent initialization authority
+**Design branch:** `cutover/design-buddy-graph-engine-demolition`
+**Design PR title:** `CUTOVER: design Buddy graph-engine demolition`
+**First implementation successor:** D.2C3 / `cutover/native-genesis-read-write-continuity`
+**Suggested D.2C3 PR title:** `CUTOVER: native genesis read/write continuity`
+**Named D.3A successor:** `cutover/mounted-graph-engine-excision`
+**Suggested D.3A PR title:** `CUTOVER: excise Buddy graph engine from production`
+**Named D.3B successor:** `cutover/delete-legacy-graph-engine`
+**Suggested D.3B PR title:** `CUTOVER: delete legacy Buddy graph engine`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Sequencing authority:
 > [`PR-TRACKER-campaign-supergraph.md`](PR-TRACKER-campaign-supergraph.md).
@@ -48,7 +67,45 @@ pr_body_template: |
 
 ## 1. Mission
 
-D.2 is complete. All mounted World Graph authority is now DungeonMind-owned:
+D.2C2 completed reviewed first-world *initialization*. That is not the same as
+D.2 being complete.
+
+A world created by D.2C2 currently cannot enter the shared native DungeonMind
+read/write path. The mounted binder still assumes every world has the
+historical Buddy-A → DungeonMind-D_A existing-world adoption bridge. Reviewed
+initialization is reciprocally exclusive with that bridge: it publishes a real
+`D_0` with `parent_revision_id = None` and no adoption receipt.
+
+Demolition cannot begin until that continuity seam is closed. The frozen
+sequence is:
+
+```text
+D.2C2  reviewed first-world initialization       DONE
+  ↓
+D.2C3  native genesis read/write continuity      REQUIRED
+  ↓
+D.3A   mounted production graph-engine excision
+  ↓
+       mounted server works with legacy engine imports blocked
+       and old Buddy graph filesystem absent
+  ↓
+D.3B   physical legacy graph-engine package deletion
+  ↓
+       retired source/compatibility implementation disappears
+```
+
+D.2C3 is the last D.2 authority-migration slice. After it merges, D.3 is
+demolition, not another semantic migration.
+
+**D.3 is not DONE after D.3A.** D.3 becomes DONE only after D.3B merges and the
+final source/runtime absence proof passes.
+
+**D.3A is not dispatched until D.2C3 merges.** The D.3A → D.3B split remains
+the demolition boundary. What changed is that repository inspection exposed
+one remaining D.2 continuity seam that must close first.
+
+After D.2C3, all mounted World Graph authority is DungeonMind-owned for both
+legal genesis families:
 
 ```text
 reads                         → DungeonMind native
@@ -56,10 +113,9 @@ exact-run Graph Review writes → DungeonMind native
 Threat publication            → WorldGraphAuthority → DungeonMind
 existing-world worldbuilding  → WorldGraphAuthority → DungeonMind
 first-world/bootstrap         → WorldGraphInitializationAuthority → DungeonMind
+native D_0 / D_A continuity   → one shared DirectAuthorityBinding
 Buddy product/runtime state   → Buddy-owned stores
 ```
-
-D.3 must therefore be demolition, not another authority migration.
 
 The tracker currently names one final capability:
 
@@ -70,7 +126,7 @@ D.3 final Buddy graph-engine deletion
   prove the old graph is physically absent
 ```
 
-At this base, however, the legacy namespaces still contain a mixture of:
+At this base, the legacy namespaces still contain a mixture of:
 
 - retired graph storage/publication/replay authority;
 - production compatibility routing;
@@ -79,40 +135,29 @@ At this base, however, the legacy namespaces still contain a mixture of:
 - historical Eldyrwild migration/conformance tooling;
 - tests and fixtures.
 
-A bounded code inventory at #645's merge found, within `apps/live_control_server`,
-37 references to `graph_memory.kernel`, 20 to `graph_memory.world_supergraph`, and
-26 to `graph_memory.union_supergraph`. The sets overlap. Count alone is not an
-authority classification.
+Independent AST inventory under `apps/live_control_server` at this design
+base:
+
+```text
+graph_memory.kernel            58 import statements / 36 files
+graph_memory.world_supergraph  36 import statements / 19 files
+graph_memory.union_supergraph  32 import statements / 25 files
+```
+
+The sets overlap. Count is not an authority classification. The previous
+37/20/26 figure is retired; do not treat it as current census.
 
 One PR that relocates surviving product values, removes production routing,
 deletes historical tools, and removes three package trees would violate the
 one-capability rule and make semantic regressions hard to distinguish from
-bulk deletion fallout.
-
-### Frozen decomposition
-
-```text
-D.3A  mounted production graph-engine excision
-      ↓
-      mounted server works with legacy engine imports blocked
-      and old Buddy graph filesystem absent
-      ↓
-D.3B  physical legacy graph-engine package deletion
-      ↓
-      retired source/compatibility implementation disappears
-```
-
-**D.3 is not DONE after D.3A.** D.3 becomes DONE only after D.3B merges and the
-final source/runtime absence proof passes.
-
-Both slices are retirement work under already-living DungeonMind authority.
-Neither slice is a new semantic migration program.
+bulk deletion fallout. D.2C3 is likewise one capability: native genesis
+binding. It does not excavate the engine.
 
 ---
 
 ## 2. Re-anchored predecessor truth
 
-### 2.1 D.2C2 is complete
+### 2.1 D.2C2 is complete as initialization
 
 Buddy #645 is merged:
 
@@ -124,7 +169,7 @@ final review    5026532158 — PASS-equivalent
 merge           3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c
 ```
 
-It proved the last authority migration required before demolition:
+It proved first-world *creation*:
 
 - first-world eligibility/prepare use `WorldGraphInitializationAuthority.probe()`;
 - first-world confirm creates/replays one DungeonMind `D_0` with null parent;
@@ -134,9 +179,47 @@ It proved the last authority migration required before demolition:
   converge on one receipt and one `D_0`;
 - verified reviewed-init integrity errors stay inside the storage-neutral port.
 
-### 2.2 APP-STATE AS3 merged during design authoring
+It did **not** prove that the resulting `D_0` can be read or parented through
+the shared native projection/retrieval/`WorldGraphAuthority` path.
 
-APP-STATE #646 merged after #645 and before this design was finalized:
+### 2.2 The remaining D.2 seam is native genesis binding
+
+`apps/live_control_server/integrations/dungeonmind/world_graph_reads.py::_load_direct_authority_binding()`
+unconditionally requires:
+
+```python
+receipt = bundle.existing_world_adoptions.get_for_world(world_id)
+if receipt is None:
+    raise DirectWorldGraphReadError(..., code="authority_receipt_missing", ...)
+```
+
+`DirectAuthorityBinding.legacy_buddy_revision_id` is a required `str`.
+`_resolve_revision_pin()` always has a Buddy-A to rewrite. Writes inherit the
+same binder: `world_graph_writes._direct_services()` delegates to
+`direct_services_from_bundle()`, and `DungeonMindWorldGraphAuthorityAdapter`
+uses that path for D.2A/D.2B.
+
+That algebra is correct for Eldyrwild existing-world adoption. It is false for
+a D.2C2 world:
+
+```text
+reviewed-init receipt present
+existing-world adoption receipt absent
+D_0.parent_revision_id = None
+no legacy Buddy revision exists to bridge
+```
+
+The two receipt families are reciprocally exclusive by D.2C1/D.2C2 design.
+No new DungeonMind provider contract is required; the repository bundle already
+exposes `existing_world_adoptions` and `reviewed_world_initializations`.
+
+This is this design's own STOP condition: a concrete post-cutover gap showing
+D.2 authority migration is incomplete. Hide it inside D.3A and demolition
+starts from a lie.
+
+### 2.3 APP-STATE merged during design authoring and Cycle 1 repair
+
+APP-STATE #646 merged after #645 and before the original design head:
 
 ```text
 PR              #646
@@ -144,14 +227,23 @@ accepted branch head observed 913cfe0bbce4db27250afd8277e3af50712ee029
 merge           9c946cd8c24effccec8d06cfc1cb5e310c9edc5e
 ```
 
-Its Play/Application-State changes are now part of the D.3 design base rather
-than a parallel lease. This design intentionally does not touch them.
+Cycle 1 repair re-anchors onto later APP-STATE Play-continuity docs that
+landed on `main` after #646:
 
-At final re-anchor there are no other open implementation PRs besides this
-D.3 design PR. D.3A must still repeat the active-PR/write-lease check immediately
-before implementation; current absence is not permission to ignore future lanes.
+```text
+f27bf550  APP-STATE: record AS3 done and keep AS4 next
+89bb2a4c  APP-STATE: hand off Play continuity migration
+764d9d1d  APP-STATE: reanchor Play continuity dispatch
+```
 
-### 2.3 Current state docs are one CUTOVER merge behind
+Those commits are now part of the design base rather than a parallel lease.
+This design intentionally does not touch them.
+
+At this re-anchor the only open implementation/design PR is this D.3 design
+PR. D.2C3 and D.3A must still repeat the active-PR/write-lease check
+immediately before implementation.
+
+### 2.4 Current state docs are behind both #645 and this repair
 
 The Campaign Supergraph tracker/roadmap still say #645 is `DOING` and D.3 is
 `BLOCKED`, because those documents were correctly written before #645's merge
@@ -159,7 +251,7 @@ SHA was knowable.
 
 Do not open a routine docs-only sync PR.
 
-The D.3A implementation PR owns the backward-looking predecessor sync:
+**D.2C3 implementation owns the #645 predecessor sync:**
 
 ```text
 #645 D.2C2                 DONE
@@ -169,10 +261,15 @@ The D.3A implementation PR owns the backward-looking predecessor sync:
   final PASS-equivalent    5026532158
 
 this D.3 design             DONE only with its real merge/review facts
-D.3A                        active / DOING in its implementation PR
+D.2C3                       active / DOING in its implementation PR
+D.3A                        BLOCKED on D.2C3
 D.3B                        BLOCKED on D.3A
 D.3                         not DONE
 ```
+
+**D.3A implementation owns the D.2C3 predecessor sync** after that merge is
+knowable. Mark D.3A active. Keep D.3B blocked and D.3 not DONE. Do not invent
+future merge/review facts.
 
 ---
 
@@ -195,7 +292,8 @@ as a runtime/store shape.
 
 ### 3.2 Mounted production
 
-Mounted production means code reachable through normal DungeonBuddy operation:
+Mounted production means code reachable through normal DungeonBuddy operation,
+including FastAPI app construction/`create_app()` imports:
 
 ```text
 FastAPI app boot
@@ -206,6 +304,20 @@ worldbuilding publication
 first-world initialization
 World Graph projection/retrieval/evidence/anchor
 Hermes / agent graph reads
+```
+
+The following are mounted FastAPI surface *today*, not historical scripts.
+Their D.3A fate is frozen in §5.1; D.2C3 does not change them.
+
+```text
+/api/live/world-graph-bootstrap     Kernel Eldyrwild bootstrap writer
+/api/live/graph-authoring           UnionSupergraph file apply
+/api/live/graph-preview             UnionSupergraphStore Plan preview
+lifespan world_graph_prewarm        import graph_memory.kernel as kernel
+config.world_graph_authority_mode() parser in world_supergraph.storage
+routes.world_graph_projection       module-level graph_memory.kernel import
+routes.world_graph_retrieval        module-level graph_memory.kernel import
+routes.threat_query_hydration       union_supergraph.statblock_binding import
 ```
 
 Historical migration/conformance scripts and explicit legacy fixtures are not
@@ -243,16 +355,334 @@ STOP     real operational dependency discovered; re-brief before deletion
 No test/forensic tool gets to keep the old engine alive as hidden production
 compatibility.
 
+### 3.5 Two legal genesis families
+
+DungeonMind worlds have exactly two legal genesis authorities:
+
+```text
+existing-world adoption
+  receipt family   bundle.existing_world_adoptions
+  first revision   receipt.published_revision_id   (D_A)
+  legacy bridge    receipt.source_provenance.source_world_revision_id  (Buddy-A)
+
+reviewed first-world initialization
+  receipt family   bundle.reviewed_world_initializations
+  first revision   receipt.published_revision_id   (D_0)
+  legacy bridge    none
+```
+
+They are reciprocally exclusive. Both present is integrity. A published head
+with neither is integrity. Absence of both *and* absence of a head is the
+existing uninitialized/not-adopted fail-closed case; do not invent a third
+genesis.
+
 ---
 
-## 4. Frozen architecture decisions
+## 4. D.2C3 — native genesis read/write continuity
 
-### 4.1 Production authority selection is retired
+D.2C3 is a bounded Buddy-side predecessor. It generalizes the already-landed
+native binder across both genesis families. It is not demolition.
+
+### 4.1 Merge-ready invariant
+
+> **A world whose only genesis authority is a verified reviewed-world
+> initialization receipt can be read through native projection/retrieval and
+> parented through `WorldGraphAuthority` / existing-parent publication, using
+> the same DirectAuthorityBinding path as an existing-world adopted world.
+> The Eldyrwild Buddy-A → D_A bridge remains unchanged. No new DungeonMind
+> provider contract is introduced.**
+
+### 4.2 Frozen binding algebra
+
+`_load_direct_authority_binding()` becomes a genesis binder, not an
+adoption-only binder.
+
+```text
+existing-world adopted world
+  existing_world_adoption receipt present
+  reviewed_world_initialization receipt absent
+  current head present
+  → preserve Buddy-A → D_A compatibility bridge
+  → legacy_buddy_revision_id = source_world_revision_id
+  → dungeonmind_first_revision_id = adoption.published_revision_id
+  → dungeonmind_head_revision_id = head.head_revision_id
+
+reviewed first-world world
+  reviewed_world_initialization receipt present
+  existing_world_adoption receipt absent
+  current head present
+  → no legacy Buddy revision
+  → dungeonmind_first_revision_id = init.published_revision_id   (D_0)
+  → dungeonmind_head_revision_id = head.head_revision_id
+  → legacy_buddy_revision_id = None
+
+both receipts present
+  → integrity failure
+  → do not report initialized/adopted and do not report authority_unavailable
+
+head present with neither recognized genesis receipt
+  → integrity failure
+  → fail closed; do not invent a genesis and do not fall back to Buddy files
+
+neither receipt and no head
+  → existing uninitialized / not-adopted fail-closed
+  → do not mint a D_0 or an adoption from this binder
+```
+
+Verified receipt reads remain integrity-mapped, matching D.2C2:
+`PersistenceIntegrityError` is integrity, not `authority_unavailable`.
+A recognized genesis receipt without a current head remains an integrity
+contradiction.
+
+### 4.3 DirectAuthorityBinding shape
+
+`legacy_buddy_revision_id` becomes optional. Preferred shape:
+
+```python
+@dataclass(frozen=True)
+class DirectAuthorityBinding:
+    world_id: str
+    dungeonmind_first_revision_id: str
+    dungeonmind_head_revision_id: str
+    legacy_buddy_revision_id: str | None
+    genesis: Literal["existing_world_adoption", "reviewed_world_initialization"]
+```
+
+Do not keep a fake Buddy revision string for first-world worlds. Do not reuse
+`D_0` as `legacy_buddy_revision_id`.
+
+### 4.4 Pin and parent algebra
+
+`_resolve_revision_pin()`:
+
+```text
+revision_pin is None
+  → None (current head), unchanged
+
+legacy_buddy_revision_id is not None
+  and revision_pin == legacy_buddy_revision_id
+  → dungeonmind_first_revision_id     # A → D_A bridge only
+
+otherwise
+  → pass through to DungeonMind
+  → unknown pins still fail closed as revision_not_bridged / not found
+```
+
+Ordinary DungeonMind pins, including `D_0` and later children, pass through
+unchanged. First-world worlds have no A → D_A rewrite.
+
+`_classify_parent_revision()`:
+
+```text
+legacy_buddy_revision_id is not None
+  and parent == that id
+  → governed_write_legacy_package, unchanged
+
+otherwise
+  → parent must be a real DungeonMind revision
+  → D_0 is a legal existing parent for the next child
+```
+
+Do not require an adoption receipt to publish a D.2A/D.2B child of `D_0`.
+
+### 4.5 Shared path, not a second factory
+
+Reads, writes, and `DungeonMindWorldGraphAuthorityAdapter` continue to share
+one binder. Do not create a first-world-only read adapter that bypasses
+`direct_services_from_bundle()`.
+
+`dungeonmind_kernel.world_graph_authority.bind_world_authority()` remains the
+historical hydrated/frozen-store adoption binder. D.2C3 does not extend it
+and does not put first-world worlds on that path. D.3A retires it from
+mounted production (§5.1).
+
+### 4.6 No new DungeonMind provider contract
+
+D.2C3 consumes repositories already on the pin:
+
+```text
+bundle.existing_world_adoptions.get_for_world(world_id)
+bundle.reviewed_world_initializations.get_for_world(world_id)
+bundle.world_graph.get_head(world_id)
+bundle.world_graph.get_revision(...)
+```
+
+If implementation discovers that a required native read/write cannot execute
+with those already-landed contracts, STOP. That is not a demolition problem
+and not permission to add a provider feature.
+
+### 4.7 Required owning proof
+
+One real-PostgreSQL witness, using the real mounted boundaries, covering
+both genesis families:
+
+```text
+1. create a pristine world through D.2C2 first-world prepare/confirm
+2. prove exactly one reviewed-init receipt, one D_0 with parent=None,
+   and no existing-world adoption receipt
+3. immediately native-project and native-retrieve that world/D_0
+   (search + exact object as the retrieval minimum)
+4. call WorldGraphAuthority.current_head / read_revision / mutation_context
+   on the same world
+5. publish one legal existing-parent child through an already-landed
+   D.2A Threat or D.2B worldbuilding path
+6. read the child natively; prove exact retry/recovery remains intact
+7. rerun the existing Eldyrwild/adoption bridge witnesses so
+   Buddy-A → D_A compatibility is unchanged
+```
+
+Required integration proofs must not silently skip. Report exact
+pass/fail/skip counts. Zero required skips for this witness.
+
+Also prove fail-closed cases at unit/adapter scope:
+
+```text
+both receipts present            → integrity, not a clean initialized state
+receipt without current head     → integrity
+head with neither genesis        → integrity
+uninitialized (no head, neither) → not integrity-as-initialized
+```
+
+### 4.8 D.2C3 implementation write lease
+
+#### Core owned paths
+
+```text
+apps/live_control_server/integrations/dungeonmind/world_graph_reads.py
+apps/live_control_server/integrations/dungeonmind/world_graph_writes.py
+apps/live_control_server/integrations/dungeonmind/world_graph_authority_adapter.py
+```
+
+Touch `world_graph_initialization_adapter.py` only if a verified-receipt
+helper must be shared to keep integrity mapping identical. Do not reopen
+first-world confirm semantics.
+
+#### Owning tests
+
+```text
+tests/test_cutover_dungeonmind_first_world_initialization.py
+tests/test_cutover_dungeonmind_world_graph_authority.py
+new focused native-genesis continuity tests if cleaner than overloading
+  the first-world file
+existing Eldyrwild adoption / D.2A / D.2B regression cohorts named in §4.7
+```
+
+#### Explicitly outside D.2C3
+
+```text
+boot-imported engine stores in §5.1
+authority-mode parser rehome
+import blocker / filesystem-absence witnesses
+buddy_files compatibility removal
+Kernel / world_supergraph / union_supergraph deletion
+Plan / Play / Build / Recap UX
+APP-STATE
+DungeonMind repository/provider code
+new World Graph semantics
+```
+
+D.2C3 may not install the D.3A import blocker. `buddy_files` remains
+supported until D.3A.
+
+### 4.9 D.2C3 CODE successor shape
+
+This steward design file is not `§1`–`§9` parseable. The D.2C3 dispatch
+wrapper must be a parseable CODE handoff. Treat this document as semantic
+authority; do not send implementers this file as the lease parser input.
+
+Suggested wrapper:
+
+```text
+Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md
+branch  cutover/native-genesis-read-write-continuity
+title   CUTOVER: native genesis read/write continuity
+```
+
+The wrapper pins execution metadata, write lease, evidence, state sync, and
+handback. It does not reopen the binding algebra.
+
+### 4.10 D.2C3 review handback contract
+
+Return:
+
+1. exact PR / branch / final head SHA;
+2. exact implementation base and rebase status;
+3. accepted D.3 design merge/head/review authorizing D.2C3, or this design
+   PR's accepted head if D.2C3 is dispatched from an accepted design head
+   before design merge;
+4. cumulative changed paths against the D.2C3 lease;
+5. active parallel PRs checked;
+6. binding algebra implemented for both genesis families;
+7. `legacy_buddy_revision_id` optional; no fake Buddy revision on `D_0`;
+8. pin/parent proofs: A→D_A still bridges, `D_0` passes through;
+9. real-Postgres witness counts from §4.7;
+10. Eldyrwild adoption-bridge regression result;
+11. both-receipt / receipt-without-head / head-without-genesis integrity proofs;
+12. exact commands with pass/fail/skip counts; zero required skips;
+13. ruff + `git diff --check`;
+14. state sync showing #645 DONE, this design's known facts, D.2C3 active,
+    D.3A blocked, D.3 not DONE;
+15. stop conditions or `none`.
+
+The D.2C3 dispatch seed is not Review Cycle 1. Review begins with executable
+implementation and owning evidence.
+
+---
+
+## 5. Frozen demolition architecture decisions
+
+These decisions apply to D.3A/D.3B. D.2C3 does not execute them.
+
+### 5.1 Boot-imported engine stores — frozen product fate
+
+D.3A's merge-ready proof installs an import blocker for
+`graph_memory.kernel`, `graph_memory.world_supergraph`, and
+`graph_memory.union_supergraph` **before app import**. Any module-level
+engine import on the `create_app()` graph fails that witness.
+
+Step 0 classification is not the owner of these choices. Unresolved
+architecture is not an implementation lease.
+
+Dispositions:
+
+```text
+FAIL_CLOSED   remove from mounted app; explicit retired/410/config-error;
+              no engine import remains on the boot graph
+REHOME_DTO    consume already-landed DungeonMind projection/retrieval/value
+              contracts only; byte/ID/digest parity where values move
+REWRITE_PORT  already-frozen WorldGraphAuthority / initialization port;
+              no new provider contract
+STOP          still requires local head/revision/UnionSupergraphStore
+              semantics; D.2 incomplete or split a predecessor
+```
+
+Frozen table:
+
+| Boot-imported surface | Disposition | D.3A meaning |
+|---|---|---|
+| `/api/live/world-graph-bootstrap` (`routes/world_graph_bootstrap.py`, `services/world_graph_bootstrap.py`) | **FAIL_CLOSED** | Unmount from `create_app()`. This is the pre-D.2C2 Kernel Eldyrwild bootstrap writer. First-world creation is `WorldGraphInitializationAuthority`; Eldyrwild living authority is existing-world adoption. Do not rewrite this route onto reviewed-init. 410/retired if a caller still hits the path. Implementation may remain until D.3B DELETE. |
+| `/api/live/graph-authoring` prepare/commit/merge-reconciliation (`routes/graph_authoring.py`, `services/graph_object_authoring_commit.py`, `services/graph_merge_reconciliation_materialize.py`, related overlay apply) | **FAIL_CLOSED** | Unmount from `create_app()`. This is the expired PR003 UnionSupergraph *file writer* (exemption named PR006/PR007; those slices are DONE). Exact-run Graph Review already publishes through DungeonMind. Do not copy `apply_union_supergraph_merge_plan_to_file` into a new namespace. Do not rewrite Plan gold-authoring onto `WorldGraphAuthority`. Overlay files are historical artifacts for D.3B. |
+| Plan `/api/live/graph-preview` UnionSupergraphStore materialization (`services/union_supergraph_projection_adapter.py` load/parse/`build_preview_union_supergraph`) | **FAIL_CLOSED** | Retire store-backed candidate/gold/preview materialization from the mounted app. That preview is ingest-store semantics, not the published World Graph. Do not pretend native DungeonMind projection is the same product. Plan may keep using already-mounted `/api/live/world-graph-projection` and `/api/live/world-graph-retrieval`. This is retirement of a local-store preview, not a Plan UX redesign. |
+| Plan graph-preview / recap DTOs that do not import the three retired namespaces | **REHOME_DTO** | Keep storage-neutral `graph_memory.projection` / retrieval DTO modules. After D.3A they must not import kernel / world_supergraph / union_supergraph. Do not churn public wire schemas merely to rename a package. |
+| `world_graph_prewarm` Kernel coordinator (`services/world_graph_prewarm.py`, app lifespan) | **FAIL_CLOSED** | No Kernel resident/prewarm worker. Lifespan start/stop may remain as a no-op so shutdown ownership does not import `graph_memory.kernel`. In `dungeonmind` mode the worker is already documented as waste; D.3A makes that import-free. |
+| `config.world_graph_authority_mode()` parser currently in `graph_memory.world_supergraph.storage` | **REHOME_DTO** | D.3A **must** rehome the parser/constants into Buddy-owned `config` / ports and apply §5.2. App boot cannot be import-blocked while `config.py` imports `world_supergraph.storage`. D.3B deletion of the old parser is not a substitute. |
+| Module-level `import graph_memory.kernel` on `services/world_graph_projection.py` and `services/world_graph_retrieval.py` | **FAIL_CLOSED** for the file/kernel branch; production already uses DungeonMind | Remove the top-level kernel import. Production native methods stay. `_route_authority_read` / `dungeonmind_kernel.route_service_read` buddy_files passthrough is not a mounted production path after D.3A. Lazy kernel import is not an escape: these modules are imported at app construction. |
+| Mounted `dungeonmind_kernel` hydrated read passthrough (`route_service_read`, `bind_world_authority` requiring frozen Buddy store) | **FAIL_CLOSED** | Not a production path after D.3A. Do not extend it for first-world worlds. Historical modules may remain until D.3B. |
+| `routes/threat_query_hydration.py` → `graph_memory.union_supergraph.statblock_binding` | **REHOME_DTO** | Relocate still-used mechanics contracts per §5.4. Query/hydration stays mounted; it must not import `union_supergraph` after D.3A. |
+| `get_world_graph_authority(world_root=...)` / `get_world_graph_initialization_authority(world_root=...)` selecting `BuddyFiles*Adapter` for a non-production root | **FAIL_CLOSED** | After D.3A a different `world_root` argument must not select the file adapter. Tests/tools that need legacy fixtures construct them directly. |
+
+If implementation discovers that a FAIL_CLOSED surface is still a real
+operational dependency that requires local store semantics, STOP and re-brief.
+Do not silently convert FAIL_CLOSED into REWRITE_PORT.
+
+### 5.2 Production authority selection is retired
 
 `DUNGEONMIND_WORLD_GRAPH_AUTHORITY` was a migration control plane. Its old
 values currently include `buddy_files`, `quiesced`, and `dungeonmind`.
+Today unset still defaults to `buddy_files` inside
+`graph_memory.world_supergraph.storage.world_graph_authority_mode()`.
 
-After D.3A:
+After D.3A, the *rehomed* parser is:
 
 ```text
 unset       → DungeonMind mounted authority
@@ -269,7 +699,7 @@ resurrect the old graph.
 D.3B may delete the obsolete selector parser/constant entirely once no retained
 tooling needs its diagnostic compatibility.
 
-### 4.2 Mounted authority factories become one-way DungeonMind
+### 5.3 Mounted authority factories become one-way DungeonMind
 
 Today:
 
@@ -294,13 +724,14 @@ def get_world_graph_initialization_authority() -> WorldGraphInitializationAuthor
 ```
 
 Lazy imports are fine if needed for startup/cycle control. What is not allowed
-is a product-reachable fallback branch.
+is a product-reachable fallback branch, including a non-production
+`world_root` selecting `BuddyFiles*Adapter`.
 
 Tests/tools that intentionally need legacy fixtures must construct an explicit
 fixture helper directly. Do not recreate the selector as `test_mode`, a hidden
 env var, API parameter, query parameter, or header.
 
-### 4.3 Relocate pure product values, not graph authority
+### 5.4 Relocate pure product values, not graph authority
 
 #### Contribution values
 
@@ -363,9 +794,9 @@ After D.3A, however, no mounted projection DTO module may import `kernel`,
 
 Do not churn public wire schemas merely to rename a package during demolition.
 
-### 4.4 Classify before moving code
+### 5.5 Classify remaining hits before moving code
 
-For each old-engine dependency:
+For each old-engine dependency *other than* the frozen §5.1 table:
 
 ```text
 PURE VALUE / PURE TRANSFORM still needed → relocate to bounded Buddy owner
@@ -376,8 +807,10 @@ UNKNOWN                                  → STOP and re-brief
 ```
 
 Moving the old Kernel wholesale to a new module name does not satisfy D.3.
+Do not reclassify a §5.1 FAIL_CLOSED surface as PURE VALUE in order to keep
+it mounted.
 
-### 4.5 “Physically absent” is a runtime proof, not data destruction
+### 5.6 “Physically absent” is a runtime proof, not data destruction
 
 The product must work when:
 
@@ -394,7 +827,7 @@ add `rm -rf`, `shutil.rmtree`, startup cleanup, or equivalent destructive code.
 Historical local graph bytes may be archived/removed later only by an explicit
 operator action.
 
-### 4.6 `world_graph_root` may survive only as a non-authority designation
+### 5.7 `world_graph_root` may survive only as a non-authority designation
 
 If a configured graph-root path still has a real safety/fixture role, D.3A need
 not rename it for aesthetics.
@@ -409,25 +842,25 @@ After D.3A:
 If inventory shows the path has no remaining purpose, remove the obsolete config
 in D.3A. Otherwise retain only the narrow safety/fixture designation.
 
-### 4.7 Hydration/cache compatibility has no production owner
+### 5.8 Hydration/cache compatibility has no production owner
 
-The DungeonMind→Buddy hydrated read model and cache existed for migration. D.2
-is complete.
+The DungeonMind→Buddy hydrated read model and cache existed for migration. After
+D.2C3, D.2 native authority is complete.
 
 D.3A deletes mounted hydration routing/configuration once inventory confirms no
 remaining product consumer. Tests must move to native DungeonMind or explicit
 legacy fixtures; tests do not justify product fallback.
 
-### 4.8 DungeonMind contracts are frozen during demolition
+### 5.9 DungeonMind contracts are frozen during demolition
 
-D.3 adds no new provider capability.
+D.3 adds no new provider capability. D.2C3 also adds none.
 
 If D.3A discovers a mounted behavior that cannot execute using already-landed
-DungeonMind read, governed publication, and reviewed initialization contracts,
-STOP. That means D.2 is incomplete; do not smuggle a provider feature into a
-deletion slice.
+DungeonMind read, governed publication, and reviewed initialization contracts
+*after D.2C3*, STOP. That means D.2 is still incomplete; do not smuggle a
+provider feature into a deletion slice.
 
-### 4.9 No semantic rewrite
+### 5.10 No semantic rewrite
 
 Preserve accepted behavior for:
 
@@ -439,16 +872,22 @@ exact-run Graph Review seals
 Threat mechanics separation
 existing-world worldbuilding publish/recovery
 first-world initialization/retry/restart/concurrency
+native D_0 read/write continuity after D.2C3
 source/evidence closure
-current API/wire schemas
+current API/wire schemas for remaining mounted routes
 stable contribution/source IDs and digests
 ```
 
+FAIL_CLOSED retired routes in §5.1 are removed, not rewritten.
+
 ---
 
-## 5. D.3A — mounted production graph-engine excision
+## 6. D.3A — mounted production graph-engine excision
 
-### 5.1 Merge-ready invariant
+Blocked until D.2C3 is merged and its native-genesis witness is green on
+current `main`.
+
+### 6.1 Merge-ready invariant
 
 D.3A is merge-ready only when:
 
@@ -457,17 +896,21 @@ D.3A is merge-ready only when:
 > `graph_memory.kernel`, `graph_memory.world_supergraph`, and
 > `graph_memory.union_supergraph` blocked before app import, while the legacy
 > Buddy graph filesystem is absent. All authoritative graph I/O remains
-> DungeonMind-owned. Any retained legacy consumer is explicit test/tooling/
+> DungeonMind-owned. Boot-imported engine stores named in §5.1 are FAIL_CLOSED
+> or REHOME_DTO as frozen. Any retained legacy consumer is explicit test/tooling/
 > historical code and unreachable from mounted product accessors.**
 
 D.3A gives D.3B a production dependency count of zero. That is independently
 useful and reviewable.
 
-### 5.2 Required implementation sequence
+### 6.2 Required implementation sequence
 
 #### Step 0 — re-anchor and freeze inventory
 
-Re-read current `main`, active PRs, this handoff, and the accepted design PR.
+Re-read current `main`, active PRs, this handoff, the accepted design PR, and
+the merged D.2C3 implementation.
+
+Confirm D.2C3's native-genesis witness is on the implementation base.
 
 At minimum inventory:
 
@@ -492,7 +935,8 @@ HISTORICAL_TOOL
 DEAD
 ```
 
-Handback must explain every retained executable occurrence.
+Apply §5.1 dispositions to the named boot-imported surfaces *before* inventing
+new ones. Handback must explain every retained executable occurrence.
 
 If a `MOUNTED_PRODUCT` hit represents a new semantic dependency not covered by
 this design, STOP.
@@ -516,6 +960,8 @@ permanent dual implementation.
 
 #### Step 2 — retire mounted authority selection
 
+Rehome the authority-mode parser into Buddy-owned config/ports.
+
 Make authority accessors DungeonMind-only.
 
 Remove product branches that instantiate:
@@ -526,17 +972,21 @@ BuddyFilesWorldGraphInitializationAdapter
 ```
 
 Retired environment values fail closed. Explicit legacy tests construct fixtures
-directly.
+directly. A non-production `world_root` does not select the file adapter.
 
-#### Step 3 — remove mounted engine imports
+#### Step 3 — execute §5.1 and remaining mounted engine imports
 
-Switch every `MOUNTED_PRODUCT` / `PURE_PRODUCT_VALUE` dependency to:
+Unmount FAIL_CLOSED boot surfaces from `create_app()` / lifespan.
+
+Switch every remaining `MOUNTED_PRODUCT` / `PURE_PRODUCT_VALUE` dependency to:
 
 - an existing storage-neutral World Graph port;
 - the existing DungeonMind integration; or
 - the new Buddy-owned pure value boundary.
 
-Do not rewrite historical tooling unless app boot or a mounted route imports it.
+Do not rewrite historical tooling unless app boot or a mounted route still
+imports it after §5.1. The §5.1 consumers *are* boot-imported; their fate is
+already frozen.
 
 #### Step 4 — retire hydration/file fallback
 
@@ -560,7 +1010,7 @@ Install the blocker **before importing the mounted app**. Already-cached forbidd
 modules invalidate the witness.
 
 Under the blocker, boot/import and execute representative mounted DungeonMind
-boundaries.
+boundaries, including a D.2C3 first-world world and the Eldyrwild adopted world.
 
 #### Step 6 — prove legacy filesystem absence
 
@@ -585,18 +1035,19 @@ exact-run Graph Review D.1
 Threat D.2A
 worldbuilding D.2B
 first-world D.2C2
+native genesis D.2C3 (fresh D_0 read + existing-parent child)
 Hermes/latest-recap graph reads
 ```
 
-Use real PostgreSQL for publication/initialization cohorts where their accepted
-handoffs require it. Required integration proofs must not silently skip.
+Use real PostgreSQL for publication/initialization/genesis cohorts where their
+accepted handoffs require it. Required integration proofs must not silently skip.
 
 #### Step 8 — carry backward state-authority sync
 
-D.3A owns the #645 predecessor sync from §2.3.
+D.3A owns the D.2C3 predecessor sync from §2.4.
 
-At minimum update current mutable CUTOVER authorities that still claim #645 is
-in flight:
+At minimum update current mutable CUTOVER authorities that still claim D.2C3
+or D.3A is in flight:
 
 ```text
 Docs/Plans/PR-TRACKER-campaign-supergraph.md
@@ -608,23 +1059,34 @@ Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-campaign-supergraph.md
 this handoff / D.3A implementation handoff as appropriate
 ```
 
-Record #645's real merge/head/review. Record this design PR's real completion
-only when known. Mark D.3A active. Keep D.3B blocked and D.3 not DONE. Do not
-invent D.3A future merge/review facts.
+Record #645 and D.2C3 real merge/head/review. Record this design PR's real
+completion only when known. Mark D.3A active. Keep D.3B blocked and D.3 not
+DONE. Do not invent D.3A future merge/review facts.
 
-### 5.3 D.3A implementation write lease
+### 6.3 D.3A implementation write lease
 
 #### Core owned paths
 
 ```text
+apps/live_control_server/main.py
 apps/live_control_server/config.py
 apps/live_control_server/ports/world_graph_authority_access.py
 apps/live_control_server/ports/world_graph_initialization_access.py
 apps/live_control_server/integrations/buddy_files/**
 apps/live_control_server/integrations/dungeonmind/world_graph*.py
+apps/live_control_server/integrations/dungeonmind_kernel/**   only to FAIL_CLOSED unmount / stop calling it
 apps/live_control_server/models/world_graph_contribution_values.py
 apps/live_control_server/models/extract_promote.py
 apps/live_control_server/models/threat_query_hydration.py
+apps/live_control_server/routes/world_graph_bootstrap.py
+apps/live_control_server/routes/graph_authoring.py
+apps/live_control_server/routes/graph_preview.py
+apps/live_control_server/routes/threat_query_hydration.py
+apps/live_control_server/services/world_graph_bootstrap.py
+apps/live_control_server/services/graph_object_authoring_commit.py
+apps/live_control_server/services/graph_merge_reconciliation_materialize.py
+apps/live_control_server/services/union_supergraph_projection_adapter.py
+apps/live_control_server/services/world_graph_prewarm.py
 apps/live_control_server/services/first_world_graph.py
 apps/live_control_server/services/first_world_graph_publication.py
 apps/live_control_server/services/world_graph_*.py
@@ -632,8 +1094,12 @@ apps/live_control_server/services/graph_review_*.py
 apps/live_control_server/services/worldbuilding_graph_publication.py
 apps/live_control_server/services/threat_*.py
 src/graph_memory/projection/**
-new narrowly named Buddy-owned contribution/mechanics value modules required by §4.3
+new narrowly named Buddy-owned contribution/mechanics value modules required by §5.4
 ```
+
+The named boot-imported routes/adapters are the §5.1 lease. Bounded
+`apps/live_control_server/**` discovery is **not** permission to redesign
+Plan/authoring. FAIL_CLOSED means unmount/retire, not a new Plan UX.
 
 #### Bounded discovery lease
 
@@ -641,8 +1107,10 @@ A file under `apps/live_control_server/**` or mounted product `src/**` may be
 added only when all are true:
 
 1. it has a base-revision executable import from a retired namespace;
-2. D.3A only replaces that import/call with a frozen owner from this design;
-3. no wire/public semantics change;
+2. D.3A only replaces that import/call with a frozen owner from this design
+   or executes a §5.1 FAIL_CLOSED unmount;
+3. no remaining mounted wire/public semantics change except the frozen
+   retired/410 responses for FAIL_CLOSED routes;
 4. it is not leased by another active PR at implementation re-anchor;
 5. handback names the file and original classification.
 
@@ -657,6 +1125,8 @@ tests/test_first_world_graph.py
 tests/test_live_extract_promote_api.py
 focused Graph Review / Threat / worldbuilding / Hermes tests owning changed seams
 new D.3 import-blocker / filesystem-absence tests
+FAIL_CLOSED proofs for bootstrap / graph-authoring / store-backed graph-preview
+  / prewarm / retired selector / non-production world_root
 ```
 
 Do not claim all `tests/**` as a lease.
@@ -676,12 +1146,13 @@ new World Graph semantics
 broad historical Eldyrwild correction/conformance deletion
 source-artifact/evidence/extraction redesign
 Combat/application-state work
+Plan UX replacement for FAIL_CLOSED preview/authoring
 ```
 
 D.3A must re-check active PRs at implementation time. Any new lease overlap is
 a serialization/transfer decision, not permission to edit through it.
 
-### 5.4 Required D.3A evidence
+### 6.4 Required D.3A evidence
 
 #### Static dependency gate
 
@@ -693,6 +1164,9 @@ At accepted head:
 0 mounted-product imports from graph_memory.union_supergraph
 0 mounted factory branches selecting buddy_files/quiesced
 0 hydration/local fallback on DungeonMind failure
+0 create_app() registration of world-graph-bootstrap / graph-authoring
+  UnionSupergraph apply / store-backed graph-preview materialization
+0 lifespan Kernel prewarm import
 ```
 
 Historical docs are excluded. Named legacy tooling/tests may remain for D.3B.
@@ -709,9 +1183,11 @@ evidence + source-anchor open
 exact-run review package
 existing-world Graph Review prepare/confirm
 first-world review/prepare/confirm
+native D_0 projection/retrieval + one existing-parent child (D.2C3)
 Threat publish/recover
 worldbuilding publish/recover
 Hermes/latest-recap graph comparison or owning service boundary
+FAIL_CLOSED retired bootstrap/authoring/store-preview paths
 ```
 
 Route-level + owning service tests may be combined, but the blocker remains active
@@ -737,6 +1213,7 @@ dungeonmind → DungeonMind
 buddy_files → configuration failure; no file adapter
 quiesced    → configuration failure; no file adapter
 garbage     → configuration failure
+non-production world_root → configuration failure; no file adapter
 ```
 
 #### Value parity
@@ -751,6 +1228,8 @@ Threat: one DungeonMind child + exact retry/recovery
 existing-world worldbuilding: one DungeonMind child + exact retry/recovery
 first-world: one D_0 parent=None + one reviewed-init receipt + exact retry +
              lost-response restart + synchronized concurrent confirm
+native genesis: D.2C3 witness still green under the import blocker
+Eldyrwild adoption bridge: Buddy-A → D_A unchanged
 ```
 
 #### Quality gates
@@ -768,12 +1247,12 @@ skips.
 
 ---
 
-## 6. D.3B — physical legacy graph-engine deletion
+## 7. D.3B — physical legacy graph-engine deletion
 
 D.3B is blocked until D.3A is merged and its import-blocked production proof is
 green on current `main`.
 
-### 6.1 Merge-ready invariant
+### 7.1 Merge-ready invariant
 
 > **Retired Buddy graph-engine source packages and compatibility adapters no
 > longer exist as executable implementation; every intentionally retained
@@ -781,7 +1260,7 @@ green on current `main`.
 > DungeonBuddy remains green on DungeonMind; and the legacy-filesystem absence
 > proof still passes.**
 
-### 6.2 Primary deletion targets
+### 7.2 Primary deletion targets
 
 Subject to D.3A's inventory:
 
@@ -791,6 +1270,7 @@ src/graph_memory/world_supergraph/**
 src/graph_memory/union_supergraph/**
 apps/live_control_server/integrations/buddy_files/**
 retired hydration/cache implementation
+FAIL_CLOSED bootstrap/authoring/store-preview implementations unmounted in D.3A
 legacy-only tests whose sole purpose is deleted authority behavior
 ```
 
@@ -798,7 +1278,7 @@ If a storage-neutral product value still lives in those directories after D.3A,
 D.3A is incomplete. Do not rescue it during bulk deletion by creating a second
 owner.
 
-### 6.3 Historical tooling classification
+### 7.3 Historical tooling classification
 
 Before deleting package trees, inventory executable imports in:
 
@@ -816,7 +1296,7 @@ fully preserved by merged history, sealed source artifacts, current DungeonMind
 state, and non-executable evidence. Do not delete source/evidence artifacts merely
 because a producer tool retires.
 
-### 6.4 Final D.3 evidence
+### 7.4 Final D.3 evidence
 
 At D.3B accepted head:
 
@@ -825,7 +1305,7 @@ legacy source package directories absent
 buddy_files integration absent
 production import-blocker still green
 legacy graph filesystem absence still green
-current DungeonMind read/write cohorts green
+current DungeonMind read/write cohorts green, including D.2C3 genesis
 no product selector can recreate Buddy graph ownership
 no automatic user-data deletion introduced
 ```
@@ -842,7 +1322,7 @@ carry that truth.
 
 ---
 
-## 7. Final production architecture
+## 8. Final production architecture
 
 ```text
 DungeonBuddy product
@@ -852,6 +1332,10 @@ DungeonBuddy product
   +-- WorldGraphInitializationAuthority ------------+--> DungeonMind
   |                                                  |    PostgreSQL authority
   +-- native projection/retrieval/evidence ----------+
+  |
+  +-- one DirectAuthorityBinding covering
+        existing-world adoption  (Buddy-A → D_A)
+        reviewed first-world     (D_0, no legacy bridge)
 
 Buddy-owned product state
   +-- source/corpus/workspace authority
@@ -865,6 +1349,8 @@ NO Buddy graph head/revision authority
 NO local graph publication/replay fallback
 NO buddy_files/quiesced production mode
 NO DungeonMind→Buddy hydration runtime
+NO mounted Kernel bootstrap / UnionSupergraph file apply /
+   UnionSupergraphStore Plan preview / Kernel prewarm
 ```
 
 This is the CUTOVER completion condition: DungeonMind authority no longer relies
@@ -873,16 +1359,17 @@ absent from the production dependency graph, then absent from source.
 
 ---
 
-## 8. Explicitly out of scope
+## 9. Explicitly out of scope
 
-Do not use D.3 to:
+Do not use D.2C3 or D.3 to:
 
 - change DungeonMind semantics/public contracts;
 - reopen ExistingWorldAdoption or catch-up without a real `STALE` event;
 - create another Buddy graph database/schema;
 - move mechanics/statblocks into semantic World Graph authority;
 - redesign Graph Review UX/API;
-- redesign Plan/Play/Build/Hermes behavior;
+- redesign Plan/Play/Build/Hermes behavior (FAIL_CLOSED is retirement, not a
+  replacement UX);
 - merge APP-STATE feature work into CUTOVER;
 - delete source artifacts/evidence/candidate/workspace state;
 - rename every surviving `graph_memory` package for aesthetics;
@@ -890,100 +1377,138 @@ Do not use D.3 to:
 - automatically delete user/local graph data;
 - introduce generic JSON/CRUD replacement abstractions;
 - move the old Kernel wholesale under a new namespace;
+- smuggle D.2C3 into D.3A or D.3A into D.3B;
 - broaden into optimization unless a concrete correctness blocker appears.
 
 ---
 
-## 9. Stop / re-brief conditions
+## 10. Stop / re-brief conditions
 
 STOP if:
 
-1. a mounted behavior still requires local Buddy head/revision/store semantics;
+1. a mounted behavior still requires local Buddy head/revision/store semantics
+   after the §5.1 FAIL_CLOSED retirements;
 2. a required path is leased by another active lane and cannot be serialized;
 3. value relocation changes durable IDs, canonical bytes, digests, acceptance
-   semantics, or public API shape;
+   semantics, or public API shape for remaining mounted routes;
 4. a supposed pure value materially depends on local graph state/replay;
 5. a new DungeonMind provider contract is required;
 6. an old authority mode is actually required by a production deployment rather
    than tests/tooling;
 7. filesystem absence would require deleting user data;
 8. an operational historical tool cannot be rehomed without the engine;
-9. the app cannot boot under a true pre-import blocker;
+9. the app cannot boot under a true pre-import blocker after §5.1;
 10. implementation needs broad Play/Application-State changes;
-11. a concrete post-cutover failure shows D.2 authority migration was incomplete.
+11. D.2C3 cannot bind a reviewed-init world without an adoption receipt using
+    already-landed repositories;
+12. a concrete post-cutover failure shows D.2 authority migration was incomplete
+    *beyond* the frozen D.2C3 seam;
+13. a §5.1 FAIL_CLOSED surface is still operationally required as a local store.
 
 ---
 
-## 10. Suggested D.3A nano-commit story
+## 11. Suggested nano-commit stories
+
+### D.2C3
+
+```text
+1. generalize DirectAuthorityBinding across both genesis families
+2. optional legacy bridge; pin/parent algebra; integrity cases
+3. first-world D_0 native read + existing-parent child witness
+4. Eldyrwild adoption-bridge regression
+5. carry #645 predecessor state sync; keep D.3A blocked
+```
+
+### D.3A (after D.2C3 merges)
 
 ```text
 1. establish Buddy-owned contribution/mechanics values + parity tests
 2. switch mounted DTOs/services off legacy value imports
-3. make authority factories DungeonMind-only and retire old modes
-4. remove mounted hydration/file fallback and production engine imports
+3. rehome selector parser; make factories DungeonMind-only; retire old modes
+4. FAIL_CLOSED unmount bootstrap / graph-authoring / store-backed preview /
+   Kernel prewarm; remove remaining mounted engine imports
 5. add import-blocked + legacy-filesystem-absent witnesses
-6. run D.1/D.2 regressions and close the dependency inventory
-7. carry #645 + accepted-design predecessor state sync
+6. run D.1/D.2/D.2C3 regressions and close the dependency inventory
+7. carry D.2C3 + accepted-design predecessor state sync
 ```
 
-Do not mix D.3B bulk deletion into D.3A.
+Do not mix D.2C3 into D.3A. Do not mix D.3B bulk deletion into D.3A.
 
 ---
 
-## 11. D.3A review handback contract
+## 12. D.3A review handback contract
 
 Return:
 
 1. exact PR / branch / final head SHA;
 2. exact implementation base and rebase status;
 3. accepted D.3 design merge/head/review authorizing D.3A;
-4. cumulative changed paths against lease;
-5. active parallel PRs checked and serialization decisions;
-6. complete legacy-import classification summary;
-7. relocated value families and canonical owners;
-8. serialization/ID/digest/validation parity evidence;
-9. final selector behavior for unset/dungeonmind/buddy_files/quiesced/unknown;
-10. static zero-mounted-import proof for all three legacy namespaces;
-11. import-blocker witness installed before app import;
-12. legacy graph filesystem absent-before/after proof;
-13. no hydration/cache/local fallback on DungeonMind failure;
-14. projection/retrieval/evidence/anchor results;
-15. D.1 Graph Review results;
-16. D.2A Threat PostgreSQL publish/recovery results;
-17. D.2B worldbuilding PostgreSQL publish/recovery results;
-18. D.2C2 first-world PostgreSQL init/retry/restart/concurrency results;
-19. Hermes/latest-recap graph-read result;
-20. exact commands with pass/fail/skip counts;
-21. ruff + `git diff --check`;
-22. state sync showing #645 DONE, design DONE, D.3A active, D.3B blocked,
-    D.3 not DONE;
-23. executable legacy consumers deferred to D.3B with
+4. merged D.2C3 SHA/review authorizing demolition to begin;
+5. cumulative changed paths against lease;
+6. active parallel PRs checked and serialization decisions;
+7. complete legacy-import classification summary, including §5.1 outcomes;
+8. relocated value families and canonical owners;
+9. serialization/ID/digest/validation parity evidence;
+10. final selector behavior for unset/dungeonmind/buddy_files/quiesced/unknown
+    and non-production `world_root`;
+11. static zero-mounted-import proof for all three legacy namespaces;
+12. import-blocker witness installed before app import;
+13. legacy graph filesystem absent-before/after proof;
+14. no hydration/cache/local fallback on DungeonMind failure;
+15. FAIL_CLOSED proofs for bootstrap / graph-authoring / store-backed preview /
+    Kernel prewarm;
+16. projection/retrieval/evidence/anchor results;
+17. D.1 Graph Review results;
+18. D.2A Threat PostgreSQL publish/recovery results;
+19. D.2B worldbuilding PostgreSQL publish/recovery results;
+20. D.2C2 first-world PostgreSQL init/retry/restart/concurrency results;
+21. D.2C3 native genesis read/write results under the blocker;
+22. Hermes/latest-recap graph-read result;
+23. exact commands with pass/fail/skip counts;
+24. ruff + `git diff --check`;
+25. state sync showing #645 DONE, D.2C3 DONE, design DONE, D.3A active,
+    D.3B blocked, D.3 not DONE;
+26. executable legacy consumers deferred to D.3B with
     DELETE/REHOME/REWRITE classification;
-24. stop conditions or `none`.
+27. stop conditions or `none`.
+
+The D.3A dispatch wrapper must also be a parseable CODE handoff. Suggested:
+
+```text
+Docs/Plans/HANDOFF-CUTOVER-mounted-graph-engine-excision-code.md
+```
 
 The D.3A dispatch seed is not Review Cycle 1. Review begins with executable
 implementation and owning evidence.
 
 ---
 
-## 12. Design review focus
+## 13. Design review focus
 
-Review this design specifically for:
+Review this repaired design specifically for:
 
-1. **Decomposition:** is D.3A production excision → D.3B physical deletion the
-   right one-capability boundary?
-2. **Authority retirement:** should `buddy_files` / `quiesced` fail closed rather
-   than be silently ignored?
-3. **Value ownership:** are contribution/projection/mechanics values preserved
+1. **Predecessor:** is D.2C3 the right one-capability closure before demolition,
+   and is the two-family genesis binder complete enough to dispatch?
+2. **Decomposition:** after D.2C3, is D.3A production excision → D.3B physical
+   deletion still the right demolition boundary?
+3. **Boot fate:** are the §5.1 FAIL_CLOSED / REHOME_DTO dispositions the right
+   product decisions, especially Plan store-preview retirement vs STOP?
+4. **Authority retirement:** should `buddy_files` / `quiesced` / non-production
+   `world_root` fail closed rather than be silently ignored?
+5. **Value ownership:** are contribution/projection/mechanics values preserved
    without copying graph authority into a new namespace?
-4. **Absence proof:** does pre-import blocking + real DungeonMind flows + missing
-   legacy graph directory prove production independence?
-5. **Historical tooling:** is DELETE/REHOME/REWRITE/STOP sufficient to keep
+6. **Absence proof:** does pre-import blocking + real DungeonMind flows + missing
+   legacy graph directory prove production independence *after* §5.1?
+7. **Historical tooling:** is DELETE/REHOME/REWRITE/STOP sufficient to keep
    forensic compatibility from preserving the engine indefinitely?
-6. **Parallelism:** is the bounded discovery lease compatible with future lanes
+8. **Parallelism:** are the D.2C3 and D.3A leases compatible with future lanes
    after mandatory implementation-time re-anchor?
-7. **Data safety:** is “physically absent” correctly defined as runtime
+9. **Data safety:** is “physically absent” correctly defined as runtime
    independence rather than automatic deletion of user graph data?
 
-Do not dispatch D.3A until this design has a formal PASS-equivalent review on a
-distinct accepted head and is merged.
+Do not dispatch D.2C3 until this repaired design has a formal PASS-equivalent
+review on a distinct accepted head.
+
+Do not dispatch D.3A until D.2C3 is merged.
+
+Do not merge D.3 as DONE from D.3A.
