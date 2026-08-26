@@ -15,7 +15,7 @@ from application_state.errors import (
     ApplicationStateValidationError,
 )
 from application_state.play import repository as repo
-from application_state.play.types import PlayRun, PlayRunAggregate, PlayRunManifest
+from application_state.play.types import PlayActiveRun, PlayRun, PlayRunAggregate, PlayRunManifest
 from application_state.unit_of_work import unit_of_work
 
 EMPTY_PROGRESS: dict = {
@@ -480,3 +480,36 @@ def rebase_play_run(
             ),
         )
         return PlayRunAggregate(run=updated, manifest=replaced)
+
+
+def get_play_active_run() -> PlayActiveRun | None:
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        return repo.get_active_run(conn)
+
+
+def set_play_active_run(run_id: UUID | str) -> PlayActiveRun:
+    canonical_run_id = _as_uuid(run_id, field_name="run_id")
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        run = repo.lock_run(conn, canonical_run_id)
+        if run is None:
+            raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
+        require_persisted_aggregate_integrity(run, repo.get_manifest(conn, canonical_run_id))
+        current = repo.lock_active_run(conn)
+        if current is not None and current.run_id == canonical_run_id:
+            return current
+        return repo.upsert_active_run(
+            conn,
+            run_id=canonical_run_id,
+            selected_at=repo.now_utc(),
+        )
+
+
+def clear_play_active_run() -> None:
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        repo.delete_active_run(conn)

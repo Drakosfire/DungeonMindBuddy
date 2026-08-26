@@ -10,16 +10,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-from apps.live_control_server.services.play_run_reference_manifest import (
-    PlayRunReferenceManifestError,
-    load_play_run_reference_manifest_for_record,
-)
-from apps.live_control_server.services.play_run_registry import (
-    PlayRunRegistryError,
-    get_play_run,
-)
+from application_state.errors import ApplicationStateError
+from application_state.play import service as play_service
 from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
-from src.live_play.live_store import load_json, write_json
+from src.live_play.live_store import load_json
 
 PLAY_ACTIVE_RUN_SCHEMA = "dmb_play_active_run_v1"
 PLAY_ACTIVE_RUN_REL = "out/runtime/play/active-run.json"
@@ -59,6 +53,15 @@ def _utc_iso(value: str) -> str:
     if parsed.utcoffset() != UTC.utcoffset(parsed):
         raise ValueError("selected_at must be UTC")
     return cleaned
+
+
+def _iso_z(value: datetime) -> str:
+    stamp = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    return stamp.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _map_application_state(exc: Exception) -> PlayActiveRunError:
+    return PlayActiveRunError(str(exc), status_code=int(getattr(exc, "status_code", 500)))
 
 
 class SetPlayActiveRunRequest(BaseModel):
@@ -108,18 +111,12 @@ def _empty_state() -> PlayActiveRunState:
     return PlayActiveRunState(run_id=None, selected_at=None)
 
 
-def _load_state(path: Path) -> PlayActiveRunState:
-    try:
-        return PlayActiveRunState.model_validate(load_json(path))
-    except (OSError, TypeError, ValueError) as exc:
-        raise PlayActiveRunError(
-            f"malformed persisted Play active-Run selection {path.name}: {exc}",
-            status_code=500,
-        ) from exc
+def _state_from_row(row: object) -> PlayActiveRunState:
+    return PlayActiveRunState(run_id=str(row.run_id), selected_at=_iso_z(row.selected_at))
 
 
-def get_play_active_run(root: Path) -> PlayActiveRunState:
-    """Read the pointer without inferring or selecting any Run."""
+def load_legacy_play_active_run_file(root: Path) -> PlayActiveRunState:
+    """Migration/inventory capture of active-run.json. Ordinary GET/PUT must not call this."""
 
     path = play_active_run_path(root)
     if not path.is_file():
@@ -127,43 +124,49 @@ def get_play_active_run(root: Path) -> PlayActiveRunState:
     with registry_mutation_lock(path):
         if not path.is_file():
             return _empty_state()
-        return _load_state(path)
+        try:
+            return PlayActiveRunState.model_validate(load_json(path))
+        except (OSError, TypeError, ValueError) as exc:
+            raise PlayActiveRunError(
+                f"malformed persisted Play active-Run selection {path.name}: {exc}",
+                status_code=500,
+            ) from exc
+
+
+def get_play_active_run(root: Path) -> PlayActiveRunState:
+    """Read the PostgreSQL pointer without inferring or selecting any Run."""
+
+    del root
+    try:
+        row = play_service.get_play_active_run()
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    if row is None:
+        return _empty_state()
+    return _state_from_row(row)
 
 
 def set_play_active_run(root: Path, *, run_id: str) -> PlayActiveRunState:
-    """Persist focus on an existing Run after proving its sealed identity."""
+    """Persist focus on an existing PostgreSQL Run after proving its sealed identity."""
 
+    del root
     try:
         canonical_run_id = _canonical_uuid(run_id, field_name="run_id")
     except ValueError as exc:
         raise PlayActiveRunError(str(exc), status_code=422) from exc
-
     try:
-        record = get_play_run(root, canonical_run_id)
-        load_play_run_reference_manifest_for_record(root, record)
-    except PlayRunRegistryError as exc:
-        raise PlayActiveRunError(str(exc), status_code=exc.status_code) from exc
-    except PlayRunReferenceManifestError as exc:
-        status_code = 409 if exc.status_code == 404 else exc.status_code
-        raise PlayActiveRunError(str(exc), status_code=status_code) from exc
+        row = play_service.set_play_active_run(canonical_run_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    return _state_from_row(row)
 
-    path = play_active_run_path(root)
-    with registry_mutation_lock(path):
-        if path.is_file():
-            current = _load_state(path)
-            if current.run_id == canonical_run_id:
-                return current
 
-        state = PlayActiveRunState(
-            run_id=canonical_run_id,
-            selected_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            write_json(path, state.model_dump(mode="json"))
-        except (OSError, TypeError, ValueError) as exc:
-            raise PlayActiveRunError(
-                f"failed to persist Play active-Run selection: {exc}",
-                status_code=500,
-            ) from exc
-        return state
+def clear_play_active_run(root: Path) -> PlayActiveRunState:
+    """Delete the singleton row. Missing row is the durable null state."""
+
+    del root
+    try:
+        play_service.clear_play_active_run()
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    return _empty_state()

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from apps.live_control_server.services.play_active_run import (
-    get_play_active_run,
+    load_legacy_play_active_run_file,
     play_active_run_path,
 )
 from apps.live_control_server.services.play_run_rebase import (
@@ -239,7 +239,7 @@ def test_active_run_pointer_stays_file_backed_after_import(
     before = pointer_path.read_bytes()
     import_play_runtime_from_legacy_files(tmp_path)
     assert pointer_path.read_bytes() == before
-    pointer = get_play_active_run(tmp_path)
+    pointer = load_legacy_play_active_run_file(tmp_path)
     assert pointer.run_id == RUN_ID_A
     assert pointer.selected_at == "2026-01-01T00:00:00Z"
     assert get_play_run(tmp_path, RUN_ID_A).run_id == RUN_ID_A

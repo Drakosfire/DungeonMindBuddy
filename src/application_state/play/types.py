@@ -38,6 +38,16 @@ class PlayRunAggregate(BaseModel):
     manifest: PlayRunManifest
 
 
+class PlayActiveRun(BaseModel):
+    run_id: UUID
+    selected_at: datetime
+
+
+class PlayActiveRunImportReport(BaseModel):
+    imported: int = 0
+    noop: int = 0
+
+
 class PlayRuntimeImportReport(BaseModel):
     imported: int = 0
     noop: int = 0

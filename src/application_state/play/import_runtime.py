@@ -148,14 +148,14 @@ def _require_active_pointer_in_snapshots(
 ) -> None:
     from apps.live_control_server.services.play_active_run import (
         PlayActiveRunError,
-        get_play_active_run,
+        load_legacy_play_active_run_file,
         play_active_run_path,
     )
 
     if not play_active_run_path(root).is_file():
         return
     try:
-        pointer = get_play_active_run(root)
+        pointer = load_legacy_play_active_run_file(root)
     except PlayActiveRunError as exc:
         raise ApplicationStateIntegrityError(str(exc), status_code=exc.status_code) from exc
     if pointer.run_id is None:

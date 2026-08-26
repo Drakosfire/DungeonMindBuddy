@@ -109,7 +109,8 @@ def test_put_validates_uuid_and_requires_existing_sealed_run(
     _create_committed_run(tmp_path, run_id=RUN_ID_A, name="already-sealed")
     sealed = client.put("/api/live/play-active-run", json={"run_id": RUN_ID_A})
     assert sealed.status_code == 200
-    assert play_active_run_path(tmp_path).is_file()
+    assert not play_active_run_path(tmp_path).exists()
+    assert sealed.json()["run_id"] == RUN_ID_A
 
 
 def test_valid_selection_is_idempotent_and_last_explicit_run_wins(
@@ -124,12 +125,11 @@ def test_valid_selection_is_idempotent_and_last_explicit_run_wins(
     first_response = client.put("/api/live/play-active-run", json={"run_id": RUN_ID_A})
     assert first_response.status_code == 200
     first = first_response.json()
-    bytes_before = play_active_run_path(tmp_path).read_bytes()
 
     replay_response = client.put("/api/live/play-active-run", json={"run_id": RUN_ID_A})
     assert replay_response.status_code == 200
     assert replay_response.json() == first
-    assert play_active_run_path(tmp_path).read_bytes() == bytes_before
+    assert not play_active_run_path(tmp_path).exists()
 
     replaced = client.put("/api/live/play-active-run", json={"run_id": RUN_ID_B})
     assert replaced.status_code == 200
@@ -140,15 +140,21 @@ def test_valid_selection_is_idempotent_and_last_explicit_run_wins(
     assert reread.json() == replaced.json()
 
 
-def test_malformed_selection_fails_closed_over_http(
+def test_legacy_file_malformation_is_ignored_over_http(
     client: TestClient,
     tmp_path: Path,
 ) -> None:
     path = play_active_run_path(tmp_path)
     path.parent.mkdir(parents=True)
-    path.write_text('{"schema_version":"dmb_play_active_run_v1","run_id":"broken"}\n')
+    payload = '{"schema_version":"dmb_play_active_run_v1","run_id":"broken"}\n'
+    path.write_text(payload)
 
     response = client.get("/api/live/play-active-run")
 
-    assert response.status_code == 500
-    assert "malformed persisted" in response.json()["detail"]
+    assert response.status_code == 200
+    assert response.json() == {
+        "schema_version": "dmb_play_active_run_v1",
+        "run_id": None,
+        "selected_at": None,
+    }
+    assert path.read_text() == payload
