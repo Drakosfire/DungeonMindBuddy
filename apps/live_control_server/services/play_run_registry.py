@@ -417,17 +417,7 @@ def get_play_run(root: Path, run_id: str) -> PlayRunRecord:
         aggregate = get_play_run_aggregate(canonical_run_id)
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc
-    record = _record_from_play_run(aggregate.run)
-    if not _progress_is_empty(record.progress):
-        from apps.live_control_server.services.play_run_reference_manifest import (
-            parse_manifest_payload,
-        )
-
-        parsed = parse_manifest_payload(
-            aggregate.manifest.manifest, run_id=record.run_id
-        )
-        _admit_progress(record.progress, manifest=parsed, status_code=500)
-    return record
+    return _record_from_play_run(aggregate.run)
 
 
 def list_play_runs(

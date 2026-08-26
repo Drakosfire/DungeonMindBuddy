@@ -103,6 +103,69 @@ def _derive_manifest_document(
     return manifest.model_dump(mode="json", exclude_none=True)
 
 
+def _parse_manifest_document(payload: dict, *, run_id: UUID):
+    from apps.live_control_server.services.play_run_reference_manifest import (
+        PlayRunReferenceManifestError,
+        parse_manifest_payload,
+    )
+
+    try:
+        return parse_manifest_payload(payload, run_id=str(run_id))
+    except PlayRunReferenceManifestError as exc:
+        raise ApplicationStateIntegrityError(str(exc), status_code=exc.status_code) from exc
+
+
+def _require_same_grammar(
+    source_payload: dict, target_payload: dict, *, run_id: UUID
+) -> None:
+    source = _parse_manifest_document(source_payload, run_id=run_id)
+    target = _parse_manifest_document(target_payload, run_id=run_id)
+    if source.schema_version != target.schema_version:
+        raise ApplicationStateConflictError(
+            "cross-grammar Play Run rebase is fail-closed"
+        )
+
+
+def require_persisted_progress_integrity(
+    progress: dict, manifest_payload: dict, *, run_id: UUID
+) -> None:
+    """Reject corrupt stored progress rather than canonicalize it on read."""
+    from apps.live_control_server.services.play_run_registry import (
+        PlayRunProgress,
+        PlayRunRegistryError,
+        _admit_progress,
+        _progress_is_empty,
+    )
+
+    try:
+        parsed_progress = PlayRunProgress.model_validate(progress)
+    except Exception as exc:
+        raise ApplicationStateIntegrityError(
+            f"persisted Play Run progress is malformed: {exc}"
+        ) from exc
+    if _progress_is_empty(parsed_progress):
+        return
+    parsed_manifest = _parse_manifest_document(manifest_payload, run_id=run_id)
+    try:
+        admitted = _admit_progress(
+            parsed_progress, manifest=parsed_manifest, status_code=500
+        )
+    except PlayRunRegistryError as exc:
+        raise ApplicationStateIntegrityError(str(exc), status_code=500) from exc
+    if parsed_progress.resolved_beat_ids != admitted.resolved_beat_ids:
+        raise ApplicationStateIntegrityError(
+            "persisted resolved_beat_ids must be duplicate-free and lexicographically sorted"
+        )
+
+
+def _readable_aggregate(run: PlayRun, manifest: PlayRunManifest | None) -> PlayRunAggregate:
+    coherent = _require_coherent_manifest(run, manifest)
+    require_persisted_progress_integrity(
+        run.progress, coherent.manifest, run_id=run.run_id
+    )
+    return PlayRunAggregate(run=run, manifest=coherent)
+
+
 def _admit_progress_payload(
     progress: dict, manifest_payload: dict, *, run_id: UUID, status_code: int
 ) -> dict:
@@ -120,17 +183,15 @@ def _admit_progress_payload(
         and canonical["selections"] == {}
         and canonical["notes_by_element_id"] == {}
     ):
+        _parse_manifest_document(manifest_payload, run_id=run_id)
         return canonical
     from apps.live_control_server.services.play_run_registry import (
         PlayRunProgress,
         PlayRunRegistryError,
         _admit_progress,
     )
-    from apps.live_control_server.services.play_run_reference_manifest import (
-        parse_manifest_payload,
-    )
 
-    parsed = parse_manifest_payload(manifest_payload, run_id=str(run_id))
+    parsed = _parse_manifest_document(manifest_payload, run_id=run_id)
     try:
         admitted = _admit_progress(
             PlayRunProgress.model_validate(progress),
@@ -159,7 +220,7 @@ def create_play_run(
     with unit_of_work(dsn) as conn:
         existing = repo.get_run(conn, canonical_run_id)
         if existing is not None:
-            manifest = _require_coherent_manifest(
+            aggregate = _readable_aggregate(
                 existing, repo.get_manifest(conn, canonical_run_id)
             )
             if _binding_matches(
@@ -168,7 +229,7 @@ def create_play_run(
                 revision_n=revision_n,
                 sha256=expected_playable_content_sha256,
             ):
-                return PlayRunAggregate(run=existing, manifest=manifest)
+                return aggregate
             raise ApplicationStateConflictError(
                 "run_id is already bound to a different Playable revision"
             )
@@ -227,8 +288,7 @@ def get_play_run_aggregate(run_id: UUID | str) -> PlayRunAggregate:
         run = repo.get_run(conn, canonical_run_id)
         if run is None:
             raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
-        manifest = _require_coherent_manifest(run, repo.get_manifest(conn, canonical_run_id))
-        return PlayRunAggregate(run=run, manifest=manifest)
+        return _readable_aggregate(run, repo.get_manifest(conn, canonical_run_id))
 
 
 def get_play_run_manifest(run_id: UUID | str) -> PlayRunManifest:
@@ -260,8 +320,9 @@ def list_play_run_aggregates(
         )
         aggregates: list[PlayRunAggregate] = []
         for run in runs:
-            manifest = _require_coherent_manifest(run, repo.get_manifest(conn, run.run_id))
-            aggregates.append(PlayRunAggregate(run=run, manifest=manifest))
+            aggregates.append(
+                _readable_aggregate(run, repo.get_manifest(conn, run.run_id))
+            )
         return aggregates
 
 
@@ -333,6 +394,9 @@ def rebase_play_run(
             and run.playable_content_sha256 == target_playable_content_sha256
         )
         if same_target:
+            require_persisted_progress_integrity(
+                run.progress, manifest.manifest, run_id=canonical_run_id
+            )
             if run.run_revision == expected:
                 return PlayRunAggregate(run=run, manifest=manifest)
             if (
@@ -371,6 +435,10 @@ def rebase_play_run(
             playable_revision=admitted.work_revision.revision_n,
             playable_content_sha256=admitted.work_revision.content_sha256,
             sealed_at=now,
+        )
+        _require_same_grammar(manifest.manifest, document, run_id=canonical_run_id)
+        require_persisted_progress_integrity(
+            run.progress, manifest.manifest, run_id=canonical_run_id
         )
         _admit_progress_payload(
             run.progress, document, run_id=canonical_run_id, status_code=409
