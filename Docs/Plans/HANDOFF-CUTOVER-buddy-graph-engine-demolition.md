@@ -6,7 +6,7 @@ pr_body_template: |
   - Direction: DESIGN → REVIEW
   - Handoff: `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`
   - Implementation repository: `Drakosfire/DungeonMindBuddy`
-  - Exact design base: `d96a21363fd0decbcb8c4390f951a6316b53060c`
+  - Exact design base: `f1fd3f6aa4270de2af44a4e249f127332622b785`
   - Design PR #647 merge: `d96a21363fd0decbcb8c4390f951a6316b53060c`
   - Accepted design head: `1f5676c204ee917d18efd553106c07306541e820`
   - Design review: Cycle 7 PASS-equivalent `5034239255`
@@ -55,8 +55,9 @@ pr_body_template: |
 **Workstream / flow:** `CUTOVER`
 **Direction:** DESIGN → REVIEW
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`
-**Exact design base / current `main`:** `d96a21363fd0decbcb8c4390f951a6316b53060c` — #647 merge
+**Exact design base:** `f1fd3f6aa4270de2af44a4e249f127332622b785` — APP-STATE Play persistence demolition on top of #649
 **Design merge:** `d96a21363fd0decbcb8c4390f951a6316b53060c`
+**Current `main`:** `cc016661f80416e0816f56349217cf33c53a195f` — #650 APP-STATE merge; disjoint from this design
 **Accepted design head:** `1f5676c204ee917d18efd553106c07306541e820`
 **Cycle 7 review:** PASS-equivalent `5034239255`
 **Cycle 1 review:** REQUEST-CHANGES-equivalent `5026690745` on `e7b34502eb3a7a3fcc8b716ef4a25a5bb7fc9db2`
