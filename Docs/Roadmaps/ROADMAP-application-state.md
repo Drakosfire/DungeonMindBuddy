@@ -1,6 +1,6 @@
 # ROADMAP — Application State
 
-**Status:** ACTIVE — AS0, AS0.1, and AS1 merged; AS2 Playable Runbook revisions is this implementation PR
+**Status:** ACTIVE — AS0, AS0.1, AS1, and AS2 merged; AS3 transactional Play Runtime is this implementation PR
 **Line of work / flow:** `APP-STATE`
 **Created:** 2026-08-24
 **Updated:** 2026-08-25
@@ -17,13 +17,18 @@
 **AS1 review:** 3 distinct-head cycles; final PASS-equivalent review `5023488870`
 **AS1 execution evidence:** PR #641 comment `5415847095`
 
+**AS2 merge:** `b4d63daab3eeb8150ca73fe9492d7a3d8744a4e0` (PR #643)
+**AS2 accepted head:** `6b1c2e77648eee6180d293c92d2c97a428e9002f`
+**AS2 review:** 3 distinct-head cycles; final PASS-equivalent review `5024971680`
+**AS2 exact-head evidence:** PR #643 comment `5417774447`
+
 This roadmap is **capability-sequenced**. It is not a table-creation schedule.
 Each implementation slice must leave a real consumer working on PostgreSQL, then
 delete or fail-close the replaced file authority for that consumer.
 
 AS0 established the shared substrate. AS0.1 / PR #639 widened identity/asset
-scope. **AS1 is DONE.** **AS2 is this PR and remains Runbook/Playable-read only.**
-Do not mark AS2 merged here.
+scope. **AS1 is DONE.** **AS2 is DONE.** **AS3 is this PR and remains Runtime-only.**
+Do not mark AS3 merged here.
 
 ---
 
@@ -33,15 +38,16 @@ Do not mark AS2 merged here.
 AS0   DESIGN                 DONE — PR #636 merge 4c90df35
 AS0.1 STORAGE-TOPOLOGY       DONE — PR #639 merge dd09f7f7
 AS1   PLAN DOCUMENTS         DONE — PR #641 merge 29ff1584
-AS2   PLAYABLE               THIS PR — runbook WorkRevisions historically addressable
-AS3   PLAY RUNTIME           Run + sealed manifest in one transaction
+AS2   PLAYABLE               DONE — PR #643 merge b4d63daa
+AS3   PLAY RUNTIME           THIS PR — Run + sealed manifest in one transaction
 AS4   PLAY CONTINUITY        active Run + resume/reload
 AS5   PLAY DEMOLITION        delete replaced Play file writers/locks/intents
 AS6+  CANDIDATE FAMILIES     evidence-driven; not pre-authorized schemas
 ```
 
-BF2/BF3 Play Runtime/cockpit deepening stays paused on the file-backed store
-until AS3/AS4 land or the steward explicitly re-sequences.
+BF2/BF3 Play Runtime/cockpit deepening stays paused on the remaining
+file-backed `active-run.json` pointer until AS4 lands or the steward explicitly
+re-sequences.
 
 Order after AS5 is evidence-driven and may interleave with Play/Agent/CUTOVER
 work. Do not invent AS6/AS7 implementation handoffs or table names to fill this
@@ -106,7 +112,7 @@ domains must use.
 
 | Field | Content |
 |---|---|
-| Status | **this PR** — not merged; do not invent the AS2 merge SHA |
+| Status | **DONE** — merged PR #643 at `b4d63daab3eeb8150ca73fe9492d7a3d8744a4e0` (accepted head `6b1c2e77648eee6180d293c92d2c97a428e9002f`; 3 review cycles; final PASS-equivalent review `5024971680`; evidence comment `5417774447`) |
 | Independently useful outcome | Runbook/Playable documents use the same WorkObject primitives; revision N remains loadable after N+1 is committed |
 | Primary consumer/story | Plan edits Playable; Play will pin exact revisions (Runs still file-backed until AS3, but must be able to **read** historical WorkRevisions) |
 | Predecessor | AS1 plan-kind substrate in production |
@@ -121,7 +127,7 @@ domains must use.
 
 | Field | Content |
 |---|---|
-| Status | blocked on AS2 |
+| Status | **this PR** — not merged; do not invent the AS3 merge SHA |
 | Independently useful outcome | Creating a Run seals its manifest in one PostgreSQL transaction; progress CAS is a single-row update; rebase is one transaction with no intent file |
 | Primary consumer/story | Play Run create/list/get/progress; preserve-only rebase; CR-U17 table durability |
 | Predecessor | AS2 historical Playable revisions |
@@ -188,7 +194,8 @@ Do not start any of these by creating unused tables in AS1.
 - CUTOVER D.2/D.3 may resume in parallel **if** write leases do not overlap.
   AS1's likely overlap is `pyproject.toml` / server bootstrap — serialize then.
 - Open at this correction: CUTOVER PR #638 (`HANDOFF-CUTOVER-worldbuilding-authority-port.md` only) does not overlap these four files.
-- PLAY-SURFACE BF2/BF3 remain paused on file-backed Runtime until AS3/AS4 or steward re-sequence.
+- PLAY-SURFACE BF2/BF3 remain paused on the remaining `active-run.json` file
+  pointer until AS4 or steward re-sequence.
 - CON-READY stories are acceptance context, not a license to bundle Combat or Ingest into AS1.
 
 ---
