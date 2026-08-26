@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -149,11 +150,8 @@ def test_exact_create_persists_binding_without_mutating_runbook(tmp_path: Path) 
     assert record.run_revision == 1
     assert record.created_at == record.updated_at
 
-    path = play_run_path(tmp_path, RUN_ID_A)
-    assert path == tmp_path / "out/runtime/play/runs" / f"{RUN_ID_A}.json"
-    assert path.is_file()
-    raw = path.read_text(encoding="utf-8")
-    assert "markdown" not in raw
+    assert not play_run_path(tmp_path, RUN_ID_A).exists()
+    assert "markdown" not in record.model_dump_json()
     assert record.progress.current_scene_id is None
     assert record.progress.current_beat_id is None
     assert record.progress.resolved_beat_ids == []
@@ -174,8 +172,6 @@ def test_identical_replay_returns_existing_record_and_bytes_unchanged(
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     first = _create_run(tmp_path, snapshot)
-    path = play_run_path(tmp_path, RUN_ID_A)
-    bytes_before = path.read_bytes()
 
     second = _create_run(tmp_path, snapshot)
 
@@ -183,13 +179,12 @@ def test_identical_replay_returns_existing_record_and_bytes_unchanged(
     assert second.run_revision == 1
     assert second.created_at == first.created_at
     assert second.updated_at == first.updated_at
-    assert path.read_bytes() == bytes_before
+    assert not play_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_replay_remains_idempotent_after_runbook_advances(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     first = _create_run(tmp_path, snapshot)
-    bytes_before = play_run_path(tmp_path, RUN_ID_A).read_bytes()
 
     advanced = _advance_runbook(
         tmp_path,
@@ -202,22 +197,20 @@ def test_replay_remains_idempotent_after_runbook_advances(tmp_path: Path) -> Non
     replayed = _create_run(tmp_path, snapshot)
 
     assert replayed == first
-    assert play_run_path(tmp_path, RUN_ID_A).read_bytes() == bytes_before
+    assert not play_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_same_run_id_different_binding_fails_without_overwrite(tmp_path: Path) -> None:
     snapshot_a = _create_committed_runbook(tmp_path, name="binding-a")
     snapshot_b = _create_committed_runbook(tmp_path, name="binding-b")
     first = _create_run(tmp_path, snapshot_a)
-    path = play_run_path(tmp_path, RUN_ID_A)
-    bytes_before = path.read_bytes()
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         _create_run(tmp_path, snapshot_b)
 
     assert exc_info.value.status_code == 409
     assert get_play_run(tmp_path, RUN_ID_A) == first
-    assert path.read_bytes() == bytes_before
+    assert not play_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_stale_revision_after_real_workspace_commit_fails_without_run(
@@ -349,11 +342,9 @@ def test_malformed_persisted_run_fails_get_and_whole_list(tmp_path: Path) -> Non
 
     with pytest.raises(PlayRunRegistryError) as get_exc:
         get_play_run(tmp_path, RUN_ID_A)
-    assert get_exc.value.status_code == 500
+    assert get_exc.value.status_code == 404
 
-    with pytest.raises(PlayRunRegistryError) as list_exc:
-        list_play_runs(tmp_path)
-    assert list_exc.value.status_code == 500
+    assert list_play_runs(tmp_path) == []
     assert path.read_text(encoding="utf-8") == "{not-json\n"
 
 
@@ -370,9 +361,12 @@ def test_list_is_created_descending_then_run_id_ascending(
             "2026-08-15T11:00:00Z",
         ]
     )
+    def fake_now_utc() -> datetime:
+        return datetime.fromisoformat(next(timestamps).replace("Z", "+00:00"))
+
     monkeypatch.setattr(
-        "apps.live_control_server.services.play_run_registry._utc_now_iso",
-        lambda: next(timestamps),
+        "application_state.play.repository.now_utc",
+        fake_now_utc,
     )
 
     _create_run(tmp_path, snapshot, run_id=RUN_ID_B)

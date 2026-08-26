@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event, Thread
 
@@ -8,10 +9,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
-from apps.live_control_server.services import play_run_registry
 from apps.live_control_server.services.play_run_registry import (
     PLAY_RUN_RECORD_SCHEMA,
     PlayRunRegistryError,
+    create_or_replay_play_run,
     get_play_run,
     list_play_runs,
     play_runs_dir,
@@ -32,6 +33,8 @@ from tests.application_state.playable_binding import (
     playable_binding,
     remember_committed_playable,
 )
+
+pytest_plugins = ["tests.application_state.conftest"]
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
@@ -98,15 +101,42 @@ def _create_committed_runbook(root: Path) -> WorkspaceDocumentSnapshot:
     return remember_committed_playable(get_workspace_document_snapshot(root, record.document_id))
 
 
-def test_list_orders_mixed_timestamp_precision_by_time_then_run_id(tmp_path: Path) -> None:
-    _persist_record(root=tmp_path, run_id=RUN_ID_B, created_at="2026-08-15T12:00:00Z")
-    _persist_record(root=tmp_path, run_id=RUN_ID_A, created_at="2026-08-15T12:00:00Z")
-    _persist_record(
-        root=tmp_path,
-        run_id=RUN_ID_C,
-        created_at="2026-08-15T12:00:00.500000Z",
+def _create_run(root: Path, snapshot: WorkspaceDocumentSnapshot, *, run_id: str) -> None:
+    revision_n, sha = playable_binding(snapshot)
+    create_or_replay_play_run(
+        root,
+        run_id=run_id,
+        playable_artifact_id=snapshot.record.document_id,
+        expected_playable_revision=revision_n,
+        expected_playable_content_sha256=sha,
     )
-    _persist_record(root=tmp_path, run_id=RUN_ID_D, created_at="2026-08-15T11:00:00Z")
+
+
+def test_list_orders_mixed_timestamp_precision_by_time_then_run_id(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot = _create_committed_runbook(tmp_path)
+    timestamps = iter(
+        [
+            "2026-08-15T12:00:00Z",
+            "2026-08-15T12:00:00Z",
+            "2026-08-15T12:00:00.500000Z",
+            "2026-08-15T11:00:00Z",
+        ]
+    )
+
+    def fake_now_utc() -> datetime:
+        return datetime.fromisoformat(next(timestamps).replace("Z", "+00:00"))
+
+    monkeypatch.setattr(
+        "application_state.play.repository.now_utc",
+        fake_now_utc,
+    )
+    _create_run(tmp_path, snapshot, run_id=RUN_ID_B)
+    _create_run(tmp_path, snapshot, run_id=RUN_ID_A)
+    _create_run(tmp_path, snapshot, run_id=RUN_ID_C)
+    _create_run(tmp_path, snapshot, run_id=RUN_ID_D)
 
     assert [record.run_id for record in list_play_runs(tmp_path)] == [
         RUN_ID_C,
@@ -128,7 +158,7 @@ def test_persisted_run_id_must_match_filename_identity(tmp_path: Path) -> None:
     with pytest.raises(PlayRunRegistryError) as exc_info:
         get_play_run(tmp_path, RUN_ID_A)
 
-    assert exc_info.value.status_code == 500
+    assert exc_info.value.status_code == 404
     assert mismatched.is_file()
 
 
@@ -160,27 +190,34 @@ def test_new_run_commit_holds_runbook_mutation_lock_through_atomic_write(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
-    write_entered = Event()
-    allow_write = Event()
+    insert_entered = Event()
+    allow_insert = Event()
     mutation_started = Event()
     mutation_done = Event()
     create_errors: list[BaseException] = []
     mutation_errors: list[BaseException] = []
     created_records = []
-    real_write_json = play_run_registry.write_json
+    real_insert_manifest = None
 
-    def blocking_write_json(path: Path, data: object) -> None:
-        write_entered.set()
-        if not allow_write.wait(timeout=2.0):
-            raise AssertionError("timed out waiting to release Run write")
-        real_write_json(path, data)
+    import application_state.play.repository as play_repository
 
-    monkeypatch.setattr(play_run_registry, "write_json", blocking_write_json)
+    real_insert_manifest = play_repository.insert_manifest
+
+    def blocking_insert_manifest(conn, manifest):
+        insert_entered.set()
+        if not allow_insert.wait(timeout=2.0):
+            raise AssertionError("timed out waiting to release manifest insert")
+        return real_insert_manifest(conn, manifest)
+
+    monkeypatch.setattr(
+        "application_state.play.repository.insert_manifest",
+        blocking_insert_manifest,
+    )
 
     def create_run() -> None:
         try:
             created_records.append(
-                play_run_registry.create_or_replay_play_run(
+                create_or_replay_play_run(
                     tmp_path,
                     run_id=RUN_ID_A,
                     playable_artifact_id=snapshot.record.document_id,
@@ -207,16 +244,16 @@ def test_new_run_commit_holds_runbook_mutation_lock_through_atomic_write(
 
     create_thread = Thread(target=create_run, daemon=True)
     create_thread.start()
-    assert write_entered.wait(timeout=2.0)
+    assert insert_entered.wait(timeout=2.0)
 
     mutation_thread = Thread(target=mutate_runbook, daemon=True)
     mutation_thread.start()
     assert mutation_started.wait(timeout=2.0)
 
     try:
-        assert mutation_done.wait(timeout=2.0)
+        assert not mutation_done.wait(timeout=0.2)
     finally:
-        allow_write.set()
+        allow_insert.set()
 
     create_thread.join(timeout=2.0)
     mutation_thread.join(timeout=2.0)

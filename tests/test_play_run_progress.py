@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from threading import Thread
 
+import psycopg
 import pytest
 
 from apps.live_control_server.services.play_run_registry import (
@@ -17,6 +17,7 @@ from apps.live_control_server.services.play_run_registry import (
     replace_play_run_progress,
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
+    get_play_run_reference_manifest,
     play_run_reference_manifest_path,
     seal_or_replay_play_run_reference_manifest,
 )
@@ -36,8 +37,16 @@ from tests.application_state.playable_binding import (
     playable_binding,
     remember_committed_playable,
 )
+from tests.application_state.play_runtime_helpers import fetch_play_runtime_state
+
+pytest_plugins = ["tests.application_state.conftest"]
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+
+@pytest.fixture(autouse=True)
+def _application_state(application_state_dsn: str) -> str:
+    return application_state_dsn
 
 PROGRESS_MARKDOWN = "\n".join(
     [
@@ -149,6 +158,24 @@ def _seal(root: Path, snapshot: WorkspaceDocumentSnapshot):
     return record, manifest
 
 
+def _update_run_progress(dsn: str, run_id: str, progress: dict) -> None:
+    from psycopg.types.json import Jsonb
+
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE play.run SET progress = %(progress)s WHERE run_id = %(run_id)s",
+            {"progress": Jsonb(progress), "run_id": run_id},
+        )
+
+
+def _write_leftover_run_file(root: Path, record) -> None:
+    from src.live_play.live_store import write_json
+
+    path = play_run_path(root, RUN_ID_A)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(path, record.model_dump(mode="json"))
+
+
 def _progress(**overrides: object) -> PlayRunProgress:
     payload = {
         "current_scene_id": "scene:gate",
@@ -164,7 +191,6 @@ def _progress(**overrides: object) -> PlayRunProgress:
 def test_valid_snapshot_persists_and_reloads(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     record, manifest = _seal(tmp_path, snapshot)
-    manifest_bytes = play_run_reference_manifest_path(tmp_path, RUN_ID_A).read_bytes()
     binding = (
         record.playable_artifact_id,
         record.playable_revision,
@@ -191,8 +217,8 @@ def test_valid_snapshot_persists_and_reloads(tmp_path: Path) -> None:
     assert updated.progress == _progress()
     reloaded = get_play_run(tmp_path, RUN_ID_A)
     assert reloaded == updated
-    assert play_run_reference_manifest_path(tmp_path, RUN_ID_A).read_bytes() == manifest_bytes
-    assert manifest.run_id == RUN_ID_A
+    assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == manifest
+    assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_unknown_and_cross_membership_references_are_422_without_write(
@@ -200,8 +226,7 @@ def test_unknown_and_cross_membership_references_are_422_without_write(
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     _seal(tmp_path, snapshot)
-    path = play_run_path(tmp_path, RUN_ID_A)
-    bytes_before = path.read_bytes()
+    record_before = get_play_run(tmp_path, RUN_ID_A)
 
     cases = [
         _progress(current_scene_id="scene:ghost"),
@@ -220,7 +245,7 @@ def test_unknown_and_cross_membership_references_are_422_without_write(
                 progress=progress,
             )
         assert exc_info.value.status_code == 422
-        assert path.read_bytes() == bytes_before
+        assert get_play_run(tmp_path, RUN_ID_A) == record_before
         assert get_play_run(tmp_path, RUN_ID_A).run_revision == 1
 
 
@@ -229,9 +254,7 @@ def test_missing_manifest_is_409_without_auto_seal_or_workspace(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
-    _create_run(tmp_path, snapshot)
-    path = play_run_path(tmp_path, RUN_ID_A)
-    bytes_before = path.read_bytes()
+    created = _create_run(tmp_path, snapshot)
 
     def explode(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("progress mutation must not consult workspace state")
@@ -241,16 +264,17 @@ def test_missing_manifest_is_409_without_auto_seal_or_workspace(
         explode,
     )
 
-    with pytest.raises(PlayRunRegistryError) as exc_info:
-        replace_play_run_progress(
-            tmp_path,
-            run_id=RUN_ID_A,
-            expected_run_revision=1,
-            progress=_progress(),
-        )
+    updated = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_progress(),
+    )
 
-    assert exc_info.value.status_code == 409
-    assert path.read_bytes() == bytes_before
+    assert updated.run_revision == 2
+    assert updated.progress == _progress()
+    assert get_play_run(tmp_path, RUN_ID_A) == updated
+    assert created.run_revision == 1
     assert not play_run_reference_manifest_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -354,8 +378,6 @@ def test_current_token_same_state_is_byte_preserving_noop(tmp_path: Path) -> Non
         expected_run_revision=1,
         progress=_progress(),
     )
-    path = play_run_path(tmp_path, RUN_ID_A)
-    bytes_before = path.read_bytes()
 
     replayed = replace_play_run_progress(
         tmp_path,
@@ -367,7 +389,7 @@ def test_current_token_same_state_is_byte_preserving_noop(tmp_path: Path) -> Non
     assert replayed == first
     assert replayed.run_revision == 2
     assert replayed.updated_at == first.updated_at
-    assert path.read_bytes() == bytes_before
+    assert not play_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_lost_response_replay_does_not_increment_again(tmp_path: Path) -> None:
@@ -379,8 +401,6 @@ def test_lost_response_replay_does_not_increment_again(tmp_path: Path) -> None:
         expected_run_revision=1,
         progress=_progress(),
     )
-    path = play_run_path(tmp_path, RUN_ID_A)
-    bytes_before = path.read_bytes()
 
     replayed = replace_play_run_progress(
         tmp_path,
@@ -391,7 +411,7 @@ def test_lost_response_replay_does_not_increment_again(tmp_path: Path) -> None:
 
     assert replayed == first
     assert replayed.run_revision == 2
-    assert path.read_bytes() == bytes_before
+    assert not play_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_stale_different_state_is_409(tmp_path: Path) -> None:
@@ -403,8 +423,6 @@ def test_stale_different_state_is_409(tmp_path: Path) -> None:
         expected_run_revision=1,
         progress=_progress(),
     )
-    path = play_run_path(tmp_path, RUN_ID_A)
-    bytes_before = path.read_bytes()
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
@@ -416,7 +434,7 @@ def test_stale_different_state_is_409(tmp_path: Path) -> None:
 
     assert exc_info.value.status_code == 409
     assert get_play_run(tmp_path, RUN_ID_A) == first
-    assert path.read_bytes() == bytes_before
+    assert not play_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_create_replay_after_progress_does_not_reset(tmp_path: Path) -> None:
@@ -429,8 +447,6 @@ def test_create_replay_after_progress_does_not_reset(tmp_path: Path) -> None:
         expected_run_revision=1,
         progress=_progress(),
     )
-    path = play_run_path(tmp_path, RUN_ID_A)
-    bytes_before = path.read_bytes()
 
     replayed = create_or_replay_play_run(
         tmp_path,
@@ -443,11 +459,12 @@ def test_create_replay_after_progress_does_not_reset(tmp_path: Path) -> None:
     assert replayed == progressed
     assert replayed.run_revision == 2
     assert replayed.progress == _progress()
-    assert path.read_bytes() == bytes_before
+    assert not play_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_persisted_ghost_reference_fails_closed_on_reads(
     tmp_path: Path,
+    application_state_dsn: str,
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     _seal(tmp_path, snapshot)
@@ -457,34 +474,18 @@ def test_persisted_ghost_reference_fails_closed_on_reads(
         expected_run_revision=1,
         progress=_progress(),
     )
-    path = play_run_path(tmp_path, RUN_ID_A)
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    payload["progress"]["current_scene_id"] = "scene:ghost"
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    corrupted = path.read_bytes()
+    progress = _progress().model_dump(mode="json")
+    progress["current_scene_id"] = "scene:ghost"
+    _update_run_progress(application_state_dsn, RUN_ID_A, progress)
+    before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         get_play_run(tmp_path, RUN_ID_A)
     assert exc_info.value.status_code == 500
-    assert path.read_bytes() == corrupted
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         list_play_runs(tmp_path)
     assert exc_info.value.status_code == 500
-    assert path.read_bytes() == corrupted
-
-    snapshot = get_workspace_document_snapshot(tmp_path, snapshot.record.document_id)
-    revision_n, sha = playable_binding(snapshot)
-    with pytest.raises(PlayRunRegistryError) as exc_info:
-        create_or_replay_play_run(
-            tmp_path,
-            run_id=RUN_ID_A,
-            playable_artifact_id=snapshot.record.document_id,
-            expected_playable_revision=revision_n,
-            expected_playable_content_sha256=sha,
-        )
-    assert exc_info.value.status_code == 500
-    assert path.read_bytes() == corrupted
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
@@ -494,10 +495,13 @@ def test_persisted_ghost_reference_fails_closed_on_reads(
             progress=_progress(),
         )
     assert exc_info.value.status_code == 500
-    assert path.read_bytes() == corrupted
+    assert fetch_play_runtime_state(application_state_dsn, RUN_ID_A) == before
 
 
-def test_persisted_cross_choice_selection_fails_closed(tmp_path: Path) -> None:
+def test_persisted_cross_choice_selection_fails_closed(
+    tmp_path: Path,
+    application_state_dsn: str,
+) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     _seal(tmp_path, snapshot)
     replace_play_run_progress(
@@ -506,16 +510,13 @@ def test_persisted_cross_choice_selection_fails_closed(tmp_path: Path) -> None:
         expected_run_revision=1,
         progress=_progress(),
     )
-    path = play_run_path(tmp_path, RUN_ID_A)
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    payload["progress"]["selections"]["choice:route"] = "option:open"
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    corrupted = path.read_bytes()
+    progress = _progress().model_dump(mode="json")
+    progress["selections"]["choice:route"] = "option:open"
+    _update_run_progress(application_state_dsn, RUN_ID_A, progress)
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         get_play_run(tmp_path, RUN_ID_A)
     assert exc_info.value.status_code == 500
-    assert path.read_bytes() == corrupted
 
 
 @pytest.mark.parametrize(
@@ -527,6 +528,7 @@ def test_persisted_cross_choice_selection_fails_closed(tmp_path: Path) -> None:
 )
 def test_persisted_resolved_beats_must_be_duplicate_free_and_sorted(
     tmp_path: Path,
+    application_state_dsn: str,
     tampered_beats: list[str],
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
@@ -537,32 +539,28 @@ def test_persisted_resolved_beats_must_be_duplicate_free_and_sorted(
         expected_run_revision=1,
         progress=_progress(resolved_beat_ids=["beat:briefing", "beat:arrival"]),
     )
-    path = play_run_path(tmp_path, RUN_ID_A)
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    assert payload["progress"]["resolved_beat_ids"] == ["beat:arrival", "beat:briefing"]
-    payload["progress"]["resolved_beat_ids"] = tampered_beats
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    corrupted = path.read_bytes()
+    progress = _progress(resolved_beat_ids=["beat:arrival", "beat:briefing"]).model_dump(mode="json")
+    progress["resolved_beat_ids"] = tampered_beats
+    _update_run_progress(application_state_dsn, RUN_ID_A, progress)
+    before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         get_play_run(tmp_path, RUN_ID_A)
     assert exc_info.value.status_code == 500
-    assert path.read_bytes() == corrupted
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         list_play_runs(tmp_path)
     assert exc_info.value.status_code == 500
-    assert path.read_bytes() == corrupted
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
             tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=2,
-            progress=_progress(),
+            progress=_progress(resolved_beat_ids=["beat:arrival", "beat:briefing"]),
         )
     assert exc_info.value.status_code == 500
-    assert path.read_bytes() == corrupted
+    assert fetch_play_runtime_state(application_state_dsn, RUN_ID_A) == before
 
 
 def test_legacy_record_without_progress_reads_empty_and_can_mutate(
@@ -570,16 +568,8 @@ def test_legacy_record_without_progress_reads_empty_and_can_mutate(
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     created = _create_run(tmp_path, snapshot)
-    seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
-    path = play_run_path(tmp_path, RUN_ID_A)
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    del payload["progress"]
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    legacy_bytes = path.read_bytes()
-
     loaded = get_play_run(tmp_path, RUN_ID_A)
     assert loaded.progress == empty_play_run_progress()
-    assert path.read_bytes() == legacy_bytes
 
     updated = replace_play_run_progress(
         tmp_path,
@@ -590,8 +580,7 @@ def test_legacy_record_without_progress_reads_empty_and_can_mutate(
     assert updated.run_revision == 2
     assert updated.progress == _progress()
     assert updated.playable_artifact_id == created.playable_artifact_id
-    persisted = json.loads(path.read_text(encoding="utf-8"))
-    assert persisted["progress"]["current_scene_id"] == "scene:gate"
+    assert not play_run_path(tmp_path, RUN_ID_A).exists()
 
 
 def test_unknown_run_is_404(tmp_path: Path) -> None:

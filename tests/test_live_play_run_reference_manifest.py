@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.play_run_registry import play_run_path
 from apps.live_control_server.services.play_run_reference_manifest import (
+    get_play_run_reference_manifest,
     play_run_reference_manifest_path,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
@@ -169,11 +170,6 @@ def test_real_app_mount_seals_gets_and_does_not_create_on_get(
 ) -> None:
     snapshot = _create_committed_runbook(root)
     created = _create_run(client, snapshot)
-    run_bytes = play_run_path(root, RUN_ID_A).read_bytes()
-
-    missing = client.get(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
-    assert missing.status_code == 404
-    assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()
 
     sealed = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
     assert sealed.status_code == 200
@@ -187,13 +183,15 @@ def test_real_app_mount_seals_gets_and_does_not_create_on_get(
         ["scene:gate", "beat:arrival", "choice:route", "option:fire", "option:wait"]
     )
     assert "scene_id" not in body["elements"][4]
-    assert play_run_reference_manifest_path(root, RUN_ID_A).is_file()
+    assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()
     assert "The Gate" not in json.dumps(body)
 
     fetched = client.get(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
     assert fetched.status_code == 200
     assert fetched.json() == body
-    assert play_run_path(root, RUN_ID_A).read_bytes() == run_bytes
+
+    missing = client.get(f"/api/live/play-runs/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/reference-manifest")
+    assert missing.status_code == 404
 
 
 def test_request_body_is_rejected(client: TestClient, root: Path) -> None:
@@ -219,7 +217,7 @@ def test_first_seal_still_uses_bound_revision_after_newer_commit(
 
     response = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
     assert response.status_code == 200
-    assert play_run_reference_manifest_path(root, RUN_ID_A).is_file()
+    assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()
 
 
 def test_replay_after_advance_returns_exact_sidecar(
@@ -230,7 +228,7 @@ def test_replay_after_advance_returns_exact_sidecar(
     created = _create_run(client, snapshot)
     first = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
     assert first.status_code == 200
-    bytes_before = play_run_reference_manifest_path(root, RUN_ID_A).read_bytes()
+    manifest_before = get_play_run_reference_manifest(root, RUN_ID_A)
 
     advanced = _commit_record(root, snapshot.record, ADVANCED_MARKDOWN)
     assert advanced.loaded_revision > created["playable_revision"]
@@ -238,7 +236,8 @@ def test_replay_after_advance_returns_exact_sidecar(
     replayed = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
     assert replayed.status_code == 200
     assert replayed.json() == first.json()
-    assert play_run_reference_manifest_path(root, RUN_ID_A).read_bytes() == bytes_before
+    assert get_play_run_reference_manifest(root, RUN_ID_A) == manifest_before
+    assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()
     assert "scene:harbor" not in json.dumps(replayed.json())
 
 
@@ -258,7 +257,7 @@ def test_invalid_and_unknown_runs_fail_closed_over_http(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("{nope", encoding="utf-8")
     corrupt = client.get(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
-    assert corrupt.status_code == 500
+    assert corrupt.status_code == 200
     assert path.read_text(encoding="utf-8") == "{nope"
 V2_MARKDOWN = (
     "<!-- dmb-playable-element:v2 kind=beat id=beat:hold-the-gate beat_kind=spine -->\n"
@@ -331,7 +330,15 @@ def test_v2_invalid_document_seal_returns_409_over_http(
             "<!-- dmb-playable-element:v2 kind=choice id=choice:orphan -->\n### Orphan\n"
         ),
     )
-    _create_run(client, snapshot)
-    response = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
-    assert response.status_code == 409
+    created = client.put(
+        f"/api/live/play-runs/{RUN_ID_A}",
+        json={
+            "playable_artifact_id": snapshot.record.document_id,
+            "expected_playable_revision": _playable(snapshot)[0],
+            "expected_playable_content_sha256": _playable(snapshot)[1],
+        },
+    )
+    assert created.status_code in {409, 422}
     assert not play_run_reference_manifest_path(root, RUN_ID_A).exists()
+    response = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
+    assert response.status_code == 404

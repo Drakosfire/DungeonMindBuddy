@@ -5,6 +5,7 @@ from application_state.content.import_runbooks import (
     import_runbooks_from_registry,
     import_runbooks_from_snapshots,
 )
+from application_state.content.playable_admission import admit_playable_revision
 from application_state.content.service import (
     autosave_plan,
     autosave_runbook,
@@ -41,6 +42,7 @@ __all__ = [
     "WorkObject",
     "WorkRevision",
     "WorkingCopy",
+    "admit_playable_revision",
     "autosave_plan",
     "autosave_runbook",
     "commit_plan",
