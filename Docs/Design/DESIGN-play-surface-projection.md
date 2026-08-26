@@ -3,9 +3,9 @@ document_id: dmb-design-play-surface-projection
 title: Play Surface and Table Projections
 document_class: product_design
 status: active
-version: 1.1
+version: 1.2
 created_at: "2026-08-15"
-updated_at: "2026-08-21"
+updated_at: "2026-08-26"
 workstream: PLAY-SURFACE
 architecture_authority: "ARCHITECTURE-playable-material-and-runtime.md"
 surface_authority: "ARCHITECTURE-surface-interaction-layer.md"
@@ -14,7 +14,9 @@ companion_designs:
   approved_target: "DESIGN-play-surface-gm-cockpit-target.md"
 evidence:
   - "PR #578 — Of Conks / Hempholm table-ready dogfood"
-  - "C2 Session 27 native Play dogfood — BLOCKED / PLAY NOT READY (Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md)"
+  - "C2S27 native Play dogfood — unexpected-play and fast-mechanics evidence"
+  - "PR #628 — Beat-first v2 foundation"
+  - "APP-STATE AS2–AS5 — durable historical Playable + Runtime continuity"
 supersedes_direction_from:
   - "DESIGN-play-mode-runbook-product-direction.md"
   - "../Plans/DESIGN-session-runbook-command-surface.md"
@@ -28,7 +30,7 @@ supersedes_direction_from:
 
 Plan may expose preparation machinery. Build may expose durable world construction. Play must prioritize continuity of attention.
 
-The contract is:
+The central contract remains:
 
 ```text
 click / focus something useful
@@ -44,15 +46,19 @@ navigate away
 → reconstruct context manually
 ```
 
-## 1. Relationship to existing surface architecture
+The 2026-08-26 re-anchor adds one stronger C2S27 rule:
 
-`ARCHITECTURE-surface-interaction-layer.md` remains the authority for AppChrome, shared Nav/Agent/Projection/Tool/Edit hosts, Canvas host, and surface publication.
+> **Anything useful in the campaign must be reachable faster than finding where it was authored.**
 
-Play is a surface-domain publisher.
+---
 
-Play may publish:
+## 1. Relationship to shared surface architecture
 
-- current Run / Scene / Beat context;
+`ARCHITECTURE-surface-interaction-layer.md` remains authority for AppChrome, shared Nav/Agent/Projection/Tool/Edit hosts, Canvas host, and surface publication.
+
+Play is a surface-domain publisher. It may publish:
+
+- active Run + current Beat/Scene context;
 - graph/source/playable/mechanics reference resolution;
 - Play capability launchers;
 - table-specific projection renderers;
@@ -60,106 +66,158 @@ Play may publish:
 
 Play does not own shared bars or a second projection host.
 
+---
+
 ## 2. Play shell
 
-The durable Play capability family is:
+The Play capability family remains conceptually:
 
 ```text
 Play
-├── Run / Beats
+├── current moment
 ├── Combat
 ├── Roll
-├── Items
-├── Mechanics / Statblocks
-└── table projections
+├── Items / Mechanics / Statblocks
+├── object projections
+└── global / on-demand finder
 ```
 
-This is a capability family, not a requirement that every item be a permanent top-level tab.
+This is a capability family, not a requirement that every item be a permanent tab.
 
-The current PR #578 `prep` HTML host proves that these tools can be consolidated under Play. It is migration scaffolding. Permanent Play panels should become native product capabilities rather than injected legacy HTML/global scripts.
+The permanent surface is native product UI. Legacy injected prep HTML/global scripts remain migration history, not the target substrate.
 
-## 3. Default anchor: the current Beat
+---
 
-The default Play anchor is the current Runbook moment. After C2S27, the table
-hierarchy is **Beat-first**: the current Beat is the table stage, and Scenes
-and Decisions live beneath it.
+## 3. Default anchor: active Scene inside Beat context
 
-The reviewed current-moment contract is
-[`DESIGN-play-current-moment-cockpit.md`](DESIGN-play-current-moment-cockpit.md).
-It freezes the containment model (Runbook→Beat→Scene/Decision), the v2 wire
-grammar, the v2 manifest, Runtime current-position semantics, derived
-relevance, migration/rebase posture, and the ten-state interaction contract.
-This document owns the **projection behavior** over that contract; the
-contract owns the durable semantics.
-
-The shipped P1/P2 wire remains Scene-first and incompatible: Scene at H2,
-Beat/Choice at H3, Beat/Choice membership under Scene, and a current Beat
-rejected unless it belongs to the current Scene. The Beat-first projection is
-implemented only through the reviewed slice sequence
-(`HANDOFF-PLAY-SURFACE-beat-first-playable-foundation.md`), not by patching
-v1 containment.
-
-A useful hierarchy is:
+The durable hierarchy is Beat-first:
 
 ```text
-Run title
-Beat deck / phase position          ← session-scale orientation
-Current Beat stage                  ← table objective / pressure / phase
-  ├── Scenes inside this Beat       ← concrete playable situations
-  ├── Decisions / Choices           ← options + consequences + transitions
-  └── references / tools
+Runbook
+  → Beat
+      → Scene / Decision
 ```
 
-The GM should always be able to answer:
+The table projection is Scene-centered:
 
-- Where am I?
-- What is happening now?
-- What is optional?
-- What pressure should advance if they stall?
-- What can I open without leaving?
-- What happens if this resolves?
-- What did we decide, and what did that decision change?
+```text
+Run identity
+Beat context wrapper              ← objective / pressure / phase; always accessible
+Active Scene                      ← primary central workspace when present
+  ├── in-context Decisions
+  ├── immediate playable material
+  └── references / tools
+At a Glance                       ← presence inventory
+```
 
-### 3.1 Beat deck
+The GM should immediately be able to answer:
 
-Beat navigation provides session-scale orientation across the Runbook's phases.
+- What Scene are we in?
+- What Beat/context are we inside?
+- What pressure matters?
+- What are they deciding?
+- What did the last choice change?
+- What people/locations/threats/tables/notes are around this moment?
+- How do I reach something the Runbook did not predict?
 
-Expected interactions:
+### 3.1 Beat context wrapper
 
-- Previous / Next Beat;
-- select Beat directly;
-- show current position and resolved state;
-- show which Beats remain possible/relevant given recorded Decisions;
-- preserve current run state.
+Beat is session-scale context, not the dominant board when a Scene is active.
 
-Under the reviewed contract, previous/next walks the durable Beat order and
-relevance changes emphasis only — navigation is never gated by derived
-relevance (`DESIGN-play-current-moment-cockpit.md` §4–§5).
+The projection should keep immediately accessible:
 
-### 3.2 Scenes and Decisions beneath the current Beat
+- Beat title;
+- objective / pressure / phase;
+- useful summary / At the Table framing;
+- resolved state and relevance emphasis;
+- available Scenes;
+- Beat-level Decisions/references where applicable.
 
-Within the current Beat, Scenes are the concrete playable situations and Decisions are the authored branch points.
+Beat detail may expand without pushing the GM into document navigation.
 
-Expected interactions:
+### 3.2 Active Scene board
 
-- show the current Beat's objective/pressure/phase as the stage;
-- show `spine`, `optional`, `interrupt` character where Beats carry kinds;
-- move between the Beat's Scenes without losing Beat position;
-- surface Decisions with their Options and consequences; recording a Decision reshapes which later Scenes/Beats are shown as possible/relevant;
-- mark Beat resolved/unresolved;
-- show current Beat detail in a wide calm stage.
+When `currentSceneId` exists, the Scene owns the central working space.
 
-## 4. Beat presentation vocabulary
+A Scene projection may show:
 
-A focused Beat may project:
+- title and situation framing;
+- At the Table / Read Aloud / GM Note / Rules Now / Warning blocks;
+- in-context Decisions;
+- contextual references/actions;
+- pinned notes;
+- current pressure/clock definitions when authored.
+
+When no Scene is current, the central board truthfully shows the Beat and available Scenes rather than auto-selecting one.
+
+### 3.3 Beat/Scene navigation
+
+Durable current position changes only through explicit Runtime actions.
+
+The surface distinguishes:
+
+```text
+OPEN / INSPECT
+→ show target material
+→ preserve current Beat/Scene
+
+MAKE CURRENT
+→ explicit Runtime mutation
+→ target Scene and its Beat become current
+```
+
+Previous/next or direct Beat/Scene actions may exist, but relevance never gates access.
+
+---
+
+## 4. Decisions and authored branch projection
+
+Within the current context, Decisions are authored branch points with stable Options.
+
+Expected interaction:
+
+```text
+Decision prompt
+  Option A
+    consequence
+    activates / suppresses
+  Option B
+    consequence
+    activates / suppresses
+
+select Option
+→ persist choiceId → optionId
+→ show consequence
+→ re-derive emphasis
+→ do not auto-navigate
+```
+
+`activates` / `suppresses` are **branch relevance**, not permission.
+
+Use language such as:
+
+- now relevant / emphasized;
+- less relevant / de-emphasized;
+- consequence;
+- selected.
+
+Avoid implying that a de-emphasized Scene has become impossible or inaccessible.
+
+Unexpected play remains legal even when no authored Option matches what the players did.
+
+---
+
+## 5. Beat / Scene presentation vocabulary
+
+Playable semantic blocks remain flexible table-use labels, not World ontology.
 
 ### At the table
 
-The primary GM-facing framing. This is the first thing Play should make easy to scan.
+Primary GM-facing framing.
 
 ### Read aloud
 
-Player-facing text intended to be spoken or closely paraphrased.
+Player-facing text intended to be spoken or paraphrased.
 
 ### GM note
 
@@ -167,308 +225,356 @@ Private framing, motivation, interpretation, or operational reminder.
 
 ### Rules now
 
-Rules/mechanics the GM needs in this moment.
+Rules/mechanics useful in the moment. When exact mechanics authority exists, reference/hydrate it rather than copying a second mechanics truth.
 
-When exact mechanics authority exists, Rules Now should reference or summarize it rather than silently becoming a second mechanics store.
+### Warning
 
-### Warnings
+Hazards, sequencing traps, spoiler boundaries, or operational reminders.
 
-Table hazards, spoiler boundaries, sequencing traps, or "do not telegraph" reminders.
+### Consequence
 
-### Consequences
+Authored outcome framing. Useful presentation labels may include success/failure/wait/choice/reward/cost/state/relationship/access/information. They remain views over the canonical consequence concept.
 
-Outcomes conditioned on what the party/table does.
+### Open now / relevant objects
 
-Useful presentation labels may include:
-
-- If they wait
-- If they succeed
-- If they fail
-- If they choose…
-- Reward
-- Cost
-- Clock / state change
-- Relationship change
-
-These are views over the canonical `consequences` concept.
-
-**Treasure is displayed as a reward consequence, not as an independent Beat primitive.**
-
-### Open now
-
-Typed object/source/mechanics references relevant to the current Beat.
+Typed object/source/mechanics references useful in the current Beat/Scene.
 
 ### Tools
 
-Contextual explicit actions such as:
+Explicit contextual actions such as:
 
-- Add threat to Combat
-- Open Roll table
-- Open item/mechanics
-- Open source
-- Ask Hermes
+- Add to Combat;
+- Open Roll table;
+- Open exact mechanics;
+- Open source;
+- Ask Agent/Hermes.
 
-Tool links are projection/capability data, not Runbook truth.
+Tool links are capability/projection data, not Runbook truth.
 
-## 5. Play Object Sheets
+---
 
-A Play Object Sheet is the table-first projection of a known object.
+## 6. `At a Glance` — presence-first context inventory
 
-It should not begin with graph internals.
+`At a Glance` is **not** a dashboard of miniature object sheets.
 
-### 5.1 Common hierarchy
+Its first job is to tell the GM what useful material is present around the current Beat/Scene.
 
-The default hierarchy is:
+Initial useful categories:
+
+```text
+Scenes
+Locations
+NPCs / characters
+Threats
+Roll tables
+Notes
+Combat
+```
+
+Prefer names, counts, compact status, and immediate open actions.
+
+Example:
+
+```text
+Scenes       The Breach Line · The Courtyard · The Tunnels
+Locations    2
+NPCs         4
+Threats      3
+Roll Tables  1
+Notes        2
+Combat       collapsed
+```
+
+The current Beat and Scene's authored references seed the region. Small Runtime state may contribute. Exact mechanics bindings make Threat entries directly useful.
+
+The region is curated and contextual, not exhaustive campaign adjacency.
+
+---
+
+## 7. Global / on-demand finder
+
+C2S27 proved contextual references are insufficient by themselves.
+
+Play needs a complementary access path for material that was **not** predicted by the current Runbook context.
+
+The exact UI is not frozen. It may be search, command palette, Agent-assisted lookup, or another shared interaction.
+
+The invariant is:
+
+```text
+known campaign object
+→ find/open from Play
+→ no Plan/Build detour
+→ current moment preserved
+```
+
+The finder should reach at least:
+
+- NPCs;
+- locations;
+- threats / creatures;
+- exact mechanics/statblocks;
+- roll tables;
+- Playable Scenes/Beats;
+- source documents where useful.
+
+Opening a found object is inspection. A found Scene changes Runtime only through explicit Make Current.
+
+---
+
+## 8. Play Object Sheets
+
+A Play Object Sheet is the table-first projection of a known object. It is not a stored duplicate object and should not begin with graph internals.
+
+### 8.1 Common hierarchy
 
 1. identity and compact role/type;
 2. table-useful Playable interpretation;
-3. relevant current relationships;
+3. current relevant relationships;
 4. exact mechanics/actions when applicable;
 5. source/provenance;
 6. Advanced graph/evidence detail.
 
-### 5.2 NPC projection
+### 8.2 NPC projection
 
-Useful sections:
+Useful sections may include:
 
-- At the table
-- Attitude
-- Offers & hooks
-- Rules now
-- Connected now
-- Source
+- At the table;
+- attitude / offers / hooks when Playable material provides them;
+- rules now;
+- connected now;
+- source.
 
-The projection must not imply that Attitude/Offers are universal durable NPC fields. They may be object-attached Playable blocks.
+These labels do not imply universal durable NPC fields.
 
-### 5.3 Location projection
+### 8.3 Location projection
 
-Useful labels can adapt:
+Useful labels may include:
 
-- Arrival
-- What's happening
-- Who's here / what can happen
-- Rules now
-- Connected now
-- Map / source
+- arrival;
+- what's happening;
+- who's here / what can happen;
+- rules now;
+- connected now;
+- map / source.
 
-### 5.4 Item projection
+### 8.4 Item projection
 
-Useful labels can adapt:
+Useful labels may include:
 
-- What it does
-- Who wants it / pressure
-- Hooks
-- Rules now
-- Connected now
-- Source / exact mechanics
+- what it does;
+- who wants it / pressure;
+- hooks;
+- rules now;
+- connected now;
+- source / exact mechanics.
 
-### 5.5 Threat projection
+### 8.5 Threat projection — hot path
 
-Threats use the established Threat/Statblock path.
+Threats use the established exact mechanics path.
 
 The Play projection should expose:
 
 - table summary;
 - exact accepted mechanics;
 - tactics/prepared intent where available;
-- current relevant relationships;
-- source;
+- relevant relationships/source;
 - **Add to Combat**.
+
+The critical interaction is:
+
+```text
+context or finder
+→ Threat
+→ exact StatblockRevision visible and usable
+→ Add to Combat
+```
 
 No campaign-specific threat→draft dictionary is allowed in the permanent path.
 
-## 6. Relevant-now connections
+No generation step is required when exact accepted mechanics already exist.
 
-PR #578's `connectedNow` is useful because full graph adjacency is often too much for the table.
+---
 
-The permanent projection may curate a small relevant-now set from:
+## 9. References are handles, not copied truth
 
-- explicit Playable references;
-- current Scene/Beat references;
-- selected graph neighbors;
-- active mechanics/combat context.
-
-The projection must distinguish this curated set from "all relationships."
-
-Full adjacency belongs in Advanced or a dedicated graph view.
-
-The approved GM target's `At a Glance` region is governed by the projection
-contract in `DESIGN-play-current-moment-cockpit.md` §10: it is seeded by the
-current Beat/Scene's authored references, may carry small Runtime status and
-exact Mechanics/Combat links, is curated rather than exhaustive, and has a
-truthful empty state. It is not a fixed dashboard schema.
-
-## 7. References are handles, not copied truth
-
-A typed reference should preserve exact durable identity while allowing Play to choose the right projection.
+Typed references preserve exact durable identity while Play chooses the useful projection.
 
 Examples:
 
 ```text
 dmb-node:...
-source anchor / source document handle
+source artifact / anchor
 statblock revision / threat binding
-playable element handle
+playable element ref
 combat/run handle
 ```
 
-Primary click should normally open a projection/layer and preserve Play position.
+Primary open should normally preserve Play position. Secondary explicit actions may Make Current, Add to Combat, or navigate deeper.
 
-Secondary/full-detail actions may navigate deeper intentionally.
+Opening a reference never mutates Runtime or canon merely because it was opened.
 
-A reference click never mutates runtime/canon merely because it was opened.
+---
 
-## 8. Mechanics and Combat
+## 10. Mechanics and Combat
 
-### 8.1 Prepared threat
+### 10.1 Prepared threat
 
 ```text
-Beat
-  → Threat reference
-  → Threat Sheet
-  → exact StatblockRevision
-  → Add to Combat
+Beat / Scene
+→ Threat reference
+→ Threat Sheet
+→ exact StatblockRevision
+→ Add to Combat
 ```
 
-### 8.2 Unexpected fight
+### 10.2 Unexpected fight
 
-Play should allow the GM to open a known NPC/threat and explicitly add it to Combat without reconstructing JSON or hunting for a separate editor.
+Play must let the GM find a known NPC/threat, see exact mechanics, and add it to Combat without reconstructing JSON or hunting for the authoring location.
 
-When exact mechanics are missing, Play must say so truthfully and offer the best admitted path; it must not fabricate a mechanics binding.
+When exact mechanics are absent, Play says so truthfully and offers the best admitted path; it never fabricates a mechanics binding.
 
-### 8.3 Quantity and team
+### 10.3 Combat workspace
 
-The eventual Add-to-Combat interaction should support table-useful quantity/team selection without requiring the GM to leave Play for an authoring workflow.
+Combat is collapsed until needed.
 
-Exact UI is an implementation decision.
+When expanded, Combat may occupy the same central working region normally occupied by the Scene:
 
-## 9. Run state and Run continuity
+```text
+Beat context retained
+Scene origin retained
+Combat expanded → central instrument
+Combat collapsed → exact Scene restored
+```
 
-Play projects runtime state from the active Run:
+This is presentation composition only. Combat continues to own combatant state, HP, initiative, conditions, and encounter persistence.
 
-- current Beat (required once READY; seeded explicitly at admission);
-- current Scene (optional; always belongs to the current Beat when set);
+Quantity/team controls for Add to Combat should be table-useful without requiring an authoring workflow.
+
+---
+
+## 11. Run state and continuity
+
+Play projects Runtime from the active PostgreSQL-backed Run:
+
+- current Beat;
+- current Scene when set;
 - resolved Beats;
-- selected authored choices/decisions;
-- scratch notes;
-- linked Combat state.
+- selected authored Decisions;
+- notes;
+- linked Combat handle/status when present.
 
-Play does not make runtime state part of the Runbook document.
+APP-STATE AS2–AS5 established:
 
-A reopened Play surface should restore the useful table position.
+- historical Playable WorkRevision availability;
+- PostgreSQL Run + sealed manifest;
+- PostgreSQL progress CAS/rebase;
+- PostgreSQL active-Run selection;
+- operation without legacy `out/runtime/play` persistence.
 
-C2S27 made Run continuity a hard requirement, not a nicety:
+A reopened Play surface therefore restores the exact useful table position from durable Run state rather than browser/worktree-local Play files.
 
-- Re-entering Play must offer **Resume** of the active Run. **Resume vs Start New** is an explicit, truthful choice.
-- Ordinary re-entry must not encourage creating a duplicate Run of the same material.
-- The Run chooser must not accumulate useless duplicate UUIDs.
-- Run state must be durable independent of browser session and worktree checkout.
+Resume vs Start New remains explicit.
 
-## 10. Maps and media
+---
 
-When source/asset data provides a map or image, a Play Object Sheet or Beat may project it.
+## 12. Notes
 
-For maps:
+Notes are notes. Play should present them as small context objects pinned to where they originated.
 
-- normalized pins/regions remain resolution-independent;
-- pins target typed references;
-- active object can be highlighted;
-- click opens the normal reference projection;
-- legend and map are two views of the same annotation data.
+Useful anchors include Run, Beat, Scene, or another addressable Play element.
 
-Play must not own source asset identity or store campaign-specific map dictionaries.
+Do not infer a new persistence schema from this presentation requirement. The existing Runtime note capability remains valid until dogfood proves a need for independent note identity, multiple notes per anchor, timestamps, move/re-pin, or another concrete lifecycle.
 
-## 11. Source detail and Advanced
+---
 
-Play should expose source detail without turning into a source dashboard.
+## 13. Runbook/source reference
 
-Default:
+The Runbook is the linear durable authored source from which Play derives its projection.
 
-- human-readable source label;
-- useful excerpt where admitted/appropriate;
-- Read Source action.
+It remains available as exact read-only reference when the GM wants to inspect instructions or structure.
 
-Advanced/supporting detail may contain:
+It is **not** the default Play navigation model and should not compete with the Scene-centered cockpit for permanent real estate.
 
-- full graph relationships;
-- evidence/source domains;
-- internal identity for debugging;
-- provenance/support state.
+---
 
-Internal claim/revision IDs should not dominate table-facing presentation.
+## 14. Maps, media, source, and Advanced
 
-## 12. Editing in Play
+When source/asset data provides a map or image, a Play Object Sheet or current context may project it through shared asset/reference authority.
 
-Play may eventually support narrow in-context editing, but the safe contract is:
+Source detail should normally expose a human-readable source label, useful excerpt where admitted, and Read Source action.
+
+Advanced detail may contain full graph relationships, evidence/provenance, internal IDs, or support state, but these should not dominate table presentation.
+
+---
+
+## 15. Editing and Agent interaction in Play
+
+Narrow in-context editing may eventually use the normal Canvas/document authority:
 
 ```text
-unlock / edit admitted playable material
-→ local dirty state
-→ Save through normal Canvas/document authority
-→ remain at the same table moment
+unlock / edit admitted Playable material
+→ Canvas dirty
+→ ordinary Save / WorkRevision
+→ remain at same table moment
 ```
 
-Play does not gain a second save system.
+Play gains no second save system.
 
-For larger preparation changes, Plan remains the better workshop.
+Agent/Hermes receives current table context as pointers/lenses: active Run, current Beat/Scene, relevant references, exact Playable revision, optional Combat handle.
 
-## 13. Hermes in Play
+Agent may answer, navigate/open projections, and propose Playable changes. It may not silently mutate Playable or World authority.
 
-Hermes should receive current table context as a pointer/lens, not as copied truth.
+The global/on-demand finder and statblock hot path must **not** wait for Agent Surface implementation.
 
-Useful ambient context includes:
+---
 
-- active Run;
-- current Scene/Beat;
-- relevant object references;
-- current Playable revision;
-- optional linked Combat context through its owning interface.
-
-Hermes may:
-
-- answer from governed World/Source/Playable/Mechanics context;
-- open/navigate useful projections;
-- propose changes to Playable Material.
-
-Hermes may not silently mutate Playable or World authority.
-
-## 14. Degradation behavior
-
-Play should remain useful when one authority is missing.
-
-Examples:
+## 16. Degradation behavior
 
 - object exists but no Playable interpretation → show World/source-backed object sheet;
-- Playable note exists but source unavailable → show note with truthful source gap;
-- Threat exists but exact mechanics missing → show threat/source detail and mechanics-unavailable state;
-- map asset unavailable → object sheet remains useful without it;
-- Runtime state missing → open Playable Runbook at its default first Scene rather than invent progress.
+- Threat exists but no exact mechanics → show truthful mechanics-unavailable state;
+- map asset unavailable → object sheet remains useful;
+- current Beat has no current Scene → show Beat context + Scene choices, do not invent one;
+- contextual `At a Glance` is empty → offer available Scenes/global finder, not filler;
+- linked Combat unavailable → preserve Scene/Beat context and truthful Combat-unavailable state.
 
-## 15. Acceptance stories
+Integrity failures in the active Run remain fail-closed.
 
-A conforming Play surface should prove:
+---
 
-1. GM opens a real Runbook and immediately sees the current Beat stage with its current Scene.
-2. GM moves Beat/Scene without page-navigation context loss.
-3. GM opens an NPC/location/item chip and gets a table-useful sheet.
-4. GM opens a Threat and gets exact mechanics when admitted.
-5. GM adds a Threat to Combat from the Threat sheet.
-6. GM records a Beat resolved and reloads without losing that state.
-7. GM records a Scene/Beat scratch note without altering Runbook prose.
-8. GM records an authored Decision; Play shows its consequences and which later Scenes/Beats remain possible/relevant, using generic choice IDs.
-9. A reward appears as a consequence, not a special treasure subsystem.
-10. GM can open source/Advanced detail without the default surface becoming an evidence report.
-11. Campaign-specific `ofConks*` code is unnecessary for another real one-shot.
-12. GM leaves Play, returns, and is offered Resume of the active Run; ordinary re-entry creates no duplicate Run.
+## 17. Acceptance stories
 
-## 16. Non-goals
+A conforming near-term Play surface should prove:
+
+1. Resume opens the exact last current Beat/Scene; the active Scene is visible within the first few seconds.
+2. Beat context is immediately accessible without dominating the Scene board.
+3. A Beat-only state is truthful when no Scene is selected.
+4. GM opens another Scene under another Beat for inspection without changing current position.
+5. GM explicitly Makes that Scene Current and Beat+Scene update together.
+6. GM sees in-context Decisions, selects an authored Option, sees its consequence, and sees downstream emphasis change without automatic navigation.
+7. A suppressed/de-emphasized Scene remains inspectable and can still be made current.
+8. `At a Glance` exposes the presence of Scenes, locations, NPCs, threats, roll tables, notes, and Combat without rendering every detail inline.
+9. GM opens an NPC/location/item and receives a table-useful sheet without losing the current Scene.
+10. GM finds an unplanned known Threat from the global/on-demand path, sees exact mechanics promptly, and does not navigate through Plan/Build.
+11. GM adds that Threat to Combat.
+12. Combat expands as the central working instrument, then collapses back to the exact Scene.
+13. GM records a note associated with current context without altering Runbook prose.
+14. Runbook remains available as exact linear reference but is not required for normal runtime navigation.
+15. Campaign-specific `ofConks*`/Mireward bridge code is unnecessary for another real session.
+
+---
+
+## 18. Non-goals
 
 - Play does not own World Graph writes.
 - Play does not own mechanics truth.
 - Play does not own source truth.
+- Play does not own Combat runtime.
 - Play does not own AppChrome.
 - Play is not a generic dashboard.
-- Play Object Sheet is not a new universal object ontology.
-- Runbook structure does not imply automatic adventure extraction.
-- Play does not require a special map system.
+- Play Object Sheet is not a universal object ontology.
+- Authored Choice transitions do not become permission gates.
+- Runbook structure does not become the primary runtime navigator.
+- A new note table is not implied by note presentation.
+- Global/on-demand retrieval does not require Agent Surface first.
 - Play does not preserve legacy prep HTML forever.
