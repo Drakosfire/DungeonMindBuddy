@@ -8,8 +8,10 @@ import pytest
 
 from apps.live_control_server.services.play_run_rebase import rebase_or_replay_play_run
 from apps.live_control_server.services.play_run_registry import (
+    PlayRunProgress,
     PlayRunRegistryError,
     create_or_replay_play_run,
+    derive_v2_opening_beat_id,
     get_play_run,
     list_play_runs,
     replace_play_run_progress,
@@ -29,6 +31,7 @@ from tests.application_state.play_runtime_helpers import (
     RUN_ID_A,
     RUN_ID_B,
     SURVIVING_TARGET_MARKDOWN,
+    V2_SOURCE_MARKDOWN,
     commit_runbook_markdown,
     corrupt_play_run_manifest_document,
     corrupt_play_run_progress,
@@ -366,3 +369,185 @@ def test_play_runtime_latency_samples(
     )
     assert baseline["start_plus_seal_p50_ms"] >= 0
     assert baseline["cas_p50_ms"] >= 0
+
+
+BF2_SPINE_MARKDOWN = "\n".join(
+    [
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:z-opening beat_kind=spine -->",
+        "## Opening",
+        "",
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:a-later beat_kind=spine -->",
+        "## Later",
+        "",
+    ]
+)
+
+BF2_NO_SPINE_MARKDOWN = "\n".join(
+    [
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:optional-first beat_kind=optional -->",
+        "## Optional first",
+        "",
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:interrupt-second beat_kind=interrupt -->",
+        "## Interrupt",
+        "",
+    ]
+)
+
+
+def _v2_seed_progress(beat_id: str) -> PlayRunProgress:
+    return PlayRunProgress(
+        current_beat_id=beat_id,
+        current_scene_id=None,
+        resolved_beat_ids=[],
+        selections={},
+        notes_by_element_id={},
+    )
+
+
+def test_v2_empty_progress_seed_persists_first_spine_from_document_order(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    snapshot = create_committed_runbook(
+        tmp_path, name="bf2-spine", markdown=BF2_SPINE_MARKDOWN
+    )
+    record = create_run(tmp_path, snapshot)
+    assert record.progress == empty_progress()
+    opening = derive_v2_opening_beat_id(snapshot.markdown)
+    assert opening == "beat:z-opening"
+    seeded = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_v2_seed_progress(opening),
+    )
+    assert seeded.progress.current_beat_id == "beat:z-opening"
+    assert seeded.progress.current_scene_id is None
+    reloaded = get_play_run(tmp_path, RUN_ID_A)
+    assert reloaded.progress.current_beat_id == "beat:z-opening"
+    assert reloaded.run_revision == 2
+    assert count_play_rows(application_state_dsn) == (1, 1)
+
+
+def test_v2_no_spine_seeds_first_beat(tmp_path: Path) -> None:
+    snapshot = create_committed_runbook(
+        tmp_path, name="bf2-no-spine", markdown=BF2_NO_SPINE_MARKDOWN
+    )
+    create_run(tmp_path, snapshot)
+    opening = derive_v2_opening_beat_id(snapshot.markdown)
+    assert opening == "beat:optional-first"
+    seeded = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_v2_seed_progress(opening),
+    )
+    assert seeded.progress.current_beat_id == "beat:optional-first"
+
+
+def test_v2_zero_beat_markdown_has_no_opening_seed() -> None:
+    assert derive_v2_opening_beat_id("# no playable beats\n") is None
+    assert derive_v2_opening_beat_id(V2_SOURCE_MARKDOWN) == "beat:arrival"
+
+
+def test_v2_historical_revision_remains_authority_after_newer_commit(
+    tmp_path: Path,
+) -> None:
+    snapshot = create_committed_runbook(
+        tmp_path, name="bf2-historical", markdown=BF2_SPINE_MARKDOWN
+    )
+    created = create_run(tmp_path, snapshot)
+    opening = derive_v2_opening_beat_id(snapshot.markdown)
+    seeded = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_v2_seed_progress(opening),
+    )
+    commit_runbook_markdown(
+        tmp_path,
+        snapshot.record.document_id,
+        BF2_SPINE_MARKDOWN + "\n<!-- dmb-playable-element:v2 kind=beat id=beat:newer beat_kind=spine -->\n## Newer\n",
+        snapshot.loaded_revision,
+    )
+    reopened = get_play_run(tmp_path, RUN_ID_A)
+    assert reopened.playable_revision == created.playable_revision
+    assert reopened.playable_content_sha256 == created.playable_content_sha256
+    assert reopened.progress.current_beat_id == "beat:z-opening"
+    assert reopened.run_revision == seeded.run_revision
+
+
+def test_v2_stale_cas_cannot_overwrite_newer_position(tmp_path: Path) -> None:
+    snapshot = create_committed_runbook(
+        tmp_path, name="bf2-stale", markdown=BF2_SPINE_MARKDOWN
+    )
+    create_run(tmp_path, snapshot)
+    first = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_v2_seed_progress("beat:z-opening"),
+    )
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        replace_play_run_progress(
+            tmp_path,
+            run_id=RUN_ID_A,
+            expected_run_revision=1,
+            progress=_v2_seed_progress("beat:a-later"),
+        )
+    assert exc_info.value.status_code == 409
+    assert get_play_run(tmp_path, RUN_ID_A) == first
+
+
+def test_v2_equivalent_first_seeds_converge(tmp_path: Path) -> None:
+    snapshot = create_committed_runbook(
+        tmp_path, name="bf2-converge", markdown=BF2_SPINE_MARKDOWN
+    )
+    create_run(tmp_path, snapshot)
+    progress = _v2_seed_progress("beat:z-opening")
+    errors: list[BaseException] = []
+
+    def worker() -> None:
+        try:
+            replace_play_run_progress(
+                tmp_path,
+                run_id=RUN_ID_A,
+                expected_run_revision=1,
+                progress=progress,
+            )
+        except PlayRunRegistryError as exc:
+            errors.append(exc)
+
+    threads = [Thread(target=worker), Thread(target=worker)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    final = get_play_run(tmp_path, RUN_ID_A)
+    assert final.progress.current_beat_id == "beat:z-opening"
+    assert final.progress.current_scene_id is None
+    assert final.run_revision == 2
+    for exc in errors:
+        assert exc.status_code == 409
+
+
+def test_v2_reread_preserves_exact_current_beat_and_scene(tmp_path: Path) -> None:
+    snapshot = create_committed_runbook(
+        tmp_path, name="bf2-reread", markdown=V2_SOURCE_MARKDOWN
+    )
+    create_run(tmp_path, snapshot)
+    persisted = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=PlayRunProgress(
+            current_beat_id="beat:arrival",
+            current_scene_id="scene:gate",
+            resolved_beat_ids=[],
+            selections={},
+            notes_by_element_id={},
+        ),
+    )
+    reloaded = get_play_run(tmp_path, RUN_ID_A)
+    assert reloaded.progress.current_beat_id == "beat:arrival"
+    assert reloaded.progress.current_scene_id == "scene:gate"
+    assert reloaded.run_revision == persisted.run_revision
