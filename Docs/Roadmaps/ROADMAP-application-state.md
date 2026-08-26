@@ -1,6 +1,6 @@
 # ROADMAP — Application State
 
-**Status:** ACTIVE — AS0, AS0.1, AS1, and AS2 merged; AS3 transactional Play Runtime is this implementation PR
+**Status:** ACTIVE — AS0 through AS3 merged; AS4 Play Continuity is NEXT and not dispatched
 **Line of work / flow:** `APP-STATE`
 **Created:** 2026-08-24
 **Updated:** 2026-08-25
@@ -22,13 +22,18 @@
 **AS2 review:** 3 distinct-head cycles; final PASS-equivalent review `5024971680`
 **AS2 exact-head evidence:** PR #643 comment `5417774447`
 
+**AS3 merge:** `9c946cd8c24effccec8d06cfc1cb5e310c9edc5e` (PR #646)
+**AS3 accepted head:** `913cfe0bbce4db27250afd8277e3af50712ee029`
+**AS3 review:** 3 distinct-head cycles; final PASS-equivalent review `5026608908`
+**AS3 exact-head evidence:** PR #646 comment `5420273265`
+
 This roadmap is **capability-sequenced**. It is not a table-creation schedule.
 Each implementation slice must leave a real consumer working on PostgreSQL, then
 delete or fail-close the replaced file authority for that consumer.
 
 AS0 established the shared substrate. AS0.1 / PR #639 widened identity/asset
-scope. **AS1 is DONE.** **AS2 is DONE.** **AS3 is this PR and remains Runtime-only.**
-Do not mark AS3 merged here.
+scope. **AS1 is DONE.** **AS2 is DONE.** **AS3 is DONE.** AS4 is NEXT and is
+not an active implementation slice.
 
 ---
 
@@ -39,9 +44,9 @@ AS0   DESIGN                 DONE — PR #636 merge 4c90df35
 AS0.1 STORAGE-TOPOLOGY       DONE — PR #639 merge dd09f7f7
 AS1   PLAN DOCUMENTS         DONE — PR #641 merge 29ff1584
 AS2   PLAYABLE               DONE — PR #643 merge b4d63daa
-AS3   PLAY RUNTIME           THIS PR — Run + sealed manifest in one transaction
-AS4   PLAY CONTINUITY        active Run + resume/reload
-AS5   PLAY DEMOLITION        delete replaced Play file writers/locks/intents
+AS3   PLAY RUNTIME           DONE — PR #646 merge 9c946cd8
+AS4   PLAY CONTINUITY        NEXT — active Run + resume/reload; not dispatched
+AS5   PLAY DEMOLITION        AFTER AS4 — delete replaced Play file writers/locks/intents
 AS6+  CANDIDATE FAMILIES     evidence-driven; not pre-authorized schemas
 ```
 
@@ -127,14 +132,15 @@ domains must use.
 
 | Field | Content |
 |---|---|
-| Status | **this PR** — not merged; do not invent the AS3 merge SHA |
+| Status | **DONE** — merged PR #646 at `9c946cd8c24effccec8d06cfc1cb5e310c9edc5e` (accepted head `913cfe0bbce4db27250afd8277e3af50712ee029`; 3 review cycles; final PASS-equivalent review `5026608908`; evidence comment `5420273265`) |
 | Independently useful outcome | Creating a Run seals its manifest in one PostgreSQL transaction; progress CAS is a single-row update; rebase is one transaction with no intent file |
 | Primary consumer/story | Play Run create/list/get/progress; preserve-only rebase; CR-U17 table durability |
 | Predecessor | AS2 historical Playable revisions |
 | Durable/public contract introduced | `play.run` + `play.run_manifest`; SQL `run_revision` CAS |
 | Runtime/database collision boundary | `out/runtime/play/` during pre-switch; same Buddy DB new `play` schema |
 | Required product + owning-boundary evidence | create+manifest atomicity (crash leaves neither); CAS 409; rebase without intent files; import existing runs+manifests; Runtime mutation latency baseline/head |
-| What remains false | active-run pointer may still be a file until AS4; Play file demolition not done; Combat not migrated; mutation-history table not created |
+| What remains false | active-run pointer remains a file until AS4; Play file demolition is AS5; Combat not migrated; mutation-history table not created |
+| Measured latency (not a merge gate) | PostgreSQL Runtime CAS ~74 ms p95 vs 50 ms hypothesis and ~1 ms file baseline; Start Run + seal ~75 ms p95, inside the 250 ms hypothesis. Keep visible during interactive use. |
 
 ---
 
@@ -142,7 +148,7 @@ domains must use.
 
 | Field | Content |
 |---|---|
-| Status | blocked on AS3 |
+| Status | **NEXT** — not dispatched; do not claim AS4 active |
 | Independently useful outcome | Resume/reload opens the selected Run at the pinned Playable revision and current Runtime without reading `active-run.json` |
 | Primary consumer/story | Play entry/resume; CR-U17 |
 | Predecessor | AS3 Runs in PostgreSQL |
@@ -192,10 +198,13 @@ Do not start any of these by creating unused tables in AS1.
 ## Collision and pause rules
 
 - CUTOVER D.2/D.3 may resume in parallel **if** write leases do not overlap.
-  AS1's likely overlap is `pyproject.toml` / server bootstrap — serialize then.
-- Open at this correction: CUTOVER PR #638 (`HANDOFF-CUTOVER-worldbuilding-authority-port.md` only) does not overlap these four files.
+  Shared-file overlap remains `pyproject.toml` / server bootstrap — serialize then.
+- CUTOVER #645 merged immediately before AS3 #646; first-world initialization is
+  now behind DungeonMind authority. Open CUTOVER #647 is D.3 graph-engine
+  demolition design and is disjoint from APP-STATE Play Continuity paths.
 - PLAY-SURFACE BF2/BF3 remain paused on the remaining `active-run.json` file
-  pointer until AS4 or steward re-sequence.
+  pointer until AS4 or steward re-sequence. Existing PLAY-SURFACE active-run
+  continuity work is file-backed resume/serialize, not AS4 PostgreSQL dispatch.
 - CON-READY stories are acceptance context, not a license to bundle Combat or Ingest into AS1.
 
 ---

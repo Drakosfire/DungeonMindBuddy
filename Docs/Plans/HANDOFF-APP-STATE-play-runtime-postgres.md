@@ -22,7 +22,10 @@ pr_body_template: |
 # HANDOFF — AS3: Transactional Play Runtime on PostgreSQL
 
 **Created:** 2026-08-25  
-**Status:** READY — AS2 merged; dispatch from the exact base below  
+**Status:** DONE — merged PR #646 at `9c946cd8c24effccec8d06cfc1cb5e310c9edc5e`  
+**Accepted head:** `913cfe0bbce4db27250afd8277e3af50712ee029`  
+**Review:** 3 distinct-head cycles; final PASS-equivalent review `5026608908`  
+**Exact-head evidence:** PR #646 comment `5420273265`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-APP-STATE-play-runtime-postgres.md`  
 **Workstream / flow:** `APP-STATE`  
 **Direction:** CODE → REVIEW  
@@ -33,7 +36,7 @@ pr_body_template: |
 **AS2 exact-head evidence:** PR #643 comment `5417774447` — legacy Run migration witnesses `7 passed, 0 skipped`; owning-boundary suite `42 passed, 0 skipped`; clean `git diff --check`  
 **Suggested branch:** `agent/app-state-play-runtime`  
 **Suggested PR title:** `APP-STATE: persist Play Runtime transactionally`  
-**Named successor:** AS4 — active Run continuity on PostgreSQL  
+**Named successor:** AS4 — active Run continuity on PostgreSQL — NEXT, not dispatched  
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Application-state authority: [`../Design/ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md). Play authority: [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md).
 
@@ -786,9 +789,9 @@ Even a successful AS3 does **not** mean Play persistence is finished.
 
 ```text
 AS2   PLAYABLE            DONE — #643
-AS3   PLAY RUNTIME        this PR
-AS4   PLAY CONTINUITY     still false — active-run pointer + resume/reload acceptance
+AS3   PLAY RUNTIME        DONE — #646 merge 9c946cd8, accepted head 913cfe0b
+AS4   PLAY CONTINUITY     NEXT — not dispatched; active-run pointer + resume/reload
 AS5   PLAY DEMOLITION     still false — physical deletion of replaced Play persistence machinery
 ```
 
-After AS3 merges, the next steward re-anchor must record the actual merge SHA + accepted head + distinct review-cycle count before dispatching AS4. Do not pre-authorize AS4 implementation inside this PR.
+This completion stamp records the merge. It is not AS4 dispatch.
