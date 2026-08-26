@@ -23,8 +23,8 @@
 **AS3 accepted head:** `913cfe0bbce4db27250afd8277e3af50712ee029`
 **AS3 review:** 3 distinct-head cycles; final PASS-equivalent review `5026608908`
 **AS3 exact-head evidence:** PR #646 comment `5420273265`
-**Current implementation:** none — AS3 is DONE; AS4 Play Continuity is NEXT and not dispatched
-**Named successor still false:** AS4 active Run continuity on PostgreSQL — do not claim it active
+**Current implementation:** AS4 Play Continuity — this PR; do not mark AS4 DONE
+**Named successor still false:** AS5 Play persistence demolition
 **Repository law:** [`../../AGENTS.md`](../../AGENTS.md)
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)
 **Primary adjacent authorities:**
@@ -646,15 +646,15 @@ evidence comment `5417774447`).
 
 **AS3 is complete** — merged PR #646 @ `9c946cd8c24effccec8d06cfc1cb5e310c9edc5e`
 (accepted head `913cfe0b…`; 3 review cycles; final PASS-equivalent review `5026608908`;
-evidence comment `5420273265`). Do not mark AS4 DONE or claim it dispatched.
+evidence comment `5420273265`).
 
 AS3 dogfood note to retain: PostgreSQL Runtime CAS measured about **74 ms p95**
 versus the 50 ms hypothesis and ~1 ms file baseline. Start Run + seal was about
 **75 ms p95**, inside the 250 ms hypothesis. The CAS figure was not a merge
 gate; keep it visible during interactive use.
 
-AS4 Play Continuity remains the next capability and is **not** an active
-implementation slice.
+**AS4 is the active implementation slice** (this PR). Do not mark AS4 DONE and do
+not invent its merge SHA. AS5 remains false.
 
 Expected artifacts (canonical owners):
 
@@ -710,8 +710,8 @@ AS0.1  STORAGE-TOPOLOGY            DONE — PR #639 merge dd09f7f7
 AS1    PLAN DOCUMENTS              DONE — PR #641 merge 29ff1584
 AS2    PLAYABLE                    DONE — PR #643 merge b4d63daa
 AS3    PLAY RUNTIME                DONE — PR #646 merge 9c946cd8
-AS4    PLAY CONTINUITY             NEXT — active Run + resume/reload; not dispatched
-AS5    PLAY DEMOLITION             AFTER AS4 — delete replaced Play file writers/locks/intents
+AS4    PLAY CONTINUITY             THIS PR — active Run + resume/reload; unmerged
+AS5    PLAY DEMOLITION             still false / blocked on AS4
 AS6+   CANDIDATE FAMILIES          Ingest, Asset, statblock, Combat, card, …
                                    evidence-driven; not pre-authorized schemas
 ```
@@ -1014,7 +1014,7 @@ A new steward should be able to begin with this exact sequence:
 6. Trace current workspace-document + Play Run persistence end to end.
 7. Inventory path-keyed Ingest, location index, and generated-artifact durable state.
 8. Treat AS3 as DONE — PR #646 merge `9c946cd8…`, accepted head `913cfe0b…`.
-9. Keep AS4 (active Run continuity on PostgreSQL) NEXT and unimplemented until a steward-authored AS4 handoff is dispatched. Do not claim AS4 active from this completion stamp.
+9. Treat AS4 as this unmerged Play Continuity implementation; keep AS5 (Play file demolition) unimplemented.
 ```
 
 If a fresh steward cannot answer "what remains false after the first implementation

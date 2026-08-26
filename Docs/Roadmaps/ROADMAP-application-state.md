@@ -1,6 +1,6 @@
 # ROADMAP — Application State
 
-**Status:** ACTIVE — AS0 through AS3 merged; AS4 Play Continuity is NEXT and not dispatched
+**Status:** ACTIVE — AS0 through AS3 merged; AS4 Play Continuity is this implementation PR
 **Line of work / flow:** `APP-STATE`
 **Created:** 2026-08-24
 **Updated:** 2026-08-25
@@ -32,8 +32,8 @@ Each implementation slice must leave a real consumer working on PostgreSQL, then
 delete or fail-close the replaced file authority for that consumer.
 
 AS0 established the shared substrate. AS0.1 / PR #639 widened identity/asset
-scope. **AS1 is DONE.** **AS2 is DONE.** **AS3 is DONE.** AS4 is NEXT and is
-not an active implementation slice.
+scope. **AS1 is DONE.** **AS2 is DONE.** **AS3 is DONE.** **AS4 is this PR and
+is unmerged.** Do not invent the AS4 merge SHA. AS5 remains false.
 
 ---
 
@@ -45,14 +45,14 @@ AS0.1 STORAGE-TOPOLOGY       DONE — PR #639 merge dd09f7f7
 AS1   PLAN DOCUMENTS         DONE — PR #641 merge 29ff1584
 AS2   PLAYABLE               DONE — PR #643 merge b4d63daa
 AS3   PLAY RUNTIME           DONE — PR #646 merge 9c946cd8
-AS4   PLAY CONTINUITY        NEXT — active Run + resume/reload; not dispatched
-AS5   PLAY DEMOLITION        AFTER AS4 — delete replaced Play file writers/locks/intents
+AS4   PLAY CONTINUITY        THIS PR — active Run + resume/reload; unmerged
+AS5   PLAY DEMOLITION        still false / blocked on AS4
 AS6+  CANDIDATE FAMILIES     evidence-driven; not pre-authorized schemas
 ```
 
 BF2/BF3 Play Runtime/cockpit deepening stays paused on the remaining
-file-backed `active-run.json` pointer until AS4 lands or the steward explicitly
-re-sequences.
+file-backed `active-run.json` pointer until this AS4 PR merges or the steward
+explicitly re-sequences.
 
 Order after AS5 is evidence-driven and may interleave with Play/Agent/CUTOVER
 work. Do not invent AS6/AS7 implementation handoffs or table names to fill this
@@ -148,7 +148,7 @@ domains must use.
 
 | Field | Content |
 |---|---|
-| Status | **NEXT** — not dispatched; do not claim AS4 active |
+| Status | **this PR** — not merged; do not invent the AS4 merge SHA |
 | Independently useful outcome | Resume/reload opens the selected Run at the pinned Playable revision and current Runtime without reading `active-run.json` |
 | Primary consumer/story | Play entry/resume; CR-U17 |
 | Predecessor | AS3 Runs in PostgreSQL |
