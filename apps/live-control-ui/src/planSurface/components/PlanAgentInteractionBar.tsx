@@ -40,7 +40,7 @@ import { buildHermesConversationHistory } from "../../agentInteraction/hermesCon
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { ContextSufficiencyPanel } from "./ContextSufficiencyPanel";
 import { buildPacketReview } from "./contextSufficiencyLadder";
-import { TraceDetailsPanel } from "./TraceDetailsPanel";
+import { AgentTraceInspector } from "../../agentInteraction/trace/AgentTraceInspector";
 import { RetrievalFreshnessPanel } from "./RetrievalFreshnessPanel";
 import { CorpusChangeSignalPanel } from "./CorpusChangeSignalPanel";
 import { WorldGraphQueryContextPanel } from "./WorldGraphQueryContextPanel";
@@ -847,7 +847,7 @@ export function PlanAgentInteractionBar({
         "hermes",
         {
           agentThreadId: currentThread.threadId,
-          traceRequested: currentThread.uiState?.traceVisible ?? false,
+          traceRequested: true,
           worldGraphContext: projectionState !== "loading"
             ? buildPlanAgentWorldGraphQueryContextRequest(planWorldGraphContext, {
                 revisionPin: projection?.snapshot.revisionId ?? null,
@@ -989,7 +989,7 @@ export function PlanAgentInteractionBar({
                           setThread(nextThread);
                         }}
                       >
-                        {traceVisible ? "Trace On" : "Trace Off"}
+                        {traceVisible ? "Advanced diagnostics: On" : "Advanced diagnostics: Off"}
                       </button>
                       <button
                         type="button"
@@ -1153,10 +1153,8 @@ export function PlanAgentInteractionBar({
                               </ul>
                             ) : null}
                             {turn.trace && traceVisible ? (
-                              <TraceDetailsPanel
+                              <AgentTraceInspector
                                 trace={turn.trace}
-                                question={turn.question}
-                                answer={turn.answer}
                               />
                             ) : null}
                             <RetrievalFreshnessPanel decision={turnAnswer.retrieval_freshness} />
