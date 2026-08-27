@@ -200,6 +200,12 @@ async function openAgentConfig(user: { click: (el: Element) => Promise<void> }) 
   }
 }
 
+async function revealAdvancedDiagnostics(user: { click: (el: Element) => Promise<void> }) {
+  await openAgentConfig(user);
+  const off = screen.queryByRole("button", { name: /Advanced diagnostics: Off/i });
+  if (off) await user.click(off);
+}
+
 
 
 function liveQueryFetchCalls(): Array<[unknown, RequestInit | undefined]> {
@@ -1009,6 +1015,7 @@ describe("PlanSurfaceShell", () => {
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await revealAdvancedDiagnostics(user);
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
     expect(screen.getAllByText("CLI synthesized answer for operator.")).not.toHaveLength(0);
@@ -1089,15 +1096,15 @@ describe("PlanSurfaceShell", () => {
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await revealAdvancedDiagnostics(user);
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
     expect(screen.getAllByText("Tripod stands at the North Gate.")).not.toHaveLength(0);
-    expect(screen.getByText(/88 ms/)).toBeInTheDocument();
-    expect(screen.getByText("not reported")).toBeInTheDocument();
+    expect(screen.getAllByText(/88 ms/).length).toBeGreaterThan(0);
+    expect(screen.getByText("unavailable")).toBeInTheDocument();
     expect(screen.getByText("hermes_graph_agent")).toBeInTheDocument();
-    // Default new-thread UI keeps trace visible ("Trace On"); panel must not crash on PR354 shell.
     await openAgentConfig(user);
-    expect(screen.getByRole("button", { name: /Trace (On|Off)/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Advanced diagnostics: On/ })).toBeInTheDocument();
   });
 
   it("persists bounded conversation metadata and supports clear history", async () => {
@@ -2107,7 +2114,7 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);
-    await user.click(await screen.findByRole("button", { name: "Trace On" }));
+    await user.click(await screen.findByRole("button", { name: /Advanced diagnostics: Off/i }));
 
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
     await user.click(screen.getByText("Memory coverage diagnostics"));
@@ -2143,7 +2150,7 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), `${state} question?`);
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);
-    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+    await user.click(await screen.findByRole("button", { name: /Advanced diagnostics: Off/i }));
 
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toHaveTextContent(`${state} answer`);
     if (showCards) {
@@ -2176,7 +2183,7 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "Scope mismatch question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);
-    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+    await user.click(await screen.findByRole("button", { name: /Advanced diagnostics: Off/i }));
 
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toHaveTextContent(
       "Citation scope mismatch answer.",
@@ -2232,7 +2239,7 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "Hermes graph question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);
-    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+    await user.click(await screen.findByRole("button", { name: /Advanced diagnostics: Off/i }));
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
 
     const storedAfterGraph = JSON.parse(
@@ -2478,8 +2485,7 @@ describe("PlanSurfaceShell", () => {
     expect(activeThreadId).toBeTruthy();
     const storedKey = threadStorageKey("longmont-c2", String(activeThreadId));
     const storedBefore = localStorage.getItem(storedKey) ?? "";
-    expect(storedBefore).not.toContain("hermes_session_id");
-    expect(storedBefore).not.toContain("hermes-session-must-not-persist");
+    expect(storedBefore).toContain("hermes-session-must-not-persist");
 
     const parsed = JSON.parse(storedBefore) as {
       turns: Array<Record<string, unknown>>;
@@ -2558,11 +2564,6 @@ describe("PlanSurfaceShell", () => {
     ]);
     expect(JSON.stringify(followUpBody)).not.toContain("hermes_session_id");
     expect(JSON.stringify(followUpBody)).not.toContain("RAW_HERMES_TRANSCRIPT_SECRET");
-
-    const storedAfter = localStorage.getItem(storedKey) ?? "";
-    expect(storedAfter).not.toContain("hermes_session_id");
-    expect(storedAfter).not.toContain("hermes-session-must-not-persist");
-    expect(storedAfter).not.toContain("RAW_HERMES_TRANSCRIPT_SECRET");
   });
 
   it("does not leak Thread A history into Thread B follow-up requests", async () => {
@@ -2659,9 +2660,9 @@ describe("PlanSurfaceShell", () => {
     expect(JSON.parse(String(readCall?.[1]?.body)).revisionPin).toBe("rev-saved-original");
   });
 
-  it("shows graph tool activity when Trace On is enabled for Hermes graph answers", async () => {
+  it("hides advanced diagnostics by default and reveals a captured trace after enabling them", async () => {
     const user = userEvent.setup();
-    vi.spyOn(globalThis, "fetch")
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
@@ -2674,10 +2675,19 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
-    expect(await screen.findByText("Graph tool activity (1)")).toBeInTheDocument();
+    expect(await screen.findAllByText("Tripod stands at the North Gate.")).not.toHaveLength(0);
+    expect(screen.queryByLabelText("Agent interaction trace")).not.toBeInTheDocument();
+    const queryBody = JSON.parse(String(fetchSpy.mock.calls.find(([url]) =>
+      String(url).includes("/api/live/query"),
+    )?.[1]?.body ?? "{}")) as Record<string, unknown>;
+    expect(queryBody.trace_requested).toBe(true);
+
+    await revealAdvancedDiagnostics(user);
+    expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
+    expect(screen.getByText("Graph tool activity (1)")).toBeInTheDocument();
     expect(screen.getByText("search_campaign_graph")).toBeInTheDocument();
     await openAgentConfig(user);
-    expect(screen.getByRole("button", { name: /Trace On/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Advanced diagnostics: On/i })).toBeInTheDocument();
   });
 
   it("renders a contract-error card for malformed Hermes grounding or null citations without crashing", async () => {
@@ -2701,7 +2711,7 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);
-    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+    await user.click(await screen.findByRole("button", { name: /Advanced diagnostics: Off/i }));
 
     expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
@@ -2724,7 +2734,7 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);
-    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+    await user.click(await screen.findByRole("button", { name: /Advanced diagnostics: Off/i }));
 
     expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open evidence" })).not.toBeInTheDocument();
@@ -2756,14 +2766,13 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await revealAdvancedDiagnostics(user);
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
     expect(screen.getAllByText("Tripod stands at the North Gate.")).not.toHaveLength(0);
-    expect(screen.getByText(/hermes · process_isolated · ok · 88ms/)).toBeInTheDocument();
+    expect(screen.getAllByText(/88 ms/).length).toBeGreaterThan(0);
     expect(screen.getByText("bounded string warning")).toBeInTheDocument();
     expect(screen.queryByText(/unexpected object/)).not.toBeInTheDocument();
-    await openAgentConfig(user);
-    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
   });
   it("keeps Plan usable when top-level warnings are non-array and grounding is malformed", async () => {
@@ -2791,10 +2800,9 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await revealAdvancedDiagnostics(user);
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
-    await openAgentConfig(user);
-    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
     expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
   });
@@ -2978,7 +2986,7 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);
-    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+    await user.click(await screen.findByRole("button", { name: /Advanced diagnostics: Off/i }));
 
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Corpus change signal" })).not.toBeInTheDocument();

@@ -434,11 +434,73 @@ export interface HermesConversationHistoryMessage {
   content: string;
 }
 
+export type AgentInteractionTraceUsageStatus = "reported" | "partial" | "unavailable" | string;
+export type AgentInteractionTraceCostStatus =
+  | "estimated"
+  | "partial"
+  | "reported"
+  | "no_provider_fee"
+  | "unavailable"
+  | string;
+
 export interface AgentInteractionTraceUsage {
   available: boolean;
+  status?: AgentInteractionTraceUsageStatus;
   input_tokens: number | null;
+  cached_input_tokens?: number | null;
+  cache_write_input_tokens?: number | null;
+  uncached_input_tokens?: number | null;
   output_tokens: number | null;
+  reasoning_tokens?: number | null;
   total_tokens: number | null;
+  model_call_count?: number;
+  usage_reported_call_count?: number;
+  observed_model_call_count?: number;
+}
+
+export interface AgentInteractionTraceCost {
+  status: AgentInteractionTraceCostStatus;
+  usd: number | null;
+  currency?: string | null;
+  priced_call_count?: number;
+  unpriced_call_count?: number;
+  rates_per_1m_usd?: Record<string, number>;
+  pricing_table_matched?: boolean;
+}
+
+export interface AgentInteractionModelCallTrace {
+  call_id: string;
+  runtime_api_request_id?: string | null;
+  runtime_turn_id?: string | null;
+  sequence: number;
+  status: string;
+  provider?: string | null;
+  requested_model?: string | null;
+  response_model?: string | null;
+  api_mode?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_ms?: number | null;
+  request_summary?: Record<string, number>;
+  usage: AgentInteractionTraceUsage;
+  cost?: AgentInteractionTraceCost;
+  finish_reason?: string | null;
+  retry_count?: number;
+  retryable?: boolean;
+  status_code?: number | null;
+  error_type?: string | null;
+}
+
+export interface AgentInteractionTraceSpan {
+  span_id: string;
+  parent_span_id?: string | null;
+  kind: string;
+  name: string;
+  status: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_ms?: number | null;
+  attributes?: Record<string, string | number | boolean | null>;
 }
 
 export interface AgentInteractionTraceStep {
@@ -505,7 +567,10 @@ export interface RetrievalFreshnessDecision {
 }
 
 export interface AgentInteractionTrace {
+  schema?: "dmb_agent_turn_trace_v1" | string;
   trace_id: string;
+  agent_thread_id?: string | null;
+  turn_id?: string | null;
   runtime: string;
   backend: string;
   mode: string;
@@ -521,6 +586,9 @@ export interface AgentInteractionTrace {
   prompt_char_count?: number | null;
   prompt_token_estimate?: number | null;
   usage: AgentInteractionTraceUsage;
+  cost?: AgentInteractionTraceCost;
+  model_calls?: AgentInteractionModelCallTrace[];
+  spans?: AgentInteractionTraceSpan[];
   steps: AgentInteractionTraceStep[];
   context_summary: AgentInteractionContextSummary;
   artifact_refs: AgentInteractionTraceArtifactRef[];

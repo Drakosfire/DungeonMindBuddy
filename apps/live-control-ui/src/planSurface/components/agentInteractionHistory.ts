@@ -7,6 +7,10 @@ import type {
   AgentInteractionTurnMeta,
   LiveQueryBackend,
   AgentInteractionTrace,
+  AgentInteractionTraceCost,
+  AgentInteractionTraceUsage,
+  AgentInteractionModelCallTrace,
+  AgentInteractionTraceSpan,
   LiveQueryResponse,
   LiveQueryCitation,
   AgentEvidenceSnapshot,
@@ -100,7 +104,7 @@ export function createAgentInteractionThread(
     activeBackend: resolvedBackend,
     hermesSession: null,
     turns: [],
-    uiState: { traceVisible: true, scrollAnchorTurnId: null, newThreadSuggestionDismissed: false },
+    uiState: { traceVisible: false, scrollAnchorTurnId: null, newThreadSuggestionDismissed: false },
   };
 }
 
@@ -151,6 +155,42 @@ const MAX_PERSISTED_IDS = 32;
 const MAX_PERSISTED_DIAGNOSTIC_CODES = 32;
 const MAX_PERSISTED_WARNINGS = 16;
 const MAX_PERSISTED_STRING_SCALAR = 512;
+const MAX_PERSISTED_MODEL_CALLS = 64;
+const MAX_PERSISTED_SPANS = 128;
+const MAX_PERSISTED_RATE_KEYS = 16;
+const MAX_PERSISTED_SPAN_ATTRIBUTES = 16;
+const MODEL_CALLS_TRUNCATED_WARNING = "model_calls_truncated";
+
+const FORBIDDEN_TRACE_KEYS = new Set([
+  "request",
+  "response",
+  "question",
+  "prompt",
+  "system_prompt",
+  "user_message",
+  "assistant_response",
+  "conversation_history",
+  "messages",
+  "content",
+  "body",
+  "args",
+  "arguments",
+  "result",
+  "raw_result",
+  "tool_result",
+  "assistant_message",
+]);
+
+const MODEL_CALL_REQUEST_SUMMARY_KEYS = new Set([
+  "api_call_count",
+  "message_count",
+  "tool_count",
+  "approx_input_tokens",
+  "request_char_count",
+  "max_tokens",
+  "assistant_content_chars",
+  "assistant_tool_call_count",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -236,6 +276,260 @@ function firstPersistedString(...values: unknown[]): string | null {
   return null;
 }
 
+function isForbiddenTraceKey(key: string): boolean {
+  return FORBIDDEN_TRACE_KEYS.has(key) || FORBIDDEN_TRACE_KEYS.has(key.toLowerCase());
+}
+
+function optionalFiniteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function optionalNonnegInt(value: unknown): number | null {
+  const parsed = optionalFiniteNumber(value);
+  if (parsed == null || parsed < 0 || !Number.isInteger(parsed)) return null;
+  return parsed;
+}
+
+function optionalBool(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function sanitizeRatesPer1m(raw: unknown): Record<string, number> | undefined {
+  if (!isRecord(raw)) return undefined;
+  const rates: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw).slice(0, MAX_PERSISTED_RATE_KEYS)) {
+    if (isForbiddenTraceKey(key)) continue;
+    const name = truncatePersistedString(key);
+    if (!name) continue;
+    if (typeof value === "number" && Number.isFinite(value)) rates[name] = value;
+  }
+  return Object.keys(rates).length ? rates : undefined;
+}
+
+function sanitizeTraceUsage(raw: unknown): AgentInteractionTraceUsage {
+  if (!isRecord(raw)) {
+    return { available: false, input_tokens: null, output_tokens: null, total_tokens: null };
+  }
+  const status = truncatePersistedString(raw.status) ?? undefined;
+  const available = typeof raw.available === "boolean"
+    ? raw.available
+    : status === "reported" || status === "partial";
+  const usage: AgentInteractionTraceUsage = {
+    available,
+    input_tokens: optionalFiniteNumber(raw.input_tokens),
+    output_tokens: optionalFiniteNumber(raw.output_tokens),
+    total_tokens: optionalFiniteNumber(raw.total_tokens),
+  };
+  if (status) usage.status = status;
+  const cached = optionalFiniteNumber(raw.cached_input_tokens);
+  if (cached != null) usage.cached_input_tokens = cached;
+  const cacheWrite = optionalFiniteNumber(raw.cache_write_input_tokens);
+  if (cacheWrite != null) usage.cache_write_input_tokens = cacheWrite;
+  const uncached = optionalFiniteNumber(raw.uncached_input_tokens);
+  if (uncached != null) usage.uncached_input_tokens = uncached;
+  const reasoning = optionalFiniteNumber(raw.reasoning_tokens);
+  if (reasoning != null) usage.reasoning_tokens = reasoning;
+  const modelCallCount = optionalNonnegInt(raw.model_call_count);
+  if (modelCallCount != null) usage.model_call_count = modelCallCount;
+  const reportedCount = optionalNonnegInt(raw.usage_reported_call_count);
+  if (reportedCount != null) usage.usage_reported_call_count = reportedCount;
+  const observedCount = optionalNonnegInt(raw.observed_model_call_count);
+  if (observedCount != null) usage.observed_model_call_count = observedCount;
+  return usage;
+}
+
+function sanitizeTraceCost(raw: unknown): AgentInteractionTraceCost | undefined {
+  if (!isRecord(raw)) return undefined;
+  const cost: AgentInteractionTraceCost = {
+    status: truncatePersistedString(raw.status) ?? "unavailable",
+    usd: optionalFiniteNumber(raw.usd),
+  };
+  const currency = truncatePersistedString(raw.currency);
+  if (currency) cost.currency = currency;
+  const priced = optionalNonnegInt(raw.priced_call_count);
+  if (priced != null) cost.priced_call_count = priced;
+  const unpriced = optionalNonnegInt(raw.unpriced_call_count);
+  if (unpriced != null) cost.unpriced_call_count = unpriced;
+  const rates = sanitizeRatesPer1m(raw.rates_per_1m_usd);
+  if (rates) cost.rates_per_1m_usd = rates;
+  const matched = optionalBool(raw.pricing_table_matched);
+  if (matched != null) cost.pricing_table_matched = matched;
+  return cost;
+}
+
+function sanitizeRequestSummary(raw: unknown): Record<string, number> | undefined {
+  if (!isRecord(raw)) return undefined;
+  const summary: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!MODEL_CALL_REQUEST_SUMMARY_KEYS.has(key) || isForbiddenTraceKey(key)) continue;
+    const parsed = optionalFiniteNumber(value);
+    if (parsed != null) summary[key] = parsed;
+  }
+  return Object.keys(summary).length ? summary : undefined;
+}
+
+function sanitizeModelCall(raw: unknown): AgentInteractionModelCallTrace | null {
+  if (!isRecord(raw)) return null;
+  const sequence = optionalNonnegInt(raw.sequence);
+  const callId = truncatePersistedString(raw.call_id) ?? (sequence != null ? `call-${sequence}` : null);
+  if (!callId) return null;
+  const call: AgentInteractionModelCallTrace = {
+    call_id: callId,
+    sequence: sequence ?? 0,
+    status: truncatePersistedString(raw.status) ?? "unknown",
+    usage: sanitizeTraceUsage(raw.usage),
+  };
+  const runtimeRequestId = truncatePersistedString(raw.runtime_api_request_id);
+  if (runtimeRequestId) call.runtime_api_request_id = runtimeRequestId;
+  const runtimeTurnId = truncatePersistedString(raw.runtime_turn_id);
+  if (runtimeTurnId) call.runtime_turn_id = runtimeTurnId;
+  const provider = truncatePersistedString(raw.provider);
+  if (provider) call.provider = provider;
+  const requestedModel = truncatePersistedString(raw.requested_model);
+  if (requestedModel) call.requested_model = requestedModel;
+  const responseModel = truncatePersistedString(raw.response_model);
+  if (responseModel) call.response_model = responseModel;
+  const apiMode = truncatePersistedString(raw.api_mode);
+  if (apiMode) call.api_mode = apiMode;
+  const startedAt = truncatePersistedString(raw.started_at);
+  if (startedAt) call.started_at = startedAt;
+  const completedAt = truncatePersistedString(raw.completed_at);
+  if (completedAt) call.completed_at = completedAt;
+  call.duration_ms = optionalFiniteNumber(raw.duration_ms);
+  const requestSummary = sanitizeRequestSummary(raw.request_summary);
+  if (requestSummary) call.request_summary = requestSummary;
+  const cost = sanitizeTraceCost(raw.cost);
+  if (cost) call.cost = cost;
+  const finishReason = truncatePersistedString(raw.finish_reason);
+  if (finishReason) call.finish_reason = finishReason;
+  const retryCount = optionalNonnegInt(raw.retry_count);
+  if (retryCount != null) call.retry_count = retryCount;
+  const retryable = optionalBool(raw.retryable);
+  if (retryable != null) call.retryable = retryable;
+  const statusCode = optionalNonnegInt(raw.status_code);
+  if (statusCode != null) call.status_code = statusCode;
+  const errorType = truncatePersistedString(raw.error_type);
+  if (errorType) call.error_type = errorType;
+  return call;
+}
+
+function sanitizeModelCalls(raw: unknown): { calls: AgentInteractionModelCallTrace[]; truncated: boolean } {
+  if (!Array.isArray(raw)) return { calls: [], truncated: false };
+  const sanitized = raw
+    .map((entry) => sanitizeModelCall(entry))
+    .filter((entry): entry is AgentInteractionModelCallTrace => entry != null);
+  const truncated = sanitized.length > MAX_PERSISTED_MODEL_CALLS || raw.length > MAX_PERSISTED_MODEL_CALLS;
+  return { calls: sanitized.slice(0, MAX_PERSISTED_MODEL_CALLS), truncated };
+}
+
+function sanitizeSpanAttributes(
+  raw: unknown,
+): Record<string, string | number | boolean | null> | undefined {
+  if (!isRecord(raw)) return undefined;
+  const attributes: Record<string, string | number | boolean | null> = {};
+  let count = 0;
+  for (const [key, value] of Object.entries(raw)) {
+    if (count >= MAX_PERSISTED_SPAN_ATTRIBUTES) break;
+    if (isForbiddenTraceKey(key)) continue;
+    const name = truncatePersistedString(key);
+    if (!name) continue;
+    if (value === null || typeof value === "boolean") {
+      attributes[name] = value;
+      count += 1;
+      continue;
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      attributes[name] = value;
+      count += 1;
+      continue;
+    }
+    if (typeof value === "string") {
+      const truncated = truncatePersistedString(value);
+      if (truncated) {
+        attributes[name] = truncated;
+        count += 1;
+      }
+    }
+  }
+  return Object.keys(attributes).length ? attributes : undefined;
+}
+
+function sanitizeSpan(raw: unknown): AgentInteractionTraceSpan | null {
+  if (!isRecord(raw)) return null;
+  const name = truncatePersistedString(raw.name);
+  const spanId = truncatePersistedString(raw.span_id);
+  if (!name || !spanId) return null;
+  const span: AgentInteractionTraceSpan = {
+    span_id: spanId,
+    kind: truncatePersistedString(raw.kind) ?? "phase",
+    name,
+    status: truncatePersistedString(raw.status) ?? "unknown",
+    duration_ms: optionalFiniteNumber(raw.duration_ms),
+  };
+  const parent = truncatePersistedString(raw.parent_span_id);
+  if (parent) span.parent_span_id = parent;
+  const startedAt = truncatePersistedString(raw.started_at);
+  if (startedAt) span.started_at = startedAt;
+  const completedAt = truncatePersistedString(raw.completed_at);
+  if (completedAt) span.completed_at = completedAt;
+  const attributes = sanitizeSpanAttributes(raw.attributes);
+  if (attributes) span.attributes = attributes;
+  return span;
+}
+
+function sanitizeSpans(raw: unknown): AgentInteractionTraceSpan[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => sanitizeSpan(entry))
+    .filter((entry): entry is AgentInteractionTraceSpan => entry != null)
+    .slice(0, MAX_PERSISTED_SPANS);
+}
+
+function sanitizeConversationContext(raw: unknown): AgentInteractionTrace["conversation_context"] {
+  if (!isRecord(raw)) return undefined;
+  return {
+    history_present: Boolean(raw.history_present),
+    message_count: typeof raw.message_count === "number" ? raw.message_count : 0,
+    pair_count: typeof raw.pair_count === "number" ? raw.pair_count : 0,
+    payload_shape: truncatePersistedString(raw.payload_shape) ?? "role_content_only",
+    graph_metadata_in_history: Boolean(raw.graph_metadata_in_history),
+    hermes_session_pointer_in_request: Boolean(raw.hermes_session_pointer_in_request),
+    hermes_session_pointer_status: truncatePersistedString(raw.hermes_session_pointer_status) ?? undefined,
+    worker_pid_changed: typeof raw.worker_pid_changed === "boolean"
+      ? raw.worker_pid_changed
+      : undefined,
+    fresh_graph_revision_used: typeof raw.fresh_graph_revision_used === "boolean"
+      ? raw.fresh_graph_revision_used
+      : undefined,
+  };
+}
+
+function assignA0DiagnosticFields(
+  projected: AgentInteractionTrace,
+  trace: Record<string, unknown>,
+  warnings: string[],
+): void {
+  const schema = truncatePersistedString(trace.schema);
+  if (schema) projected.schema = schema;
+  const agentThreadId = truncatePersistedString(trace.agent_thread_id);
+  if (agentThreadId) projected.agent_thread_id = agentThreadId;
+  const turnId = truncatePersistedString(trace.turn_id);
+  if (turnId) projected.turn_id = turnId;
+  const provider = truncatePersistedString(trace.provider);
+  if (provider) projected.provider = provider;
+  const model = truncatePersistedString(trace.model);
+  if (model) projected.model = model;
+  projected.usage = sanitizeTraceUsage(trace.usage);
+  const cost = sanitizeTraceCost(trace.cost);
+  if (cost) projected.cost = cost;
+  const { calls, truncated } = sanitizeModelCalls(trace.model_calls);
+  if (calls.length || Array.isArray(trace.model_calls)) projected.model_calls = calls;
+  if (truncated && !warnings.includes(MODEL_CALLS_TRUNCATED_WARNING)) {
+    warnings.push(MODEL_CALLS_TRUNCATED_WARNING);
+  }
+  if (Array.isArray(trace.spans)) projected.spans = sanitizeSpans(trace.spans);
+}
+
 /** Prefer top-level warnings when they are an array; otherwise fall back to agent_trace.warnings. */
 function warningsFromResponse(response: LiveQueryResponse): string[] {
   if (Array.isArray(response.warnings)) {
@@ -244,7 +538,7 @@ function warningsFromResponse(response: LiveQueryResponse): string[] {
   return sanitizePersistedWarnings(response.agent_trace?.warnings);
 }
 
-/** Strict Hermes graph-agent trace projection — only the handoff whitelist. */
+/** Strict Hermes graph-agent trace projection — A0 whitelist plus existing safe Hermes fields. */
 function safeHermesGraphTraceForPersistence(
   trace: Record<string, unknown>,
 ): AgentInteractionTrace {
@@ -257,14 +551,16 @@ function safeHermesGraphTraceForPersistence(
   } else if (trace.tool_events != null && !Array.isArray(trace.tool_events)) {
     warnings.push("Malformed graph tool_events collection was ignored.");
   }
-  return {
+  const projected: AgentInteractionTrace = {
     trace_id: truncatePersistedString(trace.trace_id) ?? "",
     runtime: truncatePersistedString(trace.runtime) ?? "",
     backend: truncatePersistedString(trace.backend) ?? "hermes",
     mode: "hermes_graph_agent",
     started_at: truncatePersistedString(trace.started_at) ?? "",
     completed_at: truncatePersistedString(trace.completed_at) ?? "",
-    elapsed_ms: typeof trace.elapsed_ms === "number" ? trace.elapsed_ms : 0,
+    elapsed_ms: typeof trace.elapsed_ms === "number" && Number.isFinite(trace.elapsed_ms)
+      ? trace.elapsed_ms
+      : 0,
     status: truncatePersistedString(trace.status) ?? "unknown",
     usage: {
       available: false,
@@ -276,30 +572,27 @@ function safeHermesGraphTraceForPersistence(
     context_summary: {},
     artifact_refs: [],
     tool_events: sanitizeHermesGraphToolEvents(trace.tool_events),
-    conversation_context: isRecord(trace.conversation_context)
-      ? {
-          history_present: Boolean(trace.conversation_context.history_present),
-          message_count: typeof trace.conversation_context.message_count === "number"
-            ? trace.conversation_context.message_count
-            : 0,
-          pair_count: typeof trace.conversation_context.pair_count === "number"
-            ? trace.conversation_context.pair_count
-            : 0,
-          payload_shape: truncatePersistedString(trace.conversation_context.payload_shape) ?? "role_content_only",
-          graph_metadata_in_history: Boolean(trace.conversation_context.graph_metadata_in_history),
-          hermes_session_pointer_in_request: Boolean(trace.conversation_context.hermes_session_pointer_in_request),
-          hermes_session_pointer_status: truncatePersistedString(trace.conversation_context.hermes_session_pointer_status) ?? undefined,
-          worker_pid_changed: typeof trace.conversation_context.worker_pid_changed === "boolean"
-            ? trace.conversation_context.worker_pid_changed
-            : undefined,
-          fresh_graph_revision_used: typeof trace.conversation_context.fresh_graph_revision_used === "boolean"
-            ? trace.conversation_context.fresh_graph_revision_used
-            : undefined,
-        }
-      : undefined,
-    process_isolation: truncatePersistedString(trace.process_isolation),
-    warnings: warnings.slice(0, MAX_PERSISTED_WARNINGS),
+    conversation_context: sanitizeConversationContext(trace.conversation_context),
+    process_isolation: truncatePersistedString(trace.process_isolation) ?? undefined,
+    warnings: [],
   };
+  const hermesSessionId = truncatePersistedString(trace.hermes_session_id);
+  if (hermesSessionId) projected.hermes_session_id = hermesSessionId;
+  const answerScope = truncatePersistedString(trace.answer_scope);
+  if (answerScope === "graph" || answerScope === "conversation_context") {
+    projected.answer_scope = answerScope;
+  }
+  const toolEventCount = optionalFiniteNumber(trace.tool_event_count);
+  if (toolEventCount != null) projected.tool_event_count = toolEventCount;
+  const evidenceEventCount = optionalFiniteNumber(trace.evidence_event_count);
+  if (evidenceEventCount != null) projected.evidence_event_count = evidenceEventCount;
+  const finalResponsePresent = optionalBool(trace.final_response_present);
+  if (finalResponsePresent != null) projected.final_response_present = finalResponsePresent;
+  const validatorPath = truncatePersistedString(trace.validator_path);
+  if (validatorPath) projected.validator_path = validatorPath;
+  assignA0DiagnosticFields(projected, trace, warnings);
+  projected.warnings = warnings.slice(0, MAX_PERSISTED_WARNINGS);
+  return projected;
 }
 
 export function safeTraceForPersistence(
@@ -312,16 +605,8 @@ export function safeTraceForPersistence(
 
   const steps = Array.isArray(trace.steps) ? trace.steps : [];
   const artifactRefs = Array.isArray(trace.artifact_refs) ? trace.artifact_refs : [];
-  const usage = isRecord(trace.usage)
-    ? {
-        available: Boolean(trace.usage.available),
-        input_tokens: typeof trace.usage.input_tokens === "number" ? trace.usage.input_tokens : null,
-        output_tokens: typeof trace.usage.output_tokens === "number" ? trace.usage.output_tokens : null,
-        total_tokens: typeof trace.usage.total_tokens === "number" ? trace.usage.total_tokens : null,
-      }
-    : { available: false, input_tokens: null, output_tokens: null, total_tokens: null };
-
-  return {
+  const warnings = sanitizePersistedWarnings(trace.warnings);
+  const projected: AgentInteractionTrace = {
     trace_id: truncatePersistedString(trace.trace_id) ?? "",
     runtime: truncatePersistedString(trace.runtime) ?? "",
     backend: truncatePersistedString(trace.backend) ?? "",
@@ -330,14 +615,16 @@ export function safeTraceForPersistence(
     model: truncatePersistedString(trace.model),
     started_at: truncatePersistedString(trace.started_at) ?? "",
     completed_at: truncatePersistedString(trace.completed_at) ?? "",
-    elapsed_ms: typeof trace.elapsed_ms === "number" ? trace.elapsed_ms : 0,
+    elapsed_ms: typeof trace.elapsed_ms === "number" && Number.isFinite(trace.elapsed_ms)
+      ? trace.elapsed_ms
+      : 0,
     status: truncatePersistedString(trace.status) ?? "unknown",
     toolset: truncatePersistedString(trace.toolset),
     command_summary: truncatePersistedString(trace.command_summary),
     prompt_preview: undefined,
     prompt_char_count: typeof trace.prompt_char_count === "number" ? trace.prompt_char_count : null,
     prompt_token_estimate: typeof trace.prompt_token_estimate === "number" ? trace.prompt_token_estimate : null,
-    usage,
+    usage: sanitizeTraceUsage(trace.usage),
     steps: steps.slice(0, 12).map((step) => {
       const record = isRecord(step) ? step : {};
       return {
@@ -358,8 +645,11 @@ export function safeTraceForPersistence(
     tool_events: undefined,
     hermes_session_id: truncatePersistedString(trace.hermes_session_id),
     process_isolation: truncatePersistedString(trace.process_isolation),
-    warnings: sanitizePersistedWarnings(trace.warnings),
+    warnings,
   };
+  assignA0DiagnosticFields(projected, trace, warnings);
+  projected.warnings = warnings.slice(0, MAX_PERSISTED_WARNINGS);
+  return projected;
 }
 
 function isHermesGraphTurn(turn: Pick<AgentInteractionTurn, "backend" | "grounding" | "trace">): boolean {

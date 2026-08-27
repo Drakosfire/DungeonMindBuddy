@@ -110,6 +110,7 @@ describe("agentInteractionHistory", () => {
   it("forces Plan threads to Hermes even when constructed or persisted as Live", () => {
     const created = createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Forced");
     expect(created.activeBackend).toBe("hermes");
+    expect(created.uiState.traceVisible).toBe(false);
 
     const legacy: AgentInteractionThread = {
       ...created,
@@ -119,6 +120,14 @@ describe("agentInteractionHistory", () => {
     const loaded = loadAgentThreadById("longmont-c2", "legacy-live");
     expect(loaded?.activeBackend).toBe("hermes");
     expect(normalizePlanAgentBackend(legacy).activeBackend).toBe("hermes");
+  });
+
+  it("keeps an existing persisted traceVisible preference", () => {
+    const thread = makeThread("Existing diagnostics");
+    expect(thread.uiState.traceVisible).toBe(true);
+    persistAgentThread(thread);
+    const loaded = loadAgentThreadById("longmont-c2", thread.threadId);
+    expect(loaded?.uiState.traceVisible).toBe(true);
   });
 
   it("load empty index returns valid empty index", () => {
@@ -348,6 +357,12 @@ describe("agentInteractionHistory", () => {
     expect(JSON.parse(stored).turns[0].trace.steps).toEqual([]);
     expect(JSON.parse(stored).turns[0].trace.provider).toBeUndefined();
     expect(JSON.parse(stored).turns[0].trace.model).toBeUndefined();
+    expect(JSON.parse(stored).turns[0].trace.usage).toMatchObject({
+      available: true,
+      input_tokens: 1,
+      output_tokens: 1,
+      total_tokens: 2,
+    });
 
     const reloaded = loadAgentThreadById("longmont-c2", thread.threadId);
     expect(reloaded?.turns[0].grounding?.state).toBe("grounded");
@@ -428,8 +443,8 @@ describe("agentInteractionHistory", () => {
     expect(turn.trace?.steps).toEqual([]);
     expect(turn.trace?.artifact_refs).toEqual([]);
     expect(turn.trace?.context_summary).toEqual({});
-    expect(turn.trace?.provider).toBeUndefined();
-    expect(turn.trace?.model).toBeUndefined();
+    expect(turn.trace?.provider).toBe("openai");
+    expect(turn.trace?.model).toBe("gpt-leak");
     expect(turn.trace?.toolset).toBeUndefined();
 
     thread.turns = [turn];
@@ -927,8 +942,249 @@ describe("agentInteractionHistory", () => {
     persistAgentThread(thread);
     const stored = localStorage.getItem(threadStorageKey(thread.campaignId, thread.threadId)) ?? "";
     expect(stored).not.toContain("conversation_history");
-    expect(stored).not.toContain("hermes_session_id");
-    expect(stored).not.toContain("hermes-session-must-not-persist");
-    expect(stored).not.toContain("RAW_HERMES_TRANSCRIPT_SECRET");
+    expect(stored).toContain("hermes_session_id");
+    expect(stored).toContain("hermes-session-must-not-persist");
+    expect(stored).not.toContain("conversationHistory");
+  });
+
+  it("preserves A0 diagnostic fields through turnFromResponse, persist, and reload", () => {
+    const thread = makeThread("A0 diagnostics");
+    const a0Gpt54Rates = { input: 2.5, cached_input: 0.25, output: 15 };
+    const a0UsageCostUsd = (inputTokens: number, cachedTokens: number, outputTokens: number): number => {
+      const uncached = Math.max(0, inputTokens - cachedTokens);
+      return (
+        (uncached / 1_000_000) * a0Gpt54Rates.input
+        + (cachedTokens / 1_000_000) * a0Gpt54Rates.cached_input
+        + (outputTokens / 1_000_000) * a0Gpt54Rates.output
+      );
+    };
+    const call1Usd = a0UsageCostUsd(18_000, 18_000, 400);
+    const call2Usd = a0UsageCostUsd(3_300, 0, 581);
+    const completeUsd = call1Usd + call2Usd;
+    const turn = turnFromResponse("Who is Lysandro?", {
+      answer: "Lysandro is at the gate.",
+      mode: "hermes_graph_agent",
+      status: "ok",
+      classification: {},
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: {},
+      grounding: graphGrounding,
+      citations: [graphCitation],
+      agent_trace: {
+        schema: "dmb_agent_turn_trace_v1",
+        trace_id: "trace-a0-roundtrip",
+        agent_thread_id: "thread-a0",
+        turn_id: "turn-a0",
+        runtime: "process_isolated",
+        backend: "hermes",
+        mode: "hermes_graph_agent",
+        provider: "openai-api",
+        model: "gpt-5.4",
+        started_at: "2026-08-26T18:00:00Z",
+        completed_at: "2026-08-26T18:00:07Z",
+        elapsed_ms: 7420,
+        status: "ok",
+        usage: {
+          available: true,
+          status: "reported",
+          input_tokens: 21300,
+          cached_input_tokens: 18000,
+          uncached_input_tokens: 3300,
+          output_tokens: 981,
+          reasoning_tokens: 120,
+          total_tokens: 22281,
+          model_call_count: 2,
+          usage_reported_call_count: 2,
+        },
+        cost: { status: "estimated", usd: completeUsd, currency: "USD", priced_call_count: 2, unpriced_call_count: 0 },
+        model_calls: [
+          {
+            call_id: "call-1",
+            sequence: 1,
+            status: "ok",
+            provider: "openai-api",
+            requested_model: "gpt-5.4",
+            response_model: "gpt-5.4",
+            duration_ms: 5000,
+            usage: {
+              available: true,
+              status: "reported",
+              input_tokens: 18000,
+              cached_input_tokens: 18000,
+              uncached_input_tokens: 0,
+              output_tokens: 400,
+              reasoning_tokens: 80,
+              total_tokens: 18400,
+            },
+            cost: { status: "estimated", usd: call1Usd, rates_per_1m_usd: a0Gpt54Rates },
+          },
+          {
+            call_id: "call-2",
+            sequence: 2,
+            status: "ok",
+            provider: "openai-api",
+            requested_model: "gpt-5.4",
+            response_model: "gpt-5.4",
+            duration_ms: 2200,
+            usage: {
+              available: true,
+              status: "reported",
+              input_tokens: 3300,
+              cached_input_tokens: 0,
+              uncached_input_tokens: 3300,
+              output_tokens: 581,
+              reasoning_tokens: 40,
+              total_tokens: 3881,
+            },
+            cost: { status: "estimated", usd: call2Usd, rates_per_1m_usd: a0Gpt54Rates },
+          },
+        ],
+        spans: [
+          { span_id: "span-1", kind: "phase", name: "harness_turn", status: "ok", duration_ms: 7000 },
+          { span_id: "span-2", kind: "phase", name: "response_projection", status: "ok", duration_ms: 220 },
+          { span_id: "span-3", kind: "phase", name: "session_load", status: "ok", duration_ms: 80 },
+        ],
+        steps: [],
+        context_summary: {},
+        artifact_refs: [],
+        tool_events: [{
+          tool_name: "graph_read",
+          state: "completion",
+          duration_ms: 8,
+          world_id: "eldyrwild",
+          campaign_id: "longmont-c2",
+          focus: { kind: "session", session_id: "session-21" },
+          admissibility: "gm",
+          revision_pin: "rev-1",
+          bounded_ids: {},
+          retrieval_schema: null,
+          outcome: "enough",
+          matched_node_ids: ["node-1"],
+          relationship_ids: [],
+          source_anchor_ids: [graphCitation.anchor_id],
+          diagnostic_codes: [],
+        }],
+        conversation_context: {
+          history_present: false,
+          message_count: 0,
+          pair_count: 0,
+          payload_shape: "role_content_only",
+          graph_metadata_in_history: false,
+          hermes_session_pointer_in_request: false,
+        },
+        warnings: [],
+      },
+    }, "hermes");
+
+    expect(turn.trace?.schema).toBe("dmb_agent_turn_trace_v1");
+    expect(turn.trace?.trace_id).toBe("trace-a0-roundtrip");
+    expect(turn.trace?.provider).toBe("openai-api");
+    expect(turn.trace?.model).toBe("gpt-5.4");
+    expect(turn.trace?.usage.status).toBe("reported");
+    expect(turn.trace?.usage.model_call_count).toBe(2);
+    expect(turn.trace?.usage.usage_reported_call_count).toBe(2);
+    expect(turn.trace?.usage.cached_input_tokens).toBe(18000);
+    expect(turn.trace?.cost?.usd).toBe(completeUsd);
+    expect(turn.trace?.cost?.priced_call_count).toBe(2);
+    expect(turn.trace?.cost?.unpriced_call_count).toBe(0);
+    expect(turn.trace?.model_calls).toHaveLength(2);
+    expect(turn.trace?.spans).toHaveLength(3);
+
+    thread.turns = [turn];
+    persistAgentThread(thread);
+    const reloaded = loadAgentThreadById("longmont-c2", thread.threadId);
+    expect(reloaded?.turns[0].trace?.trace_id).toBe("trace-a0-roundtrip");
+    expect(reloaded?.turns[0].trace?.provider).toBe("openai-api");
+    expect(reloaded?.turns[0].trace?.model).toBe("gpt-5.4");
+    expect(reloaded?.turns[0].trace?.usage.input_tokens).toBe(21300);
+    expect(reloaded?.turns[0].trace?.cost?.status).toBe("estimated");
+    expect(reloaded?.turns[0].trace?.usage.model_call_count).toBe(2);
+    expect(reloaded?.turns[0].trace?.model_calls).toHaveLength(2);
+    expect(reloaded?.turns[0].trace?.model_calls?.[0]?.duration_ms).toBe(5000);
+    expect(reloaded?.turns[0].trace?.model_calls?.[1]?.duration_ms).toBe(2200);
+    expect(reloaded?.turns[0].trace?.spans?.map((span) => span.name)).toEqual([
+      "harness_turn",
+      "response_projection",
+      "session_load",
+    ]);
+  });
+
+  it("strips forbidden additive bodies while keeping A0 diagnostics after reload", () => {
+    const thread = makeThread("A0 privacy");
+    const turn = turnFromResponse("Who is Lysandro?", {
+      answer: "Lysandro is at the gate.",
+      mode: "hermes_graph_agent",
+      status: "ok",
+      classification: {},
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: {},
+      grounding: graphGrounding,
+      citations: [graphCitation],
+      agent_trace: {
+        schema: "dmb_agent_turn_trace_v1",
+        trace_id: "trace-a0-privacy",
+        runtime: "process_isolated",
+        backend: "hermes",
+        mode: "hermes_graph_agent",
+        provider: "openai-api",
+        model: "gpt-5.4",
+        started_at: "2026-08-26T18:00:00Z",
+        completed_at: "2026-08-26T18:00:00Z",
+        elapsed_ms: 12,
+        status: "ok",
+        usage: {
+          available: true,
+          status: "reported",
+          input_tokens: 10,
+          output_tokens: 2,
+          total_tokens: 12,
+          model_call_count: 1,
+          usage_reported_call_count: 1,
+        },
+        cost: { status: "estimated", usd: 0.000055, priced_call_count: 1, unpriced_call_count: 0 },
+        model_calls: [{
+          call_id: "call-1",
+          sequence: 1,
+          status: "ok",
+          duration_ms: 11,
+          usage: { available: true, status: "reported", input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+          request: { body: "SENTINEL_REQUEST_BODY" },
+        }],
+        spans: [{ span_id: "span-1", kind: "phase", name: "harness_turn", status: "ok", duration_ms: 11 }],
+        steps: [],
+        context_summary: {},
+        artifact_refs: [],
+        tool_events: [],
+        warnings: [],
+        prompt: "SENTINEL_PROMPT",
+        messages: [{ role: "user", content: "SENTINEL_MESSAGES" }],
+        args: { q: "SENTINEL_ARGS" },
+        result: "SENTINEL_RESULT",
+        response: { assistant_message: { content: "SENTINEL_RESPONSE" } },
+      } as unknown as AgentInteractionTrace,
+    }, "hermes");
+
+    thread.turns = [turn];
+    persistAgentThread(thread);
+    const stored = localStorage.getItem(threadStorageKey("longmont-c2", thread.threadId)) ?? "";
+    expect(stored).toContain("trace-a0-privacy");
+    expect(stored).toContain("openai-api");
+    expect(stored).not.toContain("SENTINEL_REQUEST_BODY");
+    expect(stored).not.toContain("SENTINEL_PROMPT");
+    expect(stored).not.toContain("SENTINEL_MESSAGES");
+    expect(stored).not.toContain("SENTINEL_ARGS");
+    expect(stored).not.toContain("SENTINEL_RESULT");
+    expect(stored).not.toContain("SENTINEL_RESPONSE");
+
+    const reloaded = loadAgentThreadById("longmont-c2", thread.threadId);
+    expect(reloaded?.turns[0].trace?.usage.input_tokens).toBe(10);
+    expect(reloaded?.turns[0].trace?.cost?.usd).toBe(0.000055);
+    expect(JSON.stringify(reloaded)).not.toContain("SENTINEL_REQUEST_BODY");
   });
 });

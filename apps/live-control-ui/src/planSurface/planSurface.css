@@ -1419,118 +1419,11 @@ body.surface-projection-open .plan-agent-shell {
   color: var(--fg-mute, #9aa3b5);
 }
 
-.plan-agent-trace {
-  margin-bottom: 0.75rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--border, #2a3142);
-  border-radius: 8px;
-  background: rgba(18, 20, 28, 0.75);
-}
-
-.plan-agent-trace-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem 0.65rem;
-  margin-bottom: 0.35rem;
-}
-
-.plan-agent-trace-copy {
-  border: 1px solid rgba(122, 162, 247, 0.45);
-  border-radius: 6px;
-  background: rgba(122, 162, 247, 0.08);
-  color: var(--fg, #e8ecf4);
-  font-size: 0.78rem;
-  padding: 0.2rem 0.55rem;
-  cursor: pointer;
-}
-
-.plan-agent-trace-copy:hover {
-  background: rgba(122, 162, 247, 0.16);
-}
-
-.plan-agent-trace-details > summary {
-  cursor: pointer;
-  display: grid;
-  gap: 0.15rem;
-}
-
-.plan-agent-trace-details > summary span:first-child {
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.plan-agent-trace-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.45rem 0.75rem;
-  margin: 0.5rem 0 0;
-}
-
-.plan-agent-trace-grid div {
-  min-width: 0;
-}
-
-.plan-agent-trace-grid dt {
-  color: var(--fg-mute, #9aa3b5);
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.plan-agent-trace-grid dd {
-  margin: 0.1rem 0 0;
-  font-size: 0.82rem;
-}
-
-.plan-agent-trace-command,
-.plan-agent-trace-prompt,
-.plan-agent-trace-context,
-.plan-agent-trace-artifacts,
-.plan-agent-trace-warnings,
-.plan-agent-trace-answer,
-.plan-agent-trace-prose {
-  margin-top: 0.55rem;
-}
-
-.plan-agent-trace-prose-turn + .plan-agent-trace-prose-turn {
-  margin-top: 0.45rem;
-}
-
-.plan-agent-trace-prose-turn p {
-  margin: 0.15rem 0 0;
-  white-space: pre-wrap;
-  font-size: 0.88rem;
-  line-height: 1.35;
-}
-
-.plan-agent-trace-command h5,
-.plan-agent-trace-prompt summary,
-.plan-agent-trace-context h5,
-.plan-agent-trace-artifacts h5,
-.plan-agent-trace-warnings h5,
-.plan-agent-trace-answer h5,
-.plan-agent-trace-prose h5 {
-  margin: 0 0 0.25rem;
-  font-size: 0.78rem;
-  color: var(--fg-mute, #9aa3b5);
-}
-
-.plan-agent-trace-command code,
-.plan-agent-trace-artifacts code,
-.plan-agent-trace-grid code {
-  font-family: var(--mono, monospace);
-  font-size: 0.75rem;
-}
-
-.plan-agent-trace-prompt summary,
 .plan-agent-full-context summary {
   cursor: pointer;
   font-weight: 700;
 }
 
-.plan-agent-trace-prompt pre,
 .plan-agent-full-context pre {
   max-height: 18rem;
   overflow: auto;
@@ -1582,57 +1475,6 @@ body.surface-projection-open .plan-agent-shell {
   user-select: all;
   color: var(--fg-mute, #9aa3b5);
   font-size: 0.75rem;
-}
-
-.plan-agent-trace-steps {
-  margin-top: 0.5rem;
-}
-
-.plan-agent-trace-steps summary {
-  cursor: pointer;
-  font-size: 0.8rem;
-  color: var(--fg-mute, #9aa3b5);
-}
-
-.plan-agent-trace-steps ul,
-.plan-agent-trace-context ul,
-.plan-agent-trace-artifacts ul,
-.plan-agent-trace-warnings ul {
-  margin: 0.25rem 0 0;
-  padding-left: 1rem;
-  font-size: 0.8rem;
-}
-
-.plan-agent-trace-artifacts li {
-  display: grid;
-  gap: 0.2rem;
-  margin-top: 0.35rem;
-}
-
-.plan-agent-trace-artifact-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.plan-agent-trace-artifact-meta span {
-  color: var(--fg-mute, #9aa3b5);
-}
-
-.plan-agent-trace-artifacts code {
-  display: block;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  user-select: all;
-}
-
-.plan-agent-trace-steps li strong {
-  display: block;
-  font-size: 0.78rem;
-}
-
-.plan-agent-trace-warnings li {
-  color: #fbbf24;
 }
 
 .plan-agent-advanced {
@@ -2099,68 +1941,6 @@ body.surface-projection-open .plan-agent-shell {
 
 .plan-agent-graph-read-empty {
   margin: 0.35rem 0 0;
-}
-
-.plan-agent-trace-tool-events {
-  margin-top: 0.55rem;
-}
-
-.plan-agent-trace-tool-events summary {
-  cursor: pointer;
-  font-size: 0.78rem;
-  color: var(--fg-mute, #9aa3b5);
-  font-weight: 700;
-}
-
-.plan-agent-trace-tool-events ul {
-  display: grid;
-  gap: 0.55rem;
-  margin: 0.45rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.plan-agent-trace-tool-event {
-  border: 1px solid var(--border, #2a3142);
-  border-radius: 8px;
-  padding: 0.55rem 0.65rem;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.plan-agent-trace-tool-event-header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.65rem;
-  align-items: baseline;
-}
-
-.plan-agent-trace-tool-event-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 0.35rem 0.65rem;
-  margin: 0.45rem 0 0;
-}
-
-.plan-agent-trace-tool-event-grid dt {
-  color: var(--fg-mute, #9aa3b5);
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.plan-agent-trace-tool-event-grid dd {
-  margin: 0.1rem 0 0;
-  font-size: 0.78rem;
-}
-
-.plan-agent-trace-tool-event-warning {
-  margin: 0.45rem 0 0;
-  font-size: 0.82rem;
-}
-
-.plan-agent-trace-tool-empty {
-  margin: 0.45rem 0 0;
-  font-size: 0.82rem;
 }
 
 .plan-agent-retrieval-freshness {
