@@ -239,9 +239,21 @@ class _FakeAdoptionRepository:
 
 
 class _FakeReviewedInitReceipt:
-    def __init__(self, world_id: str, published_revision_id: str) -> None:
+    def __init__(
+        self,
+        world_id: str,
+        published_revision_id: str,
+        *,
+        published_graph_schema: str = "dm_union_graph_v6",
+        published_graph_payload_sha256: str = "",
+    ) -> None:
         self.world_id = world_id
         self.published_revision_id = published_revision_id
+        self.published_graph_schema = published_graph_schema
+        self.published_graph_payload_sha256 = published_graph_payload_sha256
+        self.source_plan_schema = "test_reviewed_init_plan"
+        self.initialization_id = "init:test"
+        self.actor = "test@local"
 
 
 class _FakeReviewedInitRepository:
@@ -643,7 +655,12 @@ def test_reviewed_init_binding_has_no_legacy_bridge():
         world_graph,
         _seed_sources(),
         None,
-        _FakeReviewedInitReceipt(WORLD_ID, published.revision_id),
+        _FakeReviewedInitReceipt(
+            WORLD_ID,
+            published.revision_id,
+            published_graph_schema=published.graph_schema,
+            published_graph_payload_sha256=published.graph_payload_sha256,
+        ),
     )
     svc = direct.direct_services_from_bundle(bundle, WORLD_ID)
     assert svc.binding.genesis == "reviewed_world_initialization"

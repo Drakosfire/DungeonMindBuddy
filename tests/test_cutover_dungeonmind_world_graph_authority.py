@@ -915,7 +915,7 @@ def test_dungeonmind_pin_exposes_typed_v4_receipt_contract():
         ExistingWorldAdoptionReceiptV4,
     )
 
-    pin = "bf40e933bdedf3cf08bb23a07a135958bdb7cc6b"
+    pin = "5ca5d688612349034f8ca490d465af166d883e6e"
     assert pin in (REPO_ROOT / "pyproject.toml").read_text()
     assert pin in (REPO_ROOT / "uv.lock").read_text()
     assert ExistingWorldAdoptionReceiptV4.model_fields["schema_version"].default == (

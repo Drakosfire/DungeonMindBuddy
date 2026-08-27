@@ -1,15 +1,16 @@
 """CUTOVER D.2C3: two-genesis native read/write continuity.
 
 Unit proofs cover parent classification for reviewed-init ``D_0``. The owning
-PostgreSQL witness creates a pristine world through real D.2C2 first-world
-confirm, then exercises the two-genesis binder, ``WorldGraphAuthority``,
-one existing-parent child, and exact retry/recovery. Native projection of
-#645 ``SourceDomain.OTHER`` facts is fail-closed until a D.2C2 provenance
-predecessor repairs stored evidence without Buddy rewriting graph semantics.
+PostgreSQL witness creates a pristine world through the real corrected
+first-world confirm path, then exercises the two-genesis binder, admitted
+native projection/search/exact-object retrieval, ``WorldGraphAuthority``,
+one existing-parent child, and exact retry/recovery. Buddy never rewrites
+stored DungeonMind evidence on read.
 """
 
 from __future__ import annotations
 
+import copy
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -32,6 +33,10 @@ from dungeonmind.contracts.graph import PublishRevisionCommand
 from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
 from fastapi.testclient import TestClient
 from graph_memory.projection.world_projection import WorldGraphProjectionRequest
+from graph_memory.retrieval.models import (
+    WorldGraphObjectRequest,
+    WorldGraphSearchRequest,
+)
 from tests.test_cutover_dungeonmind_first_world_initialization import (
     _bundle,
     _counts,
@@ -209,6 +214,18 @@ def _projection_request(*, revision_pin: str | None = None) -> WorldGraphProject
     )
 
 
+def _retrieval_context(*, revision_pin: str | None = None) -> dict:
+    fields = {
+        "worldId": GLASS_ORCHARD_WORLD_ID,
+        "campaignId": GLASS_ORCHARD_WORLD_ID,
+        "admissibility": "gm",
+        "scopeMode": "campaign",
+    }
+    if revision_pin is not None:
+        fields["revisionPin"] = revision_pin
+    return fields
+
+
 @pytest.mark.integration
 def test_reviewed_init_d0_native_read_write_continuity(
     native_first_world_client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -250,7 +267,10 @@ def test_reviewed_init_d0_native_read_write_continuity(
     evidence = stored_d0.graph_payload.get("evidence_refs") or []
     assert evidence
     stored_domains = {item.get("source_domain") for item in evidence}
-    assert stored_domains == {"other"}
+    assert stored_domains == {"worldbuilding"}
+    evidence_ids_before = [item.get("evidence_ref_id") for item in evidence]
+    assert all(evidence_ids_before)
+    payload_before = copy.deepcopy(stored_d0.graph_payload)
 
     retry_init = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert retry_init.status_code == 200, retry_init.text
@@ -275,11 +295,35 @@ def test_reviewed_init_d0_native_read_write_continuity(
         services, _projection_request(revision_pin=d0)
     )
     node_ids = {node.node_id for node in projection.nodes}
-    # #645 stamps SourceDomain.OTHER. DungeonMind rejects that mismatch.
-    # Buddy must not rewrite evidence_refs to admit these facts.
-    assert "obj_session22_vial" not in node_ids
-    assert "mystery_puddles" not in node_ids
+    assert "obj_session22_vial" in node_ids
+    assert "mystery_puddles" in node_ids
     assert projection.snapshot.revision_id == d0
+
+    reread_d0 = bundle.world_graph.get_revision(GLASS_ORCHARD_WORLD_ID, d0)
+    assert reread_d0 is not None
+    assert stored_d0.graph_payload == payload_before
+    assert reread_d0.graph_payload == payload_before
+    assert [item.get("evidence_ref_id") for item in (reread_d0.graph_payload.get("evidence_refs") or [])] == evidence_ids_before
+
+    search = direct.search_world_graph_direct(
+        services,
+        WorldGraphSearchRequest(
+            schema="dmb_world_graph_search_request_v1",
+            queryText="vial",
+            **_retrieval_context(revision_pin=d0),
+        ),
+    )
+    assert "obj_session22_vial" in set(search.matched_node_ids)
+
+    exact = direct.get_object_direct(
+        services,
+        WorldGraphObjectRequest(
+            schema="dmb_world_graph_object_request_v1",
+            nodeId="obj_session22_vial",
+            **_retrieval_context(revision_pin=d0),
+        ),
+    )
+    assert [node.node_id for node in exact.nodes] == ["obj_session22_vial"]
 
     adapter = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
     assert adapter.current_head(GLASS_ORCHARD_WORLD_ID).revision_id == d0
@@ -372,5 +416,6 @@ def test_reviewed_init_d0_native_read_write_continuity(
         child_services, _projection_request(revision_pin=d1)
     )
     child_ids = {node.node_id for node in child_projection.nodes}
-    assert "obj_session22_vial" not in child_ids
+    assert "obj_session22_vial" in child_ids
+    assert "mystery_puddles" in child_ids
     assert child_projection.snapshot.revision_id == d1
