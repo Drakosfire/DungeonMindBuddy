@@ -23,9 +23,12 @@ import { StartRunPanel } from "./StartRunPanel";
 import {
   admitNativeRunbook,
   isCanonicalUuid,
+  isNativeRunbookReadyV1,
+  isNativeRunbookReadyV2,
   overlayRuntimeOnDeck,
   type NativeRunbookAdmission,
   type NativeRunbookReadyDeck,
+  type NativeRunbookReadyV2,
 } from "./runbook/nativeRunbookProjection";
 import "./playSurface.css";
 
@@ -287,7 +290,7 @@ export function PlaySurfacePage() {
     setAdmission(null);
     setMutationStatus("idle");
     try {
-      const loaded = await getPlayRun(runId);
+      const loaded = await getPlayRun(runId, { ensureNativeReady: true });
       if (loadSerialRef.current !== serial) return;
       let manifest;
       try {
@@ -327,7 +330,11 @@ export function PlaySurfacePage() {
         return;
       }
       if (loadSerialRef.current !== serial) return;
-      const nextAdmission = admitNativeRunbook({ run: loaded, manifest, committed });
+      const nextAdmission = admitNativeRunbook({
+        run: loaded,
+        manifest,
+        committed,
+      });
       if (loadSerialRef.current !== serial) return;
       setAdmission(nextAdmission);
       if (nextAdmission.status === "ready") {
@@ -420,11 +427,17 @@ export function PlaySurfacePage() {
     };
   }, [chooserQuery, locationSearch, runQuery, loadExactRun]);
 
-  const readyDeck: NativeRunbookReadyDeck | null =
-    loadStatus === "ready" && admission?.status === "ready" ? admission : null;
-  const admittedRun = readyDeck?.run ?? null;
+  const v1Deck: NativeRunbookReadyDeck | null =
+    loadStatus === "ready" && admission != null && isNativeRunbookReadyV1(admission)
+      ? admission
+      : null;
+  const v2Deck: NativeRunbookReadyV2 | null =
+    loadStatus === "ready" && admission != null && isNativeRunbookReadyV2(admission)
+      ? admission
+      : null;
+  const admittedRun = v1Deck?.run ?? v2Deck?.run ?? null;
   const publication = playPublicationAuthority({ admittedRun, runQuery });
-  const blocked = readyDeck == null;
+  const blocked = v1Deck == null && v2Deck == null;
 
   return (
     <AppChrome activeRoute="play">
@@ -442,7 +455,7 @@ export function PlaySurfacePage() {
           <p>Loading exact Run…</p>
         </main>
       ) : null}
-      {readyDeck ? (
+      {v1Deck ? (
         <main
           className="play-surface"
           data-testid="play-surface-ready"
@@ -455,13 +468,13 @@ export function PlaySurfacePage() {
             </button>
           </div>
           <RunbookTableDeck
-            key={readyDeck.run.run_id}
-            deck={readyDeck}
+            key={v1Deck.run.run_id}
+            deck={v1Deck}
             mutationStatus={mutationStatus}
             onMutationStatus={setMutationStatus}
             onAuthoritativeRun={(nextRun) => {
-              if (nextRun.run_id !== readyDeck.run.run_id) return;
-              const overlaid = overlayRuntimeOnDeck(readyDeck, nextRun);
+              if (nextRun.run_id !== v1Deck.run.run_id) return;
+              const overlaid = overlayRuntimeOnDeck(v1Deck, nextRun);
               if (!overlaid) {
                 void loadExactRun(nextRun.run_id);
                 return;
@@ -469,6 +482,37 @@ export function PlaySurfacePage() {
               setAdmission(overlaid);
             }}
           />
+          {detail ? (
+            <p role="alert" className="play-continuity-warning" data-testid="play-active-run-save-warning">
+              {detail}
+            </p>
+          ) : null}
+        </main>
+      ) : null}
+      {v2Deck ? (
+        <main
+          className="play-surface"
+          data-testid="play-surface-ready"
+          data-play-grammar="v2"
+          data-play-campaign-id={publication.campaignId ?? ""}
+          data-play-document-id={publication.documentId ?? ""}
+        >
+          <div className="play-continuity-actions">
+            <button type="button" data-testid="play-start-new-run" onClick={navigateToChooser}>
+              Start New Run
+            </button>
+          </div>
+          <section data-testid="play-v2-runtime">
+            <p className="play-kicker">Play</p>
+            <h1>v2 Run READY</h1>
+            <p data-testid="play-v2-current-beat">current Beat {v2Deck.currentBeatId}</p>
+            <p data-testid="play-v2-current-scene">
+              current Scene {v2Deck.currentSceneId ?? "none"}
+            </p>
+            <p className="play-muted" data-testid="play-v2-binding">
+              revision {v2Deck.run.playable_revision} · {v2Deck.run.playable_content_sha256}
+            </p>
+          </section>
           {detail ? (
             <p role="alert" className="play-continuity-warning" data-testid="play-active-run-save-warning">
               {detail}

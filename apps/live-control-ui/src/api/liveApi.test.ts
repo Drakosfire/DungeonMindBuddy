@@ -22,6 +22,7 @@ import {
   listWorldContainers,
   listWorkspaceDocuments,
   putPlayRun,
+  getPlayRun,
   putPlayActiveRun,
   putPlayRunReferenceManifest,
   postLiveQuery,
@@ -2116,6 +2117,16 @@ describe("Play Run start API", () => {
     expect(String(url)).toBe(`/api/live/play-runs/${runId}`);
     expect(init?.method).toBe("PUT");
     expect(JSON.parse(String(init?.body))).toEqual(request);
+  });
+
+  it("GETs a Run and opts into native-ready first admission on the same path", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(runRecord));
+    await expect(getPlayRun(runId)).resolves.toEqual(runRecord);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(`/api/live/play-runs/${runId}`);
+    await expect(getPlayRun(runId, { ensureNativeReady: true })).resolves.toEqual(runRecord);
+    expect(String(fetchSpy.mock.calls[1]?.[0])).toBe(
+      `/api/live/play-runs/${runId}?ensure_native_ready=true`,
+    );
   });
 
   it("seals the reference manifest with PUT and no request body", async () => {

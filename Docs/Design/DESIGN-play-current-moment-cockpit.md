@@ -377,6 +377,8 @@ When `currentSceneId` exists:
 - **support:** Choices in context, `At a Glance`, notes, tools;
 - **orientation:** Run identity + Beat + Scene are always recoverable without document navigation.
 
+These supporting regions are **collapsible chrome**, not three equally important permanent panes. See §7.1.
+
 ### State 3 — Beat-only READY cockpit
 
 When no Scene is current:
@@ -400,7 +402,27 @@ NPC/Location/Threat/Rule/Note/Map/Source/another Scene opens in-context. Opening
 
 ### State 7 — Combat expanded
 
-Combat temporarily occupies the central working area while Beat + originating Scene context remains retained. Combat remains Combat-owned. Collapsing returns to the exact Scene.
+Combat is one `At a Glance` capability. Opening it makes Combat the **central workspace**; it is not a permanent floating side rail. Collapsing/closing restores the exact current Scene. Combat remains Combat-owned. Runtime current Beat/Scene does not change.
+
+### 7.1 Central workspace composition — 2026-08-26 refinement
+
+These are **BF3/P4 target semantics**. BF2 does not implement this cockpit. No collapse/open workspace state is persisted on the Run.
+
+The default `Beat Context | CURRENT SCENE | At a Glance` arrangement is a composition around **one central workspace**, not three equally important permanent panes.
+
+Default central content is the current Scene, or the current Beat and its available Scenes when no Scene is current.
+
+**Beat Context is collapsible.** It may collapse to a compact affordance while preserving current Beat identity, current Scene identity, and Runtime current position. Collapsing it does not change Run progress. No durable `beatContextCollapsed` field is authorized.
+
+**At a Glance is collapsible.** It may collapse entirely or to a compact affordance. Collapsing it does not alter current context, admitted references, Runtime, or Combat. No durable `atAGlanceCollapsed` field is authorized.
+
+**At a Glance is presence-first**, not a detail pane. Opening a category (Scenes, Locations, NPCs, Threats, Roll tables, Notes, Combat) temporarily uses the **same central workspace**. Opening does not change Runtime current position. Closing/back returns to the exact current Scene. The Scene is not reconstructed from navigation history.
+
+**Combat is one At-a-Glance entry**, not a dedicated right-side rail. Compact status may appear in At a Glance; opening Combat makes it the central workspace; closing restores the exact current Scene. Play may own open/close/projection and an origin Scene pointer. Play does not own HP, initiative, conditions, combatant mutation, or Combat persistence.
+
+The same central-workspace rule applies to every At-a-Glance category. Combat does not get a one-off mechanism.
+
+The older approved-target image remains directional evidence. It must not be read as requiring permanently expanded Beat Context, permanently expanded At a Glance, or a floating Combat rail.
 
 ### State 8 — Runbook/source reference
 
@@ -622,6 +644,8 @@ Remains false afterward: the full Scene-centered cockpit presentation.
 Capability:
 
 - active Scene central board with accessible Beat context;
+- collapsible Beat Context and collapsible At a Glance (presentation-only);
+- At-a-Glance category → same central workspace → exact Scene return;
 - Beat-only state when no Scene is current;
 - Decision interaction + visible relevance change;
 - presence-first `At a Glance`;

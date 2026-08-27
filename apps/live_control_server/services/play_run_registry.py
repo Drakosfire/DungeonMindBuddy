@@ -273,14 +273,313 @@ def _progress_is_empty(progress: PlayRunProgress) -> bool:
     )
 
 
-def _admit_progress(
+def derive_v2_opening_beat_id(markdown: str) -> str | None:
+    """First spine Beat in pinned document order, else first Beat, else None.
+
+    Manifest array order is not document-order authority. Opening Beat is taken
+    from BF1 fence/grammar-admitted markers in exact WorkRevision document
+    order — not a raw line scan that would treat fenced examples as Beats.
+    """
+    from apps.live_control_server.services.play_run_reference_manifest import (
+        PlayRunReferenceManifestError,
+        V2_BEAT_MARKER_RE,
+        _closes_fence,
+        _opening_fence,
+        derive_play_run_reference_elements_v2,
+    )
+
+    try:
+        derived = derive_play_run_reference_elements_v2(markdown)
+    except PlayRunReferenceManifestError:
+        return None
+    admitted = {beat.beat_id: beat.beat_kind for beat in derived.beats}
+    if not admitted:
+        return None
+
+    normalized = markdown.replace("\ufeff", "").replace("\r\n", "\n").replace("\r", "\n")
+    fence_char: str | None = None
+    fence_length = 0
+    first_beat: str | None = None
+    for line in normalized.split("\n"):
+        if fence_char is not None:
+            if _closes_fence(line, fence_char, fence_length):
+                fence_char = None
+                fence_length = 0
+            continue
+        opening = _opening_fence(line)
+        if opening is not None:
+            fence_char, fence_length = opening
+            continue
+        match = V2_BEAT_MARKER_RE.fullmatch(line)
+        if match is None:
+            continue
+        beat_id = match.group(1)
+        if beat_id not in admitted:
+            continue
+        if first_beat is None:
+            first_beat = beat_id
+        if admitted[beat_id] == "spine":
+            return beat_id
+    return first_beat
+
+
+def compare_v2_sealed_structure(markdown: str, manifest: object) -> str | None:
+    """Fail closed when sealed v2 membership, beat_kind, or edges diverge."""
+    from apps.live_control_server.services.play_run_reference_manifest import (
+        PlayRunReferenceManifestError,
+        derive_play_run_reference_elements_v2,
+    )
+
+    try:
+        derived = derive_play_run_reference_elements_v2(markdown)
+    except PlayRunReferenceManifestError as exc:
+        return str(exc)
+
+    derived_beats = {(beat.beat_id, beat.beat_kind) for beat in derived.beats}
+    manifest_beats = {
+        (beat.beat_id, beat.beat_kind) for beat in getattr(manifest, "beats", ())
+    }
+    if derived_beats != manifest_beats:
+        return "sealed v2 manifest disagrees with pinned WorkRevision on Beat kind or membership"
+    derived_scenes = {(scene.scene_id, scene.beat_id) for scene in derived.scenes}
+    manifest_scenes = {
+        (scene.scene_id, scene.beat_id) for scene in getattr(manifest, "scenes", ())
+    }
+    if derived_scenes != manifest_scenes:
+        return "sealed v2 manifest disagrees with pinned WorkRevision on Scene membership"
+    derived_choices = {
+        (choice.choice_id, choice.beat_id, choice.scene_id) for choice in derived.choices
+    }
+    manifest_choices = {
+        (choice.choice_id, choice.beat_id, choice.scene_id)
+        for choice in getattr(manifest, "choices", ())
+    }
+    if derived_choices != manifest_choices:
+        return "sealed v2 manifest disagrees with pinned WorkRevision on Choice membership"
+    derived_options = {
+        (option.option_id, option.choice_id) for option in derived.options
+    }
+    manifest_options = {
+        (option.option_id, option.choice_id) for option in getattr(manifest, "options", ())
+    }
+    if derived_options != manifest_options:
+        return "sealed v2 manifest disagrees with pinned WorkRevision on Option membership"
+    derived_edges = {
+        (edge.option_id, edge.effect, edge.target_kind, edge.target_id)
+        for edge in derived.edges
+    }
+    manifest_edges = {
+        (edge.option_id, edge.effect, edge.target_kind, edge.target_id)
+        for edge in getattr(manifest, "edges", ())
+    }
+    if derived_edges != manifest_edges:
+        return "sealed v2 manifest disagrees with pinned WorkRevision on authored transition edges"
+    return None
+
+
+def compare_run_manifest_binding(record: PlayRunRecord, manifest: object) -> str | None:
+    """Fail closed when sealed JSON binding metadata diverges from the Run."""
+    if getattr(manifest, "run_id", None) != record.run_id:
+        return "sealed reference manifest run_id does not match the Run"
+    if getattr(manifest, "playable_artifact_id", None) != record.playable_artifact_id:
+        return "sealed reference manifest playable_artifact_id does not match the Run"
+    if getattr(manifest, "playable_revision", None) != record.playable_revision:
+        return "sealed reference manifest playable_revision does not match the Run"
+    if getattr(manifest, "playable_content_sha256", None) != record.playable_content_sha256:
+        return "sealed reference manifest playable_content_sha256 does not match the Run"
+    return None
+
+
+def _run_generation_moved(root: Path, run_id: str, prior: PlayRunRecord) -> bool:
+    """True when the durable Run generation/binding changed after preflight."""
+    try:
+        current = get_play_run(root, run_id)
+    except PlayRunRegistryError:
+        return False
+    return (
+        current.run_revision != prior.run_revision
+        or current.playable_artifact_id != prior.playable_artifact_id
+        or current.playable_revision != prior.playable_revision
+        or current.playable_content_sha256 != prior.playable_content_sha256
+    )
+
+
+def _should_retry_native_ready_seed(
+    root: Path,
+    run_id: str,
+    prior: PlayRunRecord,
+    exc: PlayRunRegistryError,
+    *,
+    conflict_depth: int,
+) -> bool:
+    if conflict_depth >= 2:
+        return False
+    if exc.status_code == 409:
+        return True
+    return exc.status_code == 422 and _run_generation_moved(root, run_id, prior)
+
+
+def ensure_v2_native_ready(root: Path, run_id: str, *, conflict_depth: int = 0) -> PlayRunRecord:
+    """Owning first-admission workflow: pinned authority preflight, then seed.
+
+    Load Run + sealed manifest from one application-state aggregate, prove the
+    sealed JSON binding and behavior-bearing v2 contract against that exact
+    pinned WorkRevision, then persist the opening Beat only if progress is
+    still empty. Seed CAS 409, or a 422 whose Run generation/binding moved
+    after preflight, rebinds the full authority set here. Same-generation
+    semantic 422s stay fail-closed.
+    """
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import get_play_run_aggregate
+    from apps.live_control_server.services.play_run_reference_manifest import (
+        PlayRunReferenceManifestError,
+        parse_manifest_payload,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        get_committed_playable_revision,
+    )
+
+    canonical_run_id = _validate_run_id(run_id)
+    try:
+        aggregate = get_play_run_aggregate(canonical_run_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    record = _record_from_play_run(aggregate.run)
+    try:
+        manifest = parse_manifest_payload(aggregate.manifest.manifest, run_id=record.run_id)
+    except PlayRunReferenceManifestError as exc:
+        raise PlayRunRegistryError(str(exc), status_code=int(getattr(exc, "status_code", 500))) from exc
+    if getattr(manifest, "schema_version", None) != "dmb_play_run_reference_manifest_v2":
+        return record
+    binding = compare_run_manifest_binding(record, manifest)
+    if binding:
+        raise PlayRunRegistryError(binding, status_code=422)
+    try:
+        committed = get_committed_playable_revision(
+            record.playable_artifact_id,
+            revision_n=record.playable_revision,
+            expected_sha256=record.playable_content_sha256,
+            kind="runbook",
+        )
+    except Exception as exc:
+        raise PlayRunRegistryError(str(exc), status_code=int(getattr(exc, "status_code", 500))) from exc
+    mismatch = compare_v2_sealed_structure(committed.markdown, manifest)
+    if mismatch:
+        raise PlayRunRegistryError(mismatch, status_code=422)
+    opening = derive_v2_opening_beat_id(committed.markdown)
+    if opening is None:
+        raise PlayRunRegistryError(
+            "v2 Playable has no Beat; native READY is fail-closed",
+            status_code=422,
+        )
+    if not _progress_is_empty(record.progress):
+        return record
+    try:
+        return replace_play_run_progress(
+            root,
+            run_id=run_id,
+            expected_run_revision=record.run_revision,
+            progress=PlayRunProgress(
+                current_beat_id=opening,
+                current_scene_id=None,
+                resolved_beat_ids=[],
+                selections={},
+                notes_by_element_id={},
+            ),
+        )
+    except PlayRunRegistryError as exc:
+        if _should_retry_native_ready_seed(
+            root, run_id, record, exc, conflict_depth=conflict_depth
+        ):
+            return ensure_v2_native_ready(root, run_id, conflict_depth=conflict_depth + 1)
+        raise
+
+
+def _admit_progress_v2(
     progress: PlayRunProgress,
     *,
     manifest: object,
     status_code: int,
 ) -> PlayRunProgress:
     canonical = _canonicalize_progress(progress)
-    by_id = {element.element_id: element for element in manifest.elements}
+    beats = {beat.beat_id: beat for beat in getattr(manifest, "beats", ())}
+    scenes = {scene.scene_id: scene for scene in getattr(manifest, "scenes", ())}
+    choices = {choice.choice_id: choice for choice in getattr(manifest, "choices", ())}
+    options = {option.option_id: option for option in getattr(manifest, "options", ())}
+
+    def reject(field_name: str) -> None:
+        raise PlayRunRegistryError(
+            f"{field_name} is not admitted by the sealed Playable reference manifest",
+            status_code=status_code,
+        )
+
+    if canonical.current_beat_id is None:
+        raise PlayRunRegistryError(
+            "v2 current_beat_id is required when progress is not empty",
+            status_code=status_code,
+        )
+    if canonical.current_beat_id not in beats:
+        reject("current_beat_id")
+    if canonical.current_scene_id is not None:
+        scene = scenes.get(canonical.current_scene_id)
+        if scene is None:
+            reject("current_scene_id")
+            raise AssertionError("unreachable")
+        if scene.beat_id != canonical.current_beat_id:
+            raise PlayRunRegistryError(
+                "current_scene_id does not belong to current_beat_id",
+                status_code=status_code,
+            )
+    for beat_id in canonical.resolved_beat_ids:
+        if beat_id not in beats:
+            reject("resolved_beat_ids")
+    for choice_id, option_id in canonical.selections.items():
+        if choice_id not in choices:
+            reject("selections")
+        option = options.get(option_id)
+        if option is None:
+            reject("selections")
+            raise AssertionError("unreachable")
+        if option.choice_id != choice_id:
+            raise PlayRunRegistryError(
+                "selected option does not belong to the selected choice",
+                status_code=status_code,
+            )
+    for element_id in canonical.notes_by_element_id:
+        if (
+            element_id not in beats
+            and element_id not in scenes
+            and element_id not in choices
+            and element_id not in options
+        ):
+            reject("notes_by_element_id")
+    return canonical
+
+
+def _admit_progress(
+    progress: PlayRunProgress,
+    *,
+    manifest: object,
+    status_code: int,
+) -> PlayRunProgress:
+    schema_version = getattr(manifest, "schema_version", None)
+    if schema_version == "dmb_play_run_reference_manifest_v2":
+        return _admit_progress_v2(
+            progress, manifest=manifest, status_code=status_code
+        )
+    if schema_version != "dmb_play_run_reference_manifest_v1":
+        raise PlayRunRegistryError(
+            "sealed reference manifest schema_version is not admitted",
+            status_code=status_code,
+        )
+    elements = getattr(manifest, "elements", None)
+    if elements is None:
+        raise PlayRunRegistryError(
+            "sealed reference manifest is malformed",
+            status_code=status_code,
+        )
+    canonical = _canonicalize_progress(progress)
+    by_id = {element.element_id: element for element in elements}
 
     def require(element_id: str, kinds: set[str], field_name: str) -> object:
         element = by_id.get(element_id)

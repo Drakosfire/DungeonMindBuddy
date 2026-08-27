@@ -286,13 +286,17 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - activates/suppresses emphasis
 
 2. BF3 — Scene-centered current-moment cockpit
-   - active Scene central board
-   - Beat context wrapper
-   - Beat-only state
+   - active Scene is the default central workspace
+   - Beat-only state when no Scene is current
+   - collapsible Beat Context (presentation-only; not Run state)
+   - collapsible presence-first At a Glance (presentation-only; not Run state)
+   - opening an At-a-Glance category uses the same central workspace
+   - opening does not change Runtime current position
+   - close/back returns to the exact current Scene
    - Decision interaction
-   - At a Glance presence inventory
    - inspect vs Make Current
    - Runbook as secondary reference
+   - this cockpit is not implemented until BF3
 
 3. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
    - inspect material from other Beats without changing current moment
@@ -302,9 +306,11 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
 
 4. THREAT → COMBAT + COMBAT WORKSPACE — P4 / Combat lane
    - Add to Combat from prepared or unexpected Threat
-   - Combat expands into central working area while remaining Combat-owned
-   - collapse returns to exact Scene
+   - Combat is one At-a-Glance entry with compact status, not a floating side rail
+   - opening Combat uses the same central workspace; Combat remains Combat-owned
+   - collapse/close returns to the exact current Scene
    - durable Combat authority required for CR-U17 overall
+   - this Combat workspace is not implemented until P4
 
 5. BF4 — Plan Beat-first authoring composition
    - may proceed in parallel after BF1 on disjoint leases

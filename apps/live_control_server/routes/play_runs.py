@@ -26,6 +26,7 @@ from apps.live_control_server.services.play_run_registry import (
     PlayRunsListResponse,
     ReplacePlayRunProgressRequest,
     create_or_replay_play_run,
+    ensure_v2_native_ready,
     get_play_run,
     list_play_runs,
     replace_play_run_progress,
@@ -164,9 +165,15 @@ def put_play_run_rebase(run_id: str, body: RebasePlayRunRequest) -> dict[str, An
 
 
 @router.get("/play-runs/{run_id}", response_model=PlayRunRecord)
-def get_play_run_route(run_id: str) -> dict[str, Any]:
+def get_play_run_route(
+    run_id: str,
+    ensure_native_ready: Annotated[bool, Query()] = False,
+) -> dict[str, Any]:
     try:
-        record = get_play_run(repo_root(), run_id)
+        if ensure_native_ready:
+            record = ensure_v2_native_ready(repo_root(), run_id)
+        else:
+            record = get_play_run(repo_root(), run_id)
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _record_response(record)

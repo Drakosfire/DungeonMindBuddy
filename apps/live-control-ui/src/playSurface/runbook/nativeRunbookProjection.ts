@@ -6,6 +6,7 @@ import type {
   PlayRunReferenceElement,
   PlayRunReferenceManifest,
   PlayRunReferenceManifestV1,
+  PlayRunReferenceManifestV2,
   WorkspaceCommittedRevision,
   WorkspaceDocumentSnapshot,
 } from "../../api/types";
@@ -13,12 +14,25 @@ import {
   hasBlockingMarkdownImportDiagnostics,
   markdownToTiptapDoc,
 } from "../../tiptap/markdown/markdownToTiptap";
-import type { PlayableElementKind } from "../../tiptap/playable/playableElementIdentity";
+import {
+  validatePlayableOptionItemAttrs,
+  type PlayableBeatKind,
+  type PlayableElementKind,
+} from "../../tiptap/playable/playableElementIdentity";
 import {
   indexPlayableStructure,
+  indexPlayableStructureV2,
   type PlayableStructureElement,
   type PlayableStructureIndex,
+  type PlayableStructureIndexV2,
 } from "../../tiptap/playable/playableStructureIndex";
+import {
+  compareV2Membership,
+  deriveAuthoredRelevance,
+  deriveV2OpeningBeatId,
+  v2RelevanceTargetIds,
+  type AuthoredRelevance,
+} from "./v2RuntimeProjection";
 
 export const CANONICAL_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -67,6 +81,7 @@ export type NativeRunbookScene = NativeRunbookAuthoredElement & {
 
 export type NativeRunbookReadyDeck = {
   status: "ready";
+  grammar: "v1";
   run: PlayRunRecord;
   manifest: PlayRunReferenceManifestV1;
   snapshot: WorkspaceDocumentSnapshot;
@@ -80,12 +95,80 @@ export type NativeRunbookReadyDeck = {
   currentIsPreview: boolean;
 };
 
+export type NativeRunbookOptionV2 = {
+  kind: "option";
+  id: string;
+  title: string;
+  bodyText: string;
+  choiceId: string;
+};
+
+export type NativeRunbookChoiceV2 = {
+  kind: "choice";
+  id: string;
+  title: string;
+  bodyText: string;
+  beatId: string;
+  sceneId: string | null;
+  options: NativeRunbookOptionV2[];
+};
+
+export type NativeRunbookSceneV2 = {
+  kind: "scene";
+  id: string;
+  title: string;
+  bodyText: string;
+  beatId: string;
+  relevance: AuthoredRelevance;
+};
+
+export type NativeRunbookBeatV2 = {
+  kind: "beat";
+  id: string;
+  title: string;
+  bodyText: string;
+  beatKind: PlayableBeatKind | null;
+  relevance: AuthoredRelevance;
+  scenes: NativeRunbookSceneV2[];
+  choices: NativeRunbookChoiceV2[];
+};
+
+export type NativeRunbookReadyV2 = {
+  status: "ready";
+  grammar: "v2";
+  run: PlayRunRecord;
+  manifest: PlayRunReferenceManifestV2;
+  snapshot: WorkspaceDocumentSnapshot;
+  importedDoc: JSONContent;
+  structure: PlayableStructureIndexV2;
+  beats: NativeRunbookBeatV2[];
+  currentBeatId: string;
+  currentSceneId: string | null;
+  openingBeatId: string;
+  relevanceByTargetId: Record<string, AuthoredRelevance>;
+};
+
 export type NativeRunbookFailure = {
   status: NativeRunbookFailureStatus;
   reason: string;
 };
 
-export type NativeRunbookAdmission = NativeRunbookReadyDeck | NativeRunbookFailure;
+export type NativeRunbookAdmission =
+  | NativeRunbookReadyDeck
+  | NativeRunbookReadyV2
+  | NativeRunbookFailure;
+
+export function isNativeRunbookReadyV2(
+  admission: NativeRunbookAdmission,
+): admission is NativeRunbookReadyV2 {
+  return admission.status === "ready" && admission.grammar === "v2";
+}
+
+export function isNativeRunbookReadyV1(
+  admission: NativeRunbookAdmission,
+): admission is NativeRunbookReadyDeck {
+  return admission.status === "ready" && admission.grammar === "v1";
+}
 
 export function isCanonicalUuid(value: string): boolean {
   return CANONICAL_UUID_RE.test(value);
@@ -192,12 +275,52 @@ type AuthoredSlice = {
   bodyText: string;
 };
 
+function playableOptionListItemIdentity(node: unknown): { id: string } | null {
+  if (node == null || typeof node !== "object") return null;
+  const record = node as { type?: unknown; attrs?: unknown };
+  if (record.type !== "listItem") return null;
+  const validated = validatePlayableOptionItemAttrs(
+    record.attrs as Parameters<typeof validatePlayableOptionItemAttrs>[0],
+  );
+  if (validated.status !== "canonical") return null;
+  return { id: validated.identity.id };
+}
+
+function optionSliceFromListItem(node: unknown, id: string): AuthoredSlice {
+  const record = node as { content?: unknown };
+  const children = Array.isArray(record.content) ? record.content : [];
+  const title = collectNodeText(children[0]).replace(/\s+/g, " ").trim();
+  const bodyText = children
+    .slice(1)
+    .map((child) => collectNodeText(child).replace(/\s+/g, " ").trim())
+    .filter((text) => text.length > 0)
+    .join("\n\n");
+  return {
+    kind: "option",
+    id,
+    title: title.length > 0 ? title : id,
+    bodyText,
+  };
+}
+
+function authoredTextFromNodes(nodes: unknown[]): string {
+  return nodes
+    .map((node) => collectNodeText(node).replace(/\s+/g, " ").trim())
+    .filter((text) => text.length > 0)
+    .join("\n\n");
+}
+
 /**
  * Disjoint authored bodies: each Playable heading owns nodes until the next
  * root Playable heading or an ordinary unmarked document-root H1/H2. Sibling
  * Beat/Choice/Option slices never inherit the previous sibling's body, and
  * unmarked Runbook-level sections after playable material stay outside the
  * preceding element's body.
+ *
+ * v2 Options are marked top-level list items, not headings. A root
+ * bullet/ordered list that contains marked Option items is an Option
+ * boundary: those items become Option slices, and they are excluded from
+ * the preceding Choice (or other heading) body.
  */
 export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlice> {
   const slices = new Map<string, AuthoredSlice>();
@@ -210,15 +333,11 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
 
   const flush = () => {
     if (!current) return;
-    const bodyText = current.bodyNodes
-      .map((node) => collectNodeText(node).replace(/\s+/g, " ").trim())
-      .filter((text) => text.length > 0)
-      .join("\n\n");
     slices.set(current.id, {
       kind: current.kind,
       id: current.id,
       title: current.title,
-      bodyText,
+      bodyText: authoredTextFromNodes(current.bodyNodes),
     });
   };
 
@@ -238,6 +357,31 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
       flush();
       current = null;
       continue;
+    }
+    if (node != null && typeof node === "object") {
+      const record = node as { type?: unknown; content?: unknown };
+      if (
+        (record.type === "bulletList" || record.type === "orderedList")
+        && Array.isArray(record.content)
+      ) {
+        const unmarkedItems: unknown[] = [];
+        let sawOption = false;
+        for (const item of record.content) {
+          const option = playableOptionListItemIdentity(item);
+          if (option) {
+            sawOption = true;
+            slices.set(option.id, optionSliceFromListItem(item, option.id));
+            continue;
+          }
+          unmarkedItems.push(item);
+        }
+        if (sawOption) {
+          if (current && unmarkedItems.length > 0) {
+            current.bodyNodes.push(...unmarkedItems);
+          }
+          continue;
+        }
+      }
     }
     if (current) current.bodyNodes.push(node);
   }
@@ -264,7 +408,7 @@ function compareMembership(
 
 function bindingMismatch(
   run: PlayRunRecord,
-  manifest: PlayRunReferenceManifestV1,
+  manifest: PlayRunReferenceManifestV1 | PlayRunReferenceManifestV2,
 ): string | null {
   if (manifest.run_id !== run.run_id) {
     return "sealed reference manifest run_id does not match the Run";
@@ -446,6 +590,203 @@ export function overlayRuntimeOnDeck(
   };
 }
 
+function projectV2Beats(
+  structure: PlayableStructureIndexV2,
+  slices: Map<string, AuthoredSlice>,
+  relevanceByTargetId: Record<string, AuthoredRelevance>,
+): NativeRunbookBeatV2[] {
+  const choiceById = new Map(structure.choices.map((choice) => [choice.choiceId, choice]));
+  const sceneById = new Map(structure.scenes.map((scene) => [scene.sceneId, scene]));
+  return structure.beats.map((beat) => {
+    const beatSlice = slices.get(beat.beatId);
+    const scenes: NativeRunbookSceneV2[] = beat.sceneOrder.map((sceneId) => {
+      const scene = sceneById.get(sceneId);
+      const slice = slices.get(sceneId);
+      return {
+        kind: "scene",
+        id: sceneId,
+        beatId: scene?.beatId ?? beat.beatId,
+        title: slice?.title ?? sceneId,
+        bodyText: slice?.bodyText ?? "",
+        relevance: relevanceByTargetId[sceneId] ?? "default",
+      };
+    });
+    const choices: NativeRunbookChoiceV2[] = beat.choiceOrder.map((choiceId) => {
+      const choice = choiceById.get(choiceId);
+      const slice = slices.get(choiceId);
+      const options: NativeRunbookOptionV2[] = (choice?.optionOrder ?? []).map((optionId) => {
+        const optionSlice = slices.get(optionId);
+        return {
+          kind: "option",
+          id: optionId,
+          choiceId,
+          title: optionSlice?.title ?? optionId,
+          bodyText: optionSlice?.bodyText ?? "",
+        };
+      });
+      return {
+        kind: "choice",
+        id: choiceId,
+        beatId: choice?.beatId ?? beat.beatId,
+        sceneId: choice?.sceneId ?? null,
+        title: slice?.title ?? choiceId,
+        bodyText: slice?.bodyText ?? "",
+        options,
+      };
+    });
+    return {
+      kind: "beat",
+      id: beat.beatId,
+      beatKind: beat.beatKind,
+      title: beatSlice?.title ?? beat.beatId,
+      bodyText: beatSlice?.bodyText ?? "",
+      relevance: relevanceByTargetId[beat.beatId] ?? "default",
+      scenes,
+      choices,
+    };
+  });
+}
+
+export type V2AuthorityPreflight =
+  | {
+    status: "ok";
+    structure: PlayableStructureIndexV2;
+    openingBeatId: string;
+    importedDoc: JSONContent;
+  }
+  | NativeRunbookFailure;
+
+export function preflightV2Authority(input: {
+  run: PlayRunRecord;
+  manifest: PlayRunReferenceManifestV2;
+  committed: WorkspaceCommittedRevision;
+}): V2AuthorityPreflight {
+  const { run, manifest, committed } = input;
+  if (run.schema_version !== "dmb_play_run_record_v1") {
+    return failed("integrity_failure", "Run schema_version is not dmb_play_run_record_v1");
+  }
+  if (!isCanonicalUuid(run.run_id) || !isCanonicalUuid(run.playable_artifact_id)) {
+    return failed("integrity_failure", "Run identity is not a canonical UUID");
+  }
+  const workspaceFailure = workspaceBindingFailure(run, committed);
+  if (workspaceFailure) return workspaceFailure;
+  const manifestFailure = bindingMismatch(run, manifest);
+  if (manifestFailure) return failed("integrity_failure", manifestFailure);
+
+  if (hasBlockingMarkdownImportDiagnostics(committed.markdown)) {
+    return failed("integrity_failure", "bound Runbook Markdown failed P1 admission");
+  }
+
+  const imported = markdownToTiptapDoc(committed.markdown);
+  const indexed = indexPlayableStructureV2(imported.doc);
+  if (indexed.status === "blocked") {
+    return failed("integrity_failure", "bound Runbook failed v2 Playable structure indexing");
+  }
+
+  const membershipFailure = compareV2Membership(indexed.index, manifest);
+  if (membershipFailure) return failed("integrity_failure", membershipFailure);
+
+  const openingBeatId = deriveV2OpeningBeatId(indexed.index);
+  if (openingBeatId == null) {
+    return failed("integrity_failure", "v2 Playable has no Beat; native READY is fail-closed");
+  }
+  return {
+    status: "ok",
+    structure: indexed.index,
+    openingBeatId,
+    importedDoc: imported.doc,
+  };
+}
+
+function admitNativeRunbookV2(input: {
+  run: PlayRunRecord;
+  manifest: PlayRunReferenceManifestV2;
+  committed: WorkspaceCommittedRevision;
+}): NativeRunbookAdmission {
+  const { run, manifest, committed } = input;
+  const preflight = preflightV2Authority(input);
+  if (preflight.status !== "ok") return preflight;
+
+  const currentBeatId = run.progress.current_beat_id;
+  if (currentBeatId == null) {
+    return failed(
+      "integrity_failure",
+      "v2 READY requires a durable current_beat_id",
+    );
+  }
+
+  const knownBeats = new Set(preflight.structure.beatOrder);
+  if (!knownBeats.has(currentBeatId)) {
+    return failed("integrity_failure", "current_beat_id is not admitted by the sealed v2 Playable");
+  }
+
+  const currentSceneId = run.progress.current_scene_id;
+  if (currentSceneId != null) {
+    const scene = preflight.structure.scenes.find((entry) => entry.sceneId === currentSceneId);
+    if (scene == null) {
+      return failed("integrity_failure", "current_scene_id is not admitted by the sealed v2 Playable");
+    }
+    if (scene.beatId !== currentBeatId) {
+      return failed("integrity_failure", "current_scene_id does not belong to current_beat_id");
+    }
+  }
+
+  const relevanceByTargetId = deriveAuthoredRelevance(
+    manifest.edges,
+    run.progress.selections,
+    v2RelevanceTargetIds(manifest),
+  );
+  const slices = slicePlayableBodies(preflight.importedDoc);
+  const beats = projectV2Beats(preflight.structure, slices, relevanceByTargetId);
+
+  return {
+    status: "ready",
+    grammar: "v2",
+    run,
+    manifest,
+    snapshot: snapshotFromCommitted(committed),
+    importedDoc: preflight.importedDoc,
+    structure: preflight.structure,
+    beats,
+    currentBeatId,
+    currentSceneId,
+    openingBeatId: preflight.openingBeatId,
+    relevanceByTargetId,
+  };
+}
+
+export function overlayRuntimeOnV2(
+  admission: NativeRunbookReadyV2,
+  run: PlayRunRecord,
+): NativeRunbookReadyV2 | null {
+  if (!sameAdmittedRunBinding(admission.run, run)) return null;
+  const currentBeatId = run.progress.current_beat_id;
+  if (currentBeatId == null) return null;
+  if (!admission.structure.beatOrder.includes(currentBeatId)) return null;
+  const currentSceneId = run.progress.current_scene_id;
+  if (currentSceneId != null) {
+    const scene = admission.structure.scenes.find((entry) => entry.sceneId === currentSceneId);
+    if (scene == null || scene.beatId !== currentBeatId) return null;
+  }
+  const relevanceByTargetId = deriveAuthoredRelevance(
+    admission.manifest.edges,
+    run.progress.selections,
+    v2RelevanceTargetIds(admission.manifest),
+  );
+  return {
+    ...admission,
+    run,
+    beats: projectV2Beats(
+      admission.structure,
+      slicePlayableBodies(admission.importedDoc),
+      relevanceByTargetId,
+    ),
+    currentBeatId,
+    currentSceneId,
+    relevanceByTargetId,
+  };
+}
+
 export function admitNativeRunbook(input: {
   run: PlayRunRecord;
   manifest: PlayRunReferenceManifest;
@@ -463,12 +804,13 @@ export function admitNativeRunbook(input: {
   const workspaceFailure = workspaceBindingFailure(run, committed);
   if (workspaceFailure) return workspaceFailure;
 
-  // Rollout gate (BF1): native Runbook admission is v1-only. A created+sealed
-  // v2 Run is refused here until BF2 lands v2 current-position semantics.
+  if (manifest.schema_version === "dmb_play_run_reference_manifest_v2") {
+    return admitNativeRunbookV2({ run, manifest, committed });
+  }
   if (manifest.schema_version !== "dmb_play_run_reference_manifest_v1") {
     return failed(
       "integrity_failure",
-      "sealed reference manifest schema_version is not dmb_play_run_reference_manifest_v1",
+      "sealed reference manifest schema_version is not admitted",
     );
   }
 
@@ -498,6 +840,7 @@ export function admitNativeRunbook(input: {
 
   return {
     status: "ready",
+    grammar: "v1",
     run,
     manifest,
     snapshot: snapshotFromCommitted(committed),
