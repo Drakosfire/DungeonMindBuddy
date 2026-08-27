@@ -183,6 +183,24 @@ describe("slicePlayableBodies", () => {
     expect(slices.has("open-questions")).toBe(false);
     expect([...slices.keys()]).toEqual(["scene:gate", "beat:breach"]);
   });
+
+  it("keeps v2 Choice prose and marked list-item Option text disjoint", () => {
+    const imported = markdownToTiptapDoc(V2_MARKDOWN);
+    expect(imported.diagnostics).toEqual([]);
+    const slices = slicePlayableBodies(imported.doc);
+
+    expect(slices.get("choice:x")?.title).toBe("Decision X");
+    expect(slices.get("choice:x")?.bodyText).toBe("Choice X unique prose.");
+    expect(slices.get("choice:x")?.bodyText).not.toContain("Option X1 unique text");
+    expect(slices.get("choice:x")?.bodyText).not.toContain("Option X2 unique text");
+
+    expect(slices.get("option:x1")?.title).toBe("Option X1 unique text");
+    expect(slices.get("option:x1")?.bodyText).toBe("");
+    expect(slices.get("option:x2")?.title).toBe("Option X2 unique text");
+    expect(slices.get("option:y1")?.title).toBe("Option Y1 unique text");
+    expect(slices.get("choice:y")?.bodyText).toBe("Choice Y unique prose.");
+    expect(slices.get("choice:y")?.bodyText).not.toContain("Option Y1 unique text");
+  });
 });
 
 describe("admitNativeRunbook", () => {
@@ -441,17 +459,21 @@ const V2_MARKDOWN = [
   "<!-- dmb-playable-element:v2 kind=choice id=choice:x -->",
   "### Decision X",
   "",
+  "Choice X unique prose.",
+  "",
   "<!-- dmb-playable-element:v2 kind=option id=option:x1 activates=beat:two -->",
-  "- Option X1",
+  "- Option X1 unique text",
   "",
   "<!-- dmb-playable-element:v2 kind=option id=option:x2 suppresses=scene:b -->",
-  "- Option X2",
+  "- Option X2 unique text",
   "",
   "<!-- dmb-playable-element:v2 kind=choice id=choice:y -->",
   "### Decision Y",
   "",
+  "Choice Y unique prose.",
+  "",
   "<!-- dmb-playable-element:v2 kind=option id=option:y1 suppresses=beat:two -->",
-  "- Option Y1",
+  "- Option Y1 unique text",
   "",
   "<!-- dmb-playable-element:v2 kind=beat id=beat:two beat_kind=optional -->",
   "## Beat 2",
@@ -531,6 +553,17 @@ describe("admitNativeRunbook v2", () => {
       "option:x1",
       "option:x2",
     ]);
+    expect(admitted.beats[0]?.choices[0]?.title).toBe("Decision X");
+    expect(admitted.beats[0]?.choices[0]?.bodyText).toBe("Choice X unique prose.");
+    expect(admitted.beats[0]?.choices[0]?.bodyText).not.toContain("Option X1 unique text");
+    expect(admitted.beats[0]?.choices[0]?.options[0]).toEqual(expect.objectContaining({
+      id: "option:x1",
+      title: "Option X1 unique text",
+      bodyText: "",
+    }));
+    expect(admitted.beats[0]?.choices[0]?.options[1]?.title).toBe("Option X2 unique text");
+    expect(admitted.beats[0]?.choices[1]?.bodyText).toBe("Choice Y unique prose.");
+    expect(admitted.beats[0]?.choices[1]?.options[0]?.title).toBe("Option Y1 unique text");
     expect(admitted.run.progress).not.toHaveProperty("relevance");
     expect(admitted.relevanceByTargetId["beat:two"]).toBe("default");
   });

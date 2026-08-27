@@ -14,9 +14,10 @@ import {
   hasBlockingMarkdownImportDiagnostics,
   markdownToTiptapDoc,
 } from "../../tiptap/markdown/markdownToTiptap";
-import type {
-  PlayableBeatKind,
-  PlayableElementKind,
+import {
+  validatePlayableOptionItemAttrs,
+  type PlayableBeatKind,
+  type PlayableElementKind,
 } from "../../tiptap/playable/playableElementIdentity";
 import {
   indexPlayableStructure,
@@ -274,12 +275,52 @@ type AuthoredSlice = {
   bodyText: string;
 };
 
+function playableOptionListItemIdentity(node: unknown): { id: string } | null {
+  if (node == null || typeof node !== "object") return null;
+  const record = node as { type?: unknown; attrs?: unknown };
+  if (record.type !== "listItem") return null;
+  const validated = validatePlayableOptionItemAttrs(
+    record.attrs as Parameters<typeof validatePlayableOptionItemAttrs>[0],
+  );
+  if (validated.status !== "canonical") return null;
+  return { id: validated.identity.id };
+}
+
+function optionSliceFromListItem(node: unknown, id: string): AuthoredSlice {
+  const record = node as { content?: unknown };
+  const children = Array.isArray(record.content) ? record.content : [];
+  const title = collectNodeText(children[0]).replace(/\s+/g, " ").trim();
+  const bodyText = children
+    .slice(1)
+    .map((child) => collectNodeText(child).replace(/\s+/g, " ").trim())
+    .filter((text) => text.length > 0)
+    .join("\n\n");
+  return {
+    kind: "option",
+    id,
+    title: title.length > 0 ? title : id,
+    bodyText,
+  };
+}
+
+function authoredTextFromNodes(nodes: unknown[]): string {
+  return nodes
+    .map((node) => collectNodeText(node).replace(/\s+/g, " ").trim())
+    .filter((text) => text.length > 0)
+    .join("\n\n");
+}
+
 /**
  * Disjoint authored bodies: each Playable heading owns nodes until the next
  * root Playable heading or an ordinary unmarked document-root H1/H2. Sibling
  * Beat/Choice/Option slices never inherit the previous sibling's body, and
  * unmarked Runbook-level sections after playable material stay outside the
  * preceding element's body.
+ *
+ * v2 Options are marked top-level list items, not headings. A root
+ * bullet/ordered list that contains marked Option items is an Option
+ * boundary: those items become Option slices, and they are excluded from
+ * the preceding Choice (or other heading) body.
  */
 export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlice> {
   const slices = new Map<string, AuthoredSlice>();
@@ -292,15 +333,11 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
 
   const flush = () => {
     if (!current) return;
-    const bodyText = current.bodyNodes
-      .map((node) => collectNodeText(node).replace(/\s+/g, " ").trim())
-      .filter((text) => text.length > 0)
-      .join("\n\n");
     slices.set(current.id, {
       kind: current.kind,
       id: current.id,
       title: current.title,
-      bodyText,
+      bodyText: authoredTextFromNodes(current.bodyNodes),
     });
   };
 
@@ -320,6 +357,31 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
       flush();
       current = null;
       continue;
+    }
+    if (node != null && typeof node === "object") {
+      const record = node as { type?: unknown; content?: unknown };
+      if (
+        (record.type === "bulletList" || record.type === "orderedList")
+        && Array.isArray(record.content)
+      ) {
+        const unmarkedItems: unknown[] = [];
+        let sawOption = false;
+        for (const item of record.content) {
+          const option = playableOptionListItemIdentity(item);
+          if (option) {
+            sawOption = true;
+            slices.set(option.id, optionSliceFromListItem(item, option.id));
+            continue;
+          }
+          unmarkedItems.push(item);
+        }
+        if (sawOption) {
+          if (current && unmarkedItems.length > 0) {
+            current.bodyNodes.push(...unmarkedItems);
+          }
+          continue;
+        }
+      }
     }
     if (current) current.bodyNodes.push(node);
   }
