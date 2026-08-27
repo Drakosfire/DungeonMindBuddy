@@ -53,13 +53,14 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2C2: first-world provenance compatibility DESIGN
 
 **Created:** 2026-08-26  
-**Status:** ACTIVE — DESIGN DISPATCH / awaiting Review Cycle 3  
+**Status:** ACTIVE — DESIGN DISPATCH / awaiting Review Cycle 4  
 **Review Cycle 1:** REQUEST-CHANGES-equivalent `5036355801` on `27512f88639f6497646a2398bc3a197da29957ae`  
 **Review Cycle 2:** REQUEST-CHANGES-equivalent `5036457798` on `ce9024116742fb478ce9ea56769a638471886e0f`  
+**Review Cycle 3:** REQUEST-CHANGES-equivalent `5036535545` on `9abbcf83ec12bc2a1f5998e80e9ce357e7c9945e` (re-anchor only; Cycle 3 semantics unchanged)  
 **Workstream / flow:** `CUTOVER`  
 **Direction:** DESIGN → REVIEW  
 **Design repository:** `Drakosfire/DungeonMindBuddy`  
-**Exact design base / current Buddy `main`:** `555a9c7965aca47a24536277b9b36ae569a7285a` — PLAY-SURFACE cockpit re-anchor  
+**Exact design base / current Buddy `main`:** `5b2d9bc7cc61c7a485c3bd801cd44d7251134466` — AGENT-INTERACTION surface-authority re-anchor (disjoint Magic Moment / Surface Interaction docs). Historical PLAY-SURFACE: `555a9c7965aca47a24536277b9b36ae569a7285a`  
 **D.2C2 implementation predecessor:** Buddy #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`; accepted head `f772db17e00cbe2c0198ae53f169a10a6332a3ed`; Cycle 2 PASS-equivalent `5026532158`  
 **D.2C3 design predecessor:** Buddy #647 merge `d96a21363fd0decbcb8c4390f951a6316b53060c`; accepted design head `1f5676c204ee917d18efd553106c07306541e820`; Cycle 7 PASS-equivalent `5034239255`  
 **D.2C3 implementation:** Buddy #651 PARKED ON PREDECESSOR at reviewed head `cf453078a5c1950ec5f23a5d5b99001ee9e456db`; Review Cycle 3 `5035980646`  
@@ -90,6 +91,11 @@ pr_body_template: |
 > producer family (not any reviewed-init-v1 OTHER stamp), and replay
 > compatibility is one shared dual-hash identity used at every
 > application and under-lock replay seam.
+>
+> Review Cycle 3 required only a re-anchor onto current Buddy `main`
+> `5b2d9bc7cc61c7a485c3bd801cd44d7251134466`. The intervening work is
+> AGENT-INTERACTION documentation and is disjoint from this CUTOVER
+> lease. Cycle 3 semantics are unchanged.
 
 ---
 
@@ -806,17 +812,19 @@ Truthful as of this design dispatch:
 
 - D.2C2 mounted first-world / #645 is `DONE` (merge `3ff46922…`).
 - D.2C3 design / #647 is `DONE` (merge `d96a2136…`).
-- D.2C2 provenance compatibility DESIGN is `DOING` / this PR (Review Cycle 1 `5036355801` REQUEST-CHANGES-equivalent on `27512f88…`; Review Cycle 2 `5036457798` REQUEST-CHANGES-equivalent on `ce902411…`; this head is Review Cycle 3). Do not invent its merge SHA.
+- D.2C2 provenance compatibility DESIGN is `DOING` / this PR (Review Cycle 1 `5036355801` REQUEST-CHANGES-equivalent on `27512f88…`; Review Cycle 2 `5036457798` REQUEST-CHANGES-equivalent on `ce902411…`; Review Cycle 3 `5036535545` REQUEST-CHANGES-equivalent on `9abbcf83…` (re-anchor only); this head is Review Cycle 4). Do not invent its merge SHA.
 - DungeonMind provenance CODE is `BLOCKED` on this design merge.
 - Buddy producer CODE is `BLOCKED` on DungeonMind CODE merge.
 - D.2C3 implementation / #651 is `DOING` / PARKED ON PREDECESSOR until those CODE slices land.
 - D.2C4 / D.3A / D.3B remain `BLOCKED`. D.3 is not `DONE`.
-- Current Buddy `main` is `555a9c7965aca47a24536277b9b36ae569a7285a`.
+- Current Buddy `main` is `5b2d9bc7cc61c7a485c3bd801cd44d7251134466`. Historical PLAY-SURFACE: `555a9c7965aca47a24536277b9b36ae569a7285a`.
 - DungeonMind pin remains `bf40e933…` until the DungeonMind CODE successor.
 
-`main`'s tracker still claimed #645 `DOING` at this re-anchor. That is stale.
-This PR records completed predecessors; it does not pre-mark this design or
-any CODE successor `DONE`.
+`main`'s tracker still claimed #645 `DOING` at the original dispatch
+re-anchor. That is stale. This PR records completed predecessors; it
+does not pre-mark this design or any CODE successor `DONE`. Cycle 4
+re-anchors onto AGENT-INTERACTION `main` `5b2d9bc7…` without changing
+Cycle 3 semantics.
 
 ---
 
