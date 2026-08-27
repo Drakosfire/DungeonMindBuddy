@@ -861,6 +861,52 @@ describe("App inspector integration", () => {
     );
   });
 
+  it("shows a development Play setup hint when application state is unavailable", async () => {
+    const unavailable = new liveApi.LiveApiError(
+      "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL is not set; DungeonBuddy application state is unavailable",
+      503,
+    );
+    vi.mocked(liveApi.getPlayActiveRun).mockRejectedValue(unavailable);
+    vi.mocked(liveApi.listPlayRuns).mockRejectedValue(unavailable);
+    vi.mocked(liveApi.listWorkspaceDocuments).mockRejectedValue(unavailable);
+    window.history.pushState({}, "", "/play");
+    render(<App />);
+
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-active-run-warning")).toHaveTextContent(
+      /Resume state is unavailable/i,
+    );
+    expect(screen.getByTestId("play-local-setup-hint")).toHaveTextContent(
+      /Local Play setup is incomplete/i,
+    );
+    expect(screen.getByTestId("play-local-setup-hint")).toHaveTextContent(
+      /uv run python scripts\/bootstrap_local_play.py check/,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("play-existing-runs")).toHaveTextContent(
+        /DungeonBuddy application state is unavailable/i,
+      );
+    });
+    expect(screen.queryByText(/Run recovery is pending/i)).not.toBeInTheDocument();
+    expect(liveApi.getPlayRun).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("play-current-moment-cockpit")).not.toBeInTheDocument();
+  });
+
+  it("does not show a Play setup hint when application state is available", async () => {
+    vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
+      schema_version: "dmb_play_runs_list_v1",
+      records: [playRunRecord()],
+    });
+    window.history.pushState({}, "", "/play");
+    render(<App />);
+
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toBeInTheDocument();
+    expect(screen.queryByTestId("play-local-setup-hint")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Local Play setup is incomplete/i)).not.toBeInTheDocument();
+  });
+
   it("keeps existing Runs openable when Start Run discovery fails", async () => {
     vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
       schema_version: "dmb_play_runs_list_v1",

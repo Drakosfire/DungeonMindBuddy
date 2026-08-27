@@ -69,6 +69,28 @@ function navigateToRun(runId: string): void {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
+function isApplicationStateUnavailableMessage(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return /DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL|application state is unavailable/i.test(
+    message,
+  );
+}
+
+function LocalPlaySetupHint({ message }: { message: string | null | undefined }) {
+  if (!import.meta.env.DEV || !isApplicationStateUnavailableMessage(message)) {
+    return null;
+  }
+  return (
+    <p role="note" className="play-muted" data-testid="play-local-setup-hint">
+      Local Play setup is incomplete.
+      <br />
+      Run:
+      <br />
+      uv run python scripts/bootstrap_local_play.py check
+    </p>
+  );
+}
+
 function replaceToRun(runId: string): void {
   window.history.replaceState({}, "", `/play?run=${encodeURIComponent(runId)}`);
   window.dispatchEvent(new PopStateEvent("popstate"));
@@ -180,6 +202,11 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
       } catch (error) {
         if (cancelled) return;
         if (error instanceof LiveApiError && error.status === 503) {
+          if (isApplicationStateUnavailableMessage(error.message)) {
+            setStatus("unavailable");
+            setDetail(error.message);
+            return;
+          }
           setStatus("recovery_pending");
           setDetail(error.message);
           return;
@@ -204,6 +231,7 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
             {continuityWarning}
           </p>
         ) : null}
+        <LocalPlaySetupHint message={continuityWarning ?? detail} />
       </header>
       <section data-testid="play-existing-runs">
         <h2>Existing Runs</h2>
