@@ -20,7 +20,14 @@ pr_body_template: |
 # HANDOFF — First-class Agent Turn Trace v1 (A0)
 
 **Created:** 2026-08-26  
-**Status:** READY FOR DISPATCH after exact-current-main re-anchor and active-lease check  
+**Status:** COMPLETE / MERGED  
+**PR:** #654  
+**Accepted head:** `5d5fee67ab71d88586a8511a88e1ea64a4f14960`  
+**Merge SHA:** `9ddc5a6ebf2e7064ce004e22151214011046aa97`  
+**Formal review cycles:** 3  
+**Active successor:** A1 — Advanced Agent Trace Inspector v1 (implementation in progress; not complete)  
+**Still false:** A2 AgentRuntime; A3 PydanticAI  
+
 **Canonical handoff path:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-turn-trace-v1.md`  
 **Workstream:** `AGENT-INTERACTION / A0`  
 **Flow / owner:** `AGENT-INTERACTION`  
@@ -832,16 +839,20 @@ Tracker or authority update needed:
 A0 intentionally creates the measuring instrument before changing the Agent runtime architecture.
 
 ```text
-A0  Agent Turn Trace v1
+A0  Agent Turn Trace v1                         MERGED #654
     complete current Hermes evidence
+    accepted head 5d5fee67ab71d88586a8511a88e1ea64a4f14960
+    merge 9ddc5a6ebf2e7064ce004e22151214011046aa97
+    3 formal review cycles
     ↓
-A1  shared Agent Trace Inspector
-    advanced option / waterfall / model-call + tool + context panes
+A1  Advanced Agent Trace Inspector v1           ACTIVE SUCCESSOR
+    preserve + inspect trace truth in product
+    not completed by this A0 record
     ↓
-A2  DungeonBuddy AgentRuntime boundary
+A2  DungeonBuddy AgentRuntime boundary          not started
     Hermes adapter emits the same trace contract
     ↓
-A3  PydanticAI adapter experiment
+A3  PydanticAI adapter experiment               not started
     same journeys, same trace schema, direct comparison
     ↓
 later
