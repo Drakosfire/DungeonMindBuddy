@@ -143,6 +143,8 @@ def _ok_result(
     messages: list[dict[str, Any]] | None = None,
     answer_scope: str | None = None,
     hermes_session_id: str = "hermes-sess-obs-only",
+    model_calls: list[dict[str, Any]] | None = None,
+    telemetry_warnings: list[str] | None = None,
 ) -> HermesGraphAgentTurnResult:
     tool_events = (
         [_tool_event(source_anchor_ids=["anchor:a1"])]
@@ -159,6 +161,8 @@ def _ok_result(
         error_message=None,
         process_isolation="process_exclusive",
         answer_scope=answer_scope,  # type: ignore[arg-type]
+        model_calls=list(model_calls or []),
+        telemetry_warnings=list(telemetry_warnings or []),
     )
 
 
@@ -933,12 +937,15 @@ def test_agent_trace_preserves_plan_shell_fields(tmp_path: Path) -> None:
         host_factory=lambda: _FakeHost(_ok_result()),  # type: ignore[arg-type, return-value]
     )
     trace = response["agent_trace"]
-    assert trace["usage"] == {
-        "available": False,
-        "input_tokens": None,
-        "output_tokens": None,
-        "total_tokens": None,
-    }
+    assert trace["schema"] == "dmb_agent_turn_trace_v1"
+    assert trace["usage"]["available"] is False
+    assert trace["usage"]["status"] == "unavailable"
+    assert trace["usage"]["model_call_count"] == 0
+    assert trace["usage"]["input_tokens"] is None
+    assert trace["usage"]["output_tokens"] is None
+    assert trace["usage"]["total_tokens"] is None
+    assert trace["cost"]["status"] == "unavailable"
+    assert trace["cost"]["usd"] is None
     assert trace["steps"] == []
     assert trace["context_summary"] == {}
     assert trace["artifact_refs"] == []
@@ -2473,3 +2480,196 @@ def test_hermes_expansion_tool_executes_via_direct_dungeonmind_read(
     assert result["schema"] == "dmb_world_graph_retrieval_result_v1"
     labels = [node["label"] for node in result["nodes"]]
     assert "The Prancing Tavern" in labels
+
+
+PRIVACY_SENTINEL = "TRACE-PRIVACY-SENTINEL-QUESTION-BODY-9f3c"
+
+
+def _priced_model_call(*, request_id: str, sequence: int, uncached: int, output: int) -> dict[str, Any]:
+    from apps.live_control_server.services.agent_turn_trace import map_hermes_observer_to_model_call
+
+    return map_hermes_observer_to_model_call(
+        {
+            "telemetry_schema_version": "hermes.observer.v1",
+            "session_id": "hermes-session-1",
+            "task_id": "hermes-task-1",
+            "turn_id": "hermes-turn-1",
+            "api_request_id": request_id,
+            "model": "gpt-5.4-mini",
+            "provider": "openai-api",
+            "api_mode": "chat_completions",
+            "api_call_count": sequence,
+            "message_count": 4,
+            "tool_count": 1,
+            "approx_input_tokens": uncached,
+            "request_char_count": 100,
+            "max_tokens": 4096,
+            "started_at": 1_700_000_000.0,
+            "ended_at": 1_700_000_000.4,
+            "api_duration": 0.4,
+            "finish_reason": "stop",
+            "response_model": "gpt-5.4-mini",
+            "usage": {
+                "input_tokens": uncached,
+                "output_tokens": output,
+                "cache_read_tokens": 0,
+                "cache_write_tokens": 0,
+                "reasoning_tokens": 0,
+                "prompt_tokens": uncached,
+                "total_tokens": uncached + output,
+            },
+            "request": {"body": PRIVACY_SENTINEL},
+            "response": {"assistant_message": {"content": PRIVACY_SENTINEL}},
+        },
+        status="ok",
+        sequence=sequence,
+    )
+
+
+def test_product_trace_aggregates_model_calls_and_keeps_tool_events(
+    tmp_path: Path,
+    caplog,
+) -> None:
+    import logging
+
+    first = _priced_model_call(request_id="api-req-1", sequence=1, uncached=80, output=10)
+    second = _priced_model_call(request_id="api-req-2", sequence=2, uncached=40, output=5)
+    with caplog.at_level(logging.INFO, logger="dmb.agent.turn_trace"):
+        response = run_hermes_graph_query(
+            text=f"Where is Tripod? {PRIVACY_SENTINEL}",
+            packet=PACKET,
+            graph_envelope=READY_ENVELOPE,
+            agent_thread_id="agent-thread-trace",
+            turn_id="agent-turn-trace",
+            root=tmp_path,
+            host_factory=lambda: _FakeHost(  # type: ignore[arg-type, return-value]
+                _ok_result(model_calls=[first, second])
+            ),
+        )
+    trace = response["agent_trace"]
+    assert trace["schema"] == "dmb_agent_turn_trace_v1"
+    assert trace["trace_id"].startswith("agent-trace-")
+    assert trace["agent_thread_id"] == "agent-thread-trace"
+    assert trace["turn_id"] == "agent-turn-trace"
+    assert trace["provider"] == "openai-api"
+    assert trace["model"] == "gpt-5.4-mini"
+    assert [call["runtime_api_request_id"] for call in trace["model_calls"]] == [
+        "api-req-1",
+        "api-req-2",
+    ]
+    assert trace["usage"]["available"] is True
+    assert trace["usage"]["status"] == "reported"
+    assert trace["usage"]["input_tokens"] == 120
+    assert trace["usage"]["output_tokens"] == 15
+    assert trace["usage"]["total_tokens"] == 135
+    assert trace["usage"]["model_call_count"] == 2
+    assert trace["cost"]["status"] == "estimated"
+    assert trace["cost"]["usd"] == first["cost"]["usd"] + second["cost"]["usd"]
+    assert trace["tool_event_count"] >= 1
+    span_names = [span["name"] for span in trace["spans"]]
+    assert "harness_turn" in span_names
+    assert "response_projection" in span_names
+    harness = next(span for span in trace["spans"] if span["name"] == "harness_turn")
+    assert trace["elapsed_ms"] >= harness["duration_ms"]
+    trace_logs = [record for record in caplog.records if record.name == "dmb.agent.turn_trace"]
+    assert len(trace_logs) == 1
+    blob = " ".join(record.getMessage() for record in caplog.records)
+    assert trace["trace_id"] in blob
+    assert PRIVACY_SENTINEL not in blob
+
+
+def test_retry_error_then_success_remains_two_model_calls(tmp_path: Path) -> None:
+    from apps.live_control_server.services.agent_turn_trace import map_hermes_observer_to_model_call
+
+    error = map_hermes_observer_to_model_call(
+        {
+            "telemetry_schema_version": "hermes.observer.v1",
+            "turn_id": "hermes-turn-retry",
+            "api_request_id": "api-req-fail",
+            "model": "gpt-5.4-mini",
+            "provider": "openai-api",
+            "api_mode": "chat_completions",
+            "api_duration": 0.1,
+            "started_at": 1_700_000_000.0,
+            "ended_at": 1_700_000_000.1,
+            "retry_count": 0,
+            "retryable": True,
+            "status_code": 429,
+            "error": {"type": "RateLimitError", "message": "retry"},
+        },
+        status="error",
+        sequence=1,
+    )
+    success = _priced_model_call(request_id="api-req-ok", sequence=2, uncached=50, output=8)
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=READY_ENVELOPE,
+        agent_thread_id="agent-thread-retry",
+        turn_id="agent-turn-retry",
+        root=tmp_path,
+        host_factory=lambda: _FakeHost(  # type: ignore[arg-type, return-value]
+            _ok_result(model_calls=[error, success])
+        ),
+    )
+    trace = response["agent_trace"]
+    assert [call["status"] for call in trace["model_calls"]] == ["error", "ok"]
+    assert trace["usage"]["status"] == "partial"
+    assert trace["usage"]["model_call_count"] == 2
+    assert trace["cost"]["status"] == "partial"
+
+
+def test_world_unavailable_trace_has_zero_model_calls_and_unavailable_cost(
+    tmp_path: Path,
+) -> None:
+    unavailable = {
+        **READY_ENVELOPE,
+        "status": "unavailable",
+        "revision_id": "",
+        "warning_codes": ["world_graph_unavailable"],
+    }
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=unavailable,
+        agent_thread_id="agent-thread-unavail",
+        turn_id="agent-turn-unavail",
+        root=tmp_path,
+        host_factory=lambda: _FakeHost(_ok_result()),  # type: ignore[arg-type, return-value]
+    )
+    trace = response["agent_trace"]
+    assert trace["trace_id"].startswith("agent-trace-")
+    assert trace["agent_thread_id"] == "agent-thread-unavail"
+    assert trace["turn_id"] == "agent-turn-unavail"
+    assert trace["model_calls"] == []
+    assert trace["usage"]["model_call_count"] == 0
+    assert trace["usage"]["status"] == "unavailable"
+    assert trace["usage"]["available"] is False
+    assert trace["cost"]["status"] == "unavailable"
+    assert trace["cost"]["usd"] is None
+    assert any(span["status"] == "unavailable" for span in trace["spans"])
+
+
+def test_invalid_history_logs_failure_trace_once(tmp_path: Path, caplog) -> None:
+    import logging
+
+    host = _FakeHost(_ok_result())
+    with caplog.at_level(logging.INFO, logger="dmb.agent.turn_trace"):
+        with pytest.raises(Exception) as exc:
+            run_hermes_graph_query(
+                text=f"follow-up {PRIVACY_SENTINEL}",
+                packet=PACKET,
+                graph_envelope=READY_ENVELOPE,
+                agent_thread_id="agent-thread-invalid",
+                turn_id="turn-invalid",
+                root=tmp_path,
+                host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+                conversation_history={"role": "user", "content": PRIVACY_SENTINEL},
+            )
+    assert exc.value.code == "hermes_history_invalid"  # type: ignore[attr-defined]
+    trace_logs = [record for record in caplog.records if record.name == "dmb.agent.turn_trace"]
+    assert len(trace_logs) == 1
+    blob = " ".join(record.getMessage() for record in caplog.records)
+    assert "turn-invalid" in blob
+    assert PRIVACY_SENTINEL not in blob
+    assert host.calls == []
