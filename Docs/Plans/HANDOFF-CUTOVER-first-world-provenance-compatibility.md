@@ -53,23 +53,25 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2C2: first-world provenance compatibility DESIGN
 
 **Created:** 2026-08-26  
-**Status:** ACTIVE — DESIGN DISPATCH / awaiting Review Cycle 4  
+**Status:** DONE — DESIGN merged as Buddy #653; DungeonMind #47 CODE `DONE`; Buddy producer+pin `DOING` / successor PR
 **Review Cycle 1:** REQUEST-CHANGES-equivalent `5036355801` on `27512f88639f6497646a2398bc3a197da29957ae`  
 **Review Cycle 2:** REQUEST-CHANGES-equivalent `5036457798` on `ce9024116742fb478ce9ea56769a638471886e0f`  
 **Review Cycle 3:** REQUEST-CHANGES-equivalent `5036535545` on `9abbcf83ec12bc2a1f5998e80e9ce357e7c9945e` (re-anchor only; Cycle 3 semantics unchanged)  
+**Review Cycle 4:** PASS-equivalent `5036593867` on accepted design head `289201c9c60ec75c3acca998722be1a7d0600c43`  
+**Merge:** `5ad992090c2e85d38784c888e4b870f5672bce8e`  
 **Workstream / flow:** `CUTOVER`  
 **Direction:** DESIGN → REVIEW  
 **Design repository:** `Drakosfire/DungeonMindBuddy`  
-**Exact design base / current Buddy `main`:** `5b2d9bc7cc61c7a485c3bd801cd44d7251134466` — AGENT-INTERACTION surface-authority re-anchor (disjoint Magic Moment / Surface Interaction docs). Historical PLAY-SURFACE: `555a9c7965aca47a24536277b9b36ae569a7285a`  
+**Exact design base / current Buddy `main` at design dispatch:** `5b2d9bc7cc61c7a485c3bd801cd44d7251134466` — AGENT-INTERACTION surface-authority re-anchor (disjoint Magic Moment / Surface Interaction docs). Historical PLAY-SURFACE: `555a9c7965aca47a24536277b9b36ae569a7285a`. Current Buddy `main` after later disjoint AGENT-INTERACTION work: `d721cba261c35fd1d77566df6c03be614a26f510`.  
 **D.2C2 implementation predecessor:** Buddy #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`; accepted head `f772db17e00cbe2c0198ae53f169a10a6332a3ed`; Cycle 2 PASS-equivalent `5026532158`  
 **D.2C3 design predecessor:** Buddy #647 merge `d96a21363fd0decbcb8c4390f951a6316b53060c`; accepted design head `1f5676c204ee917d18efd553106c07306541e820`; Cycle 7 PASS-equivalent `5034239255`  
-**D.2C3 implementation:** Buddy #651 PARKED ON PREDECESSOR at reviewed head `cf453078a5c1950ec5f23a5d5b99001ee9e456db`; Review Cycle 3 `5035980646`  
-**DungeonMind pin (unchanged until CODE):** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`  
+**D.2C3 implementation:** Buddy #651 PARKED ON THIS PRODUCER PREDECESSOR at reviewed head `cf453078a5c1950ec5f23a5d5b99001ee9e456db`; Review Cycle 3 `5035980646`; parking head `3a60610dc78b710aa0aea6af817da00b0bfb563e`  
+**DungeonMind pin (producer CODE successor):** `5ca5d688612349034f8ca490d465af166d883e6e` (DungeonMind #47 merge). Historical design-era pin was PR #46 `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`.  
 **Design branch:** `cutover/design-first-world-provenance-compatibility`  
 **Design PR title:** `CUTOVER: design first-world provenance compatibility`  
-**First CODE successor:** DungeonMind `cutover/reviewed-init-v1-genesis-provenance` — `CUTOVER: interpret reviewed-init-v1 genesis OTHER evidence`  
-**Second CODE successor:** Buddy `cutover/first-world-provenance-producer` — stamp artifact domain on new commands + pin DungeonMind  
-**Then:** resume Buddy #651 as Review Cycle 4  
+**First CODE successor:** DungeonMind #47 `DONE` — merge `5ca5d688612349034f8ca490d465af166d883e6e`; accepted head `de966092e81f778be90c827e73b3776620640b8f`; Review Cycle 2 PASS-equivalent `5037371759`  
+**Second CODE successor:** Buddy `cutover/first-world-provenance-producer` — `DOING` / this producer+pin PR; do not invent its merge SHA  
+**Then:** resume Buddy #651 as Review Cycle 4 after the producer+pin PR merges  
 **Named later successor:** D.2C4 manual Graph Review authoring (still false)
 
 > **Dispatch ruling:** #645 accomplished its stated initialization-authority
