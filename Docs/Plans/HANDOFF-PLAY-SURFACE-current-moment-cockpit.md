@@ -1164,3 +1164,31 @@ Authority update required:
 ```
 
 Do not widen the PR silently.
+
+---
+
+## Review amendments
+
+The dispatch body above is the original 2026-08-26 steward dispatch. Cycle 1
+requirements live here, not in the dispatch sections.
+
+### Cycle 1 — review `5037135564` (head `ceaea412…`)
+
+1. **Collapsed rails must release desktop column space.** Expanding Beat Context
+   and At a Glance still uses the full rail tracks. Collapsing must shrink those
+   tracks so the central workspace actually widens. Padding-only collapse is not
+   enough.
+
+2. **Inspection return focus must target a still-mounted control.** Opening
+   inspection unmounts the Scene inventory, so the clicked Inspect button is not
+   a valid focus restore target. Restore to the Scenes At-a-Glance launcher when
+   it remains mounted, otherwise to the At a Glance toggle. Prove this with a
+   focus regression.
+
+Must prove, in addition to the original dispatch matrix:
+
+* collapsed Beat Context / At a Glance set shell `data-beat-collapsed` /
+  `data-glance-collapsed` and do not keep expanded rail tracks;
+* Back from inspection focuses the mounted Scenes launcher;
+* Back from inspection after At a Glance is collapsed focuses a still-mounted
+  At a Glance control.
