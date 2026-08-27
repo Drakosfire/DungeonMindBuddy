@@ -41,7 +41,8 @@ export function PlayCurrentMomentCockpit({
   const mountedRef = useRef(true);
   const liveRunIdRef = useRef(run.run_id);
   const requestSerialRef = useRef(0);
-  const inspectInvokerRef = useRef<HTMLButtonElement | null>(null);
+  const scenesLauncherRef = useRef<HTMLButtonElement | null>(null);
+  const glanceToggleRef = useRef<HTMLButtonElement | null>(null);
   const inFlightRef = useRef(false);
 
   useEffect(() => {
@@ -50,7 +51,6 @@ export function PlayCurrentMomentCockpit({
     setWorkspace({ kind: "current" });
     setBeatCollapsed(false);
     setGlanceCollapsed(false);
-    inspectInvokerRef.current = null;
     inFlightRef.current = false;
     return () => {
       mountedRef.current = false;
@@ -116,17 +116,23 @@ export function PlayCurrentMomentCockpit({
     });
   };
 
-  const closeToCurrent = () => {
-    setWorkspace({ kind: "current" });
-    const invoker = inspectInvokerRef.current;
-    inspectInvokerRef.current = null;
-    if (invoker) {
-      queueMicrotask(() => invoker.focus());
-    }
+  const restoreWorkspaceFocus = () => {
+    queueMicrotask(() => {
+      const scenes = scenesLauncherRef.current;
+      if (scenes?.isConnected) {
+        scenes.focus();
+        return;
+      }
+      glanceToggleRef.current?.focus();
+    });
   };
 
-  const openInspect = (scene: NativeRunbookSceneV2, invoker: HTMLButtonElement) => {
-    inspectInvokerRef.current = invoker;
+  const closeToCurrent = () => {
+    setWorkspace({ kind: "current" });
+    restoreWorkspaceFocus();
+  };
+
+  const openInspect = (scene: NativeRunbookSceneV2) => {
     setWorkspace({ kind: "scene-inspect", sceneId: scene.id });
   };
 
@@ -176,7 +182,12 @@ export function PlayCurrentMomentCockpit({
         </div>
       ) : null}
 
-      <div className="play-cockpit-shell">
+      <div
+        className="play-cockpit-shell"
+        data-testid="play-cockpit-shell"
+        data-beat-collapsed={beatCollapsed ? "true" : "false"}
+        data-glance-collapsed={glanceCollapsed ? "true" : "false"}
+      >
         <aside
           className={`play-cockpit-rail play-beat-context${beatCollapsed ? " is-collapsed" : ""}`}
           data-testid="play-beat-context"
@@ -187,10 +198,15 @@ export function PlayCurrentMomentCockpit({
             data-testid="play-beat-context-toggle"
             aria-expanded={!beatCollapsed}
             aria-controls="play-beat-context-body"
+            aria-label={
+              currentBeat
+                ? `${beatCollapsed ? "Expand" : "Collapse"} Beat Context: ${currentBeat.title}`
+                : undefined
+            }
             onClick={() => setBeatCollapsed((current) => !current)}
           >
             Beat Context
-            {currentBeat ? `: ${currentBeat.title}` : ""}
+            {!beatCollapsed && currentBeat ? `: ${currentBeat.title}` : ""}
           </button>
           {beatCollapsed ? null : (
             <div id="play-beat-context-body" className="play-rail-body">
@@ -288,7 +304,7 @@ export function PlayCurrentMomentCockpit({
                         <button
                           type="button"
                           aria-label={`Inspect ${scene.title}`}
-                          onClick={(event) => openInspect(scene, event.currentTarget)}
+                          onClick={() => openInspect(scene)}
                         >
                           Inspect
                         </button>
@@ -357,6 +373,7 @@ export function PlayCurrentMomentCockpit({
             type="button"
             className="play-rail-toggle"
             data-testid="play-at-a-glance-toggle"
+            ref={glanceToggleRef}
             aria-expanded={!glanceCollapsed}
             aria-controls="play-at-a-glance-body"
             onClick={() => setGlanceCollapsed((current) => !current)}
@@ -369,6 +386,7 @@ export function PlayCurrentMomentCockpit({
                 type="button"
                 className="play-glance-category"
                 data-testid="play-at-a-glance-scenes"
+                ref={scenesLauncherRef}
                 aria-pressed={workspaceKind === "scenes"}
                 onClick={() => setWorkspace({ kind: "scenes" })}
               >

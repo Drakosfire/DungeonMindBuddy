@@ -192,6 +192,9 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "true");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "false");
+    expect(screen.getByTestId("play-beat-context")).toHaveClass("is-collapsed");
     expect(screen.queryByTestId("play-beat-context-title")).not.toBeInTheDocument();
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
@@ -204,7 +207,32 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "false");
+    expect(screen.getByTestId("play-at-a-glance")).toHaveClass("is-collapsed");
     expect(screen.queryByTestId("play-at-a-glance-scenes")).not.toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("collapses both rails without occupying expanded column tracks", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        initialRun={runRecord({
+          progress: progress({ current_scene_id: "scene:tunnel" }),
+        })}
+      />,
+    );
+    const shell = screen.getByTestId("play-cockpit-shell");
+    expect(shell).toHaveAttribute("data-beat-collapsed", "false");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "false");
+    await user.click(screen.getByTestId("play-beat-context-toggle"));
+    await user.click(screen.getByTestId("play-at-a-glance-toggle"));
+    expect(shell).toHaveAttribute("data-beat-collapsed", "true");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "true");
+    expect(screen.getByTestId("play-beat-context")).toHaveClass("is-collapsed");
+    expect(screen.getByTestId("play-at-a-glance")).toHaveClass("is-collapsed");
+    expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
@@ -251,6 +279,29 @@ describe("PlayCurrentMomentCockpit", () => {
     await user.click(screen.getByTestId("play-workspace-back"));
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
     expect(screen.queryByTestId("play-workspace-inspect")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("play-at-a-glance-scenes")).toHaveFocus();
+    });
+  });
+
+  it("restores inspection focus to At a Glance when the Scenes launcher is unmounted", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        initialRun={runRecord({
+          progress: progress({ current_scene_id: "scene:tunnel" }),
+        })}
+      />,
+    );
+    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
+    await user.click(screen.getByRole("button", { name: "Inspect Courtyard" }));
+    await user.click(screen.getByTestId("play-at-a-glance-toggle"));
+    expect(screen.queryByTestId("play-at-a-glance-scenes")).not.toBeInTheDocument();
+    await user.click(screen.getByTestId("play-workspace-back"));
+    expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
+    await waitFor(() => {
+      expect(screen.getByTestId("play-at-a-glance-toggle")).toHaveFocus();
+    });
   });
 
   it("Make Current sends one CAS with Beat and Scene and preserves unrelated progress", async () => {

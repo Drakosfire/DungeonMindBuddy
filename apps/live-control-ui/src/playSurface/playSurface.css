@@ -457,10 +457,20 @@
 }
 
 .play-cockpit-shell {
+  --play-beat-rail: minmax(12rem, 18rem);
+  --play-glance-rail: minmax(11rem, 15rem);
   display: grid;
-  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr) minmax(11rem, 15rem);
+  grid-template-columns: var(--play-beat-rail) minmax(0, 1fr) var(--play-glance-rail);
   gap: 1rem;
   align-items: start;
+}
+
+.play-cockpit-shell[data-beat-collapsed="true"] {
+  --play-beat-rail: 3.25rem;
+}
+
+.play-cockpit-shell[data-glance-collapsed="true"] {
+  --play-glance-rail: 3.25rem;
 }
 
 .play-cockpit-rail {
@@ -472,7 +482,10 @@
 }
 
 .play-cockpit-rail.is-collapsed {
-  padding: 0.45rem 0.6rem;
+  width: 3.25rem;
+  max-width: 3.25rem;
+  overflow: hidden;
+  padding: 0.35rem;
 }
 
 .play-rail-toggle {
@@ -496,7 +509,14 @@
 }
 
 .play-cockpit-rail.is-collapsed .play-rail-toggle {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  width: 2.55rem;
+  min-width: 2.55rem;
+  min-height: 9rem;
   margin: 0;
+  padding: 0.75rem 0.3rem;
+  text-align: center;
 }
 
 .play-rail-body h2 {
@@ -600,8 +620,25 @@
     grid-template-columns: 1fr;
   }
 
-  .play-cockpit-shell {
+  .play-cockpit-shell,
+  .play-cockpit-shell[data-beat-collapsed="true"],
+  .play-cockpit-shell[data-glance-collapsed="true"] {
     grid-template-columns: 1fr;
+  }
+
+  .play-cockpit-rail.is-collapsed {
+    width: auto;
+    max-width: none;
+  }
+
+  .play-cockpit-rail.is-collapsed .play-rail-toggle {
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.55rem 0.75rem;
+    text-align: left;
   }
 }
 
