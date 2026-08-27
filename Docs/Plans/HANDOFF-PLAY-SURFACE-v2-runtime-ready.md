@@ -1259,16 +1259,21 @@ Already implemented on later heads; recorded here so the original dispatch is no
 2. **v2 Option authored content.** BF1 represents v2 Options as marked top-level list items. Native READY projection must slice those list items as Option boundaries so Option title/body are the authored list-item text and Choice prose does not absorb Option text. Heading-only slicing is insufficient for v2.
 3. **One production first-admission workflow.** `ensure_v2_native_ready()` is the production first-admission authority. Native Play load calls existing `GET /api/live/play-runs/{run_id}?ensure_native_ready=true`, which preflights the pinned authority set and seeds an empty v2 Run. PlaySurfacePage does not independently PUT a seed. Default GET without the query remains a non-mutating read. This is not a new public endpoint; it is an opt-in query on the existing Run GET. Cycle 2 explicitly required either an end-to-end production path or making the tested helper the real first-admission boundary.
 
+## Cycle 3 — review `5036663214` (head `6d343d43…`)
+
+1. **Sealed JSON binding preflight.** `ensure_v2_native_ready()` must compare the sealed manifest document's `run_id`, `playable_artifact_id`, `playable_revision`, and `playable_content_sha256` to the Run before any seed. Row-level identity columns and structural membership are not enough: a persisted JSON document whose binding metadata is corrupted while beats/edges stay identical must perform zero Runtime writes.
+2. **One authority generation.** First admission loads Run + sealed manifest from one application-state aggregate/UoW, then loads that exact pinned WorkRevision. Independent Run then manifest reads are forbidden: a rebase that commits between them is a cross-generation read, not integrity corruption. A structure-changing rebase that lands after the coherent snapshot CAS-conflicts and retries onto one generation.
+
 ## Parser-facing lease / evidence (does not replace original §8 / §10 / §12)
 
-The original dispatch uses numbered headings, not the `## §N` template the review parser matches. The tables below project the original §8 lease plus Cycle 1–2 authorized extras so `scripts/review_external_pr.py` can extract them.
+The original dispatch uses numbered headings, not the `## §N` template the review parser matches. The tables below project the original §8 lease plus Cycle 1–3 authorized extras so `scripts/review_external_pr.py` can extract them.
 
 ## §4 Write lease
 
 | Path | Why |
 |---|---|
 | `Docs/Plans/HANDOFF-PLAY-SURFACE-v2-runtime-ready.md` | Checked-in review contract (original dispatch + this addendum) |
-| `apps/live_control_server/services/play_run_registry.py` | Version-aware v1/v2 progress admission; BF1 opening Beat; sealed-structure compare; production `ensure_v2_native_ready` |
+| `apps/live_control_server/services/play_run_registry.py` | Version-aware v1/v2 progress admission; BF1 opening Beat; sealed-structure compare; production `ensure_v2_native_ready`; Cycle 3 sealed JSON binding + one-generation aggregate load |
 | `apps/live_control_server/routes/play_runs.py` | Cycle 2: existing GET exposes `ensure_native_ready` so the tested helper is the production first-admission path |
 | `src/application_state/play/service.py` | Distinguish legal pre-READY empty progress from clearing an already-seeded v2 current Beat |
 | `apps/live-control-ui/src/api/liveApi.ts` | Cycle 2: GET Run may request native-ready first admission |
@@ -1279,7 +1284,7 @@ The original dispatch uses numbered headings, not the `## §N` template the revi
 | `apps/live-control-ui/src/playSurface/runbook/index.ts` | Export only if required |
 | `tests/test_play_run_progress.py` | v1/v2 progress admission, including refuse empty-clear after READY |
 | `tests/application_state/test_play_runtime_postgres.py` | Durable seed/CAS/concurrency and helper-level first admission |
-| `tests/test_live_play_run_progress.py` | Cycle 2: HTTP owning-boundary GET native-ready against PostgreSQL |
+| `tests/test_live_play_run_progress.py` | Cycle 2/3: HTTP owning-boundary GET native-ready against PostgreSQL, including JSON binding mismatch and rebase-straddle convergence |
 | `apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.test.ts` | v2 admission, Option/Choice disjoint authored content, edges, relevance |
 | `apps/live-control-ui/src/playSurface/runbook/v2RuntimeProjection.test.ts` | BF2-local helper tests |
 | `apps/live-control-ui/src/App.test.tsx` | `/play` load/READY against the production GET native-ready contract |
@@ -1326,7 +1331,9 @@ Must prove, in addition to the original dispatch matrix:
 * sealed `beat_kind` and `activates`/`suppresses` participate in integrity comparison;
 * opening Beat derivation honors BF1 fence/grammar admission;
 * v2 Option title/body come from marked list-item text; Choice prose and Option text remain disjoint;
-* default GET without the query remains a non-mutating read.
+* default GET without the query remains a non-mutating read;
+* native-ready GET refuses a sealed JSON binding mismatch (artifact/revision/sha) with zero Runtime writes;
+* native-ready GET that straddles a structure-changing rebase converges on one generation rather than `integrity_failure`.
 
 ## §9 Acceptance rubric
 
@@ -1341,3 +1348,5 @@ Must prove, in addition to the original dispatch matrix:
 - [ ] No new public endpoint path was introduced.
 - [ ] BF3 cockpit UI remains unimplemented and unclaimed.
 - [ ] Canonical/mirror pairs remain byte-identical.
+- [ ] Native-ready first admission proves sealed JSON binding before any seed.
+- [ ] First admission loads one Run+manifest generation and converges across a structure-changing rebase.
