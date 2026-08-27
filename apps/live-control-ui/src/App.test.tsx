@@ -664,6 +664,8 @@ describe("App inspector integration", () => {
     "<!-- dmb-playable-element:v2 kind=scene id=scene:a -->",
     "### Scene A",
     "",
+    "Scene A unique body.",
+    "",
     "<!-- dmb-playable-element:v2 kind=beat id=beat:two beat_kind=optional -->",
     "## Beat 2",
     "",
@@ -1261,9 +1263,10 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("play-v2-runtime")).toBeInTheDocument();
-    expect(screen.getByTestId("play-v2-current-beat")).toHaveTextContent("beat:one");
-    expect(screen.getByTestId("play-v2-current-scene")).toHaveTextContent("none");
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    expect(screen.queryByText("v2 Run READY")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 1");
+    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("No Scene is current");
     expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
@@ -1275,8 +1278,8 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("play-v2-runtime")).toBeInTheDocument();
-    expect(screen.getByTestId("play-v2-current-beat")).toHaveTextContent("beat:two");
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 2");
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
     expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
@@ -1287,8 +1290,8 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("play-v2-runtime")).toBeInTheDocument();
-    expect(screen.getByTestId("play-v2-current-beat")).toHaveTextContent("beat:one");
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 1");
     expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
@@ -1308,7 +1311,7 @@ describe("App inspector integration", () => {
     expect(await screen.findByTestId("play-status-integrity_failure")).toBeInTheDocument();
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("play-v2-runtime")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-current-moment-cockpit")).not.toBeInTheDocument();
     expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
   });
 
@@ -1352,14 +1355,46 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("play-v2-runtime")).toBeInTheDocument();
-    expect(screen.getByTestId("play-v2-current-beat")).toHaveTextContent("beat:rebased");
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Rebased");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
     expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.getPlayRunReferenceManifest).toHaveBeenCalledTimes(1);
     expect(liveApi.getCommittedWorkspaceRevision).toHaveBeenCalledTimes(1);
     expect(vi.mocked(liveApi.getCommittedWorkspaceRevision).mock.calls[0]?.[1]).toBe(4);
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+  });
+
+  it("reflects Make Current from the returned authoritative v2 Run", async () => {
+    const user = userEvent.setup();
+    const seeded = mockV2PlayRun({ current_beat_id: "beat:one", current_scene_id: null });
+    const madeCurrent = {
+      ...seeded,
+      run_revision: seeded.run_revision + 1,
+      progress: {
+        ...seeded.progress,
+        current_beat_id: "beat:one",
+        current_scene_id: "scene:a",
+      },
+    };
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(madeCurrent);
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-workspace-beat-only")).toBeInTheDocument();
+    expect(screen.queryByText("v2 Run READY")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Make Scene A current" }));
+    expect(await screen.findByTestId("play-workspace-current")).toHaveTextContent("Scene A unique body.");
+    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Scene A");
+    expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(liveApi.putPlayRunProgress).mock.calls[0]?.[1]).toEqual({
+      expected_run_revision: seeded.run_revision,
+      progress: expect.objectContaining({
+        current_beat_id: "beat:one",
+        current_scene_id: "scene:a",
+      }),
+    });
     expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
   });
 

@@ -19,6 +19,7 @@ import {
   RunbookTableDeck,
   type RunbookMutationStatus,
 } from "./runbook/RunbookTableDeck";
+import { PlayCurrentMomentCockpit } from "./currentMoment/PlayCurrentMomentCockpit";
 import { StartRunPanel } from "./StartRunPanel";
 import {
   admitNativeRunbook,
@@ -26,6 +27,7 @@ import {
   isNativeRunbookReadyV1,
   isNativeRunbookReadyV2,
   overlayRuntimeOnDeck,
+  overlayRuntimeOnV2Ready,
   type NativeRunbookAdmission,
   type NativeRunbookReadyDeck,
   type NativeRunbookReadyV2,
@@ -502,17 +504,21 @@ export function PlaySurfacePage() {
               Start New Run
             </button>
           </div>
-          <section data-testid="play-v2-runtime">
-            <p className="play-kicker">Play</p>
-            <h1>v2 Run READY</h1>
-            <p data-testid="play-v2-current-beat">current Beat {v2Deck.currentBeatId}</p>
-            <p data-testid="play-v2-current-scene">
-              current Scene {v2Deck.currentSceneId ?? "none"}
-            </p>
-            <p className="play-muted" data-testid="play-v2-binding">
-              revision {v2Deck.run.playable_revision} · {v2Deck.run.playable_content_sha256}
-            </p>
-          </section>
+          <PlayCurrentMomentCockpit
+            key={v2Deck.run.run_id}
+            deck={v2Deck}
+            mutationStatus={mutationStatus}
+            onMutationStatus={setMutationStatus}
+            onAuthoritativeRun={(nextRun) => {
+              if (nextRun.run_id !== v2Deck.run.run_id) return;
+              const overlaid = overlayRuntimeOnV2Ready(v2Deck, nextRun);
+              if (!overlaid) {
+                void loadExactRun(nextRun.run_id);
+                return;
+              }
+              setAdmission(overlaid);
+            }}
+          />
           {detail ? (
             <p role="alert" className="play-continuity-warning" data-testid="play-active-run-save-warning">
               {detail}
