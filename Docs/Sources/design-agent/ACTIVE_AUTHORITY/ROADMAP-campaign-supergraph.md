@@ -1,10 +1,10 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-26 — #645 D.2C2 `DONE`; #647 D.2C3 design `DONE`; D.2C2 provenance compatibility DESIGN `DOING` (Review Cycle 1 `5036355801` REQUEST-CHANGES-equivalent; Review Cycle 2 `5036457798` REQUEST-CHANGES-equivalent on `ce902411…`; Review Cycle 3 `5036535545` REQUEST-CHANGES-equivalent on `9abbcf83…` (re-anchor only); Review Cycle 4 in-flight); DungeonMind provenance CODE `BLOCKED`; Buddy producer CODE `BLOCKED`; D.2C3 implementation `DOING` / PARKED ON PREDECESSOR / Buddy #651 (Review Cycle 3 `5035980646`; frozen acceptance still requires admitted `D_0` projection); D.2C4/D.3A/D.3B `BLOCKED`; D.3 not `DONE`  
-**Repository anchor / current Buddy `main`:** `5b2d9bc7cc61c7a485c3bd801cd44d7251134466` (AGENT-INTERACTION surface-authority re-anchor). Historical PLAY-SURFACE: `555a9c7965aca47a24536277b9b36ae569a7285a`. Historical #650 APP-STATE merge: `cc016661f80416e0816f56349217cf33c53a195f`. D.2C3 dispatch base remains #647 merge `d96a21363fd0decbcb8c4390f951a6316b53060c`. Historical D.2C2 implementation #645 merge: `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`. Historical D.2C2 design #644 merge: `f1eae2a3d27e430ee19e254d5b52fa556b2632ff`. Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
+**Updated:** 2026-08-27 — #645 D.2C2 `DONE`; #647 D.2C3 design `DONE`; #653 provenance DESIGN `DONE`; DungeonMind #47 provenance CODE `DONE`; Buddy first-world provenance producer+pin `DOING` / this PR (do not invent its merge SHA); D.2C3 implementation `DOING` / PARKED ON this producer predecessor / Buddy #651 (Review Cycle 3 `5035980646`; frozen acceptance still requires admitted `D_0` projection); D.2C4/D.3A/D.3B `BLOCKED`; D.3 not `DONE`  
+**Repository anchor / current Buddy `main`:** `d721cba261c35fd1d77566df6c03be614a26f510` (AGENT-INTERACTION: design advanced Agent trace inspector). Historical AGENT-INTERACTION surface-authority re-anchor: `5b2d9bc7cc61c7a485c3bd801cd44d7251134466`. Historical PLAY-SURFACE: `555a9c7965aca47a24536277b9b36ae569a7285a`. Historical #650 APP-STATE merge: `cc016661f80416e0816f56349217cf33c53a195f`. D.2C3 dispatch base remains #647 merge `d96a21363fd0decbcb8c4390f951a6316b53060c`. Historical D.2C2 implementation #645 merge: `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`. Historical D.2C2 design #644 merge: `f1eae2a3d27e430ee19e254d5b52fa556b2632ff`. Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
-**DungeonMind pin:** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b` (PR #46 merge / reviewed first-world initialization)
+**DungeonMind pin:** `5ca5d688612349034f8ca490d465af166d883e6e` (this PR / DungeonMind PR #47 merge / reviewed-init provenance compatibility). Historical D.2C2 runtime pin was PR #46 `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`.
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)  
@@ -266,32 +266,29 @@ DONE    D.2C2 mounted first-world authority migration / Buddy #645
         5026532158.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-mounted-first-world-authority-migration-code.md.
 
-DOING   D.2C2 first-world provenance compatibility DESIGN
+DONE    D.2C2 first-world provenance compatibility DESIGN / Buddy #653
         Freeze DungeonMind-owned #645 first-world producer-family
         genesis OTHER interpretation and Buddy future producer stamp.
-        Review Cycle 1 5036355801 REQUEST-CHANGES-equivalent; Review
-        Cycle 2 5036457798 REQUEST-CHANGES-equivalent on ce902411…;
-        Cycle 3 5036535545 REQUEST-CHANGES-equivalent on 9abbcf83…
-        (re-anchor only); Review Cycle 4 in-flight.
-        Frozen: WorldGraphProjectionService builds GenesisEvidenceCompatibility
-        above graph_scope; producer family is dmb_first_world_graph_plan_v1 /
-        dmb:first-world:<sha256> / live_control:graph_review_confirm /
-        zero-parent D_0 / worldbuilding; replay is one shared dual-hash
-        identity at all four seams; descendant eligibility is canonical
-        record equality; ADR-0023 if free.
-        Do not invent its merge SHA.
+        Merge 5ad992090c2e85d38784c888e4b870f5672bce8e; accepted design
+        head 289201c9c60ec75c3acca998722be1a7d0600c43; Review Cycle 4
+        PASS-equivalent 5036593867.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-first-world-provenance-compatibility.md.
 
-BLOCKED D.2C2 first-world provenance compatibility CODE / DungeonMind
+DONE    D.2C2 first-world provenance compatibility CODE / DungeonMind #47
         WorldGraphProjectionService builds verified genesis compatibility
         context for the named #645 producer family; graph_scope consumes
         it; correction replay is the shared dual-hash identity at
         application preflight, recovery, PostgreSQL under-lock, and
-        in-memory under-lock. ADR-0023 if free.
+        in-memory under-lock. ADR-0023.
+        Merge 5ca5d688612349034f8ca490d465af166d883e6e; accepted head
+        de966092e81f778be90c827e73b3776620640b8f; Review Cycle 2
+        PASS-equivalent 5037371759.
 
-BLOCKED D.2C2 first-world provenance producer CODE / Buddy
-        Stamp new first-world evidence from SourceArtifact domain and
-        pin DungeonMind. Blocked on DungeonMind CODE.
+DOING   D.2C2 first-world provenance producer CODE / Buddy
+        Stamp new first-world evidence from command-owned SourceArtifact
+        domain without changing historical exported evidence IDs; pin
+        DungeonMind #47. This PR. Do not invent its merge SHA.
+        Handoff: Docs/Plans/HANDOFF-CUTOVER-first-world-provenance-producer.md.
 
 DONE    D.2C3 native genesis read/write continuity DESIGN / Buddy #647
         Frozen two-genesis binder and D.2C3/D.2C4/D.3A/D.3B sequence.
@@ -301,13 +298,15 @@ DONE    D.2C3 native genesis read/write continuity DESIGN / Buddy #647
         Handoff: Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md §4.
 
 DOING   D.2C3 native genesis read/write continuity / Buddy #651
-        PARKED ON PREDECESSOR at cf453078a5c1950ec5f23a5d5b99001ee9e456db
-        after Review Cycle 3 5035980646. Shared DirectAuthorityBinding
-        recognizes existing-world adoption and reviewed first-world
-        initialization; D_0 is a legal native parent. Frozen acceptance
-        still requires admitted D_0 projection/search/exact-object
-        retrieval. Do not merge or weaken that rubric. Resume as Review
-        Cycle 4 after the provenance predecessor lands.
+        PARKED ON THIS PRODUCER PREDECESSOR at reviewed head
+        cf453078a5c1950ec5f23a5d5b99001ee9e456db after Review Cycle 3
+        5035980646; parking head 3a60610dc78b710aa0aea6af817da00b0bfb563e.
+        Shared DirectAuthorityBinding recognizes existing-world adoption
+        and reviewed first-world initialization; D_0 is a legal native
+        parent. Frozen acceptance still requires admitted D_0
+        projection/search/exact-object retrieval. Do not merge or weaken
+        that rubric. Resume as Review Cycle 4 after this producer+pin
+        PR merges.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md.
 
 BLOCKED D.2C4 manual Graph Review authoring continuity
