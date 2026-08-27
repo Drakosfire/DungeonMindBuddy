@@ -33,7 +33,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2C3 CODE: native genesis read/write continuity
 
 **Created:** 2026-08-26  
-**Status:** ACTIVE — IMPLEMENTATION IN PROGRESS / Buddy #651  
+**Status:** PARKED ON PREDECESSOR — DOING / Buddy #651; merge blocked until D.2C2 first-world provenance compatibility lands. Frozen §7/§9 still require admitted `D_0` projection/search/exact-object retrieval.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md`  
 **Conversation/workstream:** `DungeonBuddy / Campaign Supergraph CUTOVER`  
 **Flow / owner:** `CUTOVER`  
@@ -335,6 +335,30 @@ uv run pytest tests/test_cutover_threat_authority_port_integration.py \
 ```
 
 **Ruff:** `All checks passed!` on the leased Python paths including `tests/test_cutover_native_genesis_continuity.py`.
+
+## Execution record — Review Cycle 3 PARK ON PREDECESSOR, not DONE
+
+Review ID `5035980646` on exact head `cf453078a5c1950ec5f23a5d5b99001ee9e456db`. Disposition: **REQUEST-CHANGES-equivalent / PARK ON PREDECESSOR**.
+
+Cycle 2's semantic-authority repair stands: Buddy does not rewrite immutable DungeonMind evidence before projection. The branch is re-anchored to `main` `555a9c7965aca47a24536277b9b36ae569a7285a`.
+
+**§7 and §9 are unchanged.** Merge still requires admitted native projection, search, and exact-object retrieval of the reviewed-init `D_0` (including `obj_session22_vial` / `mystery_puddles`), then one legal child and exact retry, with zero required skips. The Cycle 3 PostgreSQL run does **not** satisfy that rubric: it intentionally proves the exact #645 `D_0` does not admit those facts because stored evidence is `source_domain="other"`. That is the explicit blocker, not a waiver. Do not weaken the acceptance rubric to fit the partial binder.
+
+```text
+Parked head: cf453078a5c1950ec5f23a5d5b99001ee9e456db
+Do not merge #651.
+Do not continue this PR until the provenance predecessor lands.
+Sequence:
+  D.2C2 provenance compatibility/repair   REQUIRED / not dispatched
+    ↓
+  #651 D.2C3 resumes                      DOING / PARKED (this PR)
+    ↓
+  D.2C4 manual authoring                  BLOCKED
+Cycle 4 (after predecessor lands):
+  re-anchor #651 onto then-current main
+  restore admitted projection/search/get-object of obj_session22_vial and mystery_puddles
+  submit that distinct head as Review Cycle 4
+```
 
 ## §8 Required review handback
 
