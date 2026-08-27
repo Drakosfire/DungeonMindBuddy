@@ -865,6 +865,22 @@ def _serialize_bounded_number_map(
     return bounded
 
 
+def _bounded_telemetry_warnings(warnings: Sequence[Any]) -> list[str]:
+    clipped: list[str] = []
+    for item in warnings:
+        text = _clip_str(str(item), max_chars=MAX_ID_CHARS)
+        if text and text not in clipped:
+            clipped.append(text)
+        if len(clipped) >= MAX_TELEMETRY_WARNINGS:
+            break
+    return clipped
+
+
+def serialize_model_call(call: Mapping[str, Any]) -> dict[str, Any]:
+    """Public wire projection for one model-call observation."""
+    return _serialize_model_call(call)
+
+
 def _serialize_model_call(call: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(call, Mapping):
         raise ValueError("modelCalls entries must be mappings")
@@ -968,10 +984,13 @@ def serialize_hermes_graph_agent_turn_result(
     """
     if len(result.tool_events) > MAX_TOOL_EVENTS:
         raise ValueError(f"toolEvents exceeds max {MAX_TOOL_EVENTS}")
-    if len(result.model_calls) > MAX_MODEL_CALLS:
-        raise ValueError(f"modelCalls exceeds max {MAX_MODEL_CALLS}")
-    if len(result.telemetry_warnings) > MAX_TELEMETRY_WARNINGS:
-        raise ValueError(f"telemetryWarnings exceeds max {MAX_TELEMETRY_WARNINGS}")
+    telemetry_warnings = _bounded_telemetry_warnings(result.telemetry_warnings)
+    model_calls = list(result.model_calls)
+    if len(model_calls) > MAX_MODEL_CALLS:
+        model_calls = model_calls[:MAX_MODEL_CALLS]
+        telemetry_warnings = _bounded_telemetry_warnings(
+            ["model_calls_truncated", *telemetry_warnings]
+        )
     final_response = result.final_response
     if final_response is not None:
         final_response = _clip_str(final_response, max_chars=MAX_FINAL_RESPONSE_CHARS)
@@ -1004,11 +1023,8 @@ def serialize_hermes_graph_agent_turn_result(
         ),
         "retrievalSession": retrieval_session,
         "answerScope": result.answer_scope,
-        "modelCalls": [_serialize_model_call(call) for call in result.model_calls],
-        "telemetryWarnings": [
-            _clip_str(str(item), max_chars=MAX_ID_CHARS)
-            for item in result.telemetry_warnings[:MAX_TELEMETRY_WARNINGS]
-        ],
+        "modelCalls": [_serialize_model_call(call) for call in model_calls],
+        "telemetryWarnings": telemetry_warnings,
     }
 
 
@@ -1136,21 +1152,20 @@ def deserialize_hermes_graph_agent_turn_result(
     model_calls_raw = payload.get("modelCalls") or []
     if not isinstance(model_calls_raw, list):
         raise ValueError("modelCalls must be a list")
+    warnings_raw = payload.get("telemetryWarnings") or []
+    if not isinstance(warnings_raw, list):
+        raise ValueError("telemetryWarnings must be a list")
+    telemetry_warnings = _bounded_telemetry_warnings(warnings_raw)
     if len(model_calls_raw) > MAX_MODEL_CALLS:
-        raise ValueError(f"modelCalls exceeds max {MAX_MODEL_CALLS}")
+        model_calls_raw = model_calls_raw[:MAX_MODEL_CALLS]
+        telemetry_warnings = _bounded_telemetry_warnings(
+            ["model_calls_truncated", *telemetry_warnings]
+        )
     model_calls = [
         _serialize_model_call(item) for item in model_calls_raw if isinstance(item, Mapping)
     ]
     if len(model_calls) != len(model_calls_raw):
         raise ValueError("modelCalls entries must be mappings")
-    warnings_raw = payload.get("telemetryWarnings") or []
-    if not isinstance(warnings_raw, list):
-        raise ValueError("telemetryWarnings must be a list")
-    if len(warnings_raw) > MAX_TELEMETRY_WARNINGS:
-        raise ValueError(f"telemetryWarnings exceeds max {MAX_TELEMETRY_WARNINGS}")
-    telemetry_warnings = [
-        _clip_str(str(item), max_chars=MAX_ID_CHARS) for item in warnings_raw
-    ]
     return HermesGraphAgentTurnResult(
         status=status,  # type: ignore[arg-type]
         final_response=final_response,
@@ -1213,4 +1228,5 @@ __all__ = [
     "serialize_capability_policy",
     "serialize_hermes_graph_agent_turn_request",
     "serialize_hermes_graph_agent_turn_result",
+    "serialize_model_call",
 ]

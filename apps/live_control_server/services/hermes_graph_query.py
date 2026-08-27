@@ -986,12 +986,14 @@ def _agent_trace(
     extra_warnings = list(warnings)
     if resolution.recovery_message:
         extra_warnings.append(resolution.recovery_message)
+    # Terminal clock is the builder after response_projection, not a caller snapshot
+    # captured before that span closes.
+    _ = completed_at
+    _ = elapsed_ms
     return builder.finalize_and_log(
         status=status,
         model_calls=list(result.model_calls),
         extra_warnings=extra_warnings,
-        completed_at=completed_at,
-        elapsed_ms=elapsed_ms,
         hermes_fields={
             "hermes_session_id": result.hermes_session_id or None,
             "process_isolation": result.process_isolation,

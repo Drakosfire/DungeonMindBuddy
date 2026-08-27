@@ -817,10 +817,15 @@ class _ToolEventCollector:
 class _ApiObserverCollector:
     """Fail-open Hermes request-scoped API observer for exactly one turn."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        on_model_call: Callable[[Mapping[str, Any]], None] | None = None,
+    ) -> None:
         self.model_calls: list[dict[str, Any]] = []
         self.warnings: list[str] = []
         self._pending: dict[str, dict[str, Any]] = {}
+        self._on_model_call = on_model_call
         self._callbacks: dict[str, Callable[..., Any]] = {
             "pre_api_request": self.on_pre_api_request,
             "post_api_request": self.on_post_api_request,
@@ -845,6 +850,20 @@ class _ApiObserverCollector:
         merged.update(dict(payload))
         return merged
 
+    def _record(self, payload: Mapping[str, Any], *, status: str) -> None:
+        call = map_hermes_observer_to_model_call(
+            payload,
+            status=status,  # type: ignore[arg-type]
+            sequence=len(self.model_calls) + 1,
+        )
+        self.model_calls.append(call)
+        if self._on_model_call is None:
+            return
+        try:
+            self._on_model_call(call)
+        except Exception:
+            self._note("observer_telemetry_emit_failed")
+
     def on_pre_api_request(self, **kwargs: Any) -> None:
         try:
             key = self._request_key(kwargs)
@@ -854,40 +873,20 @@ class _ApiObserverCollector:
 
     def on_post_api_request(self, **kwargs: Any) -> None:
         try:
-            merged = self._merge_pending(kwargs)
-            self.model_calls.append(
-                map_hermes_observer_to_model_call(
-                    merged,
-                    status="ok",
-                    sequence=len(self.model_calls) + 1,
-                )
-            )
+            self._record(self._merge_pending(kwargs), status="ok")
         except Exception:
             self._note("observer_payload_malformed")
 
     def on_api_request_error(self, **kwargs: Any) -> None:
         try:
-            merged = self._merge_pending(kwargs)
-            self.model_calls.append(
-                map_hermes_observer_to_model_call(
-                    merged,
-                    status="error",
-                    sequence=len(self.model_calls) + 1,
-                )
-            )
+            self._record(self._merge_pending(kwargs), status="error")
         except Exception:
             self._note("observer_payload_malformed")
 
     def _flush_pending(self) -> None:
         for payload in self._pending.values():
             try:
-                self.model_calls.append(
-                    map_hermes_observer_to_model_call(
-                        payload,
-                        status="error",
-                        sequence=len(self.model_calls) + 1,
-                    )
-                )
+                self._record(payload, status="error")
                 self._note("observer_api_request_incomplete")
             except Exception:
                 self._note("observer_payload_malformed")
@@ -924,6 +923,7 @@ def run_hermes_graph_agent_turn(
     request: HermesGraphAgentTurnRequest,
     *,
     agent_factory: Any | None = None,
+    on_model_call: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> HermesGraphAgentTurnResult:
     """Run one lockdown Hermes graph-agent turn and return a typed result.
 
@@ -991,7 +991,7 @@ def run_hermes_graph_agent_turn(
         policy_token = set_active_capability_policy(policy)
         session_token = set_active_retrieval_session_id(request.retrieval_session_id)
         collector = _ToolEventCollector(policy)
-        api_observer = _ApiObserverCollector()
+        api_observer = _ApiObserverCollector(on_model_call=on_model_call)
         pre_tool_hook: Callable[..., Any] | None = None
         plugin_manager: Any | None = None
         whitelist_installed = False

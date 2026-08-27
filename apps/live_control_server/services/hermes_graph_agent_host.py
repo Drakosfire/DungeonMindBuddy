@@ -20,6 +20,7 @@ from multiprocessing.queues import Queue
 from typing import Any, Literal
 
 from apps.live_control_server.services.hermes_graph_agent_contract import (
+    MAX_MODEL_CALLS,
     PROCESS_ISOLATION_MODE,
     HermesGraphAgentTurnRequest,
     HermesGraphAgentTurnResult,
@@ -29,6 +30,7 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
     encode_json_wire,
     serialize_hermes_graph_agent_turn_request,
     serialize_hermes_graph_agent_turn_result,
+    serialize_model_call,
 )
 
 HostErrorCode = Literal[
@@ -52,6 +54,8 @@ def _host_error_result(
     error_code: HostErrorCode,
     error_message: str,
     hermes_session_id: str | None = None,
+    model_calls: list[dict[str, Any]] | None = None,
+    telemetry_warnings: list[str] | None = None,
 ) -> HermesGraphAgentTurnResult:
     return HermesGraphAgentTurnResult(
         status="error",
@@ -62,7 +66,82 @@ def _host_error_result(
         error_code=error_code,
         error_message=error_message,
         process_isolation=PROCESS_ISOLATION_MODE,
+        model_calls=list(model_calls or []),
+        telemetry_warnings=list(telemetry_warnings or []),
     )
+
+
+def _ingest_streamed_telemetry(
+    message: Mapping[str, Any],
+    *,
+    request_id: str | None,
+    telemetry_calls: list[dict[str, Any]] | None,
+    telemetry_warnings: list[str] | None,
+) -> None:
+    if telemetry_calls is None:
+        return
+    if request_id is not None and str(message.get("requestId") or "") != request_id:
+        return
+    payload = message.get("payload")
+    if not isinstance(payload, Mapping):
+        if telemetry_warnings is not None and "observer_payload_malformed" not in telemetry_warnings:
+            telemetry_warnings.append("observer_payload_malformed")
+        return
+    raw_calls = payload.get("modelCalls") or []
+    if not isinstance(raw_calls, list):
+        if telemetry_warnings is not None and "observer_payload_malformed" not in telemetry_warnings:
+            telemetry_warnings.append("observer_payload_malformed")
+        return
+    for item in raw_calls:
+        if len(telemetry_calls) >= MAX_MODEL_CALLS:
+            if (
+                telemetry_warnings is not None
+                and "model_calls_truncated" not in telemetry_warnings
+            ):
+                telemetry_warnings.append("model_calls_truncated")
+            break
+        if not isinstance(item, Mapping):
+            if (
+                telemetry_warnings is not None
+                and "observer_payload_malformed" not in telemetry_warnings
+            ):
+                telemetry_warnings.append("observer_payload_malformed")
+            continue
+        try:
+            telemetry_calls.append(serialize_model_call(item))
+        except Exception:
+            if (
+                telemetry_warnings is not None
+                and "observer_payload_malformed" not in telemetry_warnings
+            ):
+                telemetry_warnings.append("observer_payload_malformed")
+
+
+def _drain_streamed_telemetry(
+    response_queue: Queue[bytes],
+    *,
+    request_id: str | None,
+    telemetry_calls: list[dict[str, Any]] | None,
+    telemetry_warnings: list[str] | None,
+) -> None:
+    if telemetry_calls is None:
+        return
+    while True:
+        try:
+            raw = response_queue.get_nowait()
+        except Exception:
+            return
+        try:
+            message = decode_json_wire(raw)
+        except Exception:
+            continue
+        if message.get("type") == "telemetry":
+            _ingest_streamed_telemetry(
+                message,
+                request_id=request_id,
+                telemetry_calls=telemetry_calls,
+                telemetry_warnings=telemetry_warnings,
+            )
 
 
 def _await_worker_proceed(
@@ -163,7 +242,27 @@ def hermes_graph_agent_worker_main(
             if not isinstance(payload, Mapping):
                 raise ValueError("execute payload must be a mapping")
             request = deserialize_hermes_graph_agent_turn_request(payload)
-            result = run_hermes_graph_agent_turn(request)
+
+            def on_model_call(call: Mapping[str, Any]) -> None:
+                try:
+                    serialized = serialize_model_call(call)
+                    response_queue.put(
+                        encode_json_wire(
+                            {
+                                "type": "telemetry",
+                                "requestId": request_id,
+                                "pid": os.getpid(),
+                                "payload": {"modelCalls": [serialized]},
+                            }
+                        )
+                    )
+                except Exception:
+                    return
+
+            result = run_hermes_graph_agent_turn(
+                request,
+                on_model_call=on_model_call,
+            )
             response_queue.put(
                 encode_json_wire(
                     {
@@ -369,6 +468,8 @@ class HermesGraphAgentHost:
                 )
 
             # Acceptance observed — authorize execution. No further automatic retry.
+            streamed_calls: list[dict[str, Any]] = []
+            streamed_warnings: list[str] = []
             try:
                 local_worker.request_queue.put(
                     encode_json_wire(
@@ -393,6 +494,8 @@ class HermesGraphAgentHost:
                 expected_types={"result"},
                 request_id=request_id,
                 timeout_s=turn_timeout_s,
+                telemetry_calls=streamed_calls,
+                telemetry_warnings=streamed_warnings,
             )
             if result_message is None:
                 alive = local_worker.process.is_alive()
@@ -406,12 +509,16 @@ class HermesGraphAgentHost:
                         error_message=(
                             "Hermes graph-agent worker exceeded the turn timeout."
                         ),
+                        model_calls=streamed_calls,
+                        telemetry_warnings=streamed_warnings,
                     )
                 return _host_error_result(
                     error_code="hermes_worker_lost",
                     error_message=(
                         "Hermes graph-agent worker was lost after accepting the request."
                     ),
+                    model_calls=streamed_calls,
+                    telemetry_warnings=streamed_warnings,
                 )
             payload = result_message.get("payload")
             if not isinstance(payload, Mapping):
@@ -582,27 +689,61 @@ class HermesGraphAgentHost:
         expected_types: set[str],
         request_id: str | None,
         timeout_s: float,
+        telemetry_calls: list[dict[str, Any]] | None = None,
+        telemetry_warnings: list[str] | None = None,
     ) -> dict[str, Any] | None:
         deadline = time.monotonic() + timeout_s
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
+                _drain_streamed_telemetry(
+                    response_queue,
+                    request_id=request_id,
+                    telemetry_calls=telemetry_calls,
+                    telemetry_warnings=telemetry_warnings,
+                )
                 return None
             try:
                 raw = response_queue.get(timeout=min(remaining, 0.25))
             except Exception:
                 if not process.is_alive():
+                    _drain_streamed_telemetry(
+                        response_queue,
+                        request_id=request_id,
+                        telemetry_calls=telemetry_calls,
+                        telemetry_warnings=telemetry_warnings,
+                    )
                     return None
                 continue
             try:
                 message = decode_json_wire(raw)
             except Exception:
                 if not process.is_alive():
+                    _drain_streamed_telemetry(
+                        response_queue,
+                        request_id=request_id,
+                        telemetry_calls=telemetry_calls,
+                        telemetry_warnings=telemetry_warnings,
+                    )
                     return None
                 continue
             msg_type = message.get("type")
+            if msg_type == "telemetry":
+                _ingest_streamed_telemetry(
+                    message,
+                    request_id=request_id,
+                    telemetry_calls=telemetry_calls,
+                    telemetry_warnings=telemetry_warnings,
+                )
+                continue
             if msg_type not in expected_types:
                 if not process.is_alive():
+                    _drain_streamed_telemetry(
+                        response_queue,
+                        request_id=request_id,
+                        telemetry_calls=telemetry_calls,
+                        telemetry_warnings=telemetry_warnings,
+                    )
                     return None
                 continue
             if request_id is not None and str(message.get("requestId") or "") != request_id:

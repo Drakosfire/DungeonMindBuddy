@@ -2570,12 +2570,45 @@ def test_product_trace_aggregates_model_calls_and_keeps_tool_events(
     assert "harness_turn" in span_names
     assert "response_projection" in span_names
     harness = next(span for span in trace["spans"] if span["name"] == "harness_turn")
+    projection = next(span for span in trace["spans"] if span["name"] == "response_projection")
     assert trace["elapsed_ms"] >= harness["duration_ms"]
+    assert projection["completed_at"] <= trace["completed_at"]
+    assert trace["elapsed_ms"] >= projection["duration_ms"]
     trace_logs = [record for record in caplog.records if record.name == "dmb.agent.turn_trace"]
     assert len(trace_logs) == 1
     blob = " ".join(record.getMessage() for record in caplog.records)
     assert trace["trace_id"] in blob
     assert PRIVACY_SENTINEL not in blob
+
+
+def test_trace_clock_includes_response_projection(tmp_path: Path, monkeypatch) -> None:
+    ticks = {"n": 0}
+
+    def fake_now() -> str:
+        ticks["n"] += 1
+        return f"2026-01-01T00:00:00.{ticks['n']:09d}Z"
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_turn_trace.utc_now_z",
+        fake_now,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.hermes_graph_query._utc_now_z",
+        fake_now,
+    )
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=READY_ENVELOPE,
+        agent_thread_id="agent-thread-clock",
+        turn_id="agent-turn-clock",
+        root=tmp_path,
+        host_factory=lambda: _FakeHost(_ok_result()),  # type: ignore[arg-type, return-value]
+    )
+    trace = response["agent_trace"]
+    projection = next(span for span in trace["spans"] if span["name"] == "response_projection")
+    assert projection["completed_at"] <= trace["completed_at"]
+    assert projection["started_at"] >= trace["started_at"]
 
 
 def test_retry_error_then_success_remains_two_model_calls(tmp_path: Path) -> None:
