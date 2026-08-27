@@ -1,7 +1,7 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-26 — #645 D.2C2 `DONE`; #647 D.2C3 design `DONE`; D.2C2 provenance compatibility DESIGN `DOING`; DungeonMind provenance CODE `BLOCKED`; Buddy producer CODE `BLOCKED`; D.2C3 implementation `DOING` / PARKED ON PREDECESSOR / Buddy #651 (Review Cycle 3 `5035980646`; frozen acceptance still requires admitted `D_0` projection); D.2C4/D.3A/D.3B `BLOCKED`; D.3 not `DONE`  
+**Updated:** 2026-08-26 — #645 D.2C2 `DONE`; #647 D.2C3 design `DONE`; D.2C2 provenance compatibility DESIGN `DOING` (Review Cycle 1 `5036355801` REQUEST-CHANGES-equivalent; Review Cycle 2 in-flight); DungeonMind provenance CODE `BLOCKED`; Buddy producer CODE `BLOCKED`; D.2C3 implementation `DOING` / PARKED ON PREDECESSOR / Buddy #651 (Review Cycle 3 `5035980646`; frozen acceptance still requires admitted `D_0` projection); D.2C4/D.3A/D.3B `BLOCKED`; D.3 not `DONE`  
 **Repository anchor / current Buddy `main`:** `555a9c7965aca47a24536277b9b36ae569a7285a` (PLAY-SURFACE cockpit re-anchor). Historical #650 APP-STATE merge: `cc016661f80416e0816f56349217cf33c53a195f`. D.2C3 dispatch base remains #647 merge `d96a21363fd0decbcb8c4390f951a6316b53060c`. Historical D.2C2 implementation #645 merge: `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`. Historical D.2C2 design #644 merge: `f1eae2a3d27e430ee19e254d5b52fa556b2632ff`. Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b` (PR #46 merge / reviewed first-world initialization)
@@ -268,13 +268,18 @@ DONE    D.2C2 mounted first-world authority migration / Buddy #645
 
 DOING   D.2C2 first-world provenance compatibility DESIGN
         Freeze DungeonMind-owned reviewed-init-v1 genesis OTHER
-        interpretation and Buddy future producer stamp. This design PR
-        is in-flight; do not invent its merge SHA.
+        interpretation and Buddy future producer stamp. Review Cycle 1
+        5036355801 REQUEST-CHANGES-equivalent; Review Cycle 2 in-flight.
+        Frozen: WorldGraphProjectionService builds GenesisEvidenceCompatibility
+        above graph_scope; replay is hash(OTHER-normalized C_new); descendant
+        eligibility is canonical record equality; ADR-0023 if free.
+        Do not invent its merge SHA.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-first-world-provenance-compatibility.md.
 
 BLOCKED D.2C2 first-world provenance compatibility CODE / DungeonMind
-        Interpret genesis OTHER on native projection; accept
-        OTHER→artifact-domain as exact initialization replay.
+        WorldGraphProjectionService builds verified genesis compatibility
+        context; graph_scope consumes it; correction replay is
+        hash-reconstructable OTHER-normalization. ADR-0023 if free.
 
 BLOCKED D.2C2 first-world provenance producer CODE / Buddy
         Stamp new first-world evidence from SourceArtifact domain and
