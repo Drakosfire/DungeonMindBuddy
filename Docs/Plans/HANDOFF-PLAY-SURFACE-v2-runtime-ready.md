@@ -1356,3 +1356,22 @@ Must prove, in addition to the original dispatch matrix:
 - [ ] Native-ready first admission proves sealed JSON binding before any seed.
 - [ ] First admission loads one Run+manifest generation and converges when a concurrent rebase removes the stale opening Beat.
 - [ ] Same-generation native-ready seed 422s remain fail-closed.
+
+## Completion
+
+PR #652 merged.
+
+Accepted implementation head:
+  `9dffcab96ad3f527efedc3981aea805a63deb4df`
+
+Merge:
+  `39ef105d3996ef0062dd45a089fecada14915436`
+
+Formal review cycles:
+  5
+
+BF2 outcome:
+  DONE
+
+Successor:
+  BF3A current-moment cockpit
