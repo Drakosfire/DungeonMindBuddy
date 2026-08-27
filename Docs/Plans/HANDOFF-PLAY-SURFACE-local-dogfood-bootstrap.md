@@ -1591,3 +1591,100 @@ The rationale for the sequencing correction is simple:
 
 > **Do not add more table capability behind a door the operator cannot yet
 > reliably open.**
+
+---
+
+## Review amendments — Cycle 1
+
+Reviewed against head `d811d1ed2400122dbb465357f1ea4f529c2825ee` as GitHub review `5042593573`.
+
+Do not treat this section as a rewrite of the original dispatch. The original
+body above remains the DF0 bootstrap contract. These amendments correct the
+zero-to-first-Runbook product path that the original “no fake Runbook” rule
+over-constrained.
+
+### Preserved prohibition
+
+Bootstrap `check` / `apply` must **not** silently seed content. Legacy import
+must not fabricate history. Zero leftover committed Runbooks remains a truthful
+`PLAY CONTENT NOT READY` / `NOT READY` bootstrap result.
+
+### Required product path
+
+Empty Play must offer an explicit first-class action through existing Content /
+workspace APIs, not through bootstrap:
+
+```text
+Start a Run
+
+No active Runbooks are available.
+
+[ Create blank Runbook ]
+```
+
+“Blank” is the smallest legitimate Playable document, not an empty WorkObject:
+
+```text
+Blank Runbook
+└── Untitled Beat
+    ├── no Scenes
+    ├── no Decisions
+    ├── no Options
+    └── no campaign/example content
+```
+
+Create/commit a Runbook WorkObject and one canonical v2 Beat with a generated
+stable Beat ID. Do **not** automatically start a Play Run. `Start exact Run`
+remains the operator's Runtime transition.
+
+Campaign identity comes from real current product context (World Graph lens
+only when focus validation is `valid`) or an explicit operator choice. Do not
+hardcode `longmont-c2` and do not infer a campaign from fixture paths.
+
+### Cycle 2 operator witness
+
+```text
+bootstrap apply
+→ /play
+→ no Runbooks
+→ Create blank Runbook
+→ committed Runbook appears
+→ Start exact Run
+→ native READY
+→ current Beat = Untitled Beat
+→ current Scene = null
+→ BF3A Beat-only Current Moment
+→ reload/resume
+```
+
+### Additional write lease
+
+| Action | Path | Purpose |
+| ------ | ---- | ------- |
+| Create | `apps/live-control-ui/src/playSurface/blankRunbook.ts` | blank v2 markdown + create/commit composition |
+| Create | `apps/live-control-ui/src/playSurface/blankRunbook.test.ts` | starter shape and campaign-required proof |
+| Modify | `apps/live-control-ui/src/playSurface/StartRunPanel.tsx` | Create blank Runbook control |
+| Modify | `apps/live-control-ui/src/playSurface/playSurface.css` | blank-create campaign field layout |
+| Modify | `apps/live-control-ui/src/playSurface/StartRunPanel.test.tsx` | empty-state create; does not start a Run |
+| Modify | `apps/live-control-ui/src/playSurface/PlaySurfacePage.tsx` | pass real product campaign context when valid |
+| Modify | `Docs/Runbooks/RUNBOOK-local-play-dogfood.md` | Cycle 2 empty-Play create path |
+| Create | `tests/test_blank_runbook_play_path.py` | HTTP create/commit then standard Start Run path |
+
+The original §8 denylist still holds: do not modify import seams, Content
+repository/service, play schema, FastAPI lifespan, Combat, Agent, or CUTOVER.
+Creating a blank Runbook uses existing `POST /workspace-documents` and TipTap
+prepare/commit. Pathless Runbook Content receipts are already supported.
+
+### Still forbidden
+
+```text
+migrate-on-boot
+import-on-boot
+bootstrap fake/sample Runbook
+auto-start after create
+hardcoded longmont-c2
+fixture-path campaign inference
+APP-STATE schema change
+new backend persistence model
+BF3B / Combat / Agent / CUTOVER
+```
