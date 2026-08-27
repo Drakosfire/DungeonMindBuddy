@@ -230,6 +230,11 @@ class _FakeAdoptionRepository:
         return None
 
 
+class _FakeReviewedInitRepository:
+    def get_for_world(self, world_id: str):
+        return None
+
+
 class _FakeBundle:
     """Duck-typed repository bundle: real in-memory repos + adoption fake."""
 
@@ -242,6 +247,7 @@ class _FakeBundle:
         self.world_graph = world_graph
         self.sources = sources
         self.existing_world_adoptions = _FakeAdoptionRepository(receipt)
+        self.reviewed_world_initializations = _FakeReviewedInitRepository()
 
 
 def _seed_sources() -> InMemorySourceRepository:
