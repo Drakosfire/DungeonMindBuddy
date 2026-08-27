@@ -304,6 +304,7 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - explicit check/apply for Buddy application state
    - ordinary uvicorn + Vite then reaches /play
    - no migrate-on-boot and no World Graph DSN fallback
+   - empty Play creates a blank committed Runbook explicitly; bootstrap does not seed
    - DF0 is in flight and is not DONE
 
 4. BF3B — AFTER DF0 — Decision interaction and visible relevance
@@ -332,7 +333,6 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
 
 8. REAL SESSION DOGFOOD
    - deliberately include an off-script scene change
-```
    - unplanned NPC/Threat
    - exact mechanics lookup
    - unexpected Add to Combat
