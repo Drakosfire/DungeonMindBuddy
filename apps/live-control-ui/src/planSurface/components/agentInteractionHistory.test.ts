@@ -971,8 +971,8 @@ describe("agentInteractionHistory", () => {
         mode: "hermes_graph_agent",
         provider: "openai-api",
         model: "gpt-5.4",
-        started_at: "2026-08-26T18:00:00.000Z",
-        completed_at: "2026-08-26T18:00:07.420Z",
+        started_at: "2026-08-26T18:00:00Z",
+        completed_at: "2026-08-26T18:00:07Z",
         elapsed_ms: 7420,
         status: "ok",
         usage: {
@@ -985,6 +985,7 @@ describe("agentInteractionHistory", () => {
           reasoning_tokens: 120,
           total_tokens: 22281,
           model_call_count: 2,
+          usage_reported_call_count: 2,
         },
         cost: { status: "estimated", usd: 0.0061, currency: "USD", priced_call_count: 2, unpriced_call_count: 0 },
         model_calls: [
@@ -999,11 +1000,34 @@ describe("agentInteractionHistory", () => {
             usage: {
               available: true,
               status: "reported",
-              input_tokens: 21300,
-              output_tokens: 981,
-              total_tokens: 22281,
+              input_tokens: 18000,
+              cached_input_tokens: 18000,
+              uncached_input_tokens: 0,
+              output_tokens: 400,
+              reasoning_tokens: 80,
+              total_tokens: 18400,
             },
-            cost: { status: "estimated", usd: 0.0061 },
+            cost: { status: "estimated", usd: 0.004 },
+          },
+          {
+            call_id: "call-2",
+            sequence: 2,
+            status: "ok",
+            provider: "openai-api",
+            requested_model: "gpt-5.4",
+            response_model: "gpt-5.4",
+            duration_ms: 2200,
+            usage: {
+              available: true,
+              status: "reported",
+              input_tokens: 3300,
+              cached_input_tokens: 0,
+              uncached_input_tokens: 3300,
+              output_tokens: 581,
+              reasoning_tokens: 40,
+              total_tokens: 3881,
+            },
+            cost: { status: "estimated", usd: 0.0021 },
           },
         ],
         spans: [
@@ -1048,9 +1072,13 @@ describe("agentInteractionHistory", () => {
     expect(turn.trace?.provider).toBe("openai-api");
     expect(turn.trace?.model).toBe("gpt-5.4");
     expect(turn.trace?.usage.status).toBe("reported");
+    expect(turn.trace?.usage.model_call_count).toBe(2);
+    expect(turn.trace?.usage.usage_reported_call_count).toBe(2);
     expect(turn.trace?.usage.cached_input_tokens).toBe(18000);
     expect(turn.trace?.cost?.usd).toBe(0.0061);
-    expect(turn.trace?.model_calls).toHaveLength(1);
+    expect(turn.trace?.cost?.priced_call_count).toBe(2);
+    expect(turn.trace?.cost?.unpriced_call_count).toBe(0);
+    expect(turn.trace?.model_calls).toHaveLength(2);
     expect(turn.trace?.spans).toHaveLength(3);
 
     thread.turns = [turn];
@@ -1061,7 +1089,10 @@ describe("agentInteractionHistory", () => {
     expect(reloaded?.turns[0].trace?.model).toBe("gpt-5.4");
     expect(reloaded?.turns[0].trace?.usage.input_tokens).toBe(21300);
     expect(reloaded?.turns[0].trace?.cost?.status).toBe("estimated");
+    expect(reloaded?.turns[0].trace?.usage.model_call_count).toBe(2);
+    expect(reloaded?.turns[0].trace?.model_calls).toHaveLength(2);
     expect(reloaded?.turns[0].trace?.model_calls?.[0]?.duration_ms).toBe(5000);
+    expect(reloaded?.turns[0].trace?.model_calls?.[1]?.duration_ms).toBe(2200);
     expect(reloaded?.turns[0].trace?.spans?.map((span) => span.name)).toEqual([
       "harness_turn",
       "response_projection",
@@ -1091,12 +1122,20 @@ describe("agentInteractionHistory", () => {
         mode: "hermes_graph_agent",
         provider: "openai-api",
         model: "gpt-5.4",
-        started_at: "2026-08-26T18:00:00.000Z",
-        completed_at: "2026-08-26T18:00:01.000Z",
+        started_at: "2026-08-26T18:00:00Z",
+        completed_at: "2026-08-26T18:00:00Z",
         elapsed_ms: 12,
         status: "ok",
-        usage: { available: true, status: "reported", input_tokens: 10, output_tokens: 2, total_tokens: 12 },
-        cost: { status: "estimated", usd: 0.001 },
+        usage: {
+          available: true,
+          status: "reported",
+          input_tokens: 10,
+          output_tokens: 2,
+          total_tokens: 12,
+          model_call_count: 1,
+          usage_reported_call_count: 1,
+        },
+        cost: { status: "estimated", usd: 0.001, priced_call_count: 1, unpriced_call_count: 0 },
         model_calls: [{
           call_id: "call-1",
           sequence: 1,
