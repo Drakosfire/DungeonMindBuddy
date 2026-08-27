@@ -7,7 +7,10 @@ from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.play_run_rebase import rebase_or_replay_play_run
-from apps.live_control_server.services.play_run_registry import get_play_run
+from apps.live_control_server.services.play_run_registry import (
+    PlayRunRegistryError,
+    get_play_run,
+)
 from apps.live_control_server.services.play_run_reference_manifest import (
     get_play_run_reference_manifest,
 )
@@ -401,14 +404,11 @@ def test_native_ready_get_converges_when_rebase_changes_structure_during_first_a
     snapshot = _create_committed_v2_runbook(root)
     _create_run(client, root, snapshot)
     current = get_workspace_document_snapshot(root, snapshot.record.document_id)
-    rebased_markdown = "\n".join(
-        [
-            "<!-- dmb-playable-element:v2 kind=beat id=beat:new-opening beat_kind=spine -->",
-            "## New Opening",
-            "",
-            V2_HTTP_MARKDOWN,
-        ]
-    )
+    rebased_markdown = V2_HTTP_MARKDOWN.replace(
+        "id=beat:z-opening", "id=beat:new-opening"
+    ).replace("## Opening", "## New Opening")
+    assert "beat:z-opening" not in rebased_markdown
+    assert "beat:new-opening" in rebased_markdown
     target = _commit_record(root, current.record, rebased_markdown)
     committed = get_committed_playable_revision(
         target.record.document_id,
@@ -443,4 +443,40 @@ def test_native_ready_get_converges_when_rebase_changes_structure_during_first_a
     assert seeded.json()["playable_content_sha256"] == committed.content_sha256
     persisted = get_play_run(root, RUN_ID_A)
     assert persisted.progress.current_beat_id == "beat:new-opening"
+    assert persisted.progress.current_beat_id != "beat:z-opening"
     assert persisted.playable_revision == committed.revision_n
+
+
+def test_native_ready_get_does_not_retry_same_generation_seed_422(
+    client: TestClient,
+    root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot = _create_committed_v2_runbook(root)
+    _create_run(client, root, snapshot)
+    calls = {"n": 0}
+
+    def refuse_same_generation(*args: object, **kwargs: object):
+        del args, kwargs
+        calls["n"] += 1
+        raise PlayRunRegistryError(
+            "current_beat_id is not admitted by the sealed Playable reference manifest",
+            status_code=422,
+        )
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.play_run_registry.replace_play_run_progress",
+        refuse_same_generation,
+    )
+
+    refused = client.get(
+        f"/api/live/play-runs/{RUN_ID_A}",
+        params={"ensure_native_ready": "true"},
+    )
+    assert refused.status_code == 422
+    assert "current_beat_id" in refused.json()["detail"]
+    assert calls["n"] == 1
+    unchanged = client.get(f"/api/live/play-runs/{RUN_ID_A}")
+    assert unchanged.status_code == 200
+    assert unchanged.json()["progress"]["current_beat_id"] is None
+    assert unchanged.json()["run_revision"] == 1

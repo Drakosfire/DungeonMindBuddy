@@ -390,14 +390,44 @@ def compare_run_manifest_binding(record: PlayRunRecord, manifest: object) -> str
     return None
 
 
+def _run_generation_moved(root: Path, run_id: str, prior: PlayRunRecord) -> bool:
+    """True when the durable Run generation/binding changed after preflight."""
+    try:
+        current = get_play_run(root, run_id)
+    except PlayRunRegistryError:
+        return False
+    return (
+        current.run_revision != prior.run_revision
+        or current.playable_artifact_id != prior.playable_artifact_id
+        or current.playable_revision != prior.playable_revision
+        or current.playable_content_sha256 != prior.playable_content_sha256
+    )
+
+
+def _should_retry_native_ready_seed(
+    root: Path,
+    run_id: str,
+    prior: PlayRunRecord,
+    exc: PlayRunRegistryError,
+    *,
+    conflict_depth: int,
+) -> bool:
+    if conflict_depth >= 2:
+        return False
+    if exc.status_code == 409:
+        return True
+    return exc.status_code == 422 and _run_generation_moved(root, run_id, prior)
+
+
 def ensure_v2_native_ready(root: Path, run_id: str, *, conflict_depth: int = 0) -> PlayRunRecord:
     """Owning first-admission workflow: pinned authority preflight, then seed.
 
     Load Run + sealed manifest from one application-state aggregate, prove the
     sealed JSON binding and behavior-bearing v2 contract against that exact
     pinned WorkRevision, then persist the opening Beat only if progress is
-    still empty. CAS 409 rebinds the full authority set here rather than
-    leaving orchestration to the caller.
+    still empty. Seed CAS 409, or a 422 whose Run generation/binding moved
+    after preflight, rebinds the full authority set here. Same-generation
+    semantic 422s stay fail-closed.
     """
     from application_state.errors import ApplicationStateError
     from application_state.play.service import get_play_run_aggregate
@@ -458,7 +488,9 @@ def ensure_v2_native_ready(root: Path, run_id: str, *, conflict_depth: int = 0) 
             ),
         )
     except PlayRunRegistryError as exc:
-        if exc.status_code == 409 and conflict_depth < 2:
+        if _should_retry_native_ready_seed(
+            root, run_id, record, exc, conflict_depth=conflict_depth
+        ):
             return ensure_v2_native_ready(root, run_id, conflict_depth=conflict_depth + 1)
         raise
 
