@@ -41,6 +41,7 @@ from typing import Any, Literal
 
 import yaml
 
+from apps.live_control_server.services.agent_turn_trace import map_hermes_observer_to_model_call
 from apps.live_control_server.services.hermes_graph_agent_contract import (
     PROCESS_ISOLATION_MODE,
     HermesGraphAgentTurnRequest,
@@ -230,6 +231,8 @@ def _error_result(
     error_message: str,
     messages: list[dict[str, Any]] | None = None,
     tool_events: list[HermesGraphToolEvent] | None = None,
+    model_calls: list[dict[str, Any]] | None = None,
+    telemetry_warnings: list[str] | None = None,
 ) -> HermesGraphAgentTurnResult:
     return HermesGraphAgentTurnResult(
         status="error",
@@ -240,6 +243,8 @@ def _error_result(
         error_code=error_code,
         error_message=error_message,
         process_isolation=PROCESS_ISOLATION_MODE,
+        model_calls=list(model_calls or []),
+        telemetry_warnings=list(telemetry_warnings or []),
     )
 
 
@@ -809,6 +814,112 @@ class _ToolEventCollector:
             )
 
 
+class _ApiObserverCollector:
+    """Fail-open Hermes request-scoped API observer for exactly one turn."""
+
+    def __init__(self) -> None:
+        self.model_calls: list[dict[str, Any]] = []
+        self.warnings: list[str] = []
+        self._pending: dict[str, dict[str, Any]] = {}
+        self._callbacks: dict[str, Callable[..., Any]] = {
+            "pre_api_request": self.on_pre_api_request,
+            "post_api_request": self.on_post_api_request,
+            "api_request_error": self.on_api_request_error,
+        }
+        self._registered: list[tuple[Any, str, Callable[..., Any]]] = []
+
+    def _note(self, warning: str) -> None:
+        text = str(warning or "").strip()
+        if text and text not in self.warnings:
+            self.warnings.append(text)
+
+    def _request_key(self, payload: Mapping[str, Any]) -> str:
+        request_id = str(payload.get("api_request_id") or "").strip()
+        if request_id:
+            return request_id
+        return f"anon:{len(self.model_calls)}:{len(self._pending)}"
+
+    def _merge_pending(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        key = self._request_key(payload)
+        merged = dict(self._pending.pop(key, {}))
+        merged.update(dict(payload))
+        return merged
+
+    def on_pre_api_request(self, **kwargs: Any) -> None:
+        try:
+            key = self._request_key(kwargs)
+            self._pending[key] = dict(kwargs)
+        except Exception:
+            self._note("observer_payload_malformed")
+
+    def on_post_api_request(self, **kwargs: Any) -> None:
+        try:
+            merged = self._merge_pending(kwargs)
+            self.model_calls.append(
+                map_hermes_observer_to_model_call(
+                    merged,
+                    status="ok",
+                    sequence=len(self.model_calls) + 1,
+                )
+            )
+        except Exception:
+            self._note("observer_payload_malformed")
+
+    def on_api_request_error(self, **kwargs: Any) -> None:
+        try:
+            merged = self._merge_pending(kwargs)
+            self.model_calls.append(
+                map_hermes_observer_to_model_call(
+                    merged,
+                    status="error",
+                    sequence=len(self.model_calls) + 1,
+                )
+            )
+        except Exception:
+            self._note("observer_payload_malformed")
+
+    def _flush_pending(self) -> None:
+        for payload in self._pending.values():
+            try:
+                self.model_calls.append(
+                    map_hermes_observer_to_model_call(
+                        payload,
+                        status="error",
+                        sequence=len(self.model_calls) + 1,
+                    )
+                )
+                self._note("observer_api_request_incomplete")
+            except Exception:
+                self._note("observer_payload_malformed")
+        self._pending.clear()
+
+    def finish(self) -> tuple[list[dict[str, Any]], list[str]]:
+        self._flush_pending()
+        return list(self.model_calls), list(self.warnings)
+
+    def register(self, plugin_manager: Any) -> None:
+        hooks = getattr(plugin_manager, "_hooks", None)
+        if not isinstance(hooks, dict):
+            self._note("observer_hooks_unavailable")
+            return
+        for name, callback in self._callbacks.items():
+            hooks.setdefault(name, []).append(callback)
+            self._registered.append((plugin_manager, name, callback))
+
+    def unregister(self) -> None:
+        for plugin_manager, name, callback in self._registered:
+            hooks = getattr(plugin_manager, "_hooks", None)
+            if not isinstance(hooks, dict):
+                continue
+            registered = hooks.get(name) or []
+            try:
+                registered.remove(callback)
+            except ValueError:
+                self._note("observer_hook_already_removed")
+        self._registered.clear()
+        self._flush_pending()
+
+
 def run_hermes_graph_agent_turn(
     request: HermesGraphAgentTurnRequest,
     *,
@@ -880,9 +991,17 @@ def run_hermes_graph_agent_turn(
         policy_token = set_active_capability_policy(policy)
         session_token = set_active_retrieval_session_id(request.retrieval_session_id)
         collector = _ToolEventCollector(policy)
+        api_observer = _ApiObserverCollector()
         pre_tool_hook: Callable[..., Any] | None = None
         plugin_manager: Any | None = None
         whitelist_installed = False
+
+        def observed_error(**kwargs: Any) -> HermesGraphAgentTurnResult:
+            calls, warnings = api_observer.finish()
+            kwargs.setdefault("model_calls", calls)
+            kwargs.setdefault("telemetry_warnings", warnings)
+            return _error_result(**kwargs)
+
         try:
             _prepare_isolated_hermes_home(
                 hermes_home,
@@ -900,7 +1019,7 @@ def run_hermes_graph_agent_turn(
                         module = importlib.import_module("run_agent")
                         factory = module.AIAgent
                 except Exception:
-                    return _error_result(
+                    return observed_error(
                         hermes_session_id=session_id,
                         error_code="hermes_import_error",
                         error_message=(
@@ -916,7 +1035,7 @@ def run_hermes_graph_agent_turn(
 
                     builtin_error = _reject_unsupported_builtin_toolsets(policy)
                     if builtin_error is not None:
-                        return _error_result(
+                        return observed_error(
                             hermes_session_id=session_id,
                             error_code=builtin_error,
                             error_message=(
@@ -937,7 +1056,7 @@ def run_hermes_graph_agent_turn(
                         policy,
                     )
                     if discovery_error is not None:
-                        return _error_result(
+                        return observed_error(
                             hermes_session_id=session_id,
                             error_code=discovery_error,
                             error_message=(
@@ -956,7 +1075,7 @@ def run_hermes_graph_agent_turn(
                         policy,
                     )
                     if surface_error is not None:
-                        return _error_result(
+                        return observed_error(
                             hermes_session_id=session_id,
                             error_code=surface_error,
                             error_message=(
@@ -977,6 +1096,7 @@ def run_hermes_graph_agent_turn(
                     plugin_manager._hooks.setdefault("pre_tool_call", []).append(
                         pre_tool_hook
                     )
+                    api_observer.register(plugin_manager)
 
                     agent = factory(
                         quiet_mode=True,
@@ -1004,7 +1124,7 @@ def run_hermes_graph_agent_turn(
                             policy,
                         )
                         if agent_surface_error is not None:
-                            return _error_result(
+                            return observed_error(
                                 hermes_session_id=session_id,
                                 error_code=agent_surface_error,
                                 error_message=(
@@ -1024,14 +1144,14 @@ def run_hermes_graph_agent_turn(
                             conversation_history=history,
                         )
                     except Exception:
-                        return _error_result(
+                        return observed_error(
                             hermes_session_id=session_id,
                             error_code="hermes_turn_error",
                             error_message="Hermes graph-agent turn failed.",
                             tool_events=collector.events,
                         )
             except Exception:
-                return _error_result(
+                return observed_error(
                     hermes_session_id=session_id,
                     error_code="hermes_agent_init_error",
                     error_message="Hermes graph-agent construction failed.",
@@ -1039,7 +1159,7 @@ def run_hermes_graph_agent_turn(
                 )
 
             if not isinstance(raw, Mapping):
-                return _error_result(
+                return observed_error(
                     hermes_session_id=session_id,
                     error_code="hermes_malformed_response",
                     error_message="Hermes returned a malformed turn response.",
@@ -1050,7 +1170,7 @@ def run_hermes_graph_agent_turn(
             if messages is None:
                 messages = []
             if not isinstance(messages, list):
-                return _error_result(
+                return observed_error(
                     hermes_session_id=session_id,
                     error_code="hermes_malformed_response",
                     error_message="Hermes returned a malformed messages payload.",
@@ -1066,6 +1186,7 @@ def run_hermes_graph_agent_turn(
                 if request.retrieval_session_id
                 else None
             )
+            model_calls, telemetry_warnings = api_observer.finish()
             return HermesGraphAgentTurnResult(
                 status="ok",
                 final_response=final_response,
@@ -1080,15 +1201,18 @@ def run_hermes_graph_agent_turn(
                     hydrated.project_for_hermes() if hydrated is not None else retrieval_session_packet
                 ),
                 answer_scope=_derive_answer_scope(collector.events),
+                model_calls=model_calls,
+                telemetry_warnings=telemetry_warnings,
             )
         except Exception:
-            return _error_result(
+            return observed_error(
                 hermes_session_id=session_id,
                 error_code="hermes_graph_agent_error",
                 error_message="Hermes graph-agent runtime failed unexpectedly.",
                 tool_events=collector.events,
             )
         finally:
+            api_observer.unregister()
             reset_active_retrieval_session_id(session_token)
             if plugin_manager is not None and pre_tool_hook is not None:
                 hooks = plugin_manager._hooks.get("pre_tool_call") or []

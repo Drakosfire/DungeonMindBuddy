@@ -1591,3 +1591,109 @@ def test_rung3_suite_entry_still_importable() -> None:
     )
     assert result.status == "error"
     assert result.error_code == "invalid_request"
+
+
+def test_model_call_fields_survive_host_wire_round_trip() -> None:
+    result = HermesGraphAgentTurnResult(
+        status="ok",
+        final_response="Tripod is near the North Gate.",
+        messages=[],
+        hermes_session_id="sess-trace",
+        tool_events=[],
+        process_isolation="process_exclusive",
+        model_calls=[
+            {
+                "call_id": "model-call-1",
+                "runtime_api_request_id": "api-req-1",
+                "runtime_turn_id": "hermes-turn-1",
+                "sequence": 1,
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-5.4-mini",
+                "response_model": "gpt-5.4-mini",
+                "api_mode": "chat_completions",
+                "started_at": "2026-08-26T00:00:00.000000Z",
+                "completed_at": "2026-08-26T00:00:00.250000Z",
+                "duration_ms": 250,
+                "request_summary": {
+                    "api_call_count": 1,
+                    "message_count": 4,
+                    "tool_count": 2,
+                    "approx_input_tokens": 100,
+                    "request_char_count": 400,
+                    "max_tokens": 2048,
+                },
+                "usage": {
+                    "status": "reported",
+                    "input_tokens": 100,
+                    "output_tokens": 20,
+                    "total_tokens": 120,
+                    "cached_input_tokens": 0,
+                    "reasoning_tokens": 12,
+                },
+                "cost": {
+                    "status": "estimated",
+                    "usd": 0.001,
+                    "currency": "USD",
+                    "pricing_table_matched": True,
+                    "rates_per_1m_usd": {"input": 0.75, "cached_input": 0.075, "output": 4.5},
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        telemetry_warnings=["observer_payload_malformed"],
+    )
+    wire = serialize_hermes_graph_agent_turn_result(result)
+    assert all("request" not in call and "response" not in call for call in wire["modelCalls"])
+    restored = deserialize_hermes_graph_agent_turn_result(wire)
+    assert restored.model_calls[0]["runtime_api_request_id"] == "api-req-1"
+    assert restored.model_calls[0]["usage"]["input_tokens"] == 100
+    assert restored.model_calls[0]["usage"]["reasoning_tokens"] == 12
+    assert restored.telemetry_warnings == ["observer_payload_malformed"]
+
+
+def test_model_call_forbidden_bodies_rejected_on_wire() -> None:
+    result = _ok_result()
+    object.__setattr__(
+        result,
+        "model_calls",
+        [
+            {
+                "call_id": "model-call-leak",
+                "sequence": 1,
+                "status": "ok",
+                "request": {"body": "RAW_PROMPT"},
+                "usage": {"status": "unavailable"},
+                "cost": {"status": "unavailable"},
+                "request_summary": {},
+            }
+        ],
+    )
+    with pytest.raises(ValueError, match="forbidden keys"):
+        serialize_hermes_graph_agent_turn_result(result)
+
+
+def test_oversized_model_calls_rejected() -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import MAX_MODEL_CALLS
+
+    result = HermesGraphAgentTurnResult(
+        status="ok",
+        final_response="ok",
+        messages=[],
+        hermes_session_id="sess-too-many",
+        tool_events=[],
+        process_isolation="process_exclusive",
+        model_calls=[
+            {
+                "call_id": f"model-call-{index}",
+                "sequence": index + 1,
+                "status": "ok",
+                "usage": {"status": "unavailable"},
+                "cost": {"status": "unavailable"},
+                "request_summary": {},
+            }
+            for index in range(MAX_MODEL_CALLS + 1)
+        ],
+    )
+    with pytest.raises(ValueError, match="modelCalls"):
+        serialize_hermes_graph_agent_turn_result(result)

@@ -1682,3 +1682,238 @@ def test_query_threat_mechanics_hydration_tool_is_registered_and_scoped(
         assert payload["queryText"] == "Float Goat"
     finally:
         reset_active_capability_policy(token)
+
+
+HERMES_OBSERVER_PRIVACY_SENTINEL = "HERMES-OBSERVER-SECRET-BODY-7a1e"
+
+
+def _observer_payload(
+    *,
+    api_request_id: str,
+    turn_id: str,
+    kind: str,
+    usage: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "telemetry_schema_version": "hermes.observer.v1",
+        "session_id": "sess-observer",
+        "task_id": "task-observer",
+        "turn_id": turn_id,
+        "api_request_id": api_request_id,
+        "platform": "cli",
+        "model": "gpt-5.4-mini",
+        "provider": "openai-api",
+        "base_url": "https://api.openai.com/v1",
+        "api_mode": "chat_completions",
+        "api_call_count": 1,
+        "message_count": 3,
+        "tool_count": 1,
+        "approx_input_tokens": 128,
+        "request_char_count": 400,
+        "max_tokens": 2048,
+        "started_at": 1_700_000_100.0,
+        "request": {"body": {"messages": [HERMES_OBSERVER_PRIVACY_SENTINEL]}},
+    }
+    if kind == "pre":
+        return payload
+    payload["ended_at"] = 1_700_000_100.2
+    payload["api_duration"] = 0.2
+    if kind == "error":
+        payload["status_code"] = 429
+        payload["retry_count"] = 0
+        payload["max_retries"] = 3
+        payload["retryable"] = True
+        payload["reason"] = "rate_limit"
+        payload["error"] = {
+            "type": "RateLimitError",
+            "message": HERMES_OBSERVER_PRIVACY_SENTINEL,
+        }
+        return payload
+    payload["finish_reason"] = "stop"
+    payload["response_model"] = "gpt-5.4-mini"
+    payload["usage"] = usage or {
+        "input_tokens": 40,
+        "output_tokens": 8,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "reasoning_tokens": 0,
+        "prompt_tokens": 40,
+        "total_tokens": 48,
+    }
+    payload["assistant_content_chars"] = 24
+    payload["assistant_tool_call_count"] = 0
+    payload["response"] = {
+        "assistant_message": {"content": HERMES_OBSERVER_PRIVACY_SENTINEL}
+    }
+    return payload
+
+
+class _ObserverFakeAgent(_FakeAgent):
+    events: list[tuple[str, dict[str, Any]]] = []
+
+    def run_conversation(
+        self,
+        user_message: str,
+        system_message: str = None,
+        conversation_history: list[dict[str, Any]] | None = None,
+        **_kwargs: Any,
+    ) -> dict[str, Any]:
+        from hermes_cli import plugins as hermes_plugins
+
+        for hook_name, payload in list(type(self).events):
+            hermes_plugins.invoke_hook(hook_name, **payload)
+        return super().run_conversation(
+            user_message,
+            system_message=system_message,
+            conversation_history=conversation_history,
+            **_kwargs,
+        )
+
+
+def _observer_request(tmp_path: Path, session_id: str) -> HermesGraphAgentTurnRequest:
+    return HermesGraphAgentTurnRequest(
+        question="What do we know about Tripod?",
+        world_id="world:eldyrwild",
+        campaign_id="campaign:c1",
+        session_id=session_id,
+        root=tmp_path,
+    )
+
+
+def test_observer_hooks_create_one_record_per_api_attempt(tmp_path: Path) -> None:
+    _ObserverFakeAgent.events = [
+        (
+            "pre_api_request",
+            _observer_payload(api_request_id="api-req-a", turn_id="turn-a", kind="pre"),
+        ),
+        (
+            "post_api_request",
+            _observer_payload(api_request_id="api-req-a", turn_id="turn-a", kind="post"),
+        ),
+        (
+            "pre_api_request",
+            _observer_payload(api_request_id="api-req-b", turn_id="turn-a", kind="pre"),
+        ),
+        (
+            "post_api_request",
+            _observer_payload(api_request_id="api-req-b", turn_id="turn-a", kind="post"),
+        ),
+    ]
+    result = run_hermes_graph_agent_turn(
+        _observer_request(tmp_path, "sess-observer-1"),
+        agent_factory=_ObserverFakeAgent,
+    )
+    assert result.status == "ok"
+    assert [call["runtime_api_request_id"] for call in result.model_calls] == [
+        "api-req-a",
+        "api-req-b",
+    ]
+    assert all(call["runtime_turn_id"] == "turn-a" for call in result.model_calls)
+    assert HERMES_OBSERVER_PRIVACY_SENTINEL not in json.dumps(result.model_calls)
+
+
+def test_observer_retry_error_then_success_keeps_two_calls(tmp_path: Path) -> None:
+    _ObserverFakeAgent.events = [
+        (
+            "pre_api_request",
+            _observer_payload(api_request_id="api-req-fail", turn_id="turn-retry", kind="pre"),
+        ),
+        (
+            "api_request_error",
+            _observer_payload(api_request_id="api-req-fail", turn_id="turn-retry", kind="error"),
+        ),
+        (
+            "pre_api_request",
+            _observer_payload(api_request_id="api-req-ok", turn_id="turn-retry", kind="pre"),
+        ),
+        (
+            "post_api_request",
+            _observer_payload(api_request_id="api-req-ok", turn_id="turn-retry", kind="post"),
+        ),
+    ]
+    result = run_hermes_graph_agent_turn(
+        _observer_request(tmp_path, "sess-observer-retry"),
+        agent_factory=_ObserverFakeAgent,
+    )
+    assert [call["status"] for call in result.model_calls] == ["error", "ok"]
+    assert result.model_calls[0]["retryable"] is True
+    assert result.model_calls[1]["usage"]["status"] == "reported"
+
+
+def test_observer_hooks_unregister_between_sequential_turns(tmp_path: Path) -> None:
+    from hermes_cli import plugins as hermes_plugins
+
+    _ObserverFakeAgent.events = [
+        (
+            "pre_api_request",
+            _observer_payload(api_request_id="api-turn-a", turn_id="turn-a", kind="pre"),
+        ),
+        (
+            "post_api_request",
+            _observer_payload(api_request_id="api-turn-a", turn_id="turn-a", kind="post"),
+        ),
+    ]
+    first = run_hermes_graph_agent_turn(
+        _observer_request(tmp_path, "sess-observer-seq"),
+        agent_factory=_ObserverFakeAgent,
+    )
+    manager = hermes_plugins.get_plugin_manager()
+    for hook_name in ("pre_api_request", "post_api_request", "api_request_error"):
+        remaining = [
+            callback
+            for callback in (manager._hooks.get(hook_name) or [])
+            if getattr(callback, "__self__", None) is not None
+            and callback.__self__.__class__.__name__ == "_ApiObserverCollector"
+        ]
+        assert remaining == []
+    _ObserverFakeAgent.events = [
+        (
+            "pre_api_request",
+            _observer_payload(api_request_id="api-turn-b", turn_id="turn-b", kind="pre"),
+        ),
+        (
+            "post_api_request",
+            _observer_payload(api_request_id="api-turn-b", turn_id="turn-b", kind="post"),
+        ),
+    ]
+    second = run_hermes_graph_agent_turn(
+        _observer_request(tmp_path, "sess-observer-seq"),
+        agent_factory=_ObserverFakeAgent,
+    )
+    assert [call["runtime_api_request_id"] for call in first.model_calls] == ["api-turn-a"]
+    assert [call["runtime_api_request_id"] for call in second.model_calls] == ["api-turn-b"]
+    assert second.model_calls[0]["usage"]["input_tokens"] == 40
+
+
+def test_observer_callback_failure_is_fail_open(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import hermes_graph_agent as agent_mod
+
+    def boom(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError("malformed observer field")
+
+    monkeypatch.setattr(agent_mod, "map_hermes_observer_to_model_call", boom)
+    _ObserverFakeAgent.events = [
+        (
+            "pre_api_request",
+            _observer_payload(api_request_id="api-bad", turn_id="turn-bad", kind="pre"),
+        ),
+        (
+            "post_api_request",
+            _observer_payload(
+                api_request_id="api-bad",
+                turn_id="turn-bad",
+                kind="post",
+                usage={"unexpected": object()},
+            ),
+        ),
+    ]
+    result = run_hermes_graph_agent_turn(
+        _observer_request(tmp_path, "sess-observer-failopen"),
+        agent_factory=_ObserverFakeAgent,
+    )
+    assert result.status == "ok"
+    assert result.final_response
+    assert "observer_payload_malformed" in result.telemetry_warnings
