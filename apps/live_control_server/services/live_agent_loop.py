@@ -12,8 +12,12 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
     render_world_graph_prompt_block,
     resolve_agent_world_graph_query_context,
 )
+from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
 from apps.live_control_server.services.citation_freshness import build_evidence_snapshots
 from apps.live_control_server.services.hermes_graph_query import (
+    BACKEND,
+    MODE,
+    RUNTIME,
     normalize_hermes_conversation_history,
     run_hermes_graph_query,
     validate_hermes_query_inputs,
@@ -169,62 +173,81 @@ def process_live_query(
     resolved_agent_thread_id = agent_thread_id or _new_agent_thread_id()
     resolved_turn_id = _new_turn_id()
     repo = root or repo_root()
-    packet, _layout, _events, _jobs = load_session(session_base)
 
     if query_backend == "hermes":
-        # PR354: Hermes is graph-host only.
-        _ = trace_requested  # accepted for API compatibility; unused in this slice
-        campaign_id = outer_campaign_id or str(packet.get("campaign_id") or "")
-        validate_hermes_query_inputs(
-            world_graph_context=world_graph_context,
-            request_manifest_path=request_manifest_path,
-            hermes_session_id=hermes_session_id,
-            hermes_session_pointer=hermes_session_pointer,
-            outer_campaign_id=campaign_id,
-        )
-        assert world_graph_context is not None  # validated above
-        # History must fail closed before graph resolution or host construction.
-        normalized_history = normalize_hermes_conversation_history(conversation_history)
-        graph_envelope = resolve_agent_world_graph_query_context(
-            world_graph_context,
-            outer_text=text,
-            outer_campaign_id=campaign_id,
-            root=world_graph_root(),
-        )
-        if is_latest_recap_change_question(text):
-            world_id = str(graph_envelope.get("world_id") or "eldyrwild")
-            if world_id.startswith("world:"):
-                world_id = world_id.removeprefix("world:")
-            graph_revision_id = (
-                str(graph_envelope.get("revision_id"))
-                if graph_envelope.get("revision_id")
-                else None
-            )
-            latest_recap_context = resolve_latest_recap_change_context(
-                root=repo,
-                world_id=world_id,
-                campaign_id=campaign_id,
-                graph_revision_id=graph_revision_id,
-            )
-            graph_envelope = {
-                **graph_envelope,
-                "latest_recap_change": latest_recap_context.model_dump(
-                    mode="json",
-                    by_alias=True,
-                ),
-            }
-        return run_hermes_graph_query(
-            text=text,
-            packet=packet,
-            graph_envelope=graph_envelope,
+        builder = AgentTurnTraceBuilder(
             agent_thread_id=resolved_agent_thread_id,
             turn_id=resolved_turn_id,
-            root=world_graph_root(),
-            corpus_root=repo,
-            conversation_history=normalized_history,
-            session_base=session_base,
-            hermes_session_pointer=hermes_session_pointer,
+            runtime=RUNTIME,
+            backend=BACKEND,
+            mode=MODE,
         )
+        try:
+            with builder.phase("session_load"):
+                packet, _layout, _events, _jobs = load_session(session_base)
+            _ = trace_requested  # accepted for API compatibility; unused in this slice
+            campaign_id = outer_campaign_id or str(packet.get("campaign_id") or "")
+            with builder.phase("request_validation"):
+                validate_hermes_query_inputs(
+                    world_graph_context=world_graph_context,
+                    request_manifest_path=request_manifest_path,
+                    hermes_session_id=hermes_session_id,
+                    hermes_session_pointer=hermes_session_pointer,
+                    outer_campaign_id=campaign_id,
+                )
+                assert world_graph_context is not None  # validated above
+                normalized_history = normalize_hermes_conversation_history(
+                    conversation_history
+                )
+            with builder.phase("world_context_resolution"):
+                graph_envelope = resolve_agent_world_graph_query_context(
+                    world_graph_context,
+                    outer_text=text,
+                    outer_campaign_id=campaign_id,
+                    root=world_graph_root(),
+                )
+            if is_latest_recap_change_question(text):
+                with builder.phase("latest_recap_context"):
+                    world_id = str(graph_envelope.get("world_id") or "eldyrwild")
+                    if world_id.startswith("world:"):
+                        world_id = world_id.removeprefix("world:")
+                    graph_revision_id = (
+                        str(graph_envelope.get("revision_id"))
+                        if graph_envelope.get("revision_id")
+                        else None
+                    )
+                    latest_recap_context = resolve_latest_recap_change_context(
+                        root=repo,
+                        world_id=world_id,
+                        campaign_id=campaign_id,
+                        graph_revision_id=graph_revision_id,
+                    )
+                    graph_envelope = {
+                        **graph_envelope,
+                        "latest_recap_change": latest_recap_context.model_dump(
+                            mode="json",
+                            by_alias=True,
+                        ),
+                    }
+            return run_hermes_graph_query(
+                text=text,
+                packet=packet,
+                graph_envelope=graph_envelope,
+                agent_thread_id=resolved_agent_thread_id,
+                turn_id=resolved_turn_id,
+                root=world_graph_root(),
+                corpus_root=repo,
+                conversation_history=normalized_history,
+                session_base=session_base,
+                hermes_session_pointer=hermes_session_pointer,
+                trace_builder=builder,
+            )
+        except Exception:
+            if not builder.logged:
+                builder.finalize_and_log(status="error")
+            raise
+
+    packet, _layout, _events, _jobs = load_session(session_base)
 
     if query_backend not in LIVE_QUERY_BACKENDS:
         raise ValueError(f"unsupported query backend: {query_backend}")

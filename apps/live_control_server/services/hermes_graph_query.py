@@ -7,7 +7,6 @@ Does not redesign host lifecycle, IPC, retry, or transcript behavior.
 
 from __future__ import annotations
 
-import time
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -16,6 +15,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from apps.live_control_server.config import world_graph_root
+from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
 from apps.live_control_server.services.hermes_graph_agent_contract import (
     HermesGraphAgentTurnRequest,
     HermesGraphAgentTurnResult,
@@ -142,22 +142,8 @@ def _utc_now_z() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _new_trace_id() -> str:
-    return f"agent-trace-{uuid.uuid4().hex[:12]}"
-
-
 def _new_query_id() -> str:
     return f"live-query-{uuid.uuid4().hex[:12]}"
-
-
-def _usage_unavailable() -> dict[str, Any]:
-    """Existing Plan TraceDetailsPanel requires usage.available."""
-    return {
-        "available": False,
-        "input_tokens": None,
-        "output_tokens": None,
-        "total_tokens": None,
-    }
 
 
 def _history_invalid(message: str) -> HermesGraphQueryRequestError:
@@ -933,6 +919,23 @@ def _grounding_block(
     }
 
 
+def _new_trace_builder(
+    *,
+    agent_thread_id: str | None,
+    turn_id: str | None,
+    trace_builder: AgentTurnTraceBuilder | None = None,
+) -> AgentTurnTraceBuilder:
+    if trace_builder is not None:
+        return trace_builder
+    return AgentTurnTraceBuilder(
+        agent_thread_id=agent_thread_id,
+        turn_id=turn_id,
+        runtime=RUNTIME,
+        backend=BACKEND,
+        mode=MODE,
+    )
+
+
 def _agent_trace(
     *,
     state: GroundingState,
@@ -948,6 +951,9 @@ def _agent_trace(
     pointer_resolution: HermesPointerResolution | None = None,
     worker_pid_changed: bool = False,
     fresh_graph_revision_used: bool = True,
+    trace_builder: AgentTurnTraceBuilder | None = None,
+    agent_thread_id: str | None = None,
+    turn_id: str | None = None,
 ) -> dict[str, Any]:
     status = {
         "grounded": "ok",
@@ -968,45 +974,46 @@ def _agent_trace(
         pointer_status="absent",
         pointer_in_request=False,
     )
-    trace_warnings = list(warnings)
+    builder = _new_trace_builder(
+        agent_thread_id=agent_thread_id,
+        turn_id=turn_id,
+        trace_builder=trace_builder,
+    )
+    if trace_builder is None:
+        builder.started_at = started_at
+    for warning in result.telemetry_warnings:
+        builder.add_warning(warning)
+    extra_warnings = list(warnings)
     if resolution.recovery_message:
-        trace_warnings.append(resolution.recovery_message)
-    return {
-        "trace_id": _new_trace_id(),
-        "runtime": RUNTIME,
-        "backend": BACKEND,
-        "mode": MODE,
-        "status": status,
-        "started_at": started_at,
-        "completed_at": completed_at,
-        "elapsed_ms": elapsed_ms,
-        "hermes_session_id": result.hermes_session_id or None,
-        "process_isolation": result.process_isolation,
-        # Existing Plan TraceDetailsPanel contract (required shell fields).
-        "usage": _usage_unavailable(),
-        "steps": [],
-        "context_summary": {},
-        "artifact_refs": [],
-        # Additive for PR355 graph-trace presentation.
-        "tool_events": list(tool_events),
-        "warnings": trace_warnings,
-        "answer_scope": result.answer_scope,
-        "tool_event_count": len(raw_events),
-        "evidence_event_count": evidence_count,
-        "final_response_present": bool((result.final_response or "").strip()),
-        "validator_path": validator_path,
-        "conversation_context": {
-            "history_present": history_count > 0,
-            "message_count": history_count,
-            "pair_count": history_count // 2,
-            "payload_shape": "role_content_only",
-            "graph_metadata_in_history": False,
-            "hermes_session_pointer_in_request": resolution.pointer_in_request,
-            "hermes_session_pointer_status": resolution.pointer_status,
-            "worker_pid_changed": worker_pid_changed,
-            "fresh_graph_revision_used": fresh_graph_revision_used,
+        extra_warnings.append(resolution.recovery_message)
+    return builder.finalize_and_log(
+        status=status,
+        model_calls=list(result.model_calls),
+        extra_warnings=extra_warnings,
+        completed_at=completed_at,
+        elapsed_ms=elapsed_ms,
+        hermes_fields={
+            "hermes_session_id": result.hermes_session_id or None,
+            "process_isolation": result.process_isolation,
+            "tool_events": list(tool_events),
+            "answer_scope": result.answer_scope,
+            "tool_event_count": len(raw_events),
+            "evidence_event_count": evidence_count,
+            "final_response_present": bool((result.final_response or "").strip()),
+            "validator_path": validator_path,
+            "conversation_context": {
+                "history_present": history_count > 0,
+                "message_count": history_count,
+                "pair_count": history_count // 2,
+                "payload_shape": "role_content_only",
+                "graph_metadata_in_history": False,
+                "hermes_session_pointer_in_request": resolution.pointer_in_request,
+                "hermes_session_pointer_status": resolution.pointer_status,
+                "worker_pid_changed": worker_pid_changed,
+                "fresh_graph_revision_used": fresh_graph_revision_used,
+            },
         },
-    }
+    )
 
 
 def _top_level_status(state: GroundingState) -> str:
@@ -1121,10 +1128,21 @@ def build_hermes_graph_unavailable_response(
     completed_at: str | None = None,
     elapsed_ms: int = 0,
     conversation_history: Sequence[Mapping[str, str]] | None = None,
+    trace_builder: AgentTurnTraceBuilder | None = None,
 ) -> dict[str, Any]:
     """Typed product error when the resolved graph is unavailable — no host call."""
-    started = started_at or _utc_now_z()
-    completed = completed_at or started
+    builder = _new_trace_builder(
+        agent_thread_id=agent_thread_id,
+        turn_id=turn_id,
+        trace_builder=trace_builder,
+    )
+    started = started_at or builder.started_at
+    completed = completed_at or _utc_now_z()
+    measured = elapsed_ms if elapsed_ms else builder.elapsed_ms()
+    builder.add_unavailable_phase(
+        "harness_turn",
+        attributes={"reason": WORLD_GRAPH_UNAVAILABLE_CODE},
+    )
     scope = _scope_from_unavailable_envelope(graph_envelope)
     empty_result = HermesGraphAgentTurnResult(
         status="error",
@@ -1181,9 +1199,12 @@ def build_hermes_graph_unavailable_response(
             warnings=[WORLD_GRAPH_UNAVAILABLE_CODE],
             started_at=started,
             completed_at=completed,
-            elapsed_ms=elapsed_ms,
+            elapsed_ms=measured,
             validator_path="no_session_fallback",
             conversation_history=conversation_history,
+            trace_builder=builder,
+            agent_thread_id=agent_thread_id,
+            turn_id=turn_id,
         ),
         "agent_thread_id": agent_thread_id,
         "turn_id": turn_id,
@@ -1209,7 +1230,14 @@ def build_hermes_graph_product_response(
     pointer_resolution: HermesPointerResolution | None = None,
     worker_pid_changed: bool = False,
     pointer_binding: HermesSessionPointerBinding | None = None,
+    trace_builder: AgentTurnTraceBuilder | None = None,
 ) -> dict[str, Any]:
+    builder = _new_trace_builder(
+        agent_thread_id=agent_thread_id,
+        turn_id=turn_id,
+        trace_builder=trace_builder,
+    )
+    projection_span = builder.start_phase("response_projection")
     # Project once behind a safe boundary; reuse for classification and trace.
     projected_events, saw_mismatch, projection_ok = _safe_projected_tool_events(
         result.tool_events,
@@ -1315,21 +1343,7 @@ def build_hermes_graph_product_response(
         "warnings": list(warnings),
         "mutations": [],
         "grounding": grounding,
-        "agent_trace": _agent_trace(
-            state=state,
-            result=result,
-            tool_events=projected_events,
-            warnings=warnings,
-            started_at=started_at,
-            completed_at=completed_at,
-            elapsed_ms=elapsed_ms,
-            scope=scope,
-            validator_path=str(acceptance.get("validator_path") or "") or None,
-            conversation_history=conversation_history,
-            pointer_resolution=pointer_resolution,
-            worker_pid_changed=worker_pid_changed,
-            fresh_graph_revision_used=True,
-        ),
+        "agent_trace": None,
         "agent_thread_id": agent_thread_id,
         "turn_id": turn_id,
         "hermes_session": _hermes_session_handle(pointer_binding),
@@ -1361,6 +1375,25 @@ def build_hermes_graph_product_response(
             tool_events=[_project_tool_event(event) for event in result.tool_events],
             acceptance=acceptance,
         )
+    builder.complete_phase(projection_span)
+    response["agent_trace"] = _agent_trace(
+        state=state,
+        result=result,
+        tool_events=projected_events,
+        warnings=warnings,
+        started_at=started_at,
+        completed_at=completed_at,
+        elapsed_ms=elapsed_ms,
+        scope=scope,
+        validator_path=str(acceptance.get("validator_path") or "") or None,
+        conversation_history=conversation_history,
+        pointer_resolution=pointer_resolution,
+        worker_pid_changed=worker_pid_changed,
+        fresh_graph_revision_used=True,
+        trace_builder=builder,
+        agent_thread_id=agent_thread_id,
+        turn_id=turn_id,
+    )
     return response
 
 
@@ -1377,6 +1410,7 @@ def run_hermes_graph_query(
     conversation_history: Any | None = None,
     session_base: Path | None = None,
     hermes_session_pointer: str | None = None,
+    trace_builder: AgentTurnTraceBuilder | None = None,
 ) -> dict[str, Any]:
     """Execute one authoritative Hermes graph turn and return a product envelope.
 
@@ -1390,97 +1424,131 @@ def run_hermes_graph_query(
     """
     from apps.live_control_server.config import repo_root as default_repo_root
 
-    # Fail closed on malformed history before unavailable short-circuit or host work.
-    normalized_history = normalize_hermes_conversation_history(conversation_history)
-    if str(graph_envelope.get("status") or "") == "unavailable":
-        return build_hermes_graph_unavailable_response(
-            packet=packet,
-            graph_envelope=graph_envelope,
-            agent_thread_id=agent_thread_id,
-            turn_id=turn_id,
-            conversation_history=normalized_history,
-        )
-
-    resolved_corpus_root = (corpus_root or default_repo_root()).resolve()
-    # Pointer continuity keys off the live packet, not the graph-lens campaign.
-    continuity_campaign_id = _continuity_campaign_id(packet)
-    pointer_store = (
-        HermesSessionPointerStore(session_base)
-        if session_base is not None
-        else None
-    )
-    prior_binding = (
-        pointer_store.get_for_thread(
-            campaign_id=continuity_campaign_id,
-            agent_thread_id=agent_thread_id,
-        )
-        if pointer_store is not None and agent_thread_id
-        else None
-    )
-    pointer_resolution = _resolve_pointer_for_turn(
-        pointer_store,
-        campaign_id=continuity_campaign_id,
-        agent_thread_id=agent_thread_id,
-        hermes_session_pointer=hermes_session_pointer,
-    )
-    request, scope = build_hermes_graph_turn_request(
-        question=text,
-        graph_envelope=graph_envelope,
-        root=root,
-        corpus_root=resolved_corpus_root,
-        conversation_history=normalized_history,
-        continuity_session_id=pointer_resolution.continuity_session_id,
-    )
-    factory = host_factory or get_hermes_graph_agent_host
-    host = factory()
-    started_at = _utc_now_z()
-    started_mono = time.monotonic()
-    result = host.execute(request)
-    completed_at = _utc_now_z()
-    elapsed_ms = max(0, int((time.monotonic() - started_mono) * 1000))
-    worker_pid = _host_worker_pid(host)
-    worker_pid_changed = (
-        pointer_store.worker_pid_changed(prior_binding, worker_pid)
-        if pointer_store is not None
-        else False
-    )
-    if (
-        pointer_store is not None
-        and agent_thread_id
-        and pointer_resolution.pointer_status == "recovered"
-    ):
-        pointer_store.clear_for_thread(
-            campaign_id=continuity_campaign_id,
-            agent_thread_id=agent_thread_id,
-        )
-    pointer_binding = _persist_pointer_after_turn(
-        pointer_store,
-        campaign_id=continuity_campaign_id,
-        agent_thread_id=agent_thread_id,
-        hermes_session_id=result.hermes_session_id,
-        worker_pid=worker_pid,
-        existing_pointer_id=(
-            prior_binding.pointer_id
-            if prior_binding is not None and pointer_resolution.pointer_status == "accepted"
-            else None
-        ),
-    )
-    return build_hermes_graph_product_response(
-        packet=packet,
-        result=result,
-        scope=scope,
+    builder = _new_trace_builder(
         agent_thread_id=agent_thread_id,
         turn_id=turn_id,
-        started_at=started_at,
-        completed_at=completed_at,
-        elapsed_ms=elapsed_ms,
-        world_graph_context=graph_envelope,
-        corpus_root=resolved_corpus_root,
-        conversation_history=normalized_history,
-        pointer_resolution=pointer_resolution,
-        worker_pid_changed=worker_pid_changed,
-        pointer_binding=pointer_binding,
+        trace_builder=trace_builder,
     )
+    try:
+        with builder.phase("request_validation"):
+            normalized_history = normalize_hermes_conversation_history(
+                conversation_history
+            )
+
+        if str(graph_envelope.get("status") or "") == "unavailable":
+            builder.add_unavailable_phase(
+                "world_context_resolution",
+                attributes={"reason": WORLD_GRAPH_UNAVAILABLE_CODE},
+            )
+            return build_hermes_graph_unavailable_response(
+                packet=packet,
+                graph_envelope=graph_envelope,
+                agent_thread_id=agent_thread_id,
+                turn_id=turn_id,
+                started_at=builder.started_at,
+                completed_at=_utc_now_z(),
+                elapsed_ms=builder.elapsed_ms(),
+                conversation_history=normalized_history,
+                trace_builder=builder,
+            )
+
+        resolved_corpus_root = (corpus_root or default_repo_root()).resolve()
+        with builder.phase("context_assembly"):
+            continuity_campaign_id = _continuity_campaign_id(packet)
+            pointer_store = (
+                HermesSessionPointerStore(session_base)
+                if session_base is not None
+                else None
+            )
+            prior_binding = (
+                pointer_store.get_for_thread(
+                    campaign_id=continuity_campaign_id,
+                    agent_thread_id=agent_thread_id,
+                )
+                if pointer_store is not None and agent_thread_id
+                else None
+            )
+            pointer_resolution = _resolve_pointer_for_turn(
+                pointer_store,
+                campaign_id=continuity_campaign_id,
+                agent_thread_id=agent_thread_id,
+                hermes_session_pointer=hermes_session_pointer,
+            )
+            request, scope = build_hermes_graph_turn_request(
+                question=text,
+                graph_envelope=graph_envelope,
+                root=root,
+                corpus_root=resolved_corpus_root,
+                conversation_history=normalized_history,
+                continuity_session_id=pointer_resolution.continuity_session_id,
+            )
+            factory = host_factory or get_hermes_graph_agent_host
+            host = factory()
+
+        with builder.phase("harness_turn"):
+            result = host.execute(request)
+        harness_span = next(
+            (
+                span
+                for span in reversed(builder.spans)
+                if span.get("name") == "harness_turn"
+            ),
+            None,
+        )
+        if result.status == "error" and harness_span is not None:
+            harness_span["status"] = "error"
+
+        worker_pid = _host_worker_pid(host)
+        worker_pid_changed = (
+            pointer_store.worker_pid_changed(prior_binding, worker_pid)
+            if pointer_store is not None
+            else False
+        )
+        with builder.phase("continuity_persist"):
+            if (
+                pointer_store is not None
+                and agent_thread_id
+                and pointer_resolution.pointer_status == "recovered"
+            ):
+                pointer_store.clear_for_thread(
+                    campaign_id=continuity_campaign_id,
+                    agent_thread_id=agent_thread_id,
+                )
+            pointer_binding = _persist_pointer_after_turn(
+                pointer_store,
+                campaign_id=continuity_campaign_id,
+                agent_thread_id=agent_thread_id,
+                hermes_session_id=result.hermes_session_id,
+                worker_pid=worker_pid,
+                existing_pointer_id=(
+                    prior_binding.pointer_id
+                    if prior_binding is not None
+                    and pointer_resolution.pointer_status == "accepted"
+                    else None
+                ),
+            )
+
+        return build_hermes_graph_product_response(
+                packet=packet,
+                result=result,
+                scope=scope,
+                agent_thread_id=agent_thread_id,
+                turn_id=turn_id,
+                started_at=builder.started_at,
+                completed_at=_utc_now_z(),
+                elapsed_ms=builder.elapsed_ms(),
+                world_graph_context=graph_envelope,
+                corpus_root=resolved_corpus_root,
+                conversation_history=normalized_history,
+                pointer_resolution=pointer_resolution,
+                worker_pid_changed=worker_pid_changed,
+                pointer_binding=pointer_binding,
+                trace_builder=builder,
+            )
+    except HermesGraphQueryRequestError:
+        if not builder.logged:
+            builder.finalize_and_log(status="error")
+        raise
 
 
 __all__ = [
