@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-08-26 from `main` `cc016661f80416e0816f56349217cf33c53a195f` (APP-STATE AS5 / PR #650 merged)  
+**Re-anchored:** 2026-08-26 from `main` `39ef105d3996ef0062dd45a089fecada14915436` (PLAY-SURFACE BF2 / PR #652 merged)
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
@@ -257,8 +257,13 @@ AS4              DONE — active Run / resume continuity on PostgreSQL
 AS5 / PR #650    DONE — legacy Play filesystem persistence demolished
 
 PLAY PRODUCT
-BF2              NEXT structural Play slice — v2 READY/current-position/relevance
-BF3              after BF2 — Scene-centered cockpit
+BF2 / PR #652    DONE — v2 READY/current-position/relevance
+                 accepted head 9dffcab96ad3f527efedc3981aea805a63deb4df
+                 merge 39ef105d3996ef0062dd45a089fecada14915436
+                 review cycles: 5
+BF3A             CURRENT first cockpit slice — Scene-centered Current Moment
+BF3B             after BF3A — Decision interaction and visible relevance
+BF3C / BF3.x     later — additional At-a-Glance categories / retrieval
 BF4              authoring composition; may run in parallel on disjoint lease
 
 CUTOVER
@@ -272,39 +277,43 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
 | CR-U11 | **Partially true, foundation strong** | durable WorkObject/WorkRevision + BF1 structure exist; richer Beat-first Plan composition controls still need BF4/dogfood |
 | CR-U13 | **Partial / Combat-owned** | exact mechanics/projection seams exist, but durable integrated Combat acceptance is separate |
 | CR-U14 | **False as native end-to-end story** | C2S27 proved fast unplanned combat in the legacy tracker; native global Threat→exact mechanics→Combat flow still needs proof |
-| CR-U15 | **False for target cockpit** | persistence is solved, but BF2/BF3 Scene-centered live surface is not yet delivered |
+| CR-U15 | **False for target cockpit** | BF2 READY is true; BF3A Current Moment cockpit is in flight and not DONE; Decisions/other categories remain later |
 | CR-U16 | **Partial** | projection seams exist; cross-Beat inspect/global on-demand retrieval remains a prioritized gap |
 | CR-U17 | **Play portion true; overall false** | Play durability is PostgreSQL-backed; Combat/other relied-upon state must still prove continuity |
 
 ### Immediate delivery sequence
 
 ```text
-1. BF2 — v2 READY Runtime + derived Choice relevance
+1. BF2 — DONE (PR #652, merge 39ef105d3996ef0062dd45a089fecada14915436, 5 review cycles)
    - seed new v2 currentBeatId
    - restore exact historical pinned WorkRevision
    - explicit Beat/Scene current-position mutations
    - activates/suppresses emphasis
 
-2. BF3 — Scene-centered current-moment cockpit
+2. BF3A — CURRENT — Scene-centered Current Moment cockpit
    - active Scene is the default central workspace
    - Beat-only state when no Scene is current
    - collapsible Beat Context (presentation-only; not Run state)
    - collapsible presence-first At a Glance (presentation-only; not Run state)
-   - opening an At-a-Glance category uses the same central workspace
-   - opening does not change Runtime current position
+   - Scenes category uses the same central workspace
+   - inspect does not change Runtime current position
    - close/back returns to the exact current Scene
-   - Decision interaction
-   - inspect vs Make Current
-   - Runbook as secondary reference
-   - this cockpit is not implemented until BF3
+   - explicit Make Current is the only Scene-position mutation
+   - BF3A is in flight and is not DONE
 
-3. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
+3. BF3B — Decision interaction and visible relevance
+   - current-context Decisions / Options
+   - select / change / clear selection
+   - authored consequence and emphasized / de-emphasized presentation
+   - no auto-navigation
+
+4. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
    - inspect material from other Beats without changing current moment
    - global/on-demand known object finder
    - fast NPC/location/Threat/table opening
    - exact statblock hot path
 
-4. THREAT → COMBAT + COMBAT WORKSPACE — P4 / Combat lane
+5. THREAT → COMBAT + COMBAT WORKSPACE — P4 / Combat lane
    - Add to Combat from prepared or unexpected Threat
    - Combat is one At-a-Glance entry with compact status, not a floating side rail
    - opening Combat uses the same central workspace; Combat remains Combat-owned
@@ -312,11 +321,11 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - durable Combat authority required for CR-U17 overall
    - this Combat workspace is not implemented until P4
 
-5. BF4 — Plan Beat-first authoring composition
+6. BF4 — Plan Beat-first authoring composition
    - may proceed in parallel after BF1 on disjoint leases
-   - must not block getting BF2/BF3 back to a real table
+   - must not block getting BF3A/BF3B back to a real table
 
-6. REAL SESSION DOGFOOD
+7. REAL SESSION DOGFOOD
    - deliberately include an off-script scene change
    - unplanned NPC/Threat
    - exact mechanics lookup
@@ -457,4 +466,4 @@ I reload/restart and the state I depended on is still there.
 
 Every implementation/review under CON-READY must re-anchor against current repository truth and the user stories above.
 
-Do not silently redefine CON-READY as architecture completion. Do not dispatch BF2 from historical BF1-era assumptions that APP-STATE has already made false.
+Do not silently redefine CON-READY as architecture completion. Do not dispatch BF3A as the bundled historical BF3 (Decisions, finder, Combat, Runbook reference) in one slice.

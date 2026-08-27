@@ -787,6 +787,9 @@ export function overlayRuntimeOnV2(
   };
 }
 
+/** Pure v2 Runtime overlay. Null when the Playable binding or current membership is incoherent. */
+export const overlayRuntimeOnV2Ready = overlayRuntimeOnV2;
+
 export function admitNativeRunbook(input: {
   run: PlayRunRecord;
   manifest: PlayRunReferenceManifest;

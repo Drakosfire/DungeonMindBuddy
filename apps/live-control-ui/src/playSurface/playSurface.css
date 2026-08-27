@@ -435,9 +435,210 @@
   outline-offset: 3px;
 }
 
+.play-cockpit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.play-cockpit-orientation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--play-border);
+  border-radius: 0.45rem;
+  background: var(--play-surface-raised);
+}
+
+.play-cockpit-orientation p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.play-cockpit-shell {
+  --play-beat-rail: minmax(12rem, 18rem);
+  --play-glance-rail: minmax(11rem, 15rem);
+  display: grid;
+  grid-template-columns: var(--play-beat-rail) minmax(0, 1fr) var(--play-glance-rail);
+  gap: 1rem;
+  align-items: start;
+}
+
+.play-cockpit-shell[data-beat-collapsed="true"] {
+  --play-beat-rail: 3.25rem;
+}
+
+.play-cockpit-shell[data-glance-collapsed="true"] {
+  --play-glance-rail: 3.25rem;
+}
+
+.play-cockpit-rail {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--play-border);
+  border-radius: 0.5rem;
+  background: var(--play-surface);
+}
+
+.play-cockpit-rail.is-collapsed {
+  width: 3.25rem;
+  max-width: 3.25rem;
+  overflow: hidden;
+  padding: 0.35rem;
+}
+
+.play-rail-toggle {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  margin: 0 0 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--play-border);
+  border-radius: 0.4rem;
+  background: var(--play-surface-raised);
+  color: var(--play-text);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.play-rail-toggle:hover {
+  border-color: var(--play-border-strong);
+}
+
+.play-cockpit-rail.is-collapsed .play-rail-toggle {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  width: 2.55rem;
+  min-width: 2.55rem;
+  min-height: 9rem;
+  margin: 0;
+  padding: 0.75rem 0.3rem;
+  text-align: center;
+}
+
+.play-rail-body h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.1rem;
+}
+
+.play-glance-category {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--play-border);
+  border-radius: 0.4rem;
+  background: var(--play-surface-raised);
+  color: var(--play-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.play-glance-category[aria-pressed="true"] {
+  border-color: var(--play-border-strong);
+  background: var(--play-surface-active);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.play-cockpit-center {
+  min-width: 0;
+  padding: 1rem 1.1rem 1.25rem;
+  border: 1px solid var(--play-border-strong);
+  border-radius: 0.55rem;
+  background: var(--play-surface-raised);
+}
+
+.play-cockpit-center h2 {
+  margin: 0 0 0.75rem;
+}
+
+.play-cockpit-center h3 {
+  margin: 1.1rem 0 0.5rem;
+}
+
+.play-scene-actions,
+.play-scene-inventory {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.play-scene-actions li,
+.play-scene-inventory li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--play-border);
+  border-radius: 0.4rem;
+}
+
+.play-scene-inventory li[data-current="true"] {
+  border-color: var(--play-border-strong);
+}
+
+.play-scene-actions button,
+.play-scene-inventory button,
+.play-cockpit-center .play-controls button,
+.play-cockpit-center > article > button {
+  min-height: 2.5rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--play-border);
+  border-radius: 0.35rem;
+  background: var(--play-surface);
+  color: var(--play-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.play-scene-actions button:hover,
+.play-scene-inventory button:hover,
+.play-cockpit-center .play-controls button:hover,
+.play-cockpit-center > article > button:hover {
+  border-color: var(--play-border-strong);
+  background: var(--play-surface-active);
+}
+
+.play-scene-actions button:disabled,
+.play-scene-inventory button:disabled,
+.play-cockpit-center .play-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 @media (max-width: 60rem) {
   .play-deck-columns {
     grid-template-columns: 1fr;
+  }
+
+  .play-cockpit-shell,
+  .play-cockpit-shell[data-beat-collapsed="true"],
+  .play-cockpit-shell[data-glance-collapsed="true"] {
+    grid-template-columns: 1fr;
+  }
+
+  .play-cockpit-rail.is-collapsed {
+    width: auto;
+    max-width: none;
+  }
+
+  .play-cockpit-rail.is-collapsed .play-rail-toggle {
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.55rem 0.75rem;
+    text-align: left;
   }
 }
 
