@@ -377,13 +377,13 @@ def compare_v2_sealed_structure(markdown: str, manifest: object) -> str | None:
     return None
 
 
-def ensure_v2_native_ready(root: Path, run_id: str) -> PlayRunRecord:
+def ensure_v2_native_ready(root: Path, run_id: str, *, conflict_depth: int = 0) -> PlayRunRecord:
     """Owning first-admission workflow: pinned authority preflight, then seed.
 
     Load the exact Run + sealed manifest + pinned WorkRevision, prove the
     behavior-bearing v2 contract, then persist the opening Beat only if
-    progress is still empty. Callers that observe CAS 409 must invoke this
-    again so the full authority set is rebound.
+    progress is still empty. CAS 409 rebinds the full authority set here
+    rather than leaving orchestration to the caller.
     """
     record = get_play_run(root, run_id)
     from apps.live_control_server.services.play_run_reference_manifest import (
@@ -407,27 +407,32 @@ def ensure_v2_native_ready(root: Path, run_id: str) -> PlayRunRecord:
         raise PlayRunRegistryError(str(exc), status_code=int(getattr(exc, "status_code", 500))) from exc
     mismatch = compare_v2_sealed_structure(committed.markdown, manifest)
     if mismatch:
-        raise PlayRunRegistryError(mismatch, status_code=409)
+        raise PlayRunRegistryError(mismatch, status_code=422)
     opening = derive_v2_opening_beat_id(committed.markdown)
     if opening is None:
         raise PlayRunRegistryError(
             "v2 Playable has no Beat; native READY is fail-closed",
-            status_code=409,
+            status_code=422,
         )
     if not _progress_is_empty(record.progress):
         return record
-    return replace_play_run_progress(
-        root,
-        run_id=run_id,
-        expected_run_revision=record.run_revision,
-        progress=PlayRunProgress(
-            current_beat_id=opening,
-            current_scene_id=None,
-            resolved_beat_ids=[],
-            selections={},
-            notes_by_element_id={},
-        ),
-    )
+    try:
+        return replace_play_run_progress(
+            root,
+            run_id=run_id,
+            expected_run_revision=record.run_revision,
+            progress=PlayRunProgress(
+                current_beat_id=opening,
+                current_scene_id=None,
+                resolved_beat_ids=[],
+                selections={},
+                notes_by_element_id={},
+            ),
+        )
+    except PlayRunRegistryError as exc:
+        if exc.status_code == 409 and conflict_depth < 2:
+            return ensure_v2_native_ready(root, run_id, conflict_depth=conflict_depth + 1)
+        raise
 
 
 def _admit_progress_v2(

@@ -8,7 +8,6 @@ import {
   getCommittedWorkspaceRevision,
   listPlayRuns,
   putPlayActiveRun,
-  putPlayRunProgress,
 } from "../api/liveApi";
 import type { PlayRunRecord } from "../api/types";
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
@@ -27,15 +26,10 @@ import {
   isNativeRunbookReadyV1,
   isNativeRunbookReadyV2,
   overlayRuntimeOnDeck,
-  preflightV2Authority,
   type NativeRunbookAdmission,
   type NativeRunbookReadyDeck,
   type NativeRunbookReadyV2,
 } from "./runbook/nativeRunbookProjection";
-import {
-  playRunProgressIsEmpty,
-  v2SeedProgress,
-} from "./runbook/v2RuntimeProjection";
 import "./playSurface.css";
 
 type PlayLoadStatus =
@@ -288,7 +282,7 @@ export function PlaySurfacePage() {
   const activeWriteRunRef = useRef<string | null>(null);
   const activeWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  const loadExactRun = useCallback(async (runId: string, conflictDepth = 0) => {
+  const loadExactRun = useCallback(async (runId: string) => {
     const serial = loadSerialRef.current + 1;
     loadSerialRef.current = serial;
     setLoadStatus("loading");
@@ -296,7 +290,7 @@ export function PlaySurfacePage() {
     setAdmission(null);
     setMutationStatus("idle");
     try {
-      const loaded = await getPlayRun(runId);
+      const loaded = await getPlayRun(runId, { ensureNativeReady: true });
       if (loadSerialRef.current !== serial) return;
       let manifest;
       try {
@@ -336,48 +330,8 @@ export function PlaySurfacePage() {
         return;
       }
       if (loadSerialRef.current !== serial) return;
-      let runForAdmission = loaded;
-      if (manifest.schema_version === "dmb_play_run_reference_manifest_v2") {
-        const preflight = preflightV2Authority({
-          run: loaded,
-          manifest,
-          committed,
-        });
-        if (preflight.status !== "ok") {
-          setLoadStatus(preflight.status);
-          setDetail(preflight.reason);
-          setAdmission(null);
-          return;
-        }
-        if (playRunProgressIsEmpty(runForAdmission.progress)) {
-          try {
-            runForAdmission = await putPlayRunProgress(runForAdmission.run_id, {
-              expected_run_revision: runForAdmission.run_revision,
-              progress: v2SeedProgress(preflight.openingBeatId),
-            });
-          } catch (error) {
-            if (loadSerialRef.current !== serial) return;
-            if (error instanceof LiveApiError && error.status === 409) {
-              if (conflictDepth >= 2) {
-                setLoadStatus("unavailable");
-                setDetail(error instanceof Error ? error.message : "seed conflict could not be resolved");
-                setAdmission(null);
-                return;
-              }
-              await loadExactRun(runId, conflictDepth + 1);
-              return;
-            }
-            const classified = classifyLoadError(error);
-            setLoadStatus(classified === "integrity_failure" ? classified : "unavailable");
-            setDetail(error instanceof Error ? error.message : null);
-            setAdmission(null);
-            return;
-          }
-          if (loadSerialRef.current !== serial) return;
-        }
-      }
       const nextAdmission = admitNativeRunbook({
-        run: runForAdmission,
+        run: loaded,
         manifest,
         committed,
       });
@@ -387,13 +341,13 @@ export function PlaySurfacePage() {
         setLoadStatus("ready");
         setDetail(null);
         setMutationStatus("idle");
-        if (activeWriteRunRef.current !== runForAdmission.run_id) {
-          activeWriteRunRef.current = runForAdmission.run_id;
+        if (activeWriteRunRef.current !== loaded.run_id) {
+          activeWriteRunRef.current = loaded.run_id;
           activeWriteQueueRef.current = activeWriteQueueRef.current
             .catch(() => undefined)
             .then(async () => {
               try {
-                await putPlayActiveRun(runForAdmission.run_id);
+                await putPlayActiveRun(loaded.run_id);
               } catch (error) {
                 if (loadSerialRef.current !== serial) return;
                 setDetail(
