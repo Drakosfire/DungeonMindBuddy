@@ -25,6 +25,7 @@ from apps.live_control_server.services.hermes_graph_agent import (
 )
 from apps.live_control_server.services.hermes_graph_agent_contract import (
     MAX_HISTORY_MESSAGES,
+    MAX_MODEL_CALLS,
     MAX_POLICY_TOOLSETS,
     MAX_QUESTION_CHARS,
     MAX_TOOL_EVENTS,
@@ -183,6 +184,240 @@ def _slow_after_accept_worker(request_queue: Any, response_queue: Any) -> None:
         if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
             return
         time.sleep(60)
+
+
+def _streamed_model_call(
+    *,
+    request_id: str = "api-req-observed",
+    sequence: int = 1,
+) -> dict[str, Any]:
+    return {
+        "call_id": f"model-call-{sequence}",
+        "runtime_api_request_id": request_id,
+        "runtime_turn_id": "hermes-turn-observed",
+        "sequence": sequence,
+        "status": "ok",
+        "provider": "openai-api",
+        "requested_model": "gpt-5.4-mini",
+        "response_model": "gpt-5.4-mini",
+        "api_mode": "chat_completions",
+        "duration_ms": 250,
+        "request_summary": {},
+        "usage": {
+            "status": "reported",
+            "input_tokens": 40,
+            "output_tokens": 8,
+            "total_tokens": 48,
+        },
+        "cost": {"status": "unavailable"},
+    }
+
+
+def _telemetry_then_hang_worker(request_queue: Any, response_queue: Any) -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        _put_json(
+            response_queue,
+            {
+                "type": "telemetry",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": {
+                    "modelCalls": [_streamed_model_call(request_id="api-req-observed")]
+                },
+            },
+        )
+        time.sleep(60)
+
+
+def _telemetry_then_crash_worker(request_queue: Any, response_queue: Any) -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    message = decode_json_wire(request_queue.get())
+    if message.get("type") != "execute":
+        return
+    request_id = str(message.get("requestId") or "")
+    _put_json(
+        response_queue,
+        {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+    )
+    if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+        return
+    _put_json(
+        response_queue,
+        {
+            "type": "telemetry",
+            "requestId": request_id,
+            "pid": os.getpid(),
+            "payload": {
+                "modelCalls": [_streamed_model_call(request_id="api-req-before-death")]
+            },
+        },
+    )
+    # Let the multiprocessing Queue feeder flush before the process vanishes.
+    time.sleep(0.15)
+    os._exit(1)
+
+
+def _too_many_model_calls_ok_worker(request_queue: Any, response_queue: Any) -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        MAX_MODEL_CALLS as bound,
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        result = serialize_hermes_graph_agent_turn_result(
+            HermesGraphAgentTurnResult(
+                status="ok",
+                final_response="still answered",
+                messages=[],
+                hermes_session_id=f"worker-{os.getpid()}",
+                tool_events=[],
+                process_isolation="process_exclusive",
+                model_calls=[
+                    _streamed_model_call(sequence=index + 1)
+                    for index in range(bound + 1)
+                ],
+            )
+        )
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": result,
+            },
+        )
+
+
+def _telemetry_then_malformed_payload_worker(request_queue: Any, response_queue: Any) -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        _put_json(
+            response_queue,
+            {
+                "type": "telemetry",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": {
+                    "modelCalls": [_streamed_model_call(request_id="api-req-before-malformed")]
+                },
+            },
+        )
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": "not-a-mapping",
+            },
+        )
+
+
+def _telemetry_then_undeserializable_result_worker(
+    request_queue: Any, response_queue: Any
+) -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        _put_json(
+            response_queue,
+            {
+                "type": "telemetry",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": {
+                    "modelCalls": [
+                        _streamed_model_call(request_id="api-req-before-bad-result")
+                    ]
+                },
+            },
+        )
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": {"status": "maybe"},
+            },
+        )
 
 
 def _crash_after_accept_worker(request_queue: Any, response_queue: Any) -> None:
@@ -692,14 +927,16 @@ def test_host_module_does_not_import_rung3_runtime_module() -> None:
             )
     worker_src = source.split("def hermes_graph_agent_worker_main", 1)[1]
     assert "run_hermes_graph_agent_turn" in worker_src
-    assert "run_hermes_graph_agent_turn(request)" in worker_src
+    assert "run_hermes_graph_agent_turn(" in worker_src
+    assert "on_model_call=on_model_call" in worker_src
 
 
 def test_default_worker_source_calls_real_rung3_entry() -> None:
     source = HOST_MODULE.read_text(encoding="utf-8")
     worker_src = source.split("def hermes_graph_agent_worker_main", 1)[1]
     assert "run_hermes_graph_agent_turn" in worker_src
-    assert "run_hermes_graph_agent_turn(request)" in worker_src
+    assert "run_hermes_graph_agent_turn(" in worker_src
+    assert "on_model_call=on_model_call" in worker_src
 
 
 def test_request_result_round_trip_is_bounded_and_deterministic() -> None:
@@ -1106,6 +1343,96 @@ def test_timeout_discards_worker_and_is_not_replayed() -> None:
         host.shutdown()
 
 
+def test_timeout_keeps_completed_model_observation() -> None:
+    host = HermesGraphAgentHost(
+        worker_target=_telemetry_then_hang_worker,
+        accept_timeout_s=2.0,
+        turn_timeout_s=0.4,
+    )
+    try:
+        result = host.execute(_request(question="hang-after-api"))
+        assert result.status == "error"
+        assert result.error_code == "hermes_worker_timeout"
+        assert result.final_response is None
+        assert [call["runtime_api_request_id"] for call in result.model_calls] == [
+            "api-req-observed"
+        ]
+        assert result.model_calls[0]["usage"]["input_tokens"] == 40
+    finally:
+        host.shutdown()
+
+
+def test_lost_worker_keeps_completed_model_observation() -> None:
+    host = HermesGraphAgentHost(
+        worker_target=_telemetry_then_crash_worker,
+        accept_timeout_s=2.0,
+        turn_timeout_s=2.0,
+    )
+    try:
+        result = host.execute(_request(question="crash-after-api"))
+        assert result.status == "error"
+        assert result.error_code == "hermes_worker_lost"
+        assert [call["runtime_api_request_id"] for call in result.model_calls] == [
+            "api-req-before-death"
+        ]
+    finally:
+        host.shutdown()
+
+
+def test_oversized_model_calls_do_not_fail_successful_turn() -> None:
+    host = HermesGraphAgentHost(
+        worker_target=_too_many_model_calls_ok_worker,
+        accept_timeout_s=2.0,
+        turn_timeout_s=5.0,
+    )
+    try:
+        result = host.execute(_request(question="long-loop"))
+        assert result.status == "ok"
+        assert result.final_response == "still answered"
+        assert len(result.model_calls) == MAX_MODEL_CALLS
+        assert "model_calls_truncated" in result.telemetry_warnings
+        assert result.observed_model_call_count == MAX_MODEL_CALLS + 1
+    finally:
+        host.shutdown()
+
+
+def test_malformed_terminal_result_keeps_completed_model_observation() -> None:
+    host = HermesGraphAgentHost(
+        worker_target=_telemetry_then_malformed_payload_worker,
+        accept_timeout_s=2.0,
+        turn_timeout_s=2.0,
+    )
+    try:
+        result = host.execute(_request(question="malformed-terminal"))
+        assert result.status == "error"
+        assert result.error_code == "hermes_worker_protocol_error"
+        assert result.error_message == "Hermes worker result payload was malformed."
+        assert [call["runtime_api_request_id"] for call in result.model_calls] == [
+            "api-req-before-malformed"
+        ]
+        assert result.model_calls[0]["usage"]["input_tokens"] == 40
+    finally:
+        host.shutdown()
+
+
+def test_undeserializable_terminal_result_keeps_completed_model_observation() -> None:
+    host = HermesGraphAgentHost(
+        worker_target=_telemetry_then_undeserializable_result_worker,
+        accept_timeout_s=2.0,
+        turn_timeout_s=2.0,
+    )
+    try:
+        result = host.execute(_request(question="bad-terminal"))
+        assert result.status == "error"
+        assert result.error_code == "hermes_worker_protocol_error"
+        assert result.error_message == "Hermes worker result could not be deserialized."
+        assert [call["runtime_api_request_id"] for call in result.model_calls] == [
+            "api-req-before-bad-result"
+        ]
+    finally:
+        host.shutdown()
+
+
 def test_same_host_recovers_after_post_accept_crash(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1360,6 +1687,7 @@ def test_lost_accept_does_not_replay_side_effects(
         expected_types: set[str],
         request_id: str | None,
         timeout_s: float,
+        **kwargs: Any,
     ) -> dict[str, Any] | None:
         message = original_recv(
             self,
@@ -1368,6 +1696,7 @@ def test_lost_accept_does_not_replay_side_effects(
             expected_types=expected_types,
             request_id=request_id,
             timeout_s=timeout_s,
+            **kwargs,
         )
         if (
             not lost_once["done"]
@@ -1591,3 +1920,119 @@ def test_rung3_suite_entry_still_importable() -> None:
     )
     assert result.status == "error"
     assert result.error_code == "invalid_request"
+
+
+def test_model_call_fields_survive_host_wire_round_trip() -> None:
+    result = HermesGraphAgentTurnResult(
+        status="ok",
+        final_response="Tripod is near the North Gate.",
+        messages=[],
+        hermes_session_id="sess-trace",
+        tool_events=[],
+        process_isolation="process_exclusive",
+        model_calls=[
+            {
+                "call_id": "model-call-1",
+                "runtime_api_request_id": "api-req-1",
+                "runtime_turn_id": "hermes-turn-1",
+                "sequence": 1,
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-5.4-mini",
+                "response_model": "gpt-5.4-mini",
+                "api_mode": "chat_completions",
+                "started_at": "2026-08-26T00:00:00.000000Z",
+                "completed_at": "2026-08-26T00:00:00.250000Z",
+                "duration_ms": 250,
+                "request_summary": {
+                    "api_call_count": 1,
+                    "message_count": 4,
+                    "tool_count": 2,
+                    "approx_input_tokens": 100,
+                    "request_char_count": 400,
+                    "max_tokens": 2048,
+                },
+                "usage": {
+                    "status": "reported",
+                    "input_tokens": 100,
+                    "output_tokens": 20,
+                    "total_tokens": 120,
+                    "cached_input_tokens": 0,
+                    "reasoning_tokens": 12,
+                },
+                "cost": {
+                    "status": "estimated",
+                    "usd": 0.001,
+                    "currency": "USD",
+                    "pricing_table_matched": True,
+                    "rates_per_1m_usd": {"input": 0.75, "cached_input": 0.075, "output": 4.5},
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        telemetry_warnings=["observer_payload_malformed"],
+    )
+    wire = serialize_hermes_graph_agent_turn_result(result)
+    assert all("request" not in call and "response" not in call for call in wire["modelCalls"])
+    restored = deserialize_hermes_graph_agent_turn_result(wire)
+    assert restored.model_calls[0]["runtime_api_request_id"] == "api-req-1"
+    assert restored.model_calls[0]["usage"]["input_tokens"] == 100
+    assert restored.model_calls[0]["usage"]["reasoning_tokens"] == 12
+    assert restored.telemetry_warnings == ["observer_payload_malformed"]
+
+
+def test_model_call_forbidden_bodies_rejected_on_wire() -> None:
+    result = _ok_result()
+    object.__setattr__(
+        result,
+        "model_calls",
+        [
+            {
+                "call_id": "model-call-leak",
+                "sequence": 1,
+                "status": "ok",
+                "request": {"body": "RAW_PROMPT"},
+                "usage": {"status": "unavailable"},
+                "cost": {"status": "unavailable"},
+                "request_summary": {},
+            }
+        ],
+    )
+    with pytest.raises(ValueError, match="forbidden keys"):
+        serialize_hermes_graph_agent_turn_result(result)
+
+
+def test_oversized_model_calls_truncated_fail_open() -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import MAX_MODEL_CALLS
+
+    result = HermesGraphAgentTurnResult(
+        status="ok",
+        final_response="ok",
+        messages=[],
+        hermes_session_id="sess-too-many",
+        tool_events=[],
+        process_isolation="process_exclusive",
+        model_calls=[
+            {
+                "call_id": f"model-call-{index}",
+                "sequence": index + 1,
+                "status": "ok",
+                "usage": {"status": "unavailable"},
+                "cost": {"status": "unavailable"},
+                "request_summary": {},
+            }
+            for index in range(MAX_MODEL_CALLS + 1)
+        ],
+    )
+    wire = serialize_hermes_graph_agent_turn_result(result)
+    assert wire["status"] == "ok"
+    assert wire["finalResponse"] == "ok"
+    assert len(wire["modelCalls"]) == MAX_MODEL_CALLS
+    assert "model_calls_truncated" in wire["telemetryWarnings"]
+    restored = deserialize_hermes_graph_agent_turn_result(wire)
+    assert restored.status == "ok"
+    assert restored.final_response == "ok"
+    assert len(restored.model_calls) == MAX_MODEL_CALLS
+    assert "model_calls_truncated" in restored.telemetry_warnings
+    assert wire["observedModelCallCount"] == MAX_MODEL_CALLS + 1
+    assert restored.observed_model_call_count == MAX_MODEL_CALLS + 1
