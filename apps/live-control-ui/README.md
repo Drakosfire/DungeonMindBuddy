@@ -109,6 +109,13 @@ pnpm build
 
 ## Manual smoke
 
+Play first-time setup is **not** just `uvicorn` plus `pnpm dev`. Configure
+`DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL` and run
+`uv run python scripts/bootstrap_local_play.py apply` first. See
+[`Docs/Runbooks/RUNBOOK-local-play-dogfood.md`](../../Docs/Runbooks/RUNBOOK-local-play-dogfood.md).
+
+After that bootstrap, ordinary runtime is:
+
 Terminal 1:
 
 ```bash
