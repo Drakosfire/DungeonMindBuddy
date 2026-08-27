@@ -206,7 +206,7 @@ def test_query_can_route_through_hermes_backend(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
+    from apps.live_control_server.services import hermes_agent_runtime as hermes_agent_runtime_mod
     from apps.live_control_server.services import live_agent_loop
     from apps.live_control_server.services.hermes_graph_agent_contract import (
         HermesGraphAgentTurnResult,
@@ -217,7 +217,7 @@ def test_query_can_route_through_hermes_backend(
         def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
             assert request.conversation_history is None
             assert request.session_id is None
-            assert request.capability_policy is None
+            assert request.capability_policy is not None
             assert request.revision_pin == "rev:route"
             return HermesGraphAgentTurnResult(
                 status="ok",
@@ -252,7 +252,7 @@ def test_query_can_route_through_hermes_backend(
             "revision_id": "rev:route",
             "head_revision_id": "rev:route",
             "is_head": True,
-            "focus": {"kind": "session", "session_id": "session-21"},
+            "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
             "admissibility": "gm",
             "query_text": "What happened at the end of session 22?",
             "matched_node_ids": ["threat:tripod-null-calf"],
@@ -269,7 +269,7 @@ def test_query_can_route_through_hermes_backend(
             },
         },
     )
-    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     response = client.post(
@@ -296,7 +296,7 @@ def test_query_can_route_through_hermes_backend(
             "anchor_id": "anchor:route-1",
             "world_id": "eldyrwild",
             "campaign_id": "longmont-c2",
-            "focus": {"kind": "session", "session_id": "session-21"},
+            "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
             "admissibility": "gm",
             "revision_id": "rev:route",
         }
@@ -319,7 +319,7 @@ def test_query_hermes_cli_env_does_not_invoke_subprocess(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
+    from apps.live_control_server.services import hermes_agent_runtime as hermes_agent_runtime_mod
     from apps.live_control_server.services import live_agent_loop
     from apps.live_control_server.services.hermes_graph_agent_contract import (
         HermesGraphAgentTurnResult,
@@ -380,7 +380,7 @@ def test_query_hermes_cli_env_does_not_invoke_subprocess(
                 process_isolation="process_exclusive",
             )
 
-    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     response = client.post(
@@ -944,7 +944,7 @@ def test_live_query_world_graph_preflight_once_before_backend(
             "revision_id": "rev:test",
             "head_revision_id": "rev:test",
             "is_head": True,
-            "focus": {"kind": "session", "session_id": "session-21"},
+            "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
             "admissibility": "gm",
             "query_text": outer_text,
             "matched_node_ids": ["threat:tripod-null-calf"],
@@ -1028,7 +1028,7 @@ def test_live_and_hermes_receive_equivalent_graph_context(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
+    from apps.live_control_server.services import hermes_agent_runtime as hermes_agent_runtime_mod
     from apps.live_control_server.services import live_agent_loop
     from apps.live_control_server.services.hermes_graph_agent_contract import (
         HermesGraphAgentTurnResult,
@@ -1127,7 +1127,7 @@ def test_live_and_hermes_receive_equivalent_graph_context(
             )
 
     monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", fake_context_lookup_turn)
-    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     live_body = client.post(
@@ -1166,7 +1166,7 @@ def test_hermes_graph_host_path_ignores_legacy_lookup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """PR354 Hermes path must not call dungeon_context_lookup."""
-    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
+    from apps.live_control_server.services import hermes_agent_runtime as hermes_agent_runtime_mod
     from apps.live_control_server.services import live_agent_loop
     from apps.live_control_server.services.hermes_graph_agent_contract import (
         HermesGraphAgentTurnResult,
@@ -1233,7 +1233,7 @@ def test_hermes_graph_host_path_ignores_legacy_lookup(
                 process_isolation="process_exclusive",
             )
 
-    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     response = client.post(
@@ -1266,7 +1266,7 @@ def test_hermes_graph_host_path_ignores_legacy_lookup(
             "anchor_id": "anchor:honest",
             "world_id": "eldyrwild",
             "campaign_id": "longmont-c2",
-            "focus": {"kind": "session", "session_id": "session-21"},
+            "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
             "admissibility": "gm",
             "revision_id": "rev:honest",
         }
@@ -1292,7 +1292,7 @@ def test_world_graph_unavailable_allows_corpus_path(
             "revision_id": None,
             "head_revision_id": None,
             "is_head": None,
-            "focus": {"kind": "session", "session_id": "session-21"},
+            "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
             "admissibility": "gm",
             "query_text": "Tripod?",
             "matched_node_ids": [],
@@ -1468,7 +1468,7 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Legacy CLI env is ignored; graph host owns Hermes after Phase 0 demolition."""
-    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
+    from apps.live_control_server.services import hermes_agent_runtime as hermes_agent_runtime_mod
     from apps.live_control_server.services import live_agent_loop
     from apps.live_control_server.services.hermes_graph_agent_contract import (
         HermesGraphAgentTurnResult,
@@ -1487,7 +1487,7 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
             "revision_id": "rev:cli",
             "head_revision_id": "rev:cli",
             "is_head": True,
-            "focus": {"kind": "session", "session_id": "session-21"},
+            "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
             "admissibility": "gm",
             "query_text": "Tripod",
             "matched_node_ids": ["threat:tripod-null-calf"],
@@ -1528,7 +1528,7 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
                 process_isolation="process_exclusive",
             )
 
-    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     response = client.post(
@@ -1556,7 +1556,7 @@ def test_hermes_history_accepts_valid_wire_shape(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
+    from apps.live_control_server.services import hermes_agent_runtime as hermes_agent_runtime_mod
     from apps.live_control_server.services import live_agent_loop
     from apps.live_control_server.services.hermes_graph_agent_contract import (
         HermesGraphAgentTurnResult,
@@ -1600,7 +1600,7 @@ def test_hermes_history_accepts_valid_wire_shape(
             "revision_id": "rev:route",
             "head_revision_id": "rev:route",
             "is_head": True,
-            "focus": {"kind": "session", "session_id": "session-21"},
+            "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
             "admissibility": "gm",
             "query_text": "follow-up",
             "matched_node_ids": [],
@@ -1617,7 +1617,7 @@ def test_hermes_history_accepts_valid_wire_shape(
             },
         },
     )
-    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     response = client.post(
