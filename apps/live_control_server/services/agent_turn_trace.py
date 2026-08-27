@@ -20,6 +20,7 @@ from src.agent.planner_pricing import usage_cost_usd
 SCHEMA = "dmb_agent_turn_trace_v1"
 LOGGER = logging.getLogger("dmb.agent.turn_trace")
 LOG_EVENT = "dmb_agent_turn_trace"
+MODEL_CALLS_TRUNCATED_WARNING = "model_calls_truncated"
 
 UsageStatus = Literal["reported", "partial", "unavailable"]
 CostStatus = Literal["estimated", "partial", "reported", "no_provider_fee", "unavailable"]
@@ -289,7 +290,12 @@ def map_hermes_observer_to_model_call(
     return call
 
 
-def aggregate_usage(model_calls: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def aggregate_usage(
+    model_calls: Sequence[Mapping[str, Any]],
+    *,
+    truncated: bool = False,
+    observed_model_call_count: int | None = None,
+) -> dict[str, Any]:
     call_count = len(model_calls)
     reported = [
         call
@@ -298,7 +304,7 @@ def aggregate_usage(model_calls: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         and call["usage"].get("status") == "reported"
     ]
     if call_count == 0:
-        return {
+        usage: dict[str, Any] = {
             "available": False,
             "status": "unavailable",
             "input_tokens": None,
@@ -307,8 +313,14 @@ def aggregate_usage(model_calls: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             "model_call_count": 0,
             "usage_reported_call_count": 0,
         }
+        return _with_observed_model_call_count(
+            usage,
+            truncated=truncated,
+            retained_count=0,
+            observed_model_call_count=observed_model_call_count,
+        )
     if not reported:
-        return {
+        usage = {
             "available": False,
             "status": "unavailable",
             "input_tokens": None,
@@ -317,13 +329,20 @@ def aggregate_usage(model_calls: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             "model_call_count": call_count,
             "usage_reported_call_count": 0,
         }
+        return _with_observed_model_call_count(
+            usage,
+            truncated=truncated,
+            retained_count=call_count,
+            observed_model_call_count=observed_model_call_count,
+        )
 
     def _sum(field: str) -> int:
         return sum(int(call["usage"].get(field) or 0) for call in reported)
 
-    usage: dict[str, Any] = {
+    complete = len(reported) == call_count and not truncated
+    usage = {
         "available": True,
-        "status": "reported" if len(reported) == call_count else "partial",
+        "status": "reported" if complete else "partial",
         "input_tokens": _sum("input_tokens"),
         "output_tokens": _sum("output_tokens"),
         "total_tokens": _sum("total_tokens"),
@@ -334,10 +353,19 @@ def aggregate_usage(model_calls: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "model_call_count": call_count,
         "usage_reported_call_count": len(reported),
     }
-    return usage
+    return _with_observed_model_call_count(
+        usage,
+        truncated=truncated,
+        retained_count=call_count,
+        observed_model_call_count=observed_model_call_count,
+    )
 
 
-def aggregate_cost(model_calls: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def aggregate_cost(
+    model_calls: Sequence[Mapping[str, Any]],
+    *,
+    truncated: bool = False,
+) -> dict[str, Any]:
     if not model_calls:
         return {
             "status": "unavailable",
@@ -361,7 +389,7 @@ def aggregate_cost(model_calls: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             "unpriced_call_count": unpriced,
         }
     total = sum(float(item["usd"]) for item in priced)
-    status: CostStatus = "estimated" if unpriced == 0 else "partial"
+    status: CostStatus = "estimated" if unpriced == 0 and not truncated else "partial"
     result: dict[str, Any] = {
         "status": status,
         "usd": total,
@@ -373,6 +401,24 @@ def aggregate_cost(model_calls: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     if isinstance(rates, Mapping):
         result["rates_per_1m_usd"] = dict(rates)
     return result
+
+
+def _with_observed_model_call_count(
+    usage: dict[str, Any],
+    *,
+    truncated: bool,
+    retained_count: int,
+    observed_model_call_count: int | None,
+) -> dict[str, Any]:
+    if observed_model_call_count is None:
+        return usage
+    observed = max(0, int(observed_model_call_count))
+    if truncated:
+        observed = max(observed, retained_count)
+    if observed <= retained_count:
+        return usage
+    usage["observed_model_call_count"] = observed
+    return usage
 
 
 def unambiguous_identity(model_calls: Sequence[Mapping[str, Any]]) -> tuple[str | None, str | None]:
@@ -540,6 +586,7 @@ class AgentTurnTraceBuilder:
         hermes_fields: Mapping[str, Any] | None = None,
         completed_at: str | None = None,
         elapsed_ms: int | None = None,
+        observed_model_call_count: int | None = None,
     ) -> dict[str, Any]:
         leftover_status: SpanStatus = "error" if status == "error" else "ok"
         for span_id in list(self._open_phases):
@@ -547,8 +594,13 @@ class AgentTurnTraceBuilder:
         calls = [dict(call) for call in (model_calls or [])]
         for warning in extra_warnings:
             self.add_warning(warning)
-        usage = aggregate_usage(calls)
-        cost = aggregate_cost(calls)
+        truncated = MODEL_CALLS_TRUNCATED_WARNING in self.warnings
+        usage = aggregate_usage(
+            calls,
+            truncated=truncated,
+            observed_model_call_count=observed_model_call_count,
+        )
+        cost = aggregate_cost(calls, truncated=truncated)
         provider, model = unambiguous_identity(calls)
         finished = completed_at or utc_now_z()
         measured = self.elapsed_ms() if elapsed_ms is None else max(0, int(elapsed_ms))

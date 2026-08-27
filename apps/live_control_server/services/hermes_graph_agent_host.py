@@ -529,6 +529,8 @@ class HermesGraphAgentHost:
                 return _host_error_result(
                     error_code="hermes_worker_protocol_error",
                     error_message="Hermes worker result payload was malformed.",
+                    model_calls=streamed_calls,
+                    telemetry_warnings=streamed_warnings,
                 )
             try:
                 return deserialize_hermes_graph_agent_turn_result(payload)
@@ -540,6 +542,8 @@ class HermesGraphAgentHost:
                 return _host_error_result(
                     error_code="hermes_worker_protocol_error",
                     error_message="Hermes worker result could not be deserialized.",
+                    model_calls=streamed_calls,
+                    telemetry_warnings=streamed_warnings,
                 )
 
         return _host_error_result(

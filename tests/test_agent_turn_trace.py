@@ -335,3 +335,62 @@ def test_baseline_log_privacy_excludes_sentinel(caplog) -> None:
     assert "agent-trace-secret" in blob
     assert PRIVACY_SENTINEL not in blob
     assert "request" not in json.loads(trace_json_bytes(trace)).get("model_calls", [{}])[0]
+
+
+def test_truncated_complete_calls_mark_usage_and_cost_partial() -> None:
+    first = map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="api-req-1", usage=_hermes_usage(uncached=80, output=10)),
+        status="ok",
+        sequence=1,
+    )
+    second = map_hermes_observer_to_model_call(
+        _observer_payload(
+            api_request_id="api-req-2",
+            usage=_hermes_usage(uncached=40, output=5),
+            extra={"api_call_count": 2},
+        ),
+        status="ok",
+        sequence=2,
+    )
+    usage = aggregate_usage(
+        [first, second],
+        truncated=True,
+        observed_model_call_count=65,
+    )
+    cost = aggregate_cost([first, second], truncated=True)
+    assert usage["status"] == "partial"
+    assert usage["available"] is True
+    assert usage["input_tokens"] == 120
+    assert usage["output_tokens"] == 15
+    assert usage["model_call_count"] == 2
+    assert usage["observed_model_call_count"] == 65
+    assert cost["status"] == "partial"
+    assert cost["usd"] == first["cost"]["usd"] + second["cost"]["usd"]
+    assert cost["priced_call_count"] == 2
+    assert cost["unpriced_call_count"] == 0
+
+    complete_usage = aggregate_usage([first, second])
+    complete_cost = aggregate_cost([first, second])
+    assert complete_usage["status"] == "reported"
+    assert complete_cost["status"] == "estimated"
+    assert "observed_model_call_count" not in complete_usage
+
+    builder = AgentTurnTraceBuilder(
+        agent_thread_id="agent-thread-truncated",
+        turn_id="agent-turn-truncated",
+        runtime="process_isolated",
+        backend="hermes",
+        mode="hermes_graph_agent",
+        trace_id="agent-trace-truncated",
+    )
+    trace = builder.finalize(
+        status="ok",
+        model_calls=[first, second],
+        extra_warnings=["model_calls_truncated"],
+        observed_model_call_count=65,
+    )
+    assert "model_calls_truncated" in trace["warnings"]
+    assert trace["usage"]["status"] == "partial"
+    assert trace["cost"]["status"] == "partial"
+    assert trace["usage"]["observed_model_call_count"] == 65
+    assert trace["usage"]["model_call_count"] == 2

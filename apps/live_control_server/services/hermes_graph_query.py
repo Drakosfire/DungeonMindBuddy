@@ -994,6 +994,7 @@ def _agent_trace(
         status=status,
         model_calls=list(result.model_calls),
         extra_warnings=extra_warnings,
+        observed_model_call_count=result.observed_model_call_count,
         hermes_fields={
             "hermes_session_id": result.hermes_session_id or None,
             "process_isolation": result.process_isolation,

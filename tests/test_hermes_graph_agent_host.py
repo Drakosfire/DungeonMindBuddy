@@ -330,6 +330,96 @@ def _too_many_model_calls_ok_worker(request_queue: Any, response_queue: Any) -> 
         )
 
 
+def _telemetry_then_malformed_payload_worker(request_queue: Any, response_queue: Any) -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        _put_json(
+            response_queue,
+            {
+                "type": "telemetry",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": {
+                    "modelCalls": [_streamed_model_call(request_id="api-req-before-malformed")]
+                },
+            },
+        )
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": "not-a-mapping",
+            },
+        )
+
+
+def _telemetry_then_undeserializable_result_worker(
+    request_queue: Any, response_queue: Any
+) -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        _put_json(
+            response_queue,
+            {
+                "type": "telemetry",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": {
+                    "modelCalls": [
+                        _streamed_model_call(request_id="api-req-before-bad-result")
+                    ]
+                },
+            },
+        )
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": {"status": "maybe"},
+            },
+        )
+
+
 def _crash_after_accept_worker(request_queue: Any, response_queue: Any) -> None:
     from apps.live_control_server.services.hermes_graph_agent_contract import (
         decode_json_wire,
@@ -1301,6 +1391,44 @@ def test_oversized_model_calls_do_not_fail_successful_turn() -> None:
         assert result.final_response == "still answered"
         assert len(result.model_calls) == MAX_MODEL_CALLS
         assert "model_calls_truncated" in result.telemetry_warnings
+        assert result.observed_model_call_count == MAX_MODEL_CALLS + 1
+    finally:
+        host.shutdown()
+
+
+def test_malformed_terminal_result_keeps_completed_model_observation() -> None:
+    host = HermesGraphAgentHost(
+        worker_target=_telemetry_then_malformed_payload_worker,
+        accept_timeout_s=2.0,
+        turn_timeout_s=2.0,
+    )
+    try:
+        result = host.execute(_request(question="malformed-terminal"))
+        assert result.status == "error"
+        assert result.error_code == "hermes_worker_protocol_error"
+        assert result.error_message == "Hermes worker result payload was malformed."
+        assert [call["runtime_api_request_id"] for call in result.model_calls] == [
+            "api-req-before-malformed"
+        ]
+        assert result.model_calls[0]["usage"]["input_tokens"] == 40
+    finally:
+        host.shutdown()
+
+
+def test_undeserializable_terminal_result_keeps_completed_model_observation() -> None:
+    host = HermesGraphAgentHost(
+        worker_target=_telemetry_then_undeserializable_result_worker,
+        accept_timeout_s=2.0,
+        turn_timeout_s=2.0,
+    )
+    try:
+        result = host.execute(_request(question="bad-terminal"))
+        assert result.status == "error"
+        assert result.error_code == "hermes_worker_protocol_error"
+        assert result.error_message == "Hermes worker result could not be deserialized."
+        assert [call["runtime_api_request_id"] for call in result.model_calls] == [
+            "api-req-before-bad-result"
+        ]
     finally:
         host.shutdown()
 
@@ -1906,3 +2034,5 @@ def test_oversized_model_calls_truncated_fail_open() -> None:
     assert restored.final_response == "ok"
     assert len(restored.model_calls) == MAX_MODEL_CALLS
     assert "model_calls_truncated" in restored.telemetry_warnings
+    assert wire["observedModelCallCount"] == MAX_MODEL_CALLS + 1
+    assert restored.observed_model_call_count == MAX_MODEL_CALLS + 1

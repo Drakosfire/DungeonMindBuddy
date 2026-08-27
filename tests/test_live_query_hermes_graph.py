@@ -145,6 +145,7 @@ def _ok_result(
     hermes_session_id: str = "hermes-sess-obs-only",
     model_calls: list[dict[str, Any]] | None = None,
     telemetry_warnings: list[str] | None = None,
+    observed_model_call_count: int | None = None,
 ) -> HermesGraphAgentTurnResult:
     tool_events = (
         [_tool_event(source_anchor_ids=["anchor:a1"])]
@@ -163,6 +164,7 @@ def _ok_result(
         answer_scope=answer_scope,  # type: ignore[arg-type]
         model_calls=list(model_calls or []),
         telemetry_warnings=list(telemetry_warnings or []),
+        observed_model_call_count=observed_model_call_count,
     )
 
 
@@ -2579,6 +2581,38 @@ def test_product_trace_aggregates_model_calls_and_keeps_tool_events(
     blob = " ".join(record.getMessage() for record in caplog.records)
     assert trace["trace_id"] in blob
     assert PRIVACY_SENTINEL not in blob
+
+
+def test_truncated_model_calls_mark_product_usage_and_cost_partial(
+    tmp_path: Path,
+) -> None:
+    first = _priced_model_call(request_id="api-req-1", sequence=1, uncached=80, output=10)
+    second = _priced_model_call(request_id="api-req-2", sequence=2, uncached=40, output=5)
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=READY_ENVELOPE,
+        agent_thread_id="agent-thread-truncated",
+        turn_id="agent-turn-truncated",
+        root=tmp_path,
+        host_factory=lambda: _FakeHost(  # type: ignore[arg-type, return-value]
+            _ok_result(
+                model_calls=[first, second],
+                telemetry_warnings=["model_calls_truncated"],
+                observed_model_call_count=65,
+            )
+        ),
+    )
+    trace = response["agent_trace"]
+    assert "model_calls_truncated" in trace["warnings"]
+    assert trace["usage"]["status"] == "partial"
+    assert trace["cost"]["status"] == "partial"
+    assert trace["usage"]["model_call_count"] == 2
+    assert trace["usage"]["observed_model_call_count"] == 65
+    assert trace["usage"]["input_tokens"] == 120
+    assert trace["cost"]["usd"] == first["cost"]["usd"] + second["cost"]["usd"]
+    assert trace["cost"]["priced_call_count"] == 2
+    assert len(trace["model_calls"]) == 2
 
 
 def test_trace_clock_includes_response_projection(tmp_path: Path, monkeypatch) -> None:

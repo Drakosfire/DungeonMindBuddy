@@ -103,6 +103,7 @@ _RESULT_ALLOWED_KEYS = frozenset(
         "answerScope",
         "modelCalls",
         "telemetryWarnings",
+        "observedModelCallCount",
     }
 )
 _MODEL_CALL_ALLOWED_KEYS = frozenset(
@@ -231,6 +232,7 @@ class HermesGraphAgentTurnResult:
     answer_scope: HermesAnswerScope | None = None
     model_calls: list[dict[str, Any]] = field(default_factory=list)
     telemetry_warnings: list[str] = field(default_factory=list)
+    observed_model_call_count: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -865,6 +867,19 @@ def _serialize_bounded_number_map(
     return bounded
 
 
+def _optional_nonneg_int(value: Any, *, label: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{label} must be an integer")
+    number = int(value)
+    if number != value:
+        raise ValueError(f"{label} must be an integer")
+    if number < 0:
+        raise ValueError(f"{label} must be >= 0")
+    return number
+
+
 def _bounded_telemetry_warnings(warnings: Sequence[Any]) -> list[str]:
     clipped: list[str] = []
     for item in warnings:
@@ -986,6 +1001,11 @@ def serialize_hermes_graph_agent_turn_result(
         raise ValueError(f"toolEvents exceeds max {MAX_TOOL_EVENTS}")
     telemetry_warnings = _bounded_telemetry_warnings(result.telemetry_warnings)
     model_calls = list(result.model_calls)
+    observed_model_call_count = len(model_calls)
+    if result.observed_model_call_count is not None:
+        observed_model_call_count = max(
+            observed_model_call_count, int(result.observed_model_call_count)
+        )
     if len(model_calls) > MAX_MODEL_CALLS:
         model_calls = model_calls[:MAX_MODEL_CALLS]
         telemetry_warnings = _bounded_telemetry_warnings(
@@ -1002,7 +1022,7 @@ def serialize_hermes_graph_agent_turn_result(
         if not isinstance(result.retrieval_session, Mapping):
             raise ValueError("retrievalSession must be a mapping or null")
         retrieval_session = dict(result.retrieval_session)
-    return {
+    payload = {
         "status": result.status,
         "finalResponse": final_response,
         # Host IPC omits Hermes transcript; keep the key for schema stability.
@@ -1026,6 +1046,9 @@ def serialize_hermes_graph_agent_turn_result(
         "modelCalls": [_serialize_model_call(call) for call in model_calls],
         "telemetryWarnings": telemetry_warnings,
     }
+    if observed_model_call_count > len(model_calls):
+        payload["observedModelCallCount"] = observed_model_call_count
+    return payload
 
 
 def _deserialize_tool_event(item: Mapping[str, Any]) -> HermesGraphToolEvent:
@@ -1156,16 +1179,27 @@ def deserialize_hermes_graph_agent_turn_result(
     if not isinstance(warnings_raw, list):
         raise ValueError("telemetryWarnings must be a list")
     telemetry_warnings = _bounded_telemetry_warnings(warnings_raw)
-    if len(model_calls_raw) > MAX_MODEL_CALLS:
+    observed_model_call_count = _optional_nonneg_int(
+        payload.get("observedModelCallCount"),
+        label="observedModelCallCount",
+    )
+    raw_model_call_count = len(model_calls_raw)
+    if raw_model_call_count > MAX_MODEL_CALLS:
         model_calls_raw = model_calls_raw[:MAX_MODEL_CALLS]
         telemetry_warnings = _bounded_telemetry_warnings(
             ["model_calls_truncated", *telemetry_warnings]
         )
+        if observed_model_call_count is None:
+            observed_model_call_count = raw_model_call_count
+        else:
+            observed_model_call_count = max(observed_model_call_count, raw_model_call_count)
     model_calls = [
         _serialize_model_call(item) for item in model_calls_raw if isinstance(item, Mapping)
     ]
     if len(model_calls) != len(model_calls_raw):
         raise ValueError("modelCalls entries must be mappings")
+    if observed_model_call_count is not None:
+        observed_model_call_count = max(observed_model_call_count, len(model_calls))
     return HermesGraphAgentTurnResult(
         status=status,  # type: ignore[arg-type]
         final_response=final_response,
@@ -1188,6 +1222,7 @@ def deserialize_hermes_graph_agent_turn_result(
         answer_scope=answer_scope_raw,  # type: ignore[arg-type]
         model_calls=model_calls,
         telemetry_warnings=telemetry_warnings,
+        observed_model_call_count=observed_model_call_count,
     )
 
 
