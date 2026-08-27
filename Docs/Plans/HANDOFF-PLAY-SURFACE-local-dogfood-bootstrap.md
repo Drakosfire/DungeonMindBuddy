@@ -1688,3 +1688,74 @@ APP-STATE schema change
 new backend persistence model
 BF3B / Combat / Agent / CUTOVER
 ```
+
+## Review amendments — Cycle 2
+
+Reviewed against head `a9dccd57baca51f01da26ef33fcd5dc6228f10ca` as GitHub review `5046232550`.
+
+Do not treat this section as a rewrite of the original dispatch or the Cycle 1
+product-path correction. Cycle 1 remains the blank-Runbook contract. These
+amendments make that create path retry-safe after the first WorkObject exists,
+and require the real zero-content browser witness on the PR.
+
+### Retry-safe Create blank Runbook
+
+After `POST /workspace-documents` returns an ID, retain
+
+```text
+{documentId, beatId, markdown, expectedRevision, campaignId}
+```
+
+and retry/reconcile that exact document. Do not POST a replacement WorkObject
+because a later prepare, commit, or list-refresh step failed or lost its
+response.
+
+Contract:
+
+```text
+create WorkObject once
+→ retain exact document + starter bytes
+→ retry prepare/commit against that document
+→ if commit response is uncertain, GET the exact document and
+  accept matching committed bytes as success
+→ once commit succeeds, that is success
+→ list refresh is reconciliation, not part of the create transaction
+```
+
+A list-refresh failure must not present create failure or invite a duplicate
+POST. The committed record is shown and selected locally so Start exact Run
+remains available.
+
+The pre-existing generic case where the initial create POST itself succeeds
+but its response is lost is out of scope. This blocker starts once the client
+has received the first document ID.
+
+### Cycle 3 operator witness
+
+The Cycle 1 amendment's zero-content path remains mandatory and must be
+recorded on the PR for the reviewed head, not only as local HTTP tests:
+
+```text
+bootstrap apply
+→ /play
+→ no Runbooks
+→ Create blank Runbook
+→ committed Runbook appears
+→ Start exact Run
+→ native READY
+→ current Beat = Untitled Beat
+→ current Scene = null
+→ BF3A Beat-only Current Moment
+→ reload/resume
+```
+
+### Additional tests on the Cycle 1 lease
+
+Focused failure tests live in the already-leased Play files:
+
+- prepare failure then retry of the same WorkObject
+- lost/uncertain commit reconciliation of the exact document
+- commit success with failed Runbook list refresh
+
+No new backend persistence model. No bootstrap fake content. No auto-start.
+
