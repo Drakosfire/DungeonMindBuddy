@@ -1,427 +1,783 @@
 ---
 pr_body_template: |
+
   ## Handoff pointer
-  - Workstream: CUTOVER / D.2C3 — native genesis read/write continuity
-  - Flow: CUTOVER
-  - Direction: CODE → REVIEW
-  - Handoff: `Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md`
-  - Frozen design authority: `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` §4
-  - Exact implementation/dispatch base: `d96a21363fd0decbcb8c4390f951a6316b53060c`
-  - Exact #647 design base: `f1fd3f6aa4270de2af44a4e249f127332622b785`
-  - Design PR #647 merge: `d96a21363fd0decbcb8c4390f951a6316b53060c`
-  - Current Buddy `main`: `555a9c7965aca47a24536277b9b36ae569a7285a`
-  - Accepted design head: `1f5676c204ee917d18efd553106c07306541e820`
-  - Design review: Cycle 7 PASS-equivalent `5034239255`
-  - D.2C2 implementation #645 merge: `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`
-  - DungeonMind provider pin: `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`
 
-  ## Mission
-  Generalize Buddy's DungeonMind-native authority binder across both legal genesis families so a D.2C2-reviewed first-world `D_0` can immediately use the same mounted projection, retrieval, mutation-context, and governed existing-parent write paths as an adopted existing world, without weakening the Eldyrwild Buddy-A → D_A bridge.
+  * Workstream: CUTOVER / D.2C3 — native genesis read/write continuity
+  * Flow: CUTOVER
+  * Direction: CODE → REVIEW
+  * Existing PR: #651
+  * Branch: `cutover/native-genesis-read-write-continuity`
+  * Handoff: `Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md`
+  * Frozen design authority: `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` §4
 
-  ## Merge contract
-  - one shared `DirectAuthorityBinding` supports existing-world adoption and reviewed first-world initialization
-  - first-world bindings have `legacy_buddy_revision_id=None`; no fake Buddy revision is invented
-  - `D_0` and later DungeonMind revision pins pass through unchanged
-  - adopted Buddy-A still rewrites exactly to adopted D_A
-  - `D_0` is a legal parent for existing-parent governed publication
-  - both genesis receipts, receipt-without-head, and head-without-genesis fail as integrity
-  - no new DungeonMind provider contract, first-world-only read factory, Buddy fallback, D.2C4 authoring work, or D.3 demolition work
-  - one real-PostgreSQL witness proves first-world D_0 → native read/retrieval → WorldGraphAuthority → one legal D_1 → native read, plus adopted-world regression
-  - predecessor/state authorities are synchronized backward-looking; D.2C4 and D.3 remain false
+  ## Re-anchor
+
+  * Review state entering this dispatch: Cycle 3 PARK ON PREDECESSOR
+  * Cycle 3 reviewed head: `cf453078a5c1950ec5f23a5d5b99001ee9e456db`
+  * Parking head: `3a60610dc78b710aa0aea6af817da00b0bfb563e`
+  * Predecessor now merged: Buddy #658
+  * #658 accepted head: `20499e443d43a5064b6c23b12e9abb331f2f7aa8`
+  * #658 merge / dispatch base: `d94822f7681da440fdeea981662383980bfbcaf9`
+  * DungeonMind compatibility pin: `5ca5d688612349034f8ca490d465af166d883e6e`
+  * Next distinct implementation head submitted for review: Review Cycle 4
+
+  ## Verification pointer
+
+  * Cumulative diff is reviewed against `d94822f7681da440fdeea981662383980bfbcaf9`
+  * Required real-PostgreSQL witness: corrected first-world D_0 → admitted native projection/retrieval → WorldGraphAuthority → exactly one D_1 → native read → exact retry
+  * Existing-world Buddy-A → D_A remains a mandatory regression
+  * Verification: §7
+
+  The checked-in handoff, cumulative diff, nano-commit story, and exact verification
+  output are the review contract. The PR description is transport metadata.
 ---
 
-# HANDOFF — CUTOVER D.2C3 CODE: native genesis read/write continuity
+# HANDOFF — CUTOVER D.2C3 RESUME: native genesis read/write continuity
 
-**Created:** 2026-08-26  
-**Status:** PARKED ON PREDECESSOR — DOING / Buddy #651; merge blocked until D.2C2 first-world provenance compatibility lands. Frozen §7/§9 still require admitted `D_0` projection/search/exact-object retrieval.  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md`  
-**Conversation/workstream:** `DungeonBuddy / Campaign Supergraph CUTOVER`  
-**Flow / owner:** `CUTOVER`  
-**Direction:** CODE → REVIEW  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Branch:** `cutover/native-genesis-read-write-continuity`  
-**Base revision:** `d96a21363fd0decbcb8c4390f951a6316b53060c` (#647 merge / original dispatch)  
-**#647 exact design base:** `f1fd3f6aa4270de2af44a4e249f127332622b785`  
-**Current Buddy `main`:** `555a9c7965aca47a24536277b9b36ae569a7285a` (PLAY-SURFACE cockpit re-anchor; merged into this repaired head)  
-**PR title:** `CUTOVER: native genesis read/write continuity`  
-**Frozen design authority:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` §4  
-**Design PR #647 merge:** `d96a21363fd0decbcb8c4390f951a6316b53060c`  
-**Accepted design head:** `1f5676c204ee917d18efd553106c07306541e820`  
-**Design review:** Cycle 7 PASS-equivalent `5034239255`  
-**D.2C2 implementation:** Buddy #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`; accepted head `f772db17e00cbe2c0198ae53f169a10a6332a3ed`; Cycle 2 PASS-equivalent `5026532158`  
-**DungeonMind provider pin:** `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`  
-**Named successor:** D.2C4 manual Graph Review authoring continuity  
+- **Created:** 2026-08-27
+- **Status:** ACTIVE — RESUME #651 after merged provenance predecessor
+- **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md`
+- **Repository:** `Drakosfire/DungeonMindBuddy`
+- **Flow / owner:** `CUTOVER`
+- **Direction:** CODE → REVIEW
+- **Existing PR:** #651 — `CUTOVER: native genesis read/write continuity`
+- **Branch:** `cutover/native-genesis-read-write-continuity`
+- **Exact re-anchor base:** `d94822f7681da440fdeea981662383980bfbcaf9`
+- **Named successor:** D.2C4 — manual Graph Review authoring continuity
 
-> This is the parseable implementation dispatch wrapper authorized by merged #647. The merged design is semantic authority. If CODE discovers a conflict with that design, a new DungeonMind provider need, or a second capability, stop and re-brief rather than choosing locally.
+> This is a resume of the existing D.2C3 capability, not a new capability and not a redesign.
+>
+> Review Cycles 1–3 remain part of the finding ledger. Cycle 3 parked this PR because native projection of the first-world `D_0` could not truthfully admit its graph facts without rewriting DungeonMind evidence in Buddy. That rewrite was correctly rejected.
+>
+> The predecessor is now resolved by the merged provenance work: DungeonMind #47 provides the narrow historical compatibility contract, and Buddy #658 corrects the future first-world producer while preserving historical evidence identity.
+>
+> Do not weaken the original §7/§9 acceptance criteria. The point of this resume is to make the previously failing owning witness pass through the real corrected producer.
+
+## §0 Resume gate and prior finding ledger
+
+Before editing:
+
+1. fetch `origin/main`;
+2. confirm `d94822f7681da440fdeea981662383980bfbcaf9` is an ancestor of current `main`;
+3. confirm Buddy #658 is merged;
+4. confirm the DungeonMind dependency resolves to `5ca5d688612349034f8ca490d465af166d883e6e`;
+5. inspect current open PRs for collisions with §4;
+6. re-anchor the #651 branch onto the exact current CUTOVER base before making Cycle-4 fixes;
+7. preserve the existing nano-commit history rather than rebuilding the capability from scratch.
+
+If current `main` has advanced beyond `d94822f7…`, recheck the intervening commits for §4 collisions. A disjoint main advance is not a redesign trigger; an overlapping semantic change is.
+
+### Finding ledger entering Cycle 4
+
+| Prior finding | Status entering this dispatch | Required Cycle-4 treatment |
+| --- | --- | --- |
+| Adoption-only binder cannot represent reviewed-init `D_0` | Closed in #651 implementation | Preserve generalized two-genesis binding. |
+| First-world binding invented/required a legacy Buddy revision | Closed | `legacy_buddy_revision_id=None` remains mandatory. |
+| Provider integrity could be mislabeled unavailable | Closed | Preserve integrity/unavailable distinction. |
+| Non-transactional receipt/head observation could report false contradiction | Closed | Preserve bounded reread/stabilization behavior. |
+| Buddy rewrote DungeonMind `graph_payload.evidence_refs` before projection | Closed by removal; must stay closed | No read-side normalization or evidence mutation may return. |
+| Fresh #645-shaped `D_0` facts were not admitted because producer stored `source_domain="other"` | **Predecessor resolved by #658 + DungeonMind #47** | Re-run through the real corrected first-world producer and prove the facts are now admitted. |
+| #651 could not merge while provenance predecessor was unresolved | **Resolved** | Re-anchor and submit one distinct final implementation head as Review Cycle 4. |
+
+Do not reopen closed findings merely to make the branch look newer. Do retest their owning invariants.
 
 ## §1 Mission and merge-ready invariant
 
-**Mission:** A world created through D.2C2 reviewed first-world initialization can immediately use DungeonBuddy's normal DungeonMind-native read and governed-write paths, while existing adopted worlds retain their exact legacy revision bridge.
+**Mission:** A world created through reviewed first-world initialization can immediately enter the same DungeonMind-native read, retrieval, mutation-context, publication, and retry lifecycle as an adopted existing world.
 
-**Merge-ready invariant:** **The one shared DungeonMind `DirectAuthorityBinding` recognizes exactly two reciprocal-exclusive genesis authorities—existing-world adoption and reviewed first-world initialization—and every mounted native projection, retrieval, mutation-context, and existing-parent publication derives revision truth from that binding. Reviewed-init worlds use real DungeonMind `D_0`/descendant IDs with no fake Buddy revision; adopted worlds preserve the exact Buddy-A → D_A compatibility rewrite. Contradictory or unrecognized genesis state fails closed as integrity.**
+**Merge-ready invariant:** **One shared `DirectAuthorityBinding` recognizes exactly the two legal genesis authorities—existing-world adoption and reviewed first-world initialization—and every mounted native read or governed existing-parent write derives revision truth from that binding. A reviewed-init world starts at its real DungeonMind `D_0`, has no fabricated Buddy revision, admits the source-backed facts produced by the corrected first-world path, can publish exactly one legal `D_1`, and can read/recover that child normally; an adopted world preserves its exact Buddy-A → D_A compatibility bridge; contradictory genesis state fails closed; no Buddy graph fallback or read-side evidence rewriting exists.**
 
 ### Pre-dispatch critique
 
 | Question | Answer |
-|---|---|
-| Can one invariant govern every claimed observable path? | Yes. Every changed path consumes the same genesis binding and revision algebra. |
-| Most likely adversarial sequence | D.2C2 creates D_0 → binder still asks for adoption receipt → reads/writes fail, or a repair invents a fake legacy revision and accidentally rewrites a real D_0 pin. |
-| Will §7 detect that failure? | Yes. The owning PostgreSQL witness starts with real D.2C2 creation, immediately exercises mounted native reads and `WorldGraphAuthority`, then publishes/reads a child and separately reruns adopted A→D_A behavior. |
-| Easiest owning boundary to under-test | Shared write path: direct reads may pass while `_classify_parent_revision()` still rejects or misclassifies D_0. The witness must publish a real child through an already-landed authority path. |
-| Fact that forces stop/split | Any required DungeonMind provider/repository contract change; any supported genesis family beyond the two frozen families; any need to migrate Graph Review manual authoring or remove legacy engine routes in this slice. |
+| --- | --- |
+| Can one invariant govern every observable path? | Yes. Projection, retrieval, authority reads, parent classification, child publication, and retry all depend on the same genesis/revision binding. |
+| Most likely adversarial failure now | Rebase resolves the #658 overlap incorrectly: the binder works but the corrected reviewed-init repository is not supplied to native projection, or the old Cycle-3 expectation that D₀ facts are rejected survives in the witness. |
+| Will §7 detect it? | Yes. The real-PG witness must create the world through the actual first-world prepare/confirm path, inspect stored provenance, then perform projection, search, exact-object retrieval, authority publication, child read, and retry. |
+| Easiest boundary to under-test | Native projection/retrieval. `read_revision()` can see raw graph objects even when admissibility rejects them. The witness must prove admitted projection/search/exact-object behavior, not merely repository presence. |
+| Split/stop trigger | Any required new DungeonMind API/schema/UoW; any need to alter #658's producer contract; any Graph Review authoring work; any legacy-engine demolition. |
 
-## §2 Context, authority, and lane
+## §2 Authority and predecessor ledger
 
-| Field | Required content |
-|---|---|
-| Parent authority | Merged #647, `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` §4 |
-| Base revision | `d96a21363fd0decbcb8c4390f951a6316b53060c` |
-| Predecessor contract | D.2C2 #645 reviewed first-world initialization; DungeonMind reviewed-init provider #46 |
-| Exact input consumed | `bundle.existing_world_adoptions.get_for_world`, `bundle.reviewed_world_initializations.get_for_world`, `bundle.world_graph.get_head/get_revision`, existing projection/retrieval requests, existing `WorldGraphAuthority` requests |
-| Named successor | D.2C4 manual-authoring continuity |
-| What remains false | Manual Graph Review authoring still targets legacy overlay/file semantics; mounted legacy graph-engine imports/routes still exist; D.3A/D.3B are not begun. |
-| Explicit non-goals | No D.2C4, D.3A/D.3B, authority-mode parser rehome, import blocker, buddy_files removal, UI changes, APP-STATE, provider changes. |
-| Branch / isolated checkout | `cutover/native-genesis-read-write-continuity` from exact base above; isolated checkout/worktree required. |
-| Parallel lanes / collision hotspots | APP-STATE #650 is MERGED at `cc016661f80416e0816f56349217cf33c53a195f`. PLAY-SURFACE current `main` is `555a9c7965aca47a24536277b9b36ae569a7285a` (cockpit re-anchor; disjoint). Open PLAY-SURFACE #652 does not overlap this lease. This repaired head merged that `main`. CUTOVER state-authority docs remain this lane's hotspot. |
-| Runtime/state ownership | Real PostgreSQL authority witness must use an isolated test DB/schema/world IDs; do not share mutable world IDs with another worker. No Buddy world-file mutation is required by the native witness. |
-| State-authority sync set after merge | `Docs/Plans/STEWARDS-ANCHOR-cutover.md`; `Docs/Plans/PR-TRACKER-campaign-supergraph.md`; `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`; ACTIVE_AUTHORITY tracker/roadmap mirrors; `Docs/Design/STATUS-world-graph-continuity-spine.md` if stale; merged #647 design handoff status/facts. |
+### Frozen design authority
 
-Before code, re-read `AGENTS.md`, merged #647 §4, current `world_graph_reads.py`, `world_graph_writes.py`, `world_graph_authority_adapter.py`, and the owning first-world/direct-read/authority tests. Re-check current `main` and active PR write leases. If #650 or another lane has acquired any §4 path or the base has materially changed the binder contract, stop/serialize/rebase before editing.
+`Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` §4 remains semantic authority for D.2C3.
 
-## §3 Observable paths and adversarial sequences
+Do not redesign its two-genesis model.
 
-| Path | Current behavior | Required behavior | Same §1 invariant? | Owning boundary |
-|---|---|---|---:|---|
-| D.2C2 first-world D_0 → native projection | Binder requires existing-world adoption receipt, so reviewed-init-only world cannot bind. | Verified reviewed-init receipt + head creates first-world binding and projection reads D_0. | Yes | direct read service + real PG |
-| D.2C2 first-world D_0 → native retrieval | Same adoption-only binder failure. | Search and exact-object retrieval operate on D_0 using normal retrieval service. | Yes | direct retrieval service + real PG |
-| `WorldGraphAuthority.current_head/read_revision/mutation_context` on D_0 world | Shared write service inherits adoption-only binder. | Same shared binding exposes D_0/head and builds mutation context. | Yes | authority adapter + real PG |
-| Governed child publish with parent D_0 | Parent classifier receives binding whose legacy ID is currently mandatory. | D_0 is a real DungeonMind parent; existing-parent publication creates one D_1. | Yes | governed write publication + real PG |
-| Exact retry/recover child | Existing D.2A/D.2B algebra exists but has never been proved from D_0 genesis. | Same operation recovers the same child; no duplicate head/revision. | Yes | authority adapter + repository |
-| Adopted Buddy-A revision pin | Existing path rewrites Buddy-A to adopted D_A. | Exactly unchanged. | Yes | direct read binder/pin algebra |
-| Both genesis receipts | No valid supported state. | `authority_integrity`; no fallback or arbitrary preference. | Yes | binder unit/adapter |
-| Recognized receipt without head | Contradictory state. | `authority_integrity`, not availability/missing. | Yes | binder unit/adapter |
-| Head with neither receipt | Existing binder reports adoption receipt missing. | Integrity: published authority exists without recognized genesis. | Yes | binder unit/adapter |
-| No head and neither receipt | Uninitialized/not-adopted. | Preserve ordinary not-initialized/not-adopted fail-closed behavior; do not mislabel as a valid initialized world. | Yes | binder unit/adapter |
+### Existing D.2C3 review authority
 
-Adversarial sequences:
+* PR #651
+* Cycle 1: REQUEST-CHANGES-equivalent
+* Cycle 2: REQUEST-CHANGES-equivalent
+* Cycle 3 reviewed head: `cf453078a5c1950ec5f23a5d5b99001ee9e456db`
+* Cycle 3 disposition: PARK ON PREDECESSOR
+* parking head: `3a60610dc78b710aa0aea6af817da00b0bfb563e`
+* next distinct implementation head submitted for review is Cycle 4
 
-| Sequence | Required safe outcome | Owning §7 proof |
-|---|---|---|
-| reviewed-init receipt → D_0 → no adoption receipt → projection | Projection succeeds from reviewed-init binding; no Buddy fallback. | PG witness A |
-| D_0 binding → request revision pin `D_0` | Pin passes through unchanged; no A→D_A rewrite. | pin unit + PG witness |
-| adopted receipt A→D_A → request pin A | Still rewrites exactly to D_A. | adopted regression |
-| reviewed-init D_0 → mutation context → publish child → retry | One D_1, parent D_0, same retry/recovery result. | PG witness A |
-| both receipts exist | Binder refuses as integrity before read/write service is trusted. | fail-closed unit/integration |
-| head exists, receipt rows absent/corrupt | Binder refuses as integrity; never invents third genesis. | fail-closed unit/integration |
+### Resolved predecessor
 
-## §4 Files in scope — write lease
+Buddy #658 — first-world provenance producer correction:
 
-| Action | Path | Purpose |
-|---|---|---|
-| Modify | `apps/live_control_server/integrations/dungeonmind/world_graph_reads.py` | Generalize receipt-backed binder, optional legacy revision, genesis discriminator, and pin/integrity algebra. Do not rewrite DungeonMind graph-payload evidence. |
-| Modify | `apps/live_control_server/integrations/dungeonmind/world_graph_writes.py` | Make parent/write classification consume optional legacy bridge without changing publication semantics. |
-| Modify if required | `apps/live_control_server/integrations/dungeonmind/world_graph_authority_adapter.py` | Consume shared generalized binding only; no new authority family. |
-| Modify if required | `apps/live_control_server/integrations/dungeonmind/world_graph_initialization_adapter.py` | Share verified reviewed-init receipt error mapping only if needed; do not alter first-world initialization semantics. |
-| Modify | `tests/test_cutover_dungeonmind_first_world_initialization.py` | Extend owning first-world evidence through native continuity where appropriate. |
-| Modify | `tests/test_cutover_direct_dungeonmind_world_graph_reads.py` | Two-genesis binder/pin/integrity regression coverage. |
-| Modify | `tests/test_cutover_dungeonmind_world_graph_authority.py` | D_0 parent/current-head/read/mutation/retry authority proof. |
-| Create if clearer | `tests/test_cutover_native_genesis_continuity.py` | One focused real-PG two-genesis witness instead of overloading existing suites. |
-| Modify regression only if needed | `tests/test_cutover_threat_authority_port_integration.py` | D.2A child-publication regression from generalized binder. |
-| Modify regression only if needed | `tests/test_cutover_worldbuilding_authority_port_integration.py` | D.2B regression; no semantic changes. |
-| Modify | `Docs/Plans/STEWARDS-ANCHOR-cutover.md` | Backward-looking predecessor/design state sync. |
-| Modify | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` | Record #645/#647 completed truth; D.2C3 active; successors blocked. |
-| Modify | `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` | Same truthful sequencing sync. |
-| Modify | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/PR-TRACKER-campaign-supergraph.md` | Mirror authoritative tracker state. |
-| Modify | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-campaign-supergraph.md` | Mirror authoritative roadmap state. |
-| Modify if stale | `Docs/Design/STATUS-world-graph-continuity-spine.md` | Align current continuity claim only if it still claims D.2C2/D.3 old state. |
-| Modify | `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` | Backward-looking status metadata only: #647 merged/accepted review facts; do not alter frozen §4/§5/§6 semantics. |
-| Modify | `Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md` | Execution/evidence handback metadata. |
+* accepted head: `20499e443d43a5064b6c23b12e9abb331f2f7aa8`
+* merge: `d94822f7681da440fdeea981662383980bfbcaf9`
+* first-world contribution evidence now takes its domain from the command-owned `WORLDBUILDING` SourceArtifact;
+* historical exported evidence identity remains unchanged;
+* ambiguous/missing/non-worldbuilding source provenance fails closed;
+* no generic admissibility waiver exists.
 
-**Bounded discovery exception:**
+DungeonMind compatibility predecessor:
+
+* DungeonMind PR #47
+* pin: `5ca5d688612349034f8ca490d465af166d883e6e`
+* owns the narrow historical reviewed-initialization compatibility family;
+* does not authorize generic `OTHER` evidence.
+
+### What remains false
+
+After D.2C3 merges:
+
+* manual Graph Review authoring has **not** moved to governed DungeonMind publication;
+* `merge_objects` has **not** been resolved for final authoring;
+* legacy graph-engine imports/routes still exist;
+* `buddy_files` has not been disabled;
+* D.3A has not begun;
+* D.3B has not begun;
+* CUTOVER is not complete.
+
+Named successor remains **D.2C4 manual Graph Review authoring continuity**.
+
+## §3 Observable paths
+
+| Path | Cycle-3 state | Required Cycle-4 state | Owning boundary |
+| --- | --- | --- | --- |
+| Fresh reviewed first-world confirm | Produced legal D₀ but historical evidence domain blocked admissibility | Real producer creates legal D₀ with corrected source provenance | initialization + real PG |
+| D₀ binding | Worked | Still `genesis="reviewed_world_initialization"` and `legacy_buddy_revision_id=None` | native binder |
+| D₀ projection | Snapshot existed but `obj_session22_vial` / `mystery_puddles` were correctly excluded | Both expected facts are admitted through normal projection | native projection |
+| D₀ search | Could not truthfully prove expected graph facts | Normal native retrieval finds expected fact(s) | retrieval service |
+| D₀ exact-object retrieval | Could not truthfully prove expected graph facts | Exact object retrieval succeeds for expected object ID | retrieval service |
+| `current_head(D₀)` | Worked | Exact D₀ | `WorldGraphAuthority` |
+| `read_revision(D₀)` | Worked | Exact D₀, no legacy hydration | authority adapter |
+| `mutation_context(D₀)` | Worked | Exact D₀/current-head context | authority adapter |
+| Publish child from D₀ | Worked | Exactly one legal D₁ whose parent is D₀ | governed publication |
+| Native D₁ projection/read | Child existed but inherited inadmissible D₀ facts | Child is readable and corrected inherited facts remain admitted | projection + authority |
+| Retry/recover same publication | Worked | Same D₁; no duplicate revision or head | publication/recovery |
+| Adopted Buddy-A pin | Worked | Still maps exactly A → D_A | binder/pin algebra |
+| Both genesis receipts | Integrity | Integrity | binder |
+| Receipt without head | Integrity after stabilization reread | Integrity | binder |
+| Head without recognized genesis | Integrity after stabilization reread | Integrity | binder |
+| Neither receipt nor head | Ordinary uninitialized/not-adopted failure | Unchanged | binder |
+
+### Required adversarial sequence
 
 ```text
-Directory: tests/
-Maximum additional paths: 3
-Allowed path kinds: existing CUTOVER direct-read/adoption/authority regression tests only
-Decision rule: a path may be added only when it already owns one §3 behavior and moving the proof would duplicate fixtures or weaken owning-boundary evidence. No product/service path is covered by this exception.
+real first-world prepare
+→ real confirm
+→ exactly one reviewed-init receipt
+→ zero adoption receipts
+→ D_0 head
+
+inspect stored D_0
+→ evidence IDs remain stable
+→ source provenance is corrected by producer authority
+→ no Buddy read-side mutation
+
+construct normal native services
+→ reviewed-init binding
+→ legacy_buddy_revision_id = None
+→ revision pin D_0 passes through exactly
+
+native projection(D_0)
+→ obj_session22_vial admitted
+→ mystery_puddles admitted
+
+native search
+→ expected result is reachable
+
+native exact-object retrieval
+→ expected object is reachable
+
+WorldGraphAuthority
+→ current_head = D_0
+→ read_revision(D_0)
+→ mutation_context(D_0)
+
+normal governed existing-parent publication
+→ exactly one D_1
+→ parent = D_0
+
+native read/projection(D_1)
+→ child visible
+→ inherited corrected facts remain admitted
+
+retry same operation
+→ already_applied / recovered D_1
+→ revision count unchanged
+→ head remains D_1
 ```
 
-A required production path outside this lease is a stop report. Do not absorb it because the diff is small.
+Then independently prove:
 
-## §5 Explicitly out of scope / collision boundary
+```text
+existing Eldyrwild adoption
+→ Buddy-A pin still resolves exactly to D_A
+→ no regression in adopted-world projection/retrieval
+```
 
-| Path | Why this slice must not touch or claim it |
-|---|---|
-| `src/application_state/**` | APP-STATE #650 ownership / separate persistence invariant. |
-| `apps/live_control_server/services/play_*.py` | APP-STATE/Play lane. |
-| `tests/application_state/**`, `tests/test_play_*.py`, `tests/test_live_play_*.py` | APP-STATE #650 regression ownership. |
-| `apps/live_control_server/routes/graph_authoring.py` and graph-authoring services/UI | D.2C4 successor. |
-| `apps/live-control-ui/**` | No UI behavior changes in D.2C3. |
-| `apps/live_control_server/config.py` authority selector | D.3A parser rehome. |
-| `apps/live_control_server/services/world_graph_prewarm.py` | D.3A mounted-engine excision. |
-| `apps/live_control_server/routes/world_graph_bootstrap.py` / bootstrap service | D.3A retirement. |
-| `apps/live_control_server/services/union_supergraph_projection_adapter.py` | D.3A store-preview retirement. |
-| `graph_memory/kernel/**`, `graph_memory/world_supergraph/**`, `graph_memory/union_supergraph/**` | D.3A/D.3B; no demolition here. |
-| `pyproject.toml`, `uv.lock` | DungeonMind provider pin is already correct; changing provider dependency is a STOP. |
-| DungeonMind repository | #647 explicitly requires no new provider/repository contract. |
+## §4 Cumulative write lease
 
-Do not install the D.3A import blocker and do not remove `buddy_files` compatibility in this slice.
+Review the **cumulative PR diff against the Cycle-4 base**, not merely the new commits.
+
+Expected cumulative changed paths for #651 are:
+
+```text
+Docs/Design/STATUS-world-graph-continuity-spine.md
+Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md
+Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md
+Docs/Plans/PR-TRACKER-campaign-supergraph.md
+Docs/Plans/STEWARDS-ANCHOR-cutover.md
+Docs/Roadmaps/ROADMAP-campaign-supergraph.md
+Docs/Sources/design-agent/ACTIVE_AUTHORITY/PR-TRACKER-campaign-supergraph.md
+Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-campaign-supergraph.md
+apps/live_control_server/integrations/dungeonmind/world_graph_authority_adapter.py
+apps/live_control_server/integrations/dungeonmind/world_graph_reads.py
+apps/live_control_server/integrations/dungeonmind/world_graph_writes.py
+tests/test_cutover_direct_dungeonmind_world_graph_reads.py
+tests/test_cutover_native_genesis_continuity.py
+```
+
+### Cycle-4 delta should be smaller than the cumulative lease
+
+Expected new work is primarily:
+
+* re-anchor conflict resolution;
+* preserving #658's `reviewed_world_initializations` projection dependency while preserving #651's generalized two-genesis binder;
+* changing the owning native-genesis witness from the historical rejection expectation to the corrected admitted expectation;
+* exercising native search and exact-object retrieval;
+* truthful active-state re-anchor.
+
+Do not churn already-correct binder/write code without an observed reason.
+
+### Bounded test-only exception
+
+At most two additional existing CUTOVER tests may be modified if, after re-anchor, an already-existing owning regression must be updated to use the merged #658/#47 contract.
+
+No additional production path is authorized by this exception.
+
+A required production path outside the list above is a STOP.
+
+## §5 Explicit non-goals and collision boundary
+
+Do not modify or claim:
+
+```text
+apps/live_control_server/integrations/dungeonmind/world_graph_initialization_adapter.py
+pyproject.toml
+uv.lock
+DungeonMind repository code
+apps/live_control_server/routes/graph_authoring.py
+graph-authoring services
+apps/live-control-ui/**
+apps/live_control_server/config.py authority selector
+apps/live_control_server/services/world_graph_prewarm.py
+apps/live_control_server/routes/world_graph_bootstrap.py
+apps/live_control_server/services/union_supergraph_projection_adapter.py
+graph_memory/kernel/**
+graph_memory/world_supergraph/**
+graph_memory/union_supergraph/**
+```
+
+Why:
+
+* initialization producer correction is predecessor #658 and should be consumed, not reimplemented;
+* DungeonMind #47 dependency pin is predecessor truth and should not move in D.2C3;
+* Graph Review authoring is D.2C4;
+* selector/import/route retirement is D.3A;
+* physical package deletion is D.3B.
+
+No frontend behavior belongs in this slice.
 
 ## §6 Implementation contract
 
+### Binding
+
+Exactly two genesis families:
+
 ```text
-Input:
-  world_id
-  DungeonMind repository bundle
-  existing-world adoption receipt (optional)
-  reviewed-world initialization receipt (optional)
-  current DungeonMind world head (optional)
-  existing projection/retrieval/publish requests
-
-Output:
-  one DirectAuthorityBinding for exactly one recognized genesis family
-  normal native projection/retrieval services
-  normal WorldGraphAuthority behavior for a real DungeonMind parent
-
-Invariant:
-  exactly one recognized genesis receipt + coherent head determines binding;
-  adopted worlds retain A→D_A bridge; reviewed-init worlds have no legacy bridge.
-
-Failure behavior:
-  both receipts present            → authority_integrity
-  recognized receipt, no head      → authority_integrity
-  head, neither receipt            → authority_integrity
-  no head, neither receipt         → existing uninitialized/not-adopted fail-closed result
-  provider persistence integrity   → authority_integrity, never authority_unavailable
-  provider unavailable             → authority_unavailable
-  unknown revision pin             → existing revision_not_bridged/not-found behavior
-
-Replay / idempotency:
-  same read/pin → same resolved DungeonMind revision
-  same governed operation → existing publish/recover algebra, one logical child
-  changed operation/parent → existing stale/conflict behavior
-
-Trust boundary:
-  Verifies: recognized genesis receipt family, receipt/head coherence, exact bridge identity when adoption exists, exact real DungeonMind revisions/parents.
-  Records/trusts without proving: no new facts beyond already-landed provider receipt/revision integrity guarantees.
+existing_world_adoption
+reviewed_world_initialization
 ```
 
-No new durable format or provider command is introduced. The only Buddy value-shape change is `DirectAuthorityBinding` becoming capable of representing the already-real reviewed-init genesis family.
+Adopted world:
 
-### A. State / fallback matrix
+```text
+legacy_buddy_revision_id = Buddy A
+dungeonmind_first_revision_id = D_A
+pin A → D_A
+real DungeonMind pins → pass through
+```
 
-| Observable path | Loading/init | Exact success | Ordinary miss | Dependency unavailable | Integrity failure | Stale/superseded | Retry/replay |
-|---|---|---|---|---|---|---|---|
-| adopted native read | adoption receipt + head | A→D_A bridge / native result | no head+no genesis remains not-adopted | 503 authority unavailable | contradictory receipt/head → integrity | immutable revision semantics | deterministic |
-| reviewed-init native read | reviewed-init receipt + head | D_0/descendant native result | no head+no genesis remains uninitialized | 503 authority unavailable | both receipts / missing head / orphan head → integrity | immutable revision semantics | deterministic |
-| governed child publish | shared binding + sealed parent | one child under real DM parent | missing authority head fails closed | authority unavailable | contradictory genesis → integrity before publish | stale parent unchanged | existing recover/idempotency |
+Reviewed-init world:
 
-No Buddy-file fallback is permitted for a configured DungeonMind-native path.
+```text
+legacy_buddy_revision_id = None
+dungeonmind_first_revision_id = D_0
+pin D_0 → D_0
+descendant DungeonMind pins → pass through
+```
 
-### B. Identity matrix
+No fake/sentinel Buddy revision is legal.
 
-| Situation | Required rule | Ambiguity behavior | Fallback permitted? |
-|---|---|---|---|
-| Adopted legacy revision A | Exact receipt-owned A maps to receipt D_A. | Any other pin passes through to DM and may fail not-found. | No |
-| Reviewed-init D_0 | No legacy alias exists; D_0 is already the real ID. | Never reinterpret D_0 as Buddy identity. | No |
-| Both receipt families | Impossible/contradictory world identity. | Integrity failure. | No |
-| Head without receipt | Unknown genesis authority. | Integrity failure. | No |
+### Genesis topology
 
-Alias/label/normalized-key identity is not applicable to genesis revision binding.
+```text
+adoption receipt + no reviewed-init receipt + head
+→ legal adoption binding
 
-### C. Persistence / replay matrix
+reviewed-init receipt + no adoption receipt + head
+→ legal reviewed-init binding
 
-| Operation | Durable representation | Round-trip guarantee | Duplicate/replay | Compatibility/migration | Rollback/reversion |
-|---|---|---|---|---|---|
-| Bind/read adopted world | existing adoption receipt + immutable graph revisions | A→D_A remains exact | read-only deterministic | preserve legacy bridge | no writes |
-| Bind/read reviewed-init world | existing reviewed-init receipt + immutable D_0 descendants | D_0 passes through exactly | read-only deterministic | no legacy bridge invented | no writes |
-| Publish child of D_0 | existing finalized review/publication + graph revision/head | child parent is sealed D_0/current DM parent | existing recover semantics | same publication family | provider UoW semantics unchanged |
+both receipts
+→ authority_integrity
 
-### D. Predecessor → consumer mapping
+one recognized receipt + no head
+→ stabilize/reread once
+→ if still contradictory: authority_integrity
 
-**Grounding source:** merged #647 §4 plus current DungeonMind repository bundle and Buddy direct read/write code.
+head + neither receipt
+→ stabilize/reread once
+→ if still contradictory: authority_integrity
 
-| Predecessor field/outcome | Real shape/optionality | Consumer behavior | Transformation | Proof |
-|---|---|---|---|---|
-| adoption receipt | optional per world | recognized genesis family A | source Buddy revision + published D_A populate bridge binding | adopted regression |
-| reviewed-init receipt | optional per world | recognized genesis family D_0 | published revision populates first revision; legacy ID = None | first-world PG witness |
-| `world_graph.get_head` | optional | required when either receipt exists | head ID becomes binding current head | integrity + PG witness |
-| adoption `source_world_revision_id` | required only for adoption | exact compatibility pin | A → D_A | direct-read regression |
-| reviewed-init `published_revision_id` | required/verified | real genesis revision | pass through unchanged | D_0 projection/retrieval/publish witness |
-| both receipts | forbidden | no consumer path | integrity | adversarial test |
+no head + neither receipt
+→ ordinary uninitialized/not-adopted fail-closed behavior
+```
+
+Provider `PersistenceIntegrityError` remains integrity.
+
+Provider availability failure remains unavailable.
+
+### Provenance trust boundary
+
+The most important Cycle-4 rule:
+
+> **Buddy native reads consume the stored DungeonMind graph payload exactly.**
+
+Forbidden:
+
+```text
+projection-time source_domain correction
+retrieval-time source_domain correction
+wrapper repository rewriting evidence_refs
+generic OTHER → WORLDBUILDING normalization
+reconstructing evidence from Buddy source files
+admissibility override
+Buddy-file fallback
+```
+
+The corrected first-world producer owns future provenance correctness. DungeonMind owns compatibility/admissibility. D.2C3 only consumes their result.
+
+### Child publication
+
+A real reviewed-init `D_0` is an ordinary DungeonMind existing parent.
+
+The existing governed publication algebra remains unchanged:
+
+```text
+D_0 + operation O
+→ D_1
+
+retry O against D_0
+→ recover D_1
+→ no D_2
+```
+
+No new publication family or provider transaction is introduced.
 
 ## §7 Evidence required to merge
 
-| Guarantee / invariant clause | Owning boundary | Evidence class | Command or manual scenario | Expected evidence | Stop condition |
-|---|---|---|---|---|---|
-| Reviewed-init D_0 binds without adoption receipt | real PG + direct service | owning integration | create pristine world through real D.2C2 prepare/confirm, then build native services | one reviewed-init receipt; zero adoption receipts; binding genesis reviewed-init; legacy ID None | any Buddy fallback/fake legacy ID |
-| D_0 is natively projectable/retrievable | mounted native read services | owning integration | search + exact-object retrieval immediately after first-world confirm | admitted D_0 result with exact revision identity | helper-only proof or skipped PG |
-| WorldGraphAuthority works from D_0 | authority adapter + real PG | owning integration | current_head/read_revision/mutation_context then D.2A or D.2B publish | one legal child whose parent is D_0/sealed DM parent | provider change required |
-| Retry/recovery from D_0 stays exact | authority adapter + repository | adversarial integration | replay same operation after child publish/lost-response seam | same child, no duplicate revision/head | changed idempotency contract |
-| A→D_A bridge unchanged | direct read + adopted fixture/PG | regression | existing Eldyrwild adoption bridge cohort | exact old bridge behavior | regression |
-| Contradictory genesis fails closed | binder | adversarial unit/integration | both receipts; receipt/no-head; head/no-receipt | stable integrity classification | arbitrary preference/fallback |
-| No provider expansion | cumulative diff | contract/static | inspect changed paths/imports | no DungeonMind repo edit, no new command/UoW/family | any provider contract need |
-| State authorities truthful | docs/state | contract | inspect cumulative state sync | #645 and #647 DONE facts exact; D.2C3 active; D.2C4/D.3 blocked/not done | current slice pre-marked DONE |
+### A. Owning real-PostgreSQL witness — mandatory, zero required skips
 
-Exact verification commands, adjusting only test selection if an owning test is created under the bounded exception:
+The owning test must use the real first-world prepare/confirm path and real PostgreSQL.
+
+At minimum it must prove:
+
+```text
+fresh world
+→ corrected first-world producer
+→ D_0
+
+receipt count = 1 reviewed-init
+adoption count = 0
+head count = 1
+revision count = 1
+
+stored D_0 provenance is the corrected producer result
+historical evidence IDs remain stable
+
+native binder:
+  genesis = reviewed_world_initialization
+  legacy_buddy_revision_id = None
+  first revision = D_0
+  head = D_0
+
+projection(D_0):
+  obj_session22_vial admitted
+  mystery_puddles admitted
+
+native search:
+  expected graph fact reachable
+
+exact-object retrieval:
+  expected object reachable
+
+WorldGraphAuthority:
+  current_head = D_0
+  read_revision(D_0)
+  mutation_context(D_0)
+
+publish:
+  one D_1
+  D_1.parent = D_0
+
+native D_1 read/projection:
+  child visible
+  inherited expected D_0 facts admitted
+
+retry/recover:
+  same D_1
+  exactly 2 revisions total
+  exactly 1 head
+```
+
+A repository-level assertion that the objects merely exist in raw `graph_payload` is insufficient. Projection/retrieval admissibility is the acceptance boundary.
+
+### B. Historical producer compatibility regression
+
+Run predecessor tests that prove the merged #658/#47 historical family still behaves correctly.
+
+Do not duplicate that compatibility implementation in #651.
+
+### C. Existing-world adoption regression
+
+The Eldyrwild adopted-world cohort must remain green/baseline-equivalent.
+
+Exact Buddy-A → D_A rewrite remains required.
+
+### D. D.2A / D.2B governed-write regression
+
+Threat and worldbuilding authority-port tests must remain green/baseline-equivalent.
+
+### E. Fail-closed binder matrix
+
+Prove:
+
+* both receipts;
+* adoption receipt without head;
+* reviewed-init receipt without head;
+* head without recognized genesis;
+* provider integrity;
+* provider unavailable;
+* D₀ passthrough;
+* exact legacy A→D_A rewrite.
+
+### Required commands
+
+Use the repository's configured PostgreSQL test DSN.
 
 ```bash
-uv run pytest tests/test_cutover_dungeonmind_first_world_initialization.py tests/test_cutover_direct_dungeonmind_world_graph_reads.py tests/test_cutover_dungeonmind_world_graph_authority.py tests/test_cutover_native_genesis_continuity.py -q
-uv run pytest tests/test_cutover_threat_authority_port_integration.py tests/test_cutover_worldbuilding_authority_port_integration.py -q
-uv run ruff check apps/live_control_server/integrations/dungeonmind tests/test_cutover_dungeonmind_first_world_initialization.py tests/test_cutover_direct_dungeonmind_world_graph_reads.py tests/test_cutover_dungeonmind_world_graph_authority.py tests/test_cutover_native_genesis_continuity.py
-git diff --check
-git diff --name-only d96a21363fd0decbcb8c4390f951a6316b53060c...HEAD
+uv run pytest tests/test_cutover_native_genesis_continuity.py -q
 ```
 
-The required real-PostgreSQL continuity witness must report exact pass/fail/skip counts and have **zero required skips**. Pre-existing environment-dependent skips in unrelated regression cohorts must be called out separately and compared to baseline; they do not satisfy the D.2C3 witness.
+The D.2C3 owning integration witness must execute and must not skip.
 
-### Minimal live / dogfood proof
+Then:
 
-```text
-Existing surface: mounted first-world exact-run prepare/confirm plus native World Graph read/write service boundaries.
-Smallest realistic scenario: create a two-node/one-relationship reviewed first world, confirm D_0, immediately search/read one object, obtain mutation context, publish one legal child through an existing authority family, read the child, retry the same operation.
-Expected observation: no adoption receipt is needed, no Buddy graph revision is fabricated, D_0 is the parent, one child exists, retry recovers it, and native reads show the child.
-Evidence captured: test output + exact world/init/revision IDs and receipt counts in the review handback.
-```
-
-### Baseline failure handling
-
-If any required cohort fails or skips on the exact base, record the same command at base and head. The implementation must not add failures/skips. A required D.2C3 PostgreSQL witness skip has no waiver in this handoff.
-
-## Execution record — Review Cycle 3 stop/rebrief, not DONE
-
-This PR remains `DOING`. Do not treat the following as merge-ready `DONE`. Native projection of #645 `D_0` facts is **not** claimed.
-
-**Cycle 1 blockers 2–4 remain closed:** genesis reread; parent `PersistenceIntegrityError` → integrity; #647 exact design base `f1fd3f6…` vs merge `d96a2136…`.
-
-**Cycle 2 blocker 1 is reopened as a stop.** `_SourceAlignedWorldGraphRepository` rewrote `evidence_refs.source_domain` in memory before DungeonMind scoped an immutable revision. That broadens admissibility and is forbidden by the native-read contract. The shim is removed. Projection/retrieval consume `bundle.world_graph` exactly.
-
-```text
-Stop condition:
-  making first-world native projection work requires rewriting DungeonMind graph-payload provenance (or a new provider/mutation capability)
-Invariant clause affected:
-  D.2C2 D_0 is natively projectable/retrievable from the exact stored revision
-Why current mission cannot absorb it:
-  #645 stamps SourceDomain.OTHER on first-world contribution evidence. DungeonMind treats artifact/graph domain disagreement as invalid evidence. Buddy may not reconstruct graph truth or broaden admissibility. Changing durable initialization command bytes was already rejected (Cycle 1). A global in-memory rewrite was rejected (Cycle 2) because it would also mask genuine provenance corruption.
-Required evidence now missing:
-  native admitted projection/retrieval of #645-shaped D_0 facts from unmodified stored revision bytes
-Affected paths/ownership layers:
-  D.2C2 first-world mapping / stored D_0 graph_payload evidence_refs; DungeonMind graph_scope provenance check; not D.2C3 binder algebra
-Proposed successor or re-brief:
-  D.2C2 provenance compatibility/repair (reviewed DESIGN, then CODE) precedes remaining D.2C3 native-projection proof
-  sequence: D.2C2 provenance → D.2C3 two-genesis binder (#651 resumes original job) → D.2C4
-State-authority update needed:
-  record the provenance predecessor as REQUIRED / not dispatched; keep D.2C3 DOING / merge blocked on that predecessor for native projection; D.2C4 remains BLOCKED
-```
-
-**Owning cohort** (`DMB_CUTOVER_TEST_DATABASE_URL=postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dungeonmind_cutover_test`):
-
-```text
-uv run pytest tests/test_cutover_dungeonmind_first_world_initialization.py \
+```bash
+uv run pytest \
+  tests/test_cutover_dungeonmind_first_world_initialization.py \
   tests/test_cutover_direct_dungeonmind_world_graph_reads.py \
   tests/test_cutover_dungeonmind_world_graph_authority.py \
-  tests/test_cutover_native_genesis_continuity.py -q
-119 passed, 12 skipped, 10 warnings in 190.59s
+  -q
 ```
 
-The 12 skips are pre-existing D.1 Buddy-hydration retirement skips in `tests/test_cutover_dungeonmind_world_graph_authority.py`. The D.2C3 PostgreSQL witness `test_reviewed_init_d0_native_read_write_continuity` did not skip: stored `D_0` evidence domains remained `{"other"}`, exact first-world confirm reused `command_sha256` / `already_initialized`, the two-genesis binder bound reviewed-init with `legacy_buddy_revision_id=None`, one child published under `D_0`, and native projection did **not** admit `obj_session22_vial` / `mystery_puddles`.
+Record exact pass/fail/skip counts. Any existing unrelated skips must be identified and compared with the exact base; they do not satisfy the owning D.2C3 witness.
 
-**D.2A / D.2B regression:**
+Adoption:
+
+```bash
+uv run pytest tests/test_eldyrwild_existing_world_adoption_bundle_v2.py -q
+```
+
+Governed-write regressions:
+
+```bash
+uv run pytest \
+  tests/test_cutover_threat_authority_port_integration.py \
+  tests/test_cutover_worldbuilding_authority_port_integration.py \
+  -q
+```
+
+Static quality:
+
+```bash
+uv run ruff check \
+  apps/live_control_server/integrations/dungeonmind/world_graph_reads.py \
+  apps/live_control_server/integrations/dungeonmind/world_graph_writes.py \
+  apps/live_control_server/integrations/dungeonmind/world_graph_authority_adapter.py \
+  tests/test_cutover_direct_dungeonmind_world_graph_reads.py \
+  tests/test_cutover_native_genesis_continuity.py
+```
+
+Patch/lease hygiene:
+
+```bash
+git diff --check
+
+git diff --name-only \
+  d94822f7681da440fdeea981662383980bfbcaf9...HEAD
+
+git diff --stat \
+  d94822f7681da440fdeea981662383980bfbcaf9...HEAD
+```
+
+Dependency immutability:
+
+```bash
+git diff --exit-code \
+  d94822f7681da440fdeea981662383980bfbcaf9...HEAD \
+  -- pyproject.toml uv.lock
+```
+
+Expected: no D.2C3 change.
+
+Authority mirror proof:
+
+```bash
+cmp \
+  Docs/Plans/PR-TRACKER-campaign-supergraph.md \
+  Docs/Sources/design-agent/ACTIVE_AUTHORITY/PR-TRACKER-campaign-supergraph.md
+
+cmp \
+  Docs/Roadmaps/ROADMAP-campaign-supergraph.md \
+  Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-campaign-supergraph.md
+```
+
+### Verification provenance
+
+The handback must distinguish:
 
 ```text
-uv run pytest tests/test_cutover_threat_authority_port_integration.py \
-  tests/test_cutover_worldbuilding_authority_port_integration.py -q
-4 passed, 10 warnings in 85.13s
+author-local
+independently rerun local
+CI
+manual/dogfood
 ```
 
-**Ruff:** `All checks passed!` on the leased Python paths including `tests/test_cutover_native_genesis_continuity.py`.
+Do not call author-local commands independently verified.
 
-## Execution record — Review Cycle 3 PARK ON PREDECESSOR, not DONE
+### Baseline protocol
 
-Review ID `5035980646` on exact head `cf453078a5c1950ec5f23a5d5b99001ee9e456db`. Disposition: **REQUEST-CHANGES-equivalent / PARK ON PREDECESSOR**.
+If a required non-owning regression fails/skips on base:
 
-Cycle 2's semantic-authority repair stands: Buddy does not rewrite immutable DungeonMind evidence before projection. The branch is re-anchored to `main` `555a9c7965aca47a24536277b9b36ae569a7285a`.
+1. run the identical command on `d94822f7…`;
+2. run it on the proposed head;
+3. record whether the head adds failure or skip;
+4. do not call the gate green;
+5. require explicit operator waiver if it remains an acceptance gate.
 
-**§7 and §9 are unchanged.** Merge still requires admitted native projection, search, and exact-object retrieval of the reviewed-init `D_0` (including `obj_session22_vial` / `mystery_puddles`), then one legal child and exact retry, with zero required skips. The Cycle 3 PostgreSQL run does **not** satisfy that rubric: it intentionally proves the exact #645 `D_0` does not admit those facts because stored evidence is `source_domain="other"`. That is the explicit blocker, not a waiver. Do not weaken the acceptance rubric to fit the partial binder.
+The **owning D.2C3 PostgreSQL witness has no skip waiver**.
+
+## §8 Nano-commit story
+
+Do not collapse the old #651 history.
+
+Add only the smallest new commits needed to resume the parked PR.
+
+Preferred Cycle-4 story:
 
 ```text
-Parked head: cf453078a5c1950ec5f23a5d5b99001ee9e456db
-Do not merge #651.
-Do not continue this PR until the provenance predecessor lands.
-Sequence:
-  D.2C2 provenance compatibility/repair   REQUIRED / not dispatched
-    ↓
-  #651 D.2C3 resumes                      DOING / PARKED (this PR)
-    ↓
-  D.2C4 manual authoring                  BLOCKED
-Cycle 4 (after predecessor lands):
-  re-anchor #651 onto then-current main
-  restore admitted projection/search/get-object of obj_session22_vial and mystery_puddles
-  submit that distinct head as Review Cycle 4
+1. re-anchor D.2C3 on merged provenance predecessor
+   - integrate current main
+   - preserve #658 provider/producer contract
+   - preserve existing generalized two-genesis binder
+
+2. prove corrected D_0 is natively admissible
+   - replace Cycle-3 rejection expectations
+   - prove obj_session22_vial + mystery_puddles projection
+   - prove native search + exact-object retrieval
+
+3. sync active CUTOVER authority for resumed D.2C3
+   - #658 backward-looking DONE / merged facts
+   - #651 DOING / Review Cycle 4 candidate
+   - D.2C4 and D.3 remain false
 ```
 
-## §8 Required review handback
+If conflict resolution and behavior proof can truthfully be one atomic commit, two commits are acceptable. Do not manufacture commit count.
 
-Record:
+Do not submit a rebase-only head for formal review. Complete the owning witness and handback first; the distinct final implementation head becomes Review Cycle 4.
 
-1. `Review Cycle <N>` and exact PR / branch / final head SHA;
-2. exact implementation base and rebase status;
-3. design authority: #647 merge `d96a21363fd0decbcb8c4390f951a6316b53060c`, accepted head `1f5676c204ee917d18efd553106c07306541e820`, Cycle 7 PASS-equivalent `5034239255`;
-4. D.2C2 predecessor: #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`, accepted head `f772db17e00cbe2c0198ae53f169a10a6332a3ed`, Cycle 2 PASS-equivalent `5026532158`;
-5. cumulative changed paths vs §4 and any bounded-discovery tests used;
-6. active parallel PRs checked, including #650 status/lease at review time;
-7. implemented two-genesis binding shape and exact error mapping;
-8. proof `legacy_buddy_revision_id=None` for reviewed-init; no fake Buddy revision;
-9. A→D_A pin proof and D_0 passthrough/parent proof;
-10. real-PostgreSQL witness exact pass/fail/skip counts and world/init/revision topology;
-11. exact retry/recovery result and one-child count;
-12. Eldyrwild/adoption, D.2A Threat, and D.2B worldbuilding regression results;
-13. both-receipt / receipt-without-head / head-without-genesis integrity proofs;
-14. exact verification commands, ruff, `git diff --check`, and baseline comparisons;
-15. backward-looking state sync: #645 DONE, #647 design DONE with real merge/review facts, D.2C3 active/this PR, D.2C4 blocked, D.3A blocked, D.3B blocked, D.3 not DONE;
-16. paths outside §4 (`none` or stop report), stop conditions, and named successor still false.
+## §9 Required CODE → REVIEW handback
 
-The dispatch seed is **not Review Cycle 1**. Review Cycle 1 begins only with executable implementation and owning evidence on a distinct implementation head.
+The handback must contain:
 
-## §9 Acceptance rubric
+1. **Review Cycle 4** and exact #651 final head SHA.
+2. Exact re-anchor base and whether merge/rebase was used.
+3. Confirmation that #658 merge `d94822f7…` is incorporated.
+4. Confirmation of DungeonMind pin `5ca5d688…`.
+5. Prior Cycle-3 finding ledger with each finding marked:
 
-- [ ] Exactly one capability is delivered: shared native genesis binding across adoption and reviewed initialization.
-- [ ] `DirectAuthorityBinding.legacy_buddy_revision_id` is optional and first-world binding uses `None`, not a sentinel/fake revision.
-- [ ] Binding records/otherwise exposes which of the two legal genesis families authorized it.
-- [ ] Existing-world Buddy-A still maps exactly to D_A.
-- [ ] First-world D_0 and descendants pass through as real DungeonMind revision IDs.
-- [ ] D_0 is accepted as a legal existing parent by the normal governed write path.
-- [ ] One real-PG witness proves D.2C2 D_0 → native projection/retrieval → authority child → native child read → exact retry, with zero required skips.
-- [ ] Both receipts, receipt-without-head, and head-without-genesis fail as integrity; no fallback/third genesis is invented.
-- [ ] Existing adoption, D.2A Threat, and D.2B worldbuilding behavior remains green or baseline-equivalent.
-- [ ] No DungeonMind provider/repository code or dependency pin changes.
-- [ ] No D.2C4 authoring, D.3A import-blocker/route retirement, buddy_files removal, or legacy package deletion is performed.
-- [ ] Actual changed paths stay inside §4 / bounded discovery and do not collide with APP-STATE #650 or any later active lane.
-- [ ] Backward-looking state sync records #645 and #647 completion truth without pre-marking D.2C3 DONE.
-- [ ] D.2C4 remains the named blocked successor; D.3 remains false.
+   * preserved closed;
+   * predecessor resolved;
+   * reverified on this head.
+6. Cumulative changed paths against §4.
+7. Cycle-4-only commit list and purpose.
+8. Exact corrected first-world topology:
 
-## Stop conditions
+   * world ID;
+   * D₀;
+   * reviewed-init receipt count;
+   * adoption count;
+   * head/revision counts.
+9. Stored provenance result and proof no Buddy read-side rewriting occurred.
+10. Binding:
 
-Stop and report instead of expanding when any of these appears:
+    * genesis;
+    * first revision;
+    * head;
+    * `legacy_buddy_revision_id=None`.
+11. Admitted D₀ projection result for:
 
-- a required native read/write needs a new DungeonMind command, repository method, provider UoW, schema, or publication family;
-- a third genesis family or ambiguous legal receipt topology is discovered;
-- making first-world continuity work requires a fake Buddy revision, local graph store, Buddy fallback, adoption row, or D_0 rewrite;
-- a required production path lies outside §4;
-- #650 or another active lane acquires a §4 path or unsafe shared PostgreSQL/runtime state;
-- the fix requires Graph Review manual-authoring migration, UI changes, authority selector rehome, import blocking, or legacy engine deletion;
-- required real-PG owning evidence cannot run with zero required skips;
-- baseline/head regressions require an unapproved waiver;
-- merged #647 semantics or the pinned DungeonMind provider materially differ from the contracts described here.
+    * `obj_session22_vial`;
+    * `mystery_puddles`.
+12. Native search result.
+13. Exact-object retrieval result.
+14. `WorldGraphAuthority` D₀ current-head/read/mutation-context result.
+15. D₁ publication:
 
-Report:
+    * exact D₁ ID;
+    * parent D₀;
+    * revision/head counts.
+16. D₁ native read/projection.
+17. Retry/recover result proving no duplicate.
+18. Eldyrwild A→D_A regression result.
+19. D.2A / D.2B regression result.
+20. Fail-closed genesis topology results.
+21. Every §7 command and exact pass/fail/skip count.
+22. Provenance of each verification result.
+23. `git diff --check` result.
+24. dependency-diff result for `pyproject.toml` / `uv.lock`.
+25. tracker/roadmap `cmp` results.
+26. Baseline failures and comparisons; `none` if none.
+27. Explicit operator waivers; `none` if none.
+28. Paths outside §4; `none` or STOP.
+29. Stop conditions encountered; `none` or exact report.
+30. Confirmation that D.2C4/D.3 remain unimplemented.
+
+The PR description is not a substitute for this handback.
+
+## §10 Acceptance rubric
+
+Review Cycle 4 is PASS-equivalent only when every item is true:
+
+* [ ] #651 is reviewed on one exact distinct final head.
+* [ ] The cumulative diff is evaluated against the current re-anchor base, not the original 2026-08-26 base.
+* [ ] One shared `DirectAuthorityBinding` still supports exactly adoption and reviewed initialization.
+* [ ] Reviewed-init binding has `legacy_buddy_revision_id=None`.
+* [ ] Existing Buddy-A maps exactly to adopted D_A.
+* [ ] Real DungeonMind `D_0` and descendants pass through unchanged.
+* [ ] The fresh first-world owning witness uses the real corrected #658 producer.
+* [ ] The stored D₀ is not rewritten by Buddy on read.
+* [ ] `obj_session22_vial` is admitted by native projection.
+* [ ] `mystery_puddles` is admitted by native projection.
+* [ ] Native search reaches the corrected D₀ facts.
+* [ ] Native exact-object retrieval reaches the corrected D₀ object.
+* [ ] `WorldGraphAuthority` operates normally from D₀.
+* [ ] D₀ is accepted as the parent of exactly one legal D₁.
+* [ ] D₁ is natively readable/projectable.
+* [ ] Exact retry/recovery returns the same D₁ without duplicate publication.
+* [ ] Both-receipt, receipt-without-head, and head-without-genesis states fail closed as integrity.
+* [ ] Provider integrity remains distinct from provider unavailable.
+* [ ] Existing adoption behavior is green/baseline-equivalent.
+* [ ] D.2A Threat and D.2B worldbuilding publication remain green/baseline-equivalent.
+* [ ] No DungeonMind provider/repository contract is added.
+* [ ] `pyproject.toml` and `uv.lock` are unchanged relative to the Cycle-4 base.
+* [ ] No first-world producer logic is reimplemented in D.2C3.
+* [ ] No Buddy-file fallback or read-side provenance normalization exists.
+* [ ] No D.2C4 Graph Review authoring behavior is included.
+* [ ] No D.3A/D.3B demolition behavior is included.
+* [ ] Required PostgreSQL owning witness executes with zero required skips.
+* [ ] `git diff --check` passes.
+* [ ] Tracker and ACTIVE_AUTHORITY mirror are byte-identical.
+* [ ] Roadmap and ACTIVE_AUTHORITY mirror are byte-identical.
+* [ ] State docs truthfully say #658 is merged and D.2C3 is active, without pre-marking D.2C3 DONE.
+* [ ] D.2C4 remains the named successor and remains false until #651 merges.
+
+## §11 Stop conditions
+
+STOP rather than expanding if:
+
+* the merged #658 producer does not produce admissible first-world evidence through the real initialization path;
+* satisfying admissibility requires any Buddy read-side evidence rewrite;
+* a new DungeonMind command, schema, repository method, provider transaction, or compatibility waiver is required;
+* the branch can only work by fabricating a Buddy revision for D₀;
+* adoption semantics must change;
+* a third genesis family appears;
+* Graph Review authoring must change;
+* legacy graph-engine routes/imports must be removed;
+* a required production edit falls outside §4;
+* `pyproject.toml` or `uv.lock` appears to require another pin movement;
+* the owning real-PG witness cannot execute;
+* another active PR acquires a conflicting §4 lease.
+
+Report a stop as:
 
 ```text
 Stop condition:
 Invariant clause affected:
-Why current mission cannot absorb it:
-Required evidence now missing:
-Affected paths/ownership layers:
-Proposed successor or re-brief:
-State-authority update needed:
+Observed evidence:
+Why D.2C3 cannot absorb it:
+Owning layer:
+Required predecessor or split:
+State-authority update required:
 ```
+
+Do not weaken §7 or §10 to make a partial branch mergeable.
+
+## §12 Post-merge transition
+
+Do **not** perform this transition inside the implementation review.
+
+After #651 receives PASS-equivalent and is explicitly merged:
+
+1. record exact accepted head;
+2. record exact #651 merge SHA;
+3. record total formal review cycles = 4 unless another distinct reviewed head was required;
+4. update CUTOVER tracker/roadmap/state authorities in a separate backward-looking sync;
+5. mark D.2C3 `DONE`;
+6. re-anchor current repo truth;
+7. only then decompose and author D.2C4.
+
+Expected sequence after merge:
+
+```text
+D.2C3 native genesis continuity   DONE
+        ↓
+D.2C4 Graph Review authoring      READY / next design+implementation slice
+        ↓
+D.3A mounted engine excision
+        ↓
+D.3B physical package deletion
+        ↓
+CUTOVER complete
+```
+
+The key change from the old #651 handoff is that **we no longer design around the provenance failure**. We treat it as a resolved predecessor and make Cycle 4 prove the original invariant without compromise. The most important acceptance assertion changes from:
+
+`obj_session22_vial not in projection`
+
+to:
+
+`obj_session22_vial in admitted native projection`
+
+with search and exact-object retrieval proving that this is actual DungeonMind admissibility rather than raw repository visibility.
