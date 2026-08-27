@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { LiveApiError } from "../api/liveApi";
 import { parsePlayableHtmlComment } from "../tiptap/playable/playableElementIdentity";
-import type { WorkspaceDocumentRecord } from "../api/types";
+import type { WorkspaceDocumentRecord, WorkspaceDocumentSnapshot } from "../api/types";
 import {
   BLANK_RUNBOOK_TITLE,
+  BlankRunbookCreateError,
   UNTITLED_BEAT_HEADING,
   campaignIdFromProductContext,
   createBlankRunbook,
@@ -13,8 +15,9 @@ import {
 
 const DOC_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const BEAT_ID = "beat:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const MARKDOWN = formatBlankRunbookMarkdown(BEAT_ID);
 
-function record(campaignId: string): WorkspaceDocumentRecord {
+function record(campaignId: string, contentStatus: "draft" | "committed" = "committed"): WorkspaceDocumentRecord {
   return {
     schema_version: "dmb_workspace_document_record_v1",
     document_id: DOC_ID,
@@ -24,10 +27,25 @@ function record(campaignId: string): WorkspaceDocumentRecord {
     kind: "runbook",
     target_relpath: null,
     status: "active",
-    content_status: "committed",
+    content_status: contentStatus,
     revision: 1,
     created_at: "2026-08-27T00:00:00Z",
     updated_at: "2026-08-27T00:00:00Z",
+  };
+}
+
+function snapshot(
+  contentStatus: "draft" | "committed",
+  markdown = MARKDOWN,
+): WorkspaceDocumentSnapshot {
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v1",
+    record: record("operator-campaign", contentStatus),
+    markdown,
+    content_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    file_fingerprint: "fp",
+    file_exists: contentStatus === "committed",
+    loaded_revision: 1,
   };
 }
 
@@ -69,8 +87,7 @@ describe("blankRunbook", () => {
   });
 
   it("creates and commits through workspace + TipTap write without starting a Run", async () => {
-    const created = record("operator-campaign");
-    created.content_status = "draft";
+    const created = record("operator-campaign", "draft");
     const committed = record("operator-campaign");
     const create = vi.fn().mockResolvedValue(created);
     const prepare = vi.fn().mockResolvedValue({
@@ -81,12 +98,14 @@ describe("blankRunbook", () => {
       committed_record: committed,
       writer_ok: true,
     });
+    const onAttemptRetained = vi.fn();
 
     const result = await createBlankRunbook("operator-campaign", {
       create,
       prepare,
       commit,
       generateBeatId: () => BEAT_ID,
+      onAttemptRetained,
     });
 
     expect(create).toHaveBeenCalledWith({
@@ -96,14 +115,21 @@ describe("blankRunbook", () => {
       target_session: null,
       target_relpath: null,
     });
+    expect(onAttemptRetained).toHaveBeenCalledWith({
+      documentId: DOC_ID,
+      beatId: BEAT_ID,
+      markdown: MARKDOWN,
+      expectedRevision: 1,
+      campaignId: "operator-campaign",
+    });
     expect(prepare).toHaveBeenCalledWith({
       document_id: DOC_ID,
-      markdown: formatBlankRunbookMarkdown(BEAT_ID),
+      markdown: MARKDOWN,
       expected_revision: 1,
     });
     expect(commit).toHaveBeenCalledWith({
       document_id: DOC_ID,
-      markdown: formatBlankRunbookMarkdown(BEAT_ID),
+      markdown: MARKDOWN,
       writer_confirm_token: "token-1",
       expected_revision: 1,
     });
@@ -116,5 +142,119 @@ describe("blankRunbook", () => {
     const create = vi.fn();
     await expect(createBlankRunbook("  ", { create })).rejects.toThrow(/Campaign is required/);
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("retains the first WorkObject across a prepare failure and retries that document", async () => {
+    const created = record("operator-campaign", "draft");
+    const committed = record("operator-campaign");
+    const create = vi.fn().mockResolvedValue(created);
+    const prepare = vi.fn()
+      .mockRejectedValueOnce(new Error("prepare unavailable"))
+      .mockResolvedValue({
+        writer_ok: true,
+        writer_confirm_token: "token-2",
+      });
+    const commit = vi.fn().mockResolvedValue({
+      committed_record: committed,
+      writer_ok: true,
+    });
+    const getSnapshot = vi.fn().mockResolvedValue(snapshot("draft"));
+
+    const first = createBlankRunbook("operator-campaign", {
+      create,
+      prepare,
+      commit,
+      getSnapshot,
+      generateBeatId: () => BEAT_ID,
+    });
+    await expect(first).rejects.toMatchObject({
+      name: "BlankRunbookCreateError",
+      attempt: {
+        documentId: DOC_ID,
+        beatId: BEAT_ID,
+        markdown: MARKDOWN,
+        expectedRevision: 1,
+        campaignId: "operator-campaign",
+      },
+    });
+    const retained = await first.catch((error: BlankRunbookCreateError) => error.attempt);
+
+    const result = await createBlankRunbook("operator-campaign", {
+      create,
+      prepare,
+      commit,
+      getSnapshot,
+      generateBeatId: () => "beat:should-not-be-used",
+      attempt: retained,
+    });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(prepare).toHaveBeenCalledTimes(2);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(result.record.document_id).toBe(DOC_ID);
+    expect(result.beatId).toBe(BEAT_ID);
+  });
+
+  it("treats a lost commit as success when the exact document already has the starter bytes", async () => {
+    const created = record("operator-campaign", "draft");
+    const create = vi.fn().mockResolvedValue(created);
+    const prepare = vi.fn().mockResolvedValue({
+      writer_ok: true,
+      writer_confirm_token: "token-1",
+    });
+    const commit = vi.fn().mockRejectedValue(new Error("network"));
+    const getSnapshot = vi.fn().mockResolvedValue(snapshot("committed"));
+
+    const result = await createBlankRunbook("operator-campaign", {
+      create,
+      prepare,
+      commit,
+      getSnapshot,
+      generateBeatId: () => BEAT_ID,
+    });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(getSnapshot).toHaveBeenCalledWith(DOC_ID);
+    expect(result.record.content_status).toBe("committed");
+    expect(result.record.document_id).toBe(DOC_ID);
+  });
+
+  it("reconciles an uncertain commit on retry instead of minting a second WorkObject", async () => {
+    const created = record("operator-campaign", "draft");
+    const create = vi.fn().mockResolvedValue(created);
+    const prepare = vi.fn().mockResolvedValue({
+      writer_ok: true,
+      writer_confirm_token: "token-1",
+    });
+    const commit = vi.fn().mockRejectedValue(new Error("network"));
+    const getSnapshot = vi.fn()
+      .mockRejectedValueOnce(new LiveApiError("snapshot unavailable", 503))
+      .mockResolvedValue(snapshot("committed"));
+
+    const first = createBlankRunbook("operator-campaign", {
+      create,
+      prepare,
+      commit,
+      getSnapshot,
+      generateBeatId: () => BEAT_ID,
+    });
+    await expect(first).rejects.toBeInstanceOf(BlankRunbookCreateError);
+    const retained = await first.catch((error: BlankRunbookCreateError) => error.attempt);
+
+    const result = await createBlankRunbook("other-campaign-should-be-ignored", {
+      create,
+      prepare,
+      commit,
+      getSnapshot,
+      generateBeatId: () => "beat:should-not-be-used",
+      attempt: retained,
+    });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(prepare).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(result.record.document_id).toBe(DOC_ID);
+    expect(result.beatId).toBe(BEAT_ID);
   });
 });
