@@ -377,25 +377,53 @@ def compare_v2_sealed_structure(markdown: str, manifest: object) -> str | None:
     return None
 
 
+def compare_run_manifest_binding(record: PlayRunRecord, manifest: object) -> str | None:
+    """Fail closed when sealed JSON binding metadata diverges from the Run."""
+    if getattr(manifest, "run_id", None) != record.run_id:
+        return "sealed reference manifest run_id does not match the Run"
+    if getattr(manifest, "playable_artifact_id", None) != record.playable_artifact_id:
+        return "sealed reference manifest playable_artifact_id does not match the Run"
+    if getattr(manifest, "playable_revision", None) != record.playable_revision:
+        return "sealed reference manifest playable_revision does not match the Run"
+    if getattr(manifest, "playable_content_sha256", None) != record.playable_content_sha256:
+        return "sealed reference manifest playable_content_sha256 does not match the Run"
+    return None
+
+
 def ensure_v2_native_ready(root: Path, run_id: str, *, conflict_depth: int = 0) -> PlayRunRecord:
     """Owning first-admission workflow: pinned authority preflight, then seed.
 
-    Load the exact Run + sealed manifest + pinned WorkRevision, prove the
-    behavior-bearing v2 contract, then persist the opening Beat only if
-    progress is still empty. CAS 409 rebinds the full authority set here
-    rather than leaving orchestration to the caller.
+    Load Run + sealed manifest from one application-state aggregate, prove the
+    sealed JSON binding and behavior-bearing v2 contract against that exact
+    pinned WorkRevision, then persist the opening Beat only if progress is
+    still empty. CAS 409 rebinds the full authority set here rather than
+    leaving orchestration to the caller.
     """
-    record = get_play_run(root, run_id)
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import get_play_run_aggregate
     from apps.live_control_server.services.play_run_reference_manifest import (
-        get_play_run_reference_manifest,
+        PlayRunReferenceManifestError,
+        parse_manifest_payload,
     )
     from apps.live_control_server.services.workspace_document_registry import (
         get_committed_playable_revision,
     )
 
-    manifest = get_play_run_reference_manifest(root, run_id)
+    canonical_run_id = _validate_run_id(run_id)
+    try:
+        aggregate = get_play_run_aggregate(canonical_run_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    record = _record_from_play_run(aggregate.run)
+    try:
+        manifest = parse_manifest_payload(aggregate.manifest.manifest, run_id=record.run_id)
+    except PlayRunReferenceManifestError as exc:
+        raise PlayRunRegistryError(str(exc), status_code=int(getattr(exc, "status_code", 500))) from exc
     if getattr(manifest, "schema_version", None) != "dmb_play_run_reference_manifest_v2":
         return record
+    binding = compare_run_manifest_binding(record, manifest)
+    if binding:
+        raise PlayRunRegistryError(binding, status_code=422)
     try:
         committed = get_committed_playable_revision(
             record.playable_artifact_id,

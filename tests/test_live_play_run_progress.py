@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
+from apps.live_control_server.services.play_run_rebase import rebase_or_replay_play_run
 from apps.live_control_server.services.play_run_registry import get_play_run
 from apps.live_control_server.services.play_run_reference_manifest import (
     get_play_run_reference_manifest,
@@ -20,6 +21,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
     WorkspaceDocumentSnapshot,
     create_workspace_document,
+    get_committed_playable_revision,
     get_workspace_document_snapshot,
 )
 from tests.application_state.playable_binding import (
@@ -365,3 +367,80 @@ def test_native_ready_get_does_not_seed_corrupted_sealed_beat_kind(
     assert unchanged.status_code == 200
     assert unchanged.json()["progress"]["current_beat_id"] is None
     assert unchanged.json()["run_revision"] == 1
+
+
+def test_native_ready_get_does_not_seed_corrupted_manifest_binding(
+    client: TestClient, root: Path, application_state_dsn: str
+) -> None:
+    snapshot = _create_committed_v2_runbook(root)
+    _create_run(client, root, snapshot)
+    manifest = get_play_run_reference_manifest(root, RUN_ID_A)
+    payload = manifest.model_dump(mode="json")
+    original_sha = payload["playable_content_sha256"]
+    payload["playable_content_sha256"] = "0" * 64
+    assert payload["playable_content_sha256"] != original_sha
+    corrupt_play_run_manifest_document(application_state_dsn, RUN_ID_A, payload)
+
+    refused = client.get(
+        f"/api/live/play-runs/{RUN_ID_A}",
+        params={"ensure_native_ready": "true"},
+    )
+    assert refused.status_code == 422
+    assert "playable_content_sha256" in refused.json()["detail"]
+    unchanged = client.get(f"/api/live/play-runs/{RUN_ID_A}")
+    assert unchanged.status_code == 200
+    assert unchanged.json()["progress"]["current_beat_id"] is None
+    assert unchanged.json()["run_revision"] == 1
+
+
+def test_native_ready_get_converges_when_rebase_changes_structure_during_first_admission(
+    client: TestClient,
+    root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot = _create_committed_v2_runbook(root)
+    _create_run(client, root, snapshot)
+    current = get_workspace_document_snapshot(root, snapshot.record.document_id)
+    rebased_markdown = "\n".join(
+        [
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:new-opening beat_kind=spine -->",
+            "## New Opening",
+            "",
+            V2_HTTP_MARKDOWN,
+        ]
+    )
+    target = _commit_record(root, current.record, rebased_markdown)
+    committed = get_committed_playable_revision(
+        target.record.document_id,
+        kind="runbook",
+    )
+    real_get = get_committed_playable_revision
+    rebased = {"done": False}
+
+    def straddle(*args: object, **kwargs: object):
+        if not rebased["done"]:
+            rebased["done"] = True
+            rebase_or_replay_play_run(
+                root,
+                run_id=RUN_ID_A,
+                expected_run_revision=1,
+                target_playable_revision=committed.revision_n,
+                target_playable_content_sha256=committed.content_sha256,
+            )
+        return real_get(*args, **kwargs)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.workspace_document_registry.get_committed_playable_revision",
+        straddle,
+    )
+
+    seeded = client.get(
+        f"/api/live/play-runs/{RUN_ID_A}",
+        params={"ensure_native_ready": "true"},
+    )
+    assert seeded.status_code == 200
+    assert seeded.json()["progress"]["current_beat_id"] == "beat:new-opening"
+    assert seeded.json()["playable_content_sha256"] == committed.content_sha256
+    persisted = get_play_run(root, RUN_ID_A)
+    assert persisted.progress.current_beat_id == "beat:new-opening"
+    assert persisted.playable_revision == committed.revision_n
