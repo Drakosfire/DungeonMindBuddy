@@ -16,8 +16,10 @@ import {
   type StartRunPhase,
 } from "./startRunAttempt";
 import {
+  BlankRunbookCreateError,
   createBlankRunbook,
   resolveBlankRunbookCampaignId,
+  type BlankRunbookAttempt,
 } from "./blankRunbook";
 
 const liveStartRunDeps: StartRunDeps = {
@@ -49,6 +51,8 @@ export function StartRunPanel({
   const [campaignDraft, setCampaignDraft] = useState("");
   const [creatingBlank, setCreatingBlank] = useState(false);
   const [createBlankError, setCreateBlankError] = useState<string | null>(null);
+  const [listRefreshWarning, setListRefreshWarning] = useState<string | null>(null);
+  const [blankAttempt, setBlankAttempt] = useState<BlankRunbookAttempt | null>(null);
   const startedRef = useRef<string | null>(null);
 
   const refreshRunbooks = useCallback(async () => {
@@ -116,29 +120,63 @@ export function StartRunPanel({
 
   const resolvedCampaignId = resolveBlankRunbookCampaignId(productCampaignId, campaignDraft);
   const showCreate = listStatus === "empty" || listStatus === "ready";
+  const canCreateBlank = blankAttempt != null || resolvedCampaignId != null;
 
   const onCreateBlank = useCallback(async () => {
-    if (resolvedCampaignId == null || creatingBlank) return;
+    if (!canCreateBlank || creatingBlank) return;
+    const campaignId = blankAttempt?.campaignId ?? resolvedCampaignId;
+    if (campaignId == null) return;
     setCreatingBlank(true);
     setCreateBlankError(null);
+    setListRefreshWarning(null);
     try {
-      const created = await createBlankRunbook(resolvedCampaignId);
-      const records = await refreshRunbooks();
-      const selected = records.find((record) => record.document_id === created.record.document_id)
-        ?? created.record;
-      setSelectedDocumentId(selected.document_id);
+      const created = await createBlankRunbook(campaignId, {
+        attempt: blankAttempt,
+        onAttemptRetained: setBlankAttempt,
+      });
+      setBlankAttempt(null);
+      setSelectedDocumentId(created.record.document_id);
       setAttempt(null);
       setAttemptStatus("idle");
       setAttemptDetail(null);
       startedRef.current = null;
+      try {
+        const records = await refreshRunbooks();
+        const selected = records.find((record) => record.document_id === created.record.document_id)
+          ?? created.record;
+        setSelectedDocumentId(selected.document_id);
+        if (!records.some((record) => record.document_id === created.record.document_id)) {
+          setRunbooks((current) => (
+            current.some((record) => record.document_id === created.record.document_id)
+              ? current
+              : [...current, created.record]
+          ));
+          setListStatus("ready");
+        }
+      } catch (refreshError) {
+        setRunbooks((current) => (
+          current.some((record) => record.document_id === created.record.document_id)
+            ? current
+            : [...current, created.record]
+        ));
+        setListStatus("ready");
+        setListRefreshWarning(
+          refreshError instanceof Error
+            ? refreshError.message
+            : "Blank Runbook is committed; the Runbook list could not be refreshed.",
+        );
+      }
     } catch (error) {
+      if (error instanceof BlankRunbookCreateError && error.attempt) {
+        setBlankAttempt(error.attempt);
+      }
       setCreateBlankError(
         error instanceof Error ? error.message : "Failed to create a blank Runbook.",
       );
     } finally {
       setCreatingBlank(false);
     }
-  }, [creatingBlank, refreshRunbooks, resolvedCampaignId]);
+  }, [blankAttempt, canCreateBlank, creatingBlank, refreshRunbooks, resolvedCampaignId]);
 
   return (
     <section className="play-start-run" data-testid="play-start-run">
@@ -201,7 +239,7 @@ export function StartRunPanel({
           <button
             type="button"
             data-testid="play-create-blank-runbook-submit"
-            disabled={resolvedCampaignId == null || creatingBlank}
+            disabled={!canCreateBlank || creatingBlank}
             onClick={() => {
               void onCreateBlank();
             }}
@@ -212,6 +250,11 @@ export function StartRunPanel({
           {createBlankError ? (
             <p role="alert" data-testid="play-create-blank-runbook-error">
               {createBlankError}
+            </p>
+          ) : null}
+          {listRefreshWarning ? (
+            <p className="play-muted" data-testid="play-create-blank-runbook-list-warning">
+              Blank Runbook is committed. {listRefreshWarning}
             </p>
           ) : null}
         </div>

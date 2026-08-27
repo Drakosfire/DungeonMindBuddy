@@ -24,6 +24,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     createWorkspaceDocument: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
+    getWorkspaceDocumentSnapshot: vi.fn(),
   };
 });
 
@@ -306,4 +307,130 @@ describe("StartRunPanel", () => {
     expect(screen.queryByTestId("play-create-blank-runbook-campaign")).not.toBeInTheDocument();
     expect(screen.getByTestId("play-create-blank-runbook-submit")).not.toBeDisabled();
   });
+
+  it("retries prepare against the same WorkObject after the first create succeeds", async () => {
+    const blank = runbook(DOC_A, "Blank Runbook");
+    blank.campaign_id = "operator-campaign";
+    blank.target_session = null;
+    blank.target_relpath = null;
+    blank.revision = 1;
+    vi.mocked(liveApi.listWorkspaceDocuments)
+      .mockResolvedValueOnce({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [],
+      })
+      .mockResolvedValue({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [blank],
+      });
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue({
+      ...blank,
+      content_status: "draft",
+    });
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite)
+      .mockRejectedValueOnce(new Error("prepare unavailable"))
+      .mockResolvedValue({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: DOC_A,
+        title: blank.title,
+        target_relpath: `runbook:${DOC_A}`,
+        target_display_path: `runbook:${DOC_A}`,
+        registry_revision: 1,
+        file_exists: false,
+        writer_ok: true,
+        writer_confirm_token: "token-2",
+        warnings: [],
+        diagnostics: [],
+      });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_A,
+      title: blank.title,
+      target_relpath: `runbook:${DOC_A}`,
+      target_display_path: `runbook:${DOC_A}`,
+      registry_revision: 2,
+      committed_revision: 1,
+      committed_record: blank,
+      normalized_content_sha256: SHA_A,
+      writer_ok: true,
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      schema_version: "dmb_workspace_document_snapshot_v1",
+      record: { ...blank, content_status: "draft" },
+      markdown: "# pending\n",
+      content_sha256: SHA_A,
+      file_fingerprint: "fp",
+      file_exists: false,
+      loaded_revision: 1,
+    });
+    const user = userEvent.setup();
+    render(<StartRunPanel onStarted={vi.fn()} />);
+
+    await user.type(await screen.findByTestId("play-create-blank-runbook-campaign"), "operator-campaign");
+    await user.click(screen.getByTestId("play-create-blank-runbook-submit"));
+    expect(await screen.findByTestId("play-create-blank-runbook-error")).toHaveTextContent("prepare unavailable");
+
+    await user.click(screen.getByTestId("play-create-blank-runbook-submit"));
+    expect(await screen.findByTestId(`play-start-runbook-${DOC_A}`)).toHaveAttribute("aria-pressed", "true");
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId("play-create-blank-runbook-error")).not.toBeInTheDocument();
+  });
+
+  it("keeps a successful commit even when the Runbook list refresh fails", async () => {
+    const blank = runbook(DOC_A, "Blank Runbook");
+    blank.campaign_id = "operator-campaign";
+    blank.target_session = null;
+    blank.target_relpath = null;
+    blank.revision = 1;
+    vi.mocked(liveApi.listWorkspaceDocuments)
+      .mockResolvedValueOnce({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [],
+      })
+      .mockRejectedValueOnce(new LiveApiError("list unavailable", 503));
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue({
+      ...blank,
+      content_status: "draft",
+    });
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_A,
+      title: blank.title,
+      target_relpath: `runbook:${DOC_A}`,
+      target_display_path: `runbook:${DOC_A}`,
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "token-1",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_A,
+      title: blank.title,
+      target_relpath: `runbook:${DOC_A}`,
+      target_display_path: `runbook:${DOC_A}`,
+      registry_revision: 2,
+      committed_revision: 1,
+      committed_record: blank,
+      normalized_content_sha256: SHA_A,
+      writer_ok: true,
+      diagnostics: [],
+    });
+    const user = userEvent.setup();
+    render(<StartRunPanel onStarted={vi.fn()} />);
+
+    await user.type(await screen.findByTestId("play-create-blank-runbook-campaign"), "operator-campaign");
+    await user.click(screen.getByTestId("play-create-blank-runbook-submit"));
+
+    expect(await screen.findByTestId(`play-start-runbook-${DOC_A}`)).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("play-create-blank-runbook-list-warning")).toHaveTextContent("committed");
+    expect(screen.queryByTestId("play-create-blank-runbook-error")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-start-run-submit")).not.toBeDisabled();
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+  });
 });
+
