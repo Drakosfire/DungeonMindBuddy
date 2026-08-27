@@ -32,7 +32,7 @@ def load_runtime_dsn() -> str:
     raw = os.environ.get(APPLICATION_STATE_DSN_ENV, "").strip()
     if not raw:
         raise ApplicationStateUnavailableError(
-            f"{APPLICATION_STATE_DSN_ENV} is not set; Plan kind cannot use application state"
+            f"{APPLICATION_STATE_DSN_ENV} is not set; DungeonBuddy application state is unavailable"
         )
     try:
         assert_safe_application_state_dsn(raw)
