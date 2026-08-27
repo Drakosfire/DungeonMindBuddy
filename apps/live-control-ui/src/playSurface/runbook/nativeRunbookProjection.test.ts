@@ -16,6 +16,7 @@ import {
   isNativeRunbookReadyV1,
   isNativeRunbookReadyV2,
   overlayRuntimeOnDeck,
+  overlayRuntimeOnV2Ready,
   slicePlayableBodies,
 } from "./nativeRunbookProjection";
 import {
@@ -712,6 +713,139 @@ describe("admitNativeRunbook v2", () => {
     expect(admitted.status).toBe("integrity_failure");
     if (admitted.status === "ready") throw new Error("corrupted beat_kind must not be READY");
     expect(admitted.reason).toMatch(/Beat kind/);
+  });
+});
+
+describe("overlayRuntimeOnV2Ready", () => {
+  it("overlays current Beat/Scene when the Playable binding is unchanged", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({ progress: progress({ current_beat_id: "beat:one" }) }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+    const overlaid = overlayRuntimeOnV2Ready(
+      admitted,
+      runRecord({
+        run_revision: 9,
+        progress: progress({
+          current_beat_id: "beat:two",
+          current_scene_id: "scene:b",
+        }),
+      }),
+    );
+    expect(overlaid).not.toBeNull();
+    expect(overlaid?.run.run_revision).toBe(9);
+    expect(overlaid?.currentBeatId).toBe("beat:two");
+    expect(overlaid?.currentSceneId).toBe("scene:b");
+  });
+
+  it("returns null when the Playable binding changed", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({ progress: progress({ current_beat_id: "beat:one" }) }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+    expect(overlayRuntimeOnV2Ready(
+      admitted,
+      runRecord({
+        playable_revision: 4,
+        playable_content_sha256: OTHER_SHA,
+        run_revision: 10,
+        progress: progress({ current_beat_id: "beat:one" }),
+      }),
+    )).toBeNull();
+  });
+
+  it("returns null when the overlaid Run has a null current Beat", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({ progress: progress({ current_beat_id: "beat:one" }) }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+    expect(overlayRuntimeOnV2Ready(
+      admitted,
+      runRecord({ progress: progress({ current_beat_id: null }) }),
+    )).toBeNull();
+  });
+
+  it("returns null for an unknown current Beat", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({ progress: progress({ current_beat_id: "beat:one" }) }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+    expect(overlayRuntimeOnV2Ready(
+      admitted,
+      runRecord({ progress: progress({ current_beat_id: "beat:missing" }) }),
+    )).toBeNull();
+  });
+
+  it("returns null when current Scene belongs to a foreign parent Beat", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({ progress: progress({ current_beat_id: "beat:one" }) }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+    expect(overlayRuntimeOnV2Ready(
+      admitted,
+      runRecord({
+        progress: progress({
+          current_beat_id: "beat:one",
+          current_scene_id: "scene:b",
+        }),
+      }),
+    )).toBeNull();
+  });
+
+  it("re-derives relevance from authoritative selections", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({ progress: progress({ current_beat_id: "beat:one" }) }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+    expect(admitted.relevanceByTargetId["beat:two"]).toBe("default");
+    const overlaid = overlayRuntimeOnV2Ready(
+      admitted,
+      runRecord({
+        run_revision: 8,
+        progress: progress({
+          current_beat_id: "beat:one",
+          selections: { "choice:x": "option:x1" },
+        }),
+      }),
+    );
+    expect(overlaid?.relevanceByTargetId["beat:two"]).toBe("emphasized");
+    expect(overlaid?.beats.find((beat) => beat.id === "beat:two")?.relevance).toBe("emphasized");
+  });
+
+  it("keeps activation winning suppression after overlay", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord({ progress: progress({ current_beat_id: "beat:one" }) }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: V2_MARKDOWN }),
+    });
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+    const overlaid = overlayRuntimeOnV2Ready(
+      admitted,
+      runRecord({
+        progress: progress({
+          current_beat_id: "beat:two",
+          current_scene_id: "scene:b",
+          selections: {
+            "choice:x": "option:x1",
+            "choice:y": "option:y1",
+          },
+        }),
+      }),
+    );
+    expect(overlaid?.relevanceByTargetId["beat:two"]).toBe("emphasized");
+    expect(overlaid?.beats.find((beat) => beat.id === "beat:two")?.relevance).toBe("emphasized");
   });
 });
 
