@@ -13,6 +13,33 @@ import {
   formatTraceToolSummary,
 } from "./AgentTraceInspector";
 
+/** A0 `usage_cost_usd()` rates for `gpt-5.4` (`src/agent/planner_pricing.py`). */
+const A0_GPT_54_RATES_PER_1M_USD = {
+  input: 2.5,
+  cached_input: 0.25,
+  output: 15,
+} as const;
+
+function a0UsageCostUsd(
+  inputTokens: number,
+  cachedTokens: number,
+  outputTokens: number,
+): number {
+  const uncached = Math.max(0, inputTokens - cachedTokens);
+  return (
+    (uncached / 1_000_000) * A0_GPT_54_RATES_PER_1M_USD.input
+    + (cachedTokens / 1_000_000) * A0_GPT_54_RATES_PER_1M_USD.cached_input
+    + (outputTokens / 1_000_000) * A0_GPT_54_RATES_PER_1M_USD.output
+  );
+}
+
+const A0_CALL1_USD = a0UsageCostUsd(18_000, 18_000, 400);
+const A0_CALL2_USD = a0UsageCostUsd(3_300, 0, 581);
+const A0_COMPLETE_USD = A0_CALL1_USD + A0_CALL2_USD;
+const A0_RETRY_SUCCESS_USD = a0UsageCostUsd(21_300, 18_000, 981);
+const A0_TRUNCATED_CALL_USD = a0UsageCostUsd(10, 0, 2);
+const A0_TRUNCATED_AGGREGATE_USD = A0_TRUNCATED_CALL_USD * 64;
+
 const a0CompleteFixture: AgentInteractionTrace = {
   schema: "dmb_agent_turn_trace_v1",
   trace_id: "trace-a0-complete",
@@ -42,7 +69,7 @@ const a0CompleteFixture: AgentInteractionTrace = {
   },
   cost: {
     status: "estimated",
-    usd: 0.0061,
+    usd: A0_COMPLETE_USD,
     currency: "USD",
     priced_call_count: 2,
     unpriced_call_count: 0,
@@ -71,7 +98,12 @@ const a0CompleteFixture: AgentInteractionTrace = {
         reasoning_tokens: 80,
         total_tokens: 18400,
       },
-      cost: { status: "estimated", usd: 0.004, currency: "USD" },
+      cost: {
+        status: "estimated",
+        usd: A0_CALL1_USD,
+        currency: "USD",
+        rates_per_1m_usd: { ...A0_GPT_54_RATES_PER_1M_USD },
+      },
     },
     {
       call_id: "call-2",
@@ -96,7 +128,12 @@ const a0CompleteFixture: AgentInteractionTrace = {
         reasoning_tokens: 40,
         total_tokens: 3881,
       },
-      cost: { status: "estimated", usd: 0.0021, currency: "USD" },
+      cost: {
+        status: "estimated",
+        usd: A0_CALL2_USD,
+        currency: "USD",
+        rates_per_1m_usd: { ...A0_GPT_54_RATES_PER_1M_USD },
+      },
     },
   ],
   spans: [
@@ -184,7 +221,7 @@ const a0RetryPartialFixture: AgentInteractionTrace = {
   },
   cost: {
     status: "partial",
-    usd: 0.0061,
+    usd: A0_RETRY_SUCCESS_USD,
     currency: "USD",
     priced_call_count: 1,
     unpriced_call_count: 1,
@@ -236,7 +273,12 @@ const a0RetryPartialFixture: AgentInteractionTrace = {
         reasoning_tokens: 120,
         total_tokens: 22281,
       },
-      cost: { status: "estimated", usd: 0.0061, currency: "USD" },
+      cost: {
+        status: "estimated",
+        usd: A0_RETRY_SUCCESS_USD,
+        currency: "USD",
+        rates_per_1m_usd: { ...A0_GPT_54_RATES_PER_1M_USD },
+      },
     },
   ],
 };
@@ -273,6 +315,43 @@ const a0MillisecondPhaseFixture: AgentInteractionTrace = {
       started_at: "2026-08-26T18:00:07.200Z",
       completed_at: "2026-08-26T18:00:07.420Z",
       duration_ms: 220,
+    },
+  ],
+};
+
+const a0LongDurationWholeSecondFixture: AgentInteractionTrace = {
+  ...a0CompleteFixture,
+  trace_id: "trace-a0-long-whole-second-phases",
+  started_at: "2026-08-26T18:00:00Z",
+  completed_at: "2026-08-26T18:00:12Z",
+  elapsed_ms: 12000,
+  spans: [
+    {
+      span_id: "span-session",
+      kind: "phase",
+      name: "session_load",
+      status: "ok",
+      started_at: "2026-08-26T18:00:00Z",
+      completed_at: "2026-08-26T18:00:02Z",
+      duration_ms: 2000,
+    },
+    {
+      span_id: "span-harness",
+      kind: "phase",
+      name: "harness_turn",
+      status: "ok",
+      started_at: "2026-08-26T18:00:02Z",
+      completed_at: "2026-08-26T18:00:10Z",
+      duration_ms: 8000,
+    },
+    {
+      span_id: "span-project",
+      kind: "phase",
+      name: "response_projection",
+      status: "ok",
+      started_at: "2026-08-26T18:00:10Z",
+      completed_at: "2026-08-26T18:00:12Z",
+      duration_ms: 2000,
     },
   ],
 };
@@ -318,7 +397,11 @@ function truncatedFixture(): AgentInteractionTrace {
       output_tokens: 2,
       total_tokens: 12,
     },
-    cost: { status: "estimated" as const, usd: 0.0001 },
+    cost: {
+      status: "estimated" as const,
+      usd: A0_TRUNCATED_CALL_USD,
+      rates_per_1m_usd: { ...A0_GPT_54_RATES_PER_1M_USD },
+    },
   }));
   return {
     ...a0CompleteFixture,
@@ -335,7 +418,7 @@ function truncatedFixture(): AgentInteractionTrace {
     },
     cost: {
       status: "partial",
-      usd: 0.0064,
+      usd: A0_TRUNCATED_AGGREGATE_USD,
       currency: "USD",
       priced_call_count: 64,
       unpriced_call_count: 0,
@@ -358,6 +441,27 @@ describe("AgentTraceInspector", () => {
     expect(source).not.toMatch(/from ["'].*(planSurface|playSurface|buildSurface)/);
   });
 
+  it("locks fixture USD values to A0 usage_cost_usd for gpt-5.4", () => {
+    expect(A0_CALL1_USD).toBeCloseTo(0.0105, 10);
+    expect(A0_CALL2_USD).toBe(0.016965);
+    expect(A0_COMPLETE_USD).toBe(0.027465);
+    expect(A0_RETRY_SUCCESS_USD).toBeCloseTo(0.027465, 12);
+    expect(A0_TRUNCATED_CALL_USD).toBeCloseTo(0.000055, 12);
+    expect(A0_TRUNCATED_AGGREGATE_USD).toBeCloseTo(0.00352, 12);
+    expect(a0CompleteFixture.model_calls?.[0]?.cost?.usd).toBe(A0_CALL1_USD);
+    expect(a0CompleteFixture.model_calls?.[1]?.cost?.usd).toBe(A0_CALL2_USD);
+    expect(a0CompleteFixture.cost?.usd).toBe(A0_COMPLETE_USD);
+    expect(a0CompleteFixture.cost?.usd).toBeCloseTo(
+      (a0CompleteFixture.model_calls?.[0]?.cost?.usd ?? 0)
+      + (a0CompleteFixture.model_calls?.[1]?.cost?.usd ?? 0),
+      12,
+    );
+    expect(a0RetryPartialFixture.model_calls?.[1]?.cost?.usd).toBe(A0_RETRY_SUCCESS_USD);
+    expect(a0RetryPartialFixture.cost?.usd).toBe(A0_RETRY_SUCCESS_USD);
+    expect(truncatedFixture().model_calls?.[0]?.cost?.usd).toBe(A0_TRUNCATED_CALL_USD);
+    expect(truncatedFixture().cost?.usd).toBe(A0_TRUNCATED_AGGREGATE_USD);
+  });
+
   it("renders complete A0 overview tokens, cost, model, and elapsed from server values", () => {
     render(<AgentTraceInspector trace={a0CompleteFixture} />);
 
@@ -365,13 +469,13 @@ describe("AgentTraceInspector", () => {
     expect(screen.getByText("Advanced diagnostics")).toBeInTheDocument();
     expect(screen.getByTestId("agent-trace-summary-meta")).toHaveTextContent(/7\.42 s/);
     expect(screen.getByTestId("agent-trace-summary-meta")).toHaveTextContent(/21\.3k in → 981 out/);
-    expect(screen.getByTestId("agent-trace-summary-meta")).toHaveTextContent(/\$0\.0061 est\./);
+    expect(screen.getByTestId("agent-trace-summary-meta")).toHaveTextContent(/\$0\.0275 est\./);
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("trace-a0-complete");
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("openai-api / gpt-5.4");
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("7420 ms");
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("cached 18000");
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("reasoning 120");
-    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("$0.0061 estimated");
+    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("$0.0275 estimated");
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("2 model calls");
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("2 priced / 0 unpriced");
   });
@@ -390,9 +494,9 @@ describe("AgentTraceInspector", () => {
     expect(rows[1]).toHaveTextContent("#2");
     expect(rows[1]).toHaveTextContent("ok");
     expect(rows[1]).toHaveTextContent("5000 ms");
-    expect(rows[1]).toHaveTextContent("$0.0061 estimated");
+    expect(rows[1]).toHaveTextContent("$0.0275 estimated");
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("partial");
-    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("$0.0061 partial");
+    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("$0.0275 partial");
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("1 priced / 1 unpriced");
   });
 
@@ -403,7 +507,7 @@ describe("AgentTraceInspector", () => {
       /64 retained \/ 65 observed calls/,
     );
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("partial");
-    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("$0.0064 partial");
+    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("$0.0035 partial");
     expect(screen.getByText("model_calls_truncated")).toBeInTheDocument();
     expect(screen.getAllByTestId("agent-trace-model-call")).toHaveLength(64);
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("64 retained / 65 observed calls");
@@ -501,6 +605,24 @@ describe("AgentTraceInspector", () => {
     expect(offsets[2]).not.toBe(offsets[1]);
   });
 
+  it("keeps whole-second A0 phase stamps duration-only even when every phase is longer than one second", () => {
+    render(<AgentTraceInspector trace={a0LongDurationWholeSecondFixture} />);
+
+    const section = screen.getByTestId("agent-trace-phases");
+    expect(section).toHaveAttribute("data-timing-placement", "duration-only");
+    const bars = screen.getAllByTestId("agent-trace-phase-bar");
+    expect(bars).toHaveLength(3);
+    const widths = bars.map((bar) => {
+      expect(bar).toHaveClass("agent-trace-bar-track--duration-only");
+      expect(bar.getAttribute("style")).toContain("--trace-bar-offset: 0%");
+      const match = bar.getAttribute("style")?.match(/--trace-bar-width:\s*([\d.]+)%/);
+      return Number(match?.[1] ?? NaN);
+    });
+    expect(widths[0]).toBeCloseTo((2000 / 8000) * 100, 5);
+    expect(widths[1]).toBe(100);
+    expect(widths[2]).toBeCloseTo((2000 / 8000) * 100, 5);
+  });
+
   it("copies safe structured diagnostics without question, answer, or raw bodies", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
@@ -523,7 +645,7 @@ describe("AgentTraceInspector", () => {
     const copied = String(writeText.mock.calls[0]?.[0] ?? "");
     expect(copied).toContain("trace-a0-complete");
     expect(copied).toContain("gpt-5.4");
-    expect(copied).toContain("0.0061");
+    expect(copied).toContain("0.027465");
     expect(copied).not.toContain("Where is Tripod");
     expect(copied).not.toContain("SECRET_PROMPT");
     expect(copied).not.toContain('"question"');

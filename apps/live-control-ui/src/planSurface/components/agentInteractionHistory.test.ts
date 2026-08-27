@@ -949,6 +949,18 @@ describe("agentInteractionHistory", () => {
 
   it("preserves A0 diagnostic fields through turnFromResponse, persist, and reload", () => {
     const thread = makeThread("A0 diagnostics");
+    const a0Gpt54Rates = { input: 2.5, cached_input: 0.25, output: 15 };
+    const a0UsageCostUsd = (inputTokens: number, cachedTokens: number, outputTokens: number): number => {
+      const uncached = Math.max(0, inputTokens - cachedTokens);
+      return (
+        (uncached / 1_000_000) * a0Gpt54Rates.input
+        + (cachedTokens / 1_000_000) * a0Gpt54Rates.cached_input
+        + (outputTokens / 1_000_000) * a0Gpt54Rates.output
+      );
+    };
+    const call1Usd = a0UsageCostUsd(18_000, 18_000, 400);
+    const call2Usd = a0UsageCostUsd(3_300, 0, 581);
+    const completeUsd = call1Usd + call2Usd;
     const turn = turnFromResponse("Who is Lysandro?", {
       answer: "Lysandro is at the gate.",
       mode: "hermes_graph_agent",
@@ -987,7 +999,7 @@ describe("agentInteractionHistory", () => {
           model_call_count: 2,
           usage_reported_call_count: 2,
         },
-        cost: { status: "estimated", usd: 0.0061, currency: "USD", priced_call_count: 2, unpriced_call_count: 0 },
+        cost: { status: "estimated", usd: completeUsd, currency: "USD", priced_call_count: 2, unpriced_call_count: 0 },
         model_calls: [
           {
             call_id: "call-1",
@@ -1007,7 +1019,7 @@ describe("agentInteractionHistory", () => {
               reasoning_tokens: 80,
               total_tokens: 18400,
             },
-            cost: { status: "estimated", usd: 0.004 },
+            cost: { status: "estimated", usd: call1Usd, rates_per_1m_usd: a0Gpt54Rates },
           },
           {
             call_id: "call-2",
@@ -1027,7 +1039,7 @@ describe("agentInteractionHistory", () => {
               reasoning_tokens: 40,
               total_tokens: 3881,
             },
-            cost: { status: "estimated", usd: 0.0021 },
+            cost: { status: "estimated", usd: call2Usd, rates_per_1m_usd: a0Gpt54Rates },
           },
         ],
         spans: [
@@ -1075,7 +1087,7 @@ describe("agentInteractionHistory", () => {
     expect(turn.trace?.usage.model_call_count).toBe(2);
     expect(turn.trace?.usage.usage_reported_call_count).toBe(2);
     expect(turn.trace?.usage.cached_input_tokens).toBe(18000);
-    expect(turn.trace?.cost?.usd).toBe(0.0061);
+    expect(turn.trace?.cost?.usd).toBe(completeUsd);
     expect(turn.trace?.cost?.priced_call_count).toBe(2);
     expect(turn.trace?.cost?.unpriced_call_count).toBe(0);
     expect(turn.trace?.model_calls).toHaveLength(2);
@@ -1135,7 +1147,7 @@ describe("agentInteractionHistory", () => {
           model_call_count: 1,
           usage_reported_call_count: 1,
         },
-        cost: { status: "estimated", usd: 0.001, priced_call_count: 1, unpriced_call_count: 0 },
+        cost: { status: "estimated", usd: 0.000055, priced_call_count: 1, unpriced_call_count: 0 },
         model_calls: [{
           call_id: "call-1",
           sequence: 1,
@@ -1172,7 +1184,7 @@ describe("agentInteractionHistory", () => {
 
     const reloaded = loadAgentThreadById("longmont-c2", thread.threadId);
     expect(reloaded?.turns[0].trace?.usage.input_tokens).toBe(10);
-    expect(reloaded?.turns[0].trace?.cost?.usd).toBe(0.001);
+    expect(reloaded?.turns[0].trace?.cost?.usd).toBe(0.000055);
     expect(JSON.stringify(reloaded)).not.toContain("SENTINEL_REQUEST_BODY");
   });
 });
