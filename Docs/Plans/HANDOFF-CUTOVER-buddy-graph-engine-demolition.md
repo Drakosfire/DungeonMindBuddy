@@ -7,6 +7,9 @@ pr_body_template: |
   - Handoff: `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`
   - Implementation repository: `Drakosfire/DungeonMindBuddy`
   - Exact design base: `f1fd3f6aa4270de2af44a4e249f127332622b785`
+  - Design PR #647 merge: `d96a21363fd0decbcb8c4390f951a6316b53060c`
+  - Accepted design head: `1f5676c204ee917d18efd553106c07306541e820`
+  - Design review: Cycle 7 PASS-equivalent `5034239255`
   - Predecessor: Buddy #645 merge `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`
   - #645 accepted head: `f772db17e00cbe2c0198ae53f169a10a6332a3ed`
   - #645 final review: Review Cycle 2 PASS-equivalent `5026532158`
@@ -39,7 +42,7 @@ pr_body_template: |
       D.3B   physical legacy-package deletion
 
   D.3 is not DONE until D.3B merges and the final absence proof passes.
-  D.2C3 is not dispatched until this design PR merges.
+  D.2C3 is dispatched as Buddy #651 after this design PR merged.
   D.2C4 is not dispatched until D.2C3 merges.
   D.3A is not dispatched until D.2C4 merges.
 ---
@@ -47,12 +50,16 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.3: Buddy graph-engine demolition
 
 **Created:** 2026-08-25
-**Status:** CYCLE 6 REPAIR — awaiting Review Cycle 7
+**Status:** MERGED — design accepted; D.2C3 implementation / Buddy #651 is PARKED ON PREDECESSOR; D.2C2 first-world provenance compatibility DESIGN is the active CUTOVER lease (Review Cycle 2 `5036457798` REQUEST-CHANGES-equivalent on `ce902411…`; Review Cycle 3 `5036535545` REQUEST-CHANGES-equivalent on `9abbcf83…` (re-anchor only); Review Cycle 4 in-flight)
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`
 **Workstream / flow:** `CUTOVER`
 **Direction:** DESIGN → REVIEW
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`
-**Exact design base / current `main`:** `f1fd3f6aa4270de2af44a4e249f127332622b785` — APP-STATE Play persistence demolition on top of #649
+**Exact design base:** `f1fd3f6aa4270de2af44a4e249f127332622b785` — APP-STATE Play persistence demolition on top of #649
+**Design merge:** `d96a21363fd0decbcb8c4390f951a6316b53060c`
+**Current `main`:** `5b2d9bc7cc61c7a485c3bd801cd44d7251134466` — AGENT-INTERACTION surface-authority re-anchor; disjoint from this design. Historical PLAY-SURFACE: `555a9c7965aca47a24536277b9b36ae569a7285a`. Historical #650: `cc016661f80416e0816f56349217cf33c53a195f`.
+**Accepted design head:** `1f5676c204ee917d18efd553106c07306541e820`
+**Cycle 7 review:** PASS-equivalent `5034239255`
 **Cycle 1 review:** REQUEST-CHANGES-equivalent `5026690745` on `e7b34502eb3a7a3fcc8b716ef4a25a5bb7fc9db2`
 **Cycle 1 addendum:** issue comment `5420568935` on the same head; not Review Cycle 2
 **Cycle 2 review:** REQUEST-CHANGES-equivalent `5031234283` on `1d99c5e7a23cf864b671c6d3f0d17c65618a9327`
@@ -122,8 +129,8 @@ cockpit as a D.3A FAIL_CLOSED product choice.
 **D.3 is not DONE after D.3A.** D.3 becomes DONE only after D.3B merges and the
 final source/runtime absence proof passes.
 
-**D.2C3 is not dispatched until this design PR merges.** Then re-anchor
-current `main` and dispatch the parseable D.2C3 CODE wrapper.
+**D.2C3 is dispatched** as Buddy #651 / `cutover/native-genesis-read-write-continuity` after this design PR merged. Then re-anchor
+current `main` only if a later merge moves the D.2C3 base.
 
 **D.2C4 is not dispatched until D.2C3 merges.**
 
