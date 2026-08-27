@@ -20,6 +20,8 @@ import {
   type RunbookMutationStatus,
 } from "./runbook/RunbookTableDeck";
 import { PlayCurrentMomentCockpit } from "./currentMoment/PlayCurrentMomentCockpit";
+import { useOptionalWorldGraphLens } from "../graphLens";
+import { campaignIdFromProductContext } from "./blankRunbook";
 import { StartRunPanel } from "./StartRunPanel";
 import {
   admitNativeRunbook,
@@ -186,6 +188,8 @@ function PlaySurfacePublisher({
 }
 
 function PlayChooser({ continuityWarning }: { continuityWarning?: string | null }) {
+  const world = useOptionalWorldGraphLens();
+  const productCampaignId = campaignIdFromProductContext(world);
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable" | "recovery_pending">("loading");
   const [detail, setDetail] = useState<string | null>(null);
   const [records, setRecords] = useState<PlayRunRecord[]>([]);
@@ -267,7 +271,7 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
           </ul>
         ) : null}
       </section>
-      <StartRunPanel onStarted={navigateToRun} />
+      <StartRunPanel onStarted={navigateToRun} productCampaignId={productCampaignId} />
     </main>
   );
 }
