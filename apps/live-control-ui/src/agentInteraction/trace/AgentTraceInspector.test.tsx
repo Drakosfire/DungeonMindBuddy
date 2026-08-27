@@ -13,7 +13,7 @@ import {
   formatTraceToolSummary,
 } from "./AgentTraceInspector";
 
-const a0Fixture: AgentInteractionTrace = {
+const a0CompleteFixture: AgentInteractionTrace = {
   schema: "dmb_agent_turn_trace_v1",
   trace_id: "trace-a0-complete",
   agent_thread_id: "thread-a0",
@@ -23,8 +23,8 @@ const a0Fixture: AgentInteractionTrace = {
   mode: "hermes_graph_agent",
   provider: "openai-api",
   model: "gpt-5.4",
-  started_at: "2026-08-26T18:00:00.000Z",
-  completed_at: "2026-08-26T18:00:07.420Z",
+  started_at: "2026-08-26T18:00:00Z",
+  completed_at: "2026-08-26T18:00:07Z",
   elapsed_ms: 7420,
   status: "ok",
   usage: {
@@ -46,32 +46,32 @@ const a0Fixture: AgentInteractionTrace = {
     currency: "USD",
     priced_call_count: 2,
     unpriced_call_count: 0,
-    rates_per_1m_usd: { input: 1.25, output: 10 },
   },
   model_calls: [
     {
       call_id: "call-1",
       sequence: 1,
-      status: "error",
+      status: "ok",
       provider: "openai-api",
       requested_model: "gpt-5.4",
       response_model: "gpt-5.4",
       api_mode: "chat_completions",
-      started_at: "2026-08-26T18:00:00.100Z",
-      completed_at: "2026-08-26T18:00:01.100Z",
-      duration_ms: 1000,
+      started_at: "2026-08-26T18:00:00Z",
+      completed_at: "2026-08-26T18:00:05Z",
+      duration_ms: 5000,
+      finish_reason: "stop",
       usage: {
-        available: false,
-        status: "unavailable",
-        input_tokens: null,
-        output_tokens: null,
-        total_tokens: null,
+        available: true,
+        status: "reported",
+        input_tokens: 18000,
+        cached_input_tokens: 18000,
+        cache_write_input_tokens: 0,
+        uncached_input_tokens: 0,
+        output_tokens: 400,
+        reasoning_tokens: 80,
+        total_tokens: 18400,
       },
-      cost: { status: "unavailable", usd: null },
-      retry_count: 1,
-      retryable: true,
-      status_code: 429,
-      error_type: "rate_limit",
+      cost: { status: "estimated", usd: 0.004, currency: "USD" },
     },
     {
       call_id: "call-2",
@@ -81,21 +81,22 @@ const a0Fixture: AgentInteractionTrace = {
       requested_model: "gpt-5.4",
       response_model: "gpt-5.4",
       api_mode: "chat_completions",
-      started_at: "2026-08-26T18:00:01.200Z",
-      completed_at: "2026-08-26T18:00:06.200Z",
-      duration_ms: 5000,
+      started_at: "2026-08-26T18:00:05Z",
+      completed_at: "2026-08-26T18:00:07Z",
+      duration_ms: 2200,
       finish_reason: "stop",
       usage: {
         available: true,
         status: "reported",
-        input_tokens: 21300,
-        cached_input_tokens: 18000,
+        input_tokens: 3300,
+        cached_input_tokens: 0,
+        cache_write_input_tokens: 0,
         uncached_input_tokens: 3300,
-        output_tokens: 981,
-        reasoning_tokens: 120,
-        total_tokens: 22281,
+        output_tokens: 581,
+        reasoning_tokens: 40,
+        total_tokens: 3881,
       },
-      cost: { status: "estimated", usd: 0.0061, currency: "USD" },
+      cost: { status: "estimated", usd: 0.0021, currency: "USD" },
     },
   ],
   spans: [
@@ -104,8 +105,8 @@ const a0Fixture: AgentInteractionTrace = {
       kind: "phase",
       name: "session_load",
       status: "ok",
-      started_at: "2026-08-26T18:00:00.000Z",
-      completed_at: "2026-08-26T18:00:00.080Z",
+      started_at: "2026-08-26T18:00:00Z",
+      completed_at: "2026-08-26T18:00:00Z",
       duration_ms: 80,
     },
     {
@@ -113,8 +114,8 @@ const a0Fixture: AgentInteractionTrace = {
       kind: "phase",
       name: "harness_turn",
       status: "ok",
-      started_at: "2026-08-26T18:00:00.080Z",
-      completed_at: "2026-08-26T18:00:07.200Z",
+      started_at: "2026-08-26T18:00:00Z",
+      completed_at: "2026-08-26T18:00:07Z",
       duration_ms: 7120,
     },
     {
@@ -122,8 +123,8 @@ const a0Fixture: AgentInteractionTrace = {
       kind: "phase",
       name: "response_projection",
       status: "ok",
-      started_at: "2026-08-26T18:00:07.200Z",
-      completed_at: "2026-08-26T18:00:07.420Z",
+      started_at: "2026-08-26T18:00:07Z",
+      completed_at: "2026-08-26T18:00:07Z",
       duration_ms: 220,
     },
   ],
@@ -165,6 +166,117 @@ const a0Fixture: AgentInteractionTrace = {
   warnings: [],
 };
 
+const a0RetryPartialFixture: AgentInteractionTrace = {
+  ...a0CompleteFixture,
+  trace_id: "trace-a0-retry-partial",
+  usage: {
+    available: true,
+    status: "partial",
+    input_tokens: 21300,
+    cached_input_tokens: 18000,
+    cache_write_input_tokens: 0,
+    uncached_input_tokens: 3300,
+    output_tokens: 981,
+    reasoning_tokens: 120,
+    total_tokens: 22281,
+    model_call_count: 2,
+    usage_reported_call_count: 1,
+  },
+  cost: {
+    status: "partial",
+    usd: 0.0061,
+    currency: "USD",
+    priced_call_count: 1,
+    unpriced_call_count: 1,
+  },
+  model_calls: [
+    {
+      call_id: "call-1",
+      sequence: 1,
+      status: "error",
+      provider: "openai-api",
+      requested_model: "gpt-5.4",
+      response_model: "gpt-5.4",
+      api_mode: "chat_completions",
+      started_at: "2026-08-26T18:00:00Z",
+      completed_at: "2026-08-26T18:00:01Z",
+      duration_ms: 1000,
+      usage: {
+        available: false,
+        status: "unavailable",
+        input_tokens: null,
+        output_tokens: null,
+        total_tokens: null,
+      },
+      cost: { status: "unavailable", usd: null },
+      retry_count: 1,
+      retryable: true,
+      status_code: 429,
+      error_type: "rate_limit",
+    },
+    {
+      call_id: "call-2",
+      sequence: 2,
+      status: "ok",
+      provider: "openai-api",
+      requested_model: "gpt-5.4",
+      response_model: "gpt-5.4",
+      api_mode: "chat_completions",
+      started_at: "2026-08-26T18:00:01Z",
+      completed_at: "2026-08-26T18:00:06Z",
+      duration_ms: 5000,
+      finish_reason: "stop",
+      usage: {
+        available: true,
+        status: "reported",
+        input_tokens: 21300,
+        cached_input_tokens: 18000,
+        uncached_input_tokens: 3300,
+        output_tokens: 981,
+        reasoning_tokens: 120,
+        total_tokens: 22281,
+      },
+      cost: { status: "estimated", usd: 0.0061, currency: "USD" },
+    },
+  ],
+};
+
+const a0MillisecondPhaseFixture: AgentInteractionTrace = {
+  ...a0CompleteFixture,
+  trace_id: "trace-a0-ms-phases",
+  started_at: "2026-08-26T18:00:00.000Z",
+  completed_at: "2026-08-26T18:00:07.420Z",
+  spans: [
+    {
+      span_id: "span-session",
+      kind: "phase",
+      name: "session_load",
+      status: "ok",
+      started_at: "2026-08-26T18:00:00.000Z",
+      completed_at: "2026-08-26T18:00:00.080Z",
+      duration_ms: 80,
+    },
+    {
+      span_id: "span-harness",
+      kind: "phase",
+      name: "harness_turn",
+      status: "ok",
+      started_at: "2026-08-26T18:00:00.080Z",
+      completed_at: "2026-08-26T18:00:07.200Z",
+      duration_ms: 7120,
+    },
+    {
+      span_id: "span-project",
+      kind: "phase",
+      name: "response_projection",
+      status: "ok",
+      started_at: "2026-08-26T18:00:07.200Z",
+      completed_at: "2026-08-26T18:00:07.420Z",
+      duration_ms: 220,
+    },
+  ],
+};
+
 const legacyHermesTrace: AgentInteractionTrace = {
   trace_id: "agent-trace-pr354-fixture",
   runtime: "process_isolated",
@@ -183,7 +295,7 @@ const legacyHermesTrace: AgentInteractionTrace = {
   steps: [],
   context_summary: {},
   artifact_refs: [],
-  tool_events: a0Fixture.tool_events,
+  tool_events: a0CompleteFixture.tool_events,
   hermes_session_id: "hermes-sess-obs-only",
   process_isolation: "process_exclusive",
   warnings: [],
@@ -209,15 +321,25 @@ function truncatedFixture(): AgentInteractionTrace {
     cost: { status: "estimated" as const, usd: 0.0001 },
   }));
   return {
-    ...a0Fixture,
+    ...a0CompleteFixture,
     trace_id: "trace-truncated",
     usage: {
-      ...a0Fixture.usage,
+      available: true,
       status: "partial",
+      input_tokens: 640,
+      output_tokens: 128,
+      total_tokens: 768,
       model_call_count: 64,
+      usage_reported_call_count: 64,
       observed_model_call_count: 65,
     },
-    cost: { ...a0Fixture.cost!, status: "partial" },
+    cost: {
+      status: "partial",
+      usd: 0.0064,
+      currency: "USD",
+      priced_call_count: 64,
+      unpriced_call_count: 0,
+    },
     model_calls: retained,
     warnings: ["model_calls_truncated"],
   };
@@ -237,7 +359,7 @@ describe("AgentTraceInspector", () => {
   });
 
   it("renders complete A0 overview tokens, cost, model, and elapsed from server values", () => {
-    render(<AgentTraceInspector trace={a0Fixture} />);
+    render(<AgentTraceInspector trace={a0CompleteFixture} />);
 
     expect(screen.getByLabelText("Agent interaction trace")).toBeInTheDocument();
     expect(screen.getByText("Advanced diagnostics")).toBeInTheDocument();
@@ -251,10 +373,11 @@ describe("AgentTraceInspector", () => {
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("reasoning 120");
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("$0.0061 estimated");
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("2 model calls");
+    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("2 priced / 0 unpriced");
   });
 
-  it("keeps failed and retried model calls visible as separate rows", () => {
-    render(<AgentTraceInspector trace={a0Fixture} />);
+  it("keeps failed and retried model calls visible as separate rows with partial aggregates", () => {
+    render(<AgentTraceInspector trace={a0RetryPartialFixture} />);
 
     const rows = screen.getAllByTestId("agent-trace-model-call");
     expect(rows).toHaveLength(2);
@@ -268,6 +391,9 @@ describe("AgentTraceInspector", () => {
     expect(rows[1]).toHaveTextContent("ok");
     expect(rows[1]).toHaveTextContent("5000 ms");
     expect(rows[1]).toHaveTextContent("$0.0061 estimated");
+    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("partial");
+    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("$0.0061 partial");
+    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("1 priced / 1 unpriced");
   });
 
   it("shows truncation as partial with retained vs observed counts", () => {
@@ -277,7 +403,7 @@ describe("AgentTraceInspector", () => {
       /64 retained \/ 65 observed calls/,
     );
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("partial");
-    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("$0.0061 partial");
+    expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("$0.0064 partial");
     expect(screen.getByText("model_calls_truncated")).toBeInTheDocument();
     expect(screen.getAllByTestId("agent-trace-model-call")).toHaveLength(64);
     expect(screen.getByTestId("agent-trace-overview")).toHaveTextContent("64 retained / 65 observed calls");
@@ -287,7 +413,7 @@ describe("AgentTraceInspector", () => {
     render(
       <AgentTraceInspector
         trace={{
-          ...a0Fixture,
+          ...a0CompleteFixture,
           usage: {
             available: false,
             status: "unavailable",
@@ -297,7 +423,7 @@ describe("AgentTraceInspector", () => {
           },
           cost: { status: "unavailable", usd: null },
           model_calls: [{
-            ...a0Fixture.model_calls![1],
+            ...a0CompleteFixture.model_calls![1],
             usage: {
               available: false,
               status: "unavailable",
@@ -327,7 +453,7 @@ describe("AgentTraceInspector", () => {
   });
 
   it("renders product phase durations without placing tools on that timeline", () => {
-    render(<AgentTraceInspector trace={a0Fixture} />);
+    render(<AgentTraceInspector trace={a0CompleteFixture} />);
 
     const phases = screen.getAllByTestId("agent-trace-phase");
     expect(phases).toHaveLength(3);
@@ -336,6 +462,43 @@ describe("AgentTraceInspector", () => {
     expect(screen.getByTestId("agent-trace-tools")).toHaveTextContent("18ms");
     expect(screen.getByTestId("agent-trace-tools")).toHaveTextContent("enough");
     expect(screen.getByTestId("agent-trace-phases").textContent).not.toContain("search_campaign_graph");
+  });
+
+  it("uses duration-only phase bars for A0 whole-second timestamps", () => {
+    render(<AgentTraceInspector trace={a0CompleteFixture} />);
+
+    const section = screen.getByTestId("agent-trace-phases");
+    expect(section).toHaveAttribute("data-timing-placement", "duration-only");
+    const bars = screen.getAllByTestId("agent-trace-phase-bar");
+    expect(bars).toHaveLength(3);
+    const widths = bars.map((bar) => {
+      expect(bar).toHaveClass("agent-trace-bar-track--duration-only");
+      expect(bar.getAttribute("style")).toContain("--trace-bar-offset: 0%");
+      const match = bar.getAttribute("style")?.match(/--trace-bar-width:\s*([\d.]+)%/);
+      return Number(match?.[1] ?? NaN);
+    });
+    expect(widths[0]).toBeCloseTo((80 / 7120) * 100, 5);
+    expect(widths[1]).toBe(100);
+    expect(widths[2]).toBeCloseTo((220 / 7120) * 100, 5);
+    expect(new Set(widths).size).toBe(3);
+  });
+
+  it("places phase bars only when timestamp precision can distinguish the durations", () => {
+    render(<AgentTraceInspector trace={a0MillisecondPhaseFixture} />);
+
+    const section = screen.getByTestId("agent-trace-phases");
+    expect(section).toHaveAttribute("data-timing-placement", "relative-offset");
+    const bars = screen.getAllByTestId("agent-trace-phase-bar");
+    const offsets = bars.map((bar) => {
+      expect(bar).not.toHaveClass("agent-trace-bar-track--duration-only");
+      const match = bar.getAttribute("style")?.match(/--trace-bar-offset:\s*([\d.]+)%/);
+      return Number(match?.[1] ?? NaN);
+    });
+    expect(offsets[0]).toBe(0);
+    expect(offsets[1]).toBeCloseTo((80 / 7420) * 100, 5);
+    expect(offsets[2]).toBeCloseTo((7200 / 7420) * 100, 5);
+    expect(offsets[1]).not.toBe(offsets[0]);
+    expect(offsets[2]).not.toBe(offsets[1]);
   });
 
   it("copies safe structured diagnostics without question, answer, or raw bodies", async () => {
@@ -349,7 +512,7 @@ describe("AgentTraceInspector", () => {
     render(
       <AgentTraceInspector
         trace={{
-          ...a0Fixture,
+          ...a0CompleteFixture,
           prompt_preview: "SECRET_PROMPT",
         }}
       />,
@@ -370,7 +533,7 @@ describe("AgentTraceInspector", () => {
 
   it("strips forbidden sentinel keys from copied diagnostics", () => {
     const text = formatSafeTraceDiagnostics({
-      ...a0Fixture,
+      ...a0CompleteFixture,
       request: { body: "SENTINEL_REQUEST_BODY" },
       response: { assistant_message: { content: "SENTINEL_RESPONSE" } },
       prompt: "SENTINEL_PROMPT",
@@ -408,11 +571,11 @@ describe("AgentTraceInspector", () => {
           model_calls: [
             null as never,
             { not_a_call: true } as never,
-            a0Fixture.model_calls![1],
+            a0CompleteFixture.model_calls![1],
           ],
           spans: [
             { name: "no-id" } as never,
-            a0Fixture.spans![0],
+            a0CompleteFixture.spans![0],
           ],
           warnings: [{ secret: "unexpected object" }, "bounded string warning"] as never,
         }}
@@ -432,7 +595,7 @@ describe("AgentTraceInspector", () => {
         trace={{
           ...legacyHermesTrace,
           tool_events: [],
-          conversation_context: a0Fixture.conversation_context,
+          conversation_context: a0CompleteFixture.conversation_context,
         }}
       />,
     );
@@ -448,7 +611,7 @@ describe("AgentTraceInspector", () => {
   it("format helpers remain available for tool and conversation summaries", () => {
     expect(formatTraceToolSummary(legacyHermesTrace.tool_events ?? [], { isHermesGraphAgent: true }))
       .toBe("tools: search_campaign_graph");
-    expect(formatTraceConversationContextSummary(a0Fixture.conversation_context ?? null, {
+    expect(formatTraceConversationContextSummary(a0CompleteFixture.conversation_context ?? null, {
       isHermesGraphAgent: true,
     })).toContain("ctx: 6 msgs");
   });

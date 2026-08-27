@@ -288,32 +288,28 @@ function parseTimestampMs(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * Infer source timestamp resolution from the ISO string.
+ * A0 `utc_now_z()` emits whole seconds (`%Y-%m-%dT%H:%M:%SZ`) with no fractional part.
+ */
+function timestampResolutionMs(value: unknown): number | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  if (parseTimestampMs(value) == null) return null;
+  const fractional = value.match(/\.(\d+)/);
+  if (!fractional) return 1000;
+  const digits = fractional[1].length;
+  if (digits >= 3) return 1;
+  if (digits === 2) return 10;
+  return 100;
+}
+
 function clampPercent(value: number): number {
   if (!Number.isFinite(value) || value < 0) return 0;
   if (value > 100) return 100;
   return value;
 }
 
-function timingBarStyle(
-  startedAt: unknown,
-  durationMs: unknown,
-  interval: { start: number; end: number } | null,
-  maxDuration: number | null,
-): { offset: number; width: number } | null {
-  const duration = finiteNumber(durationMs);
-  if (duration == null) return null;
-  const widthFromDuration = maxDuration && maxDuration > 0
-    ? clampPercent((duration / maxDuration) * 100)
-    : 0;
-  const startMs = parseTimestampMs(startedAt);
-  if (interval && startMs != null) {
-    const span = Math.max(1, interval.end - interval.start);
-    const offset = clampPercent(((startMs - interval.start) / span) * 100);
-    const width = clampPercent((duration / span) * 100);
-    return { offset, width: Math.max(width, 0.5) };
-  }
-  return { offset: 0, width: Math.max(widthFromDuration, 0.5) };
-}
+type PhaseTimingPlacement = "relative-offset" | "duration-only";
 
 function traceInterval(trace: AgentInteractionTrace, spans: AgentInteractionTraceSpan[]): { start: number; end: number } | null {
   const start = parseTimestampMs(trace.started_at);
@@ -327,6 +323,66 @@ function traceInterval(trace: AgentInteractionTrace, spans: AgentInteractionTrac
     .filter((value): value is number => value != null);
   if (!stampStarts.length || !stampEnds.length) return null;
   return { start: Math.min(...stampStarts), end: Math.max(...stampEnds) };
+}
+
+function resolvePhaseTimingPlacement(
+  trace: AgentInteractionTrace,
+  spans: AgentInteractionTraceSpan[],
+): PhaseTimingPlacement {
+  const timedSpans = spans.filter((span) => finiteNumber(span.duration_ms) != null);
+  const durations = timedSpans
+    .map((span) => finiteNumber(span.duration_ms))
+    .filter((ms): ms is number => ms != null && ms > 0);
+  if (!durations.length) return "duration-only";
+  if (timedSpans.some((span) => timestampResolutionMs(span.started_at) == null)) {
+    return "duration-only";
+  }
+
+  const interval = traceInterval(trace, spans);
+  if (!interval) return "duration-only";
+
+  const usesTraceBounds = parseTimestampMs(trace.started_at) != null
+    && parseTimestampMs(trace.completed_at) != null;
+  const intervalStamps: unknown[] = usesTraceBounds
+    ? [trace.started_at, trace.completed_at]
+    : spans.flatMap((span) => [span.started_at, span.completed_at]);
+  const resolutions = [...intervalStamps, ...timedSpans.map((span) => span.started_at)]
+    .map((stamp) => timestampResolutionMs(stamp))
+    .filter((ms): ms is number => ms != null);
+  if (!resolutions.length) return "duration-only";
+
+  const coarsestResolution = Math.max(...resolutions);
+  const finestDuration = Math.min(...durations);
+  if (coarsestResolution >= finestDuration) return "duration-only";
+
+  const intervalMs = interval.end - interval.start;
+  const maxDuration = Math.max(...durations);
+  if (intervalMs < maxDuration) return "duration-only";
+  return "relative-offset";
+}
+
+function timingBarStyle(
+  startedAt: unknown,
+  durationMs: unknown,
+  interval: { start: number; end: number } | null,
+  maxDuration: number | null,
+  placement: PhaseTimingPlacement,
+): { offset: number; width: number } | null {
+  const duration = finiteNumber(durationMs);
+  if (duration == null) return null;
+  const widthFromDuration = maxDuration && maxDuration > 0
+    ? clampPercent((duration / maxDuration) * 100)
+    : 0;
+  if (placement === "relative-offset" && interval) {
+    const startMs = parseTimestampMs(startedAt);
+    if (startMs != null) {
+      const span = Math.max(1, interval.end - interval.start);
+      const offset = clampPercent(((startMs - interval.start) / span) * 100);
+      const width = clampPercent((duration / span) * 100);
+      return { offset, width: Math.max(width, 0.5) };
+    }
+  }
+  return { offset: 0, width: Math.max(widthFromDuration, 0.5) };
 }
 
 function normalizeModelCall(raw: unknown): AgentInteractionModelCallTrace | null {
@@ -486,7 +542,8 @@ export function AgentTraceInspector({ trace }: AgentTraceInspectorProps) {
   const compactCost = formatCompactCost(trace.cost);
   const compactTokens = formatCompactTokens(trace.usage);
   const usagePartial = trace.usage?.status === "partial" || warnings.includes("model_calls_truncated");
-  const interval = traceInterval(trace, spans);
+  const phaseTimingPlacement = resolvePhaseTimingPlacement(trace, spans);
+  const interval = phaseTimingPlacement === "relative-offset" ? traceInterval(trace, spans) : null;
   const maxSpanDuration = spans.reduce((max, span) => {
     const duration = finiteNumber(span.duration_ms);
     return duration != null && duration > max ? duration : max;
@@ -617,14 +674,24 @@ export function AgentTraceInspector({ trace }: AgentTraceInspectorProps) {
         </section>
 
         {spans.length ? (
-          <section className="agent-trace-section" data-testid="agent-trace-phases">
+          <section
+            className="agent-trace-section"
+            data-testid="agent-trace-phases"
+            data-timing-placement={phaseTimingPlacement}
+          >
             <h5>Product phases</h5>
             <ul className="agent-trace-list">
               {spans.map((span) => {
                 const durationLabel = span.duration_ms == null
                   ? "timing unavailable"
                   : `${span.duration_ms} ms`;
-                const bar = timingBarStyle(span.started_at, span.duration_ms, interval, maxSpanDuration);
+                const bar = timingBarStyle(
+                  span.started_at,
+                  span.duration_ms,
+                  interval,
+                  maxSpanDuration,
+                  phaseTimingPlacement,
+                );
                 return (
                   <li key={span.span_id} className="agent-trace-item" data-testid="agent-trace-phase">
                     <div className="agent-trace-item-header">
@@ -633,8 +700,13 @@ export function AgentTraceInspector({ trace }: AgentTraceInspectorProps) {
                     </div>
                     {bar ? (
                       <div
-                        className="agent-trace-bar-track"
+                        className={
+                          phaseTimingPlacement === "duration-only"
+                            ? "agent-trace-bar-track agent-trace-bar-track--duration-only"
+                            : "agent-trace-bar-track"
+                        }
                         aria-hidden="true"
+                        data-testid="agent-trace-phase-bar"
                         style={{
                           ["--trace-bar-offset" as string]: `${bar.offset}%`,
                           ["--trace-bar-width" as string]: `${bar.width}%`,
