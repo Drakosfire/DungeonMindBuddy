@@ -352,6 +352,11 @@ function resolvePhaseTimingPlacement(
   if (!resolutions.length) return "duration-only";
 
   const coarsestResolution = Math.max(...resolutions);
+  // A0 `utc_now_z()` stamps are whole seconds. Those stamps cannot locate a
+  // phase start more precisely than 1s, even when every duration is longer
+  // than 1s. Relative offset is reserved for genuine subsecond source stamps.
+  if (coarsestResolution >= 1000) return "duration-only";
+
   const finestDuration = Math.min(...durations);
   if (coarsestResolution >= finestDuration) return "duration-only";
 
