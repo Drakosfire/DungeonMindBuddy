@@ -76,9 +76,14 @@ Then open `http://127.0.0.1:5173/`, choose **Play**, or go to
 
 - Existing Runs load from application state, or show that none exist.
 - Start a Run lists active committed Runbooks.
+- If none exist, **Create blank Runbook** asks for a campaign (or uses a valid
+  World Graph focus) and commits one Untitled Beat. It does not start a Run.
 - Start exact Run admits v2 native READY.
-- The Current Moment cockpit is the READY surface.
+- A blank Runbook opens BF3A in Beat-only Current Moment (`current Scene = null`).
 - Make Scene Current, reload, and the same Scene resumes.
+
+Zero leftover file-backed Runbooks is a truthful bootstrap `NOT READY`. Create
+the first Playable document in Play; do not ask bootstrap to invent one.
 
 ## Readiness results
 
