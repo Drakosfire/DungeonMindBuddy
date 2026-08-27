@@ -1,30 +1,32 @@
-"""PR354: route one Hermes live-query turn through the PR353 host.
+"""PR354: route one Hermes live-query turn through AgentRuntime.
 
-Owns request translation, host invocation (once), grounding classification,
+Owns World scope, retrieval-session construction, grounding classification,
 safe tool-event projection, abstention, and typed execution errors.
-Does not redesign host lifecycle, IPC, retry, or transcript behavior.
+Harness execution crosses exactly one ``AgentRuntime.run(...)`` seam.
 """
 
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
 from apps.live_control_server.config import world_graph_root
+from apps.live_control_server.services.agent_runtime import (
+    WORLD_GRAPH_READ_POLICY,
+    AgentContextPacket,
+    AgentRetrievalSession,
+    AgentRunOptions,
+    AgentRuntime,
+    AgentRuntimeInvocation,
+    AgentRuntimeResult,
+    AgentRuntimeToolEvent,
+    AgentWorldScope,
+)
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
-from apps.live_control_server.services.hermes_graph_agent_contract import (
-    HermesGraphAgentTurnRequest,
-    HermesGraphAgentTurnResult,
-    HermesGraphToolEvent,
-)
-from apps.live_control_server.services.hermes_graph_agent_host import (
-    HermesGraphAgentHost,
-    get_hermes_graph_agent_host,
-)
 from apps.live_control_server.services.hermes_session_store import (
     HermesPointerResolution,
     HermesSessionPointerBinding,
@@ -56,7 +58,6 @@ GroundingState = Literal[
     "inferred_from_graph",
     "conversation_context",
 ]
-HostFactory = Callable[[], HermesGraphAgentHost]
 
 GROUNDING_SCHEMA = "dmb_hermes_graph_grounding_v1"
 CITATION_SCHEMA = "dmb_world_graph_anchor_citation_v1"
@@ -240,19 +241,6 @@ def validate_hermes_query_inputs(
         )
 
 
-def _api_focus_to_host_focus(focus: Mapping[str, Any] | None) -> dict[str, str | None]:
-    if focus is None:
-        return {"kind": "none", "sessionId": None, "campaignId": None}
-    kind = str(focus.get("kind") or "none")
-    session_id = focus.get("session_id")
-    if session_id is not None:
-        session_id = str(session_id)
-    campaign_id = focus.get("campaign_id")
-    if campaign_id is not None:
-        campaign_id = str(campaign_id)
-    return {"kind": kind, "sessionId": session_id, "campaignId": campaign_id}
-
-
 def _focus_for_grounding(focus: Mapping[str, Any] | None) -> dict[str, Any]:
     if focus is None:
         return {"kind": "none", "session_id": None, "campaign_id": None}
@@ -282,8 +270,10 @@ def build_hermes_graph_turn_request(
     conversation_history: list[dict[str, str]] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
     continuity_session_id: str | None = None,
-) -> tuple[HermesGraphAgentTurnRequest, _DispatchedScope]:
-    """Translate resolved World Graph context into one host turn request."""
+    thread_id: str | None = None,
+    turn_id: str | None = None,
+) -> tuple[AgentRuntimeInvocation, _DispatchedScope]:
+    """Assemble one DMB AgentRuntime invocation from resolved World Graph context."""
     from apps.live_control_server.config import repo_root as default_repo_root
     from graph_memory.interaction.latest_recap import read_admitted_recap_excerpt
 
@@ -297,7 +287,7 @@ def build_hermes_graph_turn_request(
         )
     focus_raw = graph_envelope.get("focus")
     focus_map = focus_raw if isinstance(focus_raw, Mapping) else None
-    host_focus = _api_focus_to_host_focus(focus_map)
+    product_focus = _focus_for_grounding(focus_map)
     admissibility = str(graph_envelope.get("admissibility") or "gm")
     graph_root = (root or world_graph_root()).resolve()
     if not graph_root.is_absolute():
@@ -344,28 +334,39 @@ def build_hermes_graph_turn_request(
         if mutated or isinstance(latest_recap_change, Mapping):
             replace_session(session)
     retrieval_session_packet = session.project_for_hermes()
-    request = HermesGraphAgentTurnRequest(
-        question=question,
+    world_scope = AgentWorldScope(
         world_id=world_id,
         campaign_id=campaign_id,
-        focus=host_focus,
+        focus=product_focus,
         admissibility=admissibility,
-        revision_pin=revision_id,
+        revision_id=revision_id,
+    )
+    invocation = AgentRuntimeInvocation(
+        thread_id=thread_id,
+        turn_id=turn_id,
+        message=question,
         conversation_history=history_copy,
-        session_id=(continuity_session_id or None),
-        root=graph_root,
-        capability_policy=None,
-        retrieval_session_id=session.id,
-        retrieval_session=retrieval_session_packet,
+        context_packet=AgentContextPacket(
+            world_scope=world_scope,
+            retrieval_session=AgentRetrievalSession(
+                session_id=session.id,
+                packet=retrieval_session_packet,
+            ),
+        ),
+        capability_policy=WORLD_GRAPH_READ_POLICY,
+        run_options=AgentRunOptions(
+            runtime_session_id=(continuity_session_id or None),
+            execution_root=graph_root,
+        ),
     )
     scope = _DispatchedScope(
         world_id=world_id,
         campaign_id=campaign_id,
-        focus=_focus_for_grounding(focus_map),
+        focus=product_focus,
         admissibility=admissibility,
         revision_id=revision_id,
     )
-    return request, scope
+    return invocation, scope
 
 
 def _normalize_focus_for_compare(focus: Mapping[str, Any] | None) -> dict[str, str | None]:
@@ -380,7 +381,7 @@ def _normalize_focus_for_compare(focus: Mapping[str, Any] | None) -> dict[str, s
 
 
 def _tool_event_scope_contradicts(
-    event: HermesGraphToolEvent,
+    event: AgentRuntimeToolEvent,
     scope: _DispatchedScope,
 ) -> bool:
     """True when the event asserts a scope field that differs from dispatched.
@@ -405,7 +406,7 @@ def _tool_event_scope_contradicts(
 
 
 def _tool_event_scope_matches(
-    event: HermesGraphToolEvent,
+    event: AgentRuntimeToolEvent,
     scope: _DispatchedScope,
 ) -> bool:
     """Fail closed: every authoritative scope field must be present and equal."""
@@ -424,7 +425,7 @@ def _tool_event_scope_matches(
     return event_focus == scope_focus
 
 
-def _normalized_outcome(event: HermesGraphToolEvent) -> str | None:
+def _normalized_outcome(event: AgentRuntimeToolEvent) -> str | None:
     raw = (event.outcome or "").strip().lower()
     if not raw:
         return None
@@ -434,7 +435,7 @@ def _normalized_outcome(event: HermesGraphToolEvent) -> str | None:
 
 
 def _is_evidence_bearing(
-    event: HermesGraphToolEvent,
+    event: AgentRuntimeToolEvent,
     scope: _DispatchedScope,
 ) -> bool:
     """Legacy helper retained for trace projection.
@@ -471,7 +472,7 @@ def _map_outcome_to_legacy_grounding(outcome: str) -> GroundingState:
     return "abstained"
 
 
-def _project_tool_event(event: HermesGraphToolEvent) -> dict[str, Any]:
+def _project_tool_event(event: AgentRuntimeToolEvent) -> dict[str, Any]:
     focus = None
     if event.focus is not None:
         focus = _normalize_focus_for_compare(event.focus)
@@ -495,7 +496,7 @@ def _project_tool_event(event: HermesGraphToolEvent) -> dict[str, Any]:
 
 
 def _safe_projected_tool_events(
-    events: Sequence[HermesGraphToolEvent],
+    events: Sequence[AgentRuntimeToolEvent],
     scope: _DispatchedScope,
 ) -> tuple[list[dict[str, Any]], bool, bool]:
     """Project in-scope events; drop contradictory (foreign) events entirely.
@@ -517,7 +518,7 @@ def _safe_projected_tool_events(
     return projected, saw_mismatch, True
 
 
-def _unique_source_anchors(events: Sequence[HermesGraphToolEvent]) -> list[str]:
+def _unique_source_anchors(events: Sequence[AgentRuntimeToolEvent]) -> list[str]:
     seen: set[str] = set()
     ordered: list[str] = []
     for event in events:
@@ -533,7 +534,7 @@ def _graph_citations_from_evidence(
     *,
     state: GroundingState,
     scope: _DispatchedScope,
-    tool_events: Sequence[HermesGraphToolEvent],
+    tool_events: Sequence[AgentRuntimeToolEvent],
 ) -> list[dict[str, Any]]:
     """Legacy anchor citation projection — unused when claim acceptance is present.
 
@@ -618,7 +619,7 @@ def _citations_from_acceptance(
 
 
 def _later_evidence_recovers(
-    events: Sequence[HermesGraphToolEvent],
+    events: Sequence[AgentRuntimeToolEvent],
     *,
     after_index: int,
     scope: _DispatchedScope,
@@ -630,11 +631,11 @@ def _later_evidence_recovers(
 
 
 def _unrecovered_error_events(
-    events: Sequence[HermesGraphToolEvent],
+    events: Sequence[AgentRuntimeToolEvent],
     scope: _DispatchedScope,
-) -> list[HermesGraphToolEvent]:
+) -> list[AgentRuntimeToolEvent]:
     """Error-state tool events not followed by a later evidence-bearing completion."""
-    unrecovered: list[HermesGraphToolEvent] = []
+    unrecovered: list[AgentRuntimeToolEvent] = []
     for index, event in enumerate(events):
         if event.state != "error":
             continue
@@ -646,7 +647,7 @@ def _unrecovered_error_events(
     return unrecovered
 
 
-def _error_code_from_tool_events(events: Sequence[HermesGraphToolEvent]) -> tuple[str, list[str]]:
+def _error_code_from_tool_events(events: Sequence[AgentRuntimeToolEvent]) -> tuple[str, list[str]]:
     codes: list[str] = []
     schemas: list[str] = []
     for event in events:
@@ -665,40 +666,42 @@ def _has_landed_factual_claims(session: GraphRetrievalSession) -> bool:
     return any(claim.may_state_as_campaign_fact() for claim in session.claims)
 
 
-def _is_recoverable_tool_error(event: HermesGraphToolEvent) -> bool:
+def _is_recoverable_tool_error(event: AgentRuntimeToolEvent) -> bool:
     code, _ = _error_code_from_tool_events([event])
     return code in RECOVERABLE_WHEN_CLAIMS_LANDED
 
 
 def _hydrate_retrieval_session(
-    result: HermesGraphAgentTurnResult,
+    result: AgentRuntimeResult,
     *,
     retrieval_session: GraphRetrievalSession | None = None,
 ) -> GraphRetrievalSession | None:
     session = retrieval_session
-    if session is None and result.retrieval_session is not None:
+    packet = result.context_updates.get("retrieval_session")
+    session_id = result.context_updates.get("retrieval_session_id")
+    if session is None and isinstance(packet, Mapping):
         try:
-            session = hydrate_session_from_packet(result.retrieval_session)
+            session = hydrate_session_from_packet(packet)
         except Exception:
             session = None
-    if session is None and result.retrieval_session_id:
-        session = get_session(result.retrieval_session_id)
+    if session is None and isinstance(session_id, str) and session_id:
+        session = get_session(session_id)
     return session
 
 
-def _graph_tool_event_count(events: Sequence[HermesGraphToolEvent]) -> int:
+def _graph_tool_event_count(events: Sequence[AgentRuntimeToolEvent]) -> int:
     return sum(1 for event in events if event.tool_name in HERMES_GRAPH_READ_TOOL_NAMES)
 
 
 def _evidence_event_count(
-    events: Sequence[HermesGraphToolEvent],
+    events: Sequence[AgentRuntimeToolEvent],
     scope: _DispatchedScope,
 ) -> int:
     return sum(1 for event in events if _is_evidence_bearing(event, scope))
 
 
 def classify_hermes_graph_result(
-    result: HermesGraphAgentTurnResult,
+    result: AgentRuntimeResult,
     *,
     scope: _DispatchedScope,
     projection_ok: bool | None = None,
@@ -787,7 +790,7 @@ def classify_hermes_graph_result(
         validated = validate_structured_answer(
             session,
             None,
-            model_prose=(result.final_response or "").strip() or None,
+            model_prose=(result.final_text or "").strip() or None,
             execution_error=False,
             corpus_root=corpus_root,
             answer_scope=explicit_scope,
@@ -839,7 +842,7 @@ def classify_hermes_graph_result(
     # Fallback path without a retrieval session: prefer matched nodes over anchors.
     completions = [event for event in result.tool_events if event.state == "completion"]
     evidence = [event for event in completions if _is_evidence_bearing(event, scope)]
-    final_response = (result.final_response or "").strip()
+    final_response = (result.final_text or "").strip()
     if not evidence:
         return (
             "abstained",
@@ -898,7 +901,7 @@ def _grounding_block(
     *,
     state: GroundingState,
     scope: _DispatchedScope,
-    tool_events: Sequence[HermesGraphToolEvent],
+    tool_events: Sequence[AgentRuntimeToolEvent],
     diagnostic_codes: Sequence[str],
     warnings: Sequence[str],
 ) -> dict[str, Any]:
@@ -936,10 +939,25 @@ def _new_trace_builder(
     )
 
 
+def _runtime_process_isolation(result: AgentRuntimeResult) -> str | None:
+    value = result.runtime_metadata.get("process_isolation")
+    return str(value) if value else None
+
+
+def _runtime_worker_pid(result: AgentRuntimeResult) -> int | None:
+    value = result.runtime_metadata.get("worker_pid")
+    return value if isinstance(value, int) else None
+
+
+def _runtime_retrieval_session_id(result: AgentRuntimeResult) -> str | None:
+    value = result.context_updates.get("retrieval_session_id")
+    return str(value) if isinstance(value, str) and value else None
+
+
 def _agent_trace(
     *,
     state: GroundingState,
-    result: HermesGraphAgentTurnResult,
+    result: AgentRuntimeResult,
     tool_events: Sequence[dict[str, Any]],
     warnings: Sequence[str],
     started_at: str,
@@ -996,13 +1014,13 @@ def _agent_trace(
         extra_warnings=extra_warnings,
         observed_model_call_count=result.observed_model_call_count,
         hermes_fields={
-            "hermes_session_id": result.hermes_session_id or None,
-            "process_isolation": result.process_isolation,
+            "hermes_session_id": result.runtime_session_id or None,
+            "process_isolation": _runtime_process_isolation(result),
             "tool_events": list(tool_events),
             "answer_scope": result.answer_scope,
             "tool_event_count": len(raw_events),
             "evidence_event_count": evidence_count,
-            "final_response_present": bool((result.final_response or "").strip()),
+            "final_response_present": bool((result.final_text or "").strip()),
             "validator_path": validator_path,
             "conversation_context": {
                 "history_present": history_count > 0,
@@ -1037,14 +1055,6 @@ def _hermes_session_handle(binding: HermesSessionPointerBinding | None) -> dict[
         "createdAt": binding.created_at,
         "updatedAt": binding.updated_at,
     }
-
-
-def _host_worker_pid(host: HermesGraphAgentHost) -> int | None:
-    worker_pid = getattr(host, "worker_pid", None)
-    if callable(worker_pid):
-        pid = worker_pid()
-        return pid if isinstance(pid, int) else None
-    return worker_pid if isinstance(worker_pid, int) else None
 
 
 def _continuity_campaign_id(packet: Mapping[str, Any]) -> str:
@@ -1147,15 +1157,11 @@ def build_hermes_graph_unavailable_response(
         attributes={"reason": WORLD_GRAPH_UNAVAILABLE_CODE},
     )
     scope = _scope_from_unavailable_envelope(graph_envelope)
-    empty_result = HermesGraphAgentTurnResult(
+    empty_result = AgentRuntimeResult(
         status="error",
-        final_response=None,
-        messages=[],
-        hermes_session_id="",
-        tool_events=[],
         error_code=WORLD_GRAPH_UNAVAILABLE_CODE,
         error_message=UNAVAILABLE_ANSWER,
-        process_isolation="process_exclusive",
+        runtime_metadata={"process_isolation": "process_exclusive"},
     )
     return {
         "schema": LIVE_QUERY_SCHEMA,
@@ -1219,7 +1225,7 @@ def build_hermes_graph_unavailable_response(
 def build_hermes_graph_product_response(
     *,
     packet: Mapping[str, Any],
-    result: HermesGraphAgentTurnResult,
+    result: AgentRuntimeResult,
     scope: _DispatchedScope,
     agent_thread_id: str | None,
     turn_id: str | None,
@@ -1254,7 +1260,7 @@ def build_hermes_graph_product_response(
         diagnostic_codes = ["hermes_grounding_contract_error"]
         error_code: str | None = "hermes_grounding_contract_error"
         projected_events = []
-        grounding_events: Sequence[HermesGraphToolEvent] = []
+        grounding_events: Sequence[AgentRuntimeToolEvent] = []
         acceptance = {"state": "execution_error", "reason_codes": ["projection_failed"]}
     else:
         state, answer, warnings, diagnostic_codes, error_code, acceptance = (
@@ -1337,7 +1343,7 @@ def build_hermes_graph_product_response(
             "backend": BACKEND,
             "runtime": RUNTIME,
             "mode": MODE,
-            "process_isolation": result.process_isolation,
+            "process_isolation": _runtime_process_isolation(result),
         },
         "citations": citations,
         "graph_references": graph_refs,
@@ -1350,7 +1356,7 @@ def build_hermes_graph_product_response(
         "agent_thread_id": agent_thread_id,
         "turn_id": turn_id,
         "hermes_session": _hermes_session_handle(pointer_binding),
-        "retrieval_session_id": result.retrieval_session_id,
+        "retrieval_session_id": _runtime_retrieval_session_id(result),
     }
     if latest_recap_change is not None:
         response["latest_recap_change"] = dict(latest_recap_change)
@@ -1372,7 +1378,7 @@ def build_hermes_graph_product_response(
             if isinstance(matched, list):
                 preflight_ids = [str(item) for item in matched if item]
         response["forensic"] = build_forensic_envelope(
-            retrieval_session_id=result.retrieval_session_id,
+            retrieval_session_id=_runtime_retrieval_session_id(result),
             preflight_candidate_ids=preflight_ids,
             agent_seed_ids=list(acceptance.get("accepted_claim_ids") or []),
             tool_events=[_project_tool_event(event) for event in result.tool_events],
@@ -1409,7 +1415,7 @@ def run_hermes_graph_query(
     turn_id: str | None,
     root: Path | None = None,
     corpus_root: Path | None = None,
-    host_factory: HostFactory | None = None,
+    agent_runtime: AgentRuntime | None = None,
     conversation_history: Any | None = None,
     session_base: Path | None = None,
     hermes_session_pointer: str | None = None,
@@ -1417,8 +1423,8 @@ def run_hermes_graph_query(
 ) -> dict[str, Any]:
     """Execute one authoritative Hermes graph turn and return a product envelope.
 
-    Calls ``host.execute`` exactly once. Host-owned pre-accept retry remains
-    inside the host; this adapter never retries.
+    Crosses ``AgentRuntime.run`` exactly once. Host-owned pre-accept retry remains
+    inside the Hermes adapter/host; this product path never retries.
 
     ``root`` is the World Graph store root. ``corpus_root`` is the Buddy repo
     root used for registry-admitted recap reads; it must not default to the
@@ -1477,19 +1483,27 @@ def run_hermes_graph_query(
                 agent_thread_id=agent_thread_id,
                 hermes_session_pointer=hermes_session_pointer,
             )
-            request, scope = build_hermes_graph_turn_request(
+            invocation, scope = build_hermes_graph_turn_request(
                 question=text,
                 graph_envelope=graph_envelope,
                 root=root,
                 corpus_root=resolved_corpus_root,
                 conversation_history=normalized_history,
                 continuity_session_id=pointer_resolution.continuity_session_id,
+                thread_id=agent_thread_id,
+                turn_id=turn_id,
             )
-            factory = host_factory or get_hermes_graph_agent_host
-            host = factory()
+            if agent_runtime is None:
+                from apps.live_control_server.services.hermes_agent_runtime import (
+                    default_hermes_agent_runtime,
+                )
+
+                runtime = default_hermes_agent_runtime()
+            else:
+                runtime = agent_runtime
 
         with builder.phase("harness_turn"):
-            result = host.execute(request)
+            result = runtime.run(invocation)
         harness_span = next(
             (
                 span
@@ -1501,7 +1515,7 @@ def run_hermes_graph_query(
         if result.status == "error" and harness_span is not None:
             harness_span["status"] = "error"
 
-        worker_pid = _host_worker_pid(host)
+        worker_pid = _runtime_worker_pid(result)
         worker_pid_changed = (
             pointer_store.worker_pid_changed(prior_binding, worker_pid)
             if pointer_store is not None
@@ -1521,7 +1535,7 @@ def run_hermes_graph_query(
                 pointer_store,
                 campaign_id=continuity_campaign_id,
                 agent_thread_id=agent_thread_id,
-                hermes_session_id=result.hermes_session_id,
+                hermes_session_id=result.runtime_session_id or "",
                 worker_pid=worker_pid,
                 existing_pointer_id=(
                     prior_binding.pointer_id

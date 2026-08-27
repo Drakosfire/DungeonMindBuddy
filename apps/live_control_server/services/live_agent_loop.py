@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.config import repo_root, session_dir, world_graph_root
+from apps.live_control_server.services.agent_runtime import AgentRuntime
 from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphQueryContextRequest,
     render_world_graph_prompt_block,
@@ -168,6 +169,7 @@ def process_live_query(
     world_graph_context: AgentWorldGraphQueryContextRequest | None = None,
     outer_campaign_id: str | None = None,
     conversation_history: Any | None = None,
+    agent_runtime: AgentRuntime | None = None,
 ) -> dict[str, Any]:
     session_base = base or session_dir()
     resolved_agent_thread_id = agent_thread_id or _new_agent_thread_id()
@@ -241,6 +243,7 @@ def process_live_query(
                 session_base=session_base,
                 hermes_session_pointer=hermes_session_pointer,
                 trace_builder=builder,
+                agent_runtime=agent_runtime,
             )
         except Exception:
             if not builder.logged:
