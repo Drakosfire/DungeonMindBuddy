@@ -19,14 +19,15 @@ pr_body_template: |
 
 # HANDOFF — First-class Agent Turn Trace v1 (A0)
 
-**Created:** 2026-08-26  
-**Status:** COMPLETE / MERGED  
-**PR:** #654  
-**Accepted head:** `5d5fee67ab71d88586a8511a88e1ea64a4f14960`  
-**Merge SHA:** `9ddc5a6ebf2e7064ce004e22151214011046aa97`  
-**Formal review cycles:** 3  
-**Active successor:** A1 — Advanced Agent Trace Inspector v1 (implementation in progress; not complete)  
-**Still false:** A2 AgentRuntime; A3 PydanticAI  
+**Created:** 2026-08-26
+
+- **Status:** COMPLETE / MERGED
+- **PR:** #654
+- **Accepted head:** `5d5fee67ab71d88586a8511a88e1ea64a4f14960`
+- **Merge SHA:** `9ddc5a6ebf2e7064ce004e22151214011046aa97`
+- **Formal review cycles:** 3
+- **Active successor:** A1 — Advanced Agent Trace Inspector v1 (implementation in progress; not complete)
+- **Still false:** A2 AgentRuntime; A3 PydanticAI
 
 **Canonical handoff path:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-turn-trace-v1.md`  
 **Workstream:** `AGENT-INTERACTION / A0`  
