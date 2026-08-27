@@ -594,3 +594,199 @@ def test_unknown_run_is_404(tmp_path: Path) -> None:
             progress=_progress(),
         )
     assert exc_info.value.status_code == 404
+
+
+V2_PROGRESS_MARKDOWN = "\n".join(
+    [
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:one beat_kind=spine -->",
+        "## Beat 1",
+        "",
+        "<!-- dmb-playable-element:v2 kind=scene id=scene:a -->",
+        "### Scene A",
+        "",
+        "<!-- dmb-playable-element:v2 kind=choice id=choice:x -->",
+        "### Decision X",
+        "",
+        "<!-- dmb-playable-element:v2 kind=option id=option:x1 activates=beat:two -->",
+        "- Option X1",
+        "",
+        "<!-- dmb-playable-element:v2 kind=option id=option:x2 suppresses=scene:b -->",
+        "- Option X2",
+        "",
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:two beat_kind=optional -->",
+        "## Beat 2",
+        "",
+        "<!-- dmb-playable-element:v2 kind=scene id=scene:b -->",
+        "### Scene B",
+        "",
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:three beat_kind=spine -->",
+        "## Beat 3",
+        "",
+        "<!-- dmb-playable-element:v2 kind=scene id=scene:c -->",
+        "### Scene C",
+        "",
+    ]
+)
+
+
+def _v2_progress(**overrides: object) -> PlayRunProgress:
+    payload = {
+        "current_scene_id": None,
+        "current_beat_id": "beat:one",
+        "resolved_beat_ids": [],
+        "selections": {},
+        "notes_by_element_id": {},
+    }
+    payload.update(overrides)
+    return PlayRunProgress.model_validate(payload)
+
+
+def _seal_v2(tmp_path: Path, *, name: str = "v2-progress"):
+    snapshot = _create_committed_runbook(tmp_path, name=name, markdown=V2_PROGRESS_MARKDOWN)
+    return _seal(tmp_path, snapshot)
+
+
+def test_v1_beat_only_progress_still_rejected(tmp_path: Path) -> None:
+    snapshot = _create_committed_runbook(tmp_path)
+    _seal(tmp_path, snapshot)
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        replace_play_run_progress(
+            tmp_path,
+            run_id=RUN_ID_A,
+            expected_run_revision=1,
+            progress=_progress(current_scene_id=None, current_beat_id="beat:arrival"),
+        )
+    assert exc_info.value.status_code == 422
+    assert "current_beat_id requires current_scene_id" in str(exc_info.value)
+    assert get_play_run(tmp_path, RUN_ID_A).progress == empty_play_run_progress()
+
+
+def test_v2_beat_only_progress_is_admitted(tmp_path: Path) -> None:
+    _seal_v2(tmp_path)
+    updated = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_v2_progress(),
+    )
+    assert updated.progress.current_beat_id == "beat:one"
+    assert updated.progress.current_scene_id is None
+    reloaded = get_play_run(tmp_path, RUN_ID_A)
+    assert reloaded.progress == updated.progress
+
+
+def test_v2_beat_and_same_beat_scene_is_admitted(tmp_path: Path) -> None:
+    _seal_v2(tmp_path)
+    updated = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_v2_progress(current_scene_id="scene:a"),
+    )
+    assert updated.progress.current_beat_id == "beat:one"
+    assert updated.progress.current_scene_id == "scene:a"
+
+
+def test_v2_cross_beat_scene_is_rejected(tmp_path: Path) -> None:
+    _seal_v2(tmp_path)
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        replace_play_run_progress(
+            tmp_path,
+            run_id=RUN_ID_A,
+            expected_run_revision=1,
+            progress=_v2_progress(current_scene_id="scene:b"),
+        )
+    assert exc_info.value.status_code == 422
+    assert get_play_run(tmp_path, RUN_ID_A).progress == empty_play_run_progress()
+
+
+def test_v2_unknown_ids_are_rejected(tmp_path: Path) -> None:
+    _seal_v2(tmp_path)
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        replace_play_run_progress(
+            tmp_path,
+            run_id=RUN_ID_A,
+            expected_run_revision=1,
+            progress=_v2_progress(current_beat_id="beat:ghost"),
+        )
+    assert exc_info.value.status_code == 422
+
+
+def test_v2_valid_decision_option_selection_is_admitted(tmp_path: Path) -> None:
+    _seal_v2(tmp_path)
+    updated = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_v2_progress(selections={"choice:x": "option:x1"}),
+    )
+    assert updated.progress.selections == {"choice:x": "option:x1"}
+    assert updated.progress.current_beat_id == "beat:one"
+
+
+def test_v2_foreign_option_is_rejected(tmp_path: Path) -> None:
+    _seal_v2(tmp_path)
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        replace_play_run_progress(
+            tmp_path,
+            run_id=RUN_ID_A,
+            expected_run_revision=1,
+            progress=_v2_progress(selections={"choice:x": "option:ghost"}),
+        )
+    assert exc_info.value.status_code == 422
+
+
+def test_v2_note_anchors_are_admitted(tmp_path: Path) -> None:
+    _seal_v2(tmp_path)
+    updated = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_v2_progress(
+            notes_by_element_id={
+                "beat:one": "Beat note",
+                "scene:a": "Scene note",
+                "choice:x": "Decision note",
+                "option:x1": "Option note",
+            }
+        ),
+    )
+    assert updated.progress.notes_by_element_id["beat:one"] == "Beat note"
+    assert updated.progress.notes_by_element_id["option:x1"] == "Option note"
+
+
+def test_v2_malformed_unknown_manifest_fails_closed(tmp_path: Path, application_state_dsn: str) -> None:
+    _seal_v2(tmp_path, name="v2-malformed")
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE play.run_manifest SET manifest = manifest || %(patch)s::jsonb WHERE run_id = %(run_id)s",
+            {
+                "patch": '{"schema_version": "dmb_play_run_reference_manifest_v9"}',
+                "run_id": RUN_ID_A,
+            },
+        )
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        get_play_run(tmp_path, RUN_ID_A)
+    assert exc_info.value.status_code == 500
+
+
+def test_v2_ready_run_rejects_empty_progress_clear(tmp_path: Path) -> None:
+    _seal_v2(tmp_path, name="v2-empty-clear")
+    seeded = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_v2_progress(),
+    )
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        replace_play_run_progress(
+            tmp_path,
+            run_id=RUN_ID_A,
+            expected_run_revision=seeded.run_revision,
+            progress=empty_play_run_progress(),
+        )
+    assert exc_info.value.status_code == 422
+    assert "cannot be cleared once READY" in str(exc_info.value)
+    preserved = get_play_run(tmp_path, RUN_ID_A)
+    assert preserved.run_revision == seeded.run_revision
+    assert preserved.progress.current_beat_id == "beat:one"

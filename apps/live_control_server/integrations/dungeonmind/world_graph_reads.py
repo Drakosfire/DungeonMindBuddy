@@ -501,6 +501,7 @@ def direct_services_from_bundle(
         world_graph=bundle.world_graph,
         sources=bundle.sources,
         graph_reader=graph_reader,
+        reviewed_world_initializations=bundle.reviewed_world_initializations,
     )
     retrieval = WorldGraphRetrievalService(
         projection=projection,

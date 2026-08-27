@@ -44,6 +44,8 @@ MAX_TOOL_RULES = 64
 MAX_ALLOWED_EFFECTS = 4
 MAX_RESULT_MESSAGES = 64
 MAX_TOOL_EVENTS = 128
+MAX_MODEL_CALLS = 64
+MAX_TELEMETRY_WARNINGS = 32
 MAX_BOUNDED_ID_MAP_KEYS = 32
 MAX_ID_LIST = 64
 MAX_DIAGNOSTIC_CODES = 32
@@ -99,6 +101,80 @@ _RESULT_ALLOWED_KEYS = frozenset(
         "retrievalSessionId",
         "retrievalSession",
         "answerScope",
+        "modelCalls",
+        "telemetryWarnings",
+        "observedModelCallCount",
+    }
+)
+_MODEL_CALL_ALLOWED_KEYS = frozenset(
+    {
+        "call_id",
+        "runtime_api_request_id",
+        "runtime_turn_id",
+        "sequence",
+        "status",
+        "provider",
+        "requested_model",
+        "response_model",
+        "api_mode",
+        "started_at",
+        "completed_at",
+        "duration_ms",
+        "request_summary",
+        "usage",
+        "cost",
+        "finish_reason",
+        "retry_count",
+        "retryable",
+        "status_code",
+        "error_type",
+    }
+)
+_MODEL_CALL_FORBIDDEN_KEYS = frozenset(
+    {
+        "request",
+        "response",
+        "question",
+        "prompt",
+        "messages",
+        "content",
+        "body",
+        "args",
+        "result",
+        "assistant_message",
+    }
+)
+_USAGE_ALLOWED_KEYS = frozenset(
+    {
+        "status",
+        "input_tokens",
+        "cached_input_tokens",
+        "cache_write_input_tokens",
+        "uncached_input_tokens",
+        "output_tokens",
+        "reasoning_tokens",
+        "total_tokens",
+    }
+)
+_COST_ALLOWED_KEYS = frozenset(
+    {
+        "status",
+        "usd",
+        "currency",
+        "pricing_table_matched",
+        "rates_per_1m_usd",
+    }
+)
+_REQUEST_SUMMARY_ALLOWED_KEYS = frozenset(
+    {
+        "api_call_count",
+        "message_count",
+        "tool_count",
+        "approx_input_tokens",
+        "request_char_count",
+        "max_tokens",
+        "assistant_content_chars",
+        "assistant_tool_call_count",
     }
 )
 _TOOL_EVENT_ALLOWED_KEYS = frozenset(
@@ -154,6 +230,9 @@ class HermesGraphAgentTurnResult:
     retrieval_session_id: str | None = None
     retrieval_session: dict[str, Any] | None = None
     answer_scope: HermesAnswerScope | None = None
+    model_calls: list[dict[str, Any]] = field(default_factory=list)
+    telemetry_warnings: list[str] = field(default_factory=list)
+    observed_model_call_count: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -747,6 +826,168 @@ def _serialize_tool_event(event: HermesGraphToolEvent) -> dict[str, Any]:
     }
 
 
+def _serialize_bounded_number_map(
+    value: Any,
+    *,
+    allowed: frozenset[str],
+    label: str,
+) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{label} must be a mapping")
+    unknown = set(value.keys()) - allowed
+    if unknown:
+        raise ValueError(f"{label} contains unknown keys: {sorted(unknown)}")
+    bounded: dict[str, Any] = {}
+    for key, item in value.items():
+        if item is None:
+            bounded[str(key)] = None
+            continue
+        if isinstance(item, bool):
+            bounded[str(key)] = item
+            continue
+        if isinstance(item, (int, float, str)):
+            if isinstance(item, str) and len(item) > MAX_ID_CHARS:
+                bounded[str(key)] = _clip_str(item, max_chars=MAX_ID_CHARS)
+            else:
+                bounded[str(key)] = item
+            continue
+        if isinstance(item, Mapping):
+            nested: dict[str, Any] = {}
+            for nested_key, nested_value in item.items():
+                nested_label = str(nested_key)
+                if len(nested_label) > MAX_ID_CHARS:
+                    continue
+                if isinstance(nested_value, (int, float)):
+                    nested[nested_label] = nested_value
+            bounded[str(key)] = nested
+            continue
+        raise ValueError(f"{label}.{key} has unsupported type")
+    return bounded
+
+
+def _optional_nonneg_int(value: Any, *, label: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{label} must be an integer")
+    number = int(value)
+    if number != value:
+        raise ValueError(f"{label} must be an integer")
+    if number < 0:
+        raise ValueError(f"{label} must be >= 0")
+    return number
+
+
+def _bounded_telemetry_warnings(warnings: Sequence[Any]) -> list[str]:
+    clipped: list[str] = []
+    for item in warnings:
+        text = _clip_str(str(item), max_chars=MAX_ID_CHARS)
+        if text and text not in clipped:
+            clipped.append(text)
+        if len(clipped) >= MAX_TELEMETRY_WARNINGS:
+            break
+    return clipped
+
+
+def serialize_model_call(call: Mapping[str, Any]) -> dict[str, Any]:
+    """Public wire projection for one model-call observation."""
+    return _serialize_model_call(call)
+
+
+def _serialize_model_call(call: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(call, Mapping):
+        raise ValueError("modelCalls entries must be mappings")
+    forbidden = set(call.keys()) & _MODEL_CALL_FORBIDDEN_KEYS
+    if forbidden:
+        raise ValueError(f"modelCalls contains forbidden keys: {sorted(forbidden)}")
+    _reject_unknown_keys(call, _MODEL_CALL_ALLOWED_KEYS, label="model call")
+    status = call.get("status")
+    if status not in {"ok", "error"}:
+        raise ValueError("model call status must be ok or error")
+    summary_raw = call.get("request_summary") or {}
+    if not isinstance(summary_raw, Mapping):
+        raise ValueError("request_summary must be a mapping")
+    usage_raw = call.get("usage") or {}
+    if not isinstance(usage_raw, Mapping):
+        raise ValueError("usage must be a mapping")
+    cost_raw = call.get("cost") or {}
+    if not isinstance(cost_raw, Mapping):
+        raise ValueError("cost must be a mapping")
+    sequence = call.get("sequence")
+    if sequence is None:
+        raise ValueError("model call sequence is required")
+    return {
+        "call_id": _clip_str(str(call.get("call_id") or ""), max_chars=MAX_ID_CHARS),
+        "runtime_api_request_id": _optional_str(
+            call.get("runtime_api_request_id"),
+            label="runtime_api_request_id",
+            max_chars=MAX_ID_CHARS,
+        ),
+        "runtime_turn_id": _optional_str(
+            call.get("runtime_turn_id"),
+            label="runtime_turn_id",
+            max_chars=MAX_ID_CHARS,
+        ),
+        "sequence": int(sequence),
+        "status": status,
+        "provider": _optional_str(call.get("provider"), label="provider", max_chars=MAX_ID_CHARS),
+        "requested_model": _optional_str(
+            call.get("requested_model"),
+            label="requested_model",
+            max_chars=MAX_ID_CHARS,
+        ),
+        "response_model": _optional_str(
+            call.get("response_model"),
+            label="response_model",
+            max_chars=MAX_ID_CHARS,
+        ),
+        "api_mode": _optional_str(call.get("api_mode"), label="api_mode", max_chars=MAX_ID_CHARS),
+        "started_at": _optional_str(call.get("started_at"), label="started_at", max_chars=MAX_ID_CHARS),
+        "completed_at": _optional_str(
+            call.get("completed_at"),
+            label="completed_at",
+            max_chars=MAX_ID_CHARS,
+        ),
+        "duration_ms": (
+            None if call.get("duration_ms") is None else float(call.get("duration_ms"))
+        ),
+        "request_summary": _serialize_bounded_number_map(
+            summary_raw,
+            allowed=_REQUEST_SUMMARY_ALLOWED_KEYS,
+            label="request_summary",
+        ),
+        "usage": _serialize_bounded_number_map(
+            usage_raw,
+            allowed=_USAGE_ALLOWED_KEYS,
+            label="usage",
+        ),
+        "cost": _serialize_bounded_number_map(
+            cost_raw,
+            allowed=_COST_ALLOWED_KEYS,
+            label="cost",
+        ),
+        "finish_reason": _optional_str(
+            call.get("finish_reason"),
+            label="finish_reason",
+            max_chars=MAX_ID_CHARS,
+        ),
+        "retry_count": (
+            None if call.get("retry_count") is None else int(call.get("retry_count"))
+        ),
+        "retryable": None if call.get("retryable") is None else bool(call.get("retryable")),
+        "status_code": (
+            None if call.get("status_code") is None else int(call.get("status_code"))
+        ),
+        "error_type": _optional_str(
+            call.get("error_type"),
+            label="error_type",
+            max_chars=MAX_ID_CHARS,
+        ),
+    }
+
+
 def serialize_hermes_graph_agent_turn_result(
     result: HermesGraphAgentTurnResult,
 ) -> dict[str, Any]:
@@ -758,6 +999,18 @@ def serialize_hermes_graph_agent_turn_result(
     """
     if len(result.tool_events) > MAX_TOOL_EVENTS:
         raise ValueError(f"toolEvents exceeds max {MAX_TOOL_EVENTS}")
+    telemetry_warnings = _bounded_telemetry_warnings(result.telemetry_warnings)
+    model_calls = list(result.model_calls)
+    observed_model_call_count = len(model_calls)
+    if result.observed_model_call_count is not None:
+        observed_model_call_count = max(
+            observed_model_call_count, int(result.observed_model_call_count)
+        )
+    if len(model_calls) > MAX_MODEL_CALLS:
+        model_calls = model_calls[:MAX_MODEL_CALLS]
+        telemetry_warnings = _bounded_telemetry_warnings(
+            ["model_calls_truncated", *telemetry_warnings]
+        )
     final_response = result.final_response
     if final_response is not None:
         final_response = _clip_str(final_response, max_chars=MAX_FINAL_RESPONSE_CHARS)
@@ -769,7 +1022,7 @@ def serialize_hermes_graph_agent_turn_result(
         if not isinstance(result.retrieval_session, Mapping):
             raise ValueError("retrievalSession must be a mapping or null")
         retrieval_session = dict(result.retrieval_session)
-    return {
+    payload = {
         "status": result.status,
         "finalResponse": final_response,
         # Host IPC omits Hermes transcript; keep the key for schema stability.
@@ -790,7 +1043,12 @@ def serialize_hermes_graph_agent_turn_result(
         ),
         "retrievalSession": retrieval_session,
         "answerScope": result.answer_scope,
+        "modelCalls": [_serialize_model_call(call) for call in model_calls],
+        "telemetryWarnings": telemetry_warnings,
     }
+    if observed_model_call_count > len(model_calls):
+        payload["observedModelCallCount"] = observed_model_call_count
+    return payload
 
 
 def _deserialize_tool_event(item: Mapping[str, Any]) -> HermesGraphToolEvent:
@@ -914,6 +1172,34 @@ def deserialize_hermes_graph_agent_turn_result(
         "conversation_context",
     }:
         raise ValueError("answerScope must be graph, conversation_context, or null")
+    model_calls_raw = payload.get("modelCalls") or []
+    if not isinstance(model_calls_raw, list):
+        raise ValueError("modelCalls must be a list")
+    warnings_raw = payload.get("telemetryWarnings") or []
+    if not isinstance(warnings_raw, list):
+        raise ValueError("telemetryWarnings must be a list")
+    telemetry_warnings = _bounded_telemetry_warnings(warnings_raw)
+    observed_model_call_count = _optional_nonneg_int(
+        payload.get("observedModelCallCount"),
+        label="observedModelCallCount",
+    )
+    raw_model_call_count = len(model_calls_raw)
+    if raw_model_call_count > MAX_MODEL_CALLS:
+        model_calls_raw = model_calls_raw[:MAX_MODEL_CALLS]
+        telemetry_warnings = _bounded_telemetry_warnings(
+            ["model_calls_truncated", *telemetry_warnings]
+        )
+        if observed_model_call_count is None:
+            observed_model_call_count = raw_model_call_count
+        else:
+            observed_model_call_count = max(observed_model_call_count, raw_model_call_count)
+    model_calls = [
+        _serialize_model_call(item) for item in model_calls_raw if isinstance(item, Mapping)
+    ]
+    if len(model_calls) != len(model_calls_raw):
+        raise ValueError("modelCalls entries must be mappings")
+    if observed_model_call_count is not None:
+        observed_model_call_count = max(observed_model_call_count, len(model_calls))
     return HermesGraphAgentTurnResult(
         status=status,  # type: ignore[arg-type]
         final_response=final_response,
@@ -934,6 +1220,9 @@ def deserialize_hermes_graph_agent_turn_result(
         ),
         retrieval_session=None if retrieval_session_raw is None else dict(retrieval_session_raw),
         answer_scope=answer_scope_raw,  # type: ignore[arg-type]
+        model_calls=model_calls,
+        telemetry_warnings=telemetry_warnings,
+        observed_model_call_count=observed_model_call_count,
     )
 
 
@@ -960,6 +1249,7 @@ __all__ = [
     "HermesGraphAgentTurnResult",
     "HermesGraphToolEvent",
     "HermesAnswerScope",
+    "MAX_MODEL_CALLS",
     "PROCESS_ISOLATION_MODE",
     "decode_json_wire",
     "decode_turn_request_wire",
@@ -973,4 +1263,5 @@ __all__ = [
     "serialize_capability_policy",
     "serialize_hermes_graph_agent_turn_request",
     "serialize_hermes_graph_agent_turn_result",
+    "serialize_model_call",
 ]

@@ -160,6 +160,84 @@ def _map_sources(request: WorldGraphInitializationRequest) -> tuple[list[Any], l
     return [dm_artifact], [revision], pair_to_dm
 
 
+_FIRST_WORLD_WORLDBUILDING_DOMAIN_KEY = "worldbuilding"
+
+
+def _align_first_world_command_evidence_domains(
+    contribution: Any,
+    artifacts: list[Any],
+) -> Any:
+    """Copy command-owned worldbuilding domain onto first-world evidence refs.
+
+    Historical #645 mapping derived exported evidence IDs from an OTHER
+    fallback draft. DungeonMind #47 reverse-normalizes only
+    ``EvidenceRef.source_domain``. This helper therefore keeps those IDs and
+    changes only the domain, using the mapped SourceArtifact as authority.
+    """
+    from dungeonmind.contracts.evidence import SourceDomain
+
+    artifacts_by_id: dict[str, Any] = {}
+    for artifact in artifacts:
+        artifact_id = str(artifact.source_artifact_id)
+        prior = artifacts_by_id.get(artifact_id)
+        if prior is not None and prior != artifact:
+            raise WorldGraphInitializationError(
+                "first-world command has conflicting source artifacts",
+                code="inexpressible",
+                details={
+                    "source_artifact_id": artifact_id,
+                    "reason": "ambiguous_source_artifact",
+                },
+            )
+        artifacts_by_id[artifact_id] = artifact
+
+    aligned_assertions = []
+    for assertion in contribution.assertions:
+        aligned_refs = []
+        for ref in assertion.evidence_refs:
+            artifact = artifacts_by_id.get(str(ref.source_artifact_id))
+            if artifact is None:
+                raise WorldGraphInitializationError(
+                    "first-world evidence names a source artifact not in the command",
+                    code="inexpressible",
+                    details={
+                        "source_artifact_id": ref.source_artifact_id,
+                        "reason": "missing_source_artifact",
+                    },
+                )
+            domain_key = str(getattr(artifact, "source_domain_key", "") or "")
+            if (
+                artifact.source_domain is not SourceDomain.WORLDBUILDING
+                or domain_key != _FIRST_WORLD_WORLDBUILDING_DOMAIN_KEY
+            ):
+                raise WorldGraphInitializationError(
+                    "first-world source artifact is not worldbuilding provenance",
+                    code="inexpressible",
+                    details={
+                        "source_artifact_id": artifact.source_artifact_id,
+                        "source_domain": str(artifact.source_domain),
+                        "source_domain_key": domain_key,
+                        "reason": "non_worldbuilding_source_artifact",
+                    },
+                )
+            historical_id = ref.evidence_ref_id
+            corrected = ref.model_copy(update={"source_domain": artifact.source_domain})
+            if corrected.evidence_ref_id != historical_id:
+                raise WorldGraphInitializationError(
+                    "first-world evidence identity changed while correcting provenance",
+                    code="integrity_failure",
+                    details={
+                        "historical_evidence_ref_id": historical_id,
+                        "corrected_evidence_ref_id": corrected.evidence_ref_id,
+                    },
+                )
+            aligned_refs.append(corrected)
+        aligned_assertions.append(
+            assertion.model_copy(update={"evidence_refs": aligned_refs})
+        )
+    return contribution.model_copy(update={"assertions": aligned_assertions})
+
+
 def _map_contribution(request: WorldGraphInitializationRequest, pair_to_dm: dict[tuple[str, str], str]):
     from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
         _map_contributions,
@@ -203,6 +281,7 @@ def _build_command(
 
     artifacts, revisions, pair_to_dm = _map_sources(request)
     contribution = _map_contribution(request, pair_to_dm)
+    contribution = _align_first_world_command_evidence_domains(contribution, artifacts)
     return ReviewedWorldInitializationCommandV1(
         initialization_id=request.initialization_id,
         world_id=request.world_id,

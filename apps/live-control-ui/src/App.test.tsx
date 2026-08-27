@@ -657,6 +657,61 @@ describe("App inspector integration", () => {
     "",
   ].join("\n");
 
+  const PLAY_V2_MARKDOWN = [
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:one beat_kind=spine -->",
+    "## Beat 1",
+    "",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:a -->",
+    "### Scene A",
+    "",
+    "Scene A unique body.",
+    "",
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:two beat_kind=optional -->",
+    "## Beat 2",
+    "",
+  ].join("\n");
+
+  function v2Manifest() {
+    return {
+      schema_version: "dmb_play_run_reference_manifest_v2" as const,
+      run_id: PLAY_RUN_ID,
+      playable_artifact_id: PLAY_ARTIFACT_ID,
+      playable_revision: 3,
+      playable_content_sha256: PLAY_SHA,
+      sealed_at: "2026-08-17T00:00:00Z",
+      beats: [
+        { beat_id: "beat:one", beat_kind: "spine" as const },
+        { beat_id: "beat:two", beat_kind: "optional" as const },
+      ],
+      scenes: [{ scene_id: "scene:a", beat_id: "beat:one" }],
+      choices: [],
+      options: [],
+      edges: [],
+    };
+  }
+
+  function mockV2PlayRun(
+    progress: {
+      current_beat_id: string | null;
+      current_scene_id: string | null;
+    } = { current_beat_id: null, current_scene_id: null },
+  ) {
+    const record = {
+      ...playRunRecord(),
+      progress: {
+        ...playRunRecord().progress,
+        current_beat_id: progress.current_beat_id,
+        current_scene_id: progress.current_scene_id,
+      },
+    };
+    vi.mocked(liveApi.getPlayRun).mockResolvedValue(record);
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue(v2Manifest());
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockResolvedValue(
+      playCommittedRevision({ markdown: PLAY_V2_MARKDOWN }),
+    );
+    return record;
+  }
+
   function playCommittedRevision(
     overrides: Partial<WorkspaceCommittedRevision> = {},
   ): WorkspaceCommittedRevision {
@@ -774,7 +829,7 @@ describe("App inspector integration", () => {
     expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/play");
     expect(window.location.search).toBe(`?run=${PLAY_RUN_ID}`);
-    expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID);
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.listPlayRuns).not.toHaveBeenCalled();
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
     await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
@@ -987,7 +1042,7 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
-    expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID);
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
     expect(screen.getByText(`Run ${PLAY_RUN_ID}`)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "North Gate Runbook" })).toBeInTheDocument();
@@ -1201,6 +1256,146 @@ describe("App inspector integration", () => {
     expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
     expect(screen.getByText(/R4 replacement beat that must not mix with R3 Approach body/i)).toBeInTheDocument();
     expect(screen.getByText(/Runbook revision 4/i)).toBeInTheDocument();
+  });
+
+  it("loads a v2 Run through native-ready GET and does not PUT seed progress", async () => {
+    const seeded = mockV2PlayRun({ current_beat_id: "beat:one", current_scene_id: null });
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    expect(screen.queryByText("v2 Run READY")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 1");
+    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("No Scene is current");
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(seeded.progress.current_beat_id).toBe("beat:one");
+  });
+
+  it("does not reseed a v2 Run that already has a durable current Beat", async () => {
+    mockV2PlayRun({ current_beat_id: "beat:two", current_scene_id: null });
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 2");
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+  });
+
+  it("does not PUT seed progress when native-ready GET already returns a current Beat", async () => {
+    mockV2PlayRun({ current_beat_id: "beat:one", current_scene_id: null });
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 1");
+    expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+  });
+
+  it("does not seed when native-ready GET refuses a mismatched v2 authority set", async () => {
+    vi.mocked(liveApi.getPlayRun).mockRejectedValue(
+      new liveApi.LiveApiError(
+        "sealed v2 manifest disagrees with pinned WorkRevision on Beat kind or membership",
+        422,
+      ),
+    );
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-status-integrity_failure")).toBeInTheDocument();
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("play-current-moment-cockpit")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+  });
+
+  it("admits the Run returned by native-ready GET after a rebase, without a seed PUT", async () => {
+    const empty = mockV2PlayRun();
+    const rebasedMarkdown = [
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:rebased beat_kind=spine -->",
+      "## Rebased",
+      "",
+    ].join("\n");
+    const rebasedRun = {
+      ...empty,
+      playable_revision: 4,
+      playable_content_sha256: PLAY_SHA_R4,
+      run_revision: 7,
+      progress: {
+        ...empty.progress,
+        current_beat_id: "beat:rebased",
+        current_scene_id: null,
+      },
+    };
+    vi.mocked(liveApi.getPlayRun).mockResolvedValue(rebasedRun);
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue({
+      ...v2Manifest(),
+      playable_revision: 4,
+      playable_content_sha256: PLAY_SHA_R4,
+      beats: [{ beat_id: "beat:rebased", beat_kind: "spine" as const }],
+      scenes: [],
+      choices: [],
+      options: [],
+      edges: [],
+    });
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockResolvedValue(
+      playCommittedRevision({
+        markdown: rebasedMarkdown,
+        revision_n: 4,
+        object_revision: 4,
+        content_sha256: PLAY_SHA_R4,
+      }),
+    );
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Rebased");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
+    expect(liveApi.getPlayRunReferenceManifest).toHaveBeenCalledTimes(1);
+    expect(liveApi.getCommittedWorkspaceRevision).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(liveApi.getCommittedWorkspaceRevision).mock.calls[0]?.[1]).toBe(4);
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+  });
+
+  it("reflects Make Current from the returned authoritative v2 Run", async () => {
+    const user = userEvent.setup();
+    const seeded = mockV2PlayRun({ current_beat_id: "beat:one", current_scene_id: null });
+    const madeCurrent = {
+      ...seeded,
+      run_revision: seeded.run_revision + 1,
+      progress: {
+        ...seeded.progress,
+        current_beat_id: "beat:one",
+        current_scene_id: "scene:a",
+      },
+    };
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(madeCurrent);
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-workspace-beat-only")).toBeInTheDocument();
+    expect(screen.queryByText("v2 Run READY")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Make Scene A current" }));
+    expect(await screen.findByTestId("play-workspace-current")).toHaveTextContent("Scene A unique body.");
+    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Scene A");
+    expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(liveApi.putPlayRunProgress).mock.calls[0]?.[1]).toEqual({
+      expected_run_revision: seeded.run_revision,
+      progress: expect.objectContaining({
+        current_beat_id: "beat:one",
+        current_scene_id: "scene:a",
+      }),
+    });
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
   });
 
 });

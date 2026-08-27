@@ -1835,8 +1835,12 @@ export async function listPlayRuns(args: {
   return apiFetch<PlayRunsListResponse>(`/api/live/play-runs${query ? `?${query}` : ""}`);
 }
 
-export async function getPlayRun(runId: string): Promise<PlayRunRecord> {
-  return apiFetch<PlayRunRecord>(`/api/live/play-runs/${encodeURIComponent(runId)}`);
+export async function getPlayRun(
+  runId: string,
+  options: { ensureNativeReady?: boolean } = {},
+): Promise<PlayRunRecord> {
+  const query = options.ensureNativeReady ? "?ensure_native_ready=true" : "";
+  return apiFetch<PlayRunRecord>(`/api/live/play-runs/${encodeURIComponent(runId)}${query}`);
 }
 
 export async function putPlayRun(

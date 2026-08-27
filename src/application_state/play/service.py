@@ -179,7 +179,12 @@ def _readable_aggregate(run: PlayRun, manifest: PlayRunManifest | None) -> PlayR
 
 
 def _admit_progress_payload(
-    progress: dict, manifest_payload: dict, *, run_id: UUID, status_code: int
+    progress: dict,
+    manifest_payload: dict,
+    *,
+    run_id: UUID,
+    status_code: int,
+    existing_progress: dict | None = None,
 ) -> dict:
     canonical = {
         "current_scene_id": progress.get("current_scene_id"),
@@ -188,14 +193,26 @@ def _admit_progress_payload(
         "selections": dict(progress.get("selections") or {}),
         "notes_by_element_id": dict(progress.get("notes_by_element_id") or {}),
     }
-    if (
+    incoming_empty = (
         canonical["current_scene_id"] is None
         and canonical["current_beat_id"] is None
         and canonical["resolved_beat_ids"] == []
         and canonical["selections"] == {}
         and canonical["notes_by_element_id"] == {}
-    ):
-        _parse_manifest_document(manifest_payload, run_id=run_id)
+    )
+    if incoming_empty:
+        parsed = _parse_manifest_document(manifest_payload, run_id=run_id)
+        existing_beat = None
+        if isinstance(existing_progress, dict):
+            existing_beat = existing_progress.get("current_beat_id")
+        if (
+            getattr(parsed, "schema_version", None)
+            == "dmb_play_run_reference_manifest_v2"
+            and existing_beat
+        ):
+            raise ApplicationStateValidationError(
+                "v2 current_beat_id cannot be cleared once READY"
+            )
         return canonical
     from apps.live_control_server.services.play_run_registry import (
         PlayRunProgress,
@@ -358,7 +375,11 @@ def replace_play_run_progress(
             run, repo.get_manifest(conn, canonical_run_id)
         )
         admitted = _admit_progress_payload(
-            progress, manifest.manifest, run_id=canonical_run_id, status_code=422
+            progress,
+            manifest.manifest,
+            run_id=canonical_run_id,
+            status_code=422,
+            existing_progress=run.progress,
         )
         if expected == run.run_revision and admitted == run.progress:
             return run
