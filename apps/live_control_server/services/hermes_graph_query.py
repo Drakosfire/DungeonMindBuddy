@@ -16,15 +16,18 @@ from typing import Any, Literal
 
 from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.services.agent_runtime import (
+    HERMES_RUNTIME_DESCRIPTOR,
     WORLD_GRAPH_READ_POLICY,
     AgentContextPacket,
     AgentRetrievalSession,
     AgentRunOptions,
     AgentRuntime,
+    AgentRuntimeDescriptor,
     AgentRuntimeInvocation,
     AgentRuntimeResult,
     AgentRuntimeToolEvent,
     AgentWorldScope,
+    descriptor_for_runtime,
 )
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
 from apps.live_control_server.services.hermes_session_store import (
@@ -927,15 +930,17 @@ def _new_trace_builder(
     agent_thread_id: str | None,
     turn_id: str | None,
     trace_builder: AgentTurnTraceBuilder | None = None,
+    descriptor: AgentRuntimeDescriptor | None = None,
 ) -> AgentTurnTraceBuilder:
     if trace_builder is not None:
         return trace_builder
+    identity = descriptor or HERMES_RUNTIME_DESCRIPTOR
     return AgentTurnTraceBuilder(
         agent_thread_id=agent_thread_id,
         turn_id=turn_id,
-        runtime=RUNTIME,
-        backend=BACKEND,
-        mode=MODE,
+        runtime=identity.trace_runtime,
+        backend=identity.trace_backend,
+        mode=identity.trace_mode,
     )
 
 
@@ -1180,9 +1185,9 @@ def build_hermes_graph_unavailable_response(
         "next_suggestions": [],
         "diagnostics": {"error_code": WORLD_GRAPH_UNAVAILABLE_CODE},
         "provenance": {
-            "backend": BACKEND,
-            "runtime": RUNTIME,
-            "mode": MODE,
+            "backend": builder.backend,
+            "runtime": builder.runtime,
+            "mode": builder.mode,
         },
         "citations": [],
         "context_packet": None,
@@ -1340,9 +1345,9 @@ def build_hermes_graph_product_response(
             }
         ),
         "provenance": {
-            "backend": BACKEND,
-            "runtime": RUNTIME,
-            "mode": MODE,
+            "backend": builder.backend,
+            "runtime": builder.runtime,
+            "mode": builder.mode,
             "process_isolation": _runtime_process_isolation(result),
         },
         "citations": citations,
@@ -1437,6 +1442,7 @@ def run_hermes_graph_query(
         agent_thread_id=agent_thread_id,
         turn_id=turn_id,
         trace_builder=trace_builder,
+        descriptor=descriptor_for_runtime(agent_runtime),
     )
     try:
         with builder.phase("request_validation"):

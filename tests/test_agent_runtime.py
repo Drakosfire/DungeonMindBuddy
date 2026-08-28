@@ -15,10 +15,12 @@ from apps.live_control_server.services.agent_runtime import (
     AgentContextPacket,
     AgentRetrievalSession,
     AgentRunOptions,
+    AgentRuntimeDescriptor,
     AgentRuntimeInvocation,
     AgentRuntimeResult,
     AgentRuntimeToolEvent,
     AgentWorldScope,
+    descriptor_for_runtime,
 )
 from apps.live_control_server.services.hermes_graph_query import (
     build_hermes_graph_product_response,
@@ -72,11 +74,23 @@ _FORBIDDEN_HERMES_NAMES = frozenset(
 )
 
 
-class _FakeRuntime:
-    descriptor = HERMES_RUNTIME_DESCRIPTOR
+CHALLENGER_RUNTIME_DESCRIPTOR = AgentRuntimeDescriptor(
+    runtime_id="challenger",
+    trace_backend="pydantic_ai",
+    trace_runtime="in_process",
+    trace_mode="challenger_graph_agent",
+)
 
-    def __init__(self, result: AgentRuntimeResult) -> None:
+
+class _FakeRuntime:
+    def __init__(
+        self,
+        result: AgentRuntimeResult,
+        *,
+        descriptor: AgentRuntimeDescriptor = HERMES_RUNTIME_DESCRIPTOR,
+    ) -> None:
         self.result = result
+        self.descriptor = descriptor
         self.calls: list[AgentRuntimeInvocation] = []
 
     def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
@@ -206,6 +220,30 @@ def test_fake_runtime_drives_product_grounding_without_hermes_host(tmp_path: Pat
     assert response["agent_trace"]["backend"] == "hermes"
     assert response["agent_trace"]["runtime"] == "process_isolated"
     assert response["agent_trace"]["mode"] == "hermes_graph_agent"
+
+
+def test_fake_runtime_non_hermes_descriptor_is_not_recorded_as_hermes(tmp_path: Path) -> None:
+    runtime = _FakeRuntime(_ok_result(), descriptor=CHALLENGER_RUNTIME_DESCRIPTOR)
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=READY_ENVELOPE,
+        agent_thread_id="agent-thread-challenger",
+        turn_id="turn-challenger",
+        root=tmp_path,
+        agent_runtime=runtime,
+    )
+    trace = response["agent_trace"]
+    assert response["status"] == "ok"
+    assert response["grounding"]["state"] == "grounded"
+    assert trace["backend"] == "pydantic_ai"
+    assert trace["runtime"] == "in_process"
+    assert trace["mode"] == "challenger_graph_agent"
+    assert (trace["backend"], trace["runtime"], trace["mode"]) != (
+        "hermes",
+        "process_isolated",
+        "hermes_graph_agent",
+    )
 
 
 def test_foreign_scope_fake_runtime_is_rejected(tmp_path: Path) -> None:
@@ -357,6 +395,54 @@ def test_process_live_query_injects_runtime_once(tmp_path: Path, monkeypatch) ->
     )
     assert len(runtime.calls) == 1
     assert response["grounding"]["state"] == "grounded"
+    trace = response["agent_trace"]
+    assert trace["backend"] == HERMES_RUNTIME_DESCRIPTOR.trace_backend
+    assert trace["runtime"] == HERMES_RUNTIME_DESCRIPTOR.trace_runtime
+    assert trace["mode"] == HERMES_RUNTIME_DESCRIPTOR.trace_mode
+
+
+def test_process_live_query_trace_identity_follows_runtime_descriptor(
+    tmp_path: Path, monkeypatch
+) -> None:
+    runtime = _FakeRuntime(_ok_result(), descriptor=CHALLENGER_RUNTIME_DESCRIPTOR)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.live_agent_loop.resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: READY_ENVELOPE,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.live_agent_loop.load_session",
+        lambda *_args, **_kwargs: (PACKET, None, [], []),
+    )
+    response = process_live_query(
+        "Where is Tripod?",
+        query_backend="hermes",
+        world_graph_context=READY_ENVELOPE,  # type: ignore[arg-type]
+        outer_campaign_id="campaign:c1",
+        agent_runtime=runtime,
+        base=tmp_path,
+        root=tmp_path,
+    )
+    trace = response["agent_trace"]
+    provenance = response["provenance"]
+    assert runtime.descriptor == CHALLENGER_RUNTIME_DESCRIPTOR
+    assert trace["backend"] == "pydantic_ai"
+    assert trace["runtime"] == "in_process"
+    assert trace["mode"] == "challenger_graph_agent"
+    assert trace["backend"] != "hermes"
+    assert trace["runtime"] != "process_isolated"
+    assert trace["mode"] != "hermes_graph_agent"
+    assert provenance["backend"] == "pydantic_ai"
+    assert provenance["runtime"] == "in_process"
+    assert provenance["mode"] == "challenger_graph_agent"
+    assert response["grounding"]["state"] == "grounded"
+    assert len(runtime.calls) == 1
+
+
+def test_descriptor_for_runtime_preserves_hermes_default() -> None:
+    assert descriptor_for_runtime(None) == HERMES_RUNTIME_DESCRIPTOR
+    challenger = _FakeRuntime(_ok_result(), descriptor=CHALLENGER_RUNTIME_DESCRIPTOR)
+    assert descriptor_for_runtime(challenger) == CHALLENGER_RUNTIME_DESCRIPTOR
+    assert descriptor_for_runtime(_FakeRuntime(_ok_result())) == HERMES_RUNTIME_DESCRIPTOR
 
 
 def test_world_graph_read_policy_identity_is_stable() -> None:

@@ -174,6 +174,18 @@ HERMES_RUNTIME_DESCRIPTOR = AgentRuntimeDescriptor(
     trace_mode="hermes_graph_agent",
 )
 
+
+def descriptor_for_runtime(runtime: AgentRuntime | None) -> AgentRuntimeDescriptor:
+    """A0 trace identity for the selected runtime.
+
+    The default Hermes adapter keeps the current labels. An injected runtime
+    supplies its own descriptor; product telemetry must not relabel it Hermes.
+    """
+    if runtime is None:
+        return HERMES_RUNTIME_DESCRIPTOR
+    return runtime.descriptor
+
+
 WORLD_GRAPH_READ_POLICY = AgentCapabilityPolicy(policy_id=WORLD_GRAPH_READ_POLICY_ID)
 
 UNSUPPORTED_CAPABILITY_POLICY = "unsupported_capability_policy"
