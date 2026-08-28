@@ -1192,3 +1192,29 @@ Must prove, in addition to the original dispatch matrix:
 * Back from inspection focuses the mounted Scenes launcher;
 * Back from inspection after At a Glance is collapsed focuses a still-mounted
   At a Glance control.
+
+## Completion
+
+PR #655 merged.
+
+Accepted implementation head:
+  3d5925c8ad1bdbe934020e1c4cd7f2f3fafbbec7
+
+Merge:
+  4d82f12ad9c6d679b5dbce83db527eb7dbd27957
+
+Formal review cycles:
+  2
+
+BF3A outcome:
+  DONE
+
+Dogfood discovery:
+  The Current Moment cockpit is implemented, but ordinary local startup on a
+  checkout without configured Buddy application state cannot reach it.
+
+Successor:
+  DF0 — Local Play dogfood bootstrap/readiness
+
+BF3B remains intentionally deferred until DF0 proves the merged cockpit is
+reachable through the supported local operator path.

@@ -112,6 +112,23 @@ For local OpenAI-backed commands, put `OPENAI_API_KEY` in a repo-root `.env` or
 `src.bootstrap_env.load_dungeonmindbuddy_dotenv()`; do not export or print the
 key. See `.cursor/rules/dungeonbuddy-environment.mdc`.
 
+## Local Play
+
+Play stores Buddy application state in a **separate PostgreSQL logical
+database**. It does not use the World Graph database, and FastAPI startup does
+not create, migrate, or import that state.
+
+1. Set `DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL` in repo `.env` or
+   `.env.development` to a Buddy database such as
+   `dungeonbuddy_application_state`.
+2. Run `uv run python scripts/bootstrap_local_play.py apply` once (and again
+   after application-state schema changes).
+3. Start FastAPI and the Vite UI, then open `/play`.
+
+See [`Docs/Runbooks/RUNBOOK-local-play-dogfood.md`](Docs/Runbooks/RUNBOOK-local-play-dogfood.md).
+Inspect without mutating with
+`uv run python scripts/bootstrap_local_play.py check`.
+
 ## Baseline verification
 
 ```bash

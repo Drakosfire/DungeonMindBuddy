@@ -4,7 +4,7 @@
 **Line of work:** `CON-READY`  
 **Updated:** 2026-08-26  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main` `39ef105d3996ef0062dd45a089fecada14915436` (PLAY-SURFACE BF2 / PR #652 merged)
+**Re-anchor base:** `main` `4d82f12ad9c6d679b5dbce83db527eb7dbd27957` (PLAY-SURFACE BF3A / PR #655 merged)
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)  
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)  
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)  
@@ -47,7 +47,11 @@ BF2 / PR #652    DONE — v2 READY, deterministic Beat seed, exact WorkRevision 
                  accepted head 9dffcab96ad3f527efedc3981aea805a63deb4df
                  merge 39ef105d3996ef0062dd45a089fecada14915436
                  review cycles: 5
-BF3A             CURRENT — Scene-centered Current Moment cockpit (Scenes first)
+BF3A / PR #655   DONE — Scene-centered Current Moment cockpit (Scenes first)
+                 accepted head 3d5925c8ad1bdbe934020e1c4cd7f2f3fafbbec7
+                 merge 4d82f12ad9c6d679b5dbce83db527eb7dbd27957
+                 review cycles: 2
+DF0              CURRENT — local Play dogfood bootstrap/readiness
 ```
 
 Current Play runtime/product state:
@@ -157,11 +161,14 @@ Table notes are simple Runtime records projected as pinned context. Do not inven
 BF2 / PR #652
 DONE — v2 READY Runtime + current-position/relevance
         ↓
-BF3A
-CURRENT — Scene-centered Current Moment cockpit (Scenes)
+BF3A / PR #655
+DONE — Scene-centered Current Moment cockpit (Scenes)
+        ↓
+DF0
+CURRENT — local Play dogfood bootstrap/readiness
         ↓
 BF3B
-Decision interaction and visible relevance
+AFTER DF0 — Decision interaction and visible relevance
         ↓
 BF3C / BF3.x / P3 family
 additional At-a-Glance categories; fast cross-Beat inspect + retrieval
@@ -178,30 +185,29 @@ Agent Surface may proceed in parallel on disjoint leases. It is not a prerequisi
 
 ---
 
-## 4. BF3A dispatch boundary
+## 4. DF0 dispatch boundary
 
-BF2 / PR #652 is merged. Do not reopen v2 admission, seed, or relevance in this slice.
+BF3A / PR #655 is merged. Do not reopen Current Moment presentation in this slice.
 
-BF3A owns only:
+DF0 owns only:
 
-- Scene-centered current-moment presentation of admitted v2 READY;
-- Beat-only central workspace when `currentSceneId` is null;
-- collapsible Beat Context and At a Glance (presentation-only);
-- Scenes as the first At-a-Glance category;
-- inspect versus explicit Make Current for current-Beat Scenes;
-- v2 Runtime overlay after progress CAS.
+- explicit local `check` / `apply` composition for Buddy application state;
+- provisioning the standard local Buddy logical database when missing;
+- explicit Alembic upgrade and leftover Runbook adoption;
+- domain-neutral APP-STATE unavailable copy;
+- documented ordinary uvicorn + Vite Play startup;
+- a development-only Play setup hint.
 
-BF3A does **not** own:
+DF0 does **not** own:
 
+- migrate-on-boot or import-on-boot;
+- World Graph / file-authority fallback;
+- seeding a fake Runbook;
+- starting or selecting a Play Run;
 - Decision selection UI;
-- NPC/Location/Threat/Notes At-a-Glance categories;
-- cross-Beat inspection or global finder;
-- Combat workspace;
-- Agent Interaction;
-- new backend/API/schema;
-- AppChrome / Surface Interaction ownership.
+- Combat, Agent Interaction, or CUTOVER.
 
-BF3B owns Decision interaction. Later slices own additional categories and retrieval.
+BF3B owns Decision interaction after DF0 proves the merged cockpit is reachable.
 
 ---
 
@@ -228,8 +234,9 @@ A path that forces manual source search, memory reconstruction, JSON surgery, Pl
 ## 6. What remains deliberately false
 
 - BF2 / PR #652 is DONE (merge `39ef105d3996ef0062dd45a089fecada14915436`, 5 review cycles).
-- BF3A Current Moment cockpit is in flight and is **not** DONE.
-- BF3B Decision interaction remains false.
+- BF3A / PR #655 is DONE (merge `4d82f12ad9c6d679b5dbce83db527eb7dbd27957`, 2 review cycles).
+- DF0 local Play dogfood bootstrap is in flight and is **not** DONE.
+- BF3B Decision interaction remains false until DF0 proves local reachability.
 - BF3.x / P3 retrieval remains false.
 - P4 / Combat remains false.
 - global/on-demand retrieval is not proven.

@@ -20,6 +20,8 @@ import {
   type RunbookMutationStatus,
 } from "./runbook/RunbookTableDeck";
 import { PlayCurrentMomentCockpit } from "./currentMoment/PlayCurrentMomentCockpit";
+import { useOptionalWorldGraphLens } from "../graphLens";
+import { campaignIdFromProductContext } from "./blankRunbook";
 import { StartRunPanel } from "./StartRunPanel";
 import {
   admitNativeRunbook,
@@ -67,6 +69,28 @@ function playChooserQuery(search: string): boolean {
 function navigateToRun(runId: string): void {
   window.history.pushState({}, "", `/play?run=${encodeURIComponent(runId)}`);
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+function isApplicationStateUnavailableMessage(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return /DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL|application state is unavailable/i.test(
+    message,
+  );
+}
+
+function LocalPlaySetupHint({ message }: { message: string | null | undefined }) {
+  if (!import.meta.env.DEV || !isApplicationStateUnavailableMessage(message)) {
+    return null;
+  }
+  return (
+    <p role="note" className="play-muted" data-testid="play-local-setup-hint">
+      Local Play setup is incomplete.
+      <br />
+      Run:
+      <br />
+      uv run python scripts/bootstrap_local_play.py check
+    </p>
+  );
 }
 
 function replaceToRun(runId: string): void {
@@ -164,6 +188,8 @@ function PlaySurfacePublisher({
 }
 
 function PlayChooser({ continuityWarning }: { continuityWarning?: string | null }) {
+  const world = useOptionalWorldGraphLens();
+  const productCampaignId = campaignIdFromProductContext(world);
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable" | "recovery_pending">("loading");
   const [detail, setDetail] = useState<string | null>(null);
   const [records, setRecords] = useState<PlayRunRecord[]>([]);
@@ -180,6 +206,11 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
       } catch (error) {
         if (cancelled) return;
         if (error instanceof LiveApiError && error.status === 503) {
+          if (isApplicationStateUnavailableMessage(error.message)) {
+            setStatus("unavailable");
+            setDetail(error.message);
+            return;
+          }
           setStatus("recovery_pending");
           setDetail(error.message);
           return;
@@ -204,6 +235,7 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
             {continuityWarning}
           </p>
         ) : null}
+        <LocalPlaySetupHint message={continuityWarning ?? detail} />
       </header>
       <section data-testid="play-existing-runs">
         <h2>Existing Runs</h2>
@@ -239,7 +271,7 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
           </ul>
         ) : null}
       </section>
-      <StartRunPanel onStarted={navigateToRun} />
+      <StartRunPanel onStarted={navigateToRun} productCampaignId={productCampaignId} />
     </main>
   );
 }

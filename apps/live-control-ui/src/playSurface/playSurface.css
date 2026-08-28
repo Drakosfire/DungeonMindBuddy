@@ -358,6 +358,34 @@
   margin-top: 0.75rem;
 }
 
+.play-blank-runbook {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.play-blank-runbook label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-start;
+  color: var(--play-text);
+}
+
+.play-blank-runbook input[type="text"] {
+  width: min(100%, 22rem);
+  min-height: 2.5rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--play-border);
+  background: transparent;
+  color: var(--play-text);
+}
+
+.play-blank-runbook button {
+  align-self: flex-start;
+}
+
 .play-controls label,
 .play-option-list label {
   display: inline-flex;

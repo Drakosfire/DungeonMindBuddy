@@ -15,6 +15,12 @@ import {
   type StartRunDeps,
   type StartRunPhase,
 } from "./startRunAttempt";
+import {
+  BlankRunbookCreateError,
+  createBlankRunbook,
+  resolveBlankRunbookCampaignId,
+  type BlankRunbookAttempt,
+} from "./blankRunbook";
 
 const liveStartRunDeps: StartRunDeps = {
   generateRunId: () => crypto.randomUUID(),
@@ -30,8 +36,10 @@ type AttemptStatus = "idle" | "starting" | "incomplete" | "blocked" | "replay_cr
 
 export function StartRunPanel({
   onStarted,
+  productCampaignId = null,
 }: {
   onStarted: (runId: string) => void;
+  productCampaignId?: string | null;
 }) {
   const [listStatus, setListStatus] = useState<ListStatus>("loading");
   const [listDetail, setListDetail] = useState<string | null>(null);
@@ -40,19 +48,30 @@ export function StartRunPanel({
   const [attemptStatus, setAttemptStatus] = useState<AttemptStatus>("idle");
   const [attemptDetail, setAttemptDetail] = useState<string | null>(null);
   const [attempt, setAttempt] = useState<StartRunBinding | null>(null);
+  const [campaignDraft, setCampaignDraft] = useState("");
+  const [creatingBlank, setCreatingBlank] = useState(false);
+  const [createBlankError, setCreateBlankError] = useState<string | null>(null);
+  const [listRefreshWarning, setListRefreshWarning] = useState<string | null>(null);
+  const [blankAttempt, setBlankAttempt] = useState<BlankRunbookAttempt | null>(null);
   const startedRef = useRef<string | null>(null);
+
+  const refreshRunbooks = useCallback(async () => {
+    setListStatus("loading");
+    setListDetail(null);
+    const listed = await listWorkspaceDocuments({ kind: "runbook", status: "active" });
+    const records = listed.records;
+    setRunbooks(records);
+    setListStatus(records.length === 0 ? "empty" : "ready");
+    return records;
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setListStatus("loading");
-      setListDetail(null);
       try {
-        const listed = await listWorkspaceDocuments({ kind: "runbook", status: "active" });
+        const records = await refreshRunbooks();
         if (cancelled) return;
-        const records = listed.records;
-        setRunbooks(records);
-        setListStatus(records.length === 0 ? "empty" : "ready");
+        void records;
       } catch (error) {
         if (cancelled) return;
         setRunbooks([]);
@@ -63,7 +82,7 @@ export function StartRunPanel({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshRunbooks]);
 
   const runAttempt = useCallback(async (phase: StartRunPhase, currentAttempt: StartRunBinding | null) => {
     if (selectedDocumentId == null) return;
@@ -98,6 +117,66 @@ export function StartRunPanel({
     setAttemptStatus("blocked");
     setAttemptDetail(result.detail);
   }, [onStarted, selectedDocumentId]);
+
+  const resolvedCampaignId = resolveBlankRunbookCampaignId(productCampaignId, campaignDraft);
+  const showCreate = listStatus === "empty" || listStatus === "ready";
+  const canCreateBlank = blankAttempt != null || resolvedCampaignId != null;
+
+  const onCreateBlank = useCallback(async () => {
+    if (!canCreateBlank || creatingBlank) return;
+    const campaignId = blankAttempt?.campaignId ?? resolvedCampaignId;
+    if (campaignId == null) return;
+    setCreatingBlank(true);
+    setCreateBlankError(null);
+    setListRefreshWarning(null);
+    try {
+      const created = await createBlankRunbook(campaignId, {
+        attempt: blankAttempt,
+        onAttemptRetained: setBlankAttempt,
+      });
+      setBlankAttempt(null);
+      setSelectedDocumentId(created.record.document_id);
+      setAttempt(null);
+      setAttemptStatus("idle");
+      setAttemptDetail(null);
+      startedRef.current = null;
+      try {
+        const records = await refreshRunbooks();
+        const selected = records.find((record) => record.document_id === created.record.document_id)
+          ?? created.record;
+        setSelectedDocumentId(selected.document_id);
+        if (!records.some((record) => record.document_id === created.record.document_id)) {
+          setRunbooks((current) => (
+            current.some((record) => record.document_id === created.record.document_id)
+              ? current
+              : [...current, created.record]
+          ));
+          setListStatus("ready");
+        }
+      } catch (refreshError) {
+        setRunbooks((current) => (
+          current.some((record) => record.document_id === created.record.document_id)
+            ? current
+            : [...current, created.record]
+        ));
+        setListStatus("ready");
+        setListRefreshWarning(
+          refreshError instanceof Error
+            ? refreshError.message
+            : "Blank Runbook is committed; the Runbook list could not be refreshed.",
+        );
+      }
+    } catch (error) {
+      if (error instanceof BlankRunbookCreateError && error.attempt) {
+        setBlankAttempt(error.attempt);
+      }
+      setCreateBlankError(
+        error instanceof Error ? error.message : "Failed to create a blank Runbook.",
+      );
+    } finally {
+      setCreatingBlank(false);
+    }
+  }, [blankAttempt, canCreateBlank, creatingBlank, refreshRunbooks, resolvedCampaignId]);
 
   return (
     <section className="play-start-run" data-testid="play-start-run">
@@ -137,6 +216,48 @@ export function StartRunPanel({
             );
           })}
         </ul>
+      ) : null}
+      {showCreate ? (
+        <div className="play-blank-runbook" data-testid="play-create-blank-runbook">
+          {productCampaignId?.trim() ? (
+            <p className="play-muted" data-testid="play-create-blank-runbook-campaign-context">
+              Campaign {productCampaignId.trim()}
+            </p>
+          ) : (
+            <label>
+              Campaign
+              <input
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                value={campaignDraft}
+                data-testid="play-create-blank-runbook-campaign"
+                onChange={(event) => setCampaignDraft(event.target.value)}
+              />
+            </label>
+          )}
+          <button
+            type="button"
+            data-testid="play-create-blank-runbook-submit"
+            disabled={!canCreateBlank || creatingBlank}
+            onClick={() => {
+              void onCreateBlank();
+            }}
+          >
+            Create blank Runbook
+          </button>
+          {creatingBlank ? <p>Creating blank Runbook…</p> : null}
+          {createBlankError ? (
+            <p role="alert" data-testid="play-create-blank-runbook-error">
+              {createBlankError}
+            </p>
+          ) : null}
+          {listRefreshWarning ? (
+            <p className="play-muted" data-testid="play-create-blank-runbook-list-warning">
+              Blank Runbook is committed. {listRefreshWarning}
+            </p>
+          ) : null}
+        </div>
       ) : null}
       <div className="play-controls">
         <button

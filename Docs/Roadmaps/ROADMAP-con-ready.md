@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-08-26 from `main` `39ef105d3996ef0062dd45a089fecada14915436` (PLAY-SURFACE BF2 / PR #652 merged)
+**Re-anchored:** 2026-08-26 from `main` `4d82f12ad9c6d679b5dbce83db527eb7dbd27957` (PLAY-SURFACE BF3A / PR #655 merged)
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
@@ -261,8 +261,12 @@ BF2 / PR #652    DONE — v2 READY/current-position/relevance
                  accepted head 9dffcab96ad3f527efedc3981aea805a63deb4df
                  merge 39ef105d3996ef0062dd45a089fecada14915436
                  review cycles: 5
-BF3A             CURRENT first cockpit slice — Scene-centered Current Moment
-BF3B             after BF3A — Decision interaction and visible relevance
+BF3A / PR #655   DONE — Current Moment
+                 accepted head 3d5925c8ad1bdbe934020e1c4cd7f2f3fafbbec7
+                 merge 4d82f12ad9c6d679b5dbce83db527eb7dbd27957
+                 review cycles: 2
+DF0              CURRENT — local Play dogfood bootstrap/readiness
+BF3B             AFTER DF0 — Decision interaction and visible relevance
 BF3C / BF3.x     later — additional At-a-Glance categories / retrieval
 BF4              authoring composition; may run in parallel on disjoint lease
 
@@ -277,7 +281,7 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
 | CR-U11 | **Partially true, foundation strong** | durable WorkObject/WorkRevision + BF1 structure exist; richer Beat-first Plan composition controls still need BF4/dogfood |
 | CR-U13 | **Partial / Combat-owned** | exact mechanics/projection seams exist, but durable integrated Combat acceptance is separate |
 | CR-U14 | **False as native end-to-end story** | C2S27 proved fast unplanned combat in the legacy tracker; native global Threat→exact mechanics→Combat flow still needs proof |
-| CR-U15 | **False for target cockpit** | BF2 READY is true; BF3A Current Moment cockpit is in flight and not DONE; Decisions/other categories remain later |
+| CR-U15 | **PARTIAL** | BF3A Current Moment is implemented and merged. Normal local operator entry is not yet proven because APP-STATE bootstrap is not part of the supported startup workflow. DF0 owns that gap. Decision interaction and later cockpit capabilities remain false. |
 | CR-U16 | **Partial** | projection seams exist; cross-Beat inspect/global on-demand retrieval remains a prioritized gap |
 | CR-U17 | **Play portion true; overall false** | Play durability is PostgreSQL-backed; Combat/other relied-upon state must still prove continuity |
 
@@ -290,30 +294,32 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - explicit Beat/Scene current-position mutations
    - activates/suppresses emphasis
 
-2. BF3A — CURRENT — Scene-centered Current Moment cockpit
+2. BF3A — DONE (PR #655, merge 4d82f12ad9c6d679b5dbce83db527eb7dbd27957, 2 review cycles)
    - active Scene is the default central workspace
    - Beat-only state when no Scene is current
-   - collapsible Beat Context (presentation-only; not Run state)
-   - collapsible presence-first At a Glance (presentation-only; not Run state)
-   - Scenes category uses the same central workspace
-   - inspect does not change Runtime current position
-   - close/back returns to the exact current Scene
-   - explicit Make Current is the only Scene-position mutation
-   - BF3A is in flight and is not DONE
+   - collapsible Beat Context / At a Glance
+   - Scenes inspect versus explicit Make Current
 
-3. BF3B — Decision interaction and visible relevance
+3. DF0 — CURRENT — local Play dogfood bootstrap/readiness
+   - explicit check/apply for Buddy application state
+   - ordinary uvicorn + Vite then reaches /play
+   - no migrate-on-boot and no World Graph DSN fallback
+   - empty Play creates a blank committed Runbook explicitly; bootstrap does not seed
+   - DF0 is in flight and is not DONE
+
+4. BF3B — AFTER DF0 — Decision interaction and visible relevance
    - current-context Decisions / Options
    - select / change / clear selection
    - authored consequence and emphasized / de-emphasized presentation
    - no auto-navigation
 
-4. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
+5. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
    - inspect material from other Beats without changing current moment
    - global/on-demand known object finder
    - fast NPC/location/Threat/table opening
    - exact statblock hot path
 
-5. THREAT → COMBAT + COMBAT WORKSPACE — P4 / Combat lane
+6. THREAT → COMBAT + COMBAT WORKSPACE — P4 / Combat lane
    - Add to Combat from prepared or unexpected Threat
    - Combat is one At-a-Glance entry with compact status, not a floating side rail
    - opening Combat uses the same central workspace; Combat remains Combat-owned
@@ -321,11 +327,11 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - durable Combat authority required for CR-U17 overall
    - this Combat workspace is not implemented until P4
 
-6. BF4 — Plan Beat-first authoring composition
+7. BF4 — Plan Beat-first authoring composition
    - may proceed in parallel after BF1 on disjoint leases
-   - must not block getting BF3A/BF3B back to a real table
+   - must not block getting DF0/BF3B back to a real table
 
-7. REAL SESSION DOGFOOD
+8. REAL SESSION DOGFOOD
    - deliberately include an off-script scene change
    - unplanned NPC/Threat
    - exact mechanics lookup
@@ -466,4 +472,4 @@ I reload/restart and the state I depended on is still there.
 
 Every implementation/review under CON-READY must re-anchor against current repository truth and the user stories above.
 
-Do not silently redefine CON-READY as architecture completion. Do not dispatch BF3A as the bundled historical BF3 (Decisions, finder, Combat, Runbook reference) in one slice.
+Do not silently redefine CON-READY as architecture completion. Do not dispatch BF3B until DF0 proves the merged Current Moment is reachable through the supported local operator path. Do not bundle Decisions, finder, Combat, or Runbook reference into DF0.
