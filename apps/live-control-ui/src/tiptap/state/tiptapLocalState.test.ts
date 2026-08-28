@@ -10,6 +10,7 @@ import { PlayableIdentitySerializationError } from "../playable/playableElementI
 import {
   buildInitialWorkspaceDocumentLocalState,
   clearWorkspaceDocumentLocalState,
+  migrateWorkspaceDocumentLocalStateId,
   readWorkspaceDocumentLocalState,
   workspaceDocumentStorageKey,
   writeWorkspaceDocumentLocalState,
@@ -195,5 +196,45 @@ describe("Workspace document local state", () => {
     expect(migrated?.schema_version).toBe(WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA);
     expect(migrated?.base_revision).toBe(0);
     expect(migrated?.base_content_sha256).toBe("");
+  });
+
+  it("migrates local draft bytes to an exact durable document id", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: vi.fn((key: string) => values.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => {
+        values.set(key, value);
+      }),
+      removeItem: vi.fn((key: string) => {
+        values.delete(key);
+      }),
+    };
+    const localId = "local-plan:draft-1";
+    const durableId = "33333333-3333-4333-8333-333333333333";
+    writeWorkspaceDocumentLocalState(
+      storage,
+      buildInitialWorkspaceDocumentLocalState({
+        documentId: localId,
+        title: "C2 Session 23 Prep",
+        campaignId: "longmont-c2",
+        kind: "plan",
+        targetSession: 23,
+        surface: "plan",
+        baseRevision: 0,
+        baseContentSha256: "",
+        starterContent: { type: "doc", content: [] },
+      }),
+    );
+
+    const migrated = migrateWorkspaceDocumentLocalStateId(storage, localId, durableId, {
+      base_revision: 1,
+      base_content_sha256: "abc123",
+    });
+
+    expect(migrated?.document_id).toBe(durableId);
+    expect(migrated?.dirty).toBe(true);
+    expect(migrated?.base_revision).toBe(1);
+    expect(readWorkspaceDocumentLocalState(storage, localId)).toBeNull();
+    expect(readWorkspaceDocumentLocalState(storage, durableId)?.document_id).toBe(durableId);
   });
 });

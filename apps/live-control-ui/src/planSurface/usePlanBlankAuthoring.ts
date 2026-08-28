@@ -3,16 +3,24 @@ import type { Editor, JSONContent } from "@tiptap/core";
 
 import {
   commitTiptapMarkdownWrite,
+  getWorkspaceDocumentSnapshot,
   prepareTiptapMarkdownWrite,
 } from "../api/liveApi";
-import type { WorkspaceDocumentRecord } from "../api/types";
+import type {
+  TiptapMarkdownWriteCommitResponse,
+  WorkspaceDocumentRecord,
+  WorkspaceDocumentSnapshot,
+} from "../api/types";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
 import {
   buildInitialWorkspaceDocumentLocalState,
   finalizePromotedWorkspaceDocumentLocalState,
+  migrateWorkspaceDocumentLocalStateId,
   readWorkspaceDocumentLocalState,
   writeWorkspaceDocumentLocalState,
+  type WorkspaceDocumentLocalState,
 } from "../tiptap/state/tiptapLocalState";
+import { verifyCommitReceiptAgainstSnapshot } from "../workspaceDocument/verifyCommitReceiptAgainstSnapshot";
 import {
   createWorkspaceDocumentCreationController,
   WorkspaceDocumentCreationError,
@@ -22,6 +30,9 @@ import { workspaceRecordToPlanDocumentDescriptor } from "./config/planSessionDes
 import { createStarterContentForPlanDocument } from "./config/planSessionDescriptor";
 import {
   clearPlanLocalDraftPointer,
+  validatePlanCreateResponse,
+  validatePlanPostCommitSnapshotAdmission,
+  validatePlanPromotionSnapshotAdmission,
   type PlanLocalDraft,
 } from "./planBlankAuthoringState";
 import type { PlanSessionDescriptor } from "./types";
@@ -57,19 +68,99 @@ export interface PlanBlankAuthoringValue {
   saveMarkdown: () => Promise<void>;
 }
 
-function durablePathGate(record: WorkspaceDocumentRecord): string | null {
-  const relpath = record.target_relpath?.trim() ?? "";
-  if (!relpath || relpath === "TBD durable planning path") {
-    return "Plan durable target path is unavailable; body commit blocked.";
-  }
-  return null;
-}
-
 function adoptDocumentUrl(documentId: string): void {
   if (typeof window === "undefined") return;
   const search = new URLSearchParams(window.location.search);
   search.set("documentId", documentId);
   window.history.replaceState({}, "", `${window.location.pathname}?${search.toString()}`);
+}
+
+function persistDirtyEditorBytes(
+  storage: Pick<Storage, "getItem" | "setItem" | "removeItem">,
+  documentId: string,
+  args: {
+    tiptapJson: unknown;
+    markdown: string;
+    fallback: WorkspaceDocumentLocalState;
+  },
+): WorkspaceDocumentLocalState {
+  const now = new Date().toISOString();
+  const existing = readWorkspaceDocumentLocalState(storage, documentId) ?? args.fallback;
+  const next: WorkspaceDocumentLocalState = {
+    ...existing,
+    document_id: documentId,
+    tiptap_json: args.tiptapJson,
+    exported_markdown: args.markdown,
+    dirty: true,
+    updated_at: now,
+    last_local_save_at: now,
+  };
+  writeWorkspaceDocumentLocalState(storage, next);
+  return next;
+}
+
+function mirrorLocalStateToDurableId(args: {
+  storage: Pick<Storage, "getItem" | "setItem" | "removeItem">;
+  localDraftId: string;
+  durableId: string;
+  snapshot: WorkspaceDocumentSnapshot;
+  record: WorkspaceDocumentRecord;
+  tiptapJson: unknown;
+  markdown: string;
+  fallback: WorkspaceDocumentLocalState;
+}): WorkspaceDocumentLocalState {
+  const { storage, localDraftId, durableId, snapshot, record } = args;
+  if (localDraftId !== durableId) {
+    migrateWorkspaceDocumentLocalStateId(storage, localDraftId, durableId, {
+      title: record.title,
+      campaign_id: record.campaign_id,
+      target_session: record.target_session,
+      base_revision: snapshot.loaded_revision,
+      base_content_sha256: snapshot.content_sha256,
+    });
+  } else {
+    const existing = readWorkspaceDocumentLocalState(storage, durableId) ?? args.fallback;
+    writeWorkspaceDocumentLocalState(storage, {
+      ...existing,
+      document_id: durableId,
+      title: record.title,
+      campaign_id: record.campaign_id,
+      target_session: record.target_session,
+      base_revision: snapshot.loaded_revision,
+      base_content_sha256: snapshot.content_sha256,
+      dirty: true,
+      updated_at: new Date().toISOString(),
+      last_local_save_at: new Date().toISOString(),
+    });
+  }
+  return persistDirtyEditorBytes(storage, durableId, {
+    tiptapJson: args.tiptapJson,
+    markdown: args.markdown,
+    fallback: args.fallback,
+  });
+}
+
+function applyCommitReceiptBaseRetainingEditorContent(args: {
+  receipt: TiptapMarkdownWriteCommitResponse;
+  current: WorkspaceDocumentLocalState;
+}): WorkspaceDocumentLocalState {
+  const now = new Date().toISOString();
+  const committedRevision = Number.isInteger(args.receipt.committed_revision)
+    ? args.receipt.committed_revision
+    : args.current.base_revision;
+  const committedContentSha256 =
+    typeof args.receipt.normalized_content_sha256 === "string"
+      && args.receipt.normalized_content_sha256.trim()
+      ? args.receipt.normalized_content_sha256
+      : args.current.base_content_sha256;
+  return {
+    ...args.current,
+    base_revision: committedRevision,
+    base_content_sha256: committedContentSha256,
+    dirty: true,
+    updated_at: now,
+    last_local_save_at: now,
+  };
 }
 
 export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlankAuthoringValue {
@@ -87,11 +178,11 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
   const [saveBusy, setSaveBusy] = useState(false);
   const [contentRevision, setContentRevision] = useState(0);
 
-  const localState = useMemo(() => {
-    const existing = readWorkspaceDocumentLocalState(localStorage, draft.localId);
-    if (existing) return existing;
+  const activeDocumentKey = retainedCreateId ?? draft.localId;
+
+  const buildFallbackLocalState = useCallback((): WorkspaceDocumentLocalState => {
     return buildInitialWorkspaceDocumentLocalState({
-      documentId: draft.localId,
+      documentId: activeDocumentKey,
       title: draft.title,
       campaignId: draft.campaignId,
       kind: "plan",
@@ -101,14 +192,30 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
       baseContentSha256: "",
       starterContent: createStarterContentForPlanDocument(sessionDescriptor),
     });
-  }, [contentRevision, draft.campaignId, draft.localId, draft.targetSession, draft.title, sessionDescriptor]);
+  }, [
+    activeDocumentKey,
+    draft.campaignId,
+    draft.targetSession,
+    draft.title,
+    sessionDescriptor,
+  ]);
+
+  const localState = useMemo(() => {
+    const durable = readWorkspaceDocumentLocalState(localStorage, activeDocumentKey);
+    if (durable) return durable;
+    if (activeDocumentKey !== draft.localId) {
+      const fromLocal = readWorkspaceDocumentLocalState(localStorage, draft.localId);
+      if (fromLocal) return fromLocal;
+    }
+    return buildFallbackLocalState();
+  }, [activeDocumentKey, buildFallbackLocalState, contentRevision, draft.localId]);
 
   useEffect(() => {
-    const existing = readWorkspaceDocumentLocalState(localStorage, draft.localId);
+    const existing = readWorkspaceDocumentLocalState(localStorage, activeDocumentKey);
     if (!existing) {
       writeWorkspaceDocumentLocalState(localStorage, localState);
     }
-  }, [draft.localId, localState]);
+  }, [activeDocumentKey, localState]);
 
   const saveDisabledReason = useMemo(() => {
     if (!selectorListAvailable) {
@@ -124,11 +231,16 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
     editorRef.current = editor;
   }, []);
 
+  const bumpContentRevision = useCallback(() => {
+    setContentRevision((value) => value + 1);
+  }, []);
+
   const handleEditorUpdate = useCallback(
     (json: JSONContent, _editor: Editor, meta: { programmatic: boolean }) => {
       if (meta.programmatic) return;
       const next = {
         ...localState,
+        document_id: activeDocumentKey,
         tiptap_json: json,
         exported_markdown: tiptapJsonToSemanticMarkdown(json),
         dirty: true,
@@ -136,9 +248,9 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
         last_local_save_at: new Date().toISOString(),
       };
       writeWorkspaceDocumentLocalState(localStorage, next);
-      setContentRevision((value) => value + 1);
+      bumpContentRevision();
     },
-    [localState],
+    [activeDocumentKey, bumpContentRevision, localState],
   );
 
   const saveMarkdown = useCallback(async () => {
@@ -151,14 +263,13 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
     }
     const markdown = tiptapJsonToSemanticMarkdown(editor.getJSON());
     const tiptapJson = editor.getJSON();
-    writeWorkspaceDocumentLocalState(localStorage, {
-      ...localState,
-      tiptap_json: tiptapJson,
-      exported_markdown: markdown,
-      dirty: true,
-      updated_at: new Date().toISOString(),
-      last_local_save_at: new Date().toISOString(),
+    const fallback = buildFallbackLocalState();
+    persistDirtyEditorBytes(localStorage, activeDocumentKey, {
+      tiptapJson,
+      markdown,
+      fallback,
     });
+    bumpContentRevision();
 
     setSaveBusy(true);
     setPromotionError(null);
@@ -187,12 +298,6 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
           return;
         }
         record = created.record;
-        onPromotionStateChange?.({
-          promoting: true,
-          retainedCreateId: record.document_id,
-          error: null,
-        });
-        adoptDocumentUrl(record.document_id);
       } catch (error) {
         const message =
           error instanceof WorkspaceDocumentCreationError
@@ -207,6 +312,35 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
       }
     }
 
+    const createValidationError = validatePlanCreateResponse(record, draft);
+    if (createValidationError) {
+      const durableId =
+        record != null && typeof record.document_id === "string"
+          ? record.document_id.trim()
+          : "";
+      if (durableId) {
+        adoptDocumentUrl(durableId);
+        persistDirtyEditorBytes(localStorage, durableId, {
+          tiptapJson,
+          markdown,
+          fallback,
+        });
+      }
+      bumpContentRevision();
+      setPromotionError(createValidationError);
+      onPromotionStateChange?.(
+        durableId
+          ? {
+              promoting: true,
+              retainedCreateId: durableId,
+              error: createValidationError,
+            }
+          : { promoting: false, retainedCreateId: null, error: createValidationError },
+      );
+      setSaveBusy(false);
+      return;
+    }
+
     if (retainedCreateId == null || retainedCreateId !== record.document_id) {
       adoptDocumentUrl(record.document_id);
       onPromotionStateChange?.({
@@ -216,24 +350,69 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
       });
     }
 
-    const pathError = durablePathGate(record);
-    if (pathError) {
-      setPromotionError(pathError);
+    let admittedSnapshot: WorkspaceDocumentSnapshot;
+    try {
+      admittedSnapshot = await getWorkspaceDocumentSnapshot(record.document_id);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Plan promotion snapshot could not be loaded.";
+      persistDirtyEditorBytes(localStorage, record.document_id, {
+        tiptapJson,
+        markdown,
+        fallback,
+      });
+      bumpContentRevision();
+      setPromotionError(message);
       onPromotionStateChange?.({
         promoting: true,
         retainedCreateId: record.document_id,
-        error: pathError,
+        error: message,
       });
       setSaveBusy(false);
       return;
     }
 
+    const admissionError = validatePlanPromotionSnapshotAdmission(admittedSnapshot, record, draft);
+    if (admissionError) {
+      persistDirtyEditorBytes(localStorage, record.document_id, {
+        tiptapJson,
+        markdown,
+        fallback,
+      });
+      bumpContentRevision();
+      setPromotionError(admissionError);
+      onPromotionStateChange?.({
+        promoting: true,
+        retainedCreateId: record.document_id,
+        error: admissionError,
+      });
+      setSaveBusy(false);
+      return;
+    }
+
+    mirrorLocalStateToDurableId({
+      storage: localStorage,
+      localDraftId: draft.localId,
+      durableId: record.document_id,
+      snapshot: admittedSnapshot,
+      record,
+      tiptapJson,
+      markdown,
+      fallback,
+    });
+    bumpContentRevision();
+
     try {
       const prepared = await prepareTiptapMarkdownWrite({
         document_id: record.document_id,
         markdown,
-        expected_revision: record.revision,
+        expected_revision: admittedSnapshot.loaded_revision,
       });
+      if (prepared.document_id !== record.document_id) {
+        throw new Error("Markdown prepare receipt document_id does not match promoted document.");
+      }
       if (!prepared.writer_ok || !prepared.writer_confirm_token) {
         throw new Error("Markdown save could not be prepared.");
       }
@@ -241,19 +420,132 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
         document_id: record.document_id,
         markdown,
         writer_confirm_token: prepared.writer_confirm_token,
-        expected_revision: record.revision,
+        expected_revision: admittedSnapshot.loaded_revision,
       });
+
+      if (!committed.writer_ok) {
+        throw new Error("Markdown save was not committed.");
+      }
+      if (committed.document_id !== record.document_id) {
+        throw new Error("Commit receipt document_id does not match promoted document.");
+      }
+
+      if (
+        typeof committed.file_fingerprint !== "string"
+        || !committed.file_fingerprint.trim()
+      ) {
+        const retainedLocal = readWorkspaceDocumentLocalState(localStorage, record.document_id);
+        if (retainedLocal) {
+          writeWorkspaceDocumentLocalState(
+            localStorage,
+            applyCommitReceiptBaseRetainingEditorContent({
+              receipt: committed,
+              current: retainedLocal,
+            }),
+          );
+          bumpContentRevision();
+        }
+        const message = "Commit receipt is missing file_fingerprint after successful write.";
+        setPromotionError(message);
+        onPromotionStateChange?.({
+          promoting: true,
+          retainedCreateId: record.document_id,
+          error: message,
+        });
+        setSaveBusy(false);
+        return;
+      }
+
+      let refreshedSnapshot: WorkspaceDocumentSnapshot;
+      try {
+        refreshedSnapshot = await getWorkspaceDocumentSnapshot(record.document_id);
+      } catch (error) {
+        const retainedLocal = readWorkspaceDocumentLocalState(localStorage, record.document_id);
+        if (retainedLocal) {
+          writeWorkspaceDocumentLocalState(
+            localStorage,
+            applyCommitReceiptBaseRetainingEditorContent({
+              receipt: committed,
+              current: retainedLocal,
+            }),
+          );
+          bumpContentRevision();
+        }
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Commit succeeded; snapshot verification failed.";
+        setPromotionError(message);
+        onPromotionStateChange?.({
+          promoting: true,
+          retainedCreateId: record.document_id,
+          error: message,
+        });
+        setSaveBusy(false);
+        return;
+      }
+
+      const postCommitRecord = committed.committed_record;
+      const postCommitAdmissionError = validatePlanPostCommitSnapshotAdmission(
+        refreshedSnapshot,
+        postCommitRecord,
+        draft,
+      );
+      if (postCommitAdmissionError) {
+        const retainedLocal = readWorkspaceDocumentLocalState(localStorage, record.document_id);
+        if (retainedLocal) {
+          writeWorkspaceDocumentLocalState(
+            localStorage,
+            applyCommitReceiptBaseRetainingEditorContent({
+              receipt: committed,
+              current: retainedLocal,
+            }),
+          );
+          bumpContentRevision();
+        }
+        setPromotionError(postCommitAdmissionError);
+        onPromotionStateChange?.({
+          promoting: true,
+          retainedCreateId: record.document_id,
+          error: postCommitAdmissionError,
+        });
+        setSaveBusy(false);
+        return;
+      }
+
+      const verification = verifyCommitReceiptAgainstSnapshot(committed, refreshedSnapshot);
+      if (!verification.ok) {
+        const retainedLocal = readWorkspaceDocumentLocalState(localStorage, record.document_id);
+        if (retainedLocal) {
+          writeWorkspaceDocumentLocalState(
+            localStorage,
+            applyCommitReceiptBaseRetainingEditorContent({
+              receipt: committed,
+              current: retainedLocal,
+            }),
+          );
+          bumpContentRevision();
+        }
+        setPromotionError(verification.reason);
+        onPromotionStateChange?.({
+          promoting: true,
+          retainedCreateId: record.document_id,
+          error: verification.reason,
+        });
+        setSaveBusy(false);
+        return;
+      }
 
       finalizePromotedWorkspaceDocumentLocalState(
         localStorage,
         draft.localId,
         record.document_id,
         {
-          committedRevision: committed.committed_revision,
-          normalizedContentSha256: committed.normalized_content_sha256,
-          title: committed.committed_record.title,
-          campaignId: committed.committed_record.campaign_id,
-          targetSession: committed.committed_record.target_session,
+          committedRevision: refreshedSnapshot.loaded_revision,
+          normalizedContentSha256: refreshedSnapshot.content_sha256,
+          title: refreshedSnapshot.record.title,
+          campaignId: refreshedSnapshot.record.campaign_id,
+          targetSession: refreshedSnapshot.record.target_session,
           kind: "plan",
           surface: "plan",
           tiptapJson,
@@ -261,6 +553,7 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
         },
       );
       clearPlanLocalDraftPointer(draft.campaignId, localStorage);
+      bumpContentRevision();
 
       setPromotionError(null);
       onPromotionStateChange?.({
@@ -268,9 +561,15 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
         retainedCreateId: record.document_id,
         error: null,
       });
-      onPromoted(workspaceRecordToPlanDocumentDescriptor(committed.committed_record));
+      onPromoted(workspaceRecordToPlanDocumentDescriptor(refreshedSnapshot.record));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to save planning document";
+      persistDirtyEditorBytes(localStorage, record.document_id, {
+        tiptapJson,
+        markdown,
+        fallback,
+      });
+      bumpContentRevision();
       setPromotionError(message);
       onPromotionStateChange?.({
         promoting: true,
@@ -283,11 +582,10 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
 
     setSaveBusy(false);
   }, [
-    draft.campaignId,
-    draft.localId,
-    draft.targetSession,
-    draft.title,
-    localState,
+    activeDocumentKey,
+    buildFallbackLocalState,
+    bumpContentRevision,
+    draft,
     onPromoted,
     onPromotionStateChange,
     retainedCreateId,
@@ -304,7 +602,7 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
 
   return {
     editorContent: localState.tiptap_json as JSONContent,
-    documentKey: draft.localId,
+    documentKey: activeDocumentKey,
     statusLabel,
     saveDisabled: saveDisabledReason != null || saveBusy,
     saveDisabledReason,

@@ -645,6 +645,33 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     [locationSearch],
   );
 
+  const handleRetryList = useCallback(async () => {
+    const list = await loadSelectorDocuments();
+    if (list == null) return;
+    const current = shellStateRef.current;
+    if (
+      current.kind === "load_error"
+      && current.inventoryUnavailable
+      && !current.requestedDocumentId
+    ) {
+      const applied = await loadPlanningDocument(locationSearchRef.current, { mode: "history" });
+      if (
+        !applied
+        && shellStateRef.current.kind === "load_error"
+        && shellStateRef.current.inventoryUnavailable
+      ) {
+        const draft =
+          current.localDraft
+          ?? buildBlankDraft(list.records.map((record) => record.target_session));
+        setShellState({
+          kind: "blank_ready",
+          draft,
+          selectorListAvailable: true,
+        });
+      }
+    }
+  }, [buildBlankDraft, loadPlanningDocument, loadSelectorDocuments]);
+
   const planSurfaceContextProps = useMemo(
     () => ({
       campaignId: planView.campaign_id,
@@ -657,15 +684,15 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
       switchError: documentSwitchError,
       saveStatusLabel,
       onSelect: handleSelectPlanningDocument,
-      onRetryList: () => void loadSelectorDocuments(),
+      onRetryList: handleRetryList,
       createControlProps,
     }),
     [
       createControlProps,
       documentSwitchError,
       documentSwitching,
+      handleRetryList,
       handleSelectPlanningDocument,
-      loadSelectorDocuments,
       memorySession,
       planView.campaign_id,
       planView.session,

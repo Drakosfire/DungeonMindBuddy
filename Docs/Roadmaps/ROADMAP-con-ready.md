@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-08-26 from `main` `4d82f12ad9c6d679b5dbce83db527eb7dbd27957` (PLAY-SURFACE BF3A / PR #655 merged)
+**Re-anchored:** 2026-08-28 from `main` `b0603b988c9392f8d8938284650cf9378368d122`
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
@@ -241,7 +241,7 @@ CR-U17 remains **false overall** until Combat and any other relied-upon non-Play
 
 # 4. Delivery roadmap
 
-## 4.0 Current delivery state — 2026-08-26
+## 4.0 Current delivery state — 2026-08-28
 
 Repository truth at this re-anchor:
 

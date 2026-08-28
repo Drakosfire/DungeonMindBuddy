@@ -1,3 +1,4 @@
+import type { WorkspaceDocumentRecord, WorkspaceDocumentSnapshot } from "../api/types";
 import type { SurfaceInteractionWorkObjectIdentity } from "../surfaceInteraction/types";
 import type { PlanDocumentDescriptor } from "./types";
 
@@ -278,6 +279,129 @@ export function blankSaveDisabledReason(state: PlanAuthoringShellState): string 
   }
   if (state.kind === "resolving") {
     return "Document is still loading.";
+  }
+  return null;
+}
+
+const PLAN_TBD_DURABLE_PATH = "TBD durable planning path";
+
+function isUsablePlanTargetRelpath(relpath: string | null | undefined): boolean {
+  const trimmed = typeof relpath === "string" ? relpath.trim() : "";
+  return trimmed.length > 0 && trimmed !== PLAN_TBD_DURABLE_PATH;
+}
+
+/** Validate a Plan create response before snapshot admission or body prepare. */
+export function validatePlanCreateResponse(
+  record: WorkspaceDocumentRecord,
+  draft: Pick<PlanLocalDraft, "campaignId" | "targetSession">,
+): string | null {
+  if (record == null || typeof record !== "object") {
+    return "Plan create response is missing a document record.";
+  }
+  const documentId = typeof record.document_id === "string" ? record.document_id.trim() : "";
+  if (!documentId) {
+    return "Plan create response is missing document_id.";
+  }
+  if (record.kind !== "plan") {
+    return `Plan create response kind must be plan, got ${record.kind}.`;
+  }
+  if (record.campaign_id !== draft.campaignId) {
+    return "Plan create response campaign_id does not match draft campaign.";
+  }
+  if (record.status !== "active") {
+    return `Plan create response status must be active, got ${record.status}.`;
+  }
+  if (!Number.isInteger(record.revision) || record.revision < 1) {
+    return "Plan create response revision must be a positive integer.";
+  }
+  if (record.target_session !== draft.targetSession) {
+    return "Plan create response target_session does not match draft target session.";
+  }
+  if (!isUsablePlanTargetRelpath(record.target_relpath)) {
+    return "Plan durable target path is unavailable; body commit blocked.";
+  }
+  return null;
+}
+
+/** Validate an admitted promotion snapshot against the create response and draft. */
+export function validatePlanPromotionSnapshotAdmission(
+  snapshot: WorkspaceDocumentSnapshot,
+  record: WorkspaceDocumentRecord,
+  draft: Pick<PlanLocalDraft, "campaignId" | "targetSession">,
+): string | null {
+  const createError = validatePlanCreateResponse(record, draft);
+  if (createError) return createError;
+
+  if (snapshot == null || typeof snapshot !== "object") {
+    return "Promotion snapshot is missing.";
+  }
+  if (snapshot.record == null || typeof snapshot.record !== "object") {
+    return "Promotion snapshot record is missing.";
+  }
+
+  const snapshotId =
+    typeof snapshot.record.document_id === "string" ? snapshot.record.document_id.trim() : "";
+  if (snapshotId !== record.document_id) {
+    return "Promotion snapshot document_id does not match create response.";
+  }
+  if (snapshot.record.target_relpath !== record.target_relpath) {
+    return "Promotion snapshot target_relpath does not match create response.";
+  }
+  if (snapshot.record.revision !== snapshot.loaded_revision) {
+    return "Promotion snapshot record.revision does not match loaded_revision.";
+  }
+  if (snapshot.loaded_revision !== record.revision) {
+    return "Promotion snapshot loaded_revision does not match create response revision.";
+  }
+  if (snapshot.record.kind !== "plan") {
+    return "Promotion snapshot kind must be plan.";
+  }
+  if (snapshot.record.campaign_id !== draft.campaignId) {
+    return "Promotion snapshot campaign_id does not match draft campaign.";
+  }
+  if (snapshot.record.title !== record.title) {
+    return "Promotion snapshot title does not match create response.";
+  }
+  if (snapshot.record.status !== "active") {
+    return "Promotion snapshot status must be active.";
+  }
+  if (snapshot.record.target_session !== draft.targetSession) {
+    return "Promotion snapshot target_session does not match draft target session.";
+  }
+  if (!isUsablePlanTargetRelpath(snapshot.record.target_relpath)) {
+    return "Promotion snapshot target_relpath is unavailable.";
+  }
+  if (typeof snapshot.markdown !== "string") {
+    return "Promotion snapshot markdown is missing.";
+  }
+  if (typeof snapshot.content_sha256 !== "string" || !snapshot.content_sha256.trim()) {
+    return "Promotion snapshot content_sha256 is missing.";
+  }
+  if (typeof snapshot.file_fingerprint !== "string" || !snapshot.file_fingerprint.trim()) {
+    return "Promotion snapshot file_fingerprint is missing.";
+  }
+  return null;
+}
+
+/** Validate a refreshed post-commit snapshot for promoted Plan admission. */
+export function validatePlanPostCommitSnapshotAdmission(
+  snapshot: WorkspaceDocumentSnapshot,
+  record: WorkspaceDocumentRecord,
+  draft: Pick<PlanLocalDraft, "campaignId" | "targetSession">,
+): string | null {
+  const admissionError = validatePlanPromotionSnapshotAdmission(snapshot, record, draft);
+  if (admissionError) return admissionError;
+  if (snapshot.record.document_id !== record.document_id) {
+    return "Post-commit snapshot document_id does not match committed record.";
+  }
+  if (snapshot.loaded_revision !== record.revision) {
+    return "Post-commit snapshot loaded_revision does not match committed record revision.";
+  }
+  if (snapshot.record.content_status !== "committed") {
+    return "Post-commit snapshot content_status is not committed.";
+  }
+  if (snapshot.file_exists !== true) {
+    return "Post-commit snapshot does not confirm a committed file.";
   }
   return null;
 }
