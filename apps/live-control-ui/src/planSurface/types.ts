@@ -1,3 +1,4 @@
+import type { SurfaceInteractionWorkObjectIdentity } from "../surfaceInteraction/types";
 import type { ProjectionSize } from "../surfaceInteraction/projection/types";
 
 export type SurfaceMode = "plan" | "ingest" | "build" | "combat" | "play";
@@ -16,7 +17,10 @@ export interface SurfaceToolConfig {
 }
 
 export interface SurfaceCanvasConfig {
+  /** Durable workspace document id when admitted; null for local blank shells. */
   documentId?: string | null;
+  /** Explicit Canvas/Edit work target; falls back to document id when omitted. */
+  workObject?: SurfaceInteractionWorkObjectIdentity | null;
 }
 
 export interface PlanContextDescriptor {

@@ -51,7 +51,10 @@ BF3A / PR #655   DONE — Scene-centered Current Moment cockpit (Scenes first)
                  accepted head 3d5925c8ad1bdbe934020e1c4cd7f2f3fafbbec7
                  merge 4d82f12ad9c6d679b5dbce83db527eb7dbd27957
                  review cycles: 2
-DF0              CURRENT — local Play dogfood bootstrap/readiness
+DF0 / PR #657    DONE — local Play dogfood gateway
+PLAN-BLANK-SHELL CURRENT — zero-material Plan authoring + local→durable promotion
+BF4A             BLOCKED ON PLAN-BLANK-SHELL
+BF3B             BLOCKED ON BF4A
 ```
 
 Current Play runtime/product state:

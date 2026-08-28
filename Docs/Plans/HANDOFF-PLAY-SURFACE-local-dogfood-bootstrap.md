@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — Local Play dogfood bootstrap (DF0)
 
 **Created:** 2026-08-26
-**Status:** READY FOR DISPATCH
+**Status:** DONE — merged as GitHub **PR #657** (`87a769d05605ff021d28f0b69c5d7ab0b8205440`); do not dispatch.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-SURFACE-local-dogfood-bootstrap.md`
 **Workstream:** `PLAY-SURFACE / DF0`
 **Flow / owner:** `PLAY-SURFACE`
@@ -1320,11 +1320,20 @@ accepted head 3d5925c8ad1bdbe934020e1c4cd7f2f3fafbbec7
 merge 4d82f12ad9c6d679b5dbce83db527eb7dbd27957
 review cycles: 2
 
-DF0
-CURRENT — local Play dogfood bootstrap/readiness
+DF0 / PR #657
+DONE — local Play dogfood gateway
+accepted head dc20fe8e63eec691265e75eb73c69f441ffd779d
+merge 87a769d05605ff021d28f0b69c5d7ab0b8205440
+review cycles: 3
+
+PLAN-BLANK-SHELL
+CURRENT — zero-material Plan authoring + local→durable promotion
+
+BF4A
+BLOCKED ON PLAN-BLANK-SHELL — native Runbook reopen/save
 
 BF3B
-AFTER DF0 — Decision interaction and visible relevance
+BLOCKED ON BF4A — Decision interaction and visible relevance
 
 BF3C / BF3.x
 later
@@ -1345,9 +1354,7 @@ Preferred truth:
 CR-U15 — PARTIAL
 
 BF3A Current Moment is implemented and merged.
-Normal local operator entry is not yet proven because APP-STATE bootstrap is
-not part of the supported startup workflow.
-DF0 owns that gap.
+DF0 merged local Play dogfood gateway.
 Decision interaction and later cockpit capabilities remain false.
 ```
 
@@ -1564,9 +1571,9 @@ Do not widen silently.
 
 ## §19 Named successor
 
-### BF3B — Decision interaction and visible relevance
+### PLAN-BLANK-SHELL — zero-material Plan authoring + local→durable promotion
 
-Only after DF0 proves:
+DF0 proved:
 
 ```text
 normal local setup
@@ -1576,7 +1583,13 @@ normal local setup
 → BF3A
 ```
 
-BF3B may then add:
+PLAN-BLANK-SHELL owns the Plan-side prerequisite for BF4A native Runbook
+reopen/save: bare `/plan` must be a valid editable shell before Runbook authoring
+can reuse the same Surface Interaction contract.
+
+### BF3B — Decision interaction and visible relevance
+
+BF3B remains blocked on BF4A after PLAN-BLANK-SHELL completes.
 
 ```text
 Decision

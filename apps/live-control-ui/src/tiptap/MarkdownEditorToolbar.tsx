@@ -9,6 +9,7 @@ export type MarkdownEditorToolAction = {
   eyebrow?: string;
   onClick: () => void;
   disabled?: boolean;
+  disabledReason?: string;
   pressed?: boolean;
 };
 
@@ -32,6 +33,7 @@ function toAppChromeAction(action: MarkdownEditorToolAction): AppChromeAction {
     eyebrow: action.eyebrow,
     onClick: action.onClick,
     disabled: action.disabled,
+    disabledReason: action.disabledReason,
     pressed: action.pressed,
   };
 }

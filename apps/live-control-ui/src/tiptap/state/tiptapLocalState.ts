@@ -335,6 +335,79 @@ export function clearWorkspaceDocumentLocalState(
   storage.removeItem(workspaceDocumentStorageKey(documentId));
 }
 
+/** Move local TipTap state from a local blank id to an exact durable document id. */
+export function migrateWorkspaceDocumentLocalStateId(
+  storage: Pick<Storage, "getItem" | "setItem" | "removeItem">,
+  fromDocumentId: string,
+  toDocumentId: string,
+  patch?: Partial<
+    Pick<
+      WorkspaceDocumentLocalState,
+      "title" | "campaign_id" | "target_session" | "base_revision" | "base_content_sha256"
+    >
+  >,
+): WorkspaceDocumentLocalState | null {
+  const state = readWorkspaceDocumentLocalState(storage, fromDocumentId);
+  if (!state) return null;
+  const now = new Date().toISOString();
+  const migrated: WorkspaceDocumentLocalState = {
+    ...state,
+    ...patch,
+    document_id: toDocumentId,
+    dirty: true,
+    updated_at: now,
+    last_local_save_at: now,
+  };
+  writeWorkspaceDocumentLocalState(storage, migrated);
+  clearWorkspaceDocumentLocalState(storage, fromDocumentId);
+  return migrated;
+}
+
+/** Bind promoted local editor bytes to an exact durable id after successful body commit. */
+export function finalizePromotedWorkspaceDocumentLocalState(
+  storage: Pick<Storage, "getItem" | "setItem" | "removeItem">,
+  fromDocumentId: string,
+  toDocumentId: string,
+  args: {
+    committedRevision: number;
+    normalizedContentSha256: string;
+    title: string;
+    campaignId: string;
+    targetSession: number | null;
+    kind: WorkspaceDocumentLocalKind;
+    surface: WorkspaceDocumentLocalSurface;
+    tiptapJson: unknown;
+    markdown: string;
+  },
+): WorkspaceDocumentLocalState {
+  const now = new Date().toISOString();
+  const finalized = {
+    ...buildInitialWorkspaceDocumentLocalState({
+      documentId: toDocumentId,
+      title: args.title,
+      campaignId: args.campaignId,
+      kind: args.kind,
+      targetSession: args.targetSession,
+      surface: args.surface,
+      baseRevision: args.committedRevision,
+      baseContentSha256: args.normalizedContentSha256,
+      starterContent: args.tiptapJson,
+      now,
+    }),
+    tiptap_json: args.tiptapJson,
+    exported_markdown: args.markdown,
+    exported_markdown_authoritative: false,
+    dirty: false,
+    updated_at: now,
+    last_local_save_at: now,
+  };
+  writeWorkspaceDocumentLocalState(storage, finalized);
+  if (fromDocumentId !== toDocumentId) {
+    clearWorkspaceDocumentLocalState(storage, fromDocumentId);
+  }
+  return finalized;
+}
+
 /** @deprecated Use clearWorkspaceDocumentLocalState */
 export function clearTiptapWorkingBoardState(
   storage: Pick<Storage, "removeItem">,

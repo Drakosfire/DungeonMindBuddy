@@ -42,6 +42,8 @@ export interface AppChromeAction {
   eyebrow?: string;
   onClick: () => void;
   disabled?: boolean;
+  /** Specific reason surfaced through Surface Interaction availability. */
+  disabledReason?: string;
   pressed?: boolean;
 }
 
@@ -136,6 +138,7 @@ export function AppChrome({
     pageActions.map((action) => [
       action.id,
       action.disabled === true,
+      action.disabledReason ?? null,
       action.label,
       action.eyebrow ?? null,
       callbackIdentityKey(action.onClick),
@@ -150,6 +153,7 @@ export function AppChrome({
     (generationTools?.pinnedActions ?? []).map((action) => [
       action.id,
       action.disabled === true,
+      action.disabledReason ?? null,
       action.label,
       action.eyebrow ?? null,
       encodeOptionalBoolean(action.pressed),
