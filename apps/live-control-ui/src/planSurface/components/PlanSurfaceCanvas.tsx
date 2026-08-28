@@ -28,10 +28,19 @@ import {
   type RunbookReferenceAttrs,
 } from "../../tiptap/references/runbookReferences";
 import { createStarterContentForPlanDocument } from "../config/planSessionDescriptor";
-import type { WorkspaceDocumentLocalKind } from "../../tiptap/state/tiptapLocalState";
+import type {
+  WorkspaceDocumentLocalKind,
+  WorkspaceDocumentLocalSurface,
+} from "../../tiptap/state/tiptapLocalState";
 import { isEditorInteractive } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
 import { useWorkspaceDocumentAuthoring } from "../../workspaceDocument/useWorkspaceDocumentAuthoring";
+import type { WorkspaceDocumentCreationController } from "../../workspaceDocument/workspaceDocumentCreation";
 import { useEditCapability } from "../edit/editCapability";
+import {
+  planShellWorkObject,
+  type PlanAuthoringShellState,
+} from "../planBlankAuthoringState";
+import { usePlanBlankAuthoring } from "../usePlanBlankAuthoring";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import { extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
@@ -49,9 +58,19 @@ import "../../graphReference/graphReference.css";
 interface PlanSurfaceCanvasProps {
   sessionDescriptor: PlanSessionDescriptor;
   theme: SurfaceThemeConfig;
+  shellState: PlanAuthoringShellState;
+  loadErrorMessage?: string | null;
+  selectorListAvailable: boolean;
+  createController: WorkspaceDocumentCreationController;
   onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
   onSaveStatusChange?: (statusLabel: string) => void;
   onPlanningDocumentCommitted?: (document: PlanDocumentDescriptor) => void;
+  onBlankPromoted?: (document: PlanDocumentDescriptor) => void;
+  onBlankPromotionStateChange?: (args: {
+    promoting: boolean;
+    retainedCreateId: string | null;
+    error: string | null;
+  }) => void;
 }
 
 function nodeScopeLabel(node: GraphProjectionNodeView): string {
@@ -60,15 +79,53 @@ function nodeScopeLabel(node: GraphProjectionNodeView): string {
   return formatReviewCampaignLabel(scope);
 }
 
-export function PlanSurfaceCanvas({
+export function PlanSurfaceCanvas(props: PlanSurfaceCanvasProps) {
+  if (
+    props.shellState.kind === "load_error"
+    && props.shellState.localDraft
+    && props.shellState.inventoryUnavailable
+  ) {
+    return (
+      <PlanLocalBlankSurfaceCanvas
+        {...props}
+        draft={props.shellState.localDraft}
+        retainedCreateId={null}
+        selectorListAvailable={false}
+        inventoryUnavailable
+      />
+    );
+  }
+  if (props.shellState.kind === "blank_ready" || props.shellState.kind === "promoting") {
+    return (
+      <PlanLocalBlankSurfaceCanvas
+        {...props}
+        draft={props.shellState.draft}
+        retainedCreateId={
+          props.shellState.kind === "promoting" ? props.shellState.retainedCreateId : null
+        }
+        selectorListAvailable={props.shellState.selectorListAvailable}
+      />
+    );
+  }
+  if (props.shellState.kind === "durable_ready") {
+    return <PlanDurableSurfaceCanvas {...props} />;
+  }
+  return <PlanShellStatusSurfaceCanvas {...props} />;
+}
+
+function PlanDurableSurfaceCanvas({
   sessionDescriptor,
   theme,
   onEditorToolsChange,
   onSaveStatusChange,
   onPlanningDocumentCommitted,
+  shellState,
 }: PlanSurfaceCanvasProps) {
+  const canvasWorkTarget = useMemo(() => planShellWorkObject(shellState), [shellState]);
   const planningDocument = sessionDescriptor.planningDocument;
   const documentKind = planningDocument.kind as WorkspaceDocumentLocalKind;
+  const authoringSurface: WorkspaceDocumentLocalSurface =
+    documentKind === "runbook" ? "runbook" : "plan";
   const { isLocked, canEdit, toggleLock } = useEditCapability();
   const { openGraphReference } = useProjection();
   const {
@@ -90,7 +147,7 @@ export function PlanSurfaceCanvas({
 
   const authoring = useWorkspaceDocumentAuthoring({
     documentId: planningDocument.documentId,
-    surface: "plan",
+    surface: authoringSurface,
     kind: documentKind,
     emptyMarkdownFallback,
     requireDirtyToSave: false,
@@ -413,12 +470,8 @@ export function PlanSurfaceCanvas({
   ]);
 
   useEffect(() => {
-    onEditorToolsChange?.(toAppChromeToolsGeneration(toolbarModel, {
-      kind: "document",
-      id: planningDocument.documentId,
-    }));
-    return () => onEditorToolsChange?.(null);
-  }, [onEditorToolsChange, planningDocument.documentId, toolbarModel]);
+    onEditorToolsChange?.(toAppChromeToolsGeneration(toolbarModel, canvasWorkTarget));
+  }, [canvasWorkTarget, onEditorToolsChange, toolbarModel]);
 
   const editorThemeClass = `md-theme-${theme.themeId ?? "mireward-runbook"}`;
 
@@ -532,6 +585,208 @@ export function PlanSurfaceCanvas({
           )}
         </section>
       )}
+    </section>
+  );
+}
+
+type PlanLocalBlankSurfaceCanvasProps = PlanSurfaceCanvasProps & {
+  draft: import("../planBlankAuthoringState").PlanLocalDraft;
+  retainedCreateId: string | null;
+  selectorListAvailable: boolean;
+  inventoryUnavailable?: boolean;
+};
+
+function PlanLocalBlankSurfaceCanvas({
+  sessionDescriptor,
+  theme,
+  draft,
+  retainedCreateId,
+  selectorListAvailable,
+  inventoryUnavailable = false,
+  createController,
+  shellState,
+  onEditorToolsChange,
+  onSaveStatusChange,
+  onBlankPromoted,
+  onBlankPromotionStateChange,
+}: PlanLocalBlankSurfaceCanvasProps) {
+  const canvasWorkTarget = useMemo(() => planShellWorkObject(shellState), [shellState]);
+  const { isLocked, canEdit, toggleLock } = useEditCapability();
+  const editorShellRef = useRef<HTMLDivElement | null>(null);
+  const planPasteExtensions = useMemo(() => [SemanticMarkdownPaste], []);
+
+  const blankAuthoring = usePlanBlankAuthoring({
+    draft,
+    sessionDescriptor,
+    selectorListAvailable,
+    retainedCreateId,
+    createController,
+    onPromoted: (document) => onBlankPromoted?.(document),
+    onPromotionStateChange: onBlankPromotionStateChange,
+  });
+
+  useEffect(() => {
+    onSaveStatusChange?.(blankAuthoring.statusLabel);
+  }, [blankAuthoring.statusLabel, onSaveStatusChange]);
+
+  const handleEditorChange = useCallback(
+    (nextEditor: Editor | null) => {
+      blankAuthoring.setEditor(nextEditor);
+    },
+    [blankAuthoring.setEditor],
+  );
+
+  const saveActionDisabledReason =
+    blankAuthoring.saveDisabledReason
+    ?? (blankAuthoring.saveBusy ? "Saving Plan…" : null);
+
+  const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => ({
+    pinnedActions: [
+      {
+        id: "plan-canvas-edit-lock",
+        eyebrow: isLocked ? "Editing locked" : "Editing unlocked",
+        label: isLocked ? "Unlock editing" : "Lock editing",
+        onClick: toggleLock,
+        pressed: isLocked,
+      },
+    ],
+    sections: [
+      {
+        id: "plan-markdown-save",
+        title: "Markdown save",
+        defaultOpen: true,
+        actions: [
+          {
+            id: "plan-save-markdown",
+            label: "Save to Markdown",
+            onClick: () => {
+              void blankAuthoring.saveMarkdown();
+            },
+            disabled: blankAuthoring.saveDisabled,
+            disabledReason: saveActionDisabledReason ?? undefined,
+          },
+        ],
+      },
+    ],
+  }), [
+    blankAuthoring.saveDisabled,
+    blankAuthoring.saveMarkdown,
+    isLocked,
+    saveActionDisabledReason,
+    toggleLock,
+  ]);
+
+  const editorToolsGeneration = useMemo(
+    () => toAppChromeToolsGeneration(toolbarModel, canvasWorkTarget),
+    [canvasWorkTarget, toolbarModel],
+  );
+
+  useEffect(() => {
+    onEditorToolsChange?.(editorToolsGeneration);
+  }, [editorToolsGeneration, onEditorToolsChange]);
+
+  const editorThemeClass = `md-theme-${theme.themeId ?? "mireward-runbook"}`;
+
+  return (
+    <section className="plan-surface-canvas" aria-label="Plan canvas" data-testid="plan-blank-canvas">
+      {inventoryUnavailable ? (
+        <p className="plan-surface-list-warning" role="alert" data-testid="plan-selector-list-error">
+          Active Plan inventory is unavailable; target session cannot be chosen safely.
+        </p>
+      ) : null}
+      <div
+        ref={editorShellRef}
+        className={`tiptap-spike-editor md-content ${editorThemeClass}`}
+        data-md-theme={theme.themeId}
+      >
+        <MarkdownEditorCore
+          content={blankAuthoring.editorContent as Content}
+          documentKey={blankAuthoring.documentKey}
+          editable={canEdit && !blankAuthoring.saveBusy}
+          extensions={planPasteExtensions}
+          onEditorChange={handleEditorChange}
+          onUpdate={blankAuthoring.handleEditorUpdate}
+          dataTestId="plan-surface-canvas-editor"
+        >
+          {(ed) => <EditorContent editor={ed} />}
+        </MarkdownEditorCore>
+      </div>
+      {blankAuthoring.promotionError ? (
+        <p className="plan-markdown-save-error" role="alert" data-testid="plan-markdown-save-error">
+          {blankAuthoring.promotionError}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function PlanShellStatusSurfaceCanvas({
+  sessionDescriptor,
+  theme,
+  shellState,
+  loadErrorMessage = null,
+  onEditorToolsChange,
+}: PlanSurfaceCanvasProps) {
+  const canvasWorkTarget = useMemo(() => planShellWorkObject(shellState), [shellState]);
+  const { isLocked, toggleLock } = useEditCapability();
+  const disabledReason =
+    loadErrorMessage != null
+      ? "Document failed to load; retry or choose another document."
+      : "Document is still loading.";
+
+  const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => ({
+    pinnedActions: [
+      {
+        id: "plan-canvas-edit-lock",
+        eyebrow: isLocked ? "Editing locked" : "Editing unlocked",
+        label: isLocked ? "Unlock editing" : "Lock editing",
+        onClick: toggleLock,
+        pressed: isLocked,
+      },
+    ],
+    sections: [
+      {
+        id: "plan-markdown-save",
+        title: "Markdown save",
+        defaultOpen: true,
+        actions: [
+          {
+            id: "plan-save-markdown",
+            label: "Save to Markdown",
+            onClick: () => undefined,
+            disabled: true,
+            disabledReason,
+          },
+        ],
+      },
+    ],
+  }), [disabledReason, isLocked, toggleLock]);
+
+  useEffect(() => {
+    onEditorToolsChange?.(toAppChromeToolsGeneration(toolbarModel, canvasWorkTarget));
+  }, [canvasWorkTarget, onEditorToolsChange, toolbarModel]);
+
+  const editorThemeClass = `md-theme-${theme.themeId ?? "mireward-runbook"}`;
+  const body =
+    loadErrorMessage != null ? (
+      <p role="alert" data-testid="plan-canvas-authoring-error">
+        {loadErrorMessage}
+      </p>
+    ) : (
+      <p data-testid="plan-canvas-authoring-loading">Loading plan document…</p>
+    );
+
+  return (
+    <section className="plan-surface-canvas" aria-label="Plan canvas">
+      <div
+        className={`tiptap-spike-editor md-content ${editorThemeClass}`}
+        data-md-theme={theme.themeId}
+      >
+        {body}
+      </div>
+      <p className="plan-surface-kicker" data-testid="plan-canvas-title">
+        {sessionDescriptor.planningDocument.title}
+      </p>
     </section>
   );
 }

@@ -24,16 +24,20 @@ function encodeInstanceParts(parts: ReadonlyArray<string | number | null | undef
 }
 
 export function buildPlanSurfaceIdentity(input: {
-  documentId: string;
+  /** Durable workspace document id when admitted. */
+  documentId?: string | null;
+  /** Local blank draft id for instance key when no durable document is admitted. */
+  localDraftId?: string | null;
   campaignId: string;
   liveSession: number;
   memorySession: number | null;
 }): ProjectionSurfaceIdentity {
+  const instanceDocumentKey = input.documentId ?? input.localDraftId ?? "__no_document__";
   return {
     surfaceId: "plan",
     instanceKey: encodeInstanceParts([
       "plan",
-      input.documentId,
+      instanceDocumentKey,
       input.campaignId,
       input.liveSession,
       input.memorySession,

@@ -1,5 +1,6 @@
 import type { PlanViewProjection } from "../../api/types";
 import type { PlanDocumentDescriptor, PlanSurfaceConfig } from "../types";
+import type { SurfaceInteractionWorkObjectIdentity } from "../../surfaceInteraction/types";
 import { requestedSessionNumberFromLocation } from "../sessionCampaignContext";
 import {
   buildPlanContextFromPlanView,
@@ -36,9 +37,18 @@ export function createPlanSurfaceConfig(
   locationSearch: string | null | undefined = typeof window !== "undefined"
     ? window.location.search
     : null,
+  canvasOverrides?: {
+    documentId?: string | null;
+    workObject?: SurfaceInteractionWorkObjectIdentity | null;
+  },
 ): PlanSurfaceConfig {
   const overrides = planLocationOverridesFromSearch(locationSearch);
   const sessionDescriptor = createPlanSessionDescriptor(planView, planningDocument, overrides);
+  const durableDocumentId = canvasOverrides?.documentId ?? planningDocument.documentId;
+  const workObject = canvasOverrides?.workObject ?? {
+    kind: "document" as const,
+    id: planningDocument.documentId,
+  };
   return {
     id: "plan",
     label: "Plan",
@@ -50,7 +60,8 @@ export function createPlanSurfaceConfig(
       { id: "statblock", label: "Statblock", size: "wide" },
     ],
     canvas: {
-      documentId: planningDocument.documentId,
+      documentId: durableDocumentId,
+      workObject,
     },
     theme: {
       themeId: PLAN_SURFACE_SPIKE_THEME_ID,
