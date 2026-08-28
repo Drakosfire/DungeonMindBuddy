@@ -11,7 +11,10 @@ import {
   planShellAgentDocumentId,
   planShellWorkObject,
   retainCreatedPlan,
+  validatePlanCreateResponse,
+  validatePlanPromotionSnapshotAdmission,
 } from "./planBlankAuthoringState";
+import { fixtureWorkspaceDocumentRecord } from "./config/planSessionDescriptor";
 
 const shell = {
   campaignId: "longmont-c2",
@@ -129,5 +132,62 @@ describe("planBlankAuthoringState", () => {
       kind: "document",
       id: "doc-created",
     });
+  });
+
+  it("rejects adversarial Plan create responses before admission", () => {
+    const draft = createPlanLocalDraftMetadata({
+      campaignId: "longmont-c2",
+      title: "C2 Session 23 Prep",
+      targetSession: 23,
+      localId: formatPlanLocalDraftId("draft-1"),
+    });
+    expect(
+      validatePlanCreateResponse(
+        fixtureWorkspaceDocumentRecord({ document_id: "", kind: "plan" }),
+        draft,
+      ),
+    ).toMatch(/missing document_id/i);
+    expect(
+      validatePlanCreateResponse(
+        fixtureWorkspaceDocumentRecord({ kind: "runbook", target_relpath: "path.md" }),
+        draft,
+      ),
+    ).toMatch(/kind must be plan/i);
+    expect(
+      validatePlanCreateResponse(
+        fixtureWorkspaceDocumentRecord({ target_relpath: "TBD durable planning path" }),
+        draft,
+      ),
+    ).toMatch(/target path is unavailable/i);
+  });
+
+  it("rejects promotion snapshots whose revision does not match the create response", () => {
+    const draft = createPlanLocalDraftMetadata({
+      campaignId: "longmont-c2",
+      title: "C2 Session 23 Prep",
+      targetSession: 23,
+      localId: formatPlanLocalDraftId("draft-1"),
+    });
+    const record = fixtureWorkspaceDocumentRecord({
+      document_id: "doc-created",
+      revision: 1,
+      target_relpath: "corpus/plan.md",
+    });
+    const snapshot = {
+      schema_version: "dmb_workspace_document_snapshot_v1" as const,
+      record: fixtureWorkspaceDocumentRecord({
+        document_id: "doc-created",
+        revision: 2,
+        target_relpath: "corpus/plan.md",
+      }),
+      markdown: "",
+      content_sha256: "abc",
+      file_fingerprint: "absent",
+      file_exists: false,
+      loaded_revision: 2,
+    };
+    expect(validatePlanPromotionSnapshotAdmission(snapshot, record, draft)).toMatch(
+      /loaded_revision does not match create response revision/i,
+    );
   });
 });
