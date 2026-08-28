@@ -55,6 +55,22 @@ import "../../tiptap/prepMarkdownThemes.css";
 import "../../tiptap/tiptapSpike.css";
 import "../../graphReference/graphReference.css";
 
+const TBD_PLAN_PATH = "TBD durable planning path";
+
+export function canSavePlanningDocument(document: {
+  kind: string;
+  targetRelpath: string | null;
+}): boolean {
+  if (document.kind === "runbook") return true;
+  return document.targetRelpath != null && document.targetRelpath !== TBD_PLAN_PATH;
+}
+
+function authoringIdentityLabel(document: PlanDocumentDescriptor): string {
+  const title = document.title.trim() || "Untitled";
+  if (document.kind === "runbook") return `Editing Runbook · ${title}`;
+  return `Editing Plan · ${title}`;
+}
+
 interface PlanSurfaceCanvasProps {
   sessionDescriptor: PlanSessionDescriptor;
   theme: SurfaceThemeConfig;
@@ -151,8 +167,7 @@ function PlanDurableSurfaceCanvas({
     kind: documentKind,
     emptyMarkdownFallback,
     requireDirtyToSave: false,
-    canSave: () => planningDocument.targetRelpath != null
-      && planningDocument.targetRelpath !== "TBD durable planning path",
+    canSave: () => canSavePlanningDocument(planningDocument),
   });
 
   const editorInteractive = isEditorInteractive(authoring.phase);
@@ -534,6 +549,9 @@ function PlanDurableSurfaceCanvas({
 
   return (
     <section className="plan-surface-canvas" aria-label="Plan canvas">
+      <p className="plan-surface-kicker" data-testid="plan-authoring-identity">
+        {authoringIdentityLabel(planningDocument)}
+      </p>
       <div
         ref={editorShellRef}
         className={`tiptap-spike-editor md-content ${editorThemeClass}`}
@@ -553,7 +571,9 @@ function PlanDurableSurfaceCanvas({
         >
           <p className="plan-surface-kicker">Durable save</p>
           <p className="plan-markdown-save-target" data-testid="plan-markdown-save-target">
-            Target: {planningDocument.targetRelpath}
+            Target:{" "}
+            {planningDocument.targetRelpath
+              ?? (documentKind === "runbook" ? "native Runbook WorkObject" : "unset")}
           </p>
           {authoring.lastCommitReceipt?.diagnostics?.map((diagnostic) => (
             <p className="plan-markdown-save-diagnostic" key={diagnostic}>

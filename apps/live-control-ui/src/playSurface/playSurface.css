@@ -199,6 +199,7 @@
 
 .play-mode-toggle button,
 .play-controls button,
+.play-controls a.play-edit-runbook,
 .play-notes button,
 .play-continuity-actions button {
   min-height: 2.75rem;
@@ -213,6 +214,7 @@
 
 .play-mode-toggle button:hover,
 .play-controls button:hover,
+.play-controls a.play-edit-runbook:hover,
 .play-notes button:hover,
 .play-continuity-actions button:hover {
   border-color: var(--play-border-strong);
@@ -231,6 +233,12 @@
 .play-notes button:disabled {
   cursor: not-allowed;
   opacity: 0.62;
+}
+
+.play-controls a.play-edit-runbook {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 .play-runbook-document {

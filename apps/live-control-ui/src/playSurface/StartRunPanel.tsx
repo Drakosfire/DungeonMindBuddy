@@ -21,6 +21,7 @@ import {
   resolveBlankRunbookCampaignId,
   type BlankRunbookAttempt,
 } from "./blankRunbook";
+import { playRunbookAuthoringHref } from "./playRunbookAuthoringHref";
 
 const liveStartRunDeps: StartRunDeps = {
   generateRunId: () => crypto.randomUUID(),
@@ -260,6 +261,22 @@ export function StartRunPanel({
         </div>
       ) : null}
       <div className="play-controls">
+        {selectedDocumentId ? (
+          <a
+            className="play-edit-runbook"
+            data-testid="play-edit-runbook"
+            href={playRunbookAuthoringHref(
+              selectedDocumentId,
+              typeof window !== "undefined" ? window.location.search : "",
+            )}
+          >
+            Edit Runbook
+          </a>
+        ) : (
+          <button type="button" data-testid="play-edit-runbook" disabled>
+            Edit Runbook
+          </button>
+        )}
         <button
           type="button"
           data-testid="play-start-run-submit"
