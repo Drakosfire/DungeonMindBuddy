@@ -40,6 +40,8 @@ from apps.live_control_server.ports.world_graph_authority import (
 _WRITE_TO_PORT = {
     "authority_unavailable": "authority_unavailable",
     "authority_head_missing": "authority_unavailable",
+    "authority_receipt_missing": "authority_unavailable",
+    "authority_integrity": "integrity_failure",
     "revision_not_bridged": "revision_unavailable",
     "governed_write_stale_parent": "stale_parent",
     "governed_write_inexpressible": "inexpressible",

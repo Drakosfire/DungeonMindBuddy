@@ -38,6 +38,8 @@ WORLDBUILDING_PUBLISH_POLICY_ID = "cutover:worldbuilding-publication-confirm"
 _WRITE_STATUS_CODES = {
     "authority_unavailable": 503,
     "authority_head_missing": 503,
+    "authority_receipt_missing": 503,
+    "authority_integrity": 500,
     "revision_not_bridged": 404,
     "adoption_receipt_missing": 409,
     "governed_write_inexpressible": 409,
@@ -1499,10 +1501,17 @@ def _classify_parent_revision(
     world_id: str,
     parent_revision_id: str,
     *,
-    legacy_buddy_revision_id: str,
+    legacy_buddy_revision_id: str | None,
 ) -> str:
-    """Return ``dungeonmind`` or raise for unsupported Buddy/private parents."""
-    if parent_revision_id == legacy_buddy_revision_id:
+    """Return ``dungeonmind`` or raise for unsupported Buddy/private parents.
+
+    The Buddy-A rewrite is armed only when a legacy bridge identity exists.
+    Reviewed-init ``D_0`` is a real DungeonMind parent and must pass through.
+    """
+    if (
+        legacy_buddy_revision_id is not None
+        and parent_revision_id == legacy_buddy_revision_id
+    ):
         raise WorldGraphWriteError(
             "sealed package names the pre-cutover Buddy parent revision; "
             "re-prepare against the current DungeonMind head",
@@ -1513,8 +1522,33 @@ def _classify_parent_revision(
                 "reason": "buddy_a_revision",
             },
         )
+    from dungeonmind.domain.errors import (
+        PersistenceIntegrityError,
+        PersistenceUnavailableError,
+    )
+
     try:
         stored = bundle.world_graph.get_revision(world_id, parent_revision_id)
+    except PersistenceIntegrityError as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind parent revision failed an integrity check",
+            code="authority_integrity",
+            details={
+                "world_id": world_id,
+                "parent_revision_id": parent_revision_id,
+                "reason": "provider_persistence_integrity",
+            },
+        ) from exc
+    except PersistenceUnavailableError as exc:
+        raise WorldGraphWriteError(
+            "DungeonMind authority is unavailable during parent lookup",
+            code="authority_unavailable",
+            details={
+                "world_id": world_id,
+                "parent_revision_id": parent_revision_id,
+                "reason": "provider_unavailable",
+            },
+        ) from exc
     except Exception as exc:
         raise WorldGraphWriteError(
             "DungeonMind authority read failed during confirm",

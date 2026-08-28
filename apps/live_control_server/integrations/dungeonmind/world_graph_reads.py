@@ -12,10 +12,13 @@ read path for the World Graph. The merge invariant:
 
 Concretely, on this path there is no ``UnionSupergraphStore`` construction,
 no contribution replay, no ``graph_memory.kernel`` import, no Buddy
-projection cache, and no frozen Buddy graph file access. The historical
-Buddy-A → DungeonMind-D_A revision bridge is derived from DungeonMind's
-``dm_existing_world_adoption_receipt_v3`` (read from DungeonMind's own
-database), never from the frozen Buddy store.
+projection cache, and no frozen Buddy graph file access. Revision truth is derived from one shared ``DirectAuthorityBinding``.
+Existing-world adoption preserves the historical Buddy-A → DungeonMind-D_A
+bridge from ``dm_existing_world_adoption_receipt_v3``. Reviewed first-world
+initialization binds to the real DungeonMind ``D_0`` with no fake Buddy
+revision. Both receipts, a recognized receipt without a head, and a head
+without recognized genesis fail closed as integrity. The frozen Buddy store
+is never consulted.
 
 Focus semantics (handoff §5.5, falsification verdict: presentation-only)
 ------------------------------------------------------------------------
@@ -247,14 +250,26 @@ class DirectWorldGraphReadError(Exception):
         self.cause_message = str(cause) if cause is not None else None
 
 
+DirectAuthorityGenesis = Literal[
+    "existing_world_adoption",
+    "reviewed_world_initialization",
+]
+
+
 @dataclass(frozen=True)
 class DirectAuthorityBinding:
-    """Receipt-backed authority binding — no frozen Buddy store involved."""
+    """Receipt-backed authority binding — no frozen Buddy store involved.
+
+    Exactly one genesis family is legal. Adopted worlds keep the Buddy-A →
+    D_A compatibility rewrite; reviewed-init worlds have
+    ``legacy_buddy_revision_id is None`` and use real DungeonMind IDs.
+    """
 
     world_id: str
-    legacy_buddy_revision_id: str
     dungeonmind_first_revision_id: str
     dungeonmind_head_revision_id: str
+    legacy_buddy_revision_id: str | None
+    genesis: DirectAuthorityGenesis
 
 
 @dataclass(frozen=True)
@@ -267,42 +282,201 @@ class DirectWorldGraphReadServices:
     binding: DirectAuthorityBinding
 
 
+def _verified_authority_lookup(getter: Any, world_id: str, *, what: str) -> Any:
+    """Map verified DungeonMind receipt/head reads onto binder errors."""
+    try:
+        return getter(world_id)
+    except DirectWorldGraphReadError:
+        raise
+    except PersistenceIntegrityError as exc:
+        raise DirectWorldGraphReadError(
+            f"DungeonMind {what} failed an integrity check for world '{world_id}'.",
+            code="authority_integrity",
+            status_code=500,
+            diagnostics=[{"reason": "provider_persistence_integrity", "what": what}],
+            cause=exc,
+        ) from exc
+    except PersistenceUnavailableError as exc:
+        raise DirectWorldGraphReadError(
+            "DungeonMind authority is unavailable.",
+            code="authority_unavailable",
+            status_code=503,
+            diagnostics=[{"reason": "provider_unavailable", "what": what}],
+            cause=exc,
+        ) from exc
+
+
+def _integrity_error(world_id: str, *, reason: str, message: str) -> DirectWorldGraphReadError:
+    return DirectWorldGraphReadError(
+        message,
+        code="authority_integrity",
+        status_code=500,
+        diagnostics=[{"reason": reason, "world_id": world_id}],
+    )
+
+
+def _optional_revision_id(record: Any, field: str) -> str | None:
+    value = str(getattr(record, field, "") or "").strip()
+    return value or None
+
+
+def _head_revision_id(head: Any) -> str | None:
+    return _optional_revision_id(head, "head_revision_id")
+
+
+def _genesis_snapshot(
+    bundle: PostgresRepositoryBundle,
+    world_id: str,
+) -> tuple[Any, Any, Any]:
+    """One non-transactional observation of adoption, reviewed-init, and head."""
+    adoption = _verified_authority_lookup(
+        bundle.existing_world_adoptions.get_for_world,
+        world_id,
+        what="existing-world adoption receipt",
+    )
+    init_repo = getattr(bundle, "reviewed_world_initializations", None)
+    if init_repo is None:
+        reviewed = None
+    else:
+        reviewed = _verified_authority_lookup(
+            init_repo.get_for_world,
+            world_id,
+            what="reviewed-world initialization receipt",
+        )
+    head = _verified_authority_lookup(
+        bundle.world_graph.get_head,
+        world_id,
+        what="world graph head",
+    )
+    return adoption, reviewed, head
+
+
+def _contradictory_genesis(adoption: Any, reviewed: Any, head: Any) -> bool:
+    has_adoption = adoption is not None
+    has_reviewed = reviewed is not None
+    has_head = bool(_head_revision_id(head))
+    if has_adoption and has_reviewed:
+        return True
+    if (has_adoption or has_reviewed) and not has_head:
+        return True
+    if has_head and not has_adoption and not has_reviewed:
+        return True
+    return False
+
+
+def _stabilize_genesis_snapshot(
+    bundle: PostgresRepositoryBundle,
+    world_id: str,
+) -> tuple[Any, Any, Any]:
+    """Reread contradictory observations before treating them as durable corruption.
+
+    Each repository getter uses its own PostgreSQL transaction. A binder can
+    straddle D.2C2's atomic receipt+head commit and see ``head_without_genesis``
+    even though the database was never inconsistent. One coherent reread is
+    enough to resolve that transition; a stable contradiction remains integrity.
+    """
+    adoption, reviewed, head = _genesis_snapshot(bundle, world_id)
+    if not _contradictory_genesis(adoption, reviewed, head):
+        return adoption, reviewed, head
+    return _genesis_snapshot(bundle, world_id)
+
+
 def _load_direct_authority_binding(
     bundle: PostgresRepositoryBundle,
     world_id: str,
 ) -> DirectAuthorityBinding:
-    """Derive the A→D_A bridge from DungeonMind's adoption receipt + head.
+    """Bind native reads/writes to exactly one recognized genesis family.
 
-    Fail-closed: missing/inconsistent DungeonMind authority state is a
-    visible error, never a fallback to Buddy files.
+    Fail-closed: contradictory or unrecognized genesis is integrity, never a
+    fallback to Buddy files. Uninitialized worlds (no head, neither receipt)
+    keep the ordinary not-adopted/not-initialized miss. Contradictory
+    observations are reread once before being treated as durable corruption.
     """
-    receipt = bundle.existing_world_adoptions.get_for_world(world_id)
-    if receipt is None:
+    adoption, reviewed, head = _stabilize_genesis_snapshot(bundle, world_id)
+    has_adoption = adoption is not None
+    has_reviewed = reviewed is not None
+    head_revision_id = _head_revision_id(head) or ""
+    has_head = bool(head_revision_id)
+
+    if has_adoption and has_reviewed:
+        raise _integrity_error(
+            world_id,
+            reason="both_genesis_receipts",
+            message=(
+                f"DungeonMind world '{world_id}' has both an existing-world "
+                "adoption receipt and a reviewed-world initialization receipt."
+            ),
+        )
+    if (has_adoption or has_reviewed) and not has_head:
+        family = (
+            "existing-world adoption"
+            if has_adoption
+            else "reviewed-world initialization"
+        )
+        raise _integrity_error(
+            world_id,
+            reason="genesis_receipt_without_head",
+            message=(
+                f"DungeonMind {family} receipt exists for world '{world_id}' "
+                "but no published head is present."
+            ),
+        )
+    if has_head and not has_adoption and not has_reviewed:
+        raise _integrity_error(
+            world_id,
+            reason="head_without_genesis",
+            message=(
+                f"DungeonMind has a published head for world '{world_id}' "
+                "without a recognized genesis receipt."
+            ),
+        )
+    if not has_head and not has_adoption and not has_reviewed:
         raise DirectWorldGraphReadError(
             f"No DungeonMind adoption receipt exists for world '{world_id}'.",
             code="authority_receipt_missing",
             status_code=503,
         )
-    head = bundle.world_graph.get_head(world_id)
-    if head is None:
-        raise DirectWorldGraphReadError(
-            f"DungeonMind has no published head for world '{world_id}'.",
-            code="authority_head_missing",
-            status_code=503,
+
+    if has_adoption:
+        legacy = str(
+            getattr(
+                getattr(adoption, "source_provenance", None),
+                "source_world_revision_id",
+                "",
+            )
+            or ""
+        ).strip()
+        first = str(getattr(adoption, "published_revision_id", "") or "").strip()
+        if not legacy or not first:
+            raise _integrity_error(
+                world_id,
+                reason="adoption_bridge_identity_missing",
+                message="DungeonMind adoption receipt is missing bridge revision identity.",
+            )
+        return DirectAuthorityBinding(
+            world_id=world_id,
+            dungeonmind_first_revision_id=first,
+            dungeonmind_head_revision_id=head_revision_id,
+            legacy_buddy_revision_id=legacy,
+            genesis="existing_world_adoption",
         )
-    legacy = receipt.source_provenance.source_world_revision_id
-    first = receipt.published_revision_id
-    if not legacy or not first:
-        raise DirectWorldGraphReadError(
-            "DungeonMind adoption receipt is missing bridge revision identity.",
-            code="authority_integrity",
-            status_code=500,
+
+    first = str(getattr(reviewed, "published_revision_id", "") or "").strip()
+    if not first:
+        raise _integrity_error(
+            world_id,
+            reason="reviewed_init_revision_missing",
+            message=(
+                "DungeonMind reviewed-world initialization receipt is missing "
+                "published revision identity."
+            ),
         )
     return DirectAuthorityBinding(
         world_id=world_id,
-        legacy_buddy_revision_id=legacy,
         dungeonmind_first_revision_id=first,
-        dungeonmind_head_revision_id=head.head_revision_id,
+        dungeonmind_head_revision_id=head_revision_id,
+        legacy_buddy_revision_id=None,
+        genesis="reviewed_world_initialization",
     )
 
 
@@ -438,13 +612,16 @@ def _resolve_revision_pin(
 ) -> str | None:
     """Pin algebra: head / receipt-bridged A→D_A / DungeonMind passthrough.
 
-    Unknown pins pass through to DungeonMind, which fails closed with
-    ``RevisionNotFoundError`` (mapped to the legacy ``revision_not_bridged``
-    404 envelope). The frozen Buddy store is never consulted.
+    The A→D_A rewrite fires only when ``legacy_buddy_revision_id`` is present
+    and the pin equals that exact Buddy identity. Reviewed-init ``D_0`` and
+    later DungeonMind children pass through unchanged. Unknown pins pass
+    through to DungeonMind, which fails closed with ``RevisionNotFoundError``
+    (mapped to the legacy ``revision_not_bridged`` 404 envelope).
     """
     if revision_pin is None:
         return None
-    if revision_pin == binding.legacy_buddy_revision_id:
+    legacy = binding.legacy_buddy_revision_id
+    if legacy is not None and revision_pin == legacy:
         return binding.dungeonmind_first_revision_id
     return revision_pin
 
