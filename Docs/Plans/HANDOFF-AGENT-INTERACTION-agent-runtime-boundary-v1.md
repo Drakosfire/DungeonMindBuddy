@@ -282,6 +282,12 @@ AgentRuntimeDescriptor {
     trace_mode             # current value "hermes_graph_agent"
 }
 
+Product A0 trace `backend` / `runtime` / `mode` are taken from the selected
+runtime's descriptor **before** `run()`. The default Hermes adapter preserves
+the current labels. A non-Hermes descriptor must not be recorded as Hermes.
+That is the A2→A3 comparison seam: same telemetry substrate, different
+harness identity, no product-telemetry rewrite.
+
 AgentCapabilityPolicy {
     policy_id              # current: "world_graph_read_v1"
 }
@@ -604,7 +610,9 @@ tests/test_hermes_agent_runtime.py
 apps/live_control_server/services/live_agent_loop.py
 apps/live_control_server/services/hermes_graph_query.py
 tests/test_live_query_hermes_graph.py
+tests/test_live_control_server.py
 Docs/Plans/HANDOFF-AGENT-INTERACTION-trace-inspector-v1.md
+Docs/Plans/HANDOFF-AGENT-INTERACTION-agent-runtime-boundary-v1.md
 ```
 
 ## 4.3 Read-only evidence / dependencies
@@ -620,20 +628,17 @@ MODEL_POLICY.json
 apps/live_control_server/routes/live.py
 tests/test_hermes_graph_agent.py
 tests/test_hermes_graph_agent_host.py
-tests/test_live_control_server.py
 ```
 
-## 4.4 Bounded test-only exception
+## 4.4 Steward-authorized test-only exception
 
-One additional existing test file under `tests/` may be modified only if, after re-anchor, the owning public-response assertion for this exact Hermes graph journey is not in `tests/test_live_query_hermes_graph.py` and cannot be proven there without duplicating route setup.
+`tests/test_live_control_server.py` is explicitly authorized for A2.
 
-Before using the exception, record in the handback:
+The original dispatch text permitted one extra test file only when the owning public-response proof was absent from `tests/test_live_query_hermes_graph.py`. Review Cycle 1 (`5048841605`, head `a72f49c9954d8618c22647b757b9b7e6aa2f33e2`) found that the service journey is also covered there, so the implementation could not self-authorize the path.
 
-```text
-additional test path
-why its owning boundary cannot be proved in the leased tests
-why no production path expansion is required
-```
+The steward now authorizes this path because the FastAPI `/query` route is the owning HTTP public-response boundary for citation/focus payload and for the host monkeypatch after `get_hermes_graph_agent_host` moved into the adapter. The graph-query suite covers the service journey; it does not own the HTTP response shape. This file also moves from §4.3 read-only evidence into §4.2 Modify.
+
+This handoff itself is leased so the amendment is in-lease rather than a silent extra path.
 
 No production-path exception exists.
 
@@ -956,7 +961,7 @@ uv run pytest tests/test_hermes_agent_runtime.py -q
 uv run pytest tests/test_live_query_hermes_graph.py -q
 ```
 
-If the bounded test-only exception from §4.4 is used, run that entire test file too.
+The steward-authorized HTTP public-response suite is required:
 
 ## 7.3 Existing harness/host regression — read-only implementation
 
@@ -987,13 +992,14 @@ uv run ruff check \
   apps/live_control_server/services/hermes_graph_query.py \
   tests/test_agent_runtime.py \
   tests/test_hermes_agent_runtime.py \
-  tests/test_live_query_hermes_graph.py
+  tests/test_live_query_hermes_graph.py \
+  tests/test_live_control_server.py
 
 git diff --check
 git diff --name-only <dispatch-base>...HEAD
 ```
 
-The final changed-path list must be a subset of §4 plus an explicitly justified §4.4 test-only exception.
+The final changed-path list must be a subset of the amended §4 lease, including the steward-authorized HTTP suite and this handoff.
 
 ## 7.6 Minimal live dogfood
 
@@ -1042,6 +1048,13 @@ Exact count is not contractual. A clean review story is:
 3. AGENT-INTERACTION: route graph-Agent product orchestration through runtime
 4. AGENT-INTERACTION: prove scope, telemetry, continuity, and import boundaries
 5. AGENT-INTERACTION: sync completed A1 predecessor state
+```
+
+Review Cycle 2 expected commits against the Cycle 1 head:
+
+```text
+6. AGENT-INTERACTION: derive A0 trace identity from runtime descriptor
+7. AGENT-INTERACTION: steward-authorize live-control-server test lease
 ```
 
 Do not mix PydanticAI, ContextAssembler, Interaction Memory, tool relocation, UI work, or CUTOVER work into these commits.
@@ -1103,7 +1116,7 @@ The handback must include:
 23. all §7 commands with exact totals/provenance;
 24. manual dogfood result or `BLOCKED_DEPENDENCY`;
 25. baseline failures/waivers (`none` when none);
-26. paths outside §4 (`none` or exact §4.4 exception explanation);
+26. paths outside §4 (`none` after the Cycle 1 steward lease amendment);
 27. stop conditions encountered (`none` when none);
 28. A1 predecessor sync diff;
 29. successors still false: A3 PydanticAI, general ContextAssembler, Interaction Memory durability, runtime lifecycle API.
@@ -1205,6 +1218,8 @@ Its success question remains:
 > **How much DungeonBuddy code has to bend because the harness wants something?**
 
 The A2 contract is good only if A3 can answer that question without rewriting product grounding, World scope, continuity governance, or telemetry.
+
+A0 trace identity (`backend` / `runtime` / `mode`) must follow the selected runtime's `AgentRuntimeDescriptor`. Hard-coding Hermes labels in `process_live_query()` would force A3 to rewrite product telemetry to compare harnesses.
 
 ---
 
