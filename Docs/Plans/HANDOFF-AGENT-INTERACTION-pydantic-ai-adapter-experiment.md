@@ -26,7 +26,14 @@ pr_body_template: |
 # HANDOFF — PydanticAI AgentRuntime Adapter Experiment (A3)
 
 **Created:** 2026-08-28  
-**Status:** IMPLEMENTATION HANDED BACK FOR REVIEW — experiment evidence in §21
+**Status:** COMPLETE / MERGED
+**PR:** #663
+**Accepted head:** `4e4fa25268fc3c3bf2fec56fcbe465c4c7e08c55`
+**Merge SHA:** `5eb4e030a66b09d98525f0f934c7e91051e48549`
+**Formal review cycles:** 2
+**Disposition:** PROMISING_WITH_DEPENDENCY_BLOCKER
+**PydanticAI production selection:** false
+**Active successor:** A4 Graph Agent Policy Boundary (neutral DMB policy ownership; production selection remains false)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-pydantic-ai-adapter-experiment.md`  
 **Design branch:** `agent/pydantic-ai-adapter-experiment-design`  
 **Design base:** `937d9dce1be02e804553282a146527bf39bb0750`  
@@ -57,8 +64,12 @@ A2  DungeonBuddy AgentRuntime Boundary     MERGED #659
     product orchestration talks to AgentRuntime
     Hermes is one adapter, not the product architecture
     ↓
-A3  PydanticAI Adapter Experiment          THIS SLICE
+A3  PydanticAI Adapter Experiment          MERGED #663
     one real challenger, same DMB contracts, measured honestly
+    disposition PROMISING_WITH_DEPENDENCY_BLOCKER; production selection false
+    ↓
+A4  Graph Agent Policy Boundary            ACTIVE SUCCESSOR
+    move DMB-owned shared policy out of Hermes-named runtime ownership
 ```
 
 The merged A2 execution direction is:

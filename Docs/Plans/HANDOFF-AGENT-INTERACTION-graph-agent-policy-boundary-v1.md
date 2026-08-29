@@ -24,7 +24,7 @@ pr_body_template: |
 # HANDOFF — Graph Agent Policy Boundary v1 (A4)
 
 **Created:** 2026-08-29  
-**Status:** READY FOR DISPATCH after exact-current-main / active-lease recheck  
+**Status:** IMPLEMENTATION HANDED BACK FOR REVIEW — evidence in §18
 **Canonical handoff path:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-graph-agent-policy-boundary-v1.md`  
 **Design branch:** `agent/graph-agent-policy-boundary-design`  
 **Design base:** `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`  
@@ -757,3 +757,57 @@ The next re-anchor should consider:
 - whether #660 has cleared the remaining Play authoring seam;
 - whether #662 has completed D.2C4 and governed publication authority;
 - which product journey can then be dogfooded end to end with the least new durable state.
+
+---
+
+# 18. Implementation evidence (CODE handback)
+
+Dispatch base `e3d9bba768b8604f5a0c625af9d84ff5148a4db1` (parent `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`). Production PydanticAI selection remains false.
+
+## 18.1 Neutral module API
+
+```text
+apps/live_control_server/services/agent_graph_policy.py
+  GRAPH_SYSTEM_POLICY
+  resolve_agent_graph_openai_inference(*, require_api_key=True) -> tuple[str, str, str] | str
+```
+
+Hermes compatibility aliases:
+
+```text
+GRAPH_SYSTEM_POLICY as _GRAPH_SYSTEM_POLICY
+resolve_agent_graph_openai_inference as _resolve_hermes_openai_inference
+```
+
+PydanticAI remaining Hermes-named imports (out of A4 scope):
+
+```text
+hermes_graph_agent: _safe_ids_from_args, _summarize_tool_result
+hermes_graph_interaction_tools: names / JSON defs / executor
+```
+
+## 18.2 Verification provenance
+
+```text
+uv run pytest tests/test_agent_graph_policy.py tests/test_pydantic_ai_agent_runtime.py -q
+  25 passed, 2 warnings in 2.15s
+  (7 new policy-ownership tests + 18 A3 adapter tests)
+
+uv run pytest tests/test_hermes_graph_agent.py tests/test_hermes_graph_agent_host.py tests/test_agent_runtime.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py -q
+  169 passed, 10 warnings in 67.09s
+
+uv run ruff check (leased Python files)
+  All checks passed
+
+git diff --check
+  clean after handoff whitespace fix
+
+Active open PRs at handback: #660 PLAY, #662 CUTOVER
+  none own A4 production or test paths
+```
+
+Stop conditions encountered: `none`.
+Baseline failures/waivers: `none`.
+Paths outside §9: `none`.
+Discovery-exception test edits: `none` (`tests/test_live_query_hermes_graph.py` still uses the Hermes compatibility alias).
+Successor claims still false: PydanticAI production selection; tool-policy neutralization complete; runtime lifecycle API; ContextAssembler selected; Interaction Memory durability; source-selection Graph Assessment shipped.
