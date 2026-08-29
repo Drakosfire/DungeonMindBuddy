@@ -42,7 +42,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2C4: preserve Graph Review authoring on DungeonMind
 
 **Created:** 2026-08-28
-**Status:** CODE → REVIEW — Review Cycle 4 submitted (PR #662)
+**Status:** COMPLETE / MERGED — Buddy #662 (accepted head `1ab48453cb556ca9d01ff84173ab3e2fdf81d1ec`; merge `2f1b44aa8ad8bad78269c0cadf624882cd0f459f`; 4 formal review cycles; Cycle 4 PASS-equivalent `5059141212`)
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-manual-authoring-continuity-code.md`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Flow / owner:** CUTOVER
@@ -200,7 +200,15 @@ D.2C3 native genesis continuity
   formal review cycles 4
 
 D.2C4 manual Graph Review authoring continuity
-  DOING / this PR
+  COMPLETE / MERGED
+  PR #662
+  accepted head 1ab48453...
+  merge 2f1b44aa...
+  formal review cycles 4
+  final PASS-equivalent 5059141212
+
+D.3A mounted graph-engine excision
+  DOING / successor PR
 
 D.3A
   BLOCKED
@@ -589,8 +597,7 @@ authority-selector defaults.
 
 ## Remaining merge-ready work (not code)
 
-1. Formal Review Cycle 4 on PR #662.
-2. Do not mark D.2C4 `DONE` before merge.
+None. Merged. Successor is D.3A.
 
 Cycle 3 blocker closed in this cycle:
 

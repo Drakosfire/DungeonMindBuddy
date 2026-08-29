@@ -24,7 +24,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.3A: mounted production graph-engine excision
 
 **Created:** 2026-08-29  
-**Status:** ACTIVE — dispatch one implementation capability  
+**Status:** DOING / CODE — implementation in progress (PR pending)  
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-mounted-graph-engine-excision.md`  
 **Workstream / flow:** CUTOVER  
 **Direction:** DESIGN → CODE  
@@ -34,6 +34,7 @@ pr_body_template: |
 **Frozen design authority:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` §§6–7  
 **Steward re-anchor base before this handoff commit:** `2f1b44aa8ad8bad78269c0cadf624882cd0f459f`  
 **Named successor:** D.3B — physical legacy-package deletion / `cutover/delete-legacy-graph-engine`
+**Exact dispatch base (implementation start):** `619aa2b0c4be67e1d3931ff50899d126d2dafa13` (contains handoff commit `6b7706eec400129dbe01288630c443ae2d8a1e67`; one AGENT-INTERACTION sync landed after the handoff commit)
 
 > This is the execution wrapper for the already-reviewed D.3A design. It does not
 > reopen the frozen FAIL_CLOSED / REHOME_DTO / REWRITE_PORT choices in the D.3

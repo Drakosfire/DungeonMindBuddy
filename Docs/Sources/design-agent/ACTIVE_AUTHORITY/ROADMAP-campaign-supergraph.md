@@ -1,7 +1,7 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-28 — D.2C3 native genesis continuity `COMPLETE` / MERGED Buddy #651 (accepted head `9508b71655665005df8f12da74c239fe7eb17c0c`; merge `84f3401b23fcac32a57416d5419dc7d33cf6eabc`; 4 formal review cycles); D.2C4 manual Graph Review authoring continuity `DOING` / this PR; D.3A/D.3B `BLOCKED`; D.3 not `DONE`
+**Updated:** 2026-08-29 — D.2C4 manual Graph Review authoring continuity `COMPLETE` / MERGED Buddy #662 (accepted head `1ab48453cb556ca9d01ff84173ab3e2fdf81d1ec`; merge `2f1b44aa8ad8bad78269c0cadf624882cd0f459f`; 4 formal review cycles; Cycle 4 PASS-equivalent `5059141212`); D.3A mounted graph-engine excision `DOING` / this PR; D.3B `BLOCKED`; D.3 not `DONE`
 **Repository anchor / current Buddy `main`:** `84f3401b23fcac32a57416d5419dc7d33cf6eabc` (#651 merge). Historical #658 merge: `d94822f7681da440fdeea981662383980bfbcaf9`. Historical AGENT-INTERACTION: `d721cba261c35fd1d77566df6c03be614a26f510`. Historical AGENT-INTERACTION surface-authority re-anchor: `5b2d9bc7cc61c7a485c3bd801cd44d7251134466`. Historical PLAY-SURFACE: `555a9c7965aca47a24536277b9b36ae569a7285a`. Historical #650 APP-STATE merge: `cc016661f80416e0816f56349217cf33c53a195f`. Historical D.2C3 design #647 merge: `d96a21363fd0decbcb8c4390f951a6316b53060c`. Historical D.2C2 implementation #645 merge: `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`. Historical D.2C2 design #644 merge: `f1eae2a3d27e430ee19e254d5b52fa556b2632ff`. Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `5ca5d688612349034f8ca490d465af166d883e6e` (DungeonMind PR #47 merge / reviewed-init provenance compatibility; consumed unchanged by #658 and this D.2C3 resume). Historical D.2C2 runtime pin was PR #46 `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`.
@@ -304,14 +304,16 @@ DONE    D.2C3 native genesis read/write continuity / Buddy #651
         84f3401b23fcac32a57416d5419dc7d33cf6eabc; 4 formal review cycles.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-native-genesis-read-write-continuity-code.md.
 
-DOING   D.2C4 manual Graph Review authoring continuity
-        Preserve Graph Review prepare/confirm on WorldGraphAuthority.
-        Do not mark DONE before merge.
+COMPLETE / MERGED  D.2C4 manual Graph Review authoring continuity
+        Buddy #662 accepted head 1ab48453cb556ca9d01ff84173ab3e2fdf81d1ec;
+        merge 2f1b44aa8ad8bad78269c0cadf624882cd0f459f; 4 formal review cycles;
+        Cycle 4 PASS-equivalent 5059141212.
         Handoff: Docs/Plans/HANDOFF-CUTOVER-manual-authoring-continuity-code.md.
 
-BLOCKED D.3A mounted graph-engine excision
+DOING   D.3A mounted graph-engine excision
         Excise Buddy graph engine from production imports/routes.
-        Not dispatched until D.2C4 merges.
+        Do not mark DONE before merge.
+        Handoff: Docs/Plans/HANDOFF-CUTOVER-mounted-graph-engine-excision.md.
 
 BLOCKED D.3B physical legacy-package deletion
         Delete kernel/world_supergraph/union_supergraph source and prove
