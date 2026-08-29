@@ -24,7 +24,7 @@ from apps.live_control_server.services.agent_runtime import (
     AgentRuntimeToolEvent,
     AgentWorldScope,
 )
-from apps.live_control_server.services.hermes_graph_agent import _GRAPH_SYSTEM_POLICY
+from apps.live_control_server.services.agent_graph_policy import GRAPH_SYSTEM_POLICY
 from apps.live_control_server.services.hermes_graph_interaction_tools import (
     ORDERED_MODEL_VISIBLE_TOOL_NAMES,
     hermes_model_visible_tool_definitions,
@@ -251,8 +251,8 @@ def test_agent_instructions_reuse_graph_system_policy_and_scope_packet() -> None
         )
     )
     expected = pydantic_ai_agent_instructions(invocation)
-    assert expected.startswith(_GRAPH_SYSTEM_POLICY)
-    assert _GRAPH_SYSTEM_POLICY in expected
+    assert expected.startswith(GRAPH_SYSTEM_POLICY)
+    assert GRAPH_SYSTEM_POLICY in expected
     assert "call declare_conversation_context exactly once" in expected
     assert "latest-recap change question" in expected
     assert "name the campaign and session provenance" in expected
@@ -279,7 +279,7 @@ def test_agent_instructions_reuse_graph_system_policy_and_scope_packet() -> None
     blob = "\n".join(supplied)
     assert blob
     assert expected in blob
-    assert _GRAPH_SYSTEM_POLICY in blob
+    assert GRAPH_SYSTEM_POLICY in blob
     assert '"retrievalSessionId": "retrieval-sess-1"' in blob
 
 

@@ -425,6 +425,27 @@ def test_agent_receives_exact_lockdown_configuration(tmp_path: Path) -> None:
     assert "anthropic" not in str(init.get("base_url") or "").lower()
 
 
+def test_ephemeral_system_prompt_prefixes_neutral_graph_policy(tmp_path: Path) -> None:
+    from apps.live_control_server.services.agent_graph_policy import GRAPH_SYSTEM_POLICY
+
+    _FakeAgent.last_init = None
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="What do we know about Tripod?",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            session_id="sess-test-policy",
+            root=tmp_path,
+        ),
+        agent_factory=_FakeAgent,
+    )
+    assert result.status == "ok"
+    prompt = str((_FakeAgent.last_init or {}).get("ephemeral_system_prompt") or "")
+    assert prompt.startswith(GRAPH_SYSTEM_POLICY)
+    assert "Turn capability policy" in prompt
+    assert "enabledPluginIds" in prompt
+
+
 def test_missing_openai_key_fails_closed_for_production_factory(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
