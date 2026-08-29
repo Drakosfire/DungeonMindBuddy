@@ -314,40 +314,20 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
 
     const createValidationError = validatePlanCreateResponse(record, draft);
     if (createValidationError) {
-      const durableId =
-        record != null && typeof record.document_id === "string"
-          ? record.document_id.trim()
-          : "";
-      if (durableId) {
-        adoptDocumentUrl(durableId);
-        persistDirtyEditorBytes(localStorage, durableId, {
-          tiptapJson,
-          markdown,
-          fallback,
-        });
-      }
+      persistDirtyEditorBytes(localStorage, activeDocumentKey, {
+        tiptapJson,
+        markdown,
+        fallback,
+      });
       bumpContentRevision();
       setPromotionError(createValidationError);
-      onPromotionStateChange?.(
-        durableId
-          ? {
-              promoting: true,
-              retainedCreateId: durableId,
-              error: createValidationError,
-            }
-          : { promoting: false, retainedCreateId: null, error: createValidationError },
-      );
+      onPromotionStateChange?.({
+        promoting: false,
+        retainedCreateId: null,
+        error: createValidationError,
+      });
       setSaveBusy(false);
       return;
-    }
-
-    if (retainedCreateId == null || retainedCreateId !== record.document_id) {
-      adoptDocumentUrl(record.document_id);
-      onPromotionStateChange?.({
-        promoting: true,
-        retainedCreateId: record.document_id,
-        error: null,
-      });
     }
 
     let admittedSnapshot: WorkspaceDocumentSnapshot;
@@ -358,7 +338,7 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
         error instanceof Error
           ? error.message
           : "Plan promotion snapshot could not be loaded.";
-      persistDirtyEditorBytes(localStorage, record.document_id, {
+      persistDirtyEditorBytes(localStorage, activeDocumentKey, {
         tiptapJson,
         markdown,
         fallback,
@@ -366,8 +346,8 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
       bumpContentRevision();
       setPromotionError(message);
       onPromotionStateChange?.({
-        promoting: true,
-        retainedCreateId: record.document_id,
+        promoting: false,
+        retainedCreateId: null,
         error: message,
       });
       setSaveBusy(false);
@@ -376,7 +356,7 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
 
     const admissionError = validatePlanPromotionSnapshotAdmission(admittedSnapshot, record, draft);
     if (admissionError) {
-      persistDirtyEditorBytes(localStorage, record.document_id, {
+      persistDirtyEditorBytes(localStorage, activeDocumentKey, {
         tiptapJson,
         markdown,
         fallback,
@@ -384,8 +364,8 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
       bumpContentRevision();
       setPromotionError(admissionError);
       onPromotionStateChange?.({
-        promoting: true,
-        retainedCreateId: record.document_id,
+        promoting: false,
+        retainedCreateId: null,
         error: admissionError,
       });
       setSaveBusy(false);
@@ -402,7 +382,14 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
       markdown,
       fallback,
     });
+    clearPlanLocalDraftPointer(draft.campaignId, localStorage);
     bumpContentRevision();
+    adoptDocumentUrl(record.document_id);
+    onPromotionStateChange?.({
+      promoting: true,
+      retainedCreateId: record.document_id,
+      error: null,
+    });
 
     try {
       const prepared = await prepareTiptapMarkdownWrite({
@@ -552,7 +539,6 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
           markdown,
         },
       );
-      clearPlanLocalDraftPointer(draft.campaignId, localStorage);
       bumpContentRevision();
 
       setPromotionError(null);

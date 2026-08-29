@@ -173,6 +173,9 @@ DONE — local Play dogfood bootstrap/readiness
 PLAN-BLANK-SHELL
 CURRENT — zero-material Plan authoring + local→durable promotion
         ↓
+BF4A
+NEXT — native Runbook reopen/save
+        ↓
 BF3B
 AFTER BF4A — Decision interaction and visible relevance
         ↓
