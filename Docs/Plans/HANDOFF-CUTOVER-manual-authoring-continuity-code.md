@@ -42,7 +42,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2C4: preserve Graph Review authoring on DungeonMind
 
 **Created:** 2026-08-28
-**Status:** CODE → REVIEW — Review Cycle 3 submitted (PR #662)
+**Status:** CODE → REVIEW — Review Cycle 4 submitted (PR #662)
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-manual-authoring-continuity-code.md`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Flow / owner:** CUTOVER
@@ -69,9 +69,9 @@ pr_body_template: |
 
 ## §8.3 CODE → REVIEW handback
 
-This is the review contract for Review Cycle 3.
+This is the review contract for Review Cycle 4.
 
-### 1. PR / branch / Review Cycle 3 head
+### 1. PR / branch / Review Cycle 4 head
 
 * Branch: `cutover/manual-authoring-continuity`
 * PR number: **#662** — https://github.com/Drakosfire/DungeonMindBuddy/pull/662
@@ -79,11 +79,12 @@ This is the review contract for Review Cycle 3.
 * Cycle 1 review: REQUEST-CHANGES-equivalent **#5057060390**
 * Formal Cycle 2 reviewed head: `701e6158db5d02fd70f6d6eb80c90ad8210559c9`
 * Cycle 2 review: REQUEST-CHANGES-equivalent **#5058706482**
-* `4945b426abb7732617870f1ce29fb1fd28035923` was an implementation commit, not a formal review head
-* `0b8255be…` was a Cycle 2 record commit, not a formal review head
-* Cycle 3 rebase base: `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e` (`main` after merged #661 / AGENT-INTERACTION)
-* Cycle 3 implementation tip (post-rebase, before this record): `0dc2f4e696827498ad42f80a6f304a69d9807497`
-* Review Cycle 3 head SHA: this CODE → REVIEW record commit (PR HEAD after push)
+* Formal Cycle 3 reviewed head: `1c1b1dfb36dd8ed6726d579596bbf03856ecfe73`
+* Cycle 3 review: REQUEST-CHANGES-equivalent **#5058980934**
+* `4945b426…` and `0b8255be…` remain non-formal implementation/record commits
+* Cycle 4 rebase base: `a3fd6219062d1cd978c394d07e2f80aaa6d203eb` (`main` after merged #660 / AGENT-INTERACTION)
+* Cycle 4 implementation tip (post-rebase, before this record): `39a69315bdbdd576efd99953fc544fb4844f9f46`
+* Review Cycle 4 head SHA: this CODE → REVIEW record commit (PR HEAD after push)
 
 ### 2. Exact dispatch base
 
@@ -92,6 +93,8 @@ Original dispatch base: `84f3401b23fcac32a57416d5419dc7d33cf6eabc`
 Cycle 2 re-anchor: `937d9dce1be02e804553282a146527bf39bb0750`
 
 Cycle 3 re-anchor: `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`
+
+Cycle 4 re-anchor: `a3fd6219062d1cd978c394d07e2f80aaa6d203eb`
 
 ### 3. #651 predecessor
 
@@ -105,10 +108,10 @@ Cycle 3 re-anchor: `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`
 
 ### 5. Open-PR collision check
 
-`main` moved during Cycle 2 review to `770f79cc…` via merged PLAN-SURFACE #661
-and AGENT-INTERACTION PydanticAI adapter work. Path overlap with this PR's
-§4 production lease is empty. This branch rebased onto that `main` with no
-conflict. No overlapping §4 production-path lease remains open.
+`main` moved during Cycle 3 review to `a3fd6219…` via merged PLAY-SURFACE #660
+and AGENT-INTERACTION policy work. Path overlap with this PR's §4 production
+lease is empty. This branch rebased onto that `main` with no conflict. No
+overlapping §4 production-path lease remains open.
 
 ### 6. Cumulative changed-path list (working tree vs dispatch base)
 
@@ -145,10 +148,11 @@ was not required.
 
 * `apps/live_control_server/integrations/dungeonmind/world_graph_writes.py`
   — added `graph_review_authority_operation_id(...)` returning `grauth:{sha256}`
-  from frozen schema `dmb_graph_review_authoring_authority_operation_v1`, plus
-  shared `catalog_aware_source_revision_ids(...)` with a local `_dm_revision_id`
-  so admission and publish reuse the same collision algorithm without importing
-  `dungeonmind_kernel`. No new DungeonMind provider contract.
+  from frozen schema `dmb_graph_review_authoring_authority_operation_v1`. Shared
+  `catalog_aware_source_revision_ids(...)` is owned by the admission adapter;
+  writes re-exports it with write-error mapping so admission never imports this
+  module (and never transitively loads `graph_memory.kernel`). No new
+  DungeonMind provider contract.
 * `apps/live_control_server/ports/world_graph_source_admission.py` and
   `.../world_graph_source_admission_access.py`
   — steward-authorized D.2C4 source-admission port/factory. DungeonMind-only;
@@ -156,27 +160,32 @@ was not required.
 
 ### 8. Nano-commit list and purpose
 
-Cycle 1 (replayed onto `770f79cc…`; original reviewed SHAs in parentheses):
+Cycle 1 (replayed onto `a3fd6219…`; original reviewed SHAs in parentheses):
 
-1. `b671076a` (`f69959e0`) CUTOVER: hand off Graph Review DungeonMind authoring
-2. `f11f5cff` (`e140591d`) CUTOVER: bind Graph Review prepare to governed publication intent
-3. `e20a18ac` (`9458a46a`) CUTOVER: publish confirmed Graph Review edits through DungeonMind
-4. `3a09d942` (`93a318db`) CUTOVER: align Graph Review API and UI to DungeonMind publication
-5. `cd5be870` (`4945b426`) CUTOVER: prove manual-authoring continuity and legacy-writer absence
-6. `5eea03ab` (`7b3fecd7`) CUTOVER: record Graph Review authoring Review Cycle 1
+1. `7a9cd792` (`f69959e0`) CUTOVER: hand off Graph Review DungeonMind authoring
+2. `de6d001b` (`e140591d`) CUTOVER: bind Graph Review prepare to governed publication intent
+3. `91c2f378` (`9458a46a`) CUTOVER: publish confirmed Graph Review edits through DungeonMind
+4. `cba5922a` (`93a318db`) CUTOVER: align Graph Review API and UI to DungeonMind publication
+5. `b5c5d15a` (`4945b426`) CUTOVER: prove manual-authoring continuity and legacy-writer absence
+6. `a8a62712` (`7b3fecd7`) CUTOVER: record Graph Review authoring Review Cycle 1
 
-Cycle 2 (replayed onto `770f79cc…`; original reviewed SHAs in parentheses):
+Cycle 2 (replayed onto `a3fd6219…`; original reviewed SHAs in parentheses):
 
-7. `0e36cf3d` (`148235ae`) CUTOVER: admit Graph Review sources through DungeonMind
-8. `44350f08` (`53fba470`) CUTOVER: bind Graph Review confirm to admitted sources and honest audit
-9. `114d97e9` (`77341ba7`) CUTOVER: prove initially-absent Graph Review source admission
-10. `378c668c` (`0b8255be`) CUTOVER: record Graph Review authoring Review Cycle 2
-11. `1d4f4e21` (`701e6158`) CUTOVER: complete Cycle 2 handback confirm-token and wording
+7. `139fa038` (`148235ae`) CUTOVER: admit Graph Review sources through DungeonMind
+8. `d4455a4e` (`53fba470`) CUTOVER: bind Graph Review confirm to admitted sources and honest audit
+9. `60a35a08` (`77341ba7`) CUTOVER: prove initially-absent Graph Review source admission
+10. `efcdf7f1` (`0b8255be`) CUTOVER: record Graph Review authoring Review Cycle 2
+11. `5b9b29e7` (`701e6158`) CUTOVER: complete Cycle 2 handback confirm-token and wording
 
-Cycle 3 (post-rebase onto `770f79cc…`):
+Cycle 3 (replayed onto `a3fd6219…`; original reviewed SHAs in parentheses):
 
-12. `0dc2f4e6` CUTOVER: rehome Graph Review source mapping off the legacy adoption module
-13. this record commit — CUTOVER: record Graph Review authoring Review Cycle 3
+12. `691d8020` (`0dc2f4e6`) CUTOVER: rehome Graph Review source mapping off the legacy adoption module
+13. `f0abafd7` (`1c1b1dfb`) CUTOVER: record Graph Review authoring Review Cycle 3
+
+Cycle 4 (post-rebase onto `a3fd6219…`):
+
+14. `39a69315` CUTOVER: detach Graph Review source admission from world_graph_writes
+15. this record commit — CUTOVER: record Graph Review authoring Review Cycle 4
 
 ### 9. State-authority sync result
 
@@ -236,10 +245,12 @@ Contribution fields keep the Buddy revision token so `_build_pair_to_dm` /
 `catalog_aware_source_revision_ids` converge on the same DM ID.
 
 Buddy → `SourceArtifactV2` mapping helpers (`_digest_from_buddy_revision`,
-`_store_artifact_v2`, `_parse_optional_aware`, `_map_source_domain`) live in
-`world_graph_source_admission_adapter.py`. Collision suffix math
-(`_dm_revision_id`) lives in `world_graph_writes.py`. The mounted admission
-adapter does not import `integrations/dungeonmind_kernel/**`.
+`_store_artifact_v2`, `_parse_optional_aware`, `_map_source_domain`) and
+collision math (`_dm_revision_id`, `catalog_aware_source_revision_ids`) live in
+`world_graph_source_admission_adapter.py`. The mounted admission adapter does
+not import `world_graph_writes` or `integrations/dungeonmind_kernel/**`.
+Governed publish reuses the same catalog-aware function via a thin write-error
+wrapper.
 
 ### 12. Prepare side-effect proof
 
@@ -443,10 +454,11 @@ Owning PostgreSQL witness: **0 skips**.
 `tests/test_graph_object_authoring_routes.py` did not exist on the dispatch base.
 It was added in Cycle 1 as the exact prescribed route-boundary path.
 `tests/test_world_graph_source_admission.py` was added in Cycle 2 for the
-production admission adapter. Cycle 3 adds the static kernel-import scan and
-the runtime tripwire that admits a source while
+production admission adapter. Cycle 4 replaces the false-green in-process
+tripwire with a **fresh-interpreter** proof: legacy
 `graph_memory.kernel` / `world_supergraph` / `union_supergraph` imports are
-blocked.
+blocked **before** importing the mounted adapter; `prove_or_admit` / `prove`
+still succeed and no legacy module appears in `sys.modules`.
 
 #### 7.3 Legacy/public regression cohort
 
@@ -513,7 +525,7 @@ Pass.
 
 ```text
 git diff --exit-code \
-  770f79cca4aa3c12aa8a35db2db77ce376f2ff9e...HEAD \
+  a3fd6219062d1cd978c394d07e2f80aaa6d203eb...HEAD \
   -- pyproject.toml uv.lock
 ```
 
@@ -577,14 +589,14 @@ authority-selector defaults.
 
 ## Remaining merge-ready work (not code)
 
-1. Formal Review Cycle 3 on PR #662.
+1. Formal Review Cycle 4 on PR #662.
 2. Do not mark D.2C4 `DONE` before merge.
 
-Cycle 2 blocker closed in this cycle:
+Cycle 3 blocker closed in this cycle:
 
-1. Production source admission no longer imports
-   `integrations/dungeonmind_kernel/**`. Catalog-aware mapping helpers live on
-   the leased D.2C4 adapter / `world_graph_writes` paths. A runtime tripwire
-   proves `prove_or_admit` / `prove` still succeed when imports of
-   `graph_memory.kernel`, `graph_memory.world_supergraph`, and
-   `graph_memory.union_supergraph` are blocked.
+1. Mounted source admission no longer imports `world_graph_writes` (and therefore
+   does not transitively load `graph_memory.world_graph_mutation_context` →
+   `graph_memory.kernel`). Catalog-aware collision math lives on the admission
+   adapter; writes re-exports it. A subprocess tripwire installs the legacy
+   import blocker **before** a fresh adapter import and proves
+   `prove_or_admit` / `prove`.
