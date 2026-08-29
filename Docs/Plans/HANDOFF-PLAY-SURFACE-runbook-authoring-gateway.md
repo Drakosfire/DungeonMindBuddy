@@ -8,32 +8,37 @@ pr_body_template: |
   - Branch / PR: `agent/play-surface-runbook-authoring-gateway` / `PLAY-SURFACE: make native Runbooks editable`
 
   ## Verification pointer
-  - Base/head: record exact SHAs in the PR
-  - Changed paths: HANDOFF §7
-  - Verification: HANDOFF §9
+  - Re-dispatch base: `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e` or later current `main`
+  - Changed paths: HANDOFF §8 only
+  - Verification: HANDOFF §10
 
-  The checked-in handoff, cumulative diff, nano-commit story, real browser
-  authoring witness, and independently rerun evidence are the review contract.
-  This body is transport metadata.
+  The checked-in handoff, cumulative diff from the actual rebased base, real
+  browser Runbook-authoring witness, historical-Run isolation witness, and
+  independently rerun evidence are the review contract. This body is transport
+  metadata.
 ---
 
 # HANDOFF — Native Runbook authoring gateway (BF4A)
 
 **Created:** 2026-08-28  
-**Status:** READY FOR DISPATCH  
+**Re-designed / re-anchored:** 2026-08-29  
+**Status:** READY FOR REDISPATCH AFTER REBASE  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-SURFACE-runbook-authoring-gateway.md`  
 **Workstream:** `PLAY-SURFACE / BF4A`  
 **Flow / owner:** `PLAY-SURFACE`  
 **Handoff direction:** DESIGN → CODE  
-**Suggested branch:** `agent/play-surface-runbook-authoring-gateway`  
+**Implementation branch / PR:** `agent/play-surface-runbook-authoring-gateway` / PR #660  
 **PR title:** `PLAY-SURFACE: make native Runbooks editable`
 
-> **Dispatch base:** `87a769d05605ff021d28f0b69c5d7ab0b8205440`
+> **Required re-dispatch base:** current `main` at or after
+> `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`, the merge of PLAN-BLANK-SHELL /
+> PR #661.
 >
-> This is current `main`, containing merged DF0 / PR #657.
->
-> Re-fetch `main` and inspect active write leases immediately before
-> implementation. Do not silently absorb overlapping work.
+> Re-fetch `main`, inspect active PRs/write leases, and rebase before any more
+> implementation work. The pre-rebase PR #660 head
+> `4423f3af47915b984d78f3f74a9f87c4d2d8a84b` is candidate code, not accepted
+> evidence. Mine it if useful; do not preserve a behavior merely because it is
+> already implemented there.
 
 Parent authorities:
 
@@ -42,154 +47,72 @@ Parent authorities:
 - `Docs/Design/DESIGN-play-current-moment-cockpit.md`
 - `Docs/Design/DESIGN-playable-authoring-and-adoption.md`
 - `Docs/Design/ARCHITECTURE-application-state-layer.md`
+- `Docs/Plans/HANDOFF-PLAN-SURFACE-blank-authoring-shell.md`
 - `Docs/Roadmaps/ROADMAP-con-ready.md`
 - `Docs/Plans/STEWARDS-ANCHOR-con-ready.md`
 
-Completed predecessors:
+Accepted predecessors:
 
 ```text
 BF2 / PR #652
-  DONE
-  accepted head:
-    9dffcab96ad3f527efedc3981aea805a63deb4df
-  merge:
-    39ef105d3996ef0062dd45a089fecada14915436
-  review cycles:
-    5
+  DONE — v2 Runtime admission
+  accepted head: 9dffcab96ad3f527efedc3981aea805a63deb4df
+  merge:         39ef105d3996ef0062dd45a089fecada14915436
+  review cycles: 5
 
 BF3A / PR #655
   DONE — Current Moment
-  accepted head:
-    3d5925c8ad1bdbe934020e1c4cd7f2f3fafbbec7
-  merge:
-    4d82f12ad9c6d679b5dbce83db527eb7dbd27957
-  review cycles:
-    2
+  accepted head: 3d5925c8ad1bdbe934020e1c4cd7f2f3fafbbec7
+  merge:         4d82f12ad9c6d679b5dbce83db527eb7dbd27957
+  review cycles: 2
 
 DF0 / PR #657
-  DONE — local Play dogfood gateway
-  accepted head:
-    dc20fe8e63eec691265e75eb73c69f441ffd779d
-  merge:
-    87a769d05605ff021d28f0b69c5d7ab0b8205440
-  review cycles:
-    3
+  DONE — local Play dogfood bootstrap
+  accepted head: dc20fe8e63eec691265e75eb73c69f441ffd779d
+  merge:         87a769d05605ff021d28f0b69c5d7ab0b8205440
+  review cycles: 3
+
+PLAN-BLANK-SHELL / PR #661
+  DONE — blank Plan is a real authoring surface state
+  accepted head: ffa0b18d6212a6780d6be90f91a25626bf15b464
+  merge:         770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
+  review cycles: 4
 ```
 
-Active parallel lanes at design time:
-
-```text
-#659 AGENT-INTERACTION
-  AgentRuntime / Hermes backend boundary
-  no BF4A write-lease overlap identified
-
-#651 CUTOVER
-  DungeonMind World Graph authority continuity
-  no BF4A write-lease overlap identified
-```
-
-BF3B status at dispatch:
-
-```text
-PAUSED ON PRODUCT PREREQUISITE
-
-Cockpit implementation has not started.
-The BF3B handoff remains useful and should not be rewritten to hide the stop.
-After BF4A merges, re-anchor BF3B onto then-current main and resume it.
-```
+BF3B remains blocked on BF4A. BF3B owns Runtime Decision selection, consequence
+presentation, and relevance changes; it must not be pulled into this PR.
 
 ---
 
-## §0 Why BF4A exists
+## §0 Why this re-anchor exists
 
-### 0.1 DF0 made Play reachable; BF3B exposed the next false assumption
-
-DF0 now proves the ordinary local path:
-
-```text
-explicit APP-STATE setup
-→ Play
-→ Create blank Runbook
-→ Start exact Run
-→ BF3A Current Moment
-→ reload/resume
-```
-
-The next intended capability, BF3B, is authored Decision interaction:
+The first BF4A design correctly identified the authoring gap but was written
+before we understood the Plan zero-material failure mode. PR #661 has now fixed
+that prerequisite:
 
 ```text
-Decision
-→ Options
-→ select/change/clear
-→ consequence
-→ derived relevance
+bare /plan
+→ truthful local blank shell
+→ Edit / Tools chrome remains mounted
+→ first Plan Save promotes local draft safely
+→ exact document load/error states retain shell chrome
 ```
 
-But a real GM cannot currently produce the Decision-bearing Runbook needed to
-dogfood BF3B through ordinary product UI.
+That means BF4A no longer owns blank-shell semantics.
 
-Observed product truth:
+It owns one smaller thing:
 
-```text
-Play Create blank Runbook
-  → one Untitled Beat
-  → no Decision / Option
-  → target_relpath = null
+> **A committed native Runbook that already exists must be reachable from Play,
+> editable in the existing Plan authoring surface, and saveable as the next
+> immutable Runbook WorkRevision even when `target_relpath` is null.**
 
-Play Runbook projection
-  → read/runtime surface, not authoring surface
+PR #660 Review Cycle 1 also exposed an independent authority flaw in the old
+implementation: exact Runbook editing could combine a Runbook from one campaign
+with Plan/World context from another campaign. This re-anchor resolves that as
+part of BF4A rather than leaving it as an implementation-time stop condition.
 
-Plan selector
-  → lists kind=plan only
-
-Plan ?documentId=<runbook UUID>
-  → can resolve the Runbook when the operator already knows the opaque ID
-
-Plan Canvas
-  → shared TipTap authoring machinery can load the Runbook
-
-Plan Save
-  → currently refuses the pathless Runbook because canSave requires
-     target_relpath != null
-```
-
-That hidden `?documentId=<uuid>` path proves the authoring substrate is close.
-It does **not** count as a product workflow.
-
-### 0.2 The owning defect
-
-The current Plan Canvas save gate encodes a filesystem-era assumption:
-
-```text
-save allowed only when target_relpath exists
-```
-
-That remains appropriate for current `kind=plan` behavior, but is wrong for an
-APP-STATE-native Runbook.
-
-A Runbook is now a first-class WorkObject / WorkRevision authority. Its durable
-identity is not a filesystem path. DF0 deliberately creates pathless Runbooks,
-and TipTap prepare/commit already supports them.
-
-Therefore BF4A freezes this product/architecture correction:
-
-> **A Runbook WorkObject does not require `target_relpath` to be edited or
-> committed. Path remains an optional projection/storage attribute; WorkObject
-> identity and immutable WorkRevision bytes are the authoring authority.**
-
-### 0.3 Why BF3B must wait
-
-Continuing BF3B with fixtures or a memorized `?documentId=` URL would repeat the
-pre-DF0 failure mode:
-
-```text
-automated test proves capability
-≠
-GM can actually reach capability
-```
-
-BF4A is therefore a narrow prerequisite, not a reprioritization away from
-BF3B.
+Finally, the handoff now freezes the actual small Runbook we intend to use for
+BF4A/BF3B dogfood. It is test/witness material, not production seed content.
 
 ---
 
@@ -197,98 +120,97 @@ BF3B.
 
 ### 1.1 Mission
 
-> **Make an existing native Runbook a normal editable product object. From the
-> Play Runbook chooser, a GM can explicitly open the selected Runbook in the
-> existing authoring surface, edit/paste canonical Markdown, and Save a new
-> immutable WorkRevision even when that Runbook has no `target_relpath`. No
-> existing Run is automatically rebased or moved.**
+> **From the ordinary Play Runbook chooser, a GM can select one committed native
+> Runbook, explicitly open that exact WorkObject in the existing Plan/TipTap
+> authoring surface, edit or paste canonical v2 Playable Markdown, and Save a
+> new immutable WorkRevision even when the Runbook has no `target_relpath`.
+> Existing Runs remain pinned to their historical revisions.**
 
 ### 1.2 Merge-ready invariant
 
-> **For any active committed `kind=runbook` WorkObject discoverable in Play,
-> including a DF0-created pathless Runbook, the operator can select it and use
-> an explicit `Edit Runbook` action to open that exact WorkObject in the normal
-> TipTap authoring surface. The editor loads the exact current document,
-> identifies it truthfully as a Runbook, permits ordinary editing and canonical
-> Markdown paste, and commits through the existing prepare/commit pipeline to a
-> new immutable WorkRevision. Pathless Runbooks are saveable; existing Plan
-> save rules remain unchanged. Saving never mutates an existing Play Run's
-> pinned revision, Runtime progress, manifest, current Beat/Scene, or active Run
-> selection.**
-
-### 1.3 What becomes true
+For any selected active committed `kind=runbook` WorkObject whose campaign is
+admissible to the current Plan context:
 
 ```text
 Play chooser
-→ select committed Runbook
 → Edit Runbook
-→ same WorkObject opens in ordinary editor
+→ /plan?documentId=<exact WorkObject UUID>
+→ truthful Runbook editor identity
+→ Unlock editing
 → edit / canonical Markdown paste
 → Save
-→ new immutable WorkRevision
-→ return to Play
-→ Start exact Run from current committed revision
-```
-
-For the DF0 blank object specifically:
-
-```text
-Create blank Runbook
-→ selected Blank Runbook
-→ Edit Runbook
-→ add canonical Beat/Scene/Decision/Option Markdown
-→ Save revision 2
+→ same WorkObject UUID
+→ next immutable WorkRevision
+→ hard reload exact URL
+→ exact committed content survives
 → Play
 → Start exact Run
-→ revision 2 is the explicit new-Run binding
+→ new Run binds the new revision
 ```
 
-### 1.4 What remains false
+At the same time:
 
 ```text
-structure-aware Beat insertion
-structure-aware Scene insertion
-Insert Decision control
-Insert Option control
-branch editor
-activates/suppresses visual authoring
-BF3B Decision runtime controls
-automatic Run rebase
-automatic Start Run
-automatic World publication
-Runbook filesystem-path creation
-mixed Plan/Runbook selector redesign
-new persistence
-new backend endpoint
+an existing Run pinned to revision N
+remains pinned to revision N
+when Runbook revision N+1 is committed
 ```
+
+No Save may automatically start, rebase, switch, or mutate a Run.
+
+### 1.3 First-use path enabled by the predecessor
+
+DF0 + PLAN-BLANK-SHELL make this ordinary path possible:
+
+```text
+Play chooser
+→ Create blank Runbook
+→ newly committed blank Runbook remains selected
+→ Edit Runbook
+→ Plan authoring surface
+→ replace the minimal Beat-only material with canonical v2 material
+→ Save revision N+1
+→ Play
+→ Start exact Run from N+1
+```
+
+No Run needs to exist before editing.
 
 ---
 
-## §2 Capability decomposition
+## §2 Atomic capability boundary
 
-| Candidate | Decision |
-|---|---|
-| `Edit Runbook` from ordinary Play chooser | **KEEP — core mission** |
-| Open exact selected Runbook WorkObject in existing editor | **KEEP** |
-| Save pathless `kind=runbook` through existing TipTap pipeline | **KEEP** |
-| Preserve current Plan path requirement | **KEEP — regression law** |
-| Canonical Markdown paste in Runbook | **KEEP — reuse existing capability** |
-| Commit immutable next WorkRevision | **KEEP — existing authority** |
-| Return to Play through ordinary AppChrome navigation | **KEEP — existing navigation** |
-| Existing Run remains pinned to old revision after Save | **KEEP — mandatory authority proof** |
-| Add Runbooks to normal Plan selector | **REJECT / DEFER** |
-| Rename Plan surface to generic Authoring | **REJECT** |
-| New Runbook editor route | **REJECT unless stop condition proves reuse impossible** |
-| Structure-aware authoring palette | **SPLIT — BF4** |
-| Decision/Option insert controls | **SPLIT — BF4** |
-| BF3B runtime selection UI | **SPLIT — BF3B** |
-| Auto-rebase current Run after Save | **REJECT** |
-| Auto-start new Run after Save | **REJECT** |
-| Create filesystem target for pathless Runbook | **REJECT** |
-| Change WorkObject / WorkRevision schema | **REJECT** |
-| New backend persistence/API | **REJECT** |
+### KEEP — this PR
 
-This slice must stay one independently useful capability:
+- Explicit `Edit Runbook` action from the selected Runbook in `StartRunPanel`.
+- Exact WorkObject UUID navigation; list reorder/refresh cannot retarget it.
+- Truthful `kind=runbook` identity in the authoring surface.
+- Runbook-specific exact-document campaign admission.
+- Pathless Runbook Save through the existing shared prepare/commit pipeline.
+- Existing path-backed/path-required Plan Save behavior unchanged.
+- Same WorkObject identity, new immutable WorkRevision.
+- Canonical v2 Beat/Scene/Decision/Option Markdown survives edit → Save → reload.
+- Existing Run remains pinned to its historical revision.
+- New explicit Run may bind the new revision.
+- Real browser witness using the representative Runbook in §5.
+
+### SPLIT / REJECT
+
+- Structure-aware `Add Beat`, `Add Scene`, `Add Decision`, `Add Option` controls — BF4.
+- Decision selection/change/clear UI — BF3B.
+- Runtime relevance presentation — BF3B.
+- Mixed Plan/Runbook default selector — defer.
+- Generic Authoring product/router redesign — reject for this slice.
+- New Runbook save endpoint or persistence model — reject.
+- WorkObject/WorkRevision schema changes — reject.
+- BF1 grammar changes — reject.
+- Automatic Run rebase — reject.
+- Automatic Start Run — reject.
+- Fake filesystem target for a pathless Runbook — reject.
+- World publication/canon adoption — reject.
+- Agent authoring — later lane.
+
+This must remain one independently useful capability:
 
 > **Reopen and save the Runbook you already have.**
 
@@ -296,855 +218,682 @@ This slice must stay one independently useful capability:
 
 ## §3 Product interaction contract
 
-### 3.1 Play is the discovery point
+### 3.1 Play remains the discovery point
 
-DF0 already makes active Runbooks visible inside `StartRunPanel`.
-
-BF4A extends that existing product point rather than teaching the operator an
-opaque UUID URL.
-
-Required chooser behavior:
+`StartRunPanel` already lists active Runbooks and leaves a newly created blank
+Runbook selected. BF4A adds one explicit action bound to that selected record:
 
 ```text
-Start a Run
-
-[ Blank Runbook · <id> ]   selected
+[ selected Runbook ]
 
 [ Edit Runbook ]
 [ Start exact Run ]
 ```
 
-`Edit Runbook` is enabled only when a Runbook is selected.
-
-A newly created blank Runbook is already selected by DF0, so the immediate
-first-use flow is:
+No selection:
 
 ```text
-Create blank Runbook
-→ Edit Runbook
+Edit Runbook disabled or absent
 ```
 
-No Run must be created merely to unlock editing.
+The edit target is the selected record's exact `document_id`, never title,
+list index, target path, latest Run, or remembered previous selection.
 
-### 3.2 Navigation identity
+### 3.2 Navigation
 
-The edit action must navigate using the exact WorkObject UUID already owned by
-Play:
+Use the existing exact document route:
 
 ```text
-/plan?documentId=<exact runbook document_id>
+/plan?documentId=<runbook.document_id>
 ```
 
-or the equivalent existing document-selection helper.
+No new Runbook editor route is authorized unless reuse proves impossible and
+the implementer stops for design review.
 
-Do not derive identity from:
+### 3.3 Truthful Runbook identity
+
+Once exact admission succeeds, the authoring surface must make it obvious that
+the operator is editing a Runbook rather than silently treating it as a Plan.
+
+At minimum:
 
 ```text
-title
-filesystem path
-target session
-list position
-latest Run
+Runbook kind is preserved
+Runbook title is visible
+exact WorkObject is the Canvas/Agent durable identity
 ```
 
-Do not create a second Runbook copy for editing.
+Opaque UUID may remain diagnostic identity; it must not be the primary label.
 
-### 3.3 Existing Plan selector remains Plan-only
+### 3.4 Return path
 
-BF4A does not broaden the normal Plan selector.
-
-Current default Plan behavior remains:
-
-```text
-no explicit documentId
-→ list/select kind=plan
-```
-
-The Runbook enters the editor only through an explicit exact document identity
-from Play.
-
-This keeps the slice narrow and avoids prematurely deciding that Plan should
-become a generic mixed-document browser.
-
-### 3.4 Truthful editor identity
-
-When the explicitly opened document is `kind=runbook`, the authoring surface
-must not silently coerce it to `kind=plan`.
-
-At minimum the visible authoring context must make the loaded object's title
-and Runbook kind recoverable to the operator.
-
-Preferred human-facing framing:
-
-```text
-Editing Runbook · Blank Runbook
-```
-
-Exact wording is not frozen, but the operator must not reasonably believe they
-are editing a different Plan WorkObject.
-
-Do not expose opaque document UUID as the primary label.
-
-### 3.5 Return to Play
-
-No bespoke return-stack state is authorized.
-
-Ordinary AppChrome `Play` navigation is sufficient:
-
-```text
-Save
-→ Play
-→ chooser / existing Run
-```
-
-The editor does not auto-start or auto-rebase anything on exit.
+Normal AppChrome Play navigation is sufficient. Do not add a durable return
+stack or auto-navigation after Save.
 
 ---
 
-## §4 Save contract
+## §4 Campaign authority law
 
-### 4.1 Kind-aware save eligibility
-
-The current Canvas guard is conceptually:
+The pre-reanchor PR #660 allowed this unsafe shape:
 
 ```text
-canSave = targetRelpath exists
+selected Runbook campaign = C1
+PlanView / World context  = C2
+→ exact document opened under C2 session/graph authority
 ```
 
-BF4A changes the product law to:
+BF4A must fail closed on that mismatch.
+
+### 4.1 Product guard
+
+When Play has a known `productCampaignId` and the selected Runbook has a
+different `campaign_id`, `Edit Runbook` must not open the Runbook as though the
+current context were compatible.
+
+Preferred behavior:
 
 ```text
-kind == plan
-  → retain existing targetRelpath requirement
-
-kind == runbook
-  → targetRelpath may be null
-  → ordinary authoring/save is allowed
+Edit Runbook disabled
+→ visible reason identifies campaign mismatch
 ```
 
-Do not globally delete the Plan guard.
+Starting/opening a Run is a separate Play capability and is not changed merely
+to make this edit guard convenient.
 
-Do not fabricate a target path merely to satisfy the old condition.
+### 4.2 Plan exact-admission guard
 
-### 4.2 Existing TipTap authoring pipeline remains owner
+Defense in depth is mandatory. A direct URL must not bypass the product guard.
 
-Runbook Save must continue through the ordinary shared authoring machinery:
+For an exact requested document that resolves to `kind=runbook`:
 
 ```text
-WorkspaceDocument snapshot
-→ TipTap editor
-→ prepare write
-→ commit write
-→ immutable WorkRevision
-→ refreshed WorkspaceDocument record/snapshot
+record.campaign_id == planView.campaign_id
+  → Runbook may be admitted to authoring
+
+record.campaign_id != planView.campaign_id
+  → truthful load/admission error
+  → no durable Runbook Canvas/Agent authority is published
+  → blank-shell/error-shell chrome remains available per PR #661
 ```
 
-Do not introduce:
+Do not silently rewrite `planView.campaign_id`.
+Do not switch World Graph focus as a side effect of opening a Runbook.
+Do not invent cross-campaign publication semantics.
 
-```text
-Runbook-specific save endpoint
-Runbook-specific database writer
-raw SQL
-filesystem side write
-special BF4A revision store
-```
+Preserve existing exact `kind=plan` behavior unless a separate proven defect is
+encountered. This PR needs only the Runbook-specific guard.
 
-### 4.3 Canonical Markdown paste is enough for BF4A
+### 4.3 Unknown product campaign
 
-The existing semantic/canonical Markdown path is sufficient for the BF3B
-prerequisite.
+If Play has no product campaign context, the edit action may navigate using the
+exact selected UUID, but Plan's exact-admission guard remains authoritative.
+A mismatch must still fail closed rather than borrowing the requested
+Runbook's campaign automatically.
 
-A GM may paste/edit canonical v2 material such as:
+---
+
+## §5 Representative BF4A/BF3B Runbook material
+
+This material is deliberately small. It exists to prove the ordinary authoring
+path and then become BF3B's Decision/relevance dogfood input.
+
+It is **not** a production fixture, automatic seed, migration payload, sample
+campaign, or new canonical content object.
+
+The exact IDs below are intentionally stable for the witness.
 
 ```markdown
+# Breach Dogfood Runbook
+
 <!-- dmb-playable-element:v2 kind=beat id=beat:hold-breach beat_kind=spine -->
 ## Hold the Breach
+
+Creatures have broken through the defensive wall. The party must decide
+whether to pursue the surviving brood or stabilize the breach before the line
+fails completely.
 
 <!-- dmb-playable-element:v2 kind=scene id=scene:north-gate -->
 ### North Gate
 
-<!-- dmb-playable-element:v2 kind=choice id=choice:brood [scene=scene:north-gate] -->
+The gate is damaged, the last creatures are retreating toward a broken tunnel,
+and exhausted defenders are trying to stabilize the wall.
+
+<!-- dmb-playable-element:v2 kind=choice id=choice:surviving-brood scene=scene:north-gate -->
 ### What do they do with the surviving brood?
 
-<!-- dmb-playable-element:v2 kind=option id=option:follow activates=scene:tunnel-pursuit -->
+The brood is disappearing underground while the defenders call for help at the
+breach.
+
+<!-- dmb-playable-element:v2 kind=option id=option:follow-brood activates=scene:tunnel-pursuit,beat:lower-tunnels -->
 - Follow it
 
-  The party pursues it into the lower tunnel.
+  The party pursues the retreating creatures into the lower tunnels before
+  reinforcements arrive.
 
-<!-- dmb-playable-element:v2 kind=option id=option:seal suppresses=scene:tunnel-pursuit -->
+<!-- dmb-playable-element:v2 kind=option id=option:seal-breach suppresses=scene:tunnel-pursuit -->
 - Seal the breach
 
-  The immediate breach closes, but the brood remains below.
+  The immediate breach is contained, but the surviving creatures remain
+  somewhere below.
 
 <!-- dmb-playable-element:v2 kind=scene id=scene:tunnel-pursuit -->
 ### Tunnel Pursuit
+
+The party enters a damaged tunnel after the fleeing creatures while loose stone
+and timbers shift overhead.
+
+<!-- dmb-playable-element:v2 kind=beat id=beat:lower-tunnels beat_kind=optional -->
+## Lower Tunnels
+
+Following the brood deeper turns the defense of the gate into a search below
+the fortifications.
 ```
 
-The exact example syntax must be validated against the current BF1 grammar
-before using it in tests/dogfood. Do not weaken BF1 parsing merely to accept a
-bad example in this handoff.
+### 5.1 Structural expectations
 
-BF4A does **not** add buttons for creating those structures.
+After parse/index/Save/reload:
 
-### 4.4 Commit means new immutable revision
+```text
+Runbook
 
-Starting state:
+beat:hold-breach [spine]
+  scene:north-gate
+  choice:surviving-brood [associated with scene:north-gate]
+    option:follow-brood
+      activates scene:tunnel-pursuit
+      activates beat:lower-tunnels
+    option:seal-breach
+      suppresses scene:tunnel-pursuit
+  scene:tunnel-pursuit
+
+beat:lower-tunnels [optional]
+```
+
+### 5.2 Grammar laws the witness must prove
+
+- v2 Beat = H2.
+- v2 Scene and Decision/wire `choice` = H3 Beat-owned siblings.
+- Option = marked list item, **not a heading**.
+- Option marker immediately precedes its list item.
+- Choice prose and Option body remain disjoint after round-trip.
+- `scene=scene:north-gate` is the Decision's same-Beat Scene association.
+- `activates` / `suppresses` target exact existing Beat/Scene IDs.
+- Future targets are legal.
+- Activation/suppression are authored relevance intent, not navigation gates.
+- No parser/serializer weakening is permitted to make this sample pass.
+
+If this exact material is rejected by current BF1 grammar, first determine
+whether the handoff sample is wrong. Correct the sample; do not casually alter
+BF1.
+
+---
+
+## §6 Save and revision contract
+
+### 6.1 Kind-aware Save law
+
+BF4A changes only this product rule:
+
+```text
+kind == plan
+  → retain existing Plan save eligibility/path rules
+
+kind == runbook
+  → target_relpath may be null
+  → ordinary Save is allowed
+```
+
+Do not globally remove the path guard.
+Do not fabricate a target path.
+
+### 6.2 Existing authoring authority remains owner
+
+Runbook Save uses the existing shared pipeline:
+
+```text
+exact WorkspaceDocument snapshot
+→ TipTap working state
+→ prepare
+→ commit
+→ immutable WorkRevision
+→ refreshed exact WorkspaceDocument/committed snapshot
+```
+
+Do not create a Runbook-specific writer, endpoint, database table, or raw SQL
+path.
+
+### 6.3 Revision identity
+
+Given:
 
 ```text
 WorkObject W
-current committed revision = 1
+current committed WorkRevision N
 ```
 
-After edit + Save:
+After Save:
 
 ```text
-WorkObject W          same identity
-revision 1            still immutable/loadable
-revision 2            new committed bytes
-current committed revision = 2
+WorkObject W           unchanged
+WorkRevision N         immutable and still loadable
+WorkRevision N+1       newly committed
+current head           N+1
 ```
 
-Do not mint a replacement WorkObject.
-
-Do not rewrite revision 1.
+The editor must reload the newly committed bytes for W without minting W2.
 
 ---
 
-## §5 Existing Run isolation
+## §7 Existing Run isolation
 
-This is a mandatory BF4A invariant, not deferred cleanup.
+This is mandatory acceptance, not a regression footnote.
 
-Suppose:
-
-```text
-Run R
-  playable_artifact_id = W
-  playable_revision = 1
-  playable_content_sha256 = sha(revision 1)
-```
-
-Then the operator edits W and commits revision 2.
-
-Required result:
+Given Run R already pins W revision N:
 
 ```text
-Run R remains:
-  playable_artifact_id = W
-  playable_revision = 1
-  playable_content_sha256 = sha(revision 1)
-
-Run R manifest unchanged
-Run R progress unchanged
-Run R current Beat/Scene unchanged
+R.playable_artifact_id = W
+R.playable_revision    = N
+R.playable_content_sha = sha(N)
 ```
 
-Opening R after the Save must continue to read exact historical revision 1.
+Then Save W revision N+1.
 
-A new explicit Start Run from W may bind revision 2.
-
-BF4A must not call or simulate rebase.
-
-### 5.1 Why this matters for dogfood
-
-The intended BF3B material path is:
+Required:
 
 ```text
-Create blank Runbook revision 1
-→ Edit + Save Decision-bearing revision 2
-→ Start exact Run
-→ new Run pins revision 2
+R still pins W / N / sha(N)
+R sealed manifest unchanged
+R progress unchanged
+R current Beat/Scene unchanged
+R still loads exact historical N bytes
 ```
 
-But BF4A must also remain safe when the GM edits a Runbook that already has a
-live historical Run.
+Only a new explicit Start Run may bind N+1.
+
+No BF4A code may call rebase or imitate rebase behavior.
 
 ---
 
-## §6 Error / concurrency posture
+## §8 Write lease
 
-BF4A inherits the existing workspace-document authoring state machine.
+Re-check exact current `main` and all active PR leases before editing.
 
-Do not invent a second conflict model.
+### 8.1 Create / replace handoff
 
-Required behavior:
+- `Docs/Plans/HANDOFF-PLAY-SURFACE-runbook-authoring-gateway.md`
+
+### 8.2 Play chooser
+
+Modify:
+
+- `apps/live-control-ui/src/playSurface/StartRunPanel.tsx`
+- `apps/live-control-ui/src/playSurface/StartRunPanel.test.tsx`
+
+Allowed bounded helper if useful:
+
+- one small pure navigation/campaign-admission helper under
+  `apps/live-control-ui/src/playSurface/`
+- focused test for that helper.
+
+`apps/live-control-ui/src/playSurface/playSurface.css` may change only if the
+new action/disabled reason requires bounded presentation.
+
+### 8.3 Plan exact Runbook admission + Save
+
+Modify:
+
+- `apps/live-control-ui/src/planSurface/components/PlanSurfaceCanvas.tsx`
+- `apps/live-control-ui/src/planSurface/config/planSessionDescriptor.ts`
+- the corresponding existing focused tests, including
+  `PlanSurfaceShell.test.tsx` when integration coverage is required.
+
+Preferred bounded new test:
+
+- `apps/live-control-ui/src/planSurface/PlanSurfaceRunbookAuthoring.test.tsx`
+
+Do not redesign the default Plan selector.
+
+### 8.4 App integration
+
+Modify `apps/live-control-ui/src/App.test.tsx` only if owning-component tests
+cannot prove the route/integration contract.
+
+### 8.5 Predecessor/state cleanup in the implementation PR
+
+The implementation PR may update:
+
+- `Docs/Plans/HANDOFF-PLAN-SURFACE-blank-authoring-shell.md`
+- `Docs/Roadmaps/ROADMAP-con-ready.md`
+- `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-con-ready.md`
+- `Docs/Plans/STEWARDS-ANCHOR-con-ready.md`
+- `Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md`
+
+Record PR #661 as merged at `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`
+with 4 formal review cycles, then mark BF4A current/in flight and BF3B blocked on
+BF4A until merge.
+
+The old branch-local note
+`Docs/Plans/NOTE-PLAY-SURFACE-authoring-blank-shell-design-correction.md` may be
+deleted or marked historical/resolved so it does not continue to claim an open
+design decision already resolved by #661.
+
+### 8.6 Explicitly unleased
+
+- `Backlog.md` — old #660 changes here must be absent from the rebased diff.
+- BF1 parser/grammar/serializer production files.
+- Play Run schema/progress semantics.
+- APP-STATE migrations/repositories.
+- workspace-document backend APIs.
+- TipTap prepare/commit backend APIs.
+- default Plan selector mixed-kind behavior.
+- global EditHost / ToolHost semantics.
+- blank-shell local promotion state machine.
+- BF3B current-moment Decision files.
+- Agent Interaction.
+- World Graph / CUTOVER.
+- Combat.
+
+If the rebase shows another active lane owns one of §8.2–§8.5 paths, stop and
+resolve the lease before editing.
+
+---
+
+## §9 Error and concurrency posture
+
+Reuse existing exact-document and authoring failure states.
+
+Required:
 
 ```text
-load failure
-→ truthful editor failure
-→ no replacement WorkObject
+Runbook load failure
+→ truthful Plan load/error shell
+→ no fabricated document
+
+campaign mismatch
+→ fail closed
+→ no Runbook durable authority publication
 
 prepare/commit conflict
-→ existing authoring conflict handling
-→ no silent overwrite
+→ existing authoring conflict/recovery posture
+→ no duplicate WorkObject
 
-save failure
-→ current committed revision remains authoritative
-→ local draft/recovery behavior remains owned by shared authoring machinery
-
-successful commit
-→ success only for the exact loaded WorkObject
+unknown outcome
+→ exact authoritative reread/reconciliation
+→ no blind replay that creates a new Runbook
 ```
 
-### 6.1 Navigation races
-
-If the operator selects Runbook A and clicks Edit, the exact UUID for A is the
-navigation authority.
-
-A stale chooser refresh or list reorder must not navigate to another Runbook.
-
-Do not key the transition to selected array index.
-
-### 6.2 Campaign/context mismatch
-
-The explicit document loader already allows a named WorkObject to resolve.
-BF4A must not broaden cross-campaign authority accidentally.
-
-If implementation discovers that opening the exact Runbook through Plan can
-publish or bind a different campaign context than the Runbook's own
-`campaign_id`, STOP and report the mismatch rather than silently normalizing it.
-
-This handoff does not authorize a broad campaign-context redesign.
+The blank Plan first-save promotion controller is not involved when editing an
+already committed Runbook. Do not route Runbook revision Save through local
+blank promotion merely because Plan now owns that state machine.
 
 ---
 
-## §7 Write lease
+## §10 Verification contract
 
-### 7.1 Handoff
+### 10.1 Play chooser tests
 
-| Action | Path |
-|---|---|
-| Create | `Docs/Plans/HANDOFF-PLAY-SURFACE-runbook-authoring-gateway.md` |
+Prove:
 
-### 7.2 Play chooser entry
+- no selected Runbook → Edit disabled/absent;
+- selecting a Runbook binds Edit to that exact UUID;
+- list reorder/refresh cannot retarget Edit;
+- Create blank Runbook → committed Runbook remains selected → Edit available;
+- Edit does not create a Run or seal a manifest;
+- known product campaign mismatch → Edit cannot silently open the Runbook;
+- Start exact Run behavior remains unchanged.
 
-| Action | Path | Purpose |
-|---|---|---|
-| Modify | `apps/live-control-ui/src/playSurface/StartRunPanel.tsx` | explicit Edit selected Runbook action |
-| Modify | `apps/live-control-ui/src/playSurface/StartRunPanel.test.tsx` | selection/navigation/no-auto-start proof |
-| Modify if needed | `apps/live-control-ui/src/playSurface/playSurface.css` | bounded chooser action layout only |
+### 10.2 Plan exact-admission tests
 
-A tiny pure navigation helper may be added under:
+Prove:
 
-```text
-apps/live-control-ui/src/playSurface/
-```
+- exact same-campaign `kind=runbook` resolves normally;
+- exact cross-campaign Runbook fails closed;
+- failure publishes no durable Runbook document identity;
+- Edit/Tools chrome remains present through the #661 error-shell contract;
+- exact Plan behavior is unchanged by the Runbook-specific guard.
 
-only if it materially improves exact-identity tests.
+### 10.3 Runbook authoring tests
 
-Do not add a routing framework.
+Prove:
 
-### 7.3 Runbook save gate
+- pathless Runbook Save is enabled once editing is unlocked and document is
+  otherwise saveable;
+- pathless Plan remains governed by existing Plan law;
+- path-backed Plan remains unchanged;
+- Save calls the existing prepare/commit authority;
+- same WorkObject UUID survives Save;
+- immutable revision number advances;
+- committed/reloaded Markdown matches the edited material;
+- Runbook `kind` remains `runbook`;
+- no filesystem path is fabricated.
 
-| Action | Path | Purpose |
-|---|---|---|
-| Modify | `apps/live-control-ui/src/planSurface/components/PlanSurfaceCanvas.tsx` | kind-aware pathless Runbook save eligibility |
+### 10.4 Canonical v2 round-trip test
 
-### 7.4 Authoring integration tests
-
-Preferred lease:
-
-| Action | Path |
-|---|---|
-| Create | `apps/live-control-ui/src/planSurface/PlanSurfaceRunbookAuthoring.test.tsx` |
-| Modify if needed | `apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx` |
-
-Use the smallest test surface that exercises the real `PlanSurfaceShell` /
-`PlanSurfaceCanvas` + shared authoring path.
-
-Do not mock away the save eligibility condition being changed.
-
-### 7.5 App route proof
-
-| Action | Path |
-|---|---|
-| Modify if required | `apps/live-control-ui/src/App.test.tsx` |
-
-Only lease this if the Play→Plan route transition cannot be proven at the
-owning components without it.
-
-### 7.6 DF0 / sequencing state sync
-
-The implementation PR carries the backward-looking predecessor update:
-
-| Action | Path |
-|---|---|
-| Modify | `Docs/Plans/HANDOFF-PLAY-SURFACE-local-dogfood-bootstrap.md` |
-| Modify | `Docs/Roadmaps/ROADMAP-con-ready.md` |
-| Modify | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-con-ready.md` |
-| Modify | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` |
-| Modify | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md` |
-
-Do not mark BF4A DONE inside its own implementation PR before review/merge.
-
-### 7.7 Explicitly unleased
-
-Do not modify:
+Use the §5 material or byte-equivalent canonical material to prove:
 
 ```text
-BF1 grammar/parser/serializer
-v2 manifest schema
-Play Run schema
-Play progress semantics
-Play Run registry/backend routes
-APP-STATE migrations
-Content repository/service schemas
-workspace-document backend APIs
-TipTap prepare/commit backend APIs
-Plan selector default kind=plan query
-Agent Interaction
-World Graph / CUTOVER
-Combat
-BF3B cockpit files
+Markdown
+→ TipTap admission
+→ ordinary edit/save serialization
+→ committed reload
+→ v2 structure index
 ```
 
-In particular, do not start:
-
-```text
-PlayCurrentMomentCockpit Decision UI
-NativeRunbookOptionV2 BF3B edge projection
-selection CAS work
-```
-
-inside BF4A.
-
----
-
-## §8 State-authority sync required in implementation PR
-
-### 8.1 DF0 completion
-
-Append to:
-
-```text
-Docs/Plans/HANDOFF-PLAY-SURFACE-local-dogfood-bootstrap.md
-```
-
-approximately:
-
-```text
-## Completion
-
-PR #657 merged.
-
-Accepted implementation head:
-  dc20fe8e63eec691265e75eb73c69f441ffd779d
-
-Merge:
-  87a769d05605ff021d28f0b69c5d7ab0b8205440
-
-Formal review cycles:
-  3
-
-DF0 outcome:
-  DONE
-
-Real operator witness:
-  zero startable Runbooks
-  → Create blank Runbook
-  → Start exact Run
-  → Beat-only Current Moment
-  → reload/resume
-
-Successor sequencing discovery:
-  BF3B remains the next table capability, but its real Decision-bearing
-  dogfood material is not product-reachable yet.
-
-Immediate predecessor:
-  BF4A — native Runbook authoring gateway
-```
-
-Do not rewrite the original DF0 dispatch or review-amendment history.
-
-### 8.2 Roadmap target state
-
-```text
-BF2
-  DONE
-
-BF3A
-  DONE
-
-DF0 / PR #657
-  DONE
-  accepted head dc20fe8e...
-  merge 87a769d...
-  review cycles 3
-
-BF4A
-  CURRENT — reopen/save native Runbook WorkObjects
-
-BF3B
-  BLOCKED ON BF4A — Decision interaction and visible relevance
-
-BF4
-  later — structure-aware Playable authoring controls
-
-BF3C / BF3.x / P3
-  later
-
-P4
-  later
-```
-
-### 8.3 CR-U11 / CR-U15 truth
-
-Preferred update:
-
-```text
-CR-U11 — PARTIAL
-
-Runbook WorkObjects / immutable WorkRevisions are durable. DF0 can create a
-blank native Runbook. BF4A owns the missing ordinary reopen/edit/save path for
-that native WorkObject. Structure-aware Beat/Scene/Decision authoring remains
-BF4.
-
-CR-U15 — PARTIAL
-
-BF3A Current Moment and DF0 local Play entry are merged. BF3B remains the next
-runtime capability but is blocked on BF4A because a Decision-bearing Runbook
-must first be product-authorable. Retrieval, notes UX, and Combat remain
-incomplete.
-```
-
-Canonical/mirror pairs must remain byte-identical.
-
----
-
-## §9 Required evidence
-
-### 9.1 Play chooser tests
-
-Run:
-
-```bash
-pnpm --dir apps/live-control-ui exec vitest run \
-  src/playSurface/StartRunPanel.test.tsx
-```
-
-Must prove:
-
-1. no selection → Edit Runbook disabled/absent;
-2. select existing Runbook → Edit Runbook targets exact document UUID;
-3. create blank Runbook → committed object remains selected → Edit available;
-4. Edit does not call `putPlayRun`;
-5. Edit does not call manifest sealing;
-6. Edit does not mutate selected Runbook identity;
-7. list reorder/refresh cannot retarget the exact edit navigation;
-8. Start exact Run behavior remains unchanged.
-
-### 9.2 Runbook authoring integration
-
-Use a real `kind=runbook` descriptor with:
-
-```text
-targetRelpath = null
-contentStatus = committed
-revision = 1
-```
-
-Exercise the existing editor/authoring pipeline.
-
-Must prove:
-
-1. explicit documentId resolves the exact Runbook WorkObject;
-2. Runbook content loads into the normal editor;
-3. the editor is interactive under the ordinary edit-unlocked state;
-4. pathless Runbook Save is enabled;
-5. Save uses existing prepare/commit calls;
-6. committed response remains the same document UUID;
-7. revision advances;
-8. saved/reloaded Markdown equals the committed content;
-9. Runbook kind remains Runbook;
-10. no target path is fabricated;
-11. a pathless `kind=plan` does **not** gain Save permission;
-12. an ordinary path-backed Plan remains unchanged.
-
-Preferred command:
-
-```bash
-pnpm --dir apps/live-control-ui exec vitest run \
-  src/planSurface/PlanSurfaceRunbookAuthoring.test.tsx \
-  src/planSurface/PlanSurfaceShell.test.tsx
-```
-
-Adjust only to exact test paths created/owned by the implementation.
-
-### 9.3 Canonical v2 round-trip witness
-
-The integration test must not merely change plain prose.
-
-Starting from the DF0 one-Beat Runbook, paste/edit a small valid canonical v2
-Decision-bearing document and prove:
-
-```text
-editor
-→ Save
-→ committed WorkRevision
-→ reload exact Runbook
-→ BF1 structure remains admitted
-```
-
-Use existing parser/indexer as the assertion boundary. Do not duplicate grammar
-validation in BF4A test code.
-
-This is specifically intended to establish real material for resumed BF3B.
-
-### 9.4 Historical Run isolation regression
-
-Prove the authority invariant:
-
-```text
-Run R pins W revision 1
-→ edit/save W revision 2
-→ R still resolves revision 1
-→ new Start Run from W resolves revision 2
-```
-
-Prefer existing real-PostgreSQL APP-STATE/Play helpers rather than introducing
-a new product API.
-
-If an existing owning test already proves the first half, rerun and cite it;
-add only the smallest missing integration needed to connect the BF4A edit to
-that invariant.
-
-No direct SQL should be used as the product-success witness.
-
-### 9.5 App regression
-
-If `App.test.tsx` is leased:
-
-```bash
-pnpm --dir apps/live-control-ui exec vitest run src/App.test.tsx
-```
+Assert at minimum:
+
+- `beat:hold-breach` spine;
+- `scene:north-gate` parent Beat;
+- `choice:surviving-brood` Scene association;
+- exactly two Options;
+- Choice prose excludes Option consequence bodies;
+- Option bodies remain attached to the correct Option;
+- follow Option activates `scene:tunnel-pursuit` and `beat:lower-tunnels`;
+- seal Option suppresses `scene:tunnel-pursuit`;
+- `scene:tunnel-pursuit` and `beat:lower-tunnels` exist as exact targets;
+- Option remains a list item after reload.
+
+Use the existing parser/indexer assertion boundary. Do not duplicate grammar in
+a BF4A-only parser.
+
+### 10.5 Historical Run isolation test
 
 Prove:
 
 ```text
-Play chooser
-→ Edit selected Runbook
-→ Plan authoring route names exact documentId
+commit W rev N
+→ Start Run R pinned to N
+→ edit/save W rev N+1
+→ reopen R
+→ R still resolves N bytes/digest/manifest/progress
+→ new explicit Start Run resolves N+1
 ```
 
-and existing Play/Plan routing remains green.
+### 10.6 Backend regressions
 
-### 9.6 Frontend build
+At minimum rerun the existing tests owning:
 
-```bash
+- blank Runbook create/start path;
+- historical Runbook revision binding;
+- Play Run progress/manifest integrity if touched indirectly.
+
+No backend production change is expected.
+
+### 10.7 Build/static
+
+Required:
+
+```text
 pnpm --dir apps/live-control-ui run build
 git diff --check
 ```
 
-### 9.7 Relevant backend regression
-
-BF4A should not modify backend production code, but rerun the existing owning
-Runbook revision / Play historical-binding tests that implementation identifies.
-
-At minimum retain DF0's end-to-end path:
-
-```bash
-uv run pytest tests/test_blank_runbook_play_path.py -q
-```
-
-and the Play Runtime progress/binding suite relevant to historical pinning.
-
-### 9.8 Mirrors
-
-```bash
-cmp Docs/Roadmaps/ROADMAP-con-ready.md \
-    Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-con-ready.md
-
-cmp Docs/Plans/STEWARDS-ANCHOR-con-ready.md \
-    Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md
-```
+Canonical/mirror roadmap + steward pairs must remain byte-identical.
 
 ---
 
-## §10 Mandatory real operator dogfood witness
+## §11 Mandatory real browser dogfood
 
-Automated authoring tests are not sufficient. BF4A exists because ordinary UI
-reachability is the acceptance boundary.
+Automated fixtures are not sufficient. This slice exists because hidden exact
+routes and fixture-authored material previously produced false confidence.
 
-### 10.1 Primary zero-to-Decision material path
+Use ordinary Chrome/browser UI against normal servers and a disposable or
+operator-approved PostgreSQL application-state database.
 
-Use the actual local product after normal DF0 bootstrap.
+### Witness A — blank Runbook → real authored v2 revision → new Run
 
-Required browser flow:
+1. Re-anchor to the exact reviewed head and start normal backend/frontend.
+2. Open Play chooser under the same campaign Plan will admit.
+3. Create a blank Runbook through the existing product action.
+4. Record its exact WorkObject UUID and committed revision N.
+5. Confirm no Run was auto-created.
+6. Click `Edit Runbook`; do not copy/paste a UUID into the URL manually.
+7. Confirm Plan opens the same Runbook with Edit/Tools chrome and truthful
+   Runbook identity.
+8. Unlock editing through ordinary UI.
+9. Replace/edit the minimal blank material with the canonical §5 Runbook.
+10. Save through ordinary UI.
+11. Confirm `target_relpath` remains null.
+12. Confirm the WorkObject UUID is unchanged and committed revision is N+1.
+13. Hard reload `/plan?documentId=<same UUID>`.
+14. Confirm the authored Beat/Scene/Decision/Options/consequences survive.
+15. Navigate to Play through ordinary AppChrome.
+16. Select the same Runbook and Start exact Run.
+17. Confirm the Run binds N+1 and reaches native v2 READY.
+18. Confirm current Beat is `Hold the Breach`; a current Scene is not fabricated
+    merely by admission.
+19. Confirm `North Gate` and `Tunnel Pursuit` are visible as real authored
+    Scenes through the existing BF3A projection.
+20. Optionally Make `North Gate` Current to prove the authored Scene is usable;
+    do not require BF3B Decision controls yet.
 
-```text
-1. Open Play chooser.
-2. Create blank Runbook if no suitable disposable Runbook exists.
-3. Confirm Blank Runbook is selected.
-4. Click Edit Runbook.
-5. Confirm ordinary editor opens the same titled Runbook.
-6. Confirm no opaque UUID knowledge was required.
-7. Unlock editing if the ordinary editor starts locked.
-8. Replace/extend the starter with valid canonical v2 material containing:
-     - one Beat
-     - one Scene
-     - one Decision
-     - at least two Options
-     - consequence prose
-     - at least one activates/suppresses edge
-9. Save.
-10. Confirm Save succeeds although target_relpath is null.
-11. Reload the editor URL.
-12. Confirm exact saved content returns.
-13. Navigate to Play through normal product navigation.
-14. Select the same Runbook.
-15. Start exact Run.
-16. Confirm the Run binds the newly committed revision, not the old blank one.
-17. Confirm native READY succeeds.
-```
+Stop the witness there. BF3B owns selecting `Follow it` / `Seal the breach` and
+showing relevance changes.
 
-Do **not** implement BF3B controls merely to continue this witness.
+### Witness B — historical Run isolation
 
-The witness stops once the Decision-bearing Runbook reaches native READY.
-BF3B owns interacting with it.
+1. Before editing, or with another equivalent Runbook, Start Run R from revision
+   N.
+2. Record R's exact revision/digest/current moment.
+3. Edit the same Runbook and Save N+1 through BF4A.
+4. Reopen R.
+5. Confirm R still renders N and its Runtime current moment is unchanged.
+6. Start a new Run and confirm the new Run binds N+1.
 
-### 10.2 Existing-Run isolation witness
+### Witness C — campaign mismatch
 
-Also prove with a disposable Runbook/Run:
-
-```text
-1. Start Run R from revision N.
-2. Record R's exact pinned revision/digest/current moment.
-3. Return to chooser and Edit the same Runbook.
-4. Save revision N+1.
-5. Reopen existing Run R.
-6. R still renders revision N.
-7. Runtime current Beat/Scene is unchanged.
-8. Start a separate new Run from the same Runbook.
-9. New Run binds N+1.
-```
-
-This may be recorded as a browser + API-visible witness, but must use ordinary
-product editing for the revision change.
-
-### 10.3 Evidence hygiene
-
-Record the witness on the implementation PR against the exact reviewed head.
-
-Do not include:
+Using ordinary UI or an explicit adversarial exact URL:
 
 ```text
-DSN passwords
-full credentials
-private source content not intended for the repository
+Runbook campaign != PlanView campaign
 ```
 
----
+must produce truthful refusal without publishing the mismatched Runbook as the
+authoritative Plan document. Edit/Tools shell chrome must remain recoverable.
 
-## §11 Acceptance rubric
+### Forbidden witness shortcuts
 
-Merge only when all are true:
+Do not claim success using:
 
-- [ ] Handoff is checked in before implementation.
-- [ ] Implementation branch was re-anchored to exact current `main`.
-- [ ] Active leases were rechecked.
-- [ ] DF0 completion is recorded backward-looking.
-- [ ] Roadmap/steward mirrors identify BF4A as current and BF3B as blocked on it.
-- [ ] Play chooser exposes explicit Edit Runbook for exact selected WorkObject.
-- [ ] A newly created blank Runbook can be edited before any Run is started.
-- [ ] Operator does not need to know/copy an opaque document UUID.
-- [ ] Edit does not create a Run.
-- [ ] Edit does not create another Runbook WorkObject.
-- [ ] Exact Runbook kind/title are truthfully represented in authoring UI.
-- [ ] Existing default Plan selector remains `kind=plan` only.
-- [ ] Pathless Runbook is saveable.
-- [ ] Pathless Plan does not become saveable merely because BF4A exists.
-- [ ] No filesystem path is fabricated for a native Runbook.
-- [ ] Existing TipTap prepare/commit remains the save authority.
-- [ ] Save produces a new immutable WorkRevision on the same WorkObject.
-- [ ] Prior WorkRevision remains loadable.
-- [ ] Existing Run pinned to prior revision remains unchanged.
-- [ ] New explicit Run can bind the new revision.
-- [ ] Canonical v2 Decision-bearing Markdown survives save/reload/indexing.
-- [ ] No structure-aware insertion controls landed.
-- [ ] No BF3B runtime Decision interaction landed.
-- [ ] No auto-rebase landed.
-- [ ] No auto-start landed.
-- [ ] No backend/API/schema change landed.
-- [ ] No Agent/CUTOVER/Combat scope landed.
-- [ ] Real browser witness completes the zero-to-Decision-bearing Runbook path.
-- [ ] Real witness proves old Run vs new revision isolation.
-- [ ] Exact-head verification is recorded before review.
-- [ ] Every changed path is inside §7 or an explicitly approved review amendment.
+- direct SQL edits;
+- direct APP-STATE row mutation;
+- pytest-created dogfood content;
+- fake bootstrap content;
+- hidden Runbook seed;
+- hand-authored UUID-only route as the primary success path;
+- browser devtools mutation of application state.
+
+The Runbook body may be pasted as canonical Markdown in the ordinary editor.
+Structure-aware insertion controls are explicitly deferred to BF4.
 
 ---
 
 ## §12 Stop conditions
 
-Stop and report if implementation requires:
+Stop and report rather than widen BF4A if implementation requires:
 
-- changing WorkObject / WorkRevision schema;
-- a new persistence table;
-- a new Runbook save endpoint;
-- changing TipTap prepare/commit backend semantics;
-- changing BF1 grammar;
-- changing manifest schema;
-- assigning a fake filesystem path to pathless Runbooks;
-- making all pathless Plans saveable as collateral behavior;
-- automatic Run rebase after Save;
-- automatic Start Run after Save;
-- modifying Play Runtime state during editing;
-- turning Plan selector into a mixed document browser;
-- a new generic authoring surface/router;
-- BF3B cockpit work;
-- BF4 structure-aware insert controls;
-- Agent / World / Combat changes;
-- another active lane's production lease;
-- a campaign-context mismatch where Plan would edit the Runbook under the wrong campaign authority.
-
-Report:
-
-```text
-Stop condition:
-Observed product path:
-Owning invariant:
-Why BF4A cannot absorb it:
-Missing seam:
-Evidence:
-Proposed split/successor:
-Authority update required:
-```
-
-Do not widen silently.
+- WorkObject/WorkRevision schema changes;
+- new APP-STATE migration;
+- new backend persistence or endpoint;
+- BF1 grammar/parser/serializer semantic change;
+- fake target path creation;
+- globally enabling pathless Plans;
+- global EditHost/ToolHost redesign;
+- blank-shell state-machine redesign;
+- automatic Run start/rebase/adoption;
+- mixed Plan/Runbook selector redesign;
+- structure-aware Playable controls;
+- BF3B Decision Runtime behavior;
+- World/Agent/Combat changes;
+- changing PlanView/World campaign focus as a side effect of opening Runbook;
+- a campaign-authority problem that cannot be solved with the bounded
+  Runbook-specific admission guard above;
+- active write-lease collision.
 
 ---
 
-## §13 Named successor — resume BF3B
+## §13 Acceptance checklist
 
-After BF4A merges, re-anchor the paused BF3B handoff onto current `main`.
+- [ ] implementation branch rebased onto `main` containing PR #661 merge
+      `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e` or later;
+- [ ] this re-anchored handoff is present before further implementation;
+- [ ] stale #660 out-of-lease `Backlog.md` diff is gone;
+- [ ] `Create blank Runbook → Edit Runbook` requires no Run and no UUID copying;
+- [ ] exact selected WorkObject identity drives navigation;
+- [ ] truthful Runbook title/kind shown in Plan;
+- [ ] same-campaign exact Runbook is admitted;
+- [ ] cross-campaign exact Runbook fails closed;
+- [ ] pathless Runbook Save works;
+- [ ] pathless Plan law remains unchanged;
+- [ ] no fake filesystem path;
+- [ ] same WorkObject, next immutable WorkRevision;
+- [ ] old WorkRevision remains loadable;
+- [ ] old Run remains pinned to old revision;
+- [ ] new explicit Run binds new revision;
+- [ ] §5 Decision-bearing v2 material survives edit → Save → reload;
+- [ ] Option list-item structure survives;
+- [ ] Choice prose / Option consequence bodies remain disjoint;
+- [ ] activates/suppresses edges survive exactly;
+- [ ] no BF3B runtime selection implementation;
+- [ ] no BF4 structure-aware authoring controls;
+- [ ] no backend/schema/migration changes;
+- [ ] real browser Witness A complete;
+- [ ] real browser Witness B complete;
+- [ ] campaign mismatch witness/proof complete;
+- [ ] focused frontend tests pass;
+- [ ] owning backend regressions pass;
+- [ ] frontend build passes;
+- [ ] `git diff --check` clean;
+- [ ] roadmap/steward mirrors byte-identical;
+- [ ] predecessor state sync records #661 merge + 4 formal review cycles;
+- [ ] PR stays draft until all mandatory browser evidence is recorded against
+      the exact review head.
 
-Its real acceptance path becomes:
+---
+
+## §14 Successor
+
+After BF4A merges:
 
 ```text
-Create blank Runbook
-→ Edit Runbook
-→ Save Decision-bearing revision
-→ Start exact Run
-→ BF3B Decision visible
-→ select Option
+re-anchor BF3B on the BF4A merge SHA
+→ use this exact committed Runbook as the ordinary dogfood input
+→ North Gate current
+→ Decision visible
+→ select Follow it
 → consequence visible
-→ relevance changes
-→ change / clear
-→ reload/resume
+→ Tunnel Pursuit + Lower Tunnels emphasized
+→ change to Seal the breach
+→ Tunnel Pursuit de-emphasized
+→ clear selection
+→ default relevance restored
+→ reload exact Run
+→ selection and derived relevance resume truthfully
 ```
 
-BF3B retains its own previously discovered evidence laws:
+BF4 later replaces canonical-Markdown-only authoring with structure-aware
+Beat/Scene/Decision/Option controls. That is not a prerequisite for BF3B.
 
-```text
-v2 Options are list items
-→ Choice prose and Option body must remain disjoint in projection
+The architectural/product checkpoint remains:
 
-stale mutation may fail 422 before CAS
-→ selection conflict handling must not misclassify same-generation 422 as a
-  retryable 409
-```
-
-Those are BF3B implementation/review concerns, not work for BF4A.
-
-The reason for BF4A is deliberately narrower:
-
-> **Before we build a richer table interaction around authored material, the GM
-> must be able to author that material through the product.**
+> **Before we build richer table interaction around authored material, the GM
+> must be able to author that material through the ordinary product path.**
