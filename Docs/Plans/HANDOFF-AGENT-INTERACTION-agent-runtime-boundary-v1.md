@@ -20,7 +20,15 @@ pr_body_template: |
 # HANDOFF — DungeonBuddy AgentRuntime Boundary v1 (A2)
 
 **Created:** 2026-08-27
-**Status:** READY FOR DISPATCH after exact-current-main re-anchor and active-lease check
+**Status:** COMPLETE / MERGED
+**PR:** #659
+**Accepted head:** `a8978330fd1334de7ae32170bcb6ff479da2bce8`
+**Merge SHA:** `937d9dce1be02e804553282a146527bf39bb0750`
+**Formal review cycles:** 2
+**Active successor:** A3 PydanticAI Adapter Experiment (challenger only; production selection remains false)
+
+The A1 predecessor-sync instruction in §9 and the original A2 CODE→REVIEW item 29 remain historical: they record what was true at A2 merge (A3 had not started). They are not current-state claims. A3 merge SHA / review count remain uninvented.
+
 **Canonical handoff path:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-agent-runtime-boundary-v1.md`
 **Workstream:** `AGENT-INTERACTION / A2`
 **Flow / owner:** `AGENT-INTERACTION`
@@ -1197,13 +1205,15 @@ A0  Agent Turn Trace v1                          MERGED #654
 A1  Advanced Agent Trace Inspector v1            MERGED #656
     safe continuity + advanced inspection
     ↓
-A2  DungeonBuddy AgentRuntime Boundary v1        THIS HANDOFF
+A2  DungeonBuddy AgentRuntime Boundary v1        MERGED #659
     product-owned execution port + Hermes adapter
+    accepted head a8978330… / merge 937d9dce… / 2 review cycles
     ↓
-A3  PydanticAI Adapter Experiment                NOT STARTED
+A3  PydanticAI Adapter Experiment                ACTIVE SUCCESSOR
     same product journey / same context / same model where practical
     same A0 trace truth / same grounding policy
     compare harness adaptation burden with evidence
+    production runtime selection remains false
     ↓
 later, evidence-selected
     runtime lifecycle extension if challenger proves need
