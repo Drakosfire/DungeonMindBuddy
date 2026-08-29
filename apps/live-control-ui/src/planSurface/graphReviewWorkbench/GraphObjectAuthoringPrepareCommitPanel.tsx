@@ -8,7 +8,6 @@ import type {
   GraphObjectAuthoringCommitResponse,
   GraphObjectAuthoringPrepareResponse,
   GraphObjectAuthoringProposalPayload,
-  GraphObjectAuthoringUnionStoreMaterializationSummary,
   GraphAuthoringDiagnostic,
   GraphAuthoringOverlayDiagnostic,
   UnionSupergraphProjectionResponse,
@@ -18,6 +17,26 @@ import type { GraphObjectAuthoringOverlapWarning } from "./graphObjectAuthoringO
 import type { GraphObjectAuthoringProposal } from "./graphObjectAuthoringDraft";
 import { serializeGraphObjectAuthoringProposalForApi } from "./graphObjectAuthoringDraft";
 import { parseGraphObjectAuthoringApiError } from "./graphObjectAuthoringApiErrors";
+
+function authoringErrorCode(error: unknown): string | null {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
+    return error.code;
+  }
+  if (error instanceof Error) {
+    try {
+      const parsed = JSON.parse(error.message) as { code?: string };
+      return typeof parsed.code === "string" ? parsed.code : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
 function toProposalPayload(proposal: GraphObjectAuthoringProposal): GraphObjectAuthoringProposalPayload {
   return serializeGraphObjectAuthoringProposalForApi(
@@ -29,7 +48,10 @@ function proposalsFingerprint(proposals: GraphObjectAuthoringProposal[]): string
   return JSON.stringify(proposals.map((proposal) => proposal.localProposalId));
 }
 
-function shortToken(token: string): string {
+function shortToken(token: string | null | undefined): string {
+  if (!token) {
+    return "not bound";
+  }
   if (token.length <= 16) {
     return token;
   }
@@ -92,6 +114,16 @@ function PreparePreviewPrimary({
       <p className="graph-object-authoring-prepare-preview-safety">
         Safe write preview generated. No source recap or extracted graph artifacts will be mutated.
       </p>
+      {prepared.expressibility === "INEXPRESSIBLE" ? (
+        <p
+          className="graph-object-authoring-prepare-inexpressible"
+          data-testid="graph-object-authoring-prepare-inexpressible"
+          role="status"
+        >
+          This Graph Review operation is not currently publishable through DungeonMind.
+          Identity merges cannot be confirmed until a native merge primitive exists.
+        </p>
+      ) : null}
       <GraphObjectAuthoringOverlapWarnings
         warnings={toOverlapWarnings(prepared.diagnostics)}
         title="Prepare review warnings"
@@ -114,20 +146,24 @@ function PreparePreviewPrimary({
         <summary>Technical write details</summary>
         <dl className="graph-object-authoring-technical-write-fields">
           <div>
-            <dt>Target overlay</dt>
-            <dd>{prepared.overlay_path}</dd>
+            <dt>Expected DungeonMind parent</dt>
+            <dd>{prepared.expected_parent_revision_id ?? "not bound"}</dd>
           </div>
           <div>
-            <dt>Event log</dt>
-            <dd>{prepared.event_log_path}</dd>
+            <dt>World</dt>
+            <dd>{prepared.world_id ?? "unresolved"}</dd>
           </div>
           <div>
-            <dt>Current overlay token</dt>
-            <dd>{shortToken(prepared.current_overlay_token)}</dd>
+            <dt>Operation</dt>
+            <dd>{prepared.authority_operation_id ?? "not bound"}</dd>
           </div>
           <div>
             <dt>Proposed assertions digest</dt>
             <dd>{shortToken(prepared.proposed_assertions_digest)}</dd>
+          </div>
+          <div>
+            <dt>Prepared contribution digest</dt>
+            <dd>{shortToken(prepared.contribution_digest)}</dd>
           </div>
         </dl>
       </details>
@@ -135,46 +171,17 @@ function PreparePreviewPrimary({
   );
 }
 
-function formatMaterializationOutcome(
-  materialization: GraphObjectAuthoringUnionStoreMaterializationSummary | null | undefined,
-  committedBatchHadMerge: boolean,
-): string | null {
-  if (!materialization) {
-    return null;
+function formatPublicationOutcome(
+  committed: GraphObjectAuthoringCommitResponse,
+): string {
+  if (committed.idempotency_status === "already_applied") {
+    return "Recovered the already-published DungeonMind revision. No additional write.";
   }
-  if (materialization.applied) {
-    const parts: string[] = [];
-    if (materialization.redirects_added) {
-      parts.push(
-        `${materialization.redirects_added} redirect${materialization.redirects_added === 1 ? "" : "s"}`,
-      );
-    }
-    if (materialization.edges_rewired) {
-      parts.push(
-        `${materialization.edges_rewired} edge rewire${materialization.edges_rewired === 1 ? "" : "s"}`,
-      );
-    }
-    const detail = parts.length ? ` (${parts.join(", ")})` : "";
-    return `Merged directly into the union graph${detail}.`;
-  }
-  if (
-    materialization.reason === "no_preview_union_store_selected" &&
-    committedBatchHadMerge
-  ) {
-    return "No live run selected — this merge is staged in authored memory only. Select a live run to make it durable.";
-  }
-  if (materialization.reason === "materialization_failed") {
-    const message =
-      materialization.diagnostics.find((item) => item.severity === "error")?.message ??
-      "Union graph materialization failed.";
-    return `${message} Use Advanced: backfill durable materialization to retry.`;
-  }
-  return null;
+  return "Published exactly one DungeonMind World Graph revision.";
 }
 
 function CommitSuccessPrimary({
   committed,
-  committedBatchHadMerge,
   onRefreshProjection,
   refreshingProjection,
   refreshProjectionError,
@@ -183,7 +190,6 @@ function CommitSuccessPrimary({
   onDismiss,
 }: {
   committed: GraphObjectAuthoringCommitResponse;
-  committedBatchHadMerge: boolean;
   onRefreshProjection?: () => Promise<unknown>;
   refreshingProjection: boolean;
   refreshProjectionError: string | null;
@@ -191,10 +197,7 @@ function CommitSuccessPrimary({
   onRefresh: () => void;
   onDismiss: () => void;
 }) {
-  const materializationMessage = formatMaterializationOutcome(
-    committed.union_store_materialization,
-    committedBatchHadMerge,
-  );
+  const publicationMessage = formatPublicationOutcome(committed);
 
   return (
     <div
@@ -214,16 +217,15 @@ function CommitSuccessPrimary({
         </button>
       </div>
       <p className="graph-object-authoring-commit-success-lead">
-        Authored graph memory was saved.
+        {publicationMessage}
       </p>
-      {materializationMessage ? (
-        <p
-          className="graph-object-authoring-commit-materialization-outcome"
-          data-testid="graph-object-authoring-commit-materialization-outcome"
-        >
-          {materializationMessage}
-        </p>
-      ) : null}
+      <p
+        className="graph-object-authoring-commit-revision-outcome"
+        data-testid="graph-object-authoring-commit-revision-outcome"
+      >
+        Parent {committed.parent_revision_id ?? "unknown"} → published{" "}
+        {committed.published_revision_id ?? "unknown"}.
+      </p>
       <p className="graph-object-authoring-commit-success-next">
         {refreshingProjection
           ? "Refreshing graph review…"
@@ -271,28 +273,20 @@ function CommitSuccessPrimary({
         <summary>Write details</summary>
         <dl className="graph-object-authoring-technical-write-fields">
           <div>
-            <dt>Overlay</dt>
-            <dd>{committed.overlay_path}</dd>
+            <dt>World</dt>
+            <dd>{committed.world_id ?? "unresolved"}</dd>
           </div>
           <div>
-            <dt>Event log</dt>
-            <dd>{committed.event_log_path}</dd>
-          </div>
-          {committed.backup_path ? (
-            <div>
-              <dt>Backup</dt>
-              <dd>{committed.backup_path}</dd>
-            </div>
-          ) : null}
-          <div>
-            <dt>New overlay token</dt>
-            <dd>{shortToken(committed.new_overlay_token)}</dd>
+            <dt>Parent revision</dt>
+            <dd>{committed.parent_revision_id ?? "unknown"}</dd>
           </div>
           <div>
-            <dt>Assertion / event counts</dt>
-            <dd>
-              {committed.assertion_count} assertion(s), {committed.event_count} event record(s)
-            </dd>
+            <dt>Published revision</dt>
+            <dd>{committed.published_revision_id ?? "unknown"}</dd>
+          </div>
+          <div>
+            <dt>Operation</dt>
+            <dd>{committed.operation_id ?? "unknown"}</dd>
           </div>
         </dl>
         <ul className="graph-object-authoring-no-mutation-list">
@@ -323,7 +317,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
   campaignRel,
   sourceRunId,
   sourceGraphId,
-  previewUnionStorePath,
+  previewUnionStorePath: _previewUnionStorePath,
   proposals,
   onCommitted,
   onRefreshProjection,
@@ -352,10 +346,11 @@ export function GraphObjectAuthoringPrepareCommitPanel({
   }, [proposalsChangedSincePrepare]);
 
   const canPrepare = proposals.length > 0 && !preparing;
-  const canCommit = prepared !== null && !proposalsChangedSincePrepare && !committing;
-  const committedBatchHadMerge = proposals.some(
-    (proposal) => proposal.proposalKind === "merge_objects",
-  );
+  const canCommit =
+    prepared !== null &&
+    prepared.expressibility !== "INEXPRESSIBLE" &&
+    !proposalsChangedSincePrepare &&
+    !committing;
 
   async function handlePrepare() {
     setPrepareError(null);
@@ -367,6 +362,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
         campaignId,
         campaignRel,
         sessionId,
+        worldId: campaignId,
         sourceRunId,
         sourceGraphId,
         proposals: proposals.map(toProposalPayload),
@@ -392,12 +388,12 @@ export function GraphObjectAuthoringPrepareCommitPanel({
         campaignId,
         campaignRel,
         sessionId,
+        worldId: campaignId,
         sourceRunId,
         sourceGraphId,
         proposals: proposals.map(toProposalPayload),
         confirmToken: prepared.confirm_token,
         currentOverlayToken: prepared.current_overlay_token,
-        previewUnionStorePath,
       });
       if (!response.committed) {
         setCommitError(
@@ -430,15 +426,26 @@ export function GraphObjectAuthoringPrepareCommitPanel({
         }
       }
     } catch (error) {
+      const code = authoringErrorCode(error);
       const message = parseGraphObjectAuthoringApiError(error);
-      if (message.includes("stale_overlay") || message.includes("changed since")) {
+      if (code === "stale_parent") {
         setCommitError(
-          "The authored graph changed since this preview was prepared. Prepare again before committing.",
+          "The World Graph advanced since this preview was prepared. Prepare again against current truth.",
         );
-      } else if (message.includes("confirm_token")) {
+      } else if (code === "confirmation_invalid" || code === "confirmation_expired") {
         setCommitError(
-          "The prepared preview no longer matches these proposals. Prepare again before committing.",
+          "The prepared preview no longer matches these proposals. Prepare again before confirming.",
         );
+      } else if (code === "governed_write_inexpressible") {
+        setCommitError(
+          "This Graph Review operation cannot be published through DungeonMind.",
+        );
+      } else if (
+        code === "source_unresolved" ||
+        code === "source_artifact_not_found" ||
+        code === "source_inadmissible"
+      ) {
+        setCommitError("Graph Review source provenance could not be admitted. No write was published.");
       } else {
         setCommitError(message);
       }
@@ -506,7 +513,11 @@ export function GraphObjectAuthoringPrepareCommitPanel({
       ) : null}
 
       {commitError ? (
-        <p className="graph-object-authoring-prepare-commit-error" role="alert">
+        <p
+          className="graph-object-authoring-prepare-commit-error"
+          data-testid="graph-object-authoring-commit-error"
+          role="alert"
+        >
           {commitError}
         </p>
       ) : null}
@@ -514,7 +525,6 @@ export function GraphObjectAuthoringPrepareCommitPanel({
       {committed ? (
         <CommitSuccessPrimary
           committed={committed}
-          committedBatchHadMerge={committedBatchHadMerge}
           onRefreshProjection={onRefreshProjection}
           refreshingProjection={refreshingProjection}
           refreshProjectionError={refreshProjectionError}

@@ -87,6 +87,62 @@ class _EmptyEvidenceView:
     evidence: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class _BuddyEvidenceRecord:
+    evidence_ref_id: str
+    source_artifact_id: str
+    source_domain: str
+    evidence_role: str
+    can_open_source: bool
+    can_highlight_span: bool
+    locator: str | None
+    uri: str | None
+
+
+def _graph_review_evidence_view(
+    contribution: Any,
+    *,
+    pair_to_dm: dict[tuple[str, str], str],
+    sources: Any | None = None,
+) -> _EmptyEvidenceView:
+    """Worldbuilding evidence bound to the admitted Graph Review source pair.
+
+    The empty-store fallback stamps SourceDomain.OTHER, which native
+    projection rejects against a worldbuilding SourceArtifactV2 as
+    ``evidence_source_domain_mismatch`` / SCOPE_UNKNOWN.
+    """
+    records: dict[str, Any] = {}
+    assertions = [
+        *list(getattr(contribution, "accepted_assertions", None) or []),
+        *list(getattr(contribution, "candidate_assertions", None) or []),
+        *list(getattr(contribution, "rejected_assertions", None) or []),
+    ]
+    for assertion in assertions:
+        artifact_id = str(getattr(assertion, "source_artifact_id", "") or "")
+        token = str(getattr(assertion, "source_revision_id", "") or "")
+        dm_revision_id = pair_to_dm.get((artifact_id, token), token)
+        locator = None
+        if sources is not None and dm_revision_id:
+            try:
+                revision = sources.get_revision(dm_revision_id)
+            except Exception:
+                revision = None
+            if revision is not None:
+                locator = str(getattr(revision, "locator", None) or "") or None
+        for evidence_id in list(getattr(assertion, "evidence_ref_ids", None) or []):
+            records[str(evidence_id)] = _BuddyEvidenceRecord(
+                evidence_ref_id=str(evidence_id),
+                source_artifact_id=artifact_id,
+                source_domain="worldbuilding",
+                evidence_role="support",
+                can_open_source=bool(locator),
+                can_highlight_span=False,
+                locator=locator,
+                uri=locator,
+            )
+    return _EmptyEvidenceView(evidence=records)
+
+
 def _open_repository_bundle(database_url: str) -> Any:
     try:
         from dungeonmind.infrastructure.postgres import (
@@ -691,6 +747,39 @@ def worldbuilding_authority_operation_id(
     return f"wbop:{digest}"
 
 
+def graph_review_authority_operation_id(
+    *,
+    world_id: str,
+    campaign_id: str,
+    campaign_rel: str | None,
+    source_artifact_id: str,
+    source_revision_id: str,
+    sealed_proposal_digest: str,
+    expected_parent_revision_id: str,
+) -> str:
+    """Deterministic Buddy-side Graph Review authoring operation id (D.2C4)."""
+    import hashlib
+    import json
+
+    payload = json.dumps(
+        {
+            "schema": "dmb_graph_review_authoring_authority_operation_v1",
+            "world_id": world_id,
+            "campaign_id": campaign_id,
+            "campaign_rel": campaign_rel,
+            "source_artifact_id": source_artifact_id,
+            "source_revision_id": source_revision_id,
+            "sealed_proposal_digest": sealed_proposal_digest,
+            "expected_parent_revision_id": expected_parent_revision_id,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return f"grauth:{digest}"
+
+
 def _identity_decision_prefix_key(record: Mapping[str, Any]) -> tuple[Any, ...]:
     """Comparable identity for append-only prefix proof, ignoring later-only fields."""
     return (
@@ -796,11 +885,34 @@ def load_authority_mutation_context(
         ) from exc
 
 
-def _reverse_revision_id(dm_revision_id: str, artifact_id: str | None) -> str:
-    suffix = f"::{artifact_id}" if artifact_id else ""
-    if suffix and dm_revision_id.endswith(suffix):
-        return dm_revision_id[: -len(suffix)]
-    return dm_revision_id
+def catalog_aware_source_revision_ids(
+    sources: Any,
+    world_id: str,
+    pairs: set[tuple[str, str]],
+) -> dict[tuple[str, str], str]:
+    """Map (artifact_id, buddy_token) onto catalog-aware DungeonMind revision IDs.
+
+    Shared with Graph Review admission. Implementation lives on the D.2C4
+    admission adapter so that adapter never imports this writes module (and
+    therefore never transitively loads ``graph_memory.kernel``).
+    """
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
+        catalog_aware_source_revision_ids as _admission_catalog_aware,
+    )
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionError,
+    )
+
+    try:
+        return _admission_catalog_aware(sources, world_id, pairs)
+    except WorldGraphSourceAdmissionError as exc:
+        raise WorldGraphWriteError(
+            str(exc),
+            code="authority_unavailable"
+            if exc.code == "authority_unavailable"
+            else "governed_write_inexpressible",
+            details=dict(exc.details or {}),
+        ) from exc
 
 
 def _build_pair_to_dm(
@@ -808,32 +920,6 @@ def _build_pair_to_dm(
     world_id: str,
     contribution: Any,
 ) -> dict[tuple[str, str], str]:
-    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
-        _dm_revision_id,
-    )
-
-    pair_to_dm: dict[tuple[str, str], str] = {}
-    token_artifacts: dict[str, set[str]] = {}
-    try:
-        artifacts = bundle.sources.list_artifacts_for_world(world_id)
-        for artifact in artifacts:
-            for revision in bundle.sources.list_revisions(artifact.source_artifact_id):
-                token = _reverse_revision_id(
-                    revision.source_revision_id, artifact.source_artifact_id
-                )
-                pair_to_dm[(artifact.source_artifact_id, token)] = (
-                    revision.source_revision_id
-                )
-                token_artifacts.setdefault(token, set()).add(
-                    artifact.source_artifact_id
-                )
-    except Exception as exc:
-        raise WorldGraphWriteError(
-            "DungeonMind authority read failed while resolving source identity",
-            code="authority_unavailable",
-            details={"world_id": world_id, "reason": type(exc).__name__},
-        ) from exc
-
     pairs: set[tuple[str, str]] = set()
     contribution_pairs = [
         (contribution.source_artifact_id, contribution.source_revision_id)
@@ -858,17 +944,7 @@ def _build_pair_to_dm(
                 },
             )
         pairs.add((artifact_id, token))
-        token_artifacts.setdefault(token, set()).add(artifact_id)
-
-    colliding = {
-        token for token, artifacts in token_artifacts.items() if len(artifacts) > 1
-    }
-    for artifact_id, token in sorted(pairs):
-        if (artifact_id, token) not in pair_to_dm:
-            pair_to_dm[(artifact_id, token)] = _dm_revision_id(
-                token, artifact_id, colliding
-            )
-    return pair_to_dm
+    return catalog_aware_source_revision_ids(bundle.sources, world_id, pairs)
 
 
 def _candidate_endpoint_kinds(
@@ -1086,13 +1162,19 @@ def _build_v2_candidate(
     context: WorldGraphMutationContext,
     pair_to_dm: dict[tuple[str, str], str],
     produced_at: Any,
+    sources: Any | None = None,
 ) -> tuple[Any, dict[str, Any]]:
     from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
         _map_contributions,
     )
     from dungeonmind.contracts.contribution import AcceptanceState, ContributionStatus
 
-    mapped = _map_contributions(_EmptyEvidenceView(), [contribution], pair_to_dm)
+    evidence_view: Any = _EmptyEvidenceView()
+    if getattr(contribution, "source_kind", None) == "graph_review_authored_assertion":
+        evidence_view = _graph_review_evidence_view(
+            contribution, pair_to_dm=pair_to_dm, sources=sources
+        )
+    mapped = _map_contributions(evidence_view, [contribution], pair_to_dm)
     if len(mapped) != 1:
         raise WorldGraphWriteError(
             "contribution mapping did not produce exactly one candidate",
@@ -1714,6 +1796,7 @@ def confirm_extract_promote_via_dungeonmind(
         context=mutation_context,
         pair_to_dm=pair_to_dm,
         produced_at=reviewed_at,
+        sources=bundle.sources,
     )
     proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
     assertion_verdicts = [
@@ -2021,6 +2104,7 @@ def _review_intent_sha256_for_threat_request(
         context=mutation_context,
         pair_to_dm=pair_to_dm,
         produced_at=reviewed_at,
+        sources=bundle.sources,
     )
     proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
     assertion_verdicts = [
@@ -2238,6 +2322,7 @@ def publish_contribution_via_dungeonmind(
         context=mutation_context,
         pair_to_dm=pair_to_dm,
         produced_at=reviewed_at,
+        sources=bundle.sources,
     )
     proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
     assertion_verdicts = [

@@ -65,12 +65,18 @@ const prepareResponse = {
     object_count: 1,
     link_existing_count: 0,
     relationship_count: 0,
+    merge_objects_count: 0,
   },
   diagnostics: [],
   no_mutation_guarantees: [
     "Prepare wrote nothing.",
     "Source markdown was not mutated.",
   ],
+  world_id: "longmont-c1",
+  expected_parent_revision_id: "rev:d0",
+  authority_operation_id: "grauth:abc",
+  contribution_digest: "contribution-digest",
+  expressibility: "EXPRESSIBLE" as const,
 };
 
 const commitResponse = {
@@ -81,9 +87,15 @@ const commitResponse = {
   backup_path: null,
   assertion_count: 1,
   event_count: 2,
-  new_overlay_token: "new-token",
+  new_overlay_token: null,
   diagnostics: [],
-  no_mutation_guarantees: ["Committed authored graph memory."],
+  no_mutation_guarantees: ["Published through DungeonMind World Graph authority."],
+  world_id: "longmont-c1",
+  parent_revision_id: "rev:d0",
+  published_revision_id: "rev:d1",
+  operation_id: "grauth:abc",
+  result: "published",
+  idempotency_status: "published",
 };
 
 describe("GraphObjectAuthoringPrepareCommitPanel", () => {
@@ -179,8 +191,9 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
 
     await user.click(screen.getByText("Technical write details"));
     expect(technicalDetails).toHaveAttribute("open");
-    expect(within(technicalDetails).getByText("/tmp/overlay.json")).toBeInTheDocument();
-    expect(within(technicalDetails).getByText("/tmp/events.jsonl")).toBeInTheDocument();
+    expect(within(technicalDetails).getByText("rev:d0")).toBeInTheDocument();
+    expect(within(technicalDetails).getByText("longmont-c1")).toBeInTheDocument();
+    expect(within(technicalDetails).getByText("contribu…n-digest")).toBeInTheDocument();
   });
 
   it("clears prepared state when proposals change after prepare", async () => {
@@ -260,8 +273,8 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
     const writeDetails = screen.getByTestId("graph-object-authoring-commit-write-details");
     await user.click(screen.getByText("Write details"));
     expect(writeDetails).toHaveAttribute("open");
-    expect(within(writeDetails).getByText("/tmp/overlay.json")).toBeInTheDocument();
-    expect(within(writeDetails).getByText("/tmp/events.jsonl")).toBeInTheDocument();
+    expect(within(writeDetails).getByText("rev:d0")).toBeInTheDocument();
+    expect(within(writeDetails).getByText("rev:d1")).toBeInTheDocument();
   });
 
   it("commits successfully and notifies parent", async () => {
@@ -291,8 +304,14 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
     await waitFor(() => {
       expect(commitGraphObjectAuthoringWrite).toHaveBeenCalledWith(
         expect.objectContaining({
+          worldId: "longmont-c1",
           sourceRunId: "run-c1s2",
           sourceGraphId: "graph-c1s2",
+          confirmToken: "confirm-token",
+        }),
+      );
+      expect(commitGraphObjectAuthoringWrite).toHaveBeenCalledWith(
+        expect.not.objectContaining({
           previewUnionStorePath: "/stores/preview_union.json",
         }),
       );
@@ -371,10 +390,10 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
     });
   });
 
-  it("shows stale overlay message on commit failure", async () => {
+  it("shows stale parent message on commit failure", async () => {
     vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue(prepareResponse);
     vi.mocked(commitGraphObjectAuthoringWrite).mockRejectedValue(
-      new Error('{"code":"stale_overlay","message":"changed since"}'),
+      new Error('{"code":"stale_parent","message":"expected parent revision is not the current World Graph head"}'),
     );
 
     render(
@@ -394,12 +413,12 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/Prepare again before committing/i),
+        screen.getByText(/Prepare again against current truth/i),
       ).toBeInTheDocument();
     });
   });
 
-  it("shows union graph materialization outcome after merge commit", async () => {
+  it("does not offer a confirm path for inexpressible merge_objects", async () => {
     const mergeProposal = {
       localProposalId: "local-merge-1",
       proposalKind: "merge_objects",
@@ -433,22 +452,12 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
 
     vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue({
       ...prepareResponse,
+      expressibility: "INEXPRESSIBLE",
+      expected_parent_revision_id: null,
       overlay_summary: {
         ...prepareResponse.overlay_summary,
+        object_count: 0,
         merge_objects_count: 1,
-      },
-    });
-    vi.mocked(commitGraphObjectAuthoringWrite).mockResolvedValue({
-      ...commitResponse,
-      union_store_materialization: {
-        attempted: true,
-        applied: true,
-        reason: "materialized",
-        applied_assertion_ids: ["assert-merge-1"],
-        redirects_added: 1,
-        edges_rewired: 1,
-        survivor_nodes_updated: 1,
-        diagnostics: [],
       },
     });
 
@@ -464,15 +473,66 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
 
     fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
     await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-prepare-inexpressible")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("graph-object-authoring-commit-button")).toBeDisabled();
+    expect(screen.queryByText(/Merged directly into the union graph/i)).not.toBeInTheDocument();
+  });
+
+  it("does not present recovered publication as a second write", async () => {
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue(prepareResponse);
+    vi.mocked(commitGraphObjectAuthoringWrite).mockResolvedValue({
+      ...commitResponse,
+      result: "already_applied",
+      idempotency_status: "already_applied",
+    });
+
+    render(
+      <GraphObjectAuthoringPrepareCommitPanel
+        campaignId="longmont-c1"
+        sessionId="session-2"
+        proposals={[stagedProposal]}
+        onCommitted={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
+    await waitFor(() => {
       expect(screen.getByTestId("graph-object-authoring-commit-button")).toBeEnabled();
     });
     fireEvent.click(screen.getByTestId("graph-object-authoring-commit-button"));
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId("graph-object-authoring-commit-materialization-outcome"),
-      ).toHaveTextContent(/Merged directly into the union graph/i);
-      expect(screen.getByText(/1 redirect/i)).toBeInTheDocument();
+      expect(screen.getByText(/Recovered the already-published DungeonMind revision/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Published exactly one DungeonMind World Graph revision/i)).not.toBeInTheDocument();
+  });
+
+  it("distinguishes source failure from stale parent", async () => {
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue(prepareResponse);
+    vi.mocked(commitGraphObjectAuthoringWrite).mockRejectedValue(
+      new Error('{"code":"source_unresolved","message":"Graph Review confirmation requires an exact sourceRunId."}'),
+    );
+
+    render(
+      <GraphObjectAuthoringPrepareCommitPanel
+        campaignId="longmont-c1"
+        sessionId="session-2"
+        proposals={[stagedProposal]}
+        onCommitted={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-commit-button")).toBeEnabled();
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-commit-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-commit-error")).toHaveTextContent(
+        /source provenance could not be admitted/i,
+      );
     });
   });
 });
