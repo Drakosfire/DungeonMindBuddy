@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
-import json
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from apps.live_control_server.ports.world_graph_authority import (
+    WorldGraphAuthorityError,
+    WorldGraphHead,
+    WorldGraphPublicationReceipt,
+)
 from apps.live_control_server.services.graph_authoring_overlay_store import (
     BACKUPS_DIR,
     EVENTS_DIR,
@@ -18,6 +25,7 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringPrepareRequest,
     build_assertions_from_proposals,
     build_confirm_token,
+    classify_graph_review_expressibility,
     prepare_graph_object_authoring_write,
     stable_json_digest,
 )
@@ -25,6 +33,83 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
 CAMPAIGN_ID = "longmont-c1"
 TEST_CAMPAIGN_REL = "Test Campaign/A5"
 STAMP = "1970-01-01T00:00:00Z"
+SOURCE_ARTIFACT_ID = "art:graph-review-source"
+SOURCE_REVISION_ID = "rev:graph-review-source"
+
+
+@dataclass
+class FakeWorldGraphAuthority:
+    revision_id: str = "rev:d0"
+    fail_publish_after_store: bool = False
+    receipts: dict[str, WorldGraphPublicationReceipt] = field(default_factory=dict)
+    publish_calls: int = 0
+    recover_calls: int = 0
+    published_requests: list[object] = field(default_factory=list)
+    admit_error: GraphObjectAuthoringError | None = None
+
+    def current_head(self, world_id: str) -> WorldGraphHead:
+        return WorldGraphHead(world_id=world_id, revision_id=self.revision_id)
+
+    def admit_source(self, world_id: str, artifact: str, revision: str) -> tuple[str, str]:
+        if self.admit_error is not None:
+            raise self.admit_error
+        return artifact, revision
+
+    def recover(self, world_id: str, authority_operation_id: str, **kwargs):
+        self.recover_calls += 1
+        return self.receipts.get(authority_operation_id)
+
+    def publish(self, request):
+        self.publish_calls += 1
+        self.published_requests.append(request)
+        child = f"rev:d{self.publish_calls}"
+        published = WorldGraphPublicationReceipt(
+            world_id=request.world_id,
+            authority_operation_id=request.authority_operation_id,
+            parent_revision_id=request.expected_parent_revision_id,
+            published_revision_id=child,
+            reviewed_contribution_id="contrib:graph-review",
+            accepted_assertion_ids=(),
+            published=True,
+            outcome="published",
+        )
+        self.receipts[request.authority_operation_id] = WorldGraphPublicationReceipt(
+            world_id=request.world_id,
+            authority_operation_id=request.authority_operation_id,
+            parent_revision_id=request.expected_parent_revision_id,
+            published_revision_id=child,
+            reviewed_contribution_id="contrib:graph-review",
+            accepted_assertion_ids=(),
+            published=True,
+            outcome="already_applied",
+        )
+        if self.fail_publish_after_store:
+            self.fail_publish_after_store = False
+            self.revision_id = child
+            raise WorldGraphAuthorityError(
+                "provider committed but the client response was lost",
+                code="publication_failed",
+            )
+        self.revision_id = child
+        return published
+
+
+def fake_resolved_source(*, campaign_id: str = CAMPAIGN_ID, world_id: str | None = None):
+    return SimpleNamespace(
+        source_artifact_id=SOURCE_ARTIFACT_ID,
+        source_revision_id=SOURCE_REVISION_ID,
+        campaign_id=campaign_id,
+        world_id=world_id if world_id is not None else campaign_id,
+    )
+
+
+def expressible_prepare(request, *, corpus_root: Path, authority=None, resolved_source=None):
+    return prepare_graph_object_authoring_write(
+        request,
+        corpus_root=corpus_root,
+        authority=authority or FakeWorldGraphAuthority(),
+        resolved_source=resolved_source or fake_resolved_source(),
+    )
 
 
 def _visibility() -> dict[str, object]:
@@ -122,6 +207,8 @@ def prepare_request(**overrides) -> GraphObjectAuthoringPrepareRequest:
         "campaignId": CAMPAIGN_ID,
         "campaignRel": TEST_CAMPAIGN_REL,
         "sessionId": "session-2",
+        "worldId": CAMPAIGN_ID,
+        "sourceRunId": "run-c1s2",
         "proposals": [object_proposal()],
     }
     payload.update(overrides)
@@ -148,7 +235,7 @@ def test_prepare_with_empty_proposals_fails() -> None:
 
 
 def test_prepare_object_proposal_returns_object_assertion_preview(store: GraphAuthoringOverlayStore) -> None:
-    response = prepare_graph_object_authoring_write(
+    response = expressible_prepare(
         prepare_request(),
         corpus_root=store.corpus_root,
     )
@@ -264,7 +351,9 @@ def test_commit_persists_cross_scope_object_ref_metadata(store: GraphAuthoringOv
         commit_graph_object_authoring_write,
     )
 
-    prepare_response = prepare_graph_object_authoring_write(
+    authority = FakeWorldGraphAuthority()
+    source = fake_resolved_source()
+    prepare_response = expressible_prepare(
         prepare_request(
             proposals=[
                 link_existing_proposal(
@@ -280,6 +369,8 @@ def test_commit_persists_cross_scope_object_ref_metadata(store: GraphAuthoringOv
             ]
         ),
         corpus_root=store.corpus_root,
+        authority=authority,
+        resolved_source=source,
     )
     commit_response = commit_graph_object_authoring_write(
         GraphObjectAuthoringCommitRequest.model_validate(
@@ -287,6 +378,8 @@ def test_commit_persists_cross_scope_object_ref_metadata(store: GraphAuthoringOv
                 "campaignId": CAMPAIGN_ID,
                 "campaignRel": TEST_CAMPAIGN_REL,
                 "sessionId": "session-2",
+                "worldId": CAMPAIGN_ID,
+                "sourceRunId": "run-c1s2",
                 "proposals": [
                     link_existing_proposal(
                         existingObjectRef={
@@ -304,21 +397,20 @@ def test_commit_persists_cross_scope_object_ref_metadata(store: GraphAuthoringOv
             }
         ),
         corpus_root=store.corpus_root,
+        authority=authority,
+        resolved_source=source,
     )
     assert commit_response.committed is True
-
-    overlay = store.load_overlay(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
-    link_assertion = next(
-        item for item in overlay.assertions if item.assertion_kind == "link_existing"
-    )
-    ref = link_assertion.existing_object_ref
-    assert ref.candidate_graph_scope == "party_pc"
-    assert ref.source_label == "Party / PCs"
+    assert commit_response.published_revision_id == "rev:d1"
+    assert commit_response.parent_revision_id == "rev:d0"
+    assert authority.publish_calls == 1
+    overlay_path = store.overlay_path(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
+    assert not overlay_path.exists()
 
 
 def test_prepare_writes_nothing(store: GraphAuthoringOverlayStore) -> None:
     campaign_dir = store.corpus_root / TEST_CAMPAIGN_REL
-    prepare_graph_object_authoring_write(
+    expressible_prepare(
         prepare_request(),
         corpus_root=store.corpus_root,
     )
@@ -329,7 +421,7 @@ def test_prepare_writes_nothing(store: GraphAuthoringOverlayStore) -> None:
 
 
 def test_prepare_returns_proposed_assertions_digest(store: GraphAuthoringOverlayStore) -> None:
-    response = prepare_graph_object_authoring_write(
+    response = expressible_prepare(
         prepare_request(),
         corpus_root=store.corpus_root,
     )
@@ -338,21 +430,39 @@ def test_prepare_returns_proposed_assertions_digest(store: GraphAuthoringOverlay
 
 
 def test_prepare_returns_confirm_token(store: GraphAuthoringOverlayStore) -> None:
-    response = prepare_graph_object_authoring_write(
+    response = expressible_prepare(
         prepare_request(),
         corpus_root=store.corpus_root,
     )
-    assert len(response.confirm_token) == 64
+    assert response.confirm_token.startswith("v1.")
+    assert response.expected_parent_revision_id == "rev:d0"
+    assert response.authority_operation_id.startswith("grauth:")
+    assert response.expressibility == "EXPRESSIBLE"
 
 
-def test_prepare_token_is_deterministic(store: GraphAuthoringOverlayStore) -> None:
-    first = prepare_graph_object_authoring_write(
-        prepare_request(),
-        corpus_root=store.corpus_root,
+def test_prepare_token_is_deterministic(
+    store: GraphAuthoringOverlayStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 8, 28, 18, 0, tzinfo=UTC)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_prepare.datetime",
+        FrozenDateTime,
     )
-    second = prepare_graph_object_authoring_write(
+    authority = FakeWorldGraphAuthority()
+    first = expressible_prepare(
         prepare_request(),
         corpus_root=store.corpus_root,
+        authority=authority,
+    )
+    second = expressible_prepare(
+        prepare_request(),
+        corpus_root=store.corpus_root,
+        authority=authority,
     )
     assert first.confirm_token == second.confirm_token
     assert first.current_overlay_token == second.current_overlay_token
@@ -409,7 +519,7 @@ def test_prepare_rejects_blank_object_ref_label(store: GraphAuthoringOverlayStor
 
 
 def test_prepare_response_includes_no_mutation_guarantees(store: GraphAuthoringOverlayStore) -> None:
-    response = prepare_graph_object_authoring_write(
+    response = expressible_prepare(
         prepare_request(),
         corpus_root=store.corpus_root,
     )
@@ -440,3 +550,82 @@ def test_build_confirm_token_changes_when_assertions_change() -> None:
         assertions=assertions_b,
     )
     assert token_a != token_b
+
+
+def test_classify_object_is_expressible() -> None:
+    request = prepare_request(proposals=[object_proposal()])
+    assert classify_graph_review_expressibility(request.proposals) == "EXPRESSIBLE"
+
+
+def test_classify_link_without_node_id_is_inexpressible() -> None:
+    request = prepare_request(proposals=[link_existing_proposal()])
+    assert classify_graph_review_expressibility(request.proposals) == "INEXPRESSIBLE"
+
+
+def test_classify_unknown_kind_is_inexpressible() -> None:
+    class _Unknown:
+        proposal_kind = "explode"
+        existing_object_ref = None
+        source_object_ref = None
+        target_object_ref = None
+
+    assert classify_graph_review_expressibility([_Unknown()]) == "INEXPRESSIBLE"
+
+
+def test_prepare_merge_objects_is_inexpressible_without_source(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    from tests.test_graph_object_authoring_merge_prepare import merge_proposal
+
+    response = prepare_graph_object_authoring_write(
+        prepare_request(proposals=[merge_proposal()], sourceRunId=None),
+        corpus_root=store.corpus_root,
+    )
+    assert response.expressibility == "INEXPRESSIBLE"
+    assert response.expected_parent_revision_id is None
+    assert any(item.code == "governed_write_inexpressible" for item in response.diagnostics)
+    overlay_path = store.overlay_path(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
+    assert not overlay_path.exists()
+
+
+def test_prepare_object_without_source_run_fails(store: GraphAuthoringOverlayStore) -> None:
+    with pytest.raises(GraphObjectAuthoringError) as exc:
+        prepare_graph_object_authoring_write(
+            prepare_request(sourceRunId=None),
+            corpus_root=store.corpus_root,
+            authority=FakeWorldGraphAuthority(),
+        )
+    assert exc.value.code == "source_unresolved"
+
+
+def test_prepare_missing_source_artifact_fails_closed(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    authority = FakeWorldGraphAuthority(
+        admit_error=GraphObjectAuthoringError(
+            "source artifact was not found",
+            code="source_artifact_not_found",
+            status_code=404,
+        )
+    )
+    with pytest.raises(GraphObjectAuthoringError) as exc:
+        prepare_graph_object_authoring_write(
+            prepare_request(),
+            corpus_root=store.corpus_root,
+            authority=authority,
+            resolved_source=fake_resolved_source(),
+        )
+    assert exc.value.code == "source_artifact_not_found"
+
+
+def test_prepare_wrong_world_source_fails_closed(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    with pytest.raises(GraphObjectAuthoringError) as exc:
+        prepare_graph_object_authoring_write(
+            prepare_request(),
+            corpus_root=store.corpus_root,
+            authority=FakeWorldGraphAuthority(),
+            resolved_source=fake_resolved_source(world_id="other-world"),
+        )
+    assert exc.value.code == "source_inadmissible"
