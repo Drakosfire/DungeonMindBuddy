@@ -1,58 +1,33 @@
-"""Commit prepared authored graph overlay writes."""
-
-# PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION:
-# Retained until PR006/PR007 replaces live Graph Review preview materialization.
+"""Commit prepared Graph Review edits through DungeonMind World Graph authority."""
 
 from __future__ import annotations
 
-import shutil
-from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
-from apps.live_control_server.config import repo_root
-from apps.live_control_server.services.graph_authoring_event_log import (
-    GraphAuthoringEventLogError,
-    append_graph_authoring_events,
-    build_graph_authoring_events,
-)
-from apps.live_control_server.services.graph_authoring_overlay_store import (
-    GraphAuthoringOverlayStore,
-    GraphAuthoringOverlayStoreError,
-)
-from apps.live_control_server.services.graph_merge_reconciliation_materialize import (
-    actionable_merge_plan,
-    derive_materialization_pass_id,
-    merge_plan_digest,
-    resolve_repo_path,
-)
-from apps.live_control_server.services.graph_object_authoring_merge_guard import (
-    detect_merge_assertion_conflicts,
-    find_superseded_merge_assertion_pairs,
-)
 from apps.live_control_server.services.graph_authoring_overlay_projection import (
     authored_object_node_id,
 )
+from apps.live_control_server.services.graph_authoring_overlay_store import (
+    GraphAuthoringOverlayStore,
+)
 from apps.live_control_server.services.graph_object_authoring_prepare import (
-    GraphAuthoringDiagnostic,
     GraphObjectAuthoringCommitRequest,
     GraphObjectAuthoringCommitResponse,
     GraphObjectAuthoringError,
-    GraphObjectAuthoringUnionStoreMaterializationSummary,
     authoring_prepare_request_from_write,
-    _blocking_assertion_diagnostics,
+    authored_world_id,
     build_assertions_from_proposals,
-    build_confirm_token,
-    commit_no_mutation_guarantees,
-    overlay_file_token,
-    stable_json_digest,
+    classify_graph_review_expressibility,
+    decode_publication_intent,
+    contribution_binding_digest,
+    graph_review_actor,
+    proposed_assertions_digest,
+    prove_or_admit_graph_review_source,
+    resolve_graph_review_source,
+    translate_assertions_to_contribution,
     validate_authoring_campaign_scope,
-)
-from graph_memory.union_supergraph.load import load_union_supergraph_store
-from graph_memory.union_supergraph.merge_reconciliation import (
-    plan_authored_merge_reconciliation,
-)
-from graph_memory.union_supergraph.merge_reconciliation_apply import (
-    apply_union_supergraph_merge_plan_to_file,
+    _blocking_assertion_diagnostics,
 )
 
 
@@ -79,116 +54,32 @@ def _created_node_ids_for_assertions(
     return created
 
 
-def _backup_overlay(
-    store: GraphAuthoringOverlayStore,
-    *,
-    campaign_id: str,
-    campaign_rel: str | None,
-    overlay_token: str,
-) -> Path | None:
-    overlay_path = store.overlay_path(campaign_id, campaign_rel=campaign_rel)
-    if not overlay_path.is_file():
-        return None
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    backup_name = f"authored_graph_overlay.{stamp}.{overlay_token[:12]}.json"
-    backup_path = store.backups_dir(campaign_id, campaign_rel=campaign_rel) / backup_name
-    backup_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(overlay_path, backup_path)
-    return backup_path
+def _authority_error(exc: Exception) -> GraphObjectAuthoringError:
+    from apps.live_control_server.ports.world_graph_authority import WorldGraphAuthorityError
 
-
-def _materialize_union_store_merges(
-    request: GraphObjectAuthoringCommitRequest,
-    *,
-    store: GraphAuthoringOverlayStore,
-    repo_root_override: Path | None = None,
-) -> GraphObjectAuthoringUnionStoreMaterializationSummary:
-    if not request.preview_union_store_path:
-        return GraphObjectAuthoringUnionStoreMaterializationSummary(
-            attempted=False,
-            applied=False,
-            reason="no_preview_union_store_selected",
-        )
-
-    root = (repo_root_override or repo_root()).resolve()
-    try:
-        union_store_path = resolve_repo_path(root, request.preview_union_store_path)
-        overlay = store.load_overlay(request.campaign_id, campaign_rel=request.campaign_rel)
-        union_store = load_union_supergraph_store(union_store_path)
-
-        provisional_pass_id = "commit-materialize-provisional"
-        plan = plan_authored_merge_reconciliation(
-            campaign_id=request.campaign_id,
-            overlay=overlay,
-            union_store=union_store,
-            materialization_pass_id=provisional_pass_id,
-        )
-        plan_digest = merge_plan_digest(plan)
-        materialization_pass_id = derive_materialization_pass_id(
-            campaign_id=request.campaign_id,
-            session_id=request.session_id,
-            plan_digest=plan_digest,
-            requested=None,
-        )
-        if materialization_pass_id != provisional_pass_id:
-            plan = plan_authored_merge_reconciliation(
-                campaign_id=request.campaign_id,
-                overlay=overlay,
-                union_store=union_store,
-                materialization_pass_id=materialization_pass_id,
+    if isinstance(exc, WorldGraphAuthorityError):
+        reason = str(exc.details.get("reason") or "").strip()
+        message = f"{exc}{f': {reason}' if reason else ''}"
+        if exc.code == "stale_parent":
+            return GraphObjectAuthoringError(message, code="stale_parent", status_code=409)
+        if exc.code == "inexpressible":
+            return GraphObjectAuthoringError(
+                message,
+                code="governed_write_inexpressible",
+                status_code=409,
             )
-
-        actionable_plan = actionable_merge_plan(plan, union_store)
-        if not actionable_plan.plans:
-            return GraphObjectAuthoringUnionStoreMaterializationSummary(
-                attempted=True,
-                applied=False,
-                reason="no_actionable_merge_assertions",
-                union_store_path=str(union_store_path),
+        if exc.code == "authority_unavailable":
+            return GraphObjectAuthoringError(
+                message,
+                code="authority_unavailable",
+                status_code=503,
             )
-
-        applied_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-        backup_dir = union_store_path.parent / "backups"
-        apply_result = apply_union_supergraph_merge_plan_to_file(
-            union_store_path=union_store_path,
-            plan=actionable_plan,
-            applied_at=applied_at,
-            backup_dir=backup_dir,
+        return GraphObjectAuthoringError(
+            message,
+            code="authority_unavailable",
+            status_code=502,
         )
-        diagnostics = [
-            GraphAuthoringDiagnostic(
-                code=item.code,
-                message=item.message,
-                severity=item.severity,
-            )
-            for item in apply_result.diagnostics
-        ]
-        return GraphObjectAuthoringUnionStoreMaterializationSummary(
-            attempted=True,
-            applied=True,
-            reason="materialized",
-            union_store_path=str(union_store_path),
-            backup_path=apply_result.backup_path,
-            applied_assertion_ids=list(apply_result.applied_assertion_ids),
-            redirects_added=apply_result.redirects_added,
-            edges_rewired=apply_result.edges_rewired,
-            survivor_nodes_updated=apply_result.survivor_nodes_updated,
-            diagnostics=diagnostics,
-        )
-    except Exception as exc:
-        return GraphObjectAuthoringUnionStoreMaterializationSummary(
-            attempted=True,
-            applied=False,
-            reason="materialization_failed",
-            union_store_path=request.preview_union_store_path,
-            diagnostics=[
-                GraphAuthoringDiagnostic(
-                    code="union_store_materialization_failed",
-                    message=str(exc),
-                    severity="error",
-                )
-            ],
-        )
+    return GraphObjectAuthoringError(str(exc), code="authority_unavailable", status_code=503)
 
 
 def commit_graph_object_authoring_write(
@@ -196,164 +87,252 @@ def commit_graph_object_authoring_write(
     *,
     corpus_root: Path | None = None,
     repo_root_override: Path | None = None,
+    authority: Any | None = None,
+    resolved_source: Any | None = None,
 ) -> GraphObjectAuthoringCommitResponse:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        graph_review_authority_operation_id,
+    )
+    from apps.live_control_server.ports.world_graph_authority import (
+        WorldGraphAuthorityError,
+        WorldGraphPublishRequest,
+    )
+    from apps.live_control_server.ports.world_graph_authority_access import (
+        get_world_graph_authority,
+    )
+
+    del repo_root_override  # Graph Review confirm must not union-materialize.
+
     if not request.proposals:
         raise GraphObjectAuthoringError(
             "At least one staged proposal is required to commit.",
             code="empty_proposals",
         )
+    if request.merge_into_union is False:
+        raise GraphObjectAuthoringError(
+            "Overlay-only Graph Review confirmation is no longer supported.",
+            code="governed_write_inexpressible",
+            status_code=409,
+        )
 
     validate_authoring_campaign_scope(request.campaign_id, request.campaign_rel)
-
-    try:
-        store = _resolve_store(corpus_root)
-        overlay_path = store.overlay_path(request.campaign_id, campaign_rel=request.campaign_rel)
-        events_path = store.events_path(request.campaign_id, campaign_rel=request.campaign_rel)
-    except GraphAuthoringOverlayStoreError as exc:
-        raise GraphObjectAuthoringError(str(exc), code="invalid_campaign_scope") from exc
-    current_token = overlay_file_token(overlay_path, campaign_id=request.campaign_id)
-
-    if current_token != request.current_overlay_token:
+    intent = decode_publication_intent(request.confirm_token)
+    if str(intent.get("expressibility") or "") == "INEXPRESSIBLE":
         raise GraphObjectAuthoringError(
-            "The authored graph changed since this preview was prepared. Prepare again before committing.",
-            code="stale_overlay",
+            "merge_objects and unknown Graph Review operations cannot be published.",
+            code="governed_write_inexpressible",
             status_code=409,
         )
 
     prepare_request = authoring_prepare_request_from_write(request)
-    existing_overlay = store.load_overlay(request.campaign_id, campaign_rel=request.campaign_rel)
     assertions, assertion_diagnostics = build_assertions_from_proposals(prepare_request)
+    blocking = _blocking_assertion_diagnostics(assertion_diagnostics)
+    if blocking:
+        raise GraphObjectAuthoringError(blocking[0].message, code=blocking[0].code)
+    if not assertions:
+        raise GraphObjectAuthoringError("No valid assertions could be built.", code="empty_proposals")
+
+    expressibility = classify_graph_review_expressibility(request.proposals)
+    if expressibility == "INEXPRESSIBLE":
+        raise GraphObjectAuthoringError(
+            "merge_objects and unknown Graph Review operations cannot be published.",
+            code="governed_write_inexpressible",
+            status_code=409,
+        )
+
+    world_id = authored_world_id(request)
+    actor = graph_review_actor(request.campaign_id)
+    assertions_digest = proposed_assertions_digest(assertions)
+    if str(intent.get("world_id") or "") != world_id:
+        raise GraphObjectAuthoringError(
+            "Confirm token does not match the prepared publication intent.",
+            code="confirmation_invalid",
+            status_code=409,
+        )
+    if str(intent.get("campaign_id") or "") != request.campaign_id:
+        raise GraphObjectAuthoringError(
+            "Confirm token does not match the prepared publication intent.",
+            code="confirmation_invalid",
+            status_code=409,
+        )
+    if intent.get("campaign_rel") != request.campaign_rel:
+        raise GraphObjectAuthoringError(
+            "Confirm token does not match the prepared publication intent.",
+            code="confirmation_invalid",
+            status_code=409,
+        )
+    if (intent.get("source_run_id") or None) != (request.source_run_id or None):
+        raise GraphObjectAuthoringError(
+            "Confirm token does not match the prepared publication intent.",
+            code="confirmation_invalid",
+            status_code=409,
+        )
+    if str(intent.get("assertions_digest") or "") != assertions_digest:
+        raise GraphObjectAuthoringError(
+            "Confirm token does not match the prepared publication intent.",
+            code="confirmation_invalid",
+            status_code=409,
+        )
+    if str(intent.get("actor") or "") != actor:
+        raise GraphObjectAuthoringError(
+            "Confirm token does not match the prepared publication intent.",
+            code="confirmation_invalid",
+            status_code=409,
+        )
+
+    sealed_parent = str(intent.get("expected_parent_revision_id") or "")
+    sealed_operation = str(intent.get("authority_operation_id") or "")
+    source_artifact_id = str(intent.get("source_artifact_id") or "")
+    source_revision_id = str(intent.get("source_revision_id") or "")
+    sealed_contribution_digest = str(intent.get("contribution_digest") or "")
+    if (
+        not sealed_parent
+        or not sealed_operation
+        or not source_artifact_id
+        or not source_revision_id
+        or not sealed_contribution_digest
+    ):
+        raise GraphObjectAuthoringError(
+            "Prepared confirmation is missing DungeonMind publication bindings.",
+            code="confirmation_invalid",
+            status_code=409,
+        )
+
+    resolved = resolve_graph_review_source(
+        request,
+        authored_world=world_id,
+        resolved_source=resolved_source,
+    )
+    mounted = authority or get_world_graph_authority()
+
+    buddy_artifact_id = str(getattr(resolved, "source_artifact_id"))
+    buddy_revision_id = str(getattr(resolved, "source_revision_id"))
+    admitted_artifact, admitted_revision = prove_or_admit_graph_review_source(
+        world_id=world_id,
+        source_artifact_id=buddy_artifact_id,
+        source_revision_id=buddy_revision_id,
+        authority=mounted,
+    )
+    if admitted_artifact != source_artifact_id or admitted_revision != source_revision_id:
+        raise GraphObjectAuthoringError(
+            "Admitted source pair drifted from the prepared binding.",
+            code="source_inadmissible",
+            status_code=409,
+        )
+
+    operation_id = graph_review_authority_operation_id(
+        world_id=world_id,
+        campaign_id=request.campaign_id,
+        campaign_rel=request.campaign_rel,
+        source_artifact_id=source_artifact_id,
+        source_revision_id=source_revision_id,
+        sealed_proposal_digest=assertions_digest,
+        expected_parent_revision_id=sealed_parent,
+    )
+    if operation_id != sealed_operation:
+        raise GraphObjectAuthoringError(
+            "Confirm token does not match the prepared publication intent.",
+            code="confirmation_invalid",
+            status_code=409,
+        )
+
+    contribution = translate_assertions_to_contribution(
+        world_id=world_id,
+        campaign_id=request.campaign_id,
+        actor=actor,
+        source_artifact_id=buddy_artifact_id,
+        source_revision_id=buddy_revision_id,
+        assertions=assertions,
+    )
+    if contribution_binding_digest(contribution) != sealed_contribution_digest:
+        raise GraphObjectAuthoringError(
+            "Confirm token does not match the prepared DungeonMind contribution.",
+            code="confirmation_invalid",
+            status_code=409,
+        )
+
+    try:
+        recovered = mounted.recover(
+            world_id,
+            operation_id,
+            expected_parent_revision_id=sealed_parent,
+            contribution=contribution,
+            actor=actor,
+            operation_namespace="worldbuilding",
+        )
+    except WorldGraphAuthorityError as exc:
+        raise _authority_error(exc) from exc
+
+    receipt = recovered
+    if recovered is None:
+        try:
+            head = mounted.current_head(world_id)
+        except WorldGraphAuthorityError as exc:
+            raise _authority_error(exc) from exc
+        if head.revision_id != sealed_parent:
+            raise GraphObjectAuthoringError(
+                "expected parent revision is not the current World Graph head",
+                code="stale_parent",
+                status_code=409,
+            )
+        publish_request = WorldGraphPublishRequest(
+            world_id=world_id,
+            expected_parent_revision_id=sealed_parent,
+            authority_operation_id=operation_id,
+            actor=actor,
+            contribution=contribution,
+            operation_namespace="worldbuilding",
+        )
+        try:
+            receipt = mounted.publish(publish_request)
+        except WorldGraphAuthorityError as exc:
+            try:
+                recovered = mounted.recover(
+                    world_id,
+                    operation_id,
+                    expected_parent_revision_id=sealed_parent,
+                    contribution=contribution,
+                    actor=actor,
+                    operation_namespace="worldbuilding",
+                )
+            except WorldGraphAuthorityError as recover_exc:
+                raise _authority_error(recover_exc) from recover_exc
+            if recovered is None:
+                raise _authority_error(exc) from exc
+            receipt = recovered
+
+    assert receipt is not None
     local_proposal_ids = {
         assertion.assertion_id: proposal.local_proposal_id
         for assertion, proposal in zip(assertions, request.proposals, strict=False)
     }
-    merge_conflicts = detect_merge_assertion_conflicts(
-        assertions,
-        existing_assertions=existing_overlay.assertions,
-        local_proposal_id_by_assertion_id=local_proposal_ids,
-    )
-    blocking = _blocking_assertion_diagnostics([*assertion_diagnostics, *merge_conflicts])
-    if blocking:
-        raise GraphObjectAuthoringError(blocking[0].message, code=blocking[0].code)
-
-    expected_confirm = build_confirm_token(
-        campaign_id=request.campaign_id,
-        overlay_path=str(overlay_path),
-        current_overlay_token=current_token,
-        assertions=assertions,
-    )
-    if expected_confirm != request.confirm_token:
-        raise GraphObjectAuthoringError(
-            "Confirm token does not match the prepared preview. Prepare again before committing.",
-            code="confirm_token_mismatch",
-            status_code=409,
-        )
-
-    token_before = current_token
-    backup_path = _backup_overlay(
-        store,
-        campaign_id=request.campaign_id,
-        campaign_rel=request.campaign_rel,
-        overlay_token=token_before,
-    )
-
-    try:
-        supersession_pairs = find_superseded_merge_assertion_pairs(
-            assertions,
-            existing_assertions=existing_overlay.assertions,
-        )
-        if supersession_pairs:
-            store.supersede_assertions(
-                request.campaign_id,
-                {superseded_assertion_id for superseded_assertion_id, _ in supersession_pairs},
-                campaign_rel=request.campaign_rel,
-            )
-        store.append_assertions(
-            request.campaign_id,
-            assertions,
-            campaign_rel=request.campaign_rel,
-        )
-    except Exception as exc:
-        raise GraphObjectAuthoringError(
-            f"Failed to write authored graph overlay: {exc}",
-            code="overlay_write_failed",
-        ) from exc
-
-    token_after = overlay_file_token(overlay_path, campaign_id=request.campaign_id)
-    batch_event_id = stable_json_digest(
-        {
-            "batch": request.confirm_token,
-            "assertion_ids": [assertion.assertion_id for assertion in assertions],
-        }
-    )[:24]
-    events = build_graph_authoring_events(
-        campaign_id=request.campaign_id,
-        session_id=request.session_id,
-        overlay_path=str(overlay_path),
-        overlay_token_before=token_before,
-        overlay_token_after=token_after,
-        assertions=assertions,
-        local_proposal_ids=[proposal.local_proposal_id for proposal in request.proposals],
-        source_run_id=prepare_request.source_run_id,
-        source_graph_id=prepare_request.source_graph_id,
-        source_projection_id=prepare_request.source_projection_id,
-        batch_event_id=f"evt-{batch_event_id}",
-        supersessions=supersession_pairs,
-    )
-
-    try:
-        append_graph_authoring_events(events_path, events)
-    except GraphAuthoringEventLogError as exc:
-        return GraphObjectAuthoringCommitResponse(
-            committed=False,
-            campaign_id=request.campaign_id,
-            overlay_path=str(overlay_path),
-            event_log_path=str(events_path),
-            backup_path=str(backup_path) if backup_path else None,
-            assertion_count=len(assertions),
-            event_count=0,
-            new_overlay_token=token_after,
-            diagnostics=[
-                GraphAuthoringDiagnostic(
-                    code="event_log_write_failed",
-                    message=str(exc),
-                    severity="error",
-                )
-            ],
-            no_mutation_guarantees=commit_no_mutation_guarantees(
-                overlay_written=True,
-                event_log_written=False,
-                union_store_materialized=False,
-            ),
-            union_store_materialization=GraphObjectAuthoringUnionStoreMaterializationSummary(
-                attempted=False,
-                applied=False,
-                reason="event_log_failed",
-            ),
-            created_node_ids={},
-        )
-
-    materialization = _materialize_union_store_merges(
-        request,
-        store=store,
-        repo_root_override=repo_root_override,
-    )
-
+    store = _resolve_store(corpus_root)
+    overlay_path = store.overlay_path(request.campaign_id, campaign_rel=request.campaign_rel)
+    events_path = store.events_path(request.campaign_id, campaign_rel=request.campaign_rel)
+    idempotency = "already_applied" if receipt.outcome == "already_applied" else "published"
     return GraphObjectAuthoringCommitResponse(
         committed=True,
         campaign_id=request.campaign_id,
         overlay_path=str(overlay_path),
         event_log_path=str(events_path),
-        backup_path=str(backup_path) if backup_path else None,
+        backup_path=None,
         assertion_count=len(assertions),
-        event_count=len(events),
-        new_overlay_token=token_after,
+        event_count=0,
+        new_overlay_token=None,
         diagnostics=[],
-        no_mutation_guarantees=commit_no_mutation_guarantees(
-            overlay_written=True,
-            event_log_written=True,
-            union_store_materialized=materialization.applied,
-        ),
-        union_store_materialization=materialization,
+        no_mutation_guarantees=[
+            "Published through DungeonMind World Graph authority.",
+            "Authored overlay was not the graph authority.",
+            "UnionSupergraph was not mutated.",
+            "Source markdown was not mutated.",
+        ],
+        union_store_materialization=None,
         created_node_ids=_created_node_ids_for_assertions(assertions, local_proposal_ids),
+        world_id=world_id,
+        parent_revision_id=receipt.parent_revision_id,
+        published_revision_id=receipt.published_revision_id,
+        operation_id=operation_id,
+        result=idempotency,
+        idempotency_status=idempotency,
+        audit_status="skipped",
     )
