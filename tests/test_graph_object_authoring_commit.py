@@ -21,9 +21,11 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
 )
 from tests.test_graph_object_authoring_prepare import (
     CAMPAIGN_ID,
+    GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV,
     SOURCE_ARTIFACT_ID,
     SOURCE_REVISION_ID,
     TEST_CAMPAIGN_REL,
+    FakeSourceAdmission,
     FakeWorldGraphAuthority,
     expressible_prepare,
     fake_resolved_source,
@@ -32,6 +34,17 @@ from tests.test_graph_object_authoring_prepare import (
     prepare_request,
     relationship_proposal,
 )
+
+
+@pytest.fixture(autouse=True)
+def graph_review_unit_seams(monkeypatch: pytest.MonkeyPatch) -> FakeSourceAdmission:
+    monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "d2c4-unit-test-key")
+    fake = FakeSourceAdmission()
+    monkeypatch.setattr(
+        "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",
+        lambda: fake,
+    )
+    return fake
 
 
 def expressible_relationship_proposal(**overrides) -> dict[str, object]:
@@ -154,6 +167,9 @@ def test_commit_publishes_object_through_dungeonmind(
     assert response.operation_id == prepare.authority_operation_id
     assert response.result == "published"
     assert response.idempotency_status == "published"
+    assert response.audit_status == "skipped"
+    assert response.overlay_path is None
+    assert response.event_log_path is None
     assert authority.publish_calls == 1
     contrib = authority.published_requests[0].contribution
     assert contrib.source_kind == "graph_review_authored_assertion"
@@ -537,3 +553,26 @@ def test_commit_rejects_unsafe_campaign_rel(corpus_root: Path) -> None:
             resolved_source=source,
         )
     assert exc.value.code == "unsafe_campaign_rel"
+
+
+def test_commit_token_survives_stable_binding_key_reread(corpus_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "stable-across-instances")
+    authority = FakeWorldGraphAuthority()
+    source = fake_resolved_source()
+    prepare = expressible_prepare(
+        prepare_request(),
+        corpus_root=corpus_root,
+        authority=authority,
+        resolved_source=source,
+    )
+    monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "stable-across-instances")
+    response = commit_graph_object_authoring_write(
+        _commit_request_from_prepare(prepare),
+        corpus_root=corpus_root,
+        authority=authority,
+        resolved_source=source,
+    )
+    assert response.published_revision_id == "rev:d1"
+    assert response.audit_status == "skipped"
+    assert response.overlay_path is None
+    assert response.event_log_path is None

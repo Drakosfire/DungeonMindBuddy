@@ -8,9 +8,6 @@ from typing import Any
 from apps.live_control_server.services.graph_authoring_overlay_projection import (
     authored_object_node_id,
 )
-from apps.live_control_server.services.graph_authoring_overlay_store import (
-    GraphAuthoringOverlayStore,
-)
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringCommitRequest,
     GraphObjectAuthoringCommitResponse,
@@ -23,20 +20,12 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     contribution_binding_digest,
     graph_review_actor,
     proposed_assertions_digest,
-    prove_or_admit_graph_review_source,
+    prove_graph_review_source,
     resolve_graph_review_source,
     translate_assertions_to_contribution,
     validate_authoring_campaign_scope,
     _blocking_assertion_diagnostics,
 )
-
-
-def _resolve_store(corpus_root: Path | None) -> GraphAuthoringOverlayStore:
-    if corpus_root is None:
-        from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
-
-        return GraphAuthoringOverlayStore(default_corpus_root())
-    return GraphAuthoringOverlayStore(corpus_root)
 
 
 def _created_node_ids_for_assertions(
@@ -89,6 +78,7 @@ def commit_graph_object_authoring_write(
     repo_root_override: Path | None = None,
     authority: Any | None = None,
     resolved_source: Any | None = None,
+    source_admission: Any | None = None,
 ) -> GraphObjectAuthoringCommitResponse:
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         graph_review_authority_operation_id,
@@ -102,6 +92,7 @@ def commit_graph_object_authoring_write(
     )
 
     del repo_root_override  # Graph Review confirm must not union-materialize.
+    del corpus_root  # skipped audit must not resolve overlay/event paths
 
     if not request.proposals:
         raise GraphObjectAuthoringError(
@@ -207,11 +198,12 @@ def commit_graph_object_authoring_write(
 
     buddy_artifact_id = str(getattr(resolved, "source_artifact_id"))
     buddy_revision_id = str(getattr(resolved, "source_revision_id"))
-    admitted_artifact, admitted_revision = prove_or_admit_graph_review_source(
+    admitted_artifact, admitted_revision = prove_graph_review_source(
         world_id=world_id,
-        source_artifact_id=buddy_artifact_id,
-        source_revision_id=buddy_revision_id,
-        authority=mounted,
+        source_artifact_id=source_artifact_id,
+        source_revision_id=source_revision_id,
+        source_revision_token=buddy_revision_id,
+        source_admission=source_admission,
     )
     if admitted_artifact != source_artifact_id or admitted_revision != source_revision_id:
         raise GraphObjectAuthoringError(
@@ -306,15 +298,12 @@ def commit_graph_object_authoring_write(
         assertion.assertion_id: proposal.local_proposal_id
         for assertion, proposal in zip(assertions, request.proposals, strict=False)
     }
-    store = _resolve_store(corpus_root)
-    overlay_path = store.overlay_path(request.campaign_id, campaign_rel=request.campaign_rel)
-    events_path = store.events_path(request.campaign_id, campaign_rel=request.campaign_rel)
     idempotency = "already_applied" if receipt.outcome == "already_applied" else "published"
     return GraphObjectAuthoringCommitResponse(
         committed=True,
         campaign_id=request.campaign_id,
-        overlay_path=str(overlay_path),
-        event_log_path=str(events_path),
+        overlay_path=None,
+        event_log_path=None,
         backup_path=None,
         assertion_count=len(assertions),
         event_count=0,

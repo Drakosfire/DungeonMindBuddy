@@ -59,7 +59,6 @@ NO_MUTATION_GUARANTEES_PREPARE = [
 
 GRAPH_REVIEW_PREPARE_BINDING_SCHEMA = "dmb_graph_review_prepare_binding_v1"
 GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV = "DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY"
-_PROCESS_PREPARE_BINDING_KEY = os.urandom(32)
 PREPARE_TTL = timedelta(hours=1)
 EXPRESSIBLE_KINDS = frozenset({"object", "link_existing", "relationship"})
 
@@ -873,11 +872,16 @@ def graph_review_actor(campaign_id: str) -> str:
 
 def _prepare_binding_key() -> bytes:
     explicit = os.environ.get(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "").strip()
-    if explicit:
-        return hashlib.sha256(
-            f"{GRAPH_REVIEW_PREPARE_BINDING_SCHEMA}:{explicit}".encode("utf-8")
-        ).digest()
-    return _PROCESS_PREPARE_BINDING_KEY
+    if not explicit:
+        raise GraphObjectAuthoringError(
+            "Graph Review confirm binding key is not configured "
+            f"({GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV}).",
+            code="authority_unavailable",
+            status_code=503,
+        )
+    return hashlib.sha256(
+        f"{GRAPH_REVIEW_PREPARE_BINDING_SCHEMA}:{explicit}".encode("utf-8")
+    ).digest()
 
 
 def publication_intent_payload(
@@ -1002,6 +1006,11 @@ def verify_publication_intent(token: str, payload: dict[str, Any]) -> None:
         )
 
 
+def graph_review_source_evidence_ref_id(source_artifact_id: str) -> str:
+    """One contribution evidence handle for the sealed Graph Review source pair."""
+    return f"grauth-ev:{source_artifact_id}"
+
+
 def translate_assertions_to_contribution(
     *,
     world_id: str,
@@ -1013,6 +1022,7 @@ def translate_assertions_to_contribution(
 ):
     from graph_memory.kernel.contributions import build_assertion, create_graph_contribution
 
+    evidence_ref_ids = [graph_review_source_evidence_ref_id(source_artifact_id)]
     node_id_by_local_proposal_id = {
         str(assertion.object_ref.local_proposal_id): authored_object_node_id(
             assertion.assertion_id
@@ -1045,6 +1055,7 @@ def translate_assertions_to_contribution(
                         "aliases": list(assertion.aliases or [assertion.object_ref.label]),
                         "summary": assertion.summary,
                     },
+                    evidence_ref_ids=evidence_ref_ids,
                     source_artifact_id=source_artifact_id,
                     source_revision_id=source_revision_id,
                     campaign_scope=campaign_id,
@@ -1071,6 +1082,7 @@ def translate_assertions_to_contribution(
                         "alias": alias_text or assertion.existing_object_ref.label,
                         "source_domains": ["worldbuilding"],
                     },
+                    evidence_ref_ids=evidence_ref_ids,
                     source_artifact_id=source_artifact_id,
                     source_revision_id=source_revision_id,
                     campaign_scope=campaign_id,
@@ -1096,6 +1108,7 @@ def translate_assertions_to_contribution(
                     predicate=assertion.relationship_type,
                     label=assertion.relationship_label,
                     value={"source_domains": ["worldbuilding"], "direction": assertion.direction},
+                    evidence_ref_ids=evidence_ref_ids,
                     source_artifact_id=source_artifact_id,
                     source_revision_id=source_revision_id,
                     campaign_scope=campaign_id,
@@ -1175,54 +1188,135 @@ def resolve_graph_review_source(
     return resolved
 
 
+def _buddy_source_artifact(resolved: Any):
+    attached = getattr(resolved, "source_artifact", None)
+    if attached is not None:
+        return attached
+    from apps.live_control_server.config import repo_root
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        get_source_artifact,
+    )
+
+    try:
+        return get_source_artifact(repo_root(), str(resolved.source_artifact_id))
+    except SourceArtifactRegistryError as exc:
+        raise GraphObjectAuthoringError(
+            str(exc),
+            code="source_artifact_not_found",
+            status_code=getattr(exc, "status_code", 404),
+        ) from exc
+
+
+def _scope_check_buddy_artifact(
+    artifact: Any,
+    *,
+    authored_world: str,
+    authored_campaign: str,
+) -> None:
+    art_campaign = (getattr(artifact, "campaign_id", "") or "").strip()
+    if art_campaign and art_campaign != authored_campaign:
+        raise GraphObjectAuthoringError(
+            "source artifact belongs to a different campaign",
+            code="source_inadmissible",
+        )
+    art_world = (getattr(artifact, "world_id", "") or "").strip()
+    if art_world and art_world != authored_world:
+        raise GraphObjectAuthoringError(
+            "source artifact belongs to a different world",
+            code="source_inadmissible",
+        )
+
+
+def _raise_source_admission(exc: Exception) -> None:
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionError,
+    )
+
+    if not isinstance(exc, WorldGraphSourceAdmissionError):
+        raise GraphObjectAuthoringError(
+            str(exc),
+            code="authority_unavailable",
+            status_code=503,
+        ) from exc
+    mapped = {
+        "source_not_admitted": "source_artifact_not_found",
+        "source_identity_conflict": "source_identity_conflict",
+        "source_identity_missing": "source_unresolved",
+        "authority_unavailable": "authority_unavailable",
+        "inexpressible": "source_inadmissible",
+    }.get(exc.code, "source_inadmissible")
+    status = 503 if mapped == "authority_unavailable" else 409
+    if mapped in {"source_artifact_not_found", "source_unresolved"}:
+        status = 422
+    raise GraphObjectAuthoringError(str(exc), code=mapped, status_code=status) from exc
+
+
 def prove_or_admit_graph_review_source(
+    *,
+    world_id: str,
+    campaign_id: str,
+    resolved_source: Any,
+    source_admission: Any | None = None,
+) -> tuple[str, str]:
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionError,
+        WorldGraphSourceAdmissionRequest,
+    )
+    from apps.live_control_server.ports.world_graph_source_admission_access import (
+        get_world_graph_source_admission_authority,
+    )
+
+    artifact = _buddy_source_artifact(resolved_source)
+    _scope_check_buddy_artifact(
+        artifact,
+        authored_world=world_id,
+        authored_campaign=campaign_id,
+    )
+    admission = source_admission or get_world_graph_source_admission_authority()
+    request = WorldGraphSourceAdmissionRequest(
+        world_id=world_id,
+        campaign_id=campaign_id,
+        source_artifact=artifact,
+        source_revision_token=str(getattr(resolved_source, "source_revision_id")),
+        source_uri=getattr(resolved_source, "sealed_source_uri", None)
+        or getattr(artifact, "uri", None),
+    )
+    try:
+        admitted = admission.prove_or_admit(request)
+    except WorldGraphSourceAdmissionError as exc:
+        _raise_source_admission(exc)
+        raise
+    return admitted.source_artifact_id, admitted.source_revision_id
+
+
+def prove_graph_review_source(
     *,
     world_id: str,
     source_artifact_id: str,
     source_revision_id: str,
-    authority: Any | None,
+    source_revision_token: str,
+    source_admission: Any | None = None,
 ) -> tuple[str, str]:
-    if authority is not None and hasattr(authority, "admit_source"):
-        admitted = authority.admit_source(world_id, source_artifact_id, source_revision_id)
-        return str(admitted[0]), str(admitted[1])
-    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
-        WorldGraphWriteError,
-        _direct_services,
-        _require_database_url,
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionError,
+    )
+    from apps.live_control_server.ports.world_graph_source_admission_access import (
+        get_world_graph_source_admission_authority,
     )
 
+    admission = source_admission or get_world_graph_source_admission_authority()
     try:
-        dsn = _require_database_url(None)
-        services = _direct_services(dsn, world_id)
-        artifact = services.bundle.sources.get_artifact(source_artifact_id)
-        revision = services.bundle.sources.get_revision(source_revision_id)
-    except WorldGraphWriteError as exc:
-        raise GraphObjectAuthoringError(
-            str(exc),
-            code="authority_unavailable",
-            status_code=exc.status_code,
-        ) from exc
-    except Exception as exc:
-        raise GraphObjectAuthoringError(
-            f"DungeonMind source repository is unavailable: {exc}",
-            code="authority_unavailable",
-            status_code=503,
-        ) from exc
-    if artifact is None or revision is None:
-        raise GraphObjectAuthoringError(
-            "Resolved source is not admitted in DungeonMind SourceRepository.",
-            code="source_artifact_not_found",
+        admitted = admission.prove(
+            world_id=world_id,
+            source_artifact_id=source_artifact_id,
+            source_revision_id=source_revision_id,
+            source_revision_token=source_revision_token,
         )
-    snapshot = services.bundle.sources.get_provenance_snapshot(
-        artifact_ids=[source_artifact_id],
-        revision_ids=[source_revision_id],
-    )
-    if snapshot is None:
-        raise GraphObjectAuthoringError(
-            "Admitted source pair is not snapshot-provable.",
-            code="source_inadmissible",
-        )
-    return source_artifact_id, source_revision_id
+    except WorldGraphSourceAdmissionError as exc:
+        _raise_source_admission(exc)
+        raise
+    return admitted.source_artifact_id, admitted.source_revision_id
 
 
 def prepare_graph_object_authoring_write(
@@ -1231,6 +1325,7 @@ def prepare_graph_object_authoring_write(
     corpus_root: Path | None = None,
     authority: Any | None = None,
     resolved_source: Any | None = None,
+    source_admission: Any | None = None,
 ) -> GraphObjectAuthoringPrepareResponse:
     validate_authoring_campaign_scope(request.campaign_id, request.campaign_rel)
 
@@ -1319,9 +1414,9 @@ def prepare_graph_object_authoring_write(
             raise GraphObjectAuthoringError(str(exc), code=code, status_code=503) from exc
         source_artifact_id, source_revision_id = prove_or_admit_graph_review_source(
             world_id=world_id,
-            source_artifact_id=buddy_artifact_id,
-            source_revision_id=buddy_revision_id,
-            authority=mounted,
+            campaign_id=request.campaign_id,
+            resolved_source=resolved,
+            source_admission=source_admission,
         )
         from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
             graph_review_authority_operation_id,

@@ -14,6 +14,10 @@ from apps.live_control_server.ports.world_graph_authority import (
     WorldGraphHead,
     WorldGraphPublicationReceipt,
 )
+from apps.live_control_server.ports.world_graph_source_admission import (
+    AdmittedSourceIdentity,
+    WorldGraphSourceAdmissionError,
+)
 from apps.live_control_server.services.graph_authoring_overlay_store import (
     BACKUPS_DIR,
     EVENTS_DIR,
@@ -21,6 +25,7 @@ from apps.live_control_server.services.graph_authoring_overlay_store import (
     GraphAuthoringOverlayStore,
 )
 from apps.live_control_server.services.graph_object_authoring_prepare import (
+    GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV,
     GraphObjectAuthoringError,
     GraphObjectAuthoringPrepareRequest,
     build_assertions_from_proposals,
@@ -45,15 +50,9 @@ class FakeWorldGraphAuthority:
     publish_calls: int = 0
     recover_calls: int = 0
     published_requests: list[object] = field(default_factory=list)
-    admit_error: GraphObjectAuthoringError | None = None
 
     def current_head(self, world_id: str) -> WorldGraphHead:
         return WorldGraphHead(world_id=world_id, revision_id=self.revision_id)
-
-    def admit_source(self, world_id: str, artifact: str, revision: str) -> tuple[str, str]:
-        if self.admit_error is not None:
-            raise self.admit_error
-        return artifact, revision
 
     def recover(self, world_id: str, authority_operation_id: str, **kwargs):
         self.recover_calls += 1
@@ -94,21 +93,96 @@ class FakeWorldGraphAuthority:
         return published
 
 
+@dataclass
+class FakeSourceAdmission:
+    error: Exception | None = None
+
+    def prove_or_admit(self, request) -> AdmittedSourceIdentity:
+        if self.error is not None:
+            raise self.error
+        artifact_id = str(request.source_artifact.source_artifact_id)
+        token = str(request.source_revision_token)
+        digest = str(getattr(request.source_artifact, "content_sha256", "") or "")
+        return AdmittedSourceIdentity(
+            source_artifact_id=artifact_id,
+            source_revision_id=token,
+            content_sha256=digest,
+            buddy_source_revision_id=token,
+        )
+
+    def prove(
+        self,
+        *,
+        world_id: str,
+        source_artifact_id: str,
+        source_revision_id: str,
+        source_revision_token: str | None = None,
+    ) -> AdmittedSourceIdentity:
+        if self.error is not None:
+            raise self.error
+        token = str(source_revision_token or source_revision_id)
+        return AdmittedSourceIdentity(
+            source_artifact_id=source_artifact_id,
+            source_revision_id=source_revision_id,
+            content_sha256="",
+            buddy_source_revision_id=token,
+        )
+
+
+def fake_source_artifact(*, campaign_id: str = CAMPAIGN_ID, world_id: str | None = None):
+    resolved_world = world_id if world_id is not None else campaign_id
+    return SimpleNamespace(
+        source_artifact_id=SOURCE_ARTIFACT_ID,
+        source_domain="worldbuilding",
+        campaign_id=campaign_id,
+        session_id=None,
+        uri="object://graph-review-source",
+        content_sha256="ab" * 32,
+        artifact_kind="markdown",
+        document_class="lore",
+        authority_state="reviewed",
+        visibility_state="internal",
+        world_id=resolved_world,
+        workspace_document_id=None,
+        workspace_document_revision=None,
+        lineage={},
+        status="active",
+        created_at="1970-01-01T00:00:00Z",
+        updated_at="1970-01-01T00:00:00Z",
+    )
+
+
 def fake_resolved_source(*, campaign_id: str = CAMPAIGN_ID, world_id: str | None = None):
+    resolved_world = world_id if world_id is not None else campaign_id
+    artifact = fake_source_artifact(campaign_id=campaign_id, world_id=resolved_world)
     return SimpleNamespace(
         source_artifact_id=SOURCE_ARTIFACT_ID,
         source_revision_id=SOURCE_REVISION_ID,
         campaign_id=campaign_id,
-        world_id=world_id if world_id is not None else campaign_id,
+        world_id=resolved_world,
+        sealed_source_uri=artifact.uri,
+        source_artifact=artifact,
     )
 
 
-def expressible_prepare(request, *, corpus_root: Path, authority=None, resolved_source=None):
+@pytest.fixture(autouse=True)
+def graph_review_unit_seams(monkeypatch: pytest.MonkeyPatch) -> FakeSourceAdmission:
+    monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "d2c4-unit-test-key")
+    fake = FakeSourceAdmission()
+    monkeypatch.setattr(
+        "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",
+        lambda: fake,
+    )
+    return fake
+
+
+def expressible_prepare(request, *, corpus_root: Path, authority=None, resolved_source=None, source_admission=None):
     return prepare_graph_object_authoring_write(
         request,
         corpus_root=corpus_root,
         authority=authority or FakeWorldGraphAuthority(),
         resolved_source=resolved_source or fake_resolved_source(),
+        source_admission=source_admission,
     )
 
 
@@ -600,22 +674,36 @@ def test_prepare_object_without_source_run_fails(store: GraphAuthoringOverlaySto
 
 def test_prepare_missing_source_artifact_fails_closed(
     store: GraphAuthoringOverlayStore,
+    graph_review_unit_seams: FakeSourceAdmission,
 ) -> None:
-    authority = FakeWorldGraphAuthority(
-        admit_error=GraphObjectAuthoringError(
-            "source artifact was not found",
-            code="source_artifact_not_found",
-            status_code=404,
-        )
+    graph_review_unit_seams.error = WorldGraphSourceAdmissionError(
+        "source artifact was not found",
+        code="source_not_admitted",
     )
     with pytest.raises(GraphObjectAuthoringError) as exc:
         prepare_graph_object_authoring_write(
             prepare_request(),
             corpus_root=store.corpus_root,
-            authority=authority,
+            authority=FakeWorldGraphAuthority(),
             resolved_source=fake_resolved_source(),
         )
     assert exc.value.code == "source_artifact_not_found"
+
+
+def test_prepare_fails_closed_without_stable_binding_key(
+    store: GraphAuthoringOverlayStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, raising=False)
+    with pytest.raises(GraphObjectAuthoringError) as exc:
+        prepare_graph_object_authoring_write(
+            prepare_request(),
+            corpus_root=store.corpus_root,
+            authority=FakeWorldGraphAuthority(),
+            resolved_source=fake_resolved_source(),
+            source_admission=FakeSourceAdmission(),
+        )
+    assert exc.value.code == "authority_unavailable"
 
 
 def test_prepare_wrong_world_source_fails_closed(
