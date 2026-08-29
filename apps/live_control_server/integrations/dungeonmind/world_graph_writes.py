@@ -885,24 +885,6 @@ def load_authority_mutation_context(
         ) from exc
 
 
-def _reverse_revision_id(dm_revision_id: str, artifact_id: str | None) -> str:
-    suffix = f"::{artifact_id}" if artifact_id else ""
-    if suffix and dm_revision_id.endswith(suffix):
-        return dm_revision_id[: -len(suffix)]
-    return dm_revision_id
-
-
-def _dm_revision_id(
-    buddy_revision_id: str,
-    artifact_id: str,
-    colliding_revision_ids: set[str],
-) -> str:
-    """Publisher collision suffix. Same values as the historical adoption helper."""
-    if buddy_revision_id in colliding_revision_ids:
-        return f"{buddy_revision_id}::{artifact_id}"
-    return buddy_revision_id
-
-
 def catalog_aware_source_revision_ids(
     sources: Any,
     world_id: str,
@@ -910,42 +892,27 @@ def catalog_aware_source_revision_ids(
 ) -> dict[tuple[str, str], str]:
     """Map (artifact_id, buddy_token) onto catalog-aware DungeonMind revision IDs.
 
-    Reuses the publisher collision algorithm. Do not mint via
-    ``_dm_revision_id(..., set())``.
+    Shared with Graph Review admission. Implementation lives on the D.2C4
+    admission adapter so that adapter never imports this writes module (and
+    therefore never transitively loads ``graph_memory.kernel``).
     """
-    pair_to_dm: dict[tuple[str, str], str] = {}
-    token_artifacts: dict[str, set[str]] = {}
-    try:
-        artifacts = sources.list_artifacts_for_world(world_id)
-        for artifact in artifacts:
-            for revision in sources.list_revisions(artifact.source_artifact_id):
-                token = _reverse_revision_id(
-                    revision.source_revision_id, artifact.source_artifact_id
-                )
-                pair_to_dm[(artifact.source_artifact_id, token)] = (
-                    revision.source_revision_id
-                )
-                token_artifacts.setdefault(token, set()).add(
-                    artifact.source_artifact_id
-                )
-    except Exception as exc:
-        raise WorldGraphWriteError(
-            "DungeonMind authority read failed while resolving source identity",
-            code="authority_unavailable",
-            details={"world_id": world_id, "reason": type(exc).__name__},
-        ) from exc
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
+        catalog_aware_source_revision_ids as _admission_catalog_aware,
+    )
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionError,
+    )
 
-    for artifact_id, token in pairs:
-        token_artifacts.setdefault(token, set()).add(artifact_id)
-    colliding = {
-        token for token, artifacts in token_artifacts.items() if len(artifacts) > 1
-    }
-    for artifact_id, token in sorted(pairs):
-        if (artifact_id, token) not in pair_to_dm:
-            pair_to_dm[(artifact_id, token)] = _dm_revision_id(
-                token, artifact_id, colliding
-            )
-    return pair_to_dm
+    try:
+        return _admission_catalog_aware(sources, world_id, pairs)
+    except WorldGraphSourceAdmissionError as exc:
+        raise WorldGraphWriteError(
+            str(exc),
+            code="authority_unavailable"
+            if exc.code == "authority_unavailable"
+            else "governed_write_inexpressible",
+            details=dict(exc.details or {}),
+        ) from exc
 
 
 def _build_pair_to_dm(

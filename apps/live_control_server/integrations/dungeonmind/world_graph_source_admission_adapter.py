@@ -1,13 +1,13 @@
 """DungeonMind-backed Graph Review source admission (CUTOVER D.2C4).
 
 Maps Buddy SourceArtifact + revision token onto SourceArtifactV2 + SourceRevision
-using the already-landed mapping family and catalog-aware `_build_pair_to_dm`
-derivation, then prove/admits through SourceRepository put/get/snapshot.
+using the already-landed mapping family and catalog-aware collision derivation,
+then prove/admits through SourceRepository put/get/snapshot.
 PostgreSQL stays inside this adapter. No new DungeonMind command or UoW.
 
-Pure source-mapping helpers live here (and collision math in
-``world_graph_writes``) so this mounted path does not import
-``integrations/dungeonmind_kernel/**`` or the Buddy graph-engine packages.
+This module must be importable without ``world_graph_writes``,
+``integrations/dungeonmind_kernel/**``, ``graph_memory.kernel``,
+``graph_memory.world_supergraph``, or ``graph_memory.union_supergraph``.
 """
 
 from __future__ import annotations
@@ -15,12 +15,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
-    WorldGraphWriteError,
-    catalog_aware_source_revision_ids,
-    _open_repository_bundle,
-    _require_database_url,
-)
 from apps.live_control_server.ports.world_graph_source_admission import (
     AdmittedSourceIdentity,
     WorldGraphSourceAdmissionError,
@@ -117,15 +111,104 @@ def _store_artifact_v2(
     )
 
 
-def _raise_port(exc: WorldGraphWriteError) -> None:
-    port_code = "authority_unavailable"
-    if exc.code == "governed_write_inexpressible":
-        port_code = "inexpressible"
-    raise WorldGraphSourceAdmissionError(
-        str(exc),
-        code=port_code,  # type: ignore[arg-type]
-        details=dict(exc.details or {}),
-    ) from exc
+def _reverse_revision_id(dm_revision_id: str, artifact_id: str | None) -> str:
+    suffix = f"::{artifact_id}" if artifact_id else ""
+    if suffix and dm_revision_id.endswith(suffix):
+        return dm_revision_id[: -len(suffix)]
+    return dm_revision_id
+
+
+def _dm_revision_id(
+    buddy_revision_id: str,
+    artifact_id: str,
+    colliding_revision_ids: set[str],
+) -> str:
+    """Publisher collision suffix. Same values as the historical adoption helper."""
+    if buddy_revision_id in colliding_revision_ids:
+        return f"{buddy_revision_id}::{artifact_id}"
+    return buddy_revision_id
+
+
+def catalog_aware_source_revision_ids(
+    sources: Any,
+    world_id: str,
+    pairs: set[tuple[str, str]],
+) -> dict[tuple[str, str], str]:
+    """Map (artifact_id, buddy_token) onto catalog-aware DungeonMind revision IDs.
+
+    Shared collision algorithm for Graph Review admission and governed publish.
+    Do not mint via ``_dm_revision_id(..., set())``.
+    """
+    pair_to_dm: dict[tuple[str, str], str] = {}
+    token_artifacts: dict[str, set[str]] = {}
+    try:
+        artifacts = sources.list_artifacts_for_world(world_id)
+        for artifact in artifacts:
+            for revision in sources.list_revisions(artifact.source_artifact_id):
+                token = _reverse_revision_id(
+                    revision.source_revision_id, artifact.source_artifact_id
+                )
+                pair_to_dm[(artifact.source_artifact_id, token)] = (
+                    revision.source_revision_id
+                )
+                token_artifacts.setdefault(token, set()).add(
+                    artifact.source_artifact_id
+                )
+    except Exception as exc:
+        raise WorldGraphSourceAdmissionError(
+            "DungeonMind authority read failed while resolving source identity",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+
+    for artifact_id, token in pairs:
+        token_artifacts.setdefault(token, set()).add(artifact_id)
+    colliding = {
+        token for token, artifacts in token_artifacts.items() if len(artifacts) > 1
+    }
+    for artifact_id, token in sorted(pairs):
+        if (artifact_id, token) not in pair_to_dm:
+            pair_to_dm[(artifact_id, token)] = _dm_revision_id(
+                token, artifact_id, colliding
+            )
+    return pair_to_dm
+
+
+def _open_repository_bundle(database_url: str) -> Any:
+    try:
+        from dungeonmind.infrastructure.postgres import (
+            PostgresDatabase,
+            PostgresRepositoryBundle,
+        )
+    except ImportError as exc:  # pragma: no cover - dependency is pinned
+        raise WorldGraphSourceAdmissionError(
+            "dungeonmind postgres adapter is unavailable",
+            code="authority_unavailable",
+            details={"reason": type(exc).__name__},
+        ) from exc
+    try:
+        return PostgresRepositoryBundle(PostgresDatabase(database_url))
+    except Exception as exc:
+        raise WorldGraphSourceAdmissionError(
+            "DungeonMind authority database is unavailable",
+            code="authority_unavailable",
+            details={"reason": type(exc).__name__},
+        ) from exc
+
+
+def _require_database_url(database_url: str | None) -> str:
+    if database_url and database_url.strip():
+        return database_url.strip()
+    from apps.live_control_server import config
+
+    configured = config.world_graph_authority_database_url()
+    if not configured:
+        raise WorldGraphSourceAdmissionError(
+            "DungeonMind authority database URL is not configured "
+            f"({config.WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV})",
+            code="authority_unavailable",
+        )
+    return configured
 
 
 def _map_provider_error(exc: BaseException) -> WorldGraphSourceAdmissionError:
@@ -194,15 +277,11 @@ def _map_buddy_source(
             "Graph Review source identity is missing",
             code="source_identity_missing",
         )
-    try:
-        pair_to_dm = catalog_aware_source_revision_ids(
-            sources,
-            request.world_id,
-            {(artifact_id, buddy_token)},
-        )
-    except WorldGraphWriteError as exc:
-        _raise_port(exc)
-        raise
+    pair_to_dm = catalog_aware_source_revision_ids(
+        sources,
+        request.world_id,
+        {(artifact_id, buddy_token)},
+    )
     dm_revision_id = pair_to_dm[(artifact_id, buddy_token)]
     digest = _digest_from_buddy_revision(buddy_token)
     if digest is None:
@@ -289,12 +368,8 @@ class DungeonMindWorldGraphSourceAdmissionAdapter:
     def _source_repository(self) -> Any:
         if self._sources is not None:
             return self._sources
-        try:
-            dsn = _require_database_url(self._database_url)
-            return _open_repository_bundle(dsn).sources
-        except WorldGraphWriteError as exc:
-            _raise_port(exc)
-            raise
+        dsn = _require_database_url(self._database_url)
+        return _open_repository_bundle(dsn).sources
 
     def prove_or_admit(
         self, request: WorldGraphSourceAdmissionRequest
@@ -332,15 +407,11 @@ class DungeonMindWorldGraphSourceAdmissionAdapter:
             buddy_source_revision_id=buddy_token or source_revision_id,
         )
         if buddy_token:
-            try:
-                derived = catalog_aware_source_revision_ids(
-                    sources,
-                    world_id,
-                    {(source_artifact_id, buddy_token)},
-                )
-            except WorldGraphWriteError as exc:
-                _raise_port(exc)
-                raise
+            derived = catalog_aware_source_revision_ids(
+                sources,
+                world_id,
+                {(source_artifact_id, buddy_token)},
+            )
             if derived.get((source_artifact_id, buddy_token)) != source_revision_id:
                 raise WorldGraphSourceAdmissionError(
                     "Sealed DungeonMind source revision drifted from catalog-aware derivation.",
