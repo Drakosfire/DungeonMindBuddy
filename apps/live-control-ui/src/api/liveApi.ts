@@ -257,12 +257,33 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
       }>(response);
       if (typeof body.message === "string") {
         detail = body.message;
+        errorOptions = parseWorldGraphErrorFields(body);
       } else if (typeof body.detail === "string") {
         detail = body.detail;
+        errorOptions = parseWorldGraphErrorFields(body);
+      } else if (body.detail != null && typeof body.detail === "object") {
+        const detailObj = body.detail as {
+          code?: unknown;
+          message?: unknown;
+          schema?: unknown;
+          diagnostics?: unknown;
+        };
+        if (typeof detailObj.message === "string") {
+          detail = detailObj.message;
+        } else {
+          detail = JSON.stringify(body.detail);
+        }
+        errorOptions = parseWorldGraphErrorFields({
+          ...body,
+          ...detailObj,
+        });
+        if (!errorOptions.code && typeof detailObj.code === "string") {
+          errorOptions = { code: detailObj.code, diagnostics: null };
+        }
       } else if (body.detail != null) {
         detail = JSON.stringify(body.detail);
+        errorOptions = parseWorldGraphErrorFields(body);
       }
-      errorOptions = parseWorldGraphErrorFields(body);
     } catch (parseError) {
       if (parseError instanceof Error) {
         detail = parseError.message;

@@ -3176,6 +3176,7 @@ export interface GraphObjectAuthoringPrepareRequest {
   campaignId: string;
   campaignRel?: string | null;
   sessionId?: string | null;
+  worldId?: string | null;
   sourceRunId?: string | null;
   sourceGraphId?: string | null;
   sourceProjectionId?: string | null;
@@ -3215,20 +3216,31 @@ export interface GraphObjectAuthoringPrepareResponse {
   overlay_summary: GraphAuthoringOverlaySummary;
   diagnostics: GraphAuthoringDiagnostic[];
   no_mutation_guarantees: string[];
+  world_id?: string | null;
+  expected_parent_revision_id?: string | null;
+  source_artifact_id?: string | null;
+  source_revision_id?: string | null;
+  authority_operation_id?: string | null;
+  contribution_digest?: string | null;
+  expressibility?: "EXPRESSIBLE" | "INEXPRESSIBLE";
+  expires_at?: string | null;
+  actor?: string | null;
 }
 
 export interface GraphObjectAuthoringCommitRequest {
   campaignId: string;
   campaignRel?: string | null;
   sessionId?: string | null;
+  worldId?: string | null;
   sourceRunId?: string | null;
   sourceGraphId?: string | null;
   sourceProjectionId?: string | null;
   proposals: GraphObjectAuthoringProposalPayload[];
   confirmToken: string;
-  currentOverlayToken: string;
+  currentOverlayToken?: string | null;
   operatorNote?: string | null;
   previewUnionStorePath?: string | null;
+  mergeIntoUnion?: boolean | null;
 }
 
 export type UnionStoreMaterializationReason =
@@ -3254,16 +3266,23 @@ export interface GraphObjectAuthoringUnionStoreMaterializationSummary {
 export interface GraphObjectAuthoringCommitResponse {
   committed: boolean;
   campaign_id: string;
-  overlay_path: string;
-  event_log_path: string;
+  overlay_path?: string | null;
+  event_log_path?: string | null;
   backup_path?: string | null;
   assertion_count: number;
   event_count: number;
-  new_overlay_token: string;
+  new_overlay_token?: string | null;
   diagnostics: GraphAuthoringDiagnostic[];
   no_mutation_guarantees: string[];
   union_store_materialization?: GraphObjectAuthoringUnionStoreMaterializationSummary | null;
   created_node_ids?: Record<string, string>;
+  world_id?: string | null;
+  parent_revision_id?: string | null;
+  published_revision_id?: string | null;
+  operation_id?: string | null;
+  result?: string | null;
+  idempotency_status?: string | null;
+  audit_status?: "recorded" | "degraded" | "skipped" | null;
 }
 
 export interface GraphMergeReconciliationDiagnostic {
