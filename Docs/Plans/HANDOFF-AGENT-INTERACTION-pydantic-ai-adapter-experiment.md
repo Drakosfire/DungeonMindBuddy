@@ -26,7 +26,7 @@ pr_body_template: |
 # HANDOFF — PydanticAI AgentRuntime Adapter Experiment (A3)
 
 **Created:** 2026-08-28  
-**Status:** READY FOR DISPATCH after exact branch-head / active-lease recheck  
+**Status:** IMPLEMENTATION HANDED BACK FOR REVIEW — experiment evidence in §21
 **Canonical handoff path:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-pydantic-ai-adapter-experiment.md`  
 **Design branch:** `agent/pydantic-ai-adapter-experiment-design`  
 **Design base:** `937d9dce1be02e804553282a146527bf39bb0750`  
@@ -910,49 +910,46 @@ The handback must fill this table with measured/observed values rather than pros
 ```text
 Dimension                         Hermes accepted path          PydanticAI A3                Judgment
 ----------------------------------------------------------------------------------------------------
-adapter production LOC            <measure>                     <measure>                     lower/same/higher
-harness-specific imports          <measure>                     <measure>                     ...
-Hermes-named DMB couplings         n/a                           <count + names>               ...
-product files changed for adapter  A2 baseline                  target 0                      ...
-direct dependency freshness        pinned Hermes                PAI 1.66 compatibility pin    ...
-current upstream coexistence        yes                          PAI 2.x blocked by OpenAI pin  ...
-startup / construction ms           <measure>                    <measure>                     ...
-end-to-end fixed journey ms         <measure if deterministic>   <measure>                     ...
-provider-call count                 <same fixture>               <same fixture>               ...
-harness overhead outside model/tool <measure/estimate>           <measure/estimate>            ...
-tool schema translation             native plugin                Tool.from_schema              ...
-tool policy translation             current Hermes policy        <describe>                     ...
-tool event instrumentation          existing collector           <LOC/mechanism>                ...
-model-call instrumentation          Hermes observer               WrapperModel                   ...
-cache token semantics                normalized                   normalized                     ...
-partial provider failure             preserved                    preserved?                     ...
-continuity ergonomics                opaque session + history      message history / no session?  ...
-test-double complexity               <measure>                    <measure>                     ...
-A0 trace integration                 accepted                     <special cases>                ...
-product grounding changes            none expected                MUST be 0                      ...
+adapter production LOC            187 (hermes_agent_runtime.py) 551 (pydantic_ai_agent_runtime.py)  higher
+harness-specific imports          host/contract/plugin          pydantic_ai Agent/Tool/WrapperModel/FunctionModel  different shape
+Hermes-named DMB couplings         n/a                           2 modules / 9 symbols:
+                                                                 hermes_graph_agent:
+                                                                   _resolve_hermes_openai_inference
+                                                                   _safe_ids_from_args
+                                                                   _summarize_tool_result
+                                                                 hermes_graph_interaction_tools:
+                                                                   tool names, JSON defs, executor
+                                                                                           expected coupling
+product files changed for adapter  A2 baseline                  0                             same / target met
+direct dependency freshness        pinned Hermes 0.18.2         PAI 1.66 compatibility pin    PAI current-2.x blocked
+current upstream coexistence        yes                          PAI 2.x blocked by OpenAI 2.24 pin  blocker
+startup / construction ms           process-isolated worker      FunctionModel construct ~0.1ms  NOT_MEANINGFUL vs Hermes spawn
+end-to-end fixed journey ms         NOT_MEANINGFUL (live host)   14.3ms FunctionModel loop     NOT_MEANINGFUL vs live provider
+provider-call count                 2 on two-call fixture        2 on same scripted fixture    same
+harness overhead outside model/tool process IPC + host           in-process Agent.run_sync     lower isolation / less IPC
+tool schema translation             native Hermes plugin         Tool.from_schema(DMB JSON)    comparable; no second schema
+tool policy translation             Hermes capability policy     world_graph_read_v1 + arg injection  equivalent fail-closed
+tool event instrumentation          _ToolEventCollector          adapter wrap + reused summarizer  comparable
+model-call instrumentation          Hermes observer              ObservingModel(WrapperModel)  comparable / supported seam
+cache token semantics                Hermes uncached+cache add    PAI input includes cache; mapper does not add   normalized
+partial provider failure             preserved                    preserved (call1 ok + call2 error)  same
+continuity ergonomics                opaque session + history      message history; runtime_session_id=None  expected challenger result
+test-double complexity               FakeHost on Hermes types     FunctionModel + recording executor  similar
+A0 trace integration                 accepted                     descriptor-driven; no schema change  same substrate
+product grounding changes            none                         0 files                     target met
 ```
 
 For measurements that cannot be meaningfully compared under deterministic models, write `NOT_MEANINGFUL` and explain why. Do not invent precision.
 
 ## 12.1 Required disposition
 
-Choose one and justify from the scorecard:
+Chosen disposition (does not select a production runtime):
 
 ```text
-PROMISING
-  adapter fits A2 cleanly and no material blocker emerged
-
 PROMISING_WITH_DEPENDENCY_BLOCKER
-  harness fit is good but current-version dependency coexistence is a real blocker
-
-INCONCLUSIVE
-  experiment could not isolate harness effects sufficiently
-
-NOT_COMPETITIVE
-  adapter/product bending or operational burden is materially worse
 ```
 
-This disposition does not select a production runtime.
+Harness fit is good: zero product-orchestration file changes, A0/tool/grounding parity held on the merged AgentRuntime seam. Current PydanticAI 2.x cannot coexist with the accepted `openai==2.24.0` / Hermes pin; A3 did not upgrade those pins to make the experiment pass. Full justification is in §21.
 
 ---
 
@@ -1249,3 +1246,96 @@ If the reviewer instead has to say:
 > “We changed DungeonBuddy until PydanticAI fit,”
 
 then the experiment failed its purpose even if the tests are green.
+
+---
+
+# 21. Implementation evidence (CODE handback)
+
+Recorded from dispatch base `05d0369753e4944087f3b339221592b3c0fa6cb5` (parent `937d9dce…`, merge of A2 #659). Production selection remains false.
+
+## 21.1 Dependency lock
+
+```text
+pydantic-ai-slim == 1.66.0
+openai == 2.24.0
+hermes-agent @ 861d69c7bba8d2ea6a1cd170e989c901c74d32d1 (unchanged)
+```
+
+`uv lock` added only PydanticAI 1.66 transitives (`pydantic-graph`, `genai-prices`, `griffelib`, `tiktoken`, `opentelemetry-api`, `logfire-api`, `httpx2`, `httpcore2`, `truststore`). No accepted direct pin moved.
+
+Current PydanticAI 2.x remains incompatible: 2.0 extra requires `openai>=2.29.0`; 2.36 extra requires `openai>=3.0.0`.
+
+## 21.2 Runtime descriptor
+
+```text
+runtime_id=pydantic_ai
+trace_backend=pydantic_ai
+trace_runtime=in_process
+trace_mode=pydantic_ai_graph_agent
+```
+
+Injected through `run_hermes_graph_query(..., agent_runtime=adapter)` and `process_live_query(..., agent_runtime=adapter)` without editing those files. Traces are not labeled Hermes.
+
+## 21.3 Comparison scorecard
+
+Filled in §12. Notes below are the measured caveats, not a second table.
+
+Notes:
+
+- Adapter LOC is higher because PydanticAI owns the tool/model loop; the Hermes adapter is a thin host translator.
+- `Agent.run_sync` in 1.66 emits `DeprecationWarning: There is no current event loop` (`asyncio.get_event_loop`). Recorded, not patched inside PydanticAI.
+- Model resolver remains the Hermes-named `_resolve_hermes_openai_inference` for live parity. Tests inject `FunctionModel` and never call OpenAI.
+- Cost uses DMB `estimate_model_call_cost` / `usage_cost_usd`. FunctionModel names are not in the price table, so those calls are `cost.status=unavailable` unless a priced model id is used. That is truthful, not a second price table.
+
+## 21.4 Disposition
+
+```text
+PROMISING_WITH_DEPENDENCY_BLOCKER
+```
+
+Harness fit is good: the merged `AgentRuntime` port, World scope, DMB tool schemas/executor, product grounding, and A0 identity all worked without editing product orchestration. The current-version coexistence problem is real and was not solved by upgrading Hermes/OpenAI. Merging this records evidence; it does not select PydanticAI.
+
+Possible later successors (not selected): hoist Hermes-named model/tool-policy helpers into neutral DMB ownership; isolate harness dependency environments; or deliberately revisit the OpenAI/Hermes pin. None of those is this PR.
+
+## 21.5 Live comparison
+
+`NOT_RUN` — an `OPENAI_API_KEY` is present in this environment, but A3 did not execute a dual live OpenAI graph journey. A live run would share corpus-backed graph state with other active lanes and is not required to prove harness fit. Mandatory deterministic FunctionModel tool-loop evidence is green (`tests/test_pydantic_ai_agent_runtime.py`: 17 passed).
+
+## 21.6 Verification provenance
+
+Recorded 2026-08-29 from `agent/pydantic-ai-adapter-experiment` after adapter+tests landed:
+
+```text
+uv run pytest tests/test_pydantic_ai_agent_runtime.py -q
+  17 passed, 2 warnings in 0.85s
+  (includes DeprecationWarning: pydantic_ai/_utils.py asyncio.get_event_loop)
+
+uv run pytest tests/test_agent_runtime.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py -q
+  76 passed, 10 warnings in 5.77s
+
+uv run pytest tests/test_hermes_graph_agent.py tests/test_hermes_graph_agent_host.py -q
+  92 passed, 10 warnings in 61.79s  (read-only Hermes host; 2026-08-29T06:23Z)
+
+uv lock --check
+  Resolved 143 packages
+
+uv tree | grep -E 'pydantic-ai|openai|hermes-agent|pydantic '
+  hermes-agent v0.18.2
+  openai v2.24.0  (direct and as pydantic-ai-slim extra)
+  pydantic v2.13.4
+  pydantic-ai-slim[openai] v1.66.0
+
+uv run ruff check apps/live_control_server/services/pydantic_ai_agent_runtime.py tests/test_pydantic_ai_agent_runtime.py
+  All checks passed
+
+git diff --check
+  clean after handoff whitespace fix
+
+Active open PRs at handback: #660 PLAY, #661 PLAN, #662 CUTOVER
+  none own pyproject.toml, uv.lock, or A3 adapter/test paths
+```
+
+Stop conditions encountered: `none`.
+Baseline failures/waivers: `none`.
+Paths outside §9: `none`.
+Successor claims still false: production runtime selection, shared policy hoist, runtime lifecycle API, Interaction Memory durability.
