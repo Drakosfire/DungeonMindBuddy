@@ -29,11 +29,14 @@ import {
 import { workspaceRecordToPlanDocumentDescriptor } from "./config/planSessionDescriptor";
 import { createStarterContentForPlanDocument } from "./config/planSessionDescriptor";
 import {
+  clearPlanPromotionRecovery,
   clearPlanLocalDraftPointer,
+  readPlanPromotionRecovery,
   validatePlanCreateResponse,
   validatePlanPostCommitSnapshotAdmission,
   validatePlanPromotionSnapshotAdmission,
   type PlanLocalDraft,
+  writePlanPromotionRecovery,
 } from "./planBlankAuthoringState";
 import type { PlanSessionDescriptor } from "./types";
 
@@ -282,8 +285,13 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
     const controller = createControllerRef.current;
     let record: WorkspaceDocumentRecord;
     const retained = controller.getState().record;
+    const recovered = readPlanPromotionRecovery(localStorage, draft.campaignId);
     if (retained != null && (retainedCreateId == null || retained.document_id === retainedCreateId)) {
       record = retained;
+    } else if (recovered != null) {
+      // A reload loses the in-memory controller, but not the known-created
+      // recovery identity. Reconcile it before issuing any new create.
+      record = recovered.record;
     } else {
       try {
         const created = await controller.create({
@@ -310,6 +318,19 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
         setSaveBusy(false);
         return;
       }
+    }
+
+    const recoverableCreateId =
+      record != null
+      && typeof record === "object"
+      && typeof record.document_id === "string"
+      && record.document_id.trim().length > 0;
+    if (recoverableCreateId) {
+      writePlanPromotionRecovery(localStorage, {
+        campaign_id: draft.campaignId,
+        local_draft: draft,
+        record,
+      });
     }
 
     const createValidationError = validatePlanCreateResponse(record, draft);
@@ -383,6 +404,7 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
       fallback,
     });
     clearPlanLocalDraftPointer(draft.campaignId, localStorage);
+    clearPlanPromotionRecovery(draft.campaignId, localStorage);
     bumpContentRevision();
     adoptDocumentUrl(record.document_id);
     onPromotionStateChange?.({

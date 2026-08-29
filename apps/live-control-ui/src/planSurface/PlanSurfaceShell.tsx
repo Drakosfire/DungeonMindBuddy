@@ -35,6 +35,7 @@ import {
   planLocalDraftToDescriptor,
   planShellAgentDocumentId,
   planShellWorkObject,
+  readPlanPromotionRecovery,
   retainCreatedPlan,
   type PlanAuthoringShellState,
   type PlanShellIdentity,
@@ -143,9 +144,17 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
         status: "active",
       });
       if (generation !== selectorListGenerationRef.current) return list;
-      setSelectorRecords(list.records);
+      const recovery =
+        typeof localStorage !== "undefined"
+          ? readPlanPromotionRecovery(localStorage, planView.campaign_id)
+          : null;
+      const records = recovery
+        ? list.records.filter((record) => record.document_id !== recovery.record.document_id)
+        : list.records;
+      const filteredList = records === list.records ? list : { ...list, records };
+      setSelectorRecords(records);
       setSelectorListStatus("ready");
-      return list;
+      return filteredList;
     } catch {
       if (generation !== selectorListGenerationRef.current) return null;
       setSelectorListStatus("error");
@@ -159,6 +168,11 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
 
   const buildBlankDraft = useCallback(
     (occupiedSessions: Array<number | null | undefined>) => {
+      const recovery =
+        typeof localStorage !== "undefined"
+          ? readPlanPromotionRecovery(localStorage, planView.campaign_id)
+          : null;
+      if (recovery) return recovery.local_draft;
       const campaignLabel = formatReviewCampaignLabel(planView.campaign_id);
       const targetSession = suggestNextPlanTargetSession(planView.session, occupiedSessions);
       return createPlanLocalDraftMetadata({
@@ -210,6 +224,22 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
             "Active Plan inventory is unavailable; target session cannot be chosen safely.",
           localDraft: blankDraft,
           inventoryUnavailable: true,
+        });
+        setDocumentSwitching(false);
+        setDocumentSwitchError(null);
+        return false;
+      }
+
+      const promotionRecovery =
+        !requestedDocumentId && typeof localStorage !== "undefined"
+          ? readPlanPromotionRecovery(localStorage, planView.campaign_id)
+          : null;
+      if (promotionRecovery) {
+        if (generation !== documentLoadGenerationRef.current) return false;
+        setShellState({
+          kind: "blank_ready",
+          draft: promotionRecovery.local_draft,
+          selectorListAvailable: true,
         });
         setDocumentSwitching(false);
         setDocumentSwitchError(null);

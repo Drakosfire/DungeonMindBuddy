@@ -63,6 +63,7 @@ import {
   formatPlanLocalDraftId,
   planLocalDraftToDescriptor,
   planLocalDraftPointerKey,
+  planPromotionRecoveryKey,
   retainCreatedPlan,
   type PlanAuthoringShellState,
 } from "./planBlankAuthoringState";
@@ -322,6 +323,61 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByRole("complementary", { name: "Edit toolbar" })).toBeInTheDocument();
     expect(screen.getAllByText("World Graph objects").length).toBeGreaterThan(0);
     expect(screen.getByTestId("graph-reference-search")).toBeInTheDocument();
+  });
+
+  it("uses a shell work target while an exact document is still resolving", async () => {
+    let resolveDocument: ((document: ReturnType<typeof fixturePlanDocumentDescriptor>) => void) | null =
+      null;
+    vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementationOnce(
+      () => new Promise((resolve) => {
+        resolveDocument = resolve;
+      }),
+    );
+    window.history.pushState({}, "", `/plan?documentId=${FIXTURE_DOC_ID}`);
+
+    renderPlanSurface();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-canvas-authoring-loading")).toBeInTheDocument();
+      const publication = screen.getByTestId("plan-surface-publication");
+      expect(publication).toHaveAttribute("data-agent-document-id", "null");
+      expect(publication).toHaveAttribute("data-canvas-document-id", "null");
+      expect(publication).toHaveAttribute(
+        "data-canvas-work-object",
+        `plan-shell:resolving:longmont-c2:${FIXTURE_DOC_ID}`,
+      );
+    });
+
+    resolveDocument?.(fixturePlanDocumentDescriptor());
+    await waitForPlanSurfaceReady();
+    expect(screen.getByTestId("plan-surface-publication")).toHaveAttribute(
+      "data-canvas-work-object",
+      `document:${FIXTURE_DOC_ID}`,
+    );
+  });
+
+  it("uses an error-shell work target when an exact document fails to load", async () => {
+    vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementationOnce(
+      async () => {
+        throw new Error("Workspace document not found");
+      },
+    );
+    window.history.pushState({}, "", `/plan?documentId=${FIXTURE_DOC_ID}`);
+
+    renderPlanSurface();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-canvas-authoring-error")).toHaveTextContent(
+        "Workspace document not found",
+      );
+      const publication = screen.getByTestId("plan-surface-publication");
+      expect(publication).toHaveAttribute("data-agent-document-id", "null");
+      expect(publication).toHaveAttribute("data-canvas-document-id", "null");
+      expect(publication).toHaveAttribute(
+        "data-canvas-work-object",
+        `plan-shell:error:longmont-c2:${FIXTURE_DOC_ID}`,
+      );
+    });
   });
 
   it("admits an exact Runbook through Plan without changing selector inventory", async () => {
@@ -4461,6 +4517,7 @@ describe("PlanSurfaceShell", () => {
       expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
       expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
+      expect(localStorage.getItem(planPromotionRecoveryKey("longmont-c2"))).toBeTruthy();
 
       await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
       await waitFor(() =>
@@ -4473,6 +4530,7 @@ describe("PlanSurfaceShell", () => {
       expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
       expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
+      expect(localStorage.getItem(planPromotionRecoveryKey("longmont-c2"))).toBeTruthy();
     });
 
     it("clears campaign draft pointer after admission and keeps it cleared through retry", async () => {
@@ -4628,6 +4686,70 @@ describe("PlanSurfaceShell", () => {
       await waitFor(() =>
         expect(screen.queryByTestId("plan-blank-canvas")).not.toBeInTheDocument());
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    });
+
+    it("recovers a known-created Plan across reload without creating a replacement", async () => {
+      let exposeCreatedRecord = false;
+      vi.mocked(liveApi.listWorkspaceDocuments).mockImplementation(async () => ({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: exposeCreatedRecord
+          ? [fixtureWorkspaceDocumentRecord({
+              document_id: DOC_PROMOTED,
+              title: "C2 Session 23 Prep",
+              target_session: 23,
+              revision: 1,
+              target_relpath: PROMOTED_TARGET,
+            })]
+          : [],
+      }));
+      await useActualResolvePlanningDocument();
+      mockCreatedPlanRecord();
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockRejectedValue(
+        new Error("admission snapshot unavailable"),
+      );
+      window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
+      const firstRender = renderPlanSurface();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+        expect(planShellTestEditor).not.toBeNull();
+      });
+      const user = userEvent.setup();
+      act(() => {
+        planShellTestEditor?.commands.insertContent(" Recovery survivor");
+      });
+      await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent(
+          "admission snapshot unavailable",
+        ));
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem(planPromotionRecoveryKey("longmont-c2"))).toBeTruthy();
+
+      firstRender.unmount();
+      exposeCreatedRecord = true;
+      mockSuccessfulBlankPromotionCommit();
+      mockAdmissionThenVerificationSnapshots();
+      window.history.replaceState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
+      renderPlanSurface();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+        expect(planShellTestEditor?.getText()).toContain("Recovery survivor");
+      });
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      const retryUser = userEvent.setup();
+      await retryUser.click(screen.getByRole("button", { name: "Save to Markdown" }));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("plan-blank-canvas")).not.toBeInTheDocument();
+        expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_PROMOTED);
+      });
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem(planPromotionRecoveryKey("longmont-c2"))).toBeNull();
+      expect(readWorkspaceDocumentLocalState(localStorage, DOC_PROMOTED)?.dirty).toBe(false);
     });
 
     it("survives prepare failure reload at exact durable documentId without a second create", async () => {

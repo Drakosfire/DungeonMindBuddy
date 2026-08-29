@@ -7,6 +7,8 @@ export const PLAN_LOCAL_DRAFT_WORK_KIND = "plan-local-draft" as const;
 export const PLAN_SHELL_WORK_KIND = "plan-shell" as const;
 
 export const PLAN_LOCAL_DRAFT_POINTER_PREFIX = "dmb.planLocalDraftPointer.";
+export const PLAN_PROMOTION_RECOVERY_PREFIX = "dmb.planPromotionRecovery.";
+export const PLAN_PROMOTION_RECOVERY_SCHEMA = "dmb_plan_promotion_recovery_v1" as const;
 
 export interface PlanShellIdentity {
   campaignId: string;
@@ -20,6 +22,20 @@ export interface PlanLocalDraft {
   title: string;
   targetSession: number | null;
   targetRelpath: null;
+}
+
+/**
+ * Durable browser-local evidence that a create POST returned a WorkObject.
+ *
+ * This is deliberately not active surface identity. It lets a reload retry the
+ * same server-created object while the object is still awaiting snapshot
+ * admission.
+ */
+export interface PlanPromotionRecovery {
+  schema_version: typeof PLAN_PROMOTION_RECOVERY_SCHEMA;
+  campaign_id: string;
+  local_draft: PlanLocalDraft;
+  record: WorkspaceDocumentRecord;
 }
 
 export type PlanAuthoringShellState =
@@ -55,6 +71,10 @@ export interface PlanResolveOutcome {
 
 export function planLocalDraftPointerKey(campaignId: string): string {
   return `${PLAN_LOCAL_DRAFT_POINTER_PREFIX}${campaignId}`;
+}
+
+export function planPromotionRecoveryKey(campaignId: string): string {
+  return `${PLAN_PROMOTION_RECOVERY_PREFIX}${campaignId}`;
 }
 
 export function formatPlanLocalDraftId(opaqueId: string): string {
@@ -94,6 +114,75 @@ export function clearPlanLocalDraftPointer(
   storage: Pick<Storage, "removeItem">,
 ): void {
   storage.removeItem(planLocalDraftPointerKey(campaignId));
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isRecoverablePlanRecord(value: unknown): value is WorkspaceDocumentRecord {
+  return isObject(value)
+    && typeof value.document_id === "string"
+    && value.document_id.trim().length > 0;
+}
+
+function isPlanLocalDraft(value: unknown, campaignId: string): value is PlanLocalDraft {
+  return isObject(value)
+    && value.campaignId === campaignId
+    && typeof value.localId === "string"
+    && value.localId.trim().length > 0
+    && typeof value.title === "string"
+    && (value.targetSession === null || typeof value.targetSession === "number")
+    && value.targetRelpath === null;
+}
+
+/** Persist known-created recovery without publishing it as active identity. */
+export function writePlanPromotionRecovery(
+  storage: Pick<Storage, "setItem">,
+  recovery: Omit<PlanPromotionRecovery, "schema_version">,
+): void {
+  storage.setItem(
+    planPromotionRecoveryKey(recovery.campaign_id),
+    JSON.stringify({
+      schema_version: PLAN_PROMOTION_RECOVERY_SCHEMA,
+      ...recovery,
+    }),
+  );
+}
+
+export function readPlanPromotionRecovery(
+  storage: Pick<Storage, "getItem">,
+  campaignId: string,
+): PlanPromotionRecovery | null {
+  try {
+    const raw = storage.getItem(planPromotionRecoveryKey(campaignId));
+    if (raw === null) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      !isObject(parsed)
+      || parsed.schema_version !== PLAN_PROMOTION_RECOVERY_SCHEMA
+      || parsed.campaign_id !== campaignId
+      || !isPlanLocalDraft(parsed.local_draft, campaignId)
+      || !isRecoverablePlanRecord(parsed.record)
+    ) {
+      return null;
+    }
+    return {
+      schema_version: PLAN_PROMOTION_RECOVERY_SCHEMA,
+      campaign_id: campaignId,
+      local_draft: parsed.local_draft,
+      record: parsed.record,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function clearPlanPromotionRecovery(
+  campaignId: string,
+  storage: Pick<Storage, "removeItem">,
+): void {
+  storage.removeItem(planPromotionRecoveryKey(campaignId));
 }
 
 export function createPlanLocalDraftIdentity(
@@ -203,18 +292,18 @@ export function planShellWorkObject(
     case "durable_ready":
       return { kind: "document", id: state.document.documentId };
     case "resolving":
-      if (state.requestedDocumentId) {
-        return { kind: "document", id: state.requestedDocumentId };
-      }
-      return { kind: PLAN_SHELL_WORK_KIND, id: `resolving:${state.shell.campaignId}` };
+      return {
+        kind: PLAN_SHELL_WORK_KIND,
+        id: `resolving:${state.shell.campaignId}:${state.requestedDocumentId ?? "none"}`,
+      };
     case "load_error":
       if (state.localDraft && state.inventoryUnavailable) {
         return { kind: PLAN_LOCAL_DRAFT_WORK_KIND, id: state.localDraft.localId };
       }
-      if (state.requestedDocumentId) {
-        return { kind: "document", id: state.requestedDocumentId };
-      }
-      return { kind: PLAN_SHELL_WORK_KIND, id: `error:${state.shell.campaignId}` };
+      return {
+        kind: PLAN_SHELL_WORK_KIND,
+        id: `error:${state.shell.campaignId}:${state.requestedDocumentId ?? "none"}`,
+      };
   }
 }
 
@@ -400,8 +489,8 @@ export function validatePlanPostCommitSnapshotAdmission(
   if (snapshot.record.content_status !== "committed") {
     return "Post-commit snapshot content_status is not committed.";
   }
-  if (snapshot.file_exists !== true) {
-    return "Post-commit snapshot does not confirm a committed file.";
+  if (snapshot.file_exists !== true && snapshot.file_fingerprint !== "postgres") {
+    return "Post-commit snapshot does not confirm committed durable content.";
   }
   return null;
 }
