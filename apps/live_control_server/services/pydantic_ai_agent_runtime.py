@@ -19,6 +19,10 @@ from pydantic_ai.models import Model
 from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.usage import RequestUsage
 
+from apps.live_control_server.services.agent_graph_policy import (
+    GRAPH_SYSTEM_POLICY,
+    resolve_agent_graph_openai_inference,
+)
 from apps.live_control_server.services.agent_runtime import (
     UNSUPPORTED_CAPABILITY_POLICY,
     WORLD_GRAPH_READ_POLICY_ID,
@@ -33,8 +37,6 @@ from apps.live_control_server.services.agent_turn_trace import (
     utc_now_z,
 )
 from apps.live_control_server.services.hermes_graph_agent import (
-    _GRAPH_SYSTEM_POLICY,
-    _resolve_hermes_openai_inference,
     _safe_ids_from_args,
     _summarize_tool_result,
 )
@@ -215,7 +217,7 @@ def _scope_capability_packet(invocation: AgentRuntimeInvocation) -> str:
 
 def pydantic_ai_agent_instructions(invocation: AgentRuntimeInvocation) -> str:
     """Accepted DMB graph-Agent policy plus a truthful PydanticAI scope packet."""
-    return f"{_GRAPH_SYSTEM_POLICY}\n\n{_scope_capability_packet(invocation)}"
+    return f"{GRAPH_SYSTEM_POLICY}\n\n{_scope_capability_packet(invocation)}"
 
 
 def _a0_provider_label(system: str) -> str:
@@ -473,7 +475,7 @@ class PydanticAIAgentRuntimeAdapter:
             return _unsupported_policy_result(policy_id)
 
         if self._model_factory is None:
-            resolved = _resolve_hermes_openai_inference(require_api_key=True)
+            resolved = resolve_agent_graph_openai_inference(require_api_key=True)
             if isinstance(resolved, str):
                 return AgentRuntimeResult(
                     status="error",
