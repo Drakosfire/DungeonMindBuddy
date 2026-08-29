@@ -4,6 +4,10 @@ Maps Buddy SourceArtifact + revision token onto SourceArtifactV2 + SourceRevisio
 using the already-landed mapping family and catalog-aware `_build_pair_to_dm`
 derivation, then prove/admits through SourceRepository put/get/snapshot.
 PostgreSQL stays inside this adapter. No new DungeonMind command or UoW.
+
+Pure source-mapping helpers live here (and collision math in
+``world_graph_writes``) so this mounted path does not import
+``integrations/dungeonmind_kernel/**`` or the Buddy graph-engine packages.
 """
 
 from __future__ import annotations
@@ -26,6 +30,91 @@ from apps.live_control_server.ports.world_graph_source_admission import (
 
 def _hex_digest(value: str) -> str:
     return value.removeprefix("sha256:").strip().lower()
+
+
+def _digest_from_buddy_revision(buddy_revision_id: str) -> str | None:
+    if buddy_revision_id.startswith("sha256:"):
+        digest = buddy_revision_id.removeprefix("sha256:")
+        if len(digest) == 64:
+            return digest
+    return None
+
+
+def _parse_optional_aware(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    if not value or not str(value).strip():
+        return None
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+def _map_source_domain(raw: str) -> Any:
+    from dungeonmind.contracts.evidence import SourceDomain
+
+    return {
+        "recap": SourceDomain.SESSION_RECAP,
+        "session_recap": SourceDomain.SESSION_RECAP,
+        "worldbuilding": SourceDomain.WORLDBUILDING,
+        "rulebook": SourceDomain.RULEBOOK,
+        "prep": SourceDomain.PREP,
+        "manual": SourceDomain.MANUAL,
+    }.get(raw)
+
+
+def _store_artifact_v2(
+    artifact: Any,
+    *,
+    current_revision_id: str | None,
+    uri: str | None = None,
+    lineage: dict[str, Any] | None = None,
+) -> Any:
+    from dungeonmind.contracts.evidence import (
+        SourceArtifactV2,
+        SourceDomain,
+        SourceReviewState,
+        SourceStatus,
+        WorkspaceDocumentRefV1,
+    )
+    from dungeonmind.contracts.vocabulary import Visibility
+
+    domain_key = str(artifact.source_domain)
+    domain = _map_source_domain(domain_key) or SourceDomain.OTHER
+    workspace_ref = None
+    if artifact.workspace_document_id is not None:
+        workspace_ref = WorkspaceDocumentRefV1(
+            document_id=artifact.workspace_document_id,
+            revision=int(artifact.workspace_document_revision or 1),
+        )
+    review_state = None
+    if artifact.authority_state in {"draft", "reviewed", "canonical"}:
+        review_state = SourceReviewState(artifact.authority_state)
+    merged_lineage = dict(artifact.lineage or {})
+    if lineage:
+        merged_lineage.update(lineage)
+    return SourceArtifactV2(
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain_key=domain_key,
+        source_domain=domain,
+        world_id=artifact.world_id,
+        campaign_id=artifact.campaign_id,
+        session_id=artifact.session_id,
+        uri=uri if uri is not None else artifact.uri,
+        current_revision_id=current_revision_id,
+        authority=None,
+        visibility=Visibility.GM,
+        artifact_kind=artifact.artifact_kind,
+        document_class=artifact.document_class,
+        review_state=review_state,
+        source_visibility_state=artifact.visibility_state,
+        workspace_document_ref=workspace_ref,
+        lineage=merged_lineage,
+        status=SourceStatus(artifact.status),
+        created_at=_parse_optional_aware(artifact.created_at),
+        updated_at=_parse_optional_aware(artifact.updated_at),
+    )
 
 
 def _raise_port(exc: WorldGraphWriteError) -> None:
@@ -72,10 +161,6 @@ def _map_provider_error(exc: BaseException) -> WorldGraphSourceAdmissionError:
 
 
 def _revision_created_at(artifact: Any) -> datetime:
-    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
-        _parse_optional_aware,
-    )
-
     raw_created = getattr(artifact, "created_at", None)
     if isinstance(raw_created, datetime):
         return (
@@ -99,10 +184,6 @@ def _map_buddy_source(
     request: WorldGraphSourceAdmissionRequest,
     sources: Any,
 ) -> tuple[Any, Any, str]:
-    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
-        _digest_from_buddy_revision,
-        _store_artifact_v2,
-    )
     from dungeonmind.contracts.evidence import SourceRevision
 
     artifact = request.source_artifact

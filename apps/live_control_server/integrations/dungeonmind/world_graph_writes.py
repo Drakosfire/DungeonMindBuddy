@@ -892,6 +892,17 @@ def _reverse_revision_id(dm_revision_id: str, artifact_id: str | None) -> str:
     return dm_revision_id
 
 
+def _dm_revision_id(
+    buddy_revision_id: str,
+    artifact_id: str,
+    colliding_revision_ids: set[str],
+) -> str:
+    """Publisher collision suffix. Same values as the historical adoption helper."""
+    if buddy_revision_id in colliding_revision_ids:
+        return f"{buddy_revision_id}::{artifact_id}"
+    return buddy_revision_id
+
+
 def catalog_aware_source_revision_ids(
     sources: Any,
     world_id: str,
@@ -902,10 +913,6 @@ def catalog_aware_source_revision_ids(
     Reuses the publisher collision algorithm. Do not mint via
     ``_dm_revision_id(..., set())``.
     """
-    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
-        _dm_revision_id,
-    )
-
     pair_to_dm: dict[tuple[str, str], str] = {}
     token_artifacts: dict[str, set[str]] = {}
     try:
