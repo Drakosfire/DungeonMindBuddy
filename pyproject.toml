@@ -20,6 +20,9 @@ dependencies = [
     # Exact pin matches Hermes 0.18.2 (NousResearch/hermes-agent@861d69c7).
     # Do not raise this without revisiting the Hermes dependency gate.
     "openai==2.24.0",
+    # A3 experiment pin: newest PydanticAI whose openai extra still admits 2.24.
+    # Do not raise this to 2.x in A3; that extra requires openai>=2.29.
+    "pydantic-ai-slim[openai]==1.66.0",
     "python-dotenv>=1.2.2",
     "fastapi>=0.115.0",
     "httpx>=0.27.0",
