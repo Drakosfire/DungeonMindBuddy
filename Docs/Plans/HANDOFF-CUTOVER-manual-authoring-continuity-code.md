@@ -42,7 +42,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2C4: preserve Graph Review authoring on DungeonMind
 
 **Created:** 2026-08-28
-**Status:** CODE → REVIEW — Review Cycle 1 submitted (PR #662)
+**Status:** CODE → REVIEW — Review Cycle 2 submitted (PR #662)
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-manual-authoring-continuity-code.md`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Flow / owner:** CUTOVER
@@ -69,17 +69,24 @@ pr_body_template: |
 
 ## §8.3 CODE → REVIEW handback
 
-This is the review contract for Review Cycle 1.
+This is the review contract for Review Cycle 2.
 
-### 1. PR / branch / Review Cycle 1 head
+### 1. PR / branch / Review Cycle 2 head
 
 * Branch: `cutover/manual-authoring-continuity`
 * PR number: **#662** — https://github.com/Drakosfire/DungeonMindBuddy/pull/662
-* Review Cycle 1 head SHA: `4945b426abb7732617870f1ce29fb1fd28035923`
+* Formal Cycle 1 reviewed head (pre-rebase): `7b3fecd7e323eff54f02ef2073bc5bf342d28d15`
+* Cycle 1 review: REQUEST-CHANGES-equivalent **#5057060390**
+* `4945b426abb7732617870f1ce29fb1fd28035923` was an implementation commit, not a formal review head
+* Cycle 2 rebase base: `937d9dce1be02e804553282a146527bf39bb0750` (`main` after merged #659)
+* Cycle 2 implementation tip (post-rebase, before this record): `77341ba746fa9b643783a021ec624f4823300f77`
+* Review Cycle 2 head SHA: this CODE → REVIEW record commit (PR HEAD after push)
 
 ### 2. Exact dispatch base
 
-`84f3401b23fcac32a57416d5419dc7d33cf6eabc`
+Original dispatch base: `84f3401b23fcac32a57416d5419dc7d33cf6eabc`
+
+Cycle 2 re-anchor: `937d9dce1be02e804553282a146527bf39bb0750`
 
 ### 3. #651 predecessor
 
@@ -93,9 +100,10 @@ This is the review contract for Review Cycle 1.
 
 ### 5. Open-PR collision check
 
-AGENT-INTERACTION #659 is disjoint except regression-only overlap on
-`tests/test_live_query_hermes_graph.py`. No overlapping §4 production-path lease was
-taken by this implementation.
+AGENT-INTERACTION #659 merged to `main` as `937d9dce…` during Cycle 1 review.
+It is semantically disjoint from D.2C4 except regression-only overlap on
+`tests/test_live_query_hermes_graph.py`. This branch rebased onto that `main`
+with no conflict. No overlapping §4 production-path lease remains open.
 
 ### 6. Cumulative changed-path list (working tree vs dispatch base)
 
@@ -112,13 +120,17 @@ apps/live-control-ui/src/api/liveApi.ts
 apps/live-control-ui/src/api/types.ts
 apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringPrepareCommitPanel.test.tsx
 apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringPrepareCommitPanel.tsx
+apps/live_control_server/integrations/dungeonmind/world_graph_source_admission_adapter.py
 apps/live_control_server/integrations/dungeonmind/world_graph_writes.py
+apps/live_control_server/ports/world_graph_source_admission.py
+apps/live_control_server/ports/world_graph_source_admission_access.py
 apps/live_control_server/services/graph_object_authoring_commit.py
 apps/live_control_server/services/graph_object_authoring_prepare.py
 tests/test_cutover_graph_review_authoring_continuity.py
 tests/test_graph_object_authoring_commit.py
 tests/test_graph_object_authoring_prepare.py
 tests/test_graph_object_authoring_routes.py
+tests/test_world_graph_source_admission.py
 ```
 
 `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewCorrectionModal.tsx`
@@ -128,16 +140,31 @@ was not required.
 
 * `apps/live_control_server/integrations/dungeonmind/world_graph_writes.py`
   — added `graph_review_authority_operation_id(...)` returning `grauth:{sha256}`
-  from frozen schema `dmb_graph_review_authoring_authority_operation_v1`.
-  No new DungeonMind provider contract.
+  from frozen schema `dmb_graph_review_authoring_authority_operation_v1`, plus
+  shared `catalog_aware_source_revision_ids(...)` so admission and publish
+  reuse the same collision algorithm. No new DungeonMind provider contract.
+* `apps/live_control_server/ports/world_graph_source_admission.py` and
+  `.../world_graph_source_admission_access.py`
+  — steward-authorized D.2C4 source-admission port/factory. DungeonMind-only;
+  no `buddy_files` branch; PostgreSQL stays in the adapter.
 
 ### 8. Nano-commit list and purpose
 
-1. `f69959e0` CUTOVER: hand off Graph Review DungeonMind authoring
-2. `e140591d` CUTOVER: bind Graph Review prepare to governed publication intent
-3. `9458a46a` CUTOVER: publish confirmed Graph Review edits through DungeonMind
-4. `93a318db` CUTOVER: align Graph Review API and UI to DungeonMind publication
-5. `4945b426` CUTOVER: prove manual-authoring continuity and legacy-writer absence
+Cycle 1 (replayed onto `937d9dce…`; original reviewed SHAs in parentheses):
+
+1. `e54b6cb2` (`f69959e0`) CUTOVER: hand off Graph Review DungeonMind authoring
+2. `335a5d7e` (`e140591d`) CUTOVER: bind Graph Review prepare to governed publication intent
+3. `11dffdc3` (`9458a46a`) CUTOVER: publish confirmed Graph Review edits through DungeonMind
+4. `89fef487` (`93a318db`) CUTOVER: align Graph Review API and UI to DungeonMind publication
+5. `2c036036` (`4945b426`) CUTOVER: prove manual-authoring continuity and legacy-writer absence
+6. `8787cdff` (`7b3fecd7`) CUTOVER: record Graph Review authoring Review Cycle 1
+
+Cycle 2 (post-rebase):
+
+7. `148235ae` CUTOVER: admit Graph Review sources through DungeonMind
+8. `53fba470` CUTOVER: bind Graph Review confirm to admitted sources and honest audit
+9. `77341ba7` CUTOVER: prove initially-absent Graph Review source admission
+10. this record commit — CUTOVER: record Graph Review authoring Review Cycle 2
 
 ### 9. State-authority sync result
 
@@ -185,11 +212,16 @@ Order:
 1. explicit injected `resolved_source` (tests) or request `sourceRunId`
 2. `resolve_promotable_ingest_run(run_id)`
 3. campaign/world mismatch → `source_inadmissible`
-4. `WorldGraphSourceAdmissionAuthority` / `admit_source` / SourceRepository snapshot
-5. unresolved → `source_unresolved` before any durable write
+4. `WorldGraphSourceAdmissionAuthority.prove_or_admit(mapped SourceArtifactV2 + SourceRevision)`
+   through the DungeonMind-only factory (no `admit_source` test-only duck-type)
+5. snapshot-provable admitted IDs are sealed on the confirm token
+6. confirm calls `prove()` against those sealed DungeonMind IDs; it does not first-admit
+7. unresolved / not admitted → `source_unresolved` / `source_artifact_not_found` before any graph write
 
 Historical `sourceRunId` is not itself durable provenance authority. The prepared
-artifact binds admitted `source_artifact_id` + `source_revision_id`.
+artifact binds admitted DungeonMind `source_artifact_id` + `source_revision_id`.
+Contribution fields keep the Buddy revision token so `_build_pair_to_dm` /
+`catalog_aware_source_revision_ids` converge on the same DM ID.
 
 ### 12. Prepare side-effect proof
 
@@ -240,9 +272,16 @@ Owning PostgreSQL witness
 `test_graph_review_authoring_continuity_one_world_sequence`:
 
 * parent: reviewed-init `D_0`
+* Graph Review source: a distinct post-genesis ingest run whose mapped pair is
+  absent from `SourceRepository` before prepare
+* prepare admits that exact pair; snapshot then returns artifact + revision
 * child: exactly one `D_1`
 * contribution type: node / `created_new`
-* native `read_revision(D_1)` contains the authored node
+* native projection / search / exact-object of `D_1` contain the authored node
+* source-anchor resolution for the sealed pair succeeds (`outcome != empty`)
+* `audit_status="skipped"` with `overlay_path` / `event_log_path` null
+* a second `TestClient(create_app())` recovers the same sealed confirm as
+  `already_applied` without an extra child
 
 ### 17. Link_existing publication result
 
@@ -317,8 +356,12 @@ one head
 
 ### 30. Native read/retrieval proof after publications
 
-`DungeonMindWorldGraphAuthorityAdapter.read_revision` after each expressible
-publication observes the authored object, existing node, and relationship.
+Native DungeonMind projection, search, and exact-object of `D_1` admit the
+authored fact (not SCOPE_UNKNOWN). `get_object` returns a source-anchor bound
+to the admitted artifact; `read_source_anchor_direct` resolves that anchor
+(`outcome != empty`). `DungeonMindWorldGraphAuthorityAdapter.read_revision`
+after each expressible publication also observes the authored object, existing
+node, and relationship.
 
 ### 31. Legacy writer tripwire result
 
@@ -366,16 +409,19 @@ uv run pytest \
   tests/test_graph_object_authoring_prepare.py \
   tests/test_graph_object_authoring_commit.py \
   tests/test_graph_object_authoring_routes.py \
+  tests/test_world_graph_source_admission.py \
   tests/test_cutover_graph_review_authoring_continuity.py \
   -q
 ```
 
-`45 passed, 10 warnings`
+`51 passed, 10 warnings`
 
 Owning PostgreSQL witness: **0 skips**.
 
 `tests/test_graph_object_authoring_routes.py` did not exist on the dispatch base.
-It was added in this slice as the exact prescribed route-boundary path.
+It was added in Cycle 1 as the exact prescribed route-boundary path.
+`tests/test_world_graph_source_admission.py` was added in Cycle 2 for the
+production admission adapter.
 
 #### 7.3 Legacy/public regression cohort
 
@@ -410,10 +456,14 @@ npm test -- --run \
 
 ```text
 uv run ruff check \
+  apps/live_control_server/ports/world_graph_source_admission.py \
+  apps/live_control_server/ports/world_graph_source_admission_access.py \
+  apps/live_control_server/integrations/dungeonmind/world_graph_source_admission_adapter.py \
   apps/live_control_server/routes/graph_authoring.py \
   apps/live_control_server/services/graph_object_authoring_prepare.py \
   apps/live_control_server/services/graph_object_authoring_commit.py \
   apps/live_control_server/integrations/dungeonmind/world_graph_writes.py \
+  tests/test_world_graph_source_admission.py \
   tests/test_graph_object_authoring_prepare.py \
   tests/test_graph_object_authoring_commit.py \
   tests/test_graph_object_authoring_routes.py \
@@ -438,7 +488,7 @@ Pass.
 
 ```text
 git diff --exit-code \
-  84f3401b23fcac32a57416d5419dc7d33cf6eabc...HEAD \
+  937d9dce1be02e804553282a146527bf39bb0750...HEAD \
   -- pyproject.toml uv.lock
 ```
 
@@ -502,5 +552,16 @@ authority-selector defaults.
 
 ## Remaining merge-ready work (not code)
 
-1. Formal Review Cycle 1 on PR #662.
+1. Formal Review Cycle 2 on PR #662.
 2. Do not mark D.2C4 `DONE` before merge.
+
+Cycle 1 blockers closed in this cycle:
+
+1. Production `WorldGraphSourceAdmissionAuthority.prove_or_admit` admits an
+   initially absent mapped `SourceArtifactV2 + SourceRevision`. Confirm
+   `prove()`s the sealed pair. Owning witness uses a post-genesis source, not
+   the genesis run.
+2. Skipped audit returns `overlay_path` / `event_log_path` null.
+3. Confirm tokens require `DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY`; no
+   process-random fallback. Fresh `TestClient(create_app())` recovers the same
+   sealed confirm.
