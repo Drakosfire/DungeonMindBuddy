@@ -509,5 +509,40 @@ describe("StartRunPanel", () => {
     expect(liveApi.putPlayRunReferenceManifest).not.toHaveBeenCalled();
     expect(onStarted).not.toHaveBeenCalled();
   });
+
+  it("disables Edit Runbook when the selected Runbook campaign mismatches Play", async () => {
+    const user = userEvent.setup();
+    render(<StartRunPanel onStarted={vi.fn()} productCampaignId="longmont-c1" />);
+    await user.click(await screen.findByTestId(`play-start-runbook-${DOC_B}`));
+    const edit = screen.getByTestId("play-edit-runbook");
+    expect(edit).toBeDisabled();
+    expect(edit).not.toHaveAttribute("href");
+    expect(screen.getByTestId("play-edit-runbook-campaign-mismatch")).toHaveTextContent("longmont-c2");
+    expect(screen.getByTestId("play-edit-runbook-campaign-mismatch")).toHaveTextContent("longmont-c1");
+    expect(screen.getByTestId("play-start-run-submit")).not.toBeDisabled();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+  });
+
+  it("still starts an exact Run when Edit is blocked by campaign mismatch", async () => {
+    const onStarted = vi.fn();
+    const user = userEvent.setup();
+    render(<StartRunPanel onStarted={onStarted} productCampaignId="longmont-c1" />);
+    await user.click(await screen.findByTestId(`play-start-runbook-${DOC_A}`));
+    expect(screen.getByTestId("play-edit-runbook")).toBeDisabled();
+    await user.click(screen.getByTestId("play-start-run-submit"));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith(RUN_ID));
+    expect(liveApi.putPlayRun).toHaveBeenCalledWith(RUN_ID, expect.objectContaining({
+      playable_artifact_id: DOC_A,
+      expected_playable_revision: 7,
+    }));
+  });
+
+  it("keeps Edit Runbook available when the product campaign matches", async () => {
+    const user = userEvent.setup();
+    render(<StartRunPanel onStarted={vi.fn()} productCampaignId="longmont-c2" />);
+    await user.click(await screen.findByTestId(`play-start-runbook-${DOC_A}`));
+    expect(screen.getByTestId("play-edit-runbook")).toHaveAttribute("href", `/plan?documentId=${DOC_A}`);
+    expect(screen.queryByTestId("play-edit-runbook-campaign-mismatch")).not.toBeInTheDocument();
+  });
 });
 

@@ -235,10 +235,25 @@
   opacity: 0.62;
 }
 
+.play-edit-runbook-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
 .play-controls a.play-edit-runbook {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
+}
+
+.play-edit-runbook-campaign-mismatch {
+  margin: 0;
+  max-width: 42ch;
+  color: var(--play-warning-text);
+  font-size: 0.92rem;
+  line-height: 1.4;
 }
 
 .play-runbook-document {

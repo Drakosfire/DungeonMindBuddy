@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-08-29 from `main` `937d9dce1be02e804553282a146527bf39bb0750`
+**Re-anchored:** 2026-08-29 from `main` `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
@@ -241,7 +241,7 @@ CR-U17 remains **false overall** until Combat and any other relied-upon non-Play
 
 # 4. Delivery roadmap
 
-## 4.0 Current delivery state — 2026-08-28
+## 4.0 Current delivery state — 2026-08-29
 
 Repository truth at this re-anchor:
 
@@ -269,8 +269,11 @@ DF0 / PR #657    DONE — local Play dogfood gateway
                  accepted head dc20fe8e63eec691265e75eb73c69f441ffd779d
                  merge 87a769d05605ff021d28f0b69c5d7ab0b8205440
                  review cycles: 3
-PLAN-BLANK-SHELL CURRENT — zero-material Plan authoring + local→durable promotion
-BF4A             BLOCKED ON PLAN-BLANK-SHELL — native Runbook reopen/save
+PLAN-BLANK-SHELL / PR #661 DONE — blank Plan is a real authoring surface state
+                 accepted head ffa0b18d6212a6780d6be90f91a25626bf15b464
+                 merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
+                 review cycles: 4
+BF4A             CURRENT — native Runbook reopen/save
 BF3B             BLOCKED ON BF4A — Decision interaction and visible relevance
 BF3C / BF3.x     later — additional At-a-Glance categories / retrieval
 BF4              authoring composition; may run in parallel on disjoint lease
@@ -283,7 +286,7 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
 
 | Story | State now | Why |
 |---|---|---|
-| CR-U11 | **Partially true, foundation strong** | durable WorkObject/WorkRevision + BF1 structure exist; Plan currently lacks a valid local blank authoring state — PLAN-BLANK-SHELL owns that seam; BF4A then owns native Runbook reopen/save |
+| CR-U11 | **Partially true, foundation strong** | durable WorkObject/WorkRevision + BF1 structure exist; PLAN-BLANK-SHELL made blank Plan a real authoring state; BF4A now owns native Runbook reopen/save |
 | CR-U13 | **Partial / Combat-owned** | exact mechanics/projection seams exist, but durable integrated Combat acceptance is separate |
 | CR-U14 | **False as native end-to-end story** | C2S27 proved fast unplanned combat in the legacy tracker; native global Threat→exact mechanics→Combat flow still needs proof |
 | CR-U15 | **PARTIAL** | BF3A Current Moment is implemented and merged; DF0 merged local Play dogfood gateway. Decision interaction and later cockpit capabilities remain false. |
@@ -310,12 +313,12 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - ordinary uvicorn + Vite then reaches /play
    - empty Play creates a blank committed Runbook explicitly; bootstrap does not seed
 
-4. PLAN-BLANK-SHELL — CURRENT — zero-material Plan authoring + local→durable promotion
+4. PLAN-BLANK-SHELL — DONE (PR #661, merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e, 4 review cycles)
    - bare /plan opens editable local draft with Edit/Tools chrome
    - first Save promotes through existing Plan create contract
-   - PLAN-BLANK-SHELL is in flight and is not DONE
+   - exact document load/error states retain shell chrome
 
-5. BF4A — BLOCKED ON PLAN-BLANK-SHELL — native Runbook reopen/save
+5. BF4A — CURRENT — native Runbook reopen/save
 
 6. BF3B — BLOCKED ON BF4A — Decision interaction and visible relevance
    - current-context Decisions / Options

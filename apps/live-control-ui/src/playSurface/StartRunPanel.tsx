@@ -21,7 +21,10 @@ import {
   resolveBlankRunbookCampaignId,
   type BlankRunbookAttempt,
 } from "./blankRunbook";
-import { playRunbookAuthoringHref } from "./playRunbookAuthoringHref";
+import {
+  playRunbookAuthoringCampaignMismatch,
+  playRunbookAuthoringHref,
+} from "./playRunbookAuthoringHref";
 
 const liveStartRunDeps: StartRunDeps = {
   generateRunId: () => crypto.randomUUID(),
@@ -122,6 +125,13 @@ export function StartRunPanel({
   const resolvedCampaignId = resolveBlankRunbookCampaignId(productCampaignId, campaignDraft);
   const showCreate = listStatus === "empty" || listStatus === "ready";
   const canCreateBlank = blankAttempt != null || resolvedCampaignId != null;
+  const selectedRunbook = selectedDocumentId == null
+    ? null
+    : runbooks.find((record) => record.document_id === selectedDocumentId) ?? null;
+  const campaignMismatchReason = selectedRunbook
+    ? playRunbookAuthoringCampaignMismatch(productCampaignId, selectedRunbook.campaign_id)
+    : null;
+  const canOpenRunbookAuthoring = selectedDocumentId != null && campaignMismatchReason == null;
 
   const onCreateBlank = useCallback(async () => {
     if (!canCreateBlank || creatingBlank) return;
@@ -261,22 +271,40 @@ export function StartRunPanel({
         </div>
       ) : null}
       <div className="play-controls">
-        {selectedDocumentId ? (
-          <a
-            className="play-edit-runbook"
-            data-testid="play-edit-runbook"
-            href={playRunbookAuthoringHref(
-              selectedDocumentId,
-              typeof window !== "undefined" ? window.location.search : "",
-            )}
-          >
-            Edit Runbook
-          </a>
-        ) : (
-          <button type="button" data-testid="play-edit-runbook" disabled>
-            Edit Runbook
-          </button>
-        )}
+        <div className="play-edit-runbook-control">
+          {canOpenRunbookAuthoring && selectedDocumentId ? (
+            <a
+              className="play-edit-runbook"
+              data-testid="play-edit-runbook"
+              href={playRunbookAuthoringHref(
+                selectedDocumentId,
+                typeof window !== "undefined" ? window.location.search : "",
+              )}
+            >
+              Edit Runbook
+            </a>
+          ) : (
+            <button
+              type="button"
+              className="play-edit-runbook"
+              data-testid="play-edit-runbook"
+              disabled
+              aria-describedby={campaignMismatchReason ? "play-edit-runbook-campaign-mismatch" : undefined}
+            >
+              Edit Runbook
+            </button>
+          )}
+          {campaignMismatchReason ? (
+            <p
+              id="play-edit-runbook-campaign-mismatch"
+              role="status"
+              className="play-edit-runbook-campaign-mismatch"
+              data-testid="play-edit-runbook-campaign-mismatch"
+            >
+              {campaignMismatchReason}
+            </p>
+          ) : null}
+        </div>
         <button
           type="button"
           data-testid="play-start-run-submit"

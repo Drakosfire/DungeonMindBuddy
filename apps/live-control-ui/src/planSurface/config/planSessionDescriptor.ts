@@ -207,6 +207,19 @@ export class NoActivePlanningDocumentsError extends Error {
   }
 }
 
+export class CrossCampaignRunbookAdmissionError extends Error {
+  constructor(
+    public readonly documentId: string,
+    public readonly runbookCampaignId: string,
+    public readonly planCampaignId: string,
+  ) {
+    super(
+      `Runbook ${documentId} belongs to campaign ${runbookCampaignId} and cannot be authored under campaign ${planCampaignId}.`,
+    );
+    this.name = "CrossCampaignRunbookAdmissionError";
+  }
+}
+
 export async function resolvePlanningDocument(args: {
   planView: PlanViewProjection;
   locationSearch?: string | null;
@@ -217,6 +230,13 @@ export async function resolvePlanningDocument(args: {
 
   if (requestedId) {
     const record = await getWorkspaceDocument(requestedId);
+    if (record.kind === "runbook" && record.campaign_id !== campaignId) {
+      throw new CrossCampaignRunbookAdmissionError(
+        requestedId,
+        record.campaign_id,
+        campaignId,
+      );
+    }
     return workspaceRecordToPlanDocumentDescriptor(record);
   }
 

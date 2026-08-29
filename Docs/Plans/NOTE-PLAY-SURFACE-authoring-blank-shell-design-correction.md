@@ -4,7 +4,11 @@
 **Audience:** PLAY-SURFACE designing agent  
 **Branch:** `agent/play-surface-runbook-authoring-gateway`  
 **Related handoff:** `Docs/Plans/HANDOFF-PLAY-SURFACE-runbook-authoring-gateway.md`  
-**Status:** DESIGN REVIEW REQUIRED BEFORE BF4A IMPLEMENTATION CONTINUES
+**Status:** HISTORICAL — resolved by PLAN-BLANK-SHELL / PR #661
+
+Resolved at accepted head `ffa0b18d6212a6780d6be90f91a25626bf15b464`, merge
+`770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`, 4 review cycles. BF4A no longer owns
+blank-shell semantics and must leave that machinery alone.
 
 This is a product/design correction discovered while trying to make BF4A genuinely dogfoodable. Do not treat it as an implementation detail and do not hide it behind fixtures or exact-URL operator knowledge.
 

@@ -3,13 +3,14 @@ import { useState, type ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
-import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { WorldGraphLensProjectionProvider, WorldGraphLensProvider } from "../graphLens";
 import { mockPlanView, mockSourceBundle } from "../test/fixtures";
 import type { WorkspaceDocumentRecord, WorkspaceDocumentSnapshot } from "../api/types";
 import * as liveApi from "../api/liveApi";
+import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { indexPlayableStructureV2 } from "../tiptap/playable/playableStructureIndex";
 import { AgentInteractionProjectionTestHost } from "./projection/projectionTestHost";
@@ -21,52 +22,144 @@ import {
   workspaceRecordToPlanDocumentDescriptor,
 } from "./config/planSessionDescriptor";
 import { EditCapabilityProvider } from "./edit/editCapability";
+import { adoptCreatedPlanIdentity } from "./planBlankAuthoringState";
 import { PlanGraphLensProvider } from "./PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
 import { PlanSurfaceCanvas, canSavePlanningDocument } from "./components/PlanSurfaceCanvas";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
+import { createWorkspaceDocumentCreationController } from "../workspaceDocument/workspaceDocumentCreation";
 
 const RUNBOOK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const CONTENT_SHA = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-/** Canonical v2 paste used for BF4A/BF3B dogfood. Validated against BF1 indexer. */
-export const BF3B_DOGFOOD_RUNBOOK_MARKDOWN = [
-  "<!-- dmb-playable-element:v2 kind=beat id=beat:hold-the-breach beat_kind=spine -->",
+/** Frozen BF4A/BF3B dogfood. Validated against the existing BF1 indexer. */
+export const BREACH_DOGFOOD_RUNBOOK_MARKDOWN = [
+  "# Breach Dogfood Runbook",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:hold-breach beat_kind=spine -->",
   "## Hold the Breach",
   "",
-  "Creatures have broken through the town's defensive wall. The party must decide whether to pursue the survivors or secure the breach before more can get through.",
+  "Creatures have broken through the defensive wall. The party must decide",
+  "whether to pursue the surviving brood or stabilize the breach before the line",
+  "fails completely.",
   "",
   "<!-- dmb-playable-element:v2 kind=scene id=scene:north-gate -->",
   "### North Gate",
   "",
-  "The north gate is splintered and partly collapsed. A handful of creatures are retreating into the damaged tunnels while defenders struggle to brace the wall.",
+  "The gate is damaged, the last creatures are retreating toward a broken tunnel,",
+  "and exhausted defenders are trying to stabilize the wall.",
   "",
   "<!-- dmb-playable-element:v2 kind=choice id=choice:surviving-brood scene=scene:north-gate -->",
   "### What do they do with the surviving brood?",
   "",
-  "The survivors are escaping below while the defenders try to stabilize the breach.",
+  "The brood is disappearing underground while the defenders call for help at the",
+  "breach.",
   "",
-  "<!-- dmb-playable-element:v2 kind=option id=option:follow-it activates=scene:tunnel-pursuit,beat:lower-tunnels -->",
+  "<!-- dmb-playable-element:v2 kind=option id=option:follow-brood activates=scene:tunnel-pursuit,beat:lower-tunnels -->",
   "- Follow it",
   "",
-  "  Pursue the retreating creatures into the lower tunnels before reinforcements arrive.",
+  "  The party pursues the retreating creatures into the lower tunnels before",
+  "  reinforcements arrive.",
   "",
-  "<!-- dmb-playable-element:v2 kind=option id=option:seal-the-breach suppresses=scene:tunnel-pursuit -->",
+  "<!-- dmb-playable-element:v2 kind=option id=option:seal-breach suppresses=scene:tunnel-pursuit -->",
   "- Seal the breach",
   "",
-  "  Contain the immediate breach, but leave the surviving creatures somewhere below.",
+  "  The immediate breach is contained, but the surviving creatures remain",
+  "  somewhere below.",
   "",
   "<!-- dmb-playable-element:v2 kind=scene id=scene:tunnel-pursuit -->",
   "### Tunnel Pursuit",
   "",
-  "The party enters the damaged tunnel after the fleeing creatures, following them beneath the fortifications before the trail disappears.",
+  "The party enters a damaged tunnel after the fleeing creatures while loose stone",
+  "and timbers shift overhead.",
   "",
   "<!-- dmb-playable-element:v2 kind=beat id=beat:lower-tunnels beat_kind=optional -->",
   "## Lower Tunnels",
   "",
-  "Following the threat deeper underground opens a new phase of the defense below the town.",
+  "Following the brood deeper turns the defense of the gate into a search below",
+  "the fortifications.",
   "",
 ].join("\n");
+
+function optionListItems(doc: { content?: Array<{ type?: string; content?: unknown[]; attrs?: Record<string, unknown> }> }) {
+  const items: Array<{ attrs?: Record<string, unknown> }> = [];
+  for (const node of doc.content ?? []) {
+    if (node.type !== "bulletList") continue;
+    for (const item of node.content ?? []) {
+      items.push(item as { attrs?: Record<string, unknown> });
+    }
+  }
+  return items;
+}
+
+function markdownWindow(markdown: string, startMarker: string, endMarker: string | null): string {
+  const start = markdown.indexOf(startMarker);
+  const end = endMarker == null ? markdown.length : markdown.indexOf(endMarker);
+  expect(start).toBeGreaterThanOrEqual(0);
+  if (endMarker != null) expect(end).toBeGreaterThan(start);
+  return markdown.slice(start, endMarker == null ? undefined : end);
+}
+
+function expectCanonicalBreachDogfood(markdown: string) {
+  const imported = markdownToTiptapDoc(markdown);
+  expect(imported.diagnostics).toEqual([]);
+  const indexed = indexPlayableStructureV2(imported.doc);
+  expect(indexed.status).toBe("ready");
+  if (indexed.status !== "ready") throw new Error("expected ready v2 index");
+  const { index } = indexed;
+  expect(index.beats.map((beat) => [beat.beatId, beat.beatKind])).toEqual([
+    ["beat:hold-breach", "spine"],
+    ["beat:lower-tunnels", "optional"],
+  ]);
+  expect(index.scenes).toEqual([
+    { sceneId: "scene:north-gate", beatId: "beat:hold-breach", order: 0 },
+    { sceneId: "scene:tunnel-pursuit", beatId: "beat:hold-breach", order: 1 },
+  ]);
+  expect(index.choices).toEqual([
+    {
+      choiceId: "choice:surviving-brood",
+      beatId: "beat:hold-breach",
+      sceneId: "scene:north-gate",
+      order: 0,
+      optionOrder: ["option:follow-brood", "option:seal-breach"],
+    },
+  ]);
+  expect(index.options).toEqual([
+    {
+      optionId: "option:follow-brood",
+      choiceId: "choice:surviving-brood",
+      order: 0,
+      activates: ["scene:tunnel-pursuit", "beat:lower-tunnels"],
+      suppresses: [],
+    },
+    {
+      optionId: "option:seal-breach",
+      choiceId: "choice:surviving-brood",
+      order: 1,
+      activates: [],
+      suppresses: ["scene:tunnel-pursuit"],
+    },
+  ]);
+  const options = optionListItems(imported.doc);
+  expect(options.map((item) => item.attrs?.playableElementId)).toEqual([
+    "option:follow-brood",
+    "option:seal-breach",
+  ]);
+  expect(options.every((item) => item.attrs?.playableElementKind === "option")).toBe(true);
+  const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+  const choiceProse = markdownWindow(
+    exported,
+    "id=choice:surviving-brood",
+    "id=option:follow-brood",
+  );
+  expect(choiceProse).toContain("disappearing underground");
+  expect(choiceProse).not.toContain("pursues the retreating");
+  expect(choiceProse).not.toContain("immediate breach is contained");
+  const followBody = markdownWindow(exported, "id=option:follow-brood", "id=option:seal-breach");
+  expect(followBody).toContain("pursues the retreating");
+  const sealBody = markdownWindow(exported, "id=option:seal-breach", "id=scene:tunnel-pursuit");
+  expect(sealBody).toContain("immediate breach is contained");
+}
 
 const BLANK_BEAT_MARKDOWN = [
   "<!-- dmb-playable-element:v2 kind=beat id=beat:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa beat_kind=spine -->",
@@ -121,6 +214,14 @@ function IsolatedCanvas(
   );
 }
 
+function durableCanvasShellProps(document: ReturnType<typeof workspaceRecordToPlanDocumentDescriptor>) {
+  return {
+    shellState: adoptCreatedPlanIdentity(document),
+    selectorListAvailable: true,
+    createController: createWorkspaceDocumentCreationController(),
+  };
+}
+
 function renderIsolatedCanvas(
   document: ReturnType<typeof workspaceRecordToPlanDocumentDescriptor>,
   onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void,
@@ -136,11 +237,25 @@ function renderIsolatedCanvas(
               sessionDescriptor={sessionDescriptor}
               theme={config.theme}
               onEditorToolsChange={onEditorToolsChange}
+              {...durableCanvasShellProps(document)}
             />
           </PlanGraphReferenceResolverProvider>
         </PlanGraphLensProvider>
       </AgentInteractionProjectionTestHost>
     </EditCapabilityProvider>,
+  );
+}
+
+function PlanPublicationProbe() {
+  const { projectionSurface, surfaceInteractionBasePublication } = useAgentInteraction();
+  const workObject = surfaceInteractionBasePublication?.canvas?.workObject;
+  return (
+    <output
+      data-testid="plan-surface-publication"
+      data-agent-document-id={surfaceInteractionBasePublication?.agentContext?.documentId ?? "null"}
+      data-canvas-document-id={projectionSurface?.publication.config.canvas.documentId ?? "null"}
+      data-canvas-work-object={workObject ? `${workObject.kind}:${workObject.id}` : "null"}
+    />
   );
 }
 
@@ -161,19 +276,9 @@ describe("canSavePlanningDocument", () => {
   });
 });
 
-describe("BF3B dogfood Runbook grammar", () => {
-  it("is admitted by the existing v2 indexer", () => {
-    const imported = markdownToTiptapDoc(BF3B_DOGFOOD_RUNBOOK_MARKDOWN);
-    expect(imported.diagnostics).toEqual([]);
-    const indexed = indexPlayableStructureV2(imported.doc);
-    expect(indexed.status).toBe("ready");
-    if (indexed.status !== "ready") return;
-    expect(indexed.index.beatOrder).toEqual(["beat:hold-the-breach", "beat:lower-tunnels"]);
-    expect(indexed.index.choices.map((choice) => choice.choiceId)).toEqual(["choice:surviving-brood"]);
-    expect(indexed.index.options.map((option) => option.optionId)).toEqual([
-      "option:follow-it",
-      "option:seal-the-breach",
-    ]);
+describe("Breach dogfood Runbook grammar", () => {
+  it("is admitted by the existing v2 indexer with Option list items", () => {
+    expectCanonicalBreachDogfood(BREACH_DOGFOOD_RUNBOOK_MARKDOWN);
   });
 });
 
@@ -266,8 +371,8 @@ describe("PlanSurfaceCanvas Runbook authoring", () => {
     const record = pathlessRunbookRecord();
     const committed = pathlessRunbookRecord({ revision: 2, content_status: "committed" });
     vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot")
-      .mockResolvedValueOnce(snapshotFor(record, BF3B_DOGFOOD_RUNBOOK_MARKDOWN))
-      .mockResolvedValue(snapshotFor(committed, BF3B_DOGFOOD_RUNBOOK_MARKDOWN, {
+      .mockResolvedValueOnce(snapshotFor(record, BREACH_DOGFOOD_RUNBOOK_MARKDOWN))
+      .mockResolvedValue(snapshotFor(committed, BREACH_DOGFOOD_RUNBOOK_MARKDOWN, {
         loaded_revision: 2,
         content_sha256: "abc123sha256",
       }));
@@ -297,6 +402,8 @@ describe("PlanSurfaceCanvas Runbook authoring", () => {
       writer_ok: true,
       diagnostics: [],
     });
+    const putPlayRun = vi.spyOn(liveApi, "putPlayRun");
+    const putManifest = vi.spyOn(liveApi, "putPlayRunReferenceManifest");
 
     let editorTools: AppChromeToolsGeneration | null = null;
     renderIsolatedCanvas(
@@ -325,10 +432,7 @@ describe("PlanSurfaceCanvas Runbook authoring", () => {
     const prepareBody = prepare.mock.calls[0]?.[0];
     expect(prepareBody?.document_id).toBe(RUNBOOK_ID);
     expect(prepareBody).not.toHaveProperty("target_relpath");
-    const imported = markdownToTiptapDoc(prepareBody?.markdown ?? "");
-    expect(imported.diagnostics).toEqual([]);
-    const indexed = indexPlayableStructureV2(imported.doc);
-    expect(indexed.status).toBe("ready");
+    expectCanonicalBreachDogfood(prepareBody?.markdown ?? "");
     expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({
       document_id: RUNBOOK_ID,
       writer_confirm_token: "confirm-token",
@@ -341,6 +445,8 @@ describe("PlanSurfaceCanvas Runbook authoring", () => {
     expect(committed.kind).toBe("runbook");
     expect(committed.document_id).toBe(RUNBOOK_ID);
     expect(committed.revision).toBe(2);
+    expect(putPlayRun).not.toHaveBeenCalled();
+    expect(putManifest).not.toHaveBeenCalled();
   });
 });
 
@@ -404,6 +510,7 @@ describe("explicit Runbook documentId in Plan", () => {
       const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
       return (
         <AgentInteractionProvider>
+          <PlanPublicationProbe />
           <AskPluginSlotProvider>
             <WorldGraphLensProvider planCampaignId="longmont-c2">
               <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
@@ -431,5 +538,91 @@ describe("explicit Runbook documentId in Plan", () => {
     expect(screen.queryByTestId("plan-canvas-authoring-error")).not.toBeInTheDocument();
     expect(liveApi.getWorkspaceDocument).toHaveBeenCalledWith(RUNBOOK_ID);
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ kind: "plan" }));
+    expect(screen.getByTestId("plan-surface-publication")).toHaveAttribute(
+      "data-agent-document-id",
+      RUNBOOK_ID,
+    );
+    expect(screen.getByTestId("plan-surface-publication")).toHaveAttribute(
+      "data-canvas-work-object",
+      `document:${RUNBOOK_ID}`,
+    );
+  });
+
+  it("refuses a cross-campaign exact Runbook without publishing durable identity", async () => {
+    window.history.pushState({}, "", `/plan?documentId=${RUNBOOK_ID}`);
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "world",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    } as Awaited<ReturnType<typeof liveApi.postWorldGraphProjection>>);
+    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue(mockSourceBundle);
+    vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [fixtureWorkspaceDocumentRecord()],
+    });
+    vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(
+      pathlessRunbookRecord({ campaign_id: "longmont-c1", title: "C1 Runbook" }),
+    );
+    const snapshot = vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot");
+
+    function Harness() {
+      const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
+      return (
+        <AgentInteractionProvider>
+          <PlanPublicationProbe />
+          <AskPluginSlotProvider>
+            <WorldGraphLensProvider planCampaignId="longmont-c2">
+              <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
+                <SurfaceContextProvider>
+                  <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
+                    <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
+                  </AppChrome>
+                </SurfaceContextProvider>
+              </WorldGraphLensProjectionProvider>
+            </WorldGraphLensProvider>
+          </AskPluginSlotProvider>
+        </AgentInteractionProvider>
+      );
+    }
+
+    render(<Harness />);
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-canvas-authoring-error")).toHaveTextContent("longmont-c1");
+      expect(screen.getByTestId("plan-surface-publication")).toHaveAttribute(
+        "data-canvas-work-object",
+        `plan-shell:error:longmont-c2:${RUNBOOK_ID}`,
+      );
+    });
+    expect(screen.getByTestId("plan-canvas-authoring-error")).toHaveTextContent("longmont-c2");
+    expect(screen.queryByTestId("plan-authoring-identity")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("plan-surface-canvas-editor")).not.toBeInTheDocument();
+    const publication = screen.getByTestId("plan-surface-publication");
+    expect(publication).toHaveAttribute("data-agent-document-id", "null");
+    expect(publication).toHaveAttribute("data-canvas-document-id", "null");
+    expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Edit toolbar" })).toBeInTheDocument();
+    expect(snapshot).not.toHaveBeenCalled();
   });
 });

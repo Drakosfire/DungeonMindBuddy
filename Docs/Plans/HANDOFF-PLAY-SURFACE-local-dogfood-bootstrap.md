@@ -1772,33 +1772,3 @@ Focused failure tests live in the already-leased Play files:
 
 No new backend persistence model. No bootstrap fake content. No auto-start.
 
-## Completion
-
-PR #657 merged.
-
-Accepted implementation head:
-  dc20fe8e63eec691265e75eb73c69f441ffd779d
-
-Merge:
-  87a769d05605ff021d28f0b69c5d7ab0b8205440
-
-Formal review cycles:
-  3
-
-DF0 outcome:
-  DONE
-
-Real operator witness:
-  zero startable Runbooks
-  → Create blank Runbook
-  → Start exact Run
-  → Beat-only Current Moment
-  → reload/resume
-
-Successor sequencing discovery:
-  BF3B remains the next table capability, but its real Decision-bearing
-  dogfood material is not product-reachable yet.
-
-Immediate predecessor:
-  BF4A — native Runbook authoring gateway
-
