@@ -33,6 +33,7 @@ from apps.live_control_server.services.agent_turn_trace import (
     utc_now_z,
 )
 from apps.live_control_server.services.hermes_graph_agent import (
+    _GRAPH_SYSTEM_POLICY,
     _resolve_hermes_openai_inference,
     _safe_ids_from_args,
     _summarize_tool_result,
@@ -175,7 +176,8 @@ def derive_answer_scope(events: Sequence[AgentRuntimeToolEvent]) -> str | None:
     return None
 
 
-def _scope_instructions(invocation: AgentRuntimeInvocation) -> str:
+def _scope_capability_packet(invocation: AgentRuntimeInvocation) -> str:
+    """PydanticAI-truthful scope/capability packet. Not a second behavioral policy."""
     scope = invocation.context_packet.world_scope
     retrieval = invocation.context_packet.retrieval_session
     payload: dict[str, Any] = {
@@ -185,6 +187,7 @@ def _scope_instructions(invocation: AgentRuntimeInvocation) -> str:
         "admissibility": scope.admissibility,
         "revisionPin": scope.revision_id,
         "enabledToolNames": list(ORDERED_MODEL_VISIBLE_TOOL_NAMES),
+        "processIsolation": "in_process",
         "retrievalSessionId": None if retrieval is None else retrieval.session_id,
     }
     if retrieval is not None:
@@ -204,12 +207,15 @@ def _scope_instructions(invocation: AgentRuntimeInvocation) -> str:
                 initial["admittedRecapExcerpt"] = excerpt.strip()
         payload["initialClaimPacket"] = initial
     return (
-        "DungeonBuddy World Graph Agent. Answer only from enabled graph tools "
-        "or an explicit conversation-context declaration. Server injects "
-        "world/campaign/revision/retrievalSessionId; do not override them. "
+        "Turn capability policy (runtime-enforced; also required on tool calls).\n"
         "This runtime is in-process PydanticAI, not a process-isolated Hermes worker.\n"
         f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
     )
+
+
+def pydantic_ai_agent_instructions(invocation: AgentRuntimeInvocation) -> str:
+    """Accepted DMB graph-Agent policy plus a truthful PydanticAI scope packet."""
+    return f"{_GRAPH_SYSTEM_POLICY}\n\n{_scope_capability_packet(invocation)}"
 
 
 def _a0_provider_label(system: str) -> str:
@@ -497,7 +503,7 @@ class PydanticAIAgentRuntimeAdapter:
         agent = Agent(
             model=observing,
             tools=tools,
-            instructions=_scope_instructions(invocation),
+            instructions=pydantic_ai_agent_instructions(invocation),
             builtin_tools=(),
             retries=0,
             name="dmb-pydantic-ai-graph-agent",

@@ -24,6 +24,7 @@ from apps.live_control_server.services.agent_runtime import (
     AgentRuntimeToolEvent,
     AgentWorldScope,
 )
+from apps.live_control_server.services.hermes_graph_agent import _GRAPH_SYSTEM_POLICY
 from apps.live_control_server.services.hermes_graph_interaction_tools import (
     ORDERED_MODEL_VISIBLE_TOOL_NAMES,
     hermes_model_visible_tool_definitions,
@@ -40,6 +41,7 @@ from apps.live_control_server.services.pydantic_ai_agent_runtime import (
     map_pydantic_ai_usage,
     model_visible_json_schemas,
     model_visible_tool_names,
+    pydantic_ai_agent_instructions,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -219,6 +221,66 @@ def test_exact_tool_surface_from_existing_dmb_schemas() -> None:
         "read_graph_source",
         "query_threat_mechanics_hydration",
     )
+
+
+def test_agent_instructions_reuse_graph_system_policy_and_scope_packet() -> None:
+    invocation = _invocation(
+        context_packet=AgentContextPacket(
+            world_scope=AgentWorldScope(
+                world_id="world:eldyrwild",
+                campaign_id="campaign:c1",
+                focus={"kind": "session", "session_id": "session-21", "campaign_id": None},
+                admissibility="gm",
+                revision_id="revision:resolved-server",
+            ),
+            retrieval_session=AgentRetrievalSession(
+                session_id="retrieval-sess-1",
+                packet={
+                    "schema": "dmb_graph_retrieval_session_v1",
+                    "id": "retrieval-sess-1",
+                    "candidates": [{"nodeId": "threat:tripod-null-calf"}],
+                    "claim_ledger": [{"claimId": "claim:1"}],
+                    "intent_hint": "where",
+                    "available_expansions": ["neighborhood"],
+                    "latest_recap_change": {
+                        "boundary": "changed",
+                        "admitted_recap_excerpt": "Tripod moved.",
+                    },
+                },
+            ),
+        )
+    )
+    expected = pydantic_ai_agent_instructions(invocation)
+    assert expected.startswith(_GRAPH_SYSTEM_POLICY)
+    assert _GRAPH_SYSTEM_POLICY in expected
+    assert "call declare_conversation_context exactly once" in expected
+    assert "latest-recap change question" in expected
+    assert "name the campaign and session provenance" in expected
+    assert "Use read_graph_source only for quotation" in expected
+    assert "Do not use report scaffolding" in expected
+    assert "Manifest, corpus, Markdown" in expected
+    assert "DungeonBuddy World Graph Agent. Answer only from enabled graph tools" not in expected
+    assert "enabledPluginIds" not in expected
+    assert "enabledToolsets" not in expected
+    assert '"worldId": "world:eldyrwild"' in expected
+    assert '"retrievalSessionId": "retrieval-sess-1"' in expected
+    assert '"processIsolation": "in_process"' in expected
+    assert "This runtime is in-process PydanticAI" in expected
+    assert '"admittedRecapExcerpt": "Tripod moved."' in expected
+    adapter, _executor, captured = _adapter_for(_expand_then_answer())
+    result = adapter.run(invocation)
+    assert result.status == "ok"
+    supplied: list[str] = []
+    for messages in captured["messages"]:
+        for message in messages:
+            instructions = getattr(message, "instructions", None)
+            if isinstance(instructions, str) and instructions.strip():
+                supplied.append(instructions)
+    blob = "\n".join(supplied)
+    assert blob
+    assert expected in blob
+    assert _GRAPH_SYSTEM_POLICY in blob
+    assert '"retrievalSessionId": "retrieval-sess-1"' in blob
 
 
 def test_unsupported_policy_fails_closed_before_model_or_tools() -> None:

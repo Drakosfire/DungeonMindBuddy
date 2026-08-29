@@ -910,10 +910,11 @@ The handback must fill this table with measured/observed values rather than pros
 ```text
 Dimension                         Hermes accepted path          PydanticAI A3                Judgment
 ----------------------------------------------------------------------------------------------------
-adapter production LOC            187 (hermes_agent_runtime.py) 551 (pydantic_ai_agent_runtime.py)  higher
+adapter production LOC            187 (hermes_agent_runtime.py) 557 (pydantic_ai_agent_runtime.py)  higher
 harness-specific imports          host/contract/plugin          pydantic_ai Agent/Tool/WrapperModel/FunctionModel  different shape
-Hermes-named DMB couplings         n/a                           2 modules / 9 symbols:
+Hermes-named DMB couplings         n/a                           2 modules / 10 symbols:
                                                                  hermes_graph_agent:
+                                                                   _GRAPH_SYSTEM_POLICY
                                                                    _resolve_hermes_openai_inference
                                                                    _safe_ids_from_args
                                                                    _summarize_tool_result
@@ -1283,6 +1284,7 @@ Filled in §12. Notes below are the measured caveats, not a second table.
 Notes:
 
 - Adapter LOC is higher because PydanticAI owns the tool/model loop; the Hermes adapter is a thin host translator.
+- Cycle 1: adapter concatenates accepted `_GRAPH_SYSTEM_POLICY` with a PydanticAI-truthful scope packet. Characterization test inspects FunctionModel `ModelRequest.instructions`.
 - `Agent.run_sync` in 1.66 emits `DeprecationWarning: There is no current event loop` (`asyncio.get_event_loop`). Recorded, not patched inside PydanticAI.
 - Model resolver remains the Hermes-named `_resolve_hermes_openai_inference` for live parity. Tests inject `FunctionModel` and never call OpenAI.
 - Cost uses DMB `estimate_model_call_cost` / `usage_cost_usd`. FunctionModel names are not in the price table, so those calls are `cost.status=unavailable` unless a priced model id is used. That is truthful, not a second price table.
@@ -1299,7 +1301,7 @@ Possible later successors (not selected): hoist Hermes-named model/tool-policy h
 
 ## 21.5 Live comparison
 
-`NOT_RUN` — an `OPENAI_API_KEY` is present in this environment, but A3 did not execute a dual live OpenAI graph journey. A live run would share corpus-backed graph state with other active lanes and is not required to prove harness fit. Mandatory deterministic FunctionModel tool-loop evidence is green (`tests/test_pydantic_ai_agent_runtime.py`: 17 passed).
+`NOT_RUN` — an `OPENAI_API_KEY` is present in this environment, but A3 did not execute a dual live OpenAI graph journey. A live run would share corpus-backed graph state with other active lanes and is not required to prove harness fit. Mandatory deterministic FunctionModel tool-loop evidence is green (`tests/test_pydantic_ai_agent_runtime.py`: 18 passed).
 
 ## 21.6 Verification provenance
 
@@ -1307,7 +1309,7 @@ Recorded 2026-08-29 from `agent/pydantic-ai-adapter-experiment` after adapter+te
 
 ```text
 uv run pytest tests/test_pydantic_ai_agent_runtime.py -q
-  17 passed, 2 warnings in 0.85s
+  18 passed, 2 warnings in 0.85s
   (includes DeprecationWarning: pydantic_ai/_utils.py asyncio.get_event_loop)
 
 uv run pytest tests/test_agent_runtime.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py -q
