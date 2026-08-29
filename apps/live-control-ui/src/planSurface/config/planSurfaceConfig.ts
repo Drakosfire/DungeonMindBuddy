@@ -44,7 +44,9 @@ export function createPlanSurfaceConfig(
 ): PlanSurfaceConfig {
   const overrides = planLocationOverridesFromSearch(locationSearch);
   const sessionDescriptor = createPlanSessionDescriptor(planView, planningDocument, overrides);
-  const durableDocumentId = canvasOverrides?.documentId ?? planningDocument.documentId;
+  const durableDocumentId = canvasOverrides?.documentId !== undefined
+    ? canvasOverrides.documentId
+    : planningDocument.documentId;
   const workObject = canvasOverrides?.workObject ?? {
     kind: "document" as const,
     id: planningDocument.documentId,

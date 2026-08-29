@@ -50,7 +50,7 @@ import {
   threadStorageKey,
   AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS,
 } from "./components/agentInteractionHistory";
-import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
 import { LegacyProjectionHostAdapter } from "./projection/LegacyProjectionHostAdapter";
@@ -178,6 +178,7 @@ function PlanSurfaceTestHarness() {
 
   return (
     <AgentInteractionProvider>
+      <PlanPublicationProbe />
       <AskPluginSlotProvider>
         <WorldGraphLensProvider planCampaignId="longmont-c2">
           <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
@@ -193,6 +194,19 @@ function PlanSurfaceTestHarness() {
         </WorldGraphLensProvider>
       </AskPluginSlotProvider>
     </AgentInteractionProvider>
+  );
+}
+
+function PlanPublicationProbe() {
+  const { projectionSurface, surfaceInteractionBasePublication } = useAgentInteraction();
+  const workObject = surfaceInteractionBasePublication?.canvas?.workObject;
+  return (
+    <output
+      data-testid="plan-surface-publication"
+      data-agent-document-id={surfaceInteractionBasePublication?.agentContext?.documentId ?? "null"}
+      data-canvas-document-id={projectionSurface?.publication.config.canvas.documentId ?? "null"}
+      data-canvas-work-object={workObject ? `${workObject.kind}:${workObject.id}` : "null"}
+    />
   );
 }
 
@@ -4411,6 +4425,105 @@ describe("PlanSurfaceShell", () => {
       expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
     });
 
+    it("keeps local identity when create returns a UUID but fails validation", async () => {
+      vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [],
+      });
+      await useActualResolvePlanningDocument();
+      vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
+        fixtureWorkspaceDocumentRecord({
+          document_id: DOC_PROMOTED,
+          title: "C2 Session 23 Prep",
+          target_session: 23,
+          revision: 1,
+          kind: "runbook",
+          target_relpath: PROMOTED_TARGET,
+        }),
+      );
+      window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
+      renderPlanSurface();
+      await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent(
+          /kind must be plan/i,
+        ));
+      expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+      const publication = screen.getByTestId("plan-surface-publication");
+      expect(publication).toHaveAttribute("data-agent-document-id", "null");
+      expect(publication).toHaveAttribute("data-canvas-document-id", "null");
+      expect(publication).toHaveAttribute("data-canvas-work-object", expect.stringMatching(
+        /^plan-local-draft:local-plan:/,
+      ));
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent(
+          /kind must be plan/i,
+        ));
+      expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+      expect(publication).toHaveAttribute("data-agent-document-id", "null");
+      expect(publication).toHaveAttribute("data-canvas-document-id", "null");
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
+    });
+
+    it("clears campaign draft pointer after admission and keeps it cleared through retry", async () => {
+      const draft = fixtureBlankDraft();
+      const editorTools = { current: null as AppChromeToolsGeneration | null };
+      localStorage.setItem(planLocalDraftPointerKey("longmont-c2"), "blank-promotion-draft");
+      mockCreatedPlanRecord();
+      mockBlankPromotionAdmissionSnapshot();
+      vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("Prepare failed"));
+      await renderIsolatedBlankPromotion({
+        initialShellState: {
+          kind: "blank_ready",
+          draft,
+          selectorListAvailable: true,
+        },
+        onEditorToolsChange: (tools) => {
+          editorTools.current = tools;
+        },
+      });
+      await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+      await clickIsolatedBlankSave(editorTools);
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent("Prepare failed"));
+      expect(localStorage.getItem(planLocalDraftPointerKey("longmont-c2"))).toBeNull();
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_PROMOTED);
+
+      vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: DOC_PROMOTED,
+        title: "C2 Session 23 Prep",
+        target_relpath: PROMOTED_TARGET,
+        target_display_path: PROMOTED_TARGET,
+        file_exists: true,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token",
+        writer_diff: "",
+        warnings: [],
+        diagnostics: [],
+      });
+      mockSuccessfulBlankPromotionCommit();
+      mockAdmissionThenVerificationSnapshots();
+      await clickIsolatedBlankSave(editorTools);
+
+      await waitFor(() =>
+        expect(screen.queryByTestId("plan-blank-canvas")).not.toBeInTheDocument());
+      expect(localStorage.getItem(planLocalDraftPointerKey("longmont-c2"))).toBeNull();
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    });
+
     it("promotes blank draft with one create, URL adoption, preserved content, and no immediate conflict", async () => {
       const draft = fixtureBlankDraft();
       const editorTools = { current: null as AppChromeToolsGeneration | null };
@@ -4455,6 +4568,7 @@ describe("PlanSurfaceShell", () => {
         expect(local?.dirty).toBe(false);
         expect(local?.base_content_sha256).toBe("abc123sha256");
       });
+      expect(localStorage.getItem(planLocalDraftPointerKey("longmont-c2"))).toBeNull();
       await waitFor(() =>
         expect(screen.getByTestId("plan-surface-canvas-editor")).toHaveAttribute(
           "data-markdown-editor-status",
@@ -4501,9 +4615,11 @@ describe("PlanSurfaceShell", () => {
         ));
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
       expect(prepareSpy).not.toHaveBeenCalled();
-      const durableLocal = readWorkspaceDocumentLocalState(localStorage, DOC_PROMOTED);
-      expect(durableLocal?.dirty).toBe(true);
-      expect(durableLocal?.exported_markdown).toContain("Admission fail note");
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
+      const localDraft = readWorkspaceDocumentLocalState(localStorage, draft.localId);
+      expect(localDraft?.dirty).toBe(true);
+      expect(localDraft?.exported_markdown).toContain("Admission fail note");
+      expect(readWorkspaceDocumentLocalState(localStorage, DOC_PROMOTED)).toBeNull();
 
       mockBlankPromotionAdmissionSnapshot();
       mockSuccessfulBlankPromotionCommit();
@@ -4567,6 +4683,7 @@ describe("PlanSurfaceShell", () => {
       });
       expect(readWorkspaceDocumentLocalState(localStorage, DOC_PROMOTED)?.exported_markdown)
         .toContain("Reload survivor");
+      expect(localStorage.getItem(planLocalDraftPointerKey("longmont-c2"))).toBeNull();
 
       firstRender.unmount();
       window.history.replaceState({}, "", `/plan?documentId=${DOC_PROMOTED}`);
@@ -4622,6 +4739,7 @@ describe("PlanSurfaceShell", () => {
       await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
       await waitFor(() => expect(commitSpy).toHaveBeenCalledTimes(1));
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem(planLocalDraftPointerKey("longmont-c2"))).toBeNull();
       expect(prepareSpy).toHaveBeenCalledWith(expect.objectContaining({
         document_id: DOC_PROMOTED,
         expected_revision: 1,

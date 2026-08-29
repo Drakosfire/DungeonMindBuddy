@@ -30,6 +30,7 @@ import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphRefe
 import {
   adoptCreatedPlanIdentity,
   createPlanLocalDraftMetadata,
+  formatPlanLocalDraftId,
   nextPlanShellState,
   planLocalDraftToDescriptor,
   planShellAgentDocumentId,
@@ -525,6 +526,9 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
             campaignId: shellState.shell.campaignId,
             title: "Plan",
             targetSession: null,
+            localId: formatPlanLocalDraftId(
+              `shell:${shellState.kind}:${shellState.shell.campaignId}:${shellState.requestedDocumentId ?? "none"}`,
+            ),
           }),
         );
         return createPlanSurfaceConfig(planView, placeholder, locationSearch, {
