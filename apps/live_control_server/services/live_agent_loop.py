@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.config import repo_root, session_dir, world_graph_root
+from apps.live_control_server.services.agent_runtime import (
+    AgentRuntime,
+    descriptor_for_runtime,
+)
 from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphQueryContextRequest,
     render_world_graph_prompt_block,
@@ -15,9 +19,6 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
 from apps.live_control_server.services.citation_freshness import build_evidence_snapshots
 from apps.live_control_server.services.hermes_graph_query import (
-    BACKEND,
-    MODE,
-    RUNTIME,
     normalize_hermes_conversation_history,
     run_hermes_graph_query,
     validate_hermes_query_inputs,
@@ -168,6 +169,7 @@ def process_live_query(
     world_graph_context: AgentWorldGraphQueryContextRequest | None = None,
     outer_campaign_id: str | None = None,
     conversation_history: Any | None = None,
+    agent_runtime: AgentRuntime | None = None,
 ) -> dict[str, Any]:
     session_base = base or session_dir()
     resolved_agent_thread_id = agent_thread_id or _new_agent_thread_id()
@@ -175,12 +177,13 @@ def process_live_query(
     repo = root or repo_root()
 
     if query_backend == "hermes":
+        descriptor = descriptor_for_runtime(agent_runtime)
         builder = AgentTurnTraceBuilder(
             agent_thread_id=resolved_agent_thread_id,
             turn_id=resolved_turn_id,
-            runtime=RUNTIME,
-            backend=BACKEND,
-            mode=MODE,
+            runtime=descriptor.trace_runtime,
+            backend=descriptor.trace_backend,
+            mode=descriptor.trace_mode,
         )
         try:
             with builder.phase("session_load"):
@@ -241,6 +244,7 @@ def process_live_query(
                 session_base=session_base,
                 hermes_session_pointer=hermes_session_pointer,
                 trace_builder=builder,
+                agent_runtime=agent_runtime,
             )
         except Exception:
             if not builder.logged:

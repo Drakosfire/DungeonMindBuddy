@@ -19,8 +19,16 @@ pr_body_template: |
 
 # HANDOFF — Advanced Agent Trace Inspector v1 (A1)
 
-**Created:** 2026-08-26  
-**Status:** READY FOR DISPATCH after exact-current-main re-anchor and active-lease check  
+**Created:** 2026-08-26
+
+- **Status:** COMPLETE / MERGED
+- **PR:** #656
+- **Accepted head:** `057b2efee4b68d8324111874cee617448dd38f8b`
+- **Merge SHA:** `f075740b167b7031f797c5643c32ea206c416f85`
+- **Formal review cycles:** 4
+- **Active successor:** A2 — DungeonBuddy AgentRuntime Boundary v1 (implementation in progress; not complete)
+- **Still false:** A3 PydanticAI
+
 **Canonical handoff path:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-trace-inspector-v1.md`  
 **Workstream:** `AGENT-INTERACTION / A1`  
 **Flow / owner:** `AGENT-INTERACTION`  
@@ -941,13 +949,13 @@ Tracker or authority update needed:
 A0  Agent Turn Trace v1                         MERGED #654
     safe normalized measuring instrument
     ↓
-A1  Advanced Agent Trace Inspector v1           THIS SLICE
+A1  Advanced Agent Trace Inspector v1           MERGED #656
     preserve + inspect trace truth in product
     ↓
-A2  DungeonBuddy AgentRuntime boundary
-    Hermes adapter emits same trace/lifecycle contract
+A2  DungeonBuddy AgentRuntime Boundary v1       ACTIVE SUCCESSOR
+    product-owned execution port + Hermes adapter
     ↓
-A3  PydanticAI adapter experiment
+A3  PydanticAI adapter experiment               NOT STARTED
     same journeys + same telemetry → direct comparison
     ↓
 later, evidence-selected
