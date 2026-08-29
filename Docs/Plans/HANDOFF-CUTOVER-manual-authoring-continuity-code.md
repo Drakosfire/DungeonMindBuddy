@@ -257,6 +257,10 @@ expires_at
 `STABLE_ASSERTION_TIMESTAMP` so retry does not treat wall-clock metadata as a
 different reviewed contribution.
 
+HMAC uses `DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY`. If unset, prepare/confirm
+fail closed (`authority_unavailable` / 503). There is no process-random key
+fallback, so a prepared token can be verified after a fresh process start.
+
 ### 14. Actor derivation
 
 `graph-review:{campaign_id}`
