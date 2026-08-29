@@ -19,8 +19,12 @@ pr_body_template: |
 
 # HANDOFF — Plan blank authoring shell
 
-**Created:** 2026-08-28  
-**Status:** READY FOR DISPATCH  
+**Created:** 2026-08-28
+**Status:** DONE
+**Merged:** PR #661
+**Accepted head:** `ffa0b18d6212a6780d6be90f91a25626bf15b464`
+**Merge:** `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`
+**Review cycles:** 4
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAN-SURFACE-blank-authoring-shell.md`  
 **Workstream:** `PLAN-SURFACE / BLANK-SHELL`  
 **Flow / owner:** `PLAN-SURFACE`  
@@ -183,10 +187,14 @@ DF0
   DONE
 
 PLAN-BLANK-SHELL
-  CURRENT
+  DONE
   zero-material Plan authoring + local→durable promotion
+  accepted head: ffa0b18d6212a6780d6be90f91a25626bf15b464
+  merge:         770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
+  review cycles: 4
 
 BF4A
+  CURRENT
   NEXT
   explicit Runbook → ordinary editor → pathless Runbook Save
 
@@ -877,16 +885,19 @@ DF0
   DONE
 
 PLAN-BLANK-SHELL
-  CURRENT
+  DONE
+  accepted head: ffa0b18d6212a6780d6be90f91a25626bf15b464
+  merge:         770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
+  review cycles: 4
 
 BF4A
-  BLOCKED ON PLAN-BLANK-SHELL
+  CURRENT
 
 BF3B
   BLOCKED ON BF4A
 ```
 
-Do not mark this slice DONE before merge.
+This slice is merged. Successor BF4A is current.
 
 ### 8.9 Explicitly unleased
 
@@ -1211,10 +1222,13 @@ DF0
   DONE — local Play can reach a real blank Runbook and Current Moment
 
 PLAN-BLANK-SHELL
-  CURRENT — Plan zero-material authoring + chrome continuity + first-save promotion
+  DONE — Plan zero-material authoring + chrome continuity + first-save promotion
+  accepted head ffa0b18d6212a6780d6be90f91a25626bf15b464
+  merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
+  review cycles: 4
 
 BF4A
-  BLOCKED ON PLAN-BLANK-SHELL — reopen/save native Runbooks
+  CURRENT — reopen/save native Runbooks
 
 BF3B
   BLOCKED ON BF4A — Decision interaction and visible relevance

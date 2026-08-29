@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import * as liveApi from "../../api/liveApi";
 import { mockPlanView } from "../../test/fixtures";
 import {
   buildPlanContextFromPlanView,
+  CrossCampaignRunbookAdmissionError,
   createPlanSessionDescriptor,
   defaultPlanTargetRelpath,
   durablePlanTargetRelpath,
@@ -12,6 +14,7 @@ import {
   NoActivePlanningDocumentsError,
   planDocumentOptionLabel,
   planDocumentSelectionSearch,
+  resolvePlanningDocument,
   suggestNextPlanTargetSession,
   suggestedPlanCreatePayload,
   workspaceDocumentStorageKey,
@@ -168,5 +171,65 @@ describe("planDocumentOptionLabel", () => {
   it("falls back to an untitled label without exposing the UUID", () => {
     const record = fixtureWorkspaceDocumentRecord({ title: "  ", target_session: null });
     expect(planDocumentOptionLabel(record)).toBe("Untitled prep document");
+  });
+});
+
+describe("resolvePlanningDocument campaign admission", () => {
+  const RUNBOOK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("admits an exact same-campaign Runbook", async () => {
+    const record = fixtureWorkspaceDocumentRecord({
+      document_id: RUNBOOK_ID,
+      kind: "runbook",
+      campaign_id: "longmont-c2",
+      title: "Blank Runbook",
+      target_relpath: null,
+    });
+    vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(record);
+    const document = await resolvePlanningDocument({
+      planView: mockPlanView,
+      locationSearch: `?documentId=${RUNBOOK_ID}`,
+    });
+    expect(document.documentId).toBe(RUNBOOK_ID);
+    expect(document.kind).toBe("runbook");
+    expect(document.campaignId).toBe("longmont-c2");
+  });
+
+  it("fails closed on an exact cross-campaign Runbook", async () => {
+    const record = fixtureWorkspaceDocumentRecord({
+      document_id: RUNBOOK_ID,
+      kind: "runbook",
+      campaign_id: "longmont-c1",
+      title: "C1 Runbook",
+      target_relpath: null,
+    });
+    vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(record);
+    await expect(resolvePlanningDocument({
+      planView: mockPlanView,
+      locationSearch: `?documentId=${RUNBOOK_ID}`,
+    })).rejects.toBeInstanceOf(CrossCampaignRunbookAdmissionError);
+    await expect(resolvePlanningDocument({
+      planView: mockPlanView,
+      locationSearch: `?documentId=${RUNBOOK_ID}`,
+    })).rejects.toThrow(/longmont-c1.*longmont-c2/);
+  });
+
+  it("does not apply the Runbook campaign guard to exact Plan documents", async () => {
+    const record = fixtureWorkspaceDocumentRecord({
+      kind: "plan",
+      campaign_id: "longmont-c1",
+    });
+    vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(record);
+    const document = await resolvePlanningDocument({
+      planView: mockPlanView,
+      locationSearch: `?documentId=${FIXTURE_DOC_ID}`,
+    });
+    expect(document.kind).toBe("plan");
+    expect(document.documentId).toBe(FIXTURE_DOC_ID);
+    expect(document.campaignId).toBe("longmont-c1");
   });
 });

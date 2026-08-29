@@ -4,7 +4,7 @@
 **Line of work:** `CON-READY`  
 **Updated:** 2026-08-29
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main` `937d9dce1be02e804553282a146527bf39bb0750`
+**Re-anchor base:** `main` `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)  
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)  
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)  
@@ -52,8 +52,11 @@ BF3A / PR #655   DONE — Scene-centered Current Moment cockpit (Scenes first)
                  merge 4d82f12ad9c6d679b5dbce83db527eb7dbd27957
                  review cycles: 2
 DF0 / PR #657    DONE — local Play dogfood gateway
-PLAN-BLANK-SHELL CURRENT — zero-material Plan authoring + local→durable promotion
-BF4A             BLOCKED ON PLAN-BLANK-SHELL
+PLAN-BLANK-SHELL / PR #661 DONE — blank Plan is a real authoring surface state
+                 accepted head ffa0b18d6212a6780d6be90f91a25626bf15b464
+                 merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
+                 review cycles: 4
+BF4A             CURRENT — native Runbook reopen/save
 BF3B             BLOCKED ON BF4A
 ```
 
@@ -170,11 +173,14 @@ DONE — Scene-centered Current Moment cockpit (Scenes)
 DF0
 DONE — local Play dogfood bootstrap/readiness
         ↓
-PLAN-BLANK-SHELL
-CURRENT — zero-material Plan authoring + local→durable promotion
+PLAN-BLANK-SHELL / PR #661
+DONE — blank Plan is a real authoring surface state
+        accepted head ffa0b18d6212a6780d6be90f91a25626bf15b464
+        merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
+        review cycles: 4
         ↓
 BF4A
-NEXT — native Runbook reopen/save
+CURRENT — native Runbook reopen/save
         ↓
 BF3B
 AFTER BF4A — Decision interaction and visible relevance
@@ -216,9 +222,8 @@ DF0 does **not** own:
 - Decision selection UI;
 - Combat, Agent Interaction, or CUTOVER.
 
-DF0 is complete at PR #657. PLAN-BLANK-SHELL now owns zero-material Plan authoring,
-always-present authoring chrome, and local→durable first-save promotion. BF4A follows
-it with native Runbook reopen/save.
+DF0 is complete at PR #657. PLAN-BLANK-SHELL is complete at PR #661. BF4A is the
+current Play product slice and owns native Runbook reopen/save.
 
 BF3B owns Decision interaction after BF4A proves native Runbook authoring is reachable.
 
@@ -249,7 +254,8 @@ A path that forces manual source search, memory reconstruction, JSON surgery, Pl
 - BF2 / PR #652 is DONE (merge `39ef105d3996ef0062dd45a089fecada14915436`, 5 review cycles).
 - BF3A / PR #655 is DONE (merge `4d82f12ad9c6d679b5dbce83db527eb7dbd27957`, 2 review cycles).
 - DF0 local Play dogfood bootstrap is DONE (PR #657, merge `87a769d05605ff021d28f0b69c5d7ab0b8205440`).
-- PLAN-BLANK-SHELL is CURRENT and is not DONE.
+- PLAN-BLANK-SHELL / PR #661 is DONE (merge `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`, 4 review cycles).
+- BF4A native Runbook authoring is CURRENT and is not DONE.
 - BF3B Decision interaction remains false until BF4A proves native Runbook authoring reachability.
 - BF3.x / P3 retrieval remains false.
 - P4 / Combat remains false.
