@@ -691,6 +691,39 @@ def worldbuilding_authority_operation_id(
     return f"wbop:{digest}"
 
 
+def graph_review_authority_operation_id(
+    *,
+    world_id: str,
+    campaign_id: str,
+    campaign_rel: str | None,
+    source_artifact_id: str,
+    source_revision_id: str,
+    sealed_proposal_digest: str,
+    expected_parent_revision_id: str,
+) -> str:
+    """Deterministic Buddy-side Graph Review authoring operation id (D.2C4)."""
+    import hashlib
+    import json
+
+    payload = json.dumps(
+        {
+            "schema": "dmb_graph_review_authoring_authority_operation_v1",
+            "world_id": world_id,
+            "campaign_id": campaign_id,
+            "campaign_rel": campaign_rel,
+            "source_artifact_id": source_artifact_id,
+            "source_revision_id": source_revision_id,
+            "sealed_proposal_digest": sealed_proposal_digest,
+            "expected_parent_revision_id": expected_parent_revision_id,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return f"grauth:{digest}"
+
+
 def _identity_decision_prefix_key(record: Mapping[str, Any]) -> tuple[Any, ...]:
     """Comparable identity for append-only prefix proof, ignoring later-only fields."""
     return (
