@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-08-26 from `main` `4d82f12ad9c6d679b5dbce83db527eb7dbd27957` (PLAY-SURFACE BF3A / PR #655 merged)
+**Re-anchored:** 2026-08-29 from `main` `937d9dce1be02e804553282a146527bf39bb0750`
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
@@ -241,7 +241,7 @@ CR-U17 remains **false overall** until Combat and any other relied-upon non-Play
 
 # 4. Delivery roadmap
 
-## 4.0 Current delivery state — 2026-08-26
+## 4.0 Current delivery state — 2026-08-28
 
 Repository truth at this re-anchor:
 
@@ -265,8 +265,13 @@ BF3A / PR #655   DONE — Current Moment
                  accepted head 3d5925c8ad1bdbe934020e1c4cd7f2f3fafbbec7
                  merge 4d82f12ad9c6d679b5dbce83db527eb7dbd27957
                  review cycles: 2
-DF0              CURRENT — local Play dogfood bootstrap/readiness
-BF3B             AFTER DF0 — Decision interaction and visible relevance
+DF0 / PR #657    DONE — local Play dogfood gateway
+                 accepted head dc20fe8e63eec691265e75eb73c69f441ffd779d
+                 merge 87a769d05605ff021d28f0b69c5d7ab0b8205440
+                 review cycles: 3
+PLAN-BLANK-SHELL CURRENT — zero-material Plan authoring + local→durable promotion
+BF4A             BLOCKED ON PLAN-BLANK-SHELL — native Runbook reopen/save
+BF3B             BLOCKED ON BF4A — Decision interaction and visible relevance
 BF3C / BF3.x     later — additional At-a-Glance categories / retrieval
 BF4              authoring composition; may run in parallel on disjoint lease
 
@@ -278,10 +283,10 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
 
 | Story | State now | Why |
 |---|---|---|
-| CR-U11 | **Partially true, foundation strong** | durable WorkObject/WorkRevision + BF1 structure exist; richer Beat-first Plan composition controls still need BF4/dogfood |
+| CR-U11 | **Partially true, foundation strong** | durable WorkObject/WorkRevision + BF1 structure exist; Plan currently lacks a valid local blank authoring state — PLAN-BLANK-SHELL owns that seam; BF4A then owns native Runbook reopen/save |
 | CR-U13 | **Partial / Combat-owned** | exact mechanics/projection seams exist, but durable integrated Combat acceptance is separate |
 | CR-U14 | **False as native end-to-end story** | C2S27 proved fast unplanned combat in the legacy tracker; native global Threat→exact mechanics→Combat flow still needs proof |
-| CR-U15 | **PARTIAL** | BF3A Current Moment is implemented and merged. Normal local operator entry is not yet proven because APP-STATE bootstrap is not part of the supported startup workflow. DF0 owns that gap. Decision interaction and later cockpit capabilities remain false. |
+| CR-U15 | **PARTIAL** | BF3A Current Moment is implemented and merged; DF0 merged local Play dogfood gateway. Decision interaction and later cockpit capabilities remain false. |
 | CR-U16 | **Partial** | projection seams exist; cross-Beat inspect/global on-demand retrieval remains a prioritized gap |
 | CR-U17 | **Play portion true; overall false** | Play durability is PostgreSQL-backed; Combat/other relied-upon state must still prove continuity |
 
@@ -300,14 +305,19 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - collapsible Beat Context / At a Glance
    - Scenes inspect versus explicit Make Current
 
-3. DF0 — CURRENT — local Play dogfood bootstrap/readiness
+3. DF0 — DONE (PR #657, merge 87a769d05605ff021d28f0b69c5d7ab0b8205440, 3 review cycles)
    - explicit check/apply for Buddy application state
    - ordinary uvicorn + Vite then reaches /play
-   - no migrate-on-boot and no World Graph DSN fallback
    - empty Play creates a blank committed Runbook explicitly; bootstrap does not seed
-   - DF0 is in flight and is not DONE
 
-4. BF3B — AFTER DF0 — Decision interaction and visible relevance
+4. PLAN-BLANK-SHELL — CURRENT — zero-material Plan authoring + local→durable promotion
+   - bare /plan opens editable local draft with Edit/Tools chrome
+   - first Save promotes through existing Plan create contract
+   - PLAN-BLANK-SHELL is in flight and is not DONE
+
+5. BF4A — BLOCKED ON PLAN-BLANK-SHELL — native Runbook reopen/save
+
+6. BF3B — BLOCKED ON BF4A — Decision interaction and visible relevance
    - current-context Decisions / Options
    - select / change / clear selection
    - authored consequence and emphasized / de-emphasized presentation

@@ -47,7 +47,10 @@ function buildAgentContextFromLegacy(
   const { identity, config } = publication;
   const context = config.context;
   if (!context) return null;
-  const documentId = config.canvas.documentId ?? null;
+  const documentId =
+    config.canvas.documentId != null && config.canvas.documentId !== ""
+      ? config.canvas.documentId
+      : null;
   const sessionNumber =
     identity.surfaceId === "ingest" ? context.ingestSession : context.liveSession;
   return {
@@ -60,14 +63,26 @@ function buildAgentContextFromLegacy(
   };
 }
 
+function resolveLegacyCanvasWorkObject(
+  publication: ProjectionSurfacePublication,
+): SurfaceInteractionCanvasContribution["workObject"] | null {
+  const explicit = publication.config.canvas.workObject;
+  if (explicit != null && explicit.kind.trim() !== "" && explicit.id.trim() !== "") {
+    return explicit;
+  }
+  const documentId = publication.config.canvas.documentId;
+  if (documentId == null || documentId === "") return null;
+  return { kind: "document", id: documentId };
+}
+
 function buildCanvasFromLegacy(
   publication: ProjectionSurfacePublication,
 ): SurfaceInteractionCanvasContribution | null {
-  const documentId = publication.config.canvas.documentId;
-  if (documentId == null || documentId === "") return null;
+  const workObject = resolveLegacyCanvasWorkObject(publication);
+  if (workObject == null) return null;
   return {
     canvasId: "markdown-canvas",
-    workObject: { kind: "document", id: documentId },
+    workObject,
   };
 }
 
@@ -122,6 +137,11 @@ export function adaptProjectionSurfaceToNeutralBase(
   };
 }
 
+function availabilityFromAppChromeAction(action: AppChromeAction) {
+  if (!action.disabled) return enabledAvailability();
+  return disabledAvailability(action.disabledReason?.trim() || LEGACY_APPCHROME_DISABLED);
+}
+
 function mapPageAction(action: AppChromeAction, index: number): SurfaceInteractionToolContribution {
   return {
     id: action.id,
@@ -133,7 +153,7 @@ function mapPageAction(action: AppChromeAction, index: number): SurfaceInteracti
       groupOrder: PAGE_TOOLS_GROUP_ORDER,
       itemOrder: index,
     },
-    availability: action.disabled ? disabledAvailability(LEGACY_APPCHROME_DISABLED) : enabledAvailability(),
+    availability: availabilityFromAppChromeAction(action),
     activation: { kind: "command", invoke: action.onClick },
   };
 }
@@ -153,7 +173,7 @@ function mapPinnedEditAction(
       groupOrder: 0,
       itemOrder: index,
     },
-    availability: action.disabled ? disabledAvailability(LEGACY_APPCHROME_DISABLED) : enabledAvailability(),
+    availability: availabilityFromAppChromeAction(action),
     target: workObject,
     ...(action.pressed !== undefined ? { pressed: action.pressed } : {}),
     invoke: action.onClick,
@@ -180,7 +200,7 @@ function mapSectionEditAction(
         ? { groupDefaultOpen: section.defaultOpen }
         : {}),
     },
-    availability: action.disabled ? disabledAvailability(LEGACY_APPCHROME_DISABLED) : enabledAvailability(),
+    availability: availabilityFromAppChromeAction(action),
     target: workObject,
     ...(action.pressed !== undefined ? { pressed: action.pressed } : {}),
     invoke: action.onClick,

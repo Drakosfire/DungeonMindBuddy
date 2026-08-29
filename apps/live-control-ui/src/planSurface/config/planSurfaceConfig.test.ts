@@ -44,4 +44,12 @@ describe("planSurfaceConfig", () => {
     expect(config.sessionDescriptor.memorySession).toBe(24);
     expect(config.canvas.documentId).toBe(FIXTURE_DOC_ID);
   });
+
+  it("preserves explicit null canvas documentId override", () => {
+    const config = createPlanSurfaceConfig(mockPlanView, planningDocument, "", {
+      documentId: null,
+    });
+    expect(config.canvas.documentId).toBeNull();
+    expect(config.sessionDescriptor.planningDocument.documentId).toBe(FIXTURE_DOC_ID);
+  });
 });

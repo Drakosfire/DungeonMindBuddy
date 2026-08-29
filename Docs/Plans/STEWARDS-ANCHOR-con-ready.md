@@ -2,9 +2,9 @@
 
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
 **Line of work:** `CON-READY`  
-**Updated:** 2026-08-26  
+**Updated:** 2026-08-29
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main` `4d82f12ad9c6d679b5dbce83db527eb7dbd27957` (PLAY-SURFACE BF3A / PR #655 merged)
+**Re-anchor base:** `main` `937d9dce1be02e804553282a146527bf39bb0750`
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)  
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)  
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)  
@@ -51,7 +51,10 @@ BF3A / PR #655   DONE — Scene-centered Current Moment cockpit (Scenes first)
                  accepted head 3d5925c8ad1bdbe934020e1c4cd7f2f3fafbbec7
                  merge 4d82f12ad9c6d679b5dbce83db527eb7dbd27957
                  review cycles: 2
-DF0              CURRENT — local Play dogfood bootstrap/readiness
+DF0 / PR #657    DONE — local Play dogfood gateway
+PLAN-BLANK-SHELL CURRENT — zero-material Plan authoring + local→durable promotion
+BF4A             BLOCKED ON PLAN-BLANK-SHELL
+BF3B             BLOCKED ON BF4A
 ```
 
 Current Play runtime/product state:
@@ -165,10 +168,16 @@ BF3A / PR #655
 DONE — Scene-centered Current Moment cockpit (Scenes)
         ↓
 DF0
-CURRENT — local Play dogfood bootstrap/readiness
+DONE — local Play dogfood bootstrap/readiness
+        ↓
+PLAN-BLANK-SHELL
+CURRENT — zero-material Plan authoring + local→durable promotion
+        ↓
+BF4A
+NEXT — native Runbook reopen/save
         ↓
 BF3B
-AFTER DF0 — Decision interaction and visible relevance
+AFTER BF4A — Decision interaction and visible relevance
         ↓
 BF3C / BF3.x / P3 family
 additional At-a-Glance categories; fast cross-Beat inspect + retrieval
@@ -185,7 +194,7 @@ Agent Surface may proceed in parallel on disjoint leases. It is not a prerequisi
 
 ---
 
-## 4. DF0 dispatch boundary
+## 4. DF0 completion and BF4A dispatch boundary
 
 BF3A / PR #655 is merged. Do not reopen Current Moment presentation in this slice.
 
@@ -207,7 +216,11 @@ DF0 does **not** own:
 - Decision selection UI;
 - Combat, Agent Interaction, or CUTOVER.
 
-BF3B owns Decision interaction after DF0 proves the merged cockpit is reachable.
+DF0 is complete at PR #657. PLAN-BLANK-SHELL now owns zero-material Plan authoring,
+always-present authoring chrome, and local→durable first-save promotion. BF4A follows
+it with native Runbook reopen/save.
+
+BF3B owns Decision interaction after BF4A proves native Runbook authoring is reachable.
 
 ---
 
@@ -235,8 +248,9 @@ A path that forces manual source search, memory reconstruction, JSON surgery, Pl
 
 - BF2 / PR #652 is DONE (merge `39ef105d3996ef0062dd45a089fecada14915436`, 5 review cycles).
 - BF3A / PR #655 is DONE (merge `4d82f12ad9c6d679b5dbce83db527eb7dbd27957`, 2 review cycles).
-- DF0 local Play dogfood bootstrap is in flight and is **not** DONE.
-- BF3B Decision interaction remains false until DF0 proves local reachability.
+- DF0 local Play dogfood bootstrap is DONE (PR #657, merge `87a769d05605ff021d28f0b69c5d7ab0b8205440`).
+- PLAN-BLANK-SHELL is CURRENT and is not DONE.
+- BF3B Decision interaction remains false until BF4A proves native Runbook authoring reachability.
 - BF3.x / P3 retrieval remains false.
 - P4 / Combat remains false.
 - global/on-demand retrieval is not proven.

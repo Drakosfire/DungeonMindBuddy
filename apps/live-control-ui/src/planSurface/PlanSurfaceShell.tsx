@@ -23,10 +23,23 @@ import {
   resolvePlanningDocument,
   suggestNextPlanTargetSession,
 } from "./config/planSessionDescriptor";
-import { formatReviewCampaignLabel } from "./sessionCampaignContext";
+import { formatReviewCampaignLabel, requestedDocumentIdFromLocation } from "./sessionCampaignContext";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { PlanReferenceProjectionBinding } from "./reference/PlanReferenceProjectionBinding";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
+import {
+  adoptCreatedPlanIdentity,
+  createPlanLocalDraftMetadata,
+  formatPlanLocalDraftId,
+  nextPlanShellState,
+  planLocalDraftToDescriptor,
+  planShellAgentDocumentId,
+  planShellWorkObject,
+  readPlanPromotionRecovery,
+  retainCreatedPlan,
+  type PlanAuthoringShellState,
+  type PlanShellIdentity,
+} from "./planBlankAuthoringState";
 import type { PlanDocumentDescriptor, PlanSurfaceConfig } from "./types";
 import "./planSurface.css";
 
@@ -35,7 +48,6 @@ interface PlanSurfaceShellProps {
   onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
 }
 
-/** How a successful/failed document resolve may commit browser URL identity. */
 type DocumentUrlCommit =
   | { mode: "push"; search: string }
   | { mode: "history" };
@@ -44,15 +56,52 @@ function themeStyle(config: PlanSurfaceConfig): CSSProperties {
   return (config.theme.tokens ?? {}) as CSSProperties;
 }
 
+function appChromeToolsPublicationSignature(tools: AppChromeToolsGeneration): string {
+  const generation = tools.tools;
+  return JSON.stringify({
+    target: tools.target,
+    pinned: (generation.pinnedActions ?? []).map((action) => [
+      action.id,
+      action.disabled === true,
+      action.disabledReason ?? null,
+      action.label,
+      action.pressed === true,
+    ]),
+    sections: (generation.sections ?? []).map((section) => [
+      section.id,
+      section.actions.map((action) => [
+        action.id,
+        action.disabled === true,
+        action.disabledReason ?? null,
+        action.label,
+      ]),
+    ]),
+  });
+}
+
+function shellIdentityFromPlanView(
+  planView: PlanViewProjection,
+  locationSearch: string,
+): PlanShellIdentity {
+  const overrides = planLocationOverridesFromSearch(locationSearch);
+  return {
+    campaignId: planView.campaign_id,
+    liveSession: planView.session,
+    memorySession: overrides.memorySession ?? null,
+  };
+}
+
 export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceShellProps) {
   const [locationSearch, setLocationSearch] = useState(
     () => (typeof window !== "undefined" ? window.location.search : ""),
   );
-  const [planningDocument, setPlanningDocument] = useState<PlanDocumentDescriptor | null>(null);
-  const [documentLoadStatus, setDocumentLoadStatus] = useState<
-    "loading" | "ready" | "error" | "empty"
-  >("loading");
-  const [documentLoadError, setDocumentLoadError] = useState<string | null>(null);
+  const [shellState, setShellState] = useState<PlanAuthoringShellState>(() => ({
+    kind: "resolving",
+    shell: shellIdentityFromPlanView(planView, typeof window !== "undefined" ? window.location.search : ""),
+    requestedDocumentId: requestedDocumentIdFromLocation(
+      typeof window !== "undefined" ? window.location.search : null,
+    ),
+  }));
   const [documentSwitching, setDocumentSwitching] = useState(false);
   const [documentSwitchError, setDocumentSwitchError] = useState<string | null>(null);
   const [selectorRecords, setSelectorRecords] = useState<WorkspaceDocumentRecord[] | null>(null);
@@ -63,13 +112,27 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
 
   const createControllerRef = useRef(createWorkspaceDocumentCreationController());
 
-  const planningDocumentRef = useRef<PlanDocumentDescriptor | null>(null);
-  planningDocumentRef.current = planningDocument;
+  const shellStateRef = useRef(shellState);
+  shellStateRef.current = shellState;
   const locationSearchRef = useRef(locationSearch);
   locationSearchRef.current = locationSearch;
-  /** Monotonic generation so a stale resolution cannot clobber a newer document choice. */
   const documentLoadGenerationRef = useRef(0);
   const selectorListGenerationRef = useRef(0);
+
+  const planningDocument = useMemo((): PlanDocumentDescriptor | null => {
+    if (shellState.kind === "durable_ready") return shellState.document;
+    if (shellState.kind === "blank_ready" || shellState.kind === "promoting") {
+      return planLocalDraftToDescriptor(shellState.draft);
+    }
+    if (
+      shellState.kind === "load_error"
+      && shellState.localDraft
+      && shellState.inventoryUnavailable
+    ) {
+      return planLocalDraftToDescriptor(shellState.localDraft);
+    }
+    return null;
+  }, [shellState]);
 
   const loadSelectorDocuments = useCallback(async () => {
     const generation = ++selectorListGenerationRef.current;
@@ -80,12 +143,22 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
         kind: "plan",
         status: "active",
       });
-      if (generation !== selectorListGenerationRef.current) return;
-      setSelectorRecords(list.records);
+      if (generation !== selectorListGenerationRef.current) return list;
+      const recovery =
+        typeof localStorage !== "undefined"
+          ? readPlanPromotionRecovery(localStorage, planView.campaign_id)
+          : null;
+      const records = recovery
+        ? list.records.filter((record) => record.document_id !== recovery.record.document_id)
+        : list.records;
+      const filteredList = records === list.records ? list : { ...list, records };
+      setSelectorRecords(records);
       setSelectorListStatus("ready");
+      return filteredList;
     } catch {
-      if (generation !== selectorListGenerationRef.current) return;
+      if (generation !== selectorListGenerationRef.current) return null;
       setSelectorListStatus("error");
+      return null;
     }
   }, [planView.campaign_id]);
 
@@ -93,14 +166,24 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     void loadSelectorDocuments();
   }, [loadSelectorDocuments]);
 
-  /**
-   * Single resolution path for initial load, browser navigation, and selector
-   * switches. Resolve first, then commit URL identity: selector success uses
-   * pushState; bare/default and history success canonicalize with replaceState;
-   * failed history keeps Canvas + restores the retained exact URL. A resolution
-   * applies only while it is the newest request; a failed switch never falls
-   * back to a different record.
-   */
+  const buildBlankDraft = useCallback(
+    (occupiedSessions: Array<number | null | undefined>) => {
+      const recovery =
+        typeof localStorage !== "undefined"
+          ? readPlanPromotionRecovery(localStorage, planView.campaign_id)
+          : null;
+      if (recovery) return recovery.local_draft;
+      const campaignLabel = formatReviewCampaignLabel(planView.campaign_id);
+      const targetSession = suggestNextPlanTargetSession(planView.session, occupiedSessions);
+      return createPlanLocalDraftMetadata({
+        campaignId: planView.campaign_id,
+        title: defaultSessionPrepTitle(campaignLabel, targetSession),
+        targetSession,
+      });
+    },
+    [planView.campaign_id, planView.session],
+  );
+
   const loadPlanningDocument = useCallback(
     async (
       search: string,
@@ -108,30 +191,80 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
       purpose: "default" | "create_activate" = "default",
     ): Promise<boolean> => {
       const generation = ++documentLoadGenerationRef.current;
-      const switching = planningDocumentRef.current != null && purpose !== "create_activate";
+      const shell = shellIdentityFromPlanView(planView, search);
+      const requestedDocumentId = requestedDocumentIdFromLocation(search);
+      const switching =
+        shellStateRef.current.kind === "durable_ready" && purpose !== "create_activate";
       const retainedSearch = locationSearchRef.current;
+
       if (switching) {
         setDocumentSwitching(true);
         setDocumentSwitchError(null);
-      } else if (purpose !== "create_activate") {
-        setDocumentLoadStatus("loading");
-        setDocumentLoadError(null);
+      } else if (purpose !== "create_activate" && requestedDocumentId) {
+        setShellState({
+          kind: "resolving",
+          shell,
+          requestedDocumentId,
+        });
       }
+
+      const listResult = await loadSelectorDocuments();
+      const selectorListAvailable = listResult != null;
+      const selectorListEmpty = listResult?.records.length === 0;
+      const occupiedSessions = listResult?.records.map((record) => record.target_session) ?? [];
+
+      if (!requestedDocumentId && !selectorListAvailable) {
+        if (generation !== documentLoadGenerationRef.current) return false;
+        const blankDraft = buildBlankDraft(occupiedSessions);
+        setShellState({
+          kind: "load_error",
+          shell,
+          requestedDocumentId: null,
+          message:
+            "Active Plan inventory is unavailable; target session cannot be chosen safely.",
+          localDraft: blankDraft,
+          inventoryUnavailable: true,
+        });
+        setDocumentSwitching(false);
+        setDocumentSwitchError(null);
+        return false;
+      }
+
+      const promotionRecovery =
+        !requestedDocumentId && typeof localStorage !== "undefined"
+          ? readPlanPromotionRecovery(localStorage, planView.campaign_id)
+          : null;
+      if (promotionRecovery) {
+        if (generation !== documentLoadGenerationRef.current) return false;
+        setShellState({
+          kind: "blank_ready",
+          draft: promotionRecovery.local_draft,
+          selectorListAvailable: true,
+        });
+        setDocumentSwitching(false);
+        setDocumentSwitchError(null);
+        return false;
+      }
+
+      if (!switching && purpose !== "create_activate" && !requestedDocumentId) {
+        setShellState({
+          kind: "resolving",
+          shell,
+          requestedDocumentId,
+        });
+      }
+
       try {
         const document = await resolvePlanningDocument({ planView, locationSearch: search });
         if (generation !== documentLoadGenerationRef.current) return false;
-        setPlanningDocument(document);
-        setDocumentLoadStatus("ready");
+        setShellState(adoptCreatedPlanIdentity(document));
         setDocumentSwitching(false);
         setDocumentSwitchError(null);
-        // Selector/history activation retires superseded create intent. Create-activation
-        // owns controller phase itself and must not bump the intent epoch mid-activate.
         if (purpose !== "create_activate") {
           createControllerRef.current.reconcileActivatedDocument(document.documentId);
           setCreateError(null);
           setCreateActivationError(null);
         }
-        void loadSelectorDocuments();
 
         if (typeof window !== "undefined") {
           if (urlCommit.mode === "push") {
@@ -154,25 +287,39 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
         return true;
       } catch (error) {
         if (generation !== documentLoadGenerationRef.current) return false;
-        if (!switching && error instanceof NoActivePlanningDocumentsError) {
-          setPlanningDocument(null);
-          setDocumentLoadStatus("empty");
-          setDocumentLoadError(null);
-          setDocumentSwitching(false);
-          setDocumentSwitchError(null);
-          void loadSelectorDocuments();
-          return false;
-        }
-        const message = error instanceof Error ? error.message : "Failed to load planning document";
+        const blankDraft = !requestedDocumentId ? buildBlankDraft(occupiedSessions) : null;
+        const nextState = nextPlanShellState({
+          shell,
+          outcome: {
+            requestedDocumentId,
+            resolvedDocument: null,
+            resolveError: error instanceof Error ? error : new Error(String(error)),
+            selectorListAvailable,
+            selectorListEmpty,
+          },
+          blankDraft,
+        });
+
         if (purpose === "create_activate") {
           setDocumentSwitching(false);
-          throw error instanceof Error ? error : new Error(message);
+          throw error instanceof Error ? error : new Error(String(error));
         }
-        if (switching) {
+
+        if (switching && !(error instanceof NoActivePlanningDocumentsError)) {
           setDocumentSwitching(false);
-          setDocumentSwitchError(message);
-          setDocumentLoadStatus("ready");
-          // History already moved the browser URL; put exact current identity back.
+          setDocumentSwitchError(
+            error instanceof Error ? error.message : "Failed to load planning document",
+          );
+          setShellState((current) =>
+            current.kind === "durable_ready"
+              ? current
+              : {
+                  kind: "load_error",
+                  shell,
+                  requestedDocumentId,
+                  message: error instanceof Error ? error.message : "Failed to load planning document",
+                },
+          );
           if (urlCommit.mode === "history" && typeof window !== "undefined") {
             const retainedUrl = `${window.location.pathname}${retainedSearch}`;
             const currentUrl = `${window.location.pathname}${window.location.search}`;
@@ -180,23 +327,21 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
               window.history.replaceState({}, "", retainedUrl);
             }
           }
-        } else {
-          setPlanningDocument(null);
-          setDocumentLoadStatus("error");
-          setDocumentLoadError(message);
+          return false;
         }
+
+        setShellState(nextState);
+        setDocumentSwitching(false);
+        setDocumentSwitchError(null);
         return false;
       }
     },
-    [loadSelectorDocuments, planView],
+    [buildBlankDraft, loadSelectorDocuments, planView],
   );
 
-  // Initial load and browser back/forward: resolve, then commit URL identity.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const sync = () => {
-      // History navigation is an operator decision: invalidate pending create auto-activation
-      // before the resolve completes so a late POST cannot win the race.
       createControllerRef.current.supersedePendingCreateIntent();
       void loadPlanningDocument(window.location.search, { mode: "history" });
     };
@@ -205,20 +350,17 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     return () => window.removeEventListener("popstate", sync);
   }, [loadPlanningDocument]);
 
-  // Selector switches resolve the exact document first; only a successful
-  // resolution earns a history entry and a URL naming it.
   const handleSelectPlanningDocument = useCallback(
     (documentId: string) => {
       if (typeof window === "undefined") return;
-      if (documentId === planningDocumentRef.current?.documentId) return;
-      // Supersede at request time so a late create POST cannot auto-activate over C.
+      if (planningDocument?.documentId === documentId) return;
       createControllerRef.current.supersedePendingCreateIntent();
       setCreateError(null);
       setCreateActivationError(null);
       const search = planDocumentSelectionSearch(window.location.search, documentId);
       void loadPlanningDocument(search, { mode: "push", search });
     },
-    [loadPlanningDocument],
+    [loadPlanningDocument, planningDocument?.documentId],
   );
 
   const campaignLabel = useMemo(
@@ -269,10 +411,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
           targetSession,
         });
         void loadSelectorDocuments();
-        if (!created.intentCurrent) {
-          // Operator navigated elsewhere while POST was in flight — do not activate.
-          return;
-        }
+        if (!created.intentCurrent) return;
         try {
           await activateCreatedRecord(created.record);
         } catch (error) {
@@ -324,6 +463,50 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     }
   }, [activateCreatedRecord]);
 
+  const handleBlankPromoted = useCallback(
+    (document: PlanDocumentDescriptor) => {
+      setShellState(adoptCreatedPlanIdentity(document));
+      createControllerRef.current.reconcileActivatedDocument(document.documentId);
+      void loadSelectorDocuments();
+      if (typeof window !== "undefined") {
+        setLocationSearch(window.location.search);
+      }
+    },
+    [loadSelectorDocuments],
+  );
+
+  const handlePlanningDocumentCommitted = useCallback((document: PlanDocumentDescriptor) => {
+    setShellState(adoptCreatedPlanIdentity(document));
+  }, []);
+
+  const handleBlankPromotionStateChange = useCallback(
+    (args: { promoting: boolean; retainedCreateId: string | null; error: string | null }) => {
+      setShellState((current) => {
+        if (current.kind !== "blank_ready" && current.kind !== "promoting") return current;
+        if (args.retainedCreateId) {
+          return retainCreatedPlan(current, args.retainedCreateId);
+        }
+        if (args.promoting) {
+          return {
+            kind: "promoting",
+            draft: current.draft,
+            retainedCreateId: null,
+            selectorListAvailable: current.selectorListAvailable,
+          };
+        }
+        if (current.kind === "promoting" && current.retainedCreateId) {
+          return current;
+        }
+        return {
+          kind: "blank_ready",
+          draft: current.draft,
+          selectorListAvailable: current.selectorListAvailable,
+        };
+      });
+    },
+    [],
+  );
+
   const activeDocumentsForCreate = useMemo(
     () =>
       selectorRecords?.map((record) => ({
@@ -362,21 +545,47 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     ],
   );
 
-  const config = useMemo(
-    () => (planningDocument ? createPlanSurfaceConfig(planView, planningDocument, locationSearch) : null),
-    [locationSearch, planView, planningDocument],
-  );
+  const canvasWorkObject = useMemo(() => planShellWorkObject(shellState), [shellState]);
+  const agentDocumentId = useMemo(() => planShellAgentDocumentId(shellState), [shellState]);
+
+  const config = useMemo((): PlanSurfaceConfig | null => {
+    if (!planningDocument) {
+      if (shellState.kind === "load_error" || shellState.kind === "resolving") {
+        const placeholder = planLocalDraftToDescriptor(
+          createPlanLocalDraftMetadata({
+            campaignId: shellState.shell.campaignId,
+            title: "Plan",
+            targetSession: null,
+            localId: formatPlanLocalDraftId(
+              `shell:${shellState.kind}:${shellState.shell.campaignId}:${shellState.requestedDocumentId ?? "none"}`,
+            ),
+          }),
+        );
+        return createPlanSurfaceConfig(planView, placeholder, locationSearch, {
+          documentId: agentDocumentId,
+          workObject: canvasWorkObject,
+        });
+      }
+      return null;
+    }
+    return createPlanSurfaceConfig(planView, planningDocument, locationSearch, {
+      documentId: agentDocumentId,
+      workObject: canvasWorkObject,
+    });
+  }, [agentDocumentId, canvasWorkObject, locationSearch, planView, planningDocument, shellState]);
+
   const { publishProjectionSurface, updateProjectionSurfaceConfig } = useAgentInteraction();
 
-  // Identity registration and same-identity config updates are separate
-  // operations: a config-only change (e.g. a document commit recreating the
-  // config with an unchanged identity) must not unbind the surface lease.
   const publication = useMemo(
     () =>
       config
         ? {
             identity: buildPlanSurfaceIdentity({
-              documentId: config.sessionDescriptor.planningDocument.documentId,
+              documentId: agentDocumentId,
+              localDraftId:
+                shellState.kind === "blank_ready" || shellState.kind === "promoting"
+                  ? shellState.draft.localId
+                  : null,
               campaignId: config.sessionDescriptor.campaignId,
               liveSession: config.context.liveSession,
               memorySession: config.sessionDescriptor.memorySession,
@@ -384,23 +593,83 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
             config,
           }
         : null,
-    [config],
+    [agentDocumentId, config, shellState],
   );
   const publicationInstanceKey = publication?.identity.instanceKey ?? null;
   const publicationRef = useRef(publication);
   publicationRef.current = publication;
 
+  const publicationConfigSignature = useMemo(() => {
+    if (!config) return null;
+    const doc = config.sessionDescriptor.planningDocument;
+    return JSON.stringify({
+      agentDocumentId,
+      workKind: canvasWorkObject.kind,
+      workId: canvasWorkObject.id,
+      documentId: doc.documentId,
+      revision: doc.revision,
+      title: doc.title,
+      targetSession: doc.targetSession,
+      targetRelpath: doc.targetRelpath,
+      contentStatus: doc.contentStatus,
+      memorySession: config.sessionDescriptor.memorySession,
+      liveSession: config.context.liveSession,
+      label: config.label,
+    });
+  }, [agentDocumentId, canvasWorkObject, config]);
+
+  const editorToolsPublisherEpochRef = useRef(0);
+  const lastEditorToolsSignatureRef = useRef<string | null>(null);
+  const boundPublicationInstanceKeyRef = useRef<string | null>(null);
+  const lastPublicationConfigSignatureRef = useRef<string | null>(null);
+  const onEditorToolsChangeRef = useRef(onEditorToolsChange);
+  onEditorToolsChangeRef.current = onEditorToolsChange;
+
+  const handleEditorToolsChange = useCallback((tools: AppChromeToolsGeneration | null) => {
+    if (tools != null) {
+      const signature = appChromeToolsPublicationSignature(tools);
+      if (lastEditorToolsSignatureRef.current === signature) {
+        return;
+      }
+      lastEditorToolsSignatureRef.current = signature;
+      editorToolsPublisherEpochRef.current += 1;
+      onEditorToolsChangeRef.current?.(tools);
+      return;
+    }
+    const epochAtClear = editorToolsPublisherEpochRef.current;
+    queueMicrotask(() => {
+      if (editorToolsPublisherEpochRef.current !== epochAtClear) {
+        return;
+      }
+      lastEditorToolsSignatureRef.current = null;
+      onEditorToolsChangeRef.current?.(null);
+    });
+  }, []);
+
   useEffect(() => {
-    if (documentLoadStatus !== "ready" || !publicationRef.current) {
+    if (!publicationRef.current) {
+      boundPublicationInstanceKeyRef.current = null;
+      lastPublicationConfigSignatureRef.current = null;
       return publishProjectionSurface(null);
     }
     return publishProjectionSurface(publicationRef.current);
-  }, [documentLoadStatus, publicationInstanceKey, publishProjectionSurface]);
+  }, [publicationInstanceKey, publishProjectionSurface]);
 
   useEffect(() => {
-    if (documentLoadStatus !== "ready" || !publication) return;
-    updateProjectionSurfaceConfig(publication);
-  }, [documentLoadStatus, publication, updateProjectionSurfaceConfig]);
+    if (!publicationRef.current || publicationInstanceKey == null || publicationConfigSignature == null) {
+      return;
+    }
+    if (boundPublicationInstanceKeyRef.current !== publicationInstanceKey) {
+      boundPublicationInstanceKeyRef.current = publicationInstanceKey;
+      lastPublicationConfigSignatureRef.current = publicationConfigSignature;
+      return;
+    }
+    if (lastPublicationConfigSignatureRef.current === publicationConfigSignature) {
+      return;
+    }
+    lastPublicationConfigSignatureRef.current = publicationConfigSignature;
+    updateProjectionSurfaceConfig(publicationRef.current);
+  }, [publicationConfigSignature, publicationInstanceKey, updateProjectionSurfaceConfig]);
 
   const [saveStatusLabel, setSaveStatusLabel] = useState("Local draft · not yet saved to Markdown");
   const dogfoodMode = dogfoodModeFromLocation();
@@ -409,6 +678,33 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     () => planLocationOverridesFromSearch(locationSearch).memorySession ?? null,
     [locationSearch],
   );
+
+  const handleRetryList = useCallback(async () => {
+    const list = await loadSelectorDocuments();
+    if (list == null) return;
+    const current = shellStateRef.current;
+    if (
+      current.kind === "load_error"
+      && current.inventoryUnavailable
+      && !current.requestedDocumentId
+    ) {
+      const applied = await loadPlanningDocument(locationSearchRef.current, { mode: "history" });
+      if (
+        !applied
+        && shellStateRef.current.kind === "load_error"
+        && shellStateRef.current.inventoryUnavailable
+      ) {
+        const draft =
+          current.localDraft
+          ?? buildBlankDraft(list.records.map((record) => record.target_session));
+        setShellState({
+          kind: "blank_ready",
+          draft,
+          selectorListAvailable: true,
+        });
+      }
+    }
+  }, [buildBlankDraft, loadPlanningDocument, loadSelectorDocuments]);
 
   const planSurfaceContextProps = useMemo(
     () => ({
@@ -420,17 +716,17 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
       activeDocument: planningDocument,
       switching: documentSwitching,
       switchError: documentSwitchError,
-      saveStatusLabel: planningDocument ? saveStatusLabel : null,
+      saveStatusLabel,
       onSelect: handleSelectPlanningDocument,
-      onRetryList: () => void loadSelectorDocuments(),
+      onRetryList: handleRetryList,
       createControlProps,
     }),
     [
       createControlProps,
       documentSwitchError,
       documentSwitching,
+      handleRetryList,
       handleSelectPlanningDocument,
-      loadSelectorDocuments,
       memorySession,
       planView.campaign_id,
       planView.session,
@@ -441,31 +737,15 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     ],
   );
 
-  if (documentLoadStatus === "loading") {
+  const inventoryUnavailable =
+    shellState.kind === "load_error" && shellState.inventoryUnavailable === true;
+  const loadErrorMessage =
+    shellState.kind === "load_error" && !inventoryUnavailable ? shellState.message : null;
+
+  if (!config) {
     return (
       <main className="app-status">
         <p>Loading planning document…</p>
-      </main>
-    );
-  }
-
-  if (documentLoadStatus === "empty") {
-    return (
-      <>
-        <PlanSurfaceContext {...planSurfaceContextProps} />
-        <main className="plan-surface-empty" data-testid="plan-surface-empty">
-          <h1>Plan</h1>
-          <p>No prep documents yet</p>
-        </main>
-      </>
-    );
-  }
-
-  if (documentLoadStatus === "error" || !config) {
-    return (
-      <main className="app-status app-error">
-        <h1>Plan</h1>
-        <p>{documentLoadError ?? "Unable to load planning document."}</p>
       </main>
     );
   }
@@ -492,9 +772,15 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
               <PlanSurfaceCanvas
                 sessionDescriptor={config.sessionDescriptor}
                 theme={config.theme}
-                onEditorToolsChange={onEditorToolsChange}
+                shellState={shellState}
+                loadErrorMessage={loadErrorMessage}
+                selectorListAvailable={selectorListStatus !== "error"}
+                createController={createControllerRef.current}
+                onEditorToolsChange={handleEditorToolsChange}
                 onSaveStatusChange={setSaveStatusLabel}
-                onPlanningDocumentCommitted={setPlanningDocument}
+                onPlanningDocumentCommitted={handlePlanningDocumentCommitted}
+                onBlankPromoted={handleBlankPromoted}
+                onBlankPromotionStateChange={handleBlankPromotionStateChange}
               />
             </div>
           </div>

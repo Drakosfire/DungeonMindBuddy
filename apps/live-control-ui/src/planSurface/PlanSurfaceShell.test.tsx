@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import type { Editor } from "@tiptap/core";
 import type { ComponentProps } from "react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./config/planSessionDescriptor", async (importOriginal) => {
@@ -39,6 +39,7 @@ import {
   fixturePlanDocumentDescriptor,
   fixturePlanSessionDescriptor,
   fixtureWorkspaceDocumentRecord,
+  workspaceRecordToPlanDocumentDescriptor,
 } from "./config/planSessionDescriptor";
 import { mockHermesCliTrace, mockPlanView, mockSourceBundle } from "../test/fixtures";
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
@@ -49,15 +50,27 @@ import {
   threadStorageKey,
   AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS,
 } from "./components/agentInteractionHistory";
-import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
 import { LegacyProjectionHostAdapter } from "./projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
+import { createWorkspaceDocumentCreationController } from "../workspaceDocument/workspaceDocumentCreation";
+import {
+  adoptCreatedPlanIdentity,
+  createPlanLocalDraftMetadata,
+  formatPlanLocalDraftId,
+  planLocalDraftToDescriptor,
+  planLocalDraftPointerKey,
+  planPromotionRecoveryKey,
+  retainCreatedPlan,
+  type PlanAuthoringShellState,
+} from "./planBlankAuthoringState";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
+import { createPlanSessionDescriptor } from "./config/planSessionDescriptor";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { PlanGraphLensProvider } from "./PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
@@ -68,6 +81,7 @@ import {
 import { AgentInteractionProjectionTestHost } from "./projection/projectionTestHost";
 import * as liveApi from "../api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
+import { readWorkspaceDocumentLocalState } from "../tiptap/state/tiptapLocalState";
 
 const worldGraphProjection = {
   schema: "dmb_world_graph_projection_v1" as const,
@@ -101,6 +115,14 @@ const expectedWorldGraphContextRequest = {
 };
 
 /** Isolated canvas tests still need save-status visibility after heading moved to context bar. */
+function durableCanvasShellProps(sessionDescriptor: ReturnType<typeof fixturePlanSessionDescriptor>) {
+  return {
+    shellState: adoptCreatedPlanIdentity(sessionDescriptor.planningDocument),
+    selectorListAvailable: true,
+    createController: createWorkspaceDocumentCreationController(),
+  };
+}
+
 function IsolatedPlanCanvasWithSaveStatus(
   props: Omit<ComponentProps<typeof PlanSurfaceCanvas>, "onSaveStatusChange">,
 ) {
@@ -157,6 +179,7 @@ function PlanSurfaceTestHarness() {
 
   return (
     <AgentInteractionProvider>
+      <PlanPublicationProbe />
       <AskPluginSlotProvider>
         <WorldGraphLensProvider planCampaignId="longmont-c2">
           <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
@@ -175,6 +198,19 @@ function PlanSurfaceTestHarness() {
   );
 }
 
+function PlanPublicationProbe() {
+  const { projectionSurface, surfaceInteractionBasePublication } = useAgentInteraction();
+  const workObject = surfaceInteractionBasePublication?.canvas?.workObject;
+  return (
+    <output
+      data-testid="plan-surface-publication"
+      data-agent-document-id={surfaceInteractionBasePublication?.agentContext?.documentId ?? "null"}
+      data-canvas-document-id={projectionSurface?.publication.config.canvas.documentId ?? "null"}
+      data-canvas-work-object={workObject ? `${workObject.kind}:${workObject.id}` : "null"}
+    />
+  );
+}
+
 function renderPlanSurface() {
   return render(<PlanSurfaceTestHarness />);
 }
@@ -188,7 +224,7 @@ async function openWorldGraphLoadPanel(user: ReturnType<typeof userEvent.setup>)
 
 async function waitForPlanSurfaceReady() {
   await waitFor(() => {
-    expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-surface-canvas-editor")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
   });
 }
@@ -287,6 +323,90 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByRole("complementary", { name: "Edit toolbar" })).toBeInTheDocument();
     expect(screen.getAllByText("World Graph objects").length).toBeGreaterThan(0);
     expect(screen.getByTestId("graph-reference-search")).toBeInTheDocument();
+  });
+
+  it("uses a shell work target while an exact document is still resolving", async () => {
+    let resolveDocument: ((document: ReturnType<typeof fixturePlanDocumentDescriptor>) => void) | null =
+      null;
+    vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementationOnce(
+      () => new Promise((resolve) => {
+        resolveDocument = resolve;
+      }),
+    );
+    window.history.pushState({}, "", `/plan?documentId=${FIXTURE_DOC_ID}`);
+
+    renderPlanSurface();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-canvas-authoring-loading")).toBeInTheDocument();
+      const publication = screen.getByTestId("plan-surface-publication");
+      expect(publication).toHaveAttribute("data-agent-document-id", "null");
+      expect(publication).toHaveAttribute("data-canvas-document-id", "null");
+      expect(publication).toHaveAttribute(
+        "data-canvas-work-object",
+        `plan-shell:resolving:longmont-c2:${FIXTURE_DOC_ID}`,
+      );
+    });
+
+    resolveDocument?.(fixturePlanDocumentDescriptor());
+    await waitForPlanSurfaceReady();
+    expect(screen.getByTestId("plan-surface-publication")).toHaveAttribute(
+      "data-canvas-work-object",
+      `document:${FIXTURE_DOC_ID}`,
+    );
+  });
+
+  it("uses an error-shell work target when an exact document fails to load", async () => {
+    vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementationOnce(
+      async () => {
+        throw new Error("Workspace document not found");
+      },
+    );
+    window.history.pushState({}, "", `/plan?documentId=${FIXTURE_DOC_ID}`);
+
+    renderPlanSurface();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-canvas-authoring-error")).toHaveTextContent(
+        "Workspace document not found",
+      );
+      const publication = screen.getByTestId("plan-surface-publication");
+      expect(publication).toHaveAttribute("data-agent-document-id", "null");
+      expect(publication).toHaveAttribute("data-canvas-document-id", "null");
+      expect(publication).toHaveAttribute(
+        "data-canvas-work-object",
+        `plan-shell:error:longmont-c2:${FIXTURE_DOC_ID}`,
+      );
+    });
+  });
+
+  it("admits an exact Runbook through Plan without changing selector inventory", async () => {
+    const runbook = fixtureWorkspaceDocumentRecord({
+      document_id: "runbook-reachability-test",
+      kind: "runbook",
+      title: "Reachable Runbook",
+      target_relpath: null,
+    });
+    vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementationOnce(
+      async () => workspaceRecordToPlanDocumentDescriptor(runbook),
+    );
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValueOnce(
+      fixtureWorkspaceDocumentSnapshot({
+        record: runbook,
+        loaded_revision: runbook.revision,
+        markdown: "# Reachable Runbook\n",
+      }),
+    );
+    window.history.pushState({}, "", `/plan?documentId=${runbook.document_id}`);
+
+    renderPlanSurface();
+
+    await waitForPlanSurfaceReady();
+    expect(screen.getByTestId("plan-surface-canvas-editor")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toHaveTextContent(
+      "Surface plan does not accept document kind runbook.",
+    );
+    expect(screen.getByRole("button", { name: "Save to Markdown" })).toBeDisabled();
   });
 
   it("opens Recap from the tool query parameter", async () => {
@@ -1845,6 +1965,7 @@ describe("PlanSurfaceShell", () => {
               <IsolatedPlanCanvasWithSaveStatus
                 sessionDescriptor={sessionDescriptor}
                 theme={config.theme}
+                {...durableCanvasShellProps(sessionDescriptor)}
                 onEditorToolsChange={(tools) => { editorTools = tools; }}
                 onPlanningDocumentCommitted={handback}
               />
@@ -1953,6 +2074,7 @@ describe("PlanSurfaceShell", () => {
               <IsolatedPlanCanvasWithSaveStatus
                 sessionDescriptor={sessionDescriptor}
                 theme={config.theme}
+                {...durableCanvasShellProps(sessionDescriptor)}
                 onEditorToolsChange={(tools) => { editorTools = tools; }}
                 onPlanningDocumentCommitted={handback}
               />
@@ -3232,6 +3354,7 @@ describe("PlanSurfaceShell", () => {
       );
       window.history.pushState({}, "", `/plan?documentId=${DOC_A}`);
       renderPlanSurface();
+      await waitFor(() => expect(resolvers.has(DOC_A)).toBe(true));
       await act(async () => {
         resolvers.get(DOC_A)?.();
       });
@@ -3335,7 +3458,7 @@ describe("PlanSurfaceShell", () => {
       await user.click(screen.getByTestId("plan-document-create-submit"));
     }
 
-    it("shows empty state without auto-create when no active Plan documents exist", async () => {
+    it("shows blank authoring shell without auto-create when no active Plan documents exist", async () => {
       vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
         schema_version: "dmb_workspace_document_registry_v1",
         records: [],
@@ -3344,11 +3467,11 @@ describe("PlanSurfaceShell", () => {
       window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
       renderPlanSurface();
 
-      expect(await screen.findByTestId("plan-surface-empty")).toBeInTheDocument();
-      expect(screen.getByText("No prep documents yet")).toBeInTheDocument();
-      const contextHost = await screen.findByTestId("surface-context-host");
-      expect(within(contextHost).getByTestId("plan-document-create-open")).toBeInTheDocument();
-      expect(within(screen.getByTestId("plan-surface-empty")).queryByTestId("plan-document-create-open")).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+        expect(screen.getByTestId("plan-surface-canvas-editor")).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId("plan-surface-empty")).not.toBeInTheDocument();
       expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     });
 
@@ -3927,6 +4050,940 @@ describe("PlanSurfaceShell", () => {
         expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 27 Prep"));
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(2);
       expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_C);
+    });
+
+    const DOC_PROMOTED = "33333333-3333-4333-8333-333333333333";
+    const PROMOTED_TARGET =
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
+
+    function fixtureBlankDraft() {
+      return createPlanLocalDraftMetadata({
+        campaignId: "longmont-c2",
+        title: "C2 Session 23 Prep",
+        targetSession: 23,
+        localId: formatPlanLocalDraftId("blank-promotion-draft"),
+      });
+    }
+
+    function IsolatedBlankPromotionHarness({
+      initialShellState,
+      selectorListAvailable = true,
+      createController: createControllerProp,
+      onPromoted,
+      onEditorToolsChange,
+    }: {
+      initialShellState: PlanAuthoringShellState;
+      selectorListAvailable?: boolean;
+      createController?: ReturnType<typeof createWorkspaceDocumentCreationController>;
+      onPromoted?: (document: ReturnType<typeof fixturePlanDocumentDescriptor>) => void;
+      onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
+    }) {
+      const [shellState, setShellState] = useState(initialShellState);
+      const createController = useMemo(
+        () => createControllerProp ?? createWorkspaceDocumentCreationController(),
+        [createControllerProp],
+      );
+      const draft =
+        shellState.kind === "blank_ready" || shellState.kind === "promoting"
+          ? shellState.draft
+          : shellState.kind === "load_error" && shellState.localDraft
+            ? shellState.localDraft
+            : fixtureBlankDraft();
+      const planningDocument = planLocalDraftToDescriptor(draft);
+      const sessionDescriptor = createPlanSessionDescriptor(mockPlanView, planningDocument);
+      const config = createPlanSurfaceConfig(
+        mockPlanView,
+        planningDocument,
+        "?campaigns=longmont-c1,longmont-c2",
+      );
+
+      return (
+        <AgentInteractionProvider>
+          <AgentInteractionProjectionTestHost config={config}>
+            <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
+              <IsolatedPlanCanvasWithSaveStatus
+                sessionDescriptor={sessionDescriptor}
+                theme={config.theme}
+                shellState={shellState}
+                selectorListAvailable={selectorListAvailable}
+                createController={createController}
+                onBlankPromoted={(document) => {
+                  setShellState(adoptCreatedPlanIdentity(document));
+                  onPromoted?.(document);
+                }}
+                onBlankPromotionStateChange={(args) => {
+                  setShellState((current) => {
+                    if (current.kind !== "blank_ready" && current.kind !== "promoting") return current;
+                    if (args.retainedCreateId) {
+                      return retainCreatedPlan(current, args.retainedCreateId);
+                    }
+                    if (args.promoting) {
+                      return {
+                        kind: "promoting",
+                        draft: current.draft,
+                        retainedCreateId: null,
+                        selectorListAvailable: current.selectorListAvailable,
+                      };
+                    }
+                    if (current.kind === "promoting" && current.retainedCreateId) {
+                      return current;
+                    }
+                    return {
+                      kind: "blank_ready",
+                      draft: current.draft,
+                      selectorListAvailable: current.selectorListAvailable,
+                    };
+                  });
+                }}
+                onEditorToolsChange={onEditorToolsChange}
+              />
+            </PlanGraphReferenceResolverProvider>
+          </AgentInteractionProjectionTestHost>
+        </AgentInteractionProvider>
+      );
+    }
+
+    async function renderIsolatedBlankPromotion(args: {
+      initialShellState: PlanAuthoringShellState;
+      selectorListAvailable?: boolean;
+      createController?: ReturnType<typeof createWorkspaceDocumentCreationController>;
+      onPromoted?: (document: ReturnType<typeof fixturePlanDocumentDescriptor>) => void;
+      onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
+    }) {
+      render(
+        <EditCapabilityProvider>
+          <IsolatedBlankPromotionHarness {...args} />
+        </EditCapabilityProvider>,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+        expect(screen.getByTestId("plan-surface-canvas-editor")).toBeInTheDocument();
+      });
+    }
+
+    async function clickIsolatedBlankSave(editorTools: { current: AppChromeToolsGeneration | null }) {
+      await waitFor(() => {
+        const saveAction = editorTools.current?.tools.sections
+          ?.find((section) => section.id === "plan-markdown-save")
+          ?.actions.find((action) => action.label === "Save to Markdown");
+        expect(saveAction).toBeTruthy();
+      });
+      const saveAction = editorTools.current!.tools.sections!
+        .find((section) => section.id === "plan-markdown-save")!
+        .actions.find((action) => action.label === "Save to Markdown")!;
+      await act(async () => {
+        try {
+          await saveAction.onClick();
+        } catch {
+          // saveMarkdown throws after surfacing operator-visible error state.
+        }
+      });
+    }
+
+    function mockBlankPromotionAdmissionSnapshot() {
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+        fixtureWorkspaceDocumentSnapshot({
+          record: fixtureWorkspaceDocumentRecord({
+            document_id: id,
+            title: "C2 Session 23 Prep",
+            target_session: 23,
+            revision: 1,
+            target_relpath: PROMOTED_TARGET,
+          }),
+          loaded_revision: 1,
+          content_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          file_fingerprint: "absent",
+          file_exists: false,
+        }),
+      );
+    }
+
+    function mockBlankPromotionVerificationSnapshot() {
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+        fixtureWorkspaceDocumentSnapshot({
+          record: fixtureWorkspaceDocumentRecord({
+            document_id: id,
+            title: "C2 Session 23 Prep",
+            target_session: 23,
+            revision: id === DOC_PROMOTED ? 2 : 1,
+            content_status: id === DOC_PROMOTED ? "committed" : "draft",
+            target_relpath: PROMOTED_TARGET,
+          }),
+          loaded_revision: id === DOC_PROMOTED ? 2 : 1,
+          content_sha256: id === DOC_PROMOTED ? "abc123sha256" : "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          file_fingerprint: id === DOC_PROMOTED ? "abc123" : "absent",
+          file_exists: id === DOC_PROMOTED,
+        }),
+      );
+    }
+
+    function mockAdmissionThenVerificationSnapshots() {
+      let snapshotCalls = 0;
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) => {
+        snapshotCalls += 1;
+        if (snapshotCalls === 1) {
+          return fixtureWorkspaceDocumentSnapshot({
+            record: fixtureWorkspaceDocumentRecord({
+              document_id: id,
+              title: "C2 Session 23 Prep",
+              target_session: 23,
+              revision: 1,
+              target_relpath: PROMOTED_TARGET,
+            }),
+            loaded_revision: 1,
+            content_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            file_fingerprint: "absent",
+            file_exists: false,
+          });
+        }
+        return fixtureWorkspaceDocumentSnapshot({
+          record: fixtureWorkspaceDocumentRecord({
+            document_id: id,
+            title: "C2 Session 23 Prep",
+            target_session: 23,
+            revision: 2,
+            content_status: "committed",
+            target_relpath: PROMOTED_TARGET,
+          }),
+          loaded_revision: 2,
+          content_sha256: "abc123sha256",
+          file_fingerprint: "abc123",
+          file_exists: true,
+        });
+      });
+    }
+
+    function mockCreatedPlanRecord() {
+      vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
+        fixtureWorkspaceDocumentRecord({
+          document_id: DOC_PROMOTED,
+          title: "C2 Session 23 Prep",
+          target_session: 23,
+          revision: 1,
+          target_relpath: PROMOTED_TARGET,
+        }),
+      );
+    }
+
+    function mockSuccessfulBlankPromotionCommit() {
+      vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: DOC_PROMOTED,
+        title: "C2 Session 23 Prep",
+        target_relpath: PROMOTED_TARGET,
+        target_display_path: PROMOTED_TARGET,
+        file_exists: false,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token",
+        writer_diff: "+# C2 Session 23 Prep\n",
+        warnings: [],
+        diagnostics: [],
+      });
+      vi.spyOn(liveApi, "commitTiptapMarkdownWrite").mockResolvedValue({
+        schema_version: "dmb_tiptap_markdown_write_commit_v1",
+        document_id: DOC_PROMOTED,
+        title: "C2 Session 23 Prep",
+        target_relpath: PROMOTED_TARGET,
+        target_display_path: PROMOTED_TARGET,
+        registry_revision: 2,
+        committed_revision: 2,
+        committed_record: fixtureWorkspaceDocumentRecord({
+          document_id: DOC_PROMOTED,
+          title: "C2 Session 23 Prep",
+          target_session: 23,
+          revision: 2,
+          content_status: "committed",
+          target_relpath: PROMOTED_TARGET,
+        }),
+        normalized_content_sha256: "abc123sha256",
+        writer_ok: true,
+        writer_phase: "commit",
+        bytes_written: 42,
+        file_fingerprint: "abc123",
+        diagnostics: [],
+      });
+    }
+
+    it("recovers blank authoring after inventory Retry without reload", async () => {
+      let inventoryListDown = true;
+      vi.mocked(liveApi.listWorkspaceDocuments).mockImplementation(async () => {
+        if (inventoryListDown) {
+          throw new Error("list down");
+        }
+        return {
+          schema_version: "dmb_workspace_document_registry_v1",
+          records: [],
+        };
+      });
+      await useActualResolvePlanningDocument();
+      window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
+      renderPlanSurface();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("plan-selector-list-error")).toBeInTheDocument();
+        expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+      });
+
+      const pointer = localStorage.getItem(planLocalDraftPointerKey("longmont-c2"));
+      expect(pointer).toBeTruthy();
+      const localId = formatPlanLocalDraftId(pointer!);
+      const localBeforeRetry = readWorkspaceDocumentLocalState(localStorage, localId);
+
+      const user = userEvent.setup();
+      inventoryListDown = false;
+      await user.click(screen.getByRole("button", { name: "Retry" }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+        expect(screen.queryByTestId("plan-selector-list-error")).not.toBeInTheDocument();
+      });
+
+      const localAfterRetry = readWorkspaceDocumentLocalState(localStorage, localId);
+      expect(localAfterRetry?.document_id).toBe(localBeforeRetry?.document_id);
+      expect(localAfterRetry?.exported_markdown).toBe(localBeforeRetry?.exported_markdown);
+
+      await waitFor(() => {
+        const saveButtons = screen.getAllByRole("button", { name: "Save to Markdown" });
+        expect(saveButtons.some((button) => !(button as HTMLButtonElement).disabled)).toBe(true);
+      });
+    });
+
+    it("shows inventory-unavailable shell without assuming zero Plans", async () => {
+      vi.mocked(liveApi.listWorkspaceDocuments).mockRejectedValue(new Error("list down"));
+      await useActualResolvePlanningDocument();
+      window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
+      renderPlanSurface();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("plan-selector-list-error")).toBeInTheDocument();
+        expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+      });
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    });
+
+    it("disables blank Save with inventory-unavailable reason in toolbar inventory", async () => {
+      const draft = fixtureBlankDraft();
+      const editorTools = { current: null as AppChromeToolsGeneration | null };
+      render(
+        <EditCapabilityProvider>
+          <IsolatedBlankPromotionHarness
+            initialShellState={{
+              kind: "load_error",
+              shell: {
+                campaignId: "longmont-c2",
+                liveSession: 22,
+                memorySession: null,
+              },
+              requestedDocumentId: null,
+              message:
+                "Active Plan inventory is unavailable; target session cannot be chosen safely.",
+              localDraft: draft,
+              inventoryUnavailable: true,
+            }}
+            selectorListAvailable={false}
+            onEditorToolsChange={(tools) => {
+              editorTools.current = tools;
+            }}
+          />
+        </EditCapabilityProvider>,
+      );
+      await waitFor(() => {
+        const saveAction = editorTools.current?.tools.sections
+          ?.find((section) => section.id === "plan-markdown-save")
+          ?.actions.find((action) => action.label === "Save to Markdown");
+        expect(saveAction?.disabled).toBe(true);
+        expect(saveAction?.disabledReason).toBe(
+          "Active Plan inventory is unavailable; target session cannot be chosen safely.",
+        );
+      });
+    });
+
+    it("keeps blank editor mounted when first-save create fails", async () => {
+      const draft = fixtureBlankDraft();
+      const editorTools = { current: null as AppChromeToolsGeneration | null };
+      vi.mocked(liveApi.createWorkspaceDocument).mockRejectedValue(new Error("Registry unavailable"));
+      await renderIsolatedBlankPromotion({
+        initialShellState: {
+          kind: "blank_ready",
+          draft,
+          selectorListAvailable: true,
+        },
+        onEditorToolsChange: (tools) => {
+          editorTools.current = tools;
+        },
+      });
+      await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+      await clickIsolatedBlankSave(editorTools);
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent(
+          "Registry unavailable",
+        ));
+      expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
+    });
+
+    it("retains created id and enables retry when prepare fails after create", async () => {
+      const draft = fixtureBlankDraft();
+      const editorTools = { current: null as AppChromeToolsGeneration | null };
+      mockCreatedPlanRecord();
+      mockBlankPromotionAdmissionSnapshot();
+      vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("Prepare failed"));
+      await renderIsolatedBlankPromotion({
+        initialShellState: {
+          kind: "blank_ready",
+          draft,
+          selectorListAvailable: true,
+        },
+        onEditorToolsChange: (tools) => {
+          editorTools.current = tools;
+        },
+      });
+      await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+      await clickIsolatedBlankSave(editorTools);
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent("Prepare failed"));
+      expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_PROMOTED);
+
+      vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: DOC_PROMOTED,
+        title: "C2 Session 23 Prep",
+        target_relpath: PROMOTED_TARGET,
+        target_display_path: PROMOTED_TARGET,
+        file_exists: true,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token",
+        writer_diff: "",
+        warnings: [],
+        diagnostics: [],
+      });
+      mockSuccessfulBlankPromotionCommit();
+      mockAdmissionThenVerificationSnapshots();
+
+      await waitFor(() => {
+        const saveAction = editorTools.current?.tools.sections
+          ?.find((section) => section.id === "plan-markdown-save")
+          ?.actions.find((action) => action.label === "Save to Markdown");
+        expect(saveAction?.disabled).toBe(false);
+      });
+      await clickIsolatedBlankSave(editorTools);
+
+      await waitFor(() =>
+        expect(screen.queryByTestId("plan-blank-canvas")).not.toBeInTheDocument());
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps local identity when create returns a UUID but fails validation", async () => {
+      vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [],
+      });
+      await useActualResolvePlanningDocument();
+      vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
+        fixtureWorkspaceDocumentRecord({
+          document_id: DOC_PROMOTED,
+          title: "C2 Session 23 Prep",
+          target_session: 23,
+          revision: 1,
+          kind: "runbook",
+          target_relpath: PROMOTED_TARGET,
+        }),
+      );
+      window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
+      renderPlanSurface();
+      await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent(
+          /kind must be plan/i,
+        ));
+      expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+      const publication = screen.getByTestId("plan-surface-publication");
+      expect(publication).toHaveAttribute("data-agent-document-id", "null");
+      expect(publication).toHaveAttribute("data-canvas-document-id", "null");
+      expect(publication).toHaveAttribute("data-canvas-work-object", expect.stringMatching(
+        /^plan-local-draft:local-plan:/,
+      ));
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
+      expect(localStorage.getItem(planPromotionRecoveryKey("longmont-c2"))).toBeTruthy();
+
+      await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent(
+          /kind must be plan/i,
+        ));
+      expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+      expect(publication).toHaveAttribute("data-agent-document-id", "null");
+      expect(publication).toHaveAttribute("data-canvas-document-id", "null");
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
+      expect(localStorage.getItem(planPromotionRecoveryKey("longmont-c2"))).toBeTruthy();
+    });
+
+    it("clears campaign draft pointer after admission and keeps it cleared through retry", async () => {
+      const draft = fixtureBlankDraft();
+      const editorTools = { current: null as AppChromeToolsGeneration | null };
+      localStorage.setItem(planLocalDraftPointerKey("longmont-c2"), "blank-promotion-draft");
+      mockCreatedPlanRecord();
+      mockBlankPromotionAdmissionSnapshot();
+      vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("Prepare failed"));
+      await renderIsolatedBlankPromotion({
+        initialShellState: {
+          kind: "blank_ready",
+          draft,
+          selectorListAvailable: true,
+        },
+        onEditorToolsChange: (tools) => {
+          editorTools.current = tools;
+        },
+      });
+      await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+      await clickIsolatedBlankSave(editorTools);
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent("Prepare failed"));
+      expect(localStorage.getItem(planLocalDraftPointerKey("longmont-c2"))).toBeNull();
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_PROMOTED);
+
+      vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: DOC_PROMOTED,
+        title: "C2 Session 23 Prep",
+        target_relpath: PROMOTED_TARGET,
+        target_display_path: PROMOTED_TARGET,
+        file_exists: true,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token",
+        writer_diff: "",
+        warnings: [],
+        diagnostics: [],
+      });
+      mockSuccessfulBlankPromotionCommit();
+      mockAdmissionThenVerificationSnapshots();
+      await clickIsolatedBlankSave(editorTools);
+
+      await waitFor(() =>
+        expect(screen.queryByTestId("plan-blank-canvas")).not.toBeInTheDocument());
+      expect(localStorage.getItem(planLocalDraftPointerKey("longmont-c2"))).toBeNull();
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    });
+
+    it("promotes blank draft with one create, URL adoption, preserved content, and no immediate conflict", async () => {
+      const draft = fixtureBlankDraft();
+      const editorTools = { current: null as AppChromeToolsGeneration | null };
+      mockCreatedPlanRecord();
+      mockSuccessfulBlankPromotionCommit();
+      mockAdmissionThenVerificationSnapshots();
+      vi.mocked(liveApi.getWorkspaceDocument).mockImplementation(async (id) =>
+        fixtureWorkspaceDocumentRecord({
+          document_id: id,
+          revision: id === DOC_PROMOTED ? 2 : 1,
+          content_status: id === DOC_PROMOTED ? "committed" : "draft",
+          target_relpath: PROMOTED_TARGET,
+        }),
+      );
+      await renderIsolatedBlankPromotion({
+        initialShellState: {
+          kind: "blank_ready",
+          draft,
+          selectorListAvailable: true,
+        },
+        onEditorToolsChange: (tools) => {
+          editorTools.current = tools;
+        },
+      });
+
+      await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+      act(() => {
+        planShellTestEditor?.commands.insertContent(" Promotion note");
+      });
+      await clickIsolatedBlankSave(editorTools);
+
+      await waitFor(() => {
+        expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_PROMOTED);
+        expect(screen.queryByTestId("plan-blank-canvas")).not.toBeInTheDocument();
+      });
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+      expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+      await waitFor(() => {
+        const local = readWorkspaceDocumentLocalState(localStorage, DOC_PROMOTED);
+        expect(local?.exported_markdown).toContain("Promotion note");
+        expect(local?.dirty).toBe(false);
+        expect(local?.base_content_sha256).toBe("abc123sha256");
+      });
+      expect(localStorage.getItem(planLocalDraftPointerKey("longmont-c2"))).toBeNull();
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-surface-canvas-editor")).toHaveAttribute(
+          "data-markdown-editor-status",
+          "ready",
+        ));
+      expect(screen.queryByTestId("plan-canvas-authoring-conflict")).not.toBeInTheDocument();
+    });
+
+    it("retains durable id and editor bytes when snapshot admission fails after create", async () => {
+      const draft = fixtureBlankDraft();
+      const editorTools = { current: null as AppChromeToolsGeneration | null };
+      const prepareSpy = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+      mockCreatedPlanRecord();
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+        fixtureWorkspaceDocumentSnapshot({
+          record: fixtureWorkspaceDocumentRecord({
+            document_id: DOC_PROMOTED,
+            revision: 2,
+            target_relpath: PROMOTED_TARGET,
+          }),
+          loaded_revision: 2,
+          content_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        }),
+      );
+      await renderIsolatedBlankPromotion({
+        initialShellState: {
+          kind: "blank_ready",
+          draft,
+          selectorListAvailable: true,
+        },
+        onEditorToolsChange: (tools) => {
+          editorTools.current = tools;
+        },
+      });
+      await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+      act(() => {
+        planShellTestEditor?.commands.insertContent(" Admission fail note");
+      });
+      await clickIsolatedBlankSave(editorTools);
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent(
+          /loaded_revision does not match create response revision/i,
+        ));
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(prepareSpy).not.toHaveBeenCalled();
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
+      const localDraft = readWorkspaceDocumentLocalState(localStorage, draft.localId);
+      expect(localDraft?.dirty).toBe(true);
+      expect(localDraft?.exported_markdown).toContain("Admission fail note");
+      expect(readWorkspaceDocumentLocalState(localStorage, DOC_PROMOTED)).toBeNull();
+
+      mockBlankPromotionAdmissionSnapshot();
+      mockSuccessfulBlankPromotionCommit();
+      mockAdmissionThenVerificationSnapshots();
+      await clickIsolatedBlankSave(editorTools);
+      await waitFor(() =>
+        expect(screen.queryByTestId("plan-blank-canvas")).not.toBeInTheDocument());
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    });
+
+    it("recovers a known-created Plan across reload without creating a replacement", async () => {
+      let exposeCreatedRecord = false;
+      vi.mocked(liveApi.listWorkspaceDocuments).mockImplementation(async () => ({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: exposeCreatedRecord
+          ? [fixtureWorkspaceDocumentRecord({
+              document_id: DOC_PROMOTED,
+              title: "C2 Session 23 Prep",
+              target_session: 23,
+              revision: 1,
+              target_relpath: PROMOTED_TARGET,
+            })]
+          : [],
+      }));
+      await useActualResolvePlanningDocument();
+      mockCreatedPlanRecord();
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockRejectedValue(
+        new Error("admission snapshot unavailable"),
+      );
+      window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
+      const firstRender = renderPlanSurface();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+        expect(planShellTestEditor).not.toBeNull();
+      });
+      const user = userEvent.setup();
+      act(() => {
+        planShellTestEditor?.commands.insertContent(" Recovery survivor");
+      });
+      await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent(
+          "admission snapshot unavailable",
+        ));
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem(planPromotionRecoveryKey("longmont-c2"))).toBeTruthy();
+
+      firstRender.unmount();
+      exposeCreatedRecord = true;
+      mockSuccessfulBlankPromotionCommit();
+      mockAdmissionThenVerificationSnapshots();
+      window.history.replaceState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
+      renderPlanSurface();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+        expect(planShellTestEditor?.getText()).toContain("Recovery survivor");
+      });
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      const retryUser = userEvent.setup();
+      await retryUser.click(screen.getByRole("button", { name: "Save to Markdown" }));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("plan-blank-canvas")).not.toBeInTheDocument();
+        expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_PROMOTED);
+      });
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem(planPromotionRecoveryKey("longmont-c2"))).toBeNull();
+      expect(readWorkspaceDocumentLocalState(localStorage, DOC_PROMOTED)?.dirty).toBe(false);
+    });
+
+    it("survives prepare failure reload at exact durable documentId without a second create", async () => {
+      const prepareSpy = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite")
+        .mockRejectedValue(new Error("Prepare failed"));
+      const commitSpy = vi.spyOn(liveApi, "commitTiptapMarkdownWrite");
+      let snapshotCalls = 0;
+      mockCreatedPlanRecord();
+      vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [],
+      });
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) => {
+        snapshotCalls += 1;
+        const committed = snapshotCalls >= 3;
+        return fixtureWorkspaceDocumentSnapshot({
+          record: fixtureWorkspaceDocumentRecord({
+            document_id: id,
+            revision: committed ? 2 : 1,
+            content_status: committed ? "committed" : "draft",
+            target_relpath: PROMOTED_TARGET,
+          }),
+          loaded_revision: committed ? 2 : 1,
+          markdown: committed ? "# C2 Session 23 Prep\n\nReload survivor\n" : "",
+          content_sha256: committed
+            ? "abc123sha256"
+            : "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          file_fingerprint: committed ? "abc123" : "absent",
+          file_exists: committed,
+        });
+      });
+      await useActualResolvePlanningDocument();
+      window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
+      const firstRender = renderPlanSurface();
+      await waitFor(() => {
+        expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+        expect(planShellTestEditor).not.toBeNull();
+      });
+
+      const user = userEvent.setup();
+      act(() => {
+        planShellTestEditor?.commands.insertContent(" Reload survivor");
+      });
+      await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent("Prepare failed"));
+
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_PROMOTED);
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(readWorkspaceDocumentLocalState(localStorage, DOC_PROMOTED)).toMatchObject({
+        document_id: DOC_PROMOTED,
+        dirty: true,
+      });
+      expect(readWorkspaceDocumentLocalState(localStorage, DOC_PROMOTED)?.exported_markdown)
+        .toContain("Reload survivor");
+      expect(localStorage.getItem(planLocalDraftPointerKey("longmont-c2"))).toBeNull();
+
+      firstRender.unmount();
+      window.history.replaceState({}, "", `/plan?documentId=${DOC_PROMOTED}`);
+      vi.mocked(liveApi.getWorkspaceDocument).mockResolvedValue(
+        fixtureWorkspaceDocumentRecord({
+          document_id: DOC_PROMOTED,
+          revision: 1,
+          target_relpath: PROMOTED_TARGET,
+        }),
+      );
+      prepareSpy.mockResolvedValue({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: DOC_PROMOTED,
+        title: "C2 Session 23 Prep",
+        target_relpath: PROMOTED_TARGET,
+        target_display_path: PROMOTED_TARGET,
+        registry_revision: 1,
+        file_exists: false,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token",
+        writer_diff: "",
+        warnings: [],
+        diagnostics: [],
+      });
+      commitSpy.mockResolvedValue({
+        schema_version: "dmb_tiptap_markdown_write_commit_v1",
+        document_id: DOC_PROMOTED,
+        title: "C2 Session 23 Prep",
+        target_relpath: PROMOTED_TARGET,
+        target_display_path: PROMOTED_TARGET,
+        registry_revision: 2,
+        committed_revision: 2,
+        committed_record: fixtureWorkspaceDocumentRecord({
+          document_id: DOC_PROMOTED,
+          revision: 2,
+          content_status: "committed",
+          target_relpath: PROMOTED_TARGET,
+        }),
+        normalized_content_sha256: "abc123sha256",
+        writer_ok: true,
+        writer_phase: "commit",
+        bytes_written: 42,
+        file_fingerprint: "abc123",
+        diagnostics: [],
+      });
+
+      renderPlanSurface();
+      await waitForPlanSurfaceReady();
+      await waitFor(() => expect(planShellTestEditor?.getText()).toContain("Reload survivor"));
+      expect(screen.queryByTestId("plan-canvas-authoring-conflict")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
+      await waitFor(() => expect(commitSpy).toHaveBeenCalledTimes(1));
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem(planLocalDraftPointerKey("longmont-c2"))).toBeNull();
+      expect(prepareSpy).toHaveBeenCalledWith(expect.objectContaining({
+        document_id: DOC_PROMOTED,
+        expected_revision: 1,
+      }));
+    });
+
+    it("keeps promoting state when commit succeeds but post-commit verification fails", async () => {
+      const draft = fixtureBlankDraft();
+      const editorTools = { current: null as AppChromeToolsGeneration | null };
+      const onPromoted = vi.fn();
+      mockCreatedPlanRecord();
+      mockBlankPromotionAdmissionSnapshot();
+      mockSuccessfulBlankPromotionCommit();
+      let verificationSnapshotCalls = 0;
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) => {
+        verificationSnapshotCalls += 1;
+        if (verificationSnapshotCalls === 1) {
+          return fixtureWorkspaceDocumentSnapshot({
+            record: fixtureWorkspaceDocumentRecord({
+              document_id: id,
+              revision: 1,
+              target_relpath: PROMOTED_TARGET,
+            }),
+            loaded_revision: 1,
+            content_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          });
+        }
+        return fixtureWorkspaceDocumentSnapshot({
+          record: fixtureWorkspaceDocumentRecord({
+            document_id: id,
+            revision: 99,
+            target_relpath: PROMOTED_TARGET,
+          }),
+          loaded_revision: 99,
+          content_sha256: "mismatch-sha256",
+          file_fingerprint: "wrong-fingerprint",
+        });
+      });
+      await renderIsolatedBlankPromotion({
+        initialShellState: {
+          kind: "blank_ready",
+          draft,
+          selectorListAvailable: true,
+        },
+        onPromoted,
+        onEditorToolsChange: (tools) => {
+          editorTools.current = tools;
+        },
+      });
+      await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+      await clickIsolatedBlankSave(editorTools);
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent(
+          /loaded_revision does not match/i,
+        ));
+      expect(onPromoted).not.toHaveBeenCalled();
+      expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument();
+      const durableLocal = readWorkspaceDocumentLocalState(localStorage, DOC_PROMOTED);
+      expect(durableLocal?.dirty).toBe(true);
+    });
+
+    it("treats missing commit file_fingerprint as verification failure", async () => {
+      const draft = fixtureBlankDraft();
+      const editorTools = { current: null as AppChromeToolsGeneration | null };
+      const onPromoted = vi.fn();
+      mockCreatedPlanRecord();
+      mockBlankPromotionAdmissionSnapshot();
+      vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: DOC_PROMOTED,
+        title: "C2 Session 23 Prep",
+        target_relpath: PROMOTED_TARGET,
+        target_display_path: PROMOTED_TARGET,
+        file_exists: false,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token",
+        writer_diff: "",
+        warnings: [],
+        diagnostics: [],
+      });
+      vi.spyOn(liveApi, "commitTiptapMarkdownWrite").mockResolvedValue({
+        schema_version: "dmb_tiptap_markdown_write_commit_v1",
+        document_id: DOC_PROMOTED,
+        title: "C2 Session 23 Prep",
+        target_relpath: PROMOTED_TARGET,
+        target_display_path: PROMOTED_TARGET,
+        registry_revision: 2,
+        committed_revision: 2,
+        committed_record: fixtureWorkspaceDocumentRecord({
+          document_id: DOC_PROMOTED,
+          revision: 2,
+          target_relpath: PROMOTED_TARGET,
+        }),
+        normalized_content_sha256: "abc123sha256",
+        writer_ok: true,
+        writer_phase: "commit",
+        bytes_written: 42,
+        file_fingerprint: "",
+        diagnostics: [],
+      });
+      await renderIsolatedBlankPromotion({
+        initialShellState: {
+          kind: "blank_ready",
+          draft,
+          selectorListAvailable: true,
+        },
+        onPromoted,
+        onEditorToolsChange: (tools) => {
+          editorTools.current = tools;
+        },
+      });
+      await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+      await clickIsolatedBlankSave(editorTools);
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent(
+          /missing file_fingerprint/i,
+        ));
+      expect(onPromoted).not.toHaveBeenCalled();
+      expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(1);
     });
   });
 });

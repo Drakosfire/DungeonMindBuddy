@@ -293,6 +293,63 @@ describe("surfaceInteractionCompat", () => {
     expect(fragment.editCommands).toEqual([]);
   });
 
+  it("maps local blank Plan publication with null agent documentId", () => {
+    const localId = "local-plan:draft-1";
+    const validated = validateProjectionSurfacePublication({
+      identity: buildPlanSurfaceIdentity({
+        documentId: null,
+        localDraftId: localId,
+        campaignId: "longmont-c2",
+        liveSession: 22,
+        memorySession: null,
+      }),
+      config: {
+        id: "plan",
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 22,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" }],
+        canvas: {
+          documentId: null,
+          workObject: { kind: "plan-local-draft", id: localId },
+        },
+        theme: {},
+      },
+    });
+    const neutral = adaptProjectionSurfaceToNeutralBase(validated);
+    expect(neutral.canvas).toEqual({
+      canvasId: "markdown-canvas",
+      workObject: { kind: "plan-local-draft", id: localId },
+    });
+    expect(neutral.agentContext?.documentId).toBeNull();
+    expect(neutral.tools.length).toBeGreaterThan(0);
+  });
+
+  it("maps disabled AppChrome actions to specific disabledReason when provided", () => {
+    const fragment = buildAppChromeCompatibilityFragment({
+      pageActions: [],
+      editorTools: {
+        pinnedActions: [{
+          id: "save",
+          label: "Save",
+          disabled: true,
+          disabledReason: "Document is still loading.",
+          onClick: () => {},
+        }],
+      },
+      basePublication: buildSurfaceRouteCompatibilityPublication(),
+      editCommandTarget: { kind: "plan-local-draft", id: "local-plan:x" },
+    });
+    expect(fragment.editCommands[0]?.availability).toEqual({
+      status: "disabled",
+      disabledReason: "Document is still loading.",
+    });
+  });
+
   it("maps disabled AppChrome actions to deterministic compatibility reasons", () => {
     const fragment = buildAppChromeCompatibilityFragment({
       pageActions: [{ id: "x", label: "X", disabled: true, onClick: () => {} }],
