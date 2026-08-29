@@ -50,7 +50,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.3: Buddy graph-engine demolition
 
 **Created:** 2026-08-25
-**Status:** MERGED — design accepted; D.2C3 implementation / Buddy #651 is `DOING` / Review Cycle 4 after #658 merge `d94822f7681da440fdeea981662383980bfbcaf9`; D.2C4 remains `BLOCKED`; D.3 is not `DONE`
+**Status:** MERGED — design accepted; D.2C3 implementation / Buddy #651 is `COMPLETE` / MERGED (accepted head `9508b71655665005df8f12da74c239fe7eb17c0c`; merge `84f3401b23fcac32a57416d5419dc7d33cf6eabc`; 4 formal review cycles); D.2C4 is `DOING` / this PR; D.3 is not `DONE`
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`
 **Workstream / flow:** `CUTOVER`
 **Direction:** DESIGN → REVIEW
