@@ -42,7 +42,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.2C4: preserve Graph Review authoring on DungeonMind
 
 **Created:** 2026-08-28
-**Status:** CODE IMPLEMENTATION READY — not yet Review Cycle 1 (uncommitted / no PR)
+**Status:** CODE → REVIEW — Review Cycle 1 submitted (PR #662)
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-manual-authoring-continuity-code.md`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Flow / owner:** CUTOVER
@@ -69,15 +69,13 @@ pr_body_template: |
 
 ## §8.3 CODE → REVIEW handback
 
-This is the review contract for the current uncommitted implementation. Review Cycle 1
-does not exist until one distinct committed implementation head is submitted with this
-handback completed for that SHA and PR number.
+This is the review contract for Review Cycle 1.
 
 ### 1. PR / branch / Review Cycle 1 head
 
 * Branch: `cutover/manual-authoring-continuity`
-* PR number: **not opened**
-* Review Cycle 1 head SHA: **not committed** (working tree still at dispatch base plus uncommitted implementation)
+* PR number: **#662** — https://github.com/Drakosfire/DungeonMindBuddy/pull/662
+* Review Cycle 1 head SHA: `4945b426abb7732617870f1ce29fb1fd28035923`
 
 ### 2. Exact dispatch base
 
@@ -135,13 +133,11 @@ was not required.
 
 ### 8. Nano-commit list and purpose
 
-Not yet committed. Preferred story after Review Cycle 1 is cut:
-
-1. CUTOVER: hand off Graph Review DungeonMind authoring
-2. CUTOVER: bind Graph Review prepare to governed publication intent
-3. CUTOVER: publish confirmed Graph Review edits through DungeonMind
-4. CUTOVER: align Graph Review API and UI to DungeonMind publication
-5. CUTOVER: prove manual-authoring continuity and legacy-writer absence
+1. `f69959e0` CUTOVER: hand off Graph Review DungeonMind authoring
+2. `e140591d` CUTOVER: bind Graph Review prepare to governed publication intent
+3. `9458a46a` CUTOVER: publish confirmed Graph Review edits through DungeonMind
+4. `93a318db` CUTOVER: align Graph Review API and UI to DungeonMind publication
+5. `4945b426` CUTOVER: prove manual-authoring continuity and legacy-writer absence
 
 ### 9. State-authority sync result
 
@@ -506,7 +502,5 @@ authority-selector defaults.
 
 ## Remaining merge-ready work (not code)
 
-1. Commit the nano-commit story.
-2. Push `cutover/manual-authoring-continuity`.
-3. Open the PR and fill this handback with exact PR number + Review Cycle 1 SHA.
-4. Do not mark D.2C4 `DONE` before merge.
+1. Formal Review Cycle 1 on PR #662.
+2. Do not mark D.2C4 `DONE` before merge.
