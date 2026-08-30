@@ -1455,7 +1455,9 @@ If any answer is no, the slice is not merge-ready.
 ```text
 dispatch base / origin/main at dispatch = da4a2c9a3bce80f7a271252e3a5ed105d5ae1dbb
 open PRs at dispatch = none
-open PRs at handback = (filled after PR open)
+open PRs at handback = #669
+PR URL = https://github.com/Drakosfire/DungeonMindBuddy/pull/669
+exact head SHA = 922c1b21efbed4d1dce841009a13472ca7c62d43
 branch = agent/surface-context-v1
 worktree = /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy-surface-context-v1
 ```
