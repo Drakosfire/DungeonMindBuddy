@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAgentSurfaceContextRequest,
+  buildPlanAgentSurfaceContextRequest,
   AGENT_SURFACE_CONTEXT_REQUEST_SCHEMA,
 } from "./agentSurfaceContextRequest";
 import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
@@ -97,5 +98,22 @@ describe("buildAgentSurfaceContextRequest", () => {
       }),
     );
     expect(request?.pointers).toEqual([{ kind: "selection", value: "beat-1" }]);
+  });
+});
+
+describe("buildPlanAgentSurfaceContextRequest", () => {
+  it("returns Plan identity snapshots", () => {
+    expect(buildPlanAgentSurfaceContextRequest(publication())?.surface_id).toBe("plan");
+  });
+
+  it("fails closed to absence for a foreign surface lease", () => {
+    expect(
+      buildPlanAgentSurfaceContextRequest(
+        publication({
+          surfaceId: "play",
+          identity: { surfaceId: "play", instanceKey: "play:1" },
+        }),
+      ),
+    ).toBeNull();
   });
 });

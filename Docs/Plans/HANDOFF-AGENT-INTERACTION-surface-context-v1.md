@@ -28,7 +28,7 @@ pr_body_template: |
 
 **Created:** 2026-08-29  
 **Updated:** 2026-08-30 — implementation handed back for review  
-**Status:** IMPLEMENTATION HANDED BACK FOR REVIEW — evidence in §23  
+**Status:** IMPLEMENTATION CYCLE 2 TIP — Cycle 1 `5061489626` CHANGES REQUESTED-equivalent addressed; evidence in §23.8  
 **Canonical handoff:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-surface-context-v1.md`  
 **Companion decision:** `Docs/Design/DECISION-agent-context-compilation.md`  
 **Surface authority:** `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`  
@@ -1471,8 +1471,11 @@ Lease-guarded Plan publication → identity-only wire → APP-STATE resolve → 
 
 ```text
 dmb_agent_surface_context_request_v1
-  schema, surface_id, campaign_id?, document_id?, session_number?, pointers[]
+  required when present: schema, surface_id, campaign_id, document_id, session_number, pointers
+  nullable identity fields still require explicit null (no defaults)
+  alias-only `schema` (internal `schema_` rejected on wire)
   extra=forbid (no label / ambientSummary / title)
+Plan proving path: buildPlanAgentSurfaceContextRequest — non-plan lease → null (absent)
 
 statuses: absent | resolved | surface_only | rejected_scope | rejected_surface | unavailable
 APP-STATE: get_workspace_document(root, document_id) — kind=plan, status=active, campaign match
@@ -1495,11 +1498,12 @@ new span surface_context_resolution + dmb_agent_surface_context_summary_v1 (8 ke
 ## 23.5 Verification totals
 
 ```text
-§16.1 server owning: 267 passed
-§16.2 A5/A4 floor: 27 passed
-frontend focused Vitest: 82 passed (3 files)
-ruff leased Python paths: All checks passed!
-lockfile/dependency: unchanged (npm ci local-only for Vitest; node_modules gitignored)
+Cycle 1 tip (§16): server owning 267 / A5 floor 27 / Vitest 82
+Cycle 2 tip:
+  combined owning + LCS + A5 floor: 298 passed
+  frontend focused Vitest: 84 passed (3 files; +2 Plan fail-closed cases)
+  ruff leased Python paths: clean
+  lockfile/dependency: unchanged
 ```
 
 ## 23.6 A5 predecessor sync
@@ -1520,5 +1524,34 @@ stop conditions encountered: none
 Play current-moment SurfaceContext: not implemented
 Plan body / selection / memory / ranking / token budget: not implemented
 A6 merge SHA / final review-cycle count: not invented
+```
+
+## 23.8 Review Cycle 1 disposition
+
+```text
+review ID = 5061489626
+judgment = CHANGES REQUESTED-equivalent
+exact head reviewed = 916c1e9ab6c69057155828733e5ae1b777613cbb
+```
+
+Blockers addressed in Cycle 2 tip:
+
+1. Wire contract: all v1 fields required when `surface_context` is present; no defaults;
+   `populate_by_name` removed so internal `schema_` cannot validate; wrong/missing schema → 422.
+2. Plan proving path uses `buildPlanAgentSurfaceContextRequest` — foreign leases fail closed to absence.
+3. HTTP owning proofs added in `tests/test_live_control_server.py` for `/api/live/query`.
+4. §4.7-style bounded test-file exception recorded below for assembler coverage.
+
+### §4 bounded lease exception (handback)
+
+```text
+path: tests/test_agent_context_assembler.py
+why: §15.6 requires ContextAssembler surface_context carry/parity characterization;
+     assembler implementation is leased; this existing owning suite is the natural home.
+assertions:
+  - resolved AgentSurfaceContext reaches AgentContextPacket.surface_context
+  - A5 14-key context summary unchanged / privacy preserved
+  - World scope parity with and without SurfaceContext
+  - user question unchanged as retrieval seed
 ```
 

@@ -64,24 +64,27 @@ _MODEL_BLOCK_PREFIX = (
 
 
 class AgentSurfacePointerRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid")
 
     kind: str = Field(min_length=1, max_length=MAX_POINTER_KIND_CHARS)
     value: str = Field(min_length=1, max_length=MAX_POINTER_VALUE_CHARS)
 
 
 class AgentSurfaceContextRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    """Identity-only wire contract. All v1 fields are required when present.
 
-    schema_: Literal["dmb_agent_surface_context_request_v1"] = Field(
-        alias="schema",
-        default=SURFACE_CONTEXT_REQUEST_SCHEMA,
-    )
+    ``schema`` is alias-only: internal ``schema_`` must not be accepted on the wire.
+    Nullable identity fields still require an explicit null (no silent defaults).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: Literal["dmb_agent_surface_context_request_v1"] = Field(alias="schema")
     surface_id: str = Field(min_length=1, max_length=MAX_SURFACE_ID_CHARS)
-    campaign_id: str | None = Field(default=None, max_length=MAX_CAMPAIGN_ID_CHARS)
-    document_id: str | None = Field(default=None, max_length=MAX_DOCUMENT_ID_CHARS)
-    session_number: int | None = Field(default=None, ge=1)
-    pointers: list[AgentSurfacePointerRequest] = Field(default_factory=list, max_length=MAX_POINTERS)
+    campaign_id: str | None = Field(max_length=MAX_CAMPAIGN_ID_CHARS)
+    document_id: str | None = Field(max_length=MAX_DOCUMENT_ID_CHARS)
+    session_number: int | None = Field(ge=1)
+    pointers: list[AgentSurfacePointerRequest] = Field(max_length=MAX_POINTERS)
 
     @field_validator("campaign_id", "document_id", mode="before")
     @classmethod

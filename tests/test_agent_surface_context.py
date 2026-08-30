@@ -280,3 +280,45 @@ def test_wire_rejects_label_and_ambient_fields() -> None:
                 "ambientSummary": "must not be on wire",
             }
         )
+
+
+def test_wire_requires_versioned_fields_and_rejects_internal_schema_name() -> None:
+    complete = {
+        "schema": SURFACE_CONTEXT_REQUEST_SCHEMA,
+        "surface_id": "plan",
+        "campaign_id": "longmont-c2",
+        "document_id": None,
+        "session_number": 22,
+        "pointers": [],
+    }
+    assert AgentSurfaceContextRequest.model_validate(complete).surface_id == "plan"
+
+    for missing in ("schema", "surface_id", "campaign_id", "document_id", "session_number", "pointers"):
+        payload = dict(complete)
+        del payload[missing]
+        with pytest.raises(ValidationError):
+            AgentSurfaceContextRequest.model_validate(payload)
+
+    with pytest.raises(ValidationError):
+        AgentSurfaceContextRequest.model_validate(
+            {
+                "schema_": SURFACE_CONTEXT_REQUEST_SCHEMA,
+                "surface_id": "plan",
+                "campaign_id": "longmont-c2",
+                "document_id": None,
+                "session_number": 22,
+                "pointers": [],
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        AgentSurfaceContextRequest.model_validate(
+            {
+                "schema": "dmb_agent_surface_context_request_v0",
+                "surface_id": "plan",
+                "campaign_id": "longmont-c2",
+                "document_id": None,
+                "session_number": 22,
+                "pointers": [],
+            }
+        )

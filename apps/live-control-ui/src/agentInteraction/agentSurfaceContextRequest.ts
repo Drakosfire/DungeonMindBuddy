@@ -100,3 +100,17 @@ export function buildAgentSurfaceContextRequest(
     pointers,
   };
 }
+
+/**
+ * Plan proving-path builder: fail closed to absence when the active lease is not Plan.
+ * Does not rewrite foreign surfaces into Plan identity.
+ */
+export function buildPlanAgentSurfaceContextRequest(
+  publication: SurfaceInteractionPublication | null | undefined,
+): AgentSurfaceContextRequestV1 | null {
+  const request = buildAgentSurfaceContextRequest(publication);
+  if (request == null || request.surface_id !== "plan") {
+    return null;
+  }
+  return request;
+}

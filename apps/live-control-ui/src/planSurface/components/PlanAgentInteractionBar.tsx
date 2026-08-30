@@ -36,7 +36,7 @@ import {
   useAskPluginSlotOptional,
   useRegisterAskPluginPresence,
 } from "../../agentInteraction/AskPluginSlot";
-import { buildAgentSurfaceContextRequest } from "../../agentInteraction/agentSurfaceContextRequest";
+import { buildPlanAgentSurfaceContextRequest } from "../../agentInteraction/agentSurfaceContextRequest";
 import { buildHermesConversationHistory } from "../../agentInteraction/hermesConversationHistory";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { ContextSufficiencyPanel } from "./ContextSufficiencyPanel";
@@ -843,7 +843,8 @@ export function PlanAgentInteractionBar({
       // Graph lens campaign + scopeMode live only in worldGraphContext.
       // Submit-time snapshot from lease-guarded publication only — never
       // activeSurfaceContext, sessionDescriptor, or client ambient prose.
-      const surfaceContext = buildAgentSurfaceContextRequest(
+      // Foreign (non-plan) leases fail closed to absence on the Plan proving path.
+      const surfaceContext = buildPlanAgentSurfaceContextRequest(
         agentInteraction.surfaceInteractionPublication,
       );
       const response = await askCorpus(
