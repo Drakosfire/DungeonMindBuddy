@@ -42,6 +42,15 @@ function displayBoolean(value: boolean): string {
 
 function friendlyProjectionError(error: unknown): string {
   if (error instanceof LiveApiError) {
+    if (
+      error.status === 410
+      || error.code === "union_supergraph_preview_retired"
+    ) {
+      return (
+        "UnionSupergraph store preview is retired. This is not a missing ingest artifact — "
+        + "use retained gold/manual/recap graph-preview surfaces instead."
+      );
+    }
     if (error.status === 404) return "The latest graph-ingest run disappeared or its projection artifact is missing.";
     if (error.status === 400) return `The projection API rejected this manifest/store: ${error.message}`;
     if (error.status >= 500) return `Unexpected backend failure while loading projection: ${error.message}`;
@@ -127,7 +136,7 @@ export function GraphIngestProjectionPanel({
       <header className="graph-ingest-panel-header">
         <div>
           <p className="plan-surface-kicker">Latest Graph-Ingest Projection</p>
-          <h2>Open latest union graph</h2>
+          <h2>Open latest union graph (retired)</h2>
           <p>
             Looks for the latest preview-union-ready graph-ingest run for {context.campaignId} / {sessionId}.
           </p>

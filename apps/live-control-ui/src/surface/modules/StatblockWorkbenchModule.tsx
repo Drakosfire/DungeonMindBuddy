@@ -8,8 +8,8 @@ import {
   getAcceptanceOperation,
   getStatblockCandidate,
   getThreatDraft,
-  getWorldGraphBootstrapStatus,
   LiveApiError,
+  postWorldGraphProjection,
   reconcileAcceptanceOperation,
   reviseThreatDraftCandidate,
   validateStatblockDefinition,
@@ -173,7 +173,7 @@ type CreatedDraftIdentity = {
 
 /**
  * Live Control scope defaults for dogfood create. Graph revision is NOT invented
- * here — it is resolved from World Graph bootstrap head (or an exact Advanced override).
+ * here — it is resolved from native World Graph projection head (or an exact Advanced override).
  */
 const LIVE_CONTROL_CREATE_CONTEXT = {
   world_id: "eldyrwild",
@@ -374,6 +374,33 @@ function requireFreestandingOptIn(
   return { ok: false, message: `${reason} ${FREESTANDING_OPT_IN_HINT}` };
 }
 
+
+async function resolveNativeWorldGraphHead(): Promise<{
+  worldId: string;
+  campaignId: string;
+  head: string | null;
+}> {
+  const worldId = LIVE_CONTROL_CREATE_CONTEXT.world_id;
+  const campaignId = LIVE_CONTROL_CREATE_CONTEXT.campaign_id;
+  const projection = await postWorldGraphProjection({
+    schema: "dmb_world_graph_projection_request_v1",
+    worldId,
+    campaignId,
+    focus: { kind: "none", sessionId: null },
+    admissibility: "gm",
+    scopeMode: "campaign",
+  });
+  const head =
+    projection.snapshot.headRevisionId?.trim()
+    || projection.snapshot.revisionId?.trim()
+    || null;
+  return {
+    worldId: projection.snapshot.worldId || worldId,
+    campaignId: projection.snapshot.campaignId || campaignId,
+    head,
+  };
+}
+
 async function resolveCreateScope(
   fields: CreateFormFields,
 ): Promise<{ ok: true; scope: ResolvedCreateScope } | { ok: false; message: string }> {
@@ -390,44 +417,8 @@ async function resolveCreateScope(
   }
 
   try {
-    const status = await getWorldGraphBootstrapStatus();
-    const worldId =
-      typeof status.worldId === "string" && status.worldId.trim()
-        ? status.worldId.trim()
-        : LIVE_CONTROL_CREATE_CONTEXT.world_id;
-    const campaignId =
-      typeof status.campaignId === "string" && status.campaignId.trim()
-        ? status.campaignId.trim()
-        : LIVE_CONTROL_CREATE_CONTEXT.campaign_id;
-    const head =
-      typeof status.currentHeadRevisionId === "string" && status.currentHeadRevisionId.trim()
-        ? status.currentHeadRevisionId.trim()
-        : null;
-    const state = typeof status.state === "string" ? status.state.trim() : "";
-    const bundleValid = status.bundleValid === true;
-
-    // Active worlds must pin a concrete head — null head here is contradictory.
-    if (state === "active" || state === "active_head_advanced") {
-      if (head) {
-        return {
-          ok: true,
-          scope: {
-            world_id: worldId,
-            campaign_id: campaignId,
-            graph_revision_id: head,
-          },
-        };
-      }
-      return requireFreestandingOptIn(
-        fields,
-        worldId,
-        campaignId,
-        `World Graph bootstrap reports state=${state} but no current head — graph authority is contradictory.`,
-      );
-    }
-
-    // Ready + valid bundle + null head: known uninitialized world; freestanding is legitimate.
-    if (state === "ready" && bundleValid) {
+    const { worldId, campaignId, head } = await resolveNativeWorldGraphHead();
+    if (head) {
       return {
         ok: true,
         scope: {
@@ -437,31 +428,19 @@ async function resolveCreateScope(
         },
       };
     }
-
-    // Typed failure/blocked states arrive as HTTP 200 with null head — not auto-freestanding.
-    const diagnosticHint =
-      Array.isArray(status.diagnostics) && status.diagnostics.length > 0
-        ? ` Diagnostics: ${status.diagnostics
-            .slice(0, 3)
-            .map((d) => d.message || d.code)
-            .filter(Boolean)
-            .join("; ")}.`
-        : "";
     return requireFreestandingOptIn(
       fields,
       worldId,
       campaignId,
-      `World Graph bootstrap is not ready for automatic provenance ` +
-        `(state=${state || "unknown"}, bundleValid=${bundleValid}).${diagnosticHint}`,
+      "Native World Graph projection returned no head revision — graph authority is incomplete.",
     );
   } catch (error) {
-    // Lookup failure ≠ "no head". Graph authority is unknown — do not silently freestand.
     const detail = error instanceof Error ? error.message : String(error);
     return requireFreestandingOptIn(
       fields,
       LIVE_CONTROL_CREATE_CONTEXT.world_id,
       LIVE_CONTROL_CREATE_CONTEXT.campaign_id,
-      `Unable to retrieve World Graph bootstrap status — graph authority is unknown (${detail}).`,
+      `Unable to retrieve native World Graph head — graph authority is unknown (${detail}).`,
     );
   }
 }
@@ -2437,16 +2416,11 @@ export function StatblockWorkbenchModule() {
 
     void (async () => {
       try {
-        const status = await getWorldGraphBootstrapStatus();
+        const native = await resolveNativeWorldGraphHead();
         if (cancelled) return;
-        const bootstrapHead =
-          typeof status.currentHeadRevisionId === "string" && status.currentHeadRevisionId.trim()
-            ? status.currentHeadRevisionId.trim()
-            : null;
-        // Exact Advanced override is the same authority pin used for create when bootstrap
-        // cannot surface a head (e.g. invalid_bundle with a still-readable store head).
+        // Exact Advanced override remains an explicit pin when native head is unavailable.
         const overrideHead = createForm.graphRevisionId.trim() || null;
-        const head = bootstrapHead ?? overrideHead;
+        const head = native.head ?? overrideHead;
         if (head) {
           setPublicationHeadResolution({ draftId, head, error: null, loading: false });
           return;
@@ -3565,13 +3539,8 @@ export function StatblockWorkbenchModule() {
                   expectedParentRevisionId={publicationHeadResolution.head}
                   onDockModelChange={setPublicationDock}
                   resolveExpectedParentRevisionId={async () => {
-                    const status = await getWorldGraphBootstrapStatus();
-                    const bootstrapHead =
-                      typeof status.currentHeadRevisionId === "string"
-                      && status.currentHeadRevisionId.trim()
-                        ? status.currentHeadRevisionId.trim()
-                        : null;
-                    const head = bootstrapHead || createForm.graphRevisionId.trim() || null;
+                    const native = await resolveNativeWorldGraphHead();
+                    const head = native.head || createForm.graphRevisionId.trim() || null;
                     if (!head) {
                       throw new Error(
                         "Publication retry requires a readable World Graph head "
