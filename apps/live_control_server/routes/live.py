@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from apps.live_control_server.config import repo_root, session_dir
 from apps.live_control_server.schema_validation import LiveRowValidationError
+from apps.live_control_server.services.agent_surface_context import AgentSurfaceContextRequest
 from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphQueryContextError,
     AgentWorldGraphQueryContextRequest,
@@ -177,6 +178,7 @@ class LiveQueryRequest(BaseModel):
     trace_requested: bool | None = None
     world_graph_context: AgentWorldGraphQueryContextRequest | None = None
     conversation_history: Any | None = None
+    surface_context: AgentSurfaceContextRequest | None = None
 
 
 def _history_is_absent(value: Any) -> bool:
@@ -916,6 +918,7 @@ def post_live_query(body: LiveQueryRequest) -> Any:
             world_graph_context=body.world_graph_context,
             outer_campaign_id=body.campaign_id,
             conversation_history=normalized_history,
+            surface_context=body.surface_context,
         )
     except HermesGraphQueryRequestError as exc:
         return JSONResponse(status_code=exc.status_code, content=exc.response_body())

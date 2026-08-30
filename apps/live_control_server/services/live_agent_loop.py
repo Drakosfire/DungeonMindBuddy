@@ -16,6 +16,10 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
     render_world_graph_prompt_block,
     resolve_agent_world_graph_query_context,
 )
+from apps.live_control_server.services.agent_surface_context import (
+    AgentSurfaceContextRequest,
+    resolve_agent_surface_context,
+)
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
 from apps.live_control_server.services.citation_freshness import build_evidence_snapshots
 from apps.live_control_server.services.hermes_graph_query import (
@@ -170,11 +174,22 @@ def process_live_query(
     outer_campaign_id: str | None = None,
     conversation_history: Any | None = None,
     agent_runtime: AgentRuntime | None = None,
+    surface_context: AgentSurfaceContextRequest | None = None,
 ) -> dict[str, Any]:
     session_base = base or session_dir()
     resolved_agent_thread_id = agent_thread_id or _new_agent_thread_id()
     resolved_turn_id = _new_turn_id()
     repo = root or repo_root()
+
+    if query_backend != "hermes" and surface_context is not None:
+        from apps.live_control_server.services.hermes_graph_query import (
+            HermesGraphQueryRequestError,
+        )
+
+        raise HermesGraphQueryRequestError(
+            "surface_context is supported only on the Hermes query backend.",
+            code="surface_context_unsupported",
+        )
 
     if query_backend == "hermes":
         descriptor = descriptor_for_runtime(agent_runtime)
@@ -232,6 +247,21 @@ def process_live_query(
                             by_alias=True,
                         ),
                     }
+            span = builder.start_phase("surface_context_resolution")
+            try:
+                resolution = resolve_agent_surface_context(
+                    surface_context,
+                    root=repo,
+                    outer_campaign_id=campaign_id,
+                    outer_session=int(packet["session"]),
+                )
+            except Exception:
+                builder.complete_phase(span, status="error")
+                raise
+            else:
+                builder.complete_phase(span, attributes=resolution.trace_summary)
+                for code in resolution.warning_codes:
+                    builder.add_warning(code)
             return run_hermes_graph_query(
                 text=text,
                 packet=packet,
@@ -245,6 +275,7 @@ def process_live_query(
                 hermes_session_pointer=hermes_session_pointer,
                 trace_builder=builder,
                 agent_runtime=agent_runtime,
+                surface_context=resolution.context,
             )
         except Exception:
             if not builder.logged:

@@ -27,6 +27,7 @@ from apps.live_control_server.services.agent_runtime import (
     AgentRetrievalSession,
     AgentRunOptions,
     AgentRuntimeInvocation,
+    AgentSurfaceContext,
     AgentWorldScope,
 )
 from graph_memory.interaction.initial_resolve import create_session_from_preflight
@@ -144,6 +145,7 @@ def assemble_agent_graph_context(
     runtime_session_id: str | None = None,
     thread_id: str | None = None,
     turn_id: str | None = None,
+    surface_context: AgentSurfaceContext | None = None,
 ) -> AgentContextAssembly:
     """Compose one AgentRuntimeInvocation plus content-free composition telemetry."""
     from apps.live_control_server.config import repo_root as default_repo_root
@@ -227,6 +229,7 @@ def assemble_agent_graph_context(
                 session_id=session.id,
                 packet=retrieval_session_packet,
             ),
+            surface_context=surface_context,
         ),
         capability_policy=WORLD_GRAPH_READ_POLICY,
         run_options=AgentRunOptions(
