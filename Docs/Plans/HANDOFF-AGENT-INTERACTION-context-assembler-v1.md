@@ -993,6 +993,7 @@ The likely next capability is a **SurfaceContext Contract v1** characterized end
 dispatch base: 9570bd2636231b1f4ed9b6651da6c9a653abaa07
 implementation branch: agent/context-assembler-v1
 worktree: DungeonMindBuddy-context-assembler-v1
+head at handback: 6a47b756557d6aa2073ff0c9a3a489239085162e
 
 open PR at dispatch: #665 CUTOVER mounted graph-engine excision
 steward disposition: SPLIT
