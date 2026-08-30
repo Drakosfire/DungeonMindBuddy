@@ -364,6 +364,10 @@ D.3A DOING / this PR
 D.3B BLOCKED
 D.3 NOT DONE
 ```
+> **Post-merge note:** The block above is the historical in-flight D.3A sync lease
+> from dispatch. Live status is now D.3A `COMPLETE` / `MERGED` (#665), D.3B `DOING`
+> (`cutover/delete-legacy-graph-engine`), D.3 still `NOT DONE` — see header Status.
+
 Do **not** pre-mark D.3A complete or invent its future merge SHA/review count.
 Tracker/roadmap mirrors must remain byte-identical.
 
