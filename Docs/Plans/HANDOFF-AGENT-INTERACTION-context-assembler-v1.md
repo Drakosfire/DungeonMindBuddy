@@ -6,25 +6,31 @@ pr_body_template: |
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: `Docs/Plans/HANDOFF-AGENT-INTERACTION-context-assembler-v1.md`
   - Context decision: `Docs/Design/DECISION-agent-context-compilation.md`
-  - Design base: `6b7706eec400129dbe01288630c443ae2d8a1e67`
+  - Design base: `619aa2b0c4be67e1d3931ff50899d126d2dafa13`
   - Predecessor: A4 / PR #664 / accepted head `497dcfb6c21507ee1d0e26d009add0ce044c0ec6` / merge `cbdc342ef79c8e3db5d45fbb52468c0c258a4d47` / 1 review cycle
 
   ## Mission
-  Establish one harness-neutral DungeonBuddy context-assembly boundary around the graph-Agent context that exists today, preserving accepted behavior and A0/A1 observability, while explicitly leaving room for future QueryContext, ResolvedSurfaceContext, WorldContext, and InteractionContext inputs. Do not implement SurfaceContext, Interaction Memory, new retrieval policy, prompt rendering, persistence, runtime selection, or World writes in A5.
+  Extract the graph-Agent context composition that already exists today into one harness-neutral DungeonBuddy-owned ContextAssembler boundary, preserving accepted model-facing behavior exactly while making the composition structurally observable. Establish the seam future QueryContext, ResolvedSurfaceContext, WorldContext, and InteractionContext work will enter; do not implement those successor capabilities in A5.
 
-  ## Design hold
-  This handoff is intentionally NOT READY FOR DISPATCH until the steward completes the current SurfaceContext / relevance-budget design discussion and explicitly releases A5.
+  ## Merge contract
+  - one neutral `agent_context_assembler.py` owns today's graph-Agent invocation composition
+  - `build_hermes_graph_turn_request(...)` remains a compatibility wrapper with the same signature/tuple shape
+  - AgentRuntime public contracts and the exact model-facing payload remain behaviorally unchanged
+  - current question remains the retrieval seed used by the existing GraphRetrievalSession path
+  - World scope, retrieval session, latest-recap typed context, conversation continuity, grounding, and runtime continuity remain equivalent
+  - A0 emits one bounded content-free `dmb_agent_context_summary_v1`
+  - the existing `context_assembly` span carries the same safe scalar composition metadata
+  - no SurfaceContext schema, query/entity resolver, relevance weights, token-budget algorithm, prompt renderer, memory, persistence, runtime selection, or World-write behavior is added
 ---
 
 # HANDOFF — ContextAssembler v1 (A5)
 
 **Created:** 2026-08-29  
-**Updated:** 2026-08-29 — Agent Context Compilation decision sync  
-**Status:** **DESIGN HOLD — NOT READY FOR DISPATCH**  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-context-assembler-v1.md`  
+**Updated:** 2026-08-29 — design released after Agent Context Compilation decision  
+**Status:** **READY FOR DISPATCH**  
+**Canonical handoff:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-context-assembler-v1.md`  
 **Companion decision:** `Docs/Design/DECISION-agent-context-compilation.md`  
-**Design branch:** `agent/context-assembler-v1-design`  
-**Design base:** `6b7706eec400129dbe01288630c443ae2d8a1e67`  
+**Design base:** `619aa2b0c4be67e1d3931ff50899d126d2dafa13`  
 **Workstream:** `AGENT-INTERACTION / A5`  
 **Flow / owner:** `AGENT-INTERACTION`  
 **Predecessor:** A4 — Graph Agent Policy Boundary v1  
@@ -35,37 +41,16 @@ pr_body_template: |
 
 ---
 
-# 0. Why this handoff was revised before dispatch
+# 0. Re-anchor and release decision
 
-The original A5 design correctly identified that DungeonBuddy needs one product-owned context-composition boundary, but it was too easy to read the existing graph-oriented inputs as the future definition of Agent context.
-
-That is now explicitly rejected.
-
-The accepted design direction is captured in:
+At release re-anchor:
 
 ```text
-Docs/Design/DECISION-agent-context-compilation.md
+main = 619aa2b0c4be67e1d3931ff50899d126d2dafa13
+open PRs = none
 ```
 
-Core invariant:
-
-> **Rich typed state in; sparse relevant semantics out.**
-
-A5 is still the right architectural slice, but it must establish a seam that future SurfaceContext and InteractionContext can enter without making today's graph context the universal model.
-
-A5 is therefore held from implementation until the steward explicitly releases it after the current SurfaceContext/relevance discussion.
-
----
-
-# 1. Re-anchor
-
-Current design base:
-
-```text
-main = 6b7706eec400129dbe01288630c443ae2d8a1e67
-```
-
-A0–A4 remain complete:
+The Agent Interaction sequence is:
 
 ```text
 A0  Agent Turn Trace v1                 MERGED #654
@@ -73,169 +58,46 @@ A1  Advanced Trace Inspector            MERGED #656
 A2  AgentRuntime Boundary               MERGED #659
 A3  PydanticAI Adapter Experiment       MERGED #663
 A4  Graph Agent Policy Boundary         MERGED #664
-A5  ContextAssembler v1                 DESIGN HOLD / THIS SLICE
+A5  ContextAssembler v1                 THIS SLICE
 ```
 
-A4 established neutral DungeonBuddy ownership for shared graph-Agent behavior/model policy.
-
-A5 moves the next product responsibility behind neutral ownership:
+A5 was intentionally held while the steward clarified what future Agent context means. That discussion is now captured in:
 
 ```text
-What bounded context does this turn receive?
+Docs/Design/DECISION-agent-context-compilation.md
 ```
 
-Current `main` has advanced through later CUTOVER work after A4. Before dispatch, recheck current `main`, active PRs, and write leases. Do not reuse the design-base active-lane assumptions as dispatch truth.
+The hold is released.
+
+Core directional law:
+
+> **Rich typed product state in; sparse relevant semantics out.**
+
+A5 does not implement that full compiler yet. It creates the neutral product seam on top of the exact context composition already running in production so later SurfaceContext and relevance-budget work can enter through one owned boundary instead of accumulating prompt glue.
+
+Dispatch must still recheck current `main` and active write leases. If `main` moved, branch from current `main`; do not reset to this design base.
 
 ---
 
-# 2. Frozen conceptual architecture
+# 1. What exists today
 
-A5 must align with this future composition model:
+Current production graph-Agent composition still lives in:
 
 ```text
-USER MESSAGE
-   ↓
-QueryContext
-
-SURFACE PUBLICATION
-   ↓ owning domain resolution
-ResolvedSurfaceContext?
-
-DUNGEONMIND
-   ↓ scoped retrieval / exact revision
-WorldContext
-
-THREAD / FUTURE MEMORY
-   ↓
-InteractionContext
-
-        └───────┬────────┘
-                ↓
-         ContextAssembler
-                ↓
-      sparse semantic turn context
-                ↓
-           AgentRuntime
+apps/live_control_server/services/hermes_graph_query.py
+  build_hermes_graph_turn_request(...)
 ```
 
-A5 does **not** need to implement all four inputs.
-
-It must simply avoid freezing a contract that makes them impossible or unnatural later.
-
-The current production path provides only part of this future picture:
+It currently performs:
 
 ```text
-current user question
-resolved World graph envelope
-GraphRetrievalSession
-latest-recap typed context when applicable
-bounded conversation history
-runtime continuity handle
-```
-
-A5 extracts that existing composition behind neutral ownership.
-
----
-
-# 3. User query is not SurfaceContext
-
-The current user message remains its own primary input.
-
-Example:
-
-```text
-What does Lysandra know about the swarm?
-```
-
-The explicit `Lysandra` reference is a first-class retrieval signal regardless of ambient Surface focus.
-
-Future SurfaceContext may tell us that the user is currently running North Gate, inspecting an NPC, or editing a Plan document. Those facts improve interpretation/ranking; they do not gate explicit query retrieval.
-
-A5 does not implement a new query/entity resolver, but its ownership/naming must not imply:
-
-```text
-Agent context = whatever the active Surface published
-```
-
-or:
-
-```text
-Agent context = World scope + retrieval session + history
-```
-
-Both are incomplete.
-
----
-
-# 4. Surface publication is not model-facing context
-
-Future SurfaceContext will be pointer/identity oriented.
-
-Internal examples:
-
-```text
-run_ref
-work_object_ref
-work_revision_id
-current_beat_ref
-current_scene_ref
-inspection_ref
-WorkSelectionAnchor
-```
-
-Those values are for deterministic product/domain resolution.
-
-They are not automatically useful LLM text.
-
-The future assembler should be able to resolve them into semantic material such as:
-
-```text
-CURRENT PLAY
-The GM is currently running North Gate during the defense of Mireward.
-The gate is damaged and defenders are trying to stabilize the breach.
-```
-
-A5 does not add that Surface path yet.
-
-It must not add a generic `surface_context: dict[str, Any]` placeholder merely to claim extensibility.
-
-The exact SurfaceContext contract belongs to a successor proving slice.
-
----
-
-# 5. ContextAssembler responsibility
-
-DungeonBuddy Agent Interaction owns:
-
-> **Which bounded context intentionally belongs in this Agent turn?**
-
-The long-term role is a deterministic relevance compiler, not a UI-state serializer.
-
-The current A5 implementation is narrower:
-
-> **Put the context composition already happening in the accepted graph-Agent path behind one harness-neutral product boundary, with truthful structural telemetry and no behavior drift.**
-
-The assembler must remain harness-neutral.
-
-It must not import Hermes/PydanticAI execution implementations or provider APIs.
-
-The harness/runtime adapter owns how accepted model-facing components are encoded for its model API.
-
-The shared system policy remains DungeonBuddy product policy; A5 does not create a second provider-specific prompt owner.
-
----
-
-# 6. Current behavior A5 may extract
-
-Today the accepted graph-Agent product path performs these responsibilities inside Hermes-named orchestration:
-
-```text
-resolved World scope validation
-server-selected graph root
+resolved World revision validation
+world/campaign/focus/admissibility resolution
+server-selected graph root resolution
 bounded conversation-history copy
-GraphRetrievalSession creation/reuse
+GraphRetrievalSession create/reuse
 latest-recap comparison attachment
-existing admitted recap excerpt read for typed memory-lag workflow
+admitted recap excerpt read for the existing typed memory-lag workflow
 retrieval-session projection
 AgentWorldScope construction
 AgentContextPacket construction
@@ -243,19 +105,122 @@ AgentRuntimeInvocation construction
 runtime continuity forwarding
 ```
 
-A5 may move those responsibilities behind:
+The existing `run_hermes_graph_query(...)` path already has an A0 phase named:
 
 ```text
-apps/live_control_server/services/agent_context_assembler.py
+context_assembly
 ```
 
-without changing their semantics.
+but the implementation responsibility and the trace vocabulary do not yet correspond to one first-class DungeonBuddy-owned context boundary.
 
-A5 does not add new context sources.
+A5 makes those line up.
 
 ---
 
-# 7. Minimal v1 module
+# 2. Frozen conceptual architecture
+
+A5 must fit the longer-term architecture without pretending to implement it:
+
+```text
+USER MESSAGE
+   ↓
+QueryContext
+
+SURFACE PUBLICATION
+   ↓ owning-domain resolution
+ResolvedSurfaceContext?
+
+DUNGEONMIND
+   ↓ scoped retrieval / exact World revision
+WorldContext
+
+THREAD / FUTURE INTERACTION MEMORY
+   ↓
+InteractionContext
+
+        └────────┬────────┘
+                 ↓
+          ContextAssembler
+                 ↓
+       sparse semantic turn context
+                 ↓
+            AgentRuntime
+```
+
+Important distinctions:
+
+- the **user message** states what the user explicitly asks about;
+- **SurfaceContext** says where the user is working and what product state is current/focused/selected;
+- **WorldContext** comes from DungeonMind authority;
+- **InteractionContext** supplies conversational/attention continuity, never World truth.
+
+A5 only extracts the subset that exists today.
+
+Do not add placeholder generic dictionaries merely to imitate the future contract.
+
+---
+
+# 3. User-message invariant
+
+The current question remains a first-class retrieval input.
+
+Example:
+
+```text
+What does Lysandra know about the swarm?
+```
+
+`Lysandra` must remain discoverable through the existing query-driven World retrieval regardless of ambient future Surface focus, subject to the configured DungeonMind scope/admissibility.
+
+A5 must not change the existing behavior:
+
+```text
+question
+  ↓
+create_session_from_preflight(graph_envelope, question=question)
+  ↓
+current scoped graph retrieval
+```
+
+No new entity extractor is required.
+No new ranking policy is introduced.
+No Surface state may gate explicit query retrieval.
+
+---
+
+# 4. Surface-context law A5 must preserve
+
+Future Surface publication will be pointer/identity heavy:
+
+```text
+run_ref
+work_object_ref
+work_revision_id
+current Beat / Scene refs
+inspection ref?
+WorkSelectionAnchor?
+contextual / At-a-Glance refs
+```
+
+Those identities exist for deterministic resolution, authority, stale-state detection, tracing, and tools.
+
+They are **not automatically model-visible context**.
+
+Future model-facing rendering should prefer semantic consequences such as:
+
+```text
+CURRENT PLAY
+The GM is running North Gate during the defense of Mireward.
+The gate is damaged and defenders are trying to stabilize the breach.
+```
+
+Absent optional context should consume zero model tokens.
+
+A5 does not implement Surface publication or semantic rendering. It must simply avoid making today's graph-oriented packet the permanent definition of Agent context.
+
+---
+
+# 5. Mission
 
 Create:
 
@@ -263,15 +228,29 @@ Create:
 apps/live_control_server/services/agent_context_assembler.py
 ```
 
+and move the existing graph-Agent invocation composition behind it.
+
+At merge, a reviewer must be able to say:
+
+> **DungeonBuddy has one harness-neutral product-owned boundary for the context composition already used by graph-Agent turns. The existing Hermes production journey receives behaviorally identical runtime input. A0/A1 can describe the composition structurally without storing its prose. The boundary explicitly remains open to future QueryContext, ResolvedSurfaceContext, WorldContext, and InteractionContext work.**
+
+---
+
+# 6. Neutral v1 contract
+
 Directional minimum:
 
 ```python
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
 CONTEXT_SUMMARY_SCHEMA = "dmb_agent_context_summary_v1"
 
 
 class AgentContextAssemblyError(ValueError):
-    code: str
-    status_code: int
+    def __init__(self, message: str, *, code: str, status_code: int = 422): ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -295,17 +274,19 @@ def assemble_agent_graph_context(
     ...
 ```
 
-Small naming variations are acceptable.
+Small naming variations are acceptable if ownership remains obvious.
 
-Do not introduce in A5:
+The assembler must import DungeonBuddy product/runtime contracts and existing retrieval/source helpers, not harness execution implementations.
+
+Do not introduce:
 
 ```text
+ContextAssembler registry
+component plugin framework
 universal SurfaceContext schema
-AgentContext component registry
 arbitrary JSON context bag
 context persistence repository
-vector database
-embedding model
+embedding/vector retrieval
 new query/entity resolver
 prompt renderer
 runtime selector
@@ -313,100 +294,182 @@ runtime selector
 
 ---
 
-# 8. Existing semantic parity
+# 7. Exact behavior to preserve
+
+## 7.1 World scope
 
 Preserve exactly:
 
-## 8.1 World scope
-
 ```text
-world_id
-campaign_id
-focus
-admissibility
-revision_id
-server-selected graph root
+revision_id required and non-empty
+world_id required and non-empty
+campaign_id required and non-empty
+focus normalized through current product semantics
+admissibility defaults as today
+server-selected graph root remains authoritative
 ```
 
-No independent DungeonMind refresh path is added inside the assembler.
+Produce the same `AgentWorldScope` values.
 
-No campaign/admissibility broadening.
+No independent DungeonMind refresh occurs inside the assembler.
+No scope/admissibility broadening.
+No current-head inference from files.
 
-## 8.2 Conversation history
+## 7.2 Conversation history
 
-A5 receives the existing already-normalized role/content history.
+The assembler receives the existing already-normalized visible history.
 
-It remains interaction continuity, not factual World authority.
+Preserve only:
 
-Do not move/rename public compatibility normalization merely for aesthetic neutrality.
+```text
+role
+content
+```
 
-## 8.3 GraphRetrievalSession
+and existing copy semantics.
+
+History remains interaction continuity, never factual World authority.
+
+Keep `normalize_hermes_conversation_history(...)` where it is for A5; neutralizing request-validation names is not this capability.
+
+## 7.3 GraphRetrievalSession
 
 Preserve:
 
 ```text
-reuse caller-supplied session when present
-otherwise create from accepted preflight using current question
+caller-supplied session → reuse
+no supplied session → create_session_from_preflight(graph_envelope, question=question)
 ```
 
-Do not reconstruct or duplicate the retrieval packet.
+Preserve session ID and current packet semantics.
 
-Existing `project_for_hermes()` naming remains compatibility debt if changing it would require graph-memory edits.
+The existing shared projection method:
 
-## 8.4 Latest-recap typed context
+```text
+session.project_for_hermes()
+```
 
-Preserve the exact current memory-lag behavior and admitted recap excerpt path.
+may remain. Its name is compatibility debt, not permission to edit `src/graph_memory/**` in A5.
 
-Do not generalize it into arbitrary corpus fallback.
+## 7.4 Latest-recap typed context
 
-## 8.5 Capability/run options
+Preserve the exact existing S1 memory-lag path:
+
+```text
+graph envelope latest_recap_change?
+  ↓
+attach to current retrieval session when absent
+  ↓
+memory lag + admitted source path + no excerpt?
+  ↓
+read through existing read_admitted_recap_excerpt(...)
+  ↓
+attach admitted excerpt
+  ↓
+replace_session(...) under current conditions
+```
+
+Do not generalize this into arbitrary source opening or fallback retrieval.
+
+## 7.5 Runtime invocation
 
 Preserve:
 
 ```text
-WORLD_GRAPH_READ_POLICY
 message = current question
-thread_id / turn_id
-runtime continuity id
-execution root
+thread_id
+turn_id
+conversation_history
+AgentContextPacket
+WORLD_GRAPH_READ_POLICY
+run_options.runtime_session_id
+run_options.execution_root
 ```
 
----
-
-# 9. Model-context decision A5 must respect
-
-The implementation may still pass the exact same `AgentRuntimeInvocation` as today.
-
-A5 is a behavior-preserving boundary extraction, not the token-budget optimization slice.
-
-However its design comments/types/docs must preserve these laws for successors:
-
-1. internal IDs/pointers are not automatically model-visible;
-2. absent optional context should not consume model tokens;
-3. Surface state supplies candidate context/retrieval signals, not mandatory prompt payload;
-4. explicit query references outrank ambient Surface relevance;
-5. current-work prose should eventually be query-conditioned and bounded;
-6. graph retrieval should prefer bounded relevant claims/relationships over whole-object dumps;
-7. tools remain the escape hatch for deeper information rather than preloading everything;
-8. model context is budgeted for smallest sufficient context.
-
-Do not implement speculative rendering to satisfy these laws in A5.
+The public `AgentRuntimeInvocation` contract does not change.
 
 ---
 
-# 10. Observability
-
-Observability remains first-class.
-
-A5 should make the existing `context_assembly` phase describe the existing composition structurally without copying prose into baseline traces.
+# 8. Product compatibility wrapper
 
 Keep:
 
-```text
-schema = dmb_agent_context_summary_v1
+```python
+build_hermes_graph_turn_request(...)
 ```
 
-Suggested v1 safe scalars:
+with its current signature and return shape:
+
+```text
+(AgentRuntimeInvocation, _DispatchedScope)
+```
+
+It becomes a compatibility wrapper over the neutral assembler.
+
+Recommended internal pattern:
+
+```python
+def _assemble_graph_turn(...):
+    try:
+        assembly = assemble_agent_graph_context(...)
+    except AgentContextAssemblyError as exc:
+        raise HermesGraphQueryRequestError(
+            str(exc),
+            code=exc.code,
+            status_code=exc.status_code,
+        ) from exc
+
+    scope = _DispatchedScope(...from assembly.invocation.context_packet.world_scope...)
+    return assembly, scope
+
+
+def build_hermes_graph_turn_request(...):
+    assembly, scope = _assemble_graph_turn(...)
+    return assembly.invocation, scope
+```
+
+`run_hermes_graph_query(...)` may use the richer internal assembly result so it can attach context telemetry to the trace.
+
+Do not rename the production backend/route or alter grounding/citation authority.
+
+---
+
+# 9. Error compatibility
+
+Use one neutral internal error type such as:
+
+```text
+AgentContextAssemblyError
+```
+
+with code/status metadata sufficient to preserve current product behavior.
+
+Required current cases remain equivalent:
+
+```text
+blank/missing revision_id → world_graph_context_invalid
+blank/missing world_id    → world_graph_context_invalid
+blank/missing campaign_id → world_graph_context_invalid
+invalid server root       → world_graph_context_invalid
+```
+
+`hermes_graph_query.py` translates neutral validation failures back to `HermesGraphQueryRequestError` before they leave the product service.
+
+No new route-level error schema.
+
+---
+
+# 10. Context telemetry contract
+
+A5 turns the existing `context_assembly` phase into useful trace truth.
+
+Every successful assembly emits exactly one safe summary:
+
+```text
+context_schema = dmb_agent_context_summary_v1
+```
+
+Required v1 scalar vocabulary:
 
 ```text
 context_schema
@@ -425,104 +488,118 @@ admitted_recap_excerpt_char_count
 runtime_continuity_present
 ```
 
-No model-facing/raw content belongs in this baseline summary.
+Definitions:
 
-Do not include:
+`history_message_count`
+: normalized prior messages passed to the runtime, excluding the current user turn.
+
+`history_char_count`
+: total character count of normalized prior-message `content`.
+
+`retrieval_candidate_count`
+: number of projected retrieval packet `candidates`, else 0.
+
+`retrieval_claim_count`
+: number of projected `claim_ledger` entries, else 0.
+
+`latest_recap_change_present`
+: whether the assembled retrieval session carries existing latest-recap comparison context.
+
+`admitted_recap_excerpt_char_count`
+: character count of the already-admitted recap excerpt, else 0.
+
+`runtime_continuity_present`
+: whether an already-resolved runtime continuity session ID is forwarded.
+
+Do not add model prose to the summary.
+
+Forbidden baseline trace content includes:
 
 ```text
 current question text
-conversation history prose
-recap excerpt prose
+conversation-history prose
+system prompt
+current/source recap prose
 candidate summaries
 claim prose
-system prompt
 source bodies
+raw graph packet
 tool args/results
 ```
 
-Provider-reported input-token usage remains authoritative after the call.
-
-A later context-compiler slice may add pre-call component budget estimates/inclusion reasons once actual SurfaceContext exists.
+Provider-reported model input usage remains authoritative after calls. A5 does not claim exact pre-call token accounting.
 
 ---
 
-# 11. Trace span
+# 11. `context_assembly` span
 
-The existing A0 span:
+Mirror the same safe scalar summary onto the existing A0 span named:
 
 ```text
 context_assembly
 ```
 
-should carry the same safe scalar summary after assembly.
-
-If needed, add only this small compatible builder capability:
+The summary is only fully known after assembly finishes. Therefore A5 may make this one additive trace-builder change:
 
 ```python
-complete_phase(
-    span_id,
+def complete_phase(
+    self,
+    span_id: str,
     *,
-    status="ok",
+    status: SpanStatus = "ok",
     attributes: Mapping[str, Any] | None = None,
-)
+) -> None:
+    ...
 ```
 
-Completion attributes merge with start attributes; completion values win duplicate keys.
-
-Do not expose mutable trace internals.
-
----
-
-# 12. Product compatibility
-
-`hermes_graph_query.py` remains the accepted production product-query service in A5.
-
-Keep:
-
-```python
-build_hermes_graph_turn_request(...)
-```
-
-callable with its current signature and tuple return shape.
-
-It becomes a compatibility wrapper over the neutral assembler.
-
-`run_hermes_graph_query(...)` may consume the richer `AgentContextAssembly` internally for telemetry.
-
-Do not rename production route/backend identity in A5.
-
----
-
-# 13. Error compatibility
-
-Neutral assembler validation errors may use:
+Rules:
 
 ```text
-AgentContextAssemblyError
+start attributes survive
+completion attributes merge
+completion value wins on duplicate key
+existing complete_phase callers remain valid
+phase(...) behavior remains valid
+no mutable public span object is exposed
 ```
 
-The product boundary translates them back into the existing graph-query error behavior.
-
-Preserve current codes/status semantics for invalid World context.
-
-No new public route error schema.
+The graph-query path should use exception-safe start/complete behavior so failed assembly still records a failed phase without a fabricated successful summary.
 
 ---
 
-# 14. Exact write lease — frozen only after release
+# 12. Model-context laws preserved but not implemented
 
-**Do not dispatch from this section until the DESIGN HOLD is explicitly removed and current active leases are rechecked.**
+A5 is deliberately behavior-preserving. It must not attempt to optimize the prompt yet.
 
-Expected A5 implementation paths remain:
+Its code/comments/docs must remain consistent with these successor laws from `DECISION-agent-context-compilation.md`:
 
-Create:
+```text
+internal IDs/pointers are not automatically model-visible
+absent optional context consumes zero model tokens
+explicit user-query references are first-class retrieval signals
+Surface context is candidate context/relevance, not access control
+current work material should eventually be query-conditioned and bounded
+graph context should eventually prefer relevant claims/relationships over whole dumps
+tools are the expansion escape hatch rather than preload pressure
+smallest sufficient context is the target
+```
+
+Do not add speculative prompt sections, ranking scores, weighting constants, truncation policy, or token budgets in A5.
+
+---
+
+# 13. Exact write lease
+
+Release recheck found no open PRs. The following is the A5 implementation lease.
+
+## Create
 
 ```text
 apps/live_control_server/services/agent_context_assembler.py
 tests/test_agent_context_assembler.py
 ```
 
-Modify:
+## Modify
 
 ```text
 apps/live_control_server/services/hermes_graph_query.py
@@ -533,96 +610,358 @@ Docs/Plans/HANDOFF-AGENT-INTERACTION-graph-agent-policy-boundary-v1.md
 Docs/Plans/HANDOFF-AGENT-INTERACTION-context-assembler-v1.md
 ```
 
-Read-only unless the final re-anchor explicitly changes the lease:
+The A4 handoff edit is backward-looking state sync only:
 
 ```text
+A4 status = COMPLETE / MERGED
+PR = #664
+accepted head = 497dcfb6c21507ee1d0e26d009add0ce044c0ec6
+merge = cbdc342ef79c8e3db5d45fbb52468c0c258a4d47
+formal review cycles = 1
+A5 = active successor
+PydanticAI production selection = false
+```
+
+## Read-only / verification-only
+
+```text
+Docs/Design/DECISION-agent-context-compilation.md
+Docs/Design/ARCHITECTURE-surface-interaction-layer.md
 apps/live_control_server/services/agent_runtime.py
 apps/live_control_server/services/hermes_agent_runtime.py
 apps/live_control_server/services/pydantic_ai_agent_runtime.py
 apps/live_control_server/services/agent_graph_policy.py
+apps/live_control_server/services/hermes_graph_agent.py
+apps/live_control_server/services/hermes_graph_interaction_tools.py
 apps/live_control_server/services/live_agent_loop.py
 src/graph_memory/**
 apps/live-control-ui/**
 pyproject.toml
 uv.lock
+MODEL_POLICY.json
 ```
 
-No implementation agent may infer that this historical expected set is still collision-free. Recheck at dispatch.
+No production-file discovery exception exists.
+
+One additional **existing backend test file only** may be added if a compatibility assertion directly broken by the extraction cannot remain green without changing that test. Record the path, assertion, and reason in the CODE handback before editing it.
 
 ---
 
-# 15. Required proofs after release
+# 14. Required deterministic proofs
 
-At minimum:
+## 14.1 World scope parity
+
+Given the same resolved graph envelope, old compatibility caller behavior and neutral assembler must agree on:
 
 ```text
-World scope parity
-AgentRuntime invocation parity
-retrieval-session create/reuse parity
-latest-recap typed-context parity
-conversation-history parity
-runtime continuity parity
-compatibility wrapper parity
-neutral error translation
-safe trace summary exact vocabulary
-no raw prose in baseline trace
-context_assembly span attributes
-A0 builder compatibility
-product grounding/citation regressions
-Hermes adapter regressions
-PydanticAI experiment regressions
+world_id
+campaign_id
+focus
+admissibility
+revision_id
+execution_root
 ```
 
-No live OpenAI call is required for A5.
+## 14.2 Runtime invocation parity
+
+Prove exact preservation of:
+
+```text
+message
+thread_id
+turn_id
+conversation_history
+context_packet.world_scope
+context_packet.retrieval_session
+WORLD_GRAPH_READ_POLICY
+run_options.runtime_session_id
+run_options.execution_root
+```
+
+No Hermes/PydanticAI type appears in the neutral assembler contract.
+
+## 14.3 Retrieval-session creation
+
+Without a supplied session:
+
+```text
+create_session_from_preflight(...) is used
+question is passed unchanged
+projected packet is attached to AgentContextPacket
+session ID is preserved
+```
+
+## 14.4 Retrieval-session reuse
+
+With a supplied session:
+
+```text
+no second session is created
+same session ID is retained
+same projection semantics survive
+```
+
+## 14.5 Latest-recap parity
+
+Cover:
+
+```text
+no latest_recap_change
+latest_recap_change already present on session
+latest_recap_change copied from envelope
+memory lag + admitted source path + no excerpt → existing reader used
+existing admitted excerpt → no duplicate read
+```
+
+## 14.6 Conversation continuity
+
+Prove normalized prior role/content history is copied exactly and the current user question is not added to the history tail.
+
+## 14.7 Runtime continuity
+
+Prove supplied resolved continuity ID reaches `AgentRunOptions.runtime_session_id`; absence remains `None`.
+
+## 14.8 Safe telemetry vocabulary
+
+Use distinctive secret strings in:
+
+```text
+question
+history content
+admitted recap excerpt
+candidate/claim prose where fixture permits
+```
+
+Assert none appear in:
+
+```text
+assembly.trace_summary
+serialized baseline A0 trace
+context_assembly span attributes
+```
+
+Assert the exact §10 key set and correct counts.
+
+## 14.9 Trace completion attributes
+
+Characterize:
+
+```text
+start attributes survive
+completion attributes are added
+completion wins duplicate keys
+status/duration remain correct
+existing callers without attributes remain unchanged
+```
+
+## 14.10 Product path
+
+Through `run_hermes_graph_query(...)` with a fake runtime:
+
+```text
+one context_assembly span exists
+safe summary is attached
+runtime receives same context as before
+grounding/citation validation remains product-owned
+no raw prose appears in baseline trace
+```
+
+## 14.11 Error translation
+
+Neutral validation failures surface to existing callers with equivalent Hermes graph-query error code/status/message behavior.
 
 ---
 
-# 16. Stop conditions
+# 15. Regression proof
 
-Stop rather than expand A5 if implementation requires:
+Keep green:
+
+```text
+A0 trace aggregation / per-model telemetry
+A2 AgentRuntime invocation contract
+Hermes adapter translation
+PydanticAI A3 experiment adapter
+A4 neutral graph-Agent policy
+Hermes host/tool behavior
+product grounding/citation behavior
+conversation-context answer scope
+runtime continuity pointer behavior
+World-unavailable no-host path
+```
+
+No live OpenAI call is required.
+
+---
+
+# 16. Verification
+
+Run from repository root.
+
+Owning tests:
+
+```bash
+uv run pytest tests/test_agent_context_assembler.py -q
+uv run pytest tests/test_agent_turn_trace.py -q
+uv run pytest tests/test_live_query_hermes_graph.py -q
+```
+
+Boundary regressions:
+
+```bash
+uv run pytest \
+  tests/test_agent_runtime.py \
+  tests/test_hermes_agent_runtime.py \
+  tests/test_pydantic_ai_agent_runtime.py \
+  tests/test_hermes_graph_agent.py \
+  tests/test_hermes_graph_agent_host.py \
+  -q
+```
+
+Static hygiene:
+
+```bash
+uv run ruff check \
+  apps/live_control_server/services/agent_context_assembler.py \
+  apps/live_control_server/services/hermes_graph_query.py \
+  apps/live_control_server/services/agent_turn_trace.py \
+  tests/test_agent_context_assembler.py \
+  tests/test_agent_turn_trace.py \
+  tests/test_live_query_hermes_graph.py
+
+git diff --check
+git diff --name-only <dispatch-base>...HEAD
+```
+
+No lockfile change is expected.
+
+---
+
+# 17. Stop conditions
+
+Stop and report rather than expanding A5 if any becomes necessary:
 
 ```text
 new durable Agent state
 Interaction Memory semantics
-SurfaceContext producer/schema
+SurfaceContext producer or schema
 Play Runtime changes
 WorkSelection plumbing
-new query/entity-resolution behavior
+query/entity-resolution behavior
+new relevance/scoring policy
+new token-budget or prompt-rendering behavior
 new graph retrieval semantics
 GraphRetrievalSession schema changes
-src/graph_memory edits
+src/graph_memory/** edits
 World scope/admissibility broadening
-arbitrary corpus fallback
+arbitrary corpus/source fallback
 system-policy changes
-prompt-rendering changes
-AgentRuntime public-contract change
-adapter-specific changes
-frontend context UI/type redesign
-dependency/lockfile changes
+AgentRuntime public-contract changes
+Hermes/PydanticAI adapter changes to consume the same invocation
+frontend context UI/type changes
+dependency or lockfile changes
+World writes/publication changes
 ```
 
-Any of those is a successor capability or requires redesign.
+Stop report:
+
+```text
+Stop condition:
+Why A5 cannot absorb it:
+Invariant affected:
+Evidence missing:
+Contested path/owner:
+Proposed successor or serialization decision:
+Authority sync needed:
+```
 
 ---
 
-# 17. Success statement
+# 18. CODE → REVIEW handback
 
-A5 is successful when a reviewer can say:
+The implementation handback must include:
 
-> **DungeonBuddy has one harness-neutral product-owned boundary for the graph-Agent context composition that already exists today, and A0/A1 can tell us structurally what that composition contained without leaking prose. The boundary does not pretend today's graph-oriented inputs are the complete future definition of Agent context.**
+1. PR URL / branch / exact head SHA;
+2. exact dispatch-base SHA;
+3. current-main and open-PR/write-lease recheck at dispatch and handback;
+4. mission + merge-ready invariant;
+5. exact changed-path list and diff stat;
+6. nano-commit list;
+7. neutral assembler API and result shape;
+8. proof AgentRuntime public contract is unchanged;
+9. proof user question/retrieval-session behavior is unchanged;
+10. proof World scope/admissibility semantics are unchanged;
+11. proof conversation history and runtime continuity are unchanged;
+12. latest-recap typed-context parity evidence;
+13. exact `dmb_agent_context_summary_v1` key set;
+14. privacy proof that no raw prose enters baseline telemetry;
+15. exact `context_assembly` span attributes;
+16. trace-builder API delta and compatibility evidence;
+17. explicit `project_for_hermes()` naming debt retained;
+18. confirmation no SurfaceContext/query resolver/relevance-budget feature was added;
+19. confirmation no frontend, APP-STATE, graph-memory, dependency, or lockfile path changed;
+20. all §16 command results with exact totals;
+21. baseline failures/waivers (`none` when none);
+22. stop conditions encountered (`none` when none);
+23. A4 backward state-sync diff;
+24. successor claims that remain false.
 
 ---
 
-# 18. Explicitly false after A5
+# 19. Expected nano-commit story
 
-A5 must not claim:
+Exact count is not contractual. A clean story is:
+
+```text
+1. AGENT-INTERACTION: extract neutral context assembler
+2. AGENT-INTERACTION: route graph turn composition through assembler
+3. AGENT-INTERACTION: trace context assembly composition
+4. AGENT-INTERACTION: characterize parity and trace privacy
+5. AGENT-INTERACTION: sync A4 predecessor state
+```
+
+---
+
+# 20. Acceptance rubric
+
+Accept A5 only when all applicable items are true:
+
+- [ ] one neutral `agent_context_assembler.py` owns today's graph-Agent context composition;
+- [ ] neutral assembler imports no harness implementation/provider API;
+- [ ] current `build_hermes_graph_turn_request(...)` signature/tuple behavior survives;
+- [ ] AgentRuntime public contract is unchanged;
+- [ ] user question remains the current retrieval seed;
+- [ ] World scope/revision/admissibility behavior is unchanged;
+- [ ] GraphRetrievalSession creation/reuse is unchanged;
+- [ ] latest-recap admitted excerpt behavior is unchanged;
+- [ ] conversation-history and runtime-continuity behavior is unchanged;
+- [ ] grounding/citation authority is unchanged;
+- [ ] A0 receives exact `dmb_agent_context_summary_v1` safe scalars;
+- [ ] `context_assembly` span carries the same safe scalar summary;
+- [ ] no question/history/recap/source/claim prose enters baseline telemetry;
+- [ ] provider-reported input tokens remain authoritative;
+- [ ] no SurfaceContext schema or generic context bag is introduced;
+- [ ] no query/entity resolver or relevance weights are introduced;
+- [ ] no prompt/token-budget optimization is introduced;
+- [ ] no Interaction Memory/Attention/durable Agent state is introduced;
+- [ ] no frontend/type changes occur;
+- [ ] no `src/graph_memory/**` changes occur;
+- [ ] no dependency/lockfile change occurs;
+- [ ] no runtime-selection or World-write behavior changes;
+- [ ] A4 handoff is backward-synced truthfully.
+
+---
+
+# 21. Explicitly false after A5
+
+After merge, these claims remain false:
 
 ```text
 SurfaceContext implemented
 ResolvedSurfaceContext implemented
 query-entity extraction implemented
 query-conditioned Surface prose implemented
-token-budget relevance compiler complete
+relevance weights frozen
+token-budget compiler complete
 Interaction Memory implemented
 Attention implemented
 WorkSelection Graph Assessment shipped
@@ -632,12 +971,12 @@ World write behavior changed
 
 ---
 
-# 19. Expected successor question
+# 22. Successor design question
 
-Once A5 is released and merged, the next design should ask:
+After A5 merges, re-anchor and ask:
 
-> **Which real Surface should first prove `Surface publication → owning-domain resolution → ResolvedSurfaceContext → ContextAssembler`, and what is the smallest useful semantic context that Surface should contribute under token budget?**
+> **Which real Surface should first prove `Surface publication → owning-domain resolution → ResolvedSurfaceContext → ContextAssembler`, and what is the smallest useful semantic context that Surface should contribute under budget?**
 
-Likely candidates are Plan or Play depending on current repository truth and active leases.
+The first proving surface should be chosen from current repository truth, not preselected here.
 
-Do not choose from this document without re-anchoring.
+The likely next capability is a **SurfaceContext Contract v1** characterized end-to-end by one real surface, but that is not part of A5.
