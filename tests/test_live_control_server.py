@@ -868,58 +868,6 @@ _GRAPH_NESTED = {
 }
 
 
-def _pr008b_init_world(tmp_path: Path) -> None:
-    import graph_memory.kernel as kernel
-    from graph_memory.contribution_bundles import load_contribution_bundle
-    from graph_memory.kernel.world_initialization import initialize_world_from_contributions
-    from graph_memory.kernel.world_initialization_models import (
-        PLAN_SCHEMA,
-        WorldInitializationApprovalAttestation,
-        WorldInitializationContribution,
-        WorldInitializationPlan,
-    )
-
-    bundle_path = Path(
-        "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1"
-    )
-    bundle = load_contribution_bundle(bundle_path)
-    by_id = {item.contribution_id: item for item in bundle.contributions}
-    ordered = [
-        "contribution:82f23934d8eaca8a",
-        "contribution:43782369bd717d32",
-        "contribution:33d7cdb0ff623f28",
-        "contribution:c086a0b72324ff16",
-        "contribution:1227841724520c18",
-        "contribution:022187fdefdf4557",
-    ]
-    plan = WorldInitializationPlan(
-        schema=PLAN_SCHEMA,
-        world_id="eldyrwild",
-        campaign_id="longmont-c2",
-        focus_session_id="session-23",
-        ordered_contributions=[
-            WorldInitializationContribution(
-                contribution_id=contribution_id,
-                payload_sha256=kernel.compute_contribution_payload_sha256(
-                    by_id[contribution_id]
-                ),
-            )
-            for contribution_id in ordered
-        ],
-        approval_attestation=WorldInitializationApprovalAttestation(
-            bundle_id="eldyrwild-longmont-c2-initial-v1",
-            bundle_digest=(
-                "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5"
-            ),
-            approved_bundle_merge_sha="65ae001e0852d827ecd680200a965a576c705b1d",
-        ),
-    )
-    initialize_world_from_contributions(
-        tmp_path,
-        plan=plan,
-        contributions=list(bundle.contributions),
-        actor="gm",
-    )
 
 
 def test_live_query_world_graph_preflight_once_before_backend(
@@ -1895,6 +1843,35 @@ def test_live_backend_allows_null_or_empty_history(
 
 # --- CUTOVER R.3: live-agent query context on the direct read path ----------
 
+def _guard_retired_graph_imports(monkeypatch) -> None:
+    """Fail closed if product code imports deleted Buddy graph packages."""
+    import builtins
+
+    real_import = builtins.__import__
+    forbidden = (
+        "graph_memory.kernel",
+        "graph_memory.world_supergraph",
+        "graph_memory.union_supergraph",
+        "apps.live_control_server.integrations.buddy_files",
+        "apps.live_control_server.integrations.dungeonmind_kernel",
+    )
+
+    def _guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        full = name
+        if any(full == p or full.startswith(p + ".") for p in forbidden):
+            raise AssertionError(f"legacy graph package must stay absent: import {full}")
+        if name == "graph_memory" and fromlist:
+            for item in fromlist:
+                candidate = f"graph_memory.{item}"
+                if any(candidate == p or candidate.startswith(p + ".") for p in forbidden):
+                    raise AssertionError(
+                        f"legacy graph package must stay absent: import {candidate}"
+                    )
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", _guarded_import)
+
+
 
 def test_live_agent_query_context_executes_via_direct_dungeonmind_read(
     tmp_path, monkeypatch
@@ -1903,36 +1880,28 @@ def test_live_agent_query_context_executes_via_direct_dungeonmind_read(
 
     ``resolve_agent_world_graph_query_context`` projects through the projection
     service with the production root; in ``dungeonmind`` authority mode that
-    executes natively in DungeonMind. Kernel/hydration explosion stubs prove
-    the legacy graph read machinery never runs.
+    executes natively in DungeonMind. An import guard proves retired Buddy graph
+    packages stay unimportable on this path.
     """
-    import graph_memory.kernel as kernel
-
+    import apps.live_control_server.config as live_config
     from apps.live_control_server.integrations.dungeonmind import (
         world_graph_reads as direct,
-    )
-    from apps.live_control_server.integrations.dungeonmind_kernel import (
-        world_graph_authority,
     )
     from apps.live_control_server.services.agent_world_graph_query_context import (
         AgentWorldGraphQueryContextRequest,
         resolve_agent_world_graph_query_context,
     )
-    from graph_memory.world_supergraph import storage
-    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
+    from tests._cutover_direct_dungeonmind_read_helpers import (
         CAMPAIGN_ONE,
         NOW,
+        WORLD_ID as DIRECT_WORLD_ID,
         _FakeBundle,
         _payload,
         _receipt,
         _seed_sources,
     )
-    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
-        WORLD_ID as DIRECT_WORLD_ID,
-    )
-
-    from dungeonmind.contracts.graph import PublishRevisionCommand
-    from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
 
     world_graph = InMemoryWorldGraphRepository()
     published = world_graph.publish_revision(
@@ -1954,24 +1923,16 @@ def test_live_agent_query_context_executes_via_direct_dungeonmind_read(
     services = direct.direct_services_from_bundle(bundle, DIRECT_WORLD_ID)
 
     monkeypatch.setenv(
-        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+        live_config.WORLD_GRAPH_AUTHORITY_ENV, live_config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
     )
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
     )
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
-    storage.clear_world_graph_cache_roots()
     monkeypatch.setattr(
         direct, "direct_services_from_config", lambda world_id: services
     )
-
-    def _explode(*_args, **_kwargs):
-        raise AssertionError("legacy kernel must not run on the direct read path")
-
-    monkeypatch.setattr(kernel, "project_world_graph_from_context", _explode)
-    monkeypatch.setattr(kernel, "resolve_projection_read_context", _explode)
-    monkeypatch.setattr(world_graph_authority, "route_read_request", _explode)
-    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
+    _guard_retired_graph_imports(monkeypatch)
 
     envelope = resolve_agent_world_graph_query_context(
         AgentWorldGraphQueryContextRequest(

@@ -177,3 +177,23 @@ DungeonMind product workflows       GREEN (author-local floor)
 legacy graph filesystem             still ABSENT
 Buddy authority resurrection        IMPOSSIBLE via deleted packages
 ```
+
+
+## Review Cycle 1 → Cycle 2 correction
+
+Formal review `#5059941423` (REQUEST-CHANGES-equivalent) at `95022d43…` blocked on the
+absence-proof `#666` allowlist for `tests/test_live_control_server.py` and
+`tests/test_live_query_hermes_graph.py`. Those were real retired imports, not strings.
+
+Correction at Cycle 2 head:
+- DELETE unused `_pr008b_init_world` Kernel/contribution-bundle initializer
+- REWRITE live-agent + Hermes R.3 direct-read boundary tests onto rehomed
+  `tests/_cutover_direct_dungeonmind_read_helpers.py` + import guard (no Kernel /
+  world_supergraph / dungeonmind_kernel imports)
+- Remove the `parallel_lease` exemption from
+  `tests/test_cutover_d3b_legacy_graph_engine_absence.py`
+- Serialize note: #666 remains OPEN and also touches these test files; D.3B took
+  ownership of the retired-import cleanup required for absence proof truthfulness.
+  #666 may need rebase afterward.
+
+Author-local Cycle 2 verification: absence proof (no lease exemption) + owning floor + Hermes/live-agent R.3 boundary → `107 passed`, `0` required PG skips.

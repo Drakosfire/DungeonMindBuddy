@@ -2389,6 +2389,35 @@ def test_expired_binding_recovers_without_cross_thread_reuse(tmp_path: Path) -> 
 
 # --- CUTOVER R.3: Hermes graph tools execute on the direct read path --------
 
+def _guard_retired_graph_imports(monkeypatch) -> None:
+    """Fail closed if product code imports deleted Buddy graph packages."""
+    import builtins
+
+    real_import = builtins.__import__
+    forbidden = (
+        "graph_memory.kernel",
+        "graph_memory.world_supergraph",
+        "graph_memory.union_supergraph",
+        "apps.live_control_server.integrations.buddy_files",
+        "apps.live_control_server.integrations.dungeonmind_kernel",
+    )
+
+    def _guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        full = name
+        if any(full == p or full.startswith(p + ".") for p in forbidden):
+            raise AssertionError(f"legacy graph package must stay absent: import {full}")
+        if name == "graph_memory" and fromlist:
+            for item in fromlist:
+                candidate = f"graph_memory.{item}"
+                if any(candidate == p or candidate.startswith(p + ".") for p in forbidden):
+                    raise AssertionError(
+                        f"legacy graph package must stay absent: import {candidate}"
+                    )
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", _guarded_import)
+
+
 
 def test_hermes_expansion_tool_executes_via_direct_dungeonmind_read(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -2397,11 +2426,10 @@ def test_hermes_expansion_tool_executes_via_direct_dungeonmind_read(
 
     The interaction executor calls the retrieval *service* with the production
     root; in ``dungeonmind`` authority mode that dispatch executes natively in
-    DungeonMind. Kernel/hydration explosion stubs prove the legacy graph read
-    machinery never runs.
+    DungeonMind. An import guard proves retired Buddy graph packages stay
+    unimportable on this path.
     """
-    import graph_memory.kernel as kernel
-
+    import apps.live_control_server.config as live_config
     from apps.live_control_server.integrations.dungeonmind import (
         world_graph_reads as direct,
     )
@@ -2409,21 +2437,17 @@ def test_hermes_expansion_tool_executes_via_direct_dungeonmind_read(
         execute_expand_graph_retrieval,
     )
     from graph_memory.interaction.initial_resolve import create_session_from_preflight
-    from graph_memory.world_supergraph import storage
-    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
+    from tests._cutover_direct_dungeonmind_read_helpers import (
         CAMPAIGN_ONE,
         NOW,
+        WORLD_ID as DIRECT_WORLD_ID,
         _FakeBundle,
         _payload,
         _receipt,
         _seed_sources,
     )
-    from tests.test_cutover_direct_dungeonmind_world_graph_reads import (
-        WORLD_ID as DIRECT_WORLD_ID,
-    )
-
-    from dungeonmind.contracts.graph import PublishRevisionCommand
-    from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
 
     world_graph = InMemoryWorldGraphRepository()
     published = world_graph.publish_revision(
@@ -2445,29 +2469,16 @@ def test_hermes_expansion_tool_executes_via_direct_dungeonmind_read(
     services = direct.direct_services_from_bundle(bundle, DIRECT_WORLD_ID)
 
     monkeypatch.setenv(
-        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+        live_config.WORLD_GRAPH_AUTHORITY_ENV, live_config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
     )
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://unused"
     )
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
-    storage.clear_world_graph_cache_roots()
     monkeypatch.setattr(
         direct, "direct_services_from_config", lambda world_id: services
     )
-
-    def _explode(*_args, **_kwargs):
-        raise AssertionError("legacy kernel must not run on the direct read path")
-
-    monkeypatch.setattr(kernel, "search_campaign_graph", _explode)
-    monkeypatch.setattr(kernel, "get_campaign_object", _explode)
-    monkeypatch.setattr(kernel, "get_object_neighborhood", _explode)
-    monkeypatch.setattr(kernel, "get_object_evidence", _explode)
-    from apps.live_control_server.integrations.dungeonmind_kernel import (
-        world_graph_authority,
-    )
-
-    monkeypatch.setattr(world_graph_authority, "route_service_read", _explode)
+    _guard_retired_graph_imports(monkeypatch)
 
     session = create_session_from_preflight(
         {
@@ -2497,6 +2508,7 @@ def test_hermes_expansion_tool_executes_via_direct_dungeonmind_read(
     assert result["schema"] == "dmb_world_graph_retrieval_result_v1"
     labels = [node["label"] for node in result["nodes"]]
     assert "The Prancing Tavern" in labels
+
 
 
 PRIVACY_SENTINEL = "TRACE-PRIVACY-SENTINEL-QUESTION-BODY-9f3c"

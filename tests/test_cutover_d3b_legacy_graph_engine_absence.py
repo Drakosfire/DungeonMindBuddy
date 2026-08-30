@@ -91,19 +91,11 @@ def test_executable_sources_have_no_retired_imports() -> None:
                             hits.append(
                                 f"{rel}:{node.lineno}: import_module({node.args[0].value!r})"
                             )
-    # Allow this absence test file and D.3A/D.3B witness blockers to name the
-    # namespaces as forbidden-string constants (not imports).
-    # PR #666 write lease: do not rewrite these files in D.3B. Their remaining
-    # retired imports live inside optional helper/test bodies; collection still
-    # succeeds. Serialize cleanup after #666 merges.
-    parallel_lease = (
-        "tests/test_live_control_server.py:",
-        "tests/test_live_query_hermes_graph.py:",
-    )
+    # Allow this absence test file to name the namespaces as forbidden-string
+    # constants / importlib targets (not product imports).
     filtered = [
         hit
         for hit in hits
         if not hit.startswith("tests/test_cutover_d3b_legacy_graph_engine_absence.py:")
-        and not any(hit.startswith(prefix) for prefix in parallel_lease)
     ]
     assert filtered == [], "retired executable imports remain:\n" + "\n".join(filtered)
