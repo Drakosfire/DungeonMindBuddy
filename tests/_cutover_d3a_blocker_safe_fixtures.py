@@ -1,14 +1,18 @@
 """Blocker-safe D.3A fixture helpers (no graph_memory.kernel/world/union import).
 
+
 Imported only after the legacy import blocker is armed in the owning witness.
 """
 
+
 from __future__ import annotations
+
 
 import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
+
 
 from apps.live_control_server.ports.world_graph_authority import (
     AuthorityEvidenceRef,
@@ -32,9 +36,11 @@ from apps.live_control_server.models.world_graph_mutation_context import (
     mutation_context_with_sealed_identity,
 )
 
+
 CAMPAIGN_ID = "longmont-c2"
 SESSION_ID = "session-22"
 GLASS_ORCHARD_WORLD_ID = "the-glass-orchard"
+WORLD_ID = GLASS_ORCHARD_WORLD_ID
 FIRST_WORLD_PREPARE_URL = "/api/live/extract-promote/worldbuilding/first-world/prepare"
 FIRST_WORLD_CONFIRM_URL = "/api/live/extract-promote/worldbuilding/first-world/confirm"
 PREPARE_URL = "/api/live/graph-authoring/prepare"
@@ -42,6 +48,7 @@ COMMIT_URL = "/api/live/graph-authoring/commit"
 REVIEWED_OBJECT_ID = "d2c4-reviewed-object"
 EXISTING_NODE_ID = "obj_session22_vial"
 REJECTED_NODE_ID = "obj_rejected_extra"
+
 
 TEST_DSN_ENV = "DMB_CUTOVER_TEST_DATABASE_URL"
 TRUNCATE_SQL = """
@@ -73,6 +80,7 @@ RESTART IDENTITY CASCADE
 def require_test_dsn() -> str:
     import os
 
+
     dsn = os.environ.get(TEST_DSN_ENV, "").strip()
     if not dsn:
         raise AssertionError(f"{TEST_DSN_ENV} must be set for D.3A PG witness (zero required skips)")
@@ -86,6 +94,7 @@ def require_test_dsn() -> str:
 
 def ensure_migrated(dsn: str) -> None:
     import psycopg
+
 
     with psycopg.connect(dsn) as conn:
         row = conn.execute(
@@ -104,6 +113,7 @@ def ensure_migrated(dsn: str) -> None:
 def truncate_dungeonmind(dsn: str) -> None:
     from dungeonmind.infrastructure.postgres import PostgresDatabase
 
+
     database = PostgresDatabase(dsn)
     with database.connect() as conn:
         conn.execute(TRUNCATE_SQL)
@@ -114,6 +124,7 @@ def register_glass_orchard(repo: Path):
     from apps.live_control_server.services.world_container_registry import (
         create_world_container,
     )
+
 
     return create_world_container(repo, name="The Glass Orchard")
 
@@ -211,6 +222,7 @@ def write_post_genesis_graph_review_run(repo: Path) -> str:
         WORLDBUILDING_PLUMBING_PROFILE,
     )
 
+
     (repo / f"corpus/{GLASS_ORCHARD_WORLD_ID}-markdown").mkdir(parents=True, exist_ok=True)
     document = create_workspace_document(
         repo,
@@ -260,8 +272,10 @@ def write_post_genesis_graph_review_run(repo: Path) -> str:
     candidate_path = run_dir / "candidate_graph.json"
     candidate_path.write_text(json.dumps(candidate_payload, indent=2) + "\n", encoding="utf-8")
 
+
     def _digest(path: Path) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()
+
 
     components = {
         "source_artifact": ExtractionRunComponentRef(
@@ -304,7 +318,6 @@ def write_post_genesis_graph_review_run(repo: Path) -> str:
     return run.run_id
 
 
-
 def _contribution_fingerprint(contribution: object) -> str:
     if contribution is None:
         return ""
@@ -329,6 +342,7 @@ def _contribution_fingerprint(contribution: object) -> str:
         )
     return "\n".join(parts)
 
+
 class FakeWorldGraphAuthority:
     def __init__(self) -> None:
         self.heads: dict[str, str] = {}
@@ -339,6 +353,7 @@ class FakeWorldGraphAuthority:
         self.publish_calls = 0
         self.unavailable = False
 
+
     def current_head(self, world_id: str) -> WorldGraphHead:
         if self.unavailable:
             raise WorldGraphAuthorityError("authority down", code="authority_unavailable")
@@ -347,6 +362,7 @@ class FakeWorldGraphAuthority:
             raise WorldGraphAuthorityError("no head", code="revision_unavailable")
         return WorldGraphHead(world_id=world_id, revision_id=revision_id)
 
+
     def read_revision(self, world_id: str, revision_id: str) -> WorldGraphRevisionView:
         if self.unavailable:
             raise WorldGraphAuthorityError("authority down", code="authority_unavailable")
@@ -354,6 +370,7 @@ class FakeWorldGraphAuthority:
         if view is None:
             raise WorldGraphAuthorityError("missing revision", code="revision_unavailable")
         return view
+
 
     def mutation_context(
         self,
@@ -428,6 +445,7 @@ class FakeWorldGraphAuthority:
             identity_redirects=redirects,
             identity_ledger_records=ledger,
         )
+
 
     def publish(self, request: WorldGraphPublishRequest) -> WorldGraphPublicationReceipt:
         self.publish_calls += 1
@@ -538,6 +556,7 @@ class FakeWorldGraphAuthority:
         )
         return receipt
 
+
     def recover(
         self,
         world_id: str,
@@ -572,10 +591,12 @@ class FakeWorldGraphAuthority:
                 )
         return existing
 
+
     def verify_child(self, *, receipt, expected) -> WorldGraphVerificationResult:
         del expected
         self.read_revision(receipt.world_id, receipt.published_revision_id)
         return WorldGraphVerificationResult(status="passed")
+
 
 def _empty_parent(world_id: str = DEFAULT_WORLD_ID, revision_id: str = "rev:d-a") -> WorldGraphRevisionView:
     return WorldGraphRevisionView(
@@ -586,6 +607,7 @@ def _empty_parent(world_id: str = DEFAULT_WORLD_ID, revision_id: str = "rev:d-a"
         relationships={},
     )
 
+
 def _semantic() -> dict:
     return {
         "canon_state": "played_canon",
@@ -594,6 +616,7 @@ def _semantic() -> dict:
         "authority_state": "system_derived",
         "visibility_state": "gm_private",
     }
+
 
 def _evidence(suffix: str) -> dict:
     return {
@@ -607,6 +630,7 @@ def _evidence(suffix: str) -> dict:
         "source_span_ref_id": f"session-22:recap:paragraph:{suffix}",
         "anchor_quotes": ["quote"],
     }
+
 
 def _candidate_graph_payload(
     *,
@@ -682,6 +706,7 @@ def _candidate_graph_payload(
         },
     }
 
+
 def _write_reviewable_extraction_run(
     repo: Path,
     *,
@@ -694,15 +719,18 @@ def _write_reviewable_extraction_run(
 ) -> tuple[str, Path]:
     """Build a canonical worldbuilding ExtractionRun through its owning services.
 
+
     Nothing is hand-written into a registry file: the workspace document, its
     committed bytes, the SourceArtifact, the span index, and every run status
     transition go through the same code paths production uses, so the fixture
     cannot drift away from the registry's own validators.
 
+
     ``campaign_id=None`` produces a campaignless worldbuilding run/artifact
     (worldbuilding SourceArtifacts may omit campaign). The workspace document
     still needs a storage campaign for the file write; the artifact/run are
     then rewritten to drop that campaign before promotion.
+
 
     ``pin_noncanonical_span_index=True`` writes a second valid index for the same
     artifact (different span IDs) and pins the ExtractionRun component to that
@@ -735,8 +763,10 @@ def _write_reviewable_extraction_run(
     )
     from src.live_play.live_store import load_json, write_json
 
+
     if candidate_campaign_id is ...:
         candidate_campaign_id = campaign_id
+
 
     storage_campaign = world_id or campaign_id or CAMPAIGN_ID
     if world_id is not None:
@@ -765,6 +795,7 @@ def _write_reviewable_extraction_run(
         repo, document_id=committed.document_id, expected_revision=committed.revision
     )
 
+
     if campaign_id is None:
         # Worldbuilding SourceArtifacts may omit campaign; rewrite the registry
         # record so the ExtractionRun binds to a truly campaignless artifact.
@@ -788,6 +819,7 @@ def _write_reviewable_extraction_run(
         artifact = get_source_artifact(repo, artifact.source_artifact_id)
         assert artifact.campaign_id is None
 
+
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
     span_path = repo / span_rel
     span_index = json.loads(span_path.read_text(encoding="utf-8"))
@@ -801,8 +833,10 @@ def _write_reviewable_extraction_run(
             span_ref_id = str(span["source_span_id"])
             break
 
+
     run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "wb1"
     run_dir.mkdir(parents=True, exist_ok=True)
+
 
     if pin_noncanonical_span_index:
         # Whole-document span → different stable span IDs than the registry
@@ -815,6 +849,7 @@ def _write_reviewable_extraction_run(
             build_stable_source_span_id,
             document_source_ref_id,
         )
+
 
         digest = artifact.content_sha256 or ""
         n_lines = max(1, len(source_lines))
@@ -854,6 +889,7 @@ def _write_reviewable_extraction_run(
         span_component_uri = f"repo://{span_rel}"
         span_component_path = span_path
 
+
     candidate_payload = _candidate_graph_payload(
         campaign_id=candidate_campaign_id or "",
         session_id="session-99" if invent_session_in_candidate else "",
@@ -869,6 +905,7 @@ def _write_reviewable_extraction_run(
         WORLDBUILDING_PLUMBING_PROFILE,
     )
 
+
     worldbuilding_semantic = dict(WORLDBUILDING_PLUMBING_PROFILE.default_semantic_state)
     for holder in (
         *(candidate_payload.get("nodes") or []),
@@ -880,13 +917,16 @@ def _write_reviewable_extraction_run(
             ref["source_span_ref_id"] = span_ref_id
             ref["anchor_quotes"] = ["Worldbuilding source for promote."]
 
+
     candidate_path = run_dir / "candidate_graph.json"
     candidate_path.write_text(
         json.dumps(candidate_payload, indent=2) + "\n", encoding="utf-8"
     )
 
+
     def _digest(path: Path) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()
+
 
     components = {
         "source_artifact": ExtractionRunComponentRef(
@@ -905,6 +945,7 @@ def _write_reviewable_extraction_run(
             sha256=_digest(candidate_path),
         ),
     }
+
 
     run = create_extraction_run(
         repo,
@@ -939,6 +980,7 @@ def _write_reviewable_extraction_run(
         supersede_extraction_run(repo, run.run_id, expected_revision=run.revision)
     return run.run_id, source
 
+
 def _write_bld08_reviewable_run(
     repo: Path,
     *,
@@ -959,6 +1001,7 @@ def _write_bld08_reviewable_run(
     from src.graph_memory.extraction.worldbuilding_extraction_profile import (
         DEFAULT_SEMANTIC_STATE,
     )
+
 
     resolved_id, source = _write_reviewable_extraction_run(
         repo,
@@ -981,6 +1024,7 @@ def _write_bld08_reviewable_run(
     candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
     digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
 
+
     registry_path = extraction_runs_path(repo)
     registry = load_json(registry_path)
     for record in registry["records"]:
@@ -991,11 +1035,13 @@ def _write_bld08_reviewable_run(
     write_json(registry_path, registry)
     return resolved_id, source
 
+
 def _mutate_extraction_candidate(repo, run_id: str, mutator) -> None:
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
     from apps.live_control_server.services.promotable_ingest_run import (
         _resolve_extraction_component_path,
     )
+
 
     run = get_extraction_run(repo, run_id)
     candidate_path = _resolve_extraction_component_path(
@@ -1012,6 +1058,7 @@ def _mutate_extraction_candidate(repo, run_id: str, mutator) -> None:
     )
     from src.live_play.live_store import load_json, write_json
 
+
     path = extraction_runs_path(repo)
     document = load_json(path)
     for record in document["records"]:
@@ -1020,3 +1067,147 @@ def _mutate_extraction_candidate(repo, run_id: str, mutator) -> None:
             break
     write_json(path, document)
 
+
+def _preview_node(
+    artifact_id: str, *, node_id: str, label: str, node_type: str, span: str
+) -> dict:
+    return {
+        "node_id": node_id,
+        "label": label,
+        "node_type": node_type,
+        "description": f"{label}.",
+        "importance": "low",
+        "semantic_state": {
+            "canon_state": "played_canon",
+            "lifecycle_state": "candidate",
+            "evidence_role": "source_evidence",
+            "authority_state": "system_derived",
+            "visibility_state": "gm_private",
+        },
+        "evidence_refs": [
+            {
+                "source_ref_id": f"ref:{node_id}",
+                "source_artifact_id": artifact_id,
+                "source_anchor_id": f"anchor:{node_id}",
+                "label": "span",
+                "evidence_role": "source_evidence",
+                "can_open_source": True,
+                "can_highlight_span": True,
+                "source_span_ref_id": span,
+                "anchor_quotes": [label],
+            }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+    }
+
+
+def _seal_tinker_package(
+    mutation_context,
+    tmp_path: Path,
+    *,
+    preview_slug: str,
+    node_id: str,
+    label: str,
+    extra_nodes: list[dict] | None = None,
+    edges: list[dict] | None = None,
+) -> tuple[dict, list[str]]:
+    """Build a real sealed Buddy review package against native DND identity facts."""
+    from graph_memory.candidate_graph_preview import (
+        CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        CANDIDATE_GRAPH_PREVIEW_VERSION,
+        candidate_graph_preview_from_dict,
+    )
+    from graph_memory.extract_identity_gate import gate_candidate_graph_against_head
+    from graph_memory.extract_promote_proposal import (
+        build_contribution_effect_slice,
+        contribution_meta_from_contribution,
+        seal_multi_contribution_promote_proposal,
+    )
+
+
+    parent = mutation_context.revision_id
+    source = tmp_path / f"{preview_slug}-recap.md"
+    source.write_text(f"{label} arrives in Mireward.\n")
+    source_revision = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+    artifact_id = f"artifact:recap:longmont-c2:{preview_slug}"
+    graph = {
+        "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        "version": CANDIDATE_GRAPH_PREVIEW_VERSION,
+        "preview_id": f"preview:{preview_slug}",
+        "session_id": "session-26",
+        "campaign_id": CAMPAIGN_ID,
+        "source_artifact_ids": [artifact_id],
+        "status": "preview",
+        "nodes": [
+            _preview_node(
+                artifact_id,
+                node_id=node_id,
+                label=label,
+                node_type="npc",
+                span="session-26:recap:paragraph:001",
+            ),
+            *list(extra_nodes or []),
+        ],
+        "edges": list(edges or []),
+        "beats": [],
+        "proposed_writes": [],
+        "ignored_items": [],
+        "deferred_items": [],
+        "diagnostics": {
+            "preview_only": True,
+            "extraction_performed": False,
+            "llm_used": False,
+            "runtime_connected": False,
+            "plan_connected": False,
+            "agent_interaction_connected": False,
+            "corpus_scanned": False,
+            "corpus_mutated": False,
+            "facts_promoted": False,
+            "canon_promoted": False,
+            "unresolved_evidence_refs": 0,
+            "missing_evidence_objects": 0,
+            "warning_count": 0,
+        },
+    }
+    gate = gate_candidate_graph_against_head(
+        candidate_graph_preview_from_dict(graph),
+        mutation_context=mutation_context,
+        world_id=mutation_context.world_id,
+        source_artifact_id=artifact_id,
+        source_revision_id=source_revision,
+        source_uri=str(source),
+        source_kind="source_extraction",
+        source_domain="recap",
+        campaign_scope=CAMPAIGN_ID,
+    )
+    assert gate.parent_revision_id == parent
+    slice_body = build_contribution_effect_slice(
+        source_revision_id=gate.source_revision_id,
+        source_artifact_id=gate.source_artifact_id,
+        verified_source_uri=str(gate.verified_source_uri),
+        candidate_preview_id=gate.candidate_preview_id,
+        candidate_schema=gate.candidate_schema,
+        candidate_version=gate.candidate_version,
+        contribution_meta=contribution_meta_from_contribution(gate.contribution),
+        accepted_proposals=gate.accepted_proposals,
+        rejected_assertions=gate.rejected_assertions,
+        unresolved_mentions=gate.unresolved_mentions,
+        node_id_map=gate.node_id_map,
+        identity_outcome_snapshot=gate.identity_outcome_snapshot,
+    )
+    package = seal_multi_contribution_promote_proposal(
+        world_id=mutation_context.world_id,
+        parent_revision_id=parent,
+        contribution_slices=[slice_body],
+        prepared_by="gm@prepare",
+        diagnostics=["cutover_write_test"],
+    )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        bind_identity_ledger_to_package,
+    )
+
+
+    package = bind_identity_ledger_to_package(package, mutation_context)
+    return package, [a.assertion_id for a in gate.accepted_proposals]

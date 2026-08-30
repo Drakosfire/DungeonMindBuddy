@@ -1,20 +1,19 @@
 """Shared prepare/confirm orchestration for extract → World Supergraph promote.
 
+
 Used by the operator CLI and the live-control HTTP layer. Durable contribution
 construction always goes through sealed proposal fields only.
 """
 
+
 from __future__ import annotations
+
 
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-def _kernel():
-    import graph_memory.kernel as kernel
-
-    return kernel
 
 from graph_memory.candidate_graph_to_contribution import (
     CandidateGraphMappingError,
@@ -49,8 +48,16 @@ from apps.live_control_server.models.world_graph_contributions import (
     create_graph_contribution,
 )
 
+
+def _kernel():
+    raise ExtractPromoteWorldError(
+        "Buddy World Graph kernel is deleted; use DungeonMind extract-promote paths"
+    )
+
+
 DEFAULT_WORLD_ID = "eldyrwild"
 DEFAULT_LIVE_ROOT_NAME = "out"
+
 
 RETRY_GUIDANCE_DO_NOT_RETRY = "reload_status_inspect_head_do_not_retry_confirm"
 RETRY_GUIDANCE_NONE = "none"
@@ -161,6 +168,7 @@ def _gate_from_contribution_slice(
 ) -> IdentityGateResult:
     """Rebuild a gate for one sealed contribution slice."""
     from graph_memory.extract_promote_proposal import _parse_assertions, _parse_mentions
+
 
     meta = dict(slice_body.get("contribution_meta") or {})
     placeholder = create_graph_contribution(
@@ -277,9 +285,11 @@ def prepare_extract_promote(
 ) -> ExtractPromotePrepareResult:
     """Gate + seal a typed candidate graph against the pinned world head.
 
+
     When standing-context objects are present (sibling registry graph or
     promote-time partition), seals a v3 multi-contribution package: standing
     first, then recap source_extraction.
+
 
     Source-extraction contributions always seal as ``source_domain="recap"``.
     Worldbuilding product runs are inspect-only and never reach this Kernel
@@ -303,6 +313,7 @@ def prepare_extract_promote(
         if maybe_standing.get("nodes"):
             standing_payload = maybe_standing
             payload = recap_payload
+
 
     preview = load_typed_candidate_graph(payload)
     resolved_world_id = world_id or DEFAULT_WORLD_ID
@@ -336,6 +347,7 @@ def prepare_extract_promote(
         node_ids=tuple(node_ids) if node_ids is not None else None,
         include_edges=include_edges,
     )
+
 
     contribution_slices: list[dict[str, Any]] = []
     standing_gate: IdentityGateResult | None = None
@@ -403,6 +415,7 @@ def prepare_extract_promote(
             )
         )
 
+
     contribution_slices.append(
         build_contribution_effect_slice(
             source_revision_id=gate.source_revision_id,
@@ -419,6 +432,7 @@ def prepare_extract_promote(
             identity_outcome_snapshot=gate.identity_outcome_snapshot,
         )
     )
+
 
     if standing_gate is not None:
         package = seal_multi_contribution_promote_proposal(
@@ -441,6 +455,7 @@ def prepare_extract_promote(
             world_root=package_world_root,
             candidate_graph_path=candidate_graph_path,
         )
+
 
     # Slice ids are derived from position + source_kind in `contribution_slices`
     # (standing_context first when present, recap source_extraction last) — the
@@ -473,6 +488,7 @@ def prepare_extract_promote(
             ),
         }
 
+
     return ExtractPromotePrepareResult(
         review_package=package,
         proposal_id=str(package["proposal_id"]),
@@ -504,6 +520,7 @@ def resolve_merged_contribution_from_package(
 ) -> tuple[dict[str, Any], Any]:
     """Verify a sealed package and build the ONE atomic merged contribution.
 
+
     Single source of truth for "what would confirm publish": used by
     ``confirm_extract_promote`` (the actual merge) and by display/idempotency
     call sites that must reconstruct an identical ``contribution_id`` without
@@ -512,6 +529,7 @@ def resolve_merged_contribution_from_package(
     package = dict(review_package)
     accepted_ids = normalize_assertion_selection(assertion_ids)
 
+
     verified = verify_promote_proposal(
         package,
         confirming_principal=confirming_principal,
@@ -519,11 +537,14 @@ def resolve_merged_contribution_from_package(
         selected_assertion_ids=accepted_ids,
     )
 
+
     slices = list(verified.get("contribution_slices") or [])
     if not slices:
         from graph_memory.extract_promote_proposal import contribution_slices_from_effect
 
+
         slices = contribution_slices_from_effect(verified["effect"])
+
 
     if verify_source:
         if repo_root is None:
@@ -536,9 +557,11 @@ def resolve_merged_contribution_from_package(
                 disclose_computed_digest=disclose_source_digest,
             )
 
+
     parent_revision_id = str(verified["parent_revision_id"])
     world_id = str(verified["world_id"]) or world_id_hint
     resolved_selection = verified.get("resolved_selection")
+
 
     slice_gates: list[tuple[IdentityGateResult, tuple[str, ...] | None, str]] = []
     for index, slice_body in enumerate(slices):
@@ -559,8 +582,10 @@ def resolve_merged_contribution_from_package(
             slice_ids = tuple(selected)
         slice_gates.append((slice_gate, slice_ids, sealed_slice_id))
 
+
     if not slice_gates:
         raise CandidateGraphMappingError("no accepted proposals selected for merge")
+
 
     merged_contribution = build_accepted_contribution_from_multi_slice_proposals(
         slice_gates,
@@ -586,6 +611,7 @@ def confirm_extract_promote(
 ) -> ExtractPromoteConfirmResult:
     """Verify sealed proposal and merge (or dry-run) against the world head.
 
+
     Publishes every sealed contribution slice (standing_context + recap
     source_extraction, when present) as ONE atomic Kernel contribution in a
     single ``merge_contribution_to_revision`` call. The head either advances
@@ -593,257 +619,6 @@ def confirm_extract_promote(
     sequential per-slice publish that could advance the head partway through
     a multi-slice promote (PR011A3 review P0).
     """
-    package = dict(review_package)
-    root_text = str(world_root or package.get("world_root") or "").strip()
-    if not root_text:
-        raise ExtractPromoteWorldError(
-            "world_root is required when review package omits world_root"
-        )
-    root = Path(root_text).resolve()
-    live = live_root.resolve()
-    if root == live and not allow_live_world:
-        raise ExtractPromoteLiveWorldError(
-            "refusing to mutate live world root without allow_live_world"
-        )
-
-    world_id_hint = str(
-        (package.get("effect") or {}).get("world_id") or DEFAULT_WORLD_ID
-    )
-    try:
-        head, _rev, _store = _kernel().open_current_world_graph(root, world_id_hint)
-    except Exception as exc:  # noqa: BLE001
-        raise ExtractPromoteWorldError(
-            f"world graph not initialized or unreadable: {exc}"
-        ) from exc
-
-    verified, contribution = resolve_merged_contribution_from_package(
-        review_package=package,
-        confirming_principal=confirming_principal,
-        world_id_hint=world_id_hint,
-        root=root,
-        expected_parent_revision_id=head.head_revision_id,
-        assertion_ids=assertion_ids,
-        repo_root=repo_root,
-        disclose_source_digest=disclose_source_digest,
-        verify_source=True,
-    )
-
-    parent_revision_id = str(verified["parent_revision_id"])
-    world_id = str(verified["world_id"])
-    gate = _gate_from_verified(verified)
-
-    if dry_run:
-        payload = {
-            "schema": "dmb_accepted_extract_contribution_v1",
-            "ok": True,
-            "dry_run": True,
-            "proposal_id": verified["proposal_id"],
-            "proposal_digest": verified["proposal_digest"],
-            "confirming_principal": verified["confirming_principal"],
-            "world_root": str(root),
-            "expected_parent_revision_id": parent_revision_id,
-            "contribution_id": contribution.contribution_id,
-            "contribution_ids": [contribution.contribution_id],
-            "contribution": contribution.model_dump(mode="json"),
-            "contributions": [contribution.model_dump(mode="json")],
-        }
-        return ExtractPromoteConfirmResult(ok=True, dry_run=True, payload=payload)
-
-    result = kernel.merge_contribution_to_revision(
-        root,
-        world_id=world_id,
-        contribution=contribution,
-        expected_parent_revision_id=parent_revision_id,
-    )
-    merge_receipt_single = result.model_dump(mode="json")
-    published = bool(result.published)
-    committed_revision_id = (
-        getattr(result, "revision_id", None) or merge_receipt_single.get("revision_id")
-    )
-    is_already_applied = (
-        not published
-        and allow_idempotent_noop
-        and "idempotent_noop:contribution_already_applied" in (result.diagnostics or [])
-    )
-
-    if not published and not is_already_applied:
-        # Single merge call: refusal here means the head never advanced —
-        # nothing was published for any slice in this selection.
-        return ExtractPromoteConfirmResult(
-            ok=False,
-            dry_run=False,
-            payload={
-                "schema": "dmb_promote_extract_proof_v1",
-                "ok": False,
-                "published": False,
-                "outcome": "merge_refused",
-                "world_root": str(root),
-                "world_id": world_id,
-                "proposal_id": verified["proposal_id"],
-                "proposal_digest": verified["proposal_digest"],
-                "merge": merge_receipt_single,
-                "contribution_id": contribution.contribution_id,
-            },
-            failure_reason="merge_refused",
-        )
-
-    merge_receipt = {
-        "merges": [merge_receipt_single],
-        "contribution_ids": [contribution.contribution_id],
-        "last": merge_receipt_single,
-    }
-
-    if is_already_applied:
-        proof = {
-            "schema": "dmb_promote_extract_proof_v1",
-            "ok": True,
-            "published": False,
-            "outcome": "already_applied",
-            "world_root": str(root),
-            "world_id": gate.world_id,
-            "proposal_id": verified["proposal_id"],
-            "proposal_digest": verified["proposal_digest"],
-            "confirming_principal": verified["confirming_principal"],
-            "parent_revision_id": parent_revision_id,
-            "committed_revision_id": committed_revision_id or parent_revision_id,
-            "contribution_id": contribution.contribution_id,
-            "contribution_ids": [contribution.contribution_id],
-            "merge": merge_receipt,
-            "post_publication_verification": "skipped",
-            "retry_guidance": RETRY_GUIDANCE_NONE,
-        }
-        return ExtractPromoteConfirmResult(ok=True, dry_run=False, payload=proof)
-
-    if not committed_revision_id:
-        proof = {
-            "schema": "dmb_promote_extract_proof_v1",
-            "ok": False,
-            "published": True,
-            "world_root": str(root),
-            "world_id": gate.world_id,
-            "proposal_id": verified["proposal_id"],
-            "proposal_digest": verified["proposal_digest"],
-            "confirming_principal": verified["confirming_principal"],
-            "parent_revision_id": str(verified["parent_revision_id"]),
-            "committed_revision_id": None,
-            "contribution_id": contribution.contribution_id,
-            "contribution_ids": [contribution.contribution_id],
-            "merge": merge_receipt,
-            "failure_reason": "post_publication_verification_failed",
-            "post_publication_verification": "failed",
-            "verification_error": "missing_committed_revision_id",
-            "retry_guidance": RETRY_GUIDANCE_DO_NOT_RETRY,
-        }
-        return ExtractPromoteConfirmResult(
-            ok=False,
-            dry_run=False,
-            payload=proof,
-            failure_reason="post_publication_verification_failed",
-        )
-
-    # Publication already advanced the head. Retain the merge receipt and treat
-    # rebuild/projection as audit pinned to the committed revision — never audit
-    # the mutable current head (a concurrent publish could advance past us).
-    verification_status = "passed"
-    verification_error: str | None = None
-    rebuild_diagnostics: list[str] = []
-    rebuild_equivalent = False
-    projection_revision_id: str | None = None
-    projection_node_count: int | None = None
-    projection_relationship_count: int | None = None
-    head_advanced_before_verification = False
-    verification_head_revision_id: str | None = None
-
-    try:
-        rebuild = _kernel().rebuild_from_contributions(
-            root,
-            world_id=gate.world_id,
-            publish=False,
-            compare_revision_id=str(committed_revision_id),
-        )
-        rebuild_diagnostics = list(rebuild.diagnostics)
-        rebuild_equivalent = (
-            "rebuild_equivalent_to_pinned_revision" in rebuild.diagnostics
-        )
-        head_advanced_before_verification = any(
-            d.startswith("head_advanced_past_compare_revision:")
-            for d in rebuild_diagnostics
-        )
-        for item in rebuild_diagnostics:
-            if item.startswith("head_advanced_past_compare_revision:"):
-                verification_head_revision_id = item.split(":", 1)[1]
-                break
-        if not rebuild_equivalent:
-            verification_status = "degraded"
-            verification_error = "rebuild_not_equivalent_to_committed_revision"
-
-        from graph_memory.projection.world_projection import (
-            PROJECTION_REQUEST_SCHEMA,
-            WorldGraphProjectionFocus,
-            WorldGraphProjectionRequest,
-        )
-
-        projection = _kernel().project_world_graph(
-            root,
-            WorldGraphProjectionRequest(
-                schema=PROJECTION_REQUEST_SCHEMA,
-                world_id=gate.world_id,
-                campaign_id=contribution.campaign_scope or "longmont-c2",
-                focus=WorldGraphProjectionFocus(kind="none"),
-                admissibility="gm",
-                revision_pin=str(committed_revision_id),
-            ),
-        )
-        projection_revision_id = projection.snapshot.revision_id
-        projection_node_count = projection.summary.node_count
-        projection_relationship_count = projection.summary.relationship_count
-        if projection_revision_id != committed_revision_id:
-            verification_status = "failed"
-            verification_error = "projection_revision_mismatch"
-    except Exception as exc:  # noqa: BLE001 — audit failure must not hide publish
-        verification_status = "failed"
-        verification_error = f"{exc.__class__.__name__}"
-
-    overall_ok = verification_status == "passed"
-    if verification_status == "degraded":
-        failure_reason = "post_publication_verification_degraded"
-    elif verification_status == "failed":
-        failure_reason = "post_publication_verification_failed"
-    else:
-        failure_reason = None
-
-    proof = {
-        "schema": "dmb_promote_extract_proof_v1",
-        "ok": overall_ok,
-        "published": True,
-        "outcome": "published",
-        "world_root": str(root),
-        "world_id": gate.world_id,
-        "proposal_id": verified["proposal_id"],
-        "proposal_digest": verified["proposal_digest"],
-        "confirming_principal": verified["confirming_principal"],
-        "parent_revision_id": gate.parent_revision_id,
-        "committed_revision_id": committed_revision_id,
-        "contribution_id": contribution.contribution_id,
-        "merge": merge_receipt,
-        "post_publication_verification": verification_status,
-        "verification_error": verification_error,
-        "head_advanced_before_verification": head_advanced_before_verification,
-        "verification_head_revision_id": verification_head_revision_id,
-        "retry_guidance": (
-            RETRY_GUIDANCE_DO_NOT_RETRY if not overall_ok else RETRY_GUIDANCE_NONE
-        ),
-        "rebuild_diagnostics": rebuild_diagnostics,
-        "rebuild_equivalent_to_committed_revision": rebuild_equivalent,
-        "projection_revision_id": projection_revision_id,
-        "projection_node_count": projection_node_count,
-        "projection_relationship_count": projection_relationship_count,
-    }
-    if failure_reason is not None:
-        proof["failure_reason"] = failure_reason
-    return ExtractPromoteConfirmResult(
-        ok=overall_ok,
-        dry_run=False,
-        payload=proof,
-        failure_reason=failure_reason,
+    raise ExtractPromoteWorldError(
+        "Buddy filesystem extract-promote confirm is retired; use DungeonMind confirm paths"
     )

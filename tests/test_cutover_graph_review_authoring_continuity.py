@@ -1,19 +1,24 @@
 """CUTOVER D.2C4: Graph Review authoring continuity on DungeonMind.
 
+
 The owning PostgreSQL witness starts from a legal reviewed-init head, then
 exercises Graph Review prepare → confirm for object, link_existing, and
 relationship publication, plus fail-closed merge_objects / unknown actions.
 Buddy overlay and UnionSupergraph writers are tripwired.
 """
 
+
 from __future__ import annotations
+
 
 import hashlib
 import json
 from pathlib import Path
 
+
 import pytest
 from fastapi.testclient import TestClient
+
 
 import apps.live_control_server.config as live_config
 import apps.live_control_server.services.extract_promote as promote_svc
@@ -30,16 +35,14 @@ from tests.test_cutover_dungeonmind_first_world_initialization import (
     _counts,
     _prepare_native_plan,
 )
-from tests.test_cutover_dungeonmind_world_graph_authority import (
-    TRUNCATE_SQL,
-    _ensure_migrated,
-    _test_dsn,
-)
-from tests.test_live_extract_promote_api import (
+from tests._cutover_d3a_blocker_safe_fixtures import (
     FIRST_WORLD_CONFIRM_URL,
     GLASS_ORCHARD_WORLD_ID,
+    TRUNCATE_SQL,
     _candidate_graph_payload,
-    _first_world_confirm_body,
+    ensure_migrated as _ensure_migrated,
+    first_world_confirm_body as _first_world_confirm_body,
+    require_test_dsn as _test_dsn,
 )
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV,
@@ -58,6 +61,7 @@ from tests.test_cutover_native_genesis_continuity import (
     _projection_request,
     _retrieval_context,
 )
+
 
 PREPARE_URL = "/api/live/graph-authoring/prepare"
 COMMIT_URL = "/api/live/graph-authoring/commit"
@@ -187,12 +191,15 @@ def native_first_world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     _ensure_migrated(dsn)
     from dungeonmind.infrastructure.postgres import PostgresDatabase
 
+
     database = PostgresDatabase(dsn)
     with database.connect() as conn:
         conn.execute(TRUNCATE_SQL)
         conn.commit()
 
+
     from apps.live_control_server import config as wg_config
+
 
     repo = tmp_path / "repo"
     world_root = tmp_path / "world"
@@ -219,8 +226,10 @@ def native_first_world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 def _arm_legacy_writer_tripwires(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tripwire remaining overlay writers; deleted union packages stay unimportable."""
     def _explode(*_args, **_kwargs):
         raise AssertionError("legacy Buddy graph writer invoked during Graph Review confirm")
+
 
     monkeypatch.setattr(
         "apps.live_control_server.services.graph_authoring_overlay_store.GraphAuthoringOverlayStore.append_assertions",
@@ -230,18 +239,11 @@ def _arm_legacy_writer_tripwires(monkeypatch: pytest.MonkeyPatch) -> None:
         "apps.live_control_server.services.graph_authoring_overlay_store.GraphAuthoringOverlayStore.save_overlay",
         _explode,
     )
-    monkeypatch.setattr(
-        "graph_memory.union_supergraph.load.write_union_supergraph_store",
-        _explode,
-    )
-    monkeypatch.setattr(
-        "graph_memory.union_supergraph.merge_reconciliation_apply.apply_union_supergraph_merge_plan_to_file",
-        _explode,
-    )
 
 
 def _write_post_genesis_graph_review_run(repo: Path) -> str:
     """Create a distinct Buddy ingest run whose DungeonMind source pair is absent.
+
 
     Uses a unique extraction directory so genesis ``wb1`` candidate bytes stay intact.
     """
@@ -265,6 +267,7 @@ def _write_post_genesis_graph_review_run(repo: Path) -> str:
     from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE,
     )
+
 
     (repo / f"corpus/{GLASS_ORCHARD_WORLD_ID}-markdown").mkdir(parents=True, exist_ok=True)
     document = create_workspace_document(
@@ -315,8 +318,10 @@ def _write_post_genesis_graph_review_run(repo: Path) -> str:
     candidate_path = run_dir / "candidate_graph.json"
     candidate_path.write_text(json.dumps(candidate_payload, indent=2) + "\n", encoding="utf-8")
 
+
     def _digest(path: Path) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()
+
 
     components = {
         "source_artifact": ExtractionRunComponentRef(
@@ -392,8 +397,10 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     assert d0
     assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 1
 
+
     _explode_kernel(monkeypatch)
     _arm_legacy_writer_tripwires(monkeypatch)
+
 
     bundle = _bundle(dsn)
     review_run_id = _write_post_genesis_graph_review_run(repo)
@@ -402,6 +409,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     buddy_token = resolved.source_revision_id
     assert bundle.sources.get_artifact(buddy_artifact_id) is None
     assert review_run_id != run_id
+
 
     object_prepare, object_commit = _prepare_and_commit(
         client, review_run_id, [_object_proposal()]
@@ -434,6 +442,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     assert d1 != d0
     assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 2
 
+
     retry = client.post(
         COMMIT_URL,
         json=_authoring_body(
@@ -450,6 +459,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     assert retry_body["audit_status"] == "skipped"
     assert retry_body.get("overlay_path") is None
     assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 2
+
 
     fresh = TestClient(create_app())
     lost = fresh.post(
@@ -468,14 +478,17 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     assert lost.json().get("overlay_path") is None
     assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 2
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
         DungeonMindWorldGraphAuthorityAdapter,
     )
+
 
     adapter = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
     d1_view = adapter.read_revision(GLASS_ORCHARD_WORLD_ID, d1)
     assert reviewed_node_id in d1_view.objects
     assert EXISTING_NODE_ID in d1_view.objects
+
 
     services = direct.direct_services_from_bundle(
         _bundle(dsn), GLASS_ORCHARD_WORLD_ID
@@ -527,7 +540,9 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     assert resolved_anchor.snapshot is not None
     assert resolved_anchor.snapshot.revision_id == d1
 
+
     run_id = review_run_id
+
 
     link_prepare, link_commit = _prepare_and_commit(client, run_id, [_link_proposal()])
     assert link_prepare["expected_parent_revision_id"] == d1
@@ -541,6 +556,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     assert EXISTING_NODE_ID in d2_view.objects
     aliases = d2_view.objects[EXISTING_NODE_ID].aliases
     assert "vial" in aliases or aliases
+
 
     rel_prepare, rel_commit = _prepare_and_commit(
         client, run_id, [_relationship_proposal(reviewed_node_id)]
@@ -558,6 +574,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
         and rel.target_object_id == EXISTING_NODE_ID
         for rel in d3_view.relationships.values()
     )
+
 
     merge_prepare = client.post(PREPARE_URL, json=_authoring_body(run_id, [_merge_proposal()]))
     assert merge_prepare.status_code == 200, merge_prepare.text
@@ -577,6 +594,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 4
     assert _bundle(dsn).world_graph.get_head(GLASS_ORCHARD_WORLD_ID).head_revision_id == d3
 
+
     unknown = client.post(
         PREPARE_URL,
         json=_authoring_body(
@@ -586,6 +604,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     )
     assert unknown.status_code == 422
     assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 4
+
 
     missing_body = _authoring_body(run_id, [_object_proposal()])
     missing_body.pop("sourceRunId")
@@ -609,6 +628,7 @@ def test_graph_review_stale_parent_fails_closed(
     d0 = confirm.json()["committedRevisionId"]
     _explode_kernel(monkeypatch)
     _arm_legacy_writer_tripwires(monkeypatch)
+
 
     review_run_id = _write_post_genesis_graph_review_run(repo)
     stale_prepare = client.post(
@@ -639,6 +659,7 @@ def test_graph_review_stale_parent_fails_closed(
     from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
         DungeonMindWorldGraphAuthorityAdapter,
     )
+
 
     adapter = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
     assert adapter.current_head(GLASS_ORCHARD_WORLD_ID).revision_id == d1

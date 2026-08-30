@@ -1,10 +1,10 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-29 — D.2C4 manual Graph Review authoring continuity is `COMPLETE` / MERGED Buddy #662 (accepted head `1ab48453cb556ca9d01ff84173ab3e2fdf81d1ec`; merge `2f1b44aa8ad8bad78269c0cadf624882cd0f459f`; 4 formal review cycles; Cycle 4 PASS-equivalent `5059141212`); D.3A mounted graph-engine excision is `DOING` / this PR; D.3B remains `BLOCKED`; D.3 is not `DONE`
-**Active CUTOVER slice:** D.3A mounted graph-engine excision (`cutover/mounted-graph-engine-excision`). Predecessor D.2C4 / #662 is `COMPLETE` / MERGED.
-**Repository anchor:** `9570bd2636231b1f4ed9b6651da6c9a653abaa07` (Buddy `main` / PR #665 base at Review Cycle 1)
-**Dispatch gate:** D.3A mounted graph-engine excision owns the active CUTOVER write lease. Do not mark D.3A `DONE` before merge. Do not dispatch D.3B or physical package deletion. D.3 remains not `DONE` until D.3B merges.
+**Updated:** 2026-08-29 — D.3A mounted graph-engine excision is `COMPLETE` / MERGED Buddy #665 (accepted head `189ffd50157534d192b2af008c48a76d12ccbc4c`; merge `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`; 3 formal review cycles; Cycle 3 PASS-equivalent `5059851179`); D.3B physical legacy-package deletion is `DOING` / active lease (`cutover/delete-legacy-graph-engine`; dispatch base `d4a91d7b727c0eae7dd0e09ba068e250b4819b44`); D.3 is not `DONE`
+**Active CUTOVER slice:** D.3B physical legacy-package deletion (`cutover/delete-legacy-graph-engine`). Predecessor D.3A / #665 is `COMPLETE` / MERGED. Dispatch base `d4a91d7b727c0eae7dd0e09ba068e250b4819b44`.
+**Repository anchor:** `d4a91d7b727c0eae7dd0e09ba068e250b4819b44` (Buddy `main` / D.3B dispatch base; contains D.3A merge `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`)
+**Dispatch gate:** D.3B physical legacy-package deletion owns the active CUTOVER write lease. Do not mark D.3B `DONE` before merge. Do not invent D.3B merge/review facts. D.3 remains not `DONE` until D.3B merges.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
 **DungeonMind pin:** `5ca5d688612349034f8ca490d465af166d883e6e` (DungeonMind PR #47 merge / reviewed-init provenance compatibility; consumed unchanged by #658 and this D.2C3 resume). Historical D.2C2 runtime pin was PR #46 `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`.
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)
@@ -204,10 +204,12 @@ adopted-membership receipt V3, `membership_sha256`, steward-supervised
 Eldyrwild V2→V3 promotion; head `6a249b48…`, merge `9a19584d…`, Review
 Cycle 3 PASS). The whole-world authority transfer is `CUTOVER_COMPLETE` per
 [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](../Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md).
-The remaining CUTOVER write-side lane is D.2C3 native genesis read/write
-continuity (`DOING` / Review Cycle 4 / Buddy #651). Predecessor #658 is
-`DONE`. D.2C4 remains `BLOCKED` until that
-implementation merges. D.3A/D.3B remain `BLOCKED`; D.3 is not `DONE`. Pinned exact-snapshot catch-up is `DEFERRED` (activates only on an
+The remaining CUTOVER write-side lane is D.3B physical legacy-package
+deletion (`DOING` / active lease / Buddy `cutover/delete-legacy-graph-engine`;
+dispatch base `d4a91d7b727c0eae7dd0e09ba068e250b4819b44`). Predecessor D.3A / #665 is
+`COMPLETE` / MERGED (accepted head `189ffd50157534d192b2af008c48a76d12ccbc4c`; merge `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`;
+3 formal review cycles; Cycle 3 PASS-equivalent `5059851179`). D.3 is not
+`DONE`. Pinned exact-snapshot catch-up is `DEFERRED` (activates only on an
 observed `STALE`).
 
 ### Current Eldyrwild semantic state

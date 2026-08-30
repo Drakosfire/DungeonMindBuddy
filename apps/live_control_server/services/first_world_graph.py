@@ -1,18 +1,22 @@
 """First-world reviewed graph helpers (storage-neutral plan materialization).
 
+
 Owns managed-world admission, workspace lineage cross-check, and create_new-only
 contribution materialization. Native initialization state comes from
 ``WorldGraphInitializationAuthority.probe()``. Filesystem classification remains
 only for explicit buddy_files compatibility.
 """
 
+
 from __future__ import annotations
+
 
 import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Mapping, Sequence
+
 
 from apps.live_control_server.services.source_artifact_registry import (
     get_source_artifact,
@@ -47,7 +51,9 @@ from graph_memory.worldbuilding_write_plan import (
     materialize_worldbuilding_contribution,
 )
 
+
 FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v1"
+
 
 FirstWorldGraphState = Literal[
     "uninitialized",
@@ -55,6 +61,7 @@ FirstWorldGraphState = Literal[
     "unreadable",
     "unmanaged",
 ]
+
 
 _FIRST_WORLD_NODE_DECISIONS = frozenset({"create_new", "reject"})
 _FIRST_WORLD_EDGE_DECISIONS = frozenset({"accept", "reject"})
@@ -154,31 +161,14 @@ def admit_managed_world(repo: Path, world_id: str):
 
 
 def classify_world_graph_state(world_root: Path, world_id: str) -> FirstWorldGraphState:
-    """Classify production graph storage for a managed world id."""
-    from graph_memory.world_supergraph import paths as world_paths
+    """Buddy filesystem world-state classifier — retired in D.3B.
 
-    world_dir = world_paths.world_dir(world_root, world_id)
-    if not world_dir.exists():
-        return "uninitialized"
-    try:
-        from graph_memory.world_supergraph.storage import try_open_world_graph_head
 
-        head = try_open_world_graph_head(world_root, world_id)
-    except Exception:  # noqa: BLE001 — damaged head/storage is unreadable
-        return "unreadable"
-    if head is None:
-        # Directory exists but no openable head — treat as damaged/absent-head
-        # storage, not a clean uninitialized world.
-        return "unreadable"
-    try:
-        import graph_memory.kernel as kernel
-
-        kernel.load_world_graph_revision(
-            world_root, world_id, head.head_revision_id
-        )
-    except Exception:  # noqa: BLE001 — damaged storage is unreadable, not absent
-        return "unreadable"
-    return "initialized"
+    First-world capability uses DungeonMind initialization ports; this helper
+    remains only as an explicit fail-closed stub for any stray caller.
+    """
+    del world_root, world_id
+    return "unreadable"
 
 
 def cross_check_workspace_lineage(
@@ -315,6 +305,7 @@ def resolve_first_world_capability(
         get_world_graph_initialization_authority,
     )
 
+
     try:
         probed = get_world_graph_initialization_authority(
             world_root=world_root
@@ -429,11 +420,13 @@ def materialize_first_world_plan(
             code="run_scope_mismatch",
         )
 
+
     disposition_map, decision_snapshot, nodes, edges = _validate_dispositions(
         preview, dispositions
     )
     _require_first_world_decisions(disposition_map, nodes=nodes, edges=edges)
     accepted_create_new_ids: set[str] = set()
+
 
     try:
         require_single_verified_source_artifact(
@@ -449,12 +442,14 @@ def materialize_first_world_plan(
             status_code=422,
         ) from exc
 
+
     accepted = []
     rejected = []
     node_id_map: dict[str, str] = {}
     identity_snapshot: dict[str, str] = {}
     candidate_effect_map: dict[str, list[str]] = {}
     diagnostics: list[str] = []
+
 
     for node_id in sorted(nodes):
         node = nodes[node_id]
@@ -494,6 +489,7 @@ def materialize_first_world_plan(
             rejected.append(assertion)
             candidate_effect_map[node_id] = [assertion.assertion_id]
             identity_snapshot[node_id] = "rejected_by_operator"
+
 
     for edge_id in sorted(edges):
         edge = edges[edge_id]
@@ -540,6 +536,7 @@ def materialize_first_world_plan(
             rejected.append(assertion)
             candidate_effect_map[edge_id] = [assertion.assertion_id]
             identity_snapshot[edge_id] = "rejected_by_operator"
+
 
     decision_digest = _digest(decision_snapshot)
     provisional = create_graph_contribution(

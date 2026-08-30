@@ -1,21 +1,20 @@
 """Live-control service shell for extract → World Supergraph promote."""
 
+
 from __future__ import annotations
+
 
 import json
 from pathlib import Path
 from typing import Any, Literal, Mapping
 
+
 from apps.live_control_server.config import (
     extract_promote_source_root,
-    live_world_graph_root,
     repo_root,
     world_graph_root,
 )
 from apps.live_control_server.models.extract_promote import (
-    PRODUCT_CONFIRM_ALLOW_IDEMPOTENT_NOOP,
-    PRODUCT_CONFIRM_ALLOW_LIVE_WORLD,
-    PRODUCT_CONFIRM_DRY_RUN,
     SERVER_CONFIRMING_PRINCIPAL,
     SERVER_PREPARED_BY,
     ConfirmAuditStatus,
@@ -56,10 +55,7 @@ from graph_memory.candidate_graph_to_contribution import (
 )
 from graph_memory.extract_promote_ops import (
     DEFAULT_WORLD_ID,
-    ExtractPromoteEmptySelectionError,
-    ExtractPromoteLiveWorldError,
     ExtractPromoteWorldError,
-    confirm_extract_promote,
     get_extract_promote_status,
     prepare_extract_promote,
     resolve_merged_contribution_from_package,
@@ -80,6 +76,7 @@ _SOURCE_ROOT_NAMES = ("corpus", "Docs", "evals", "tmp")
 class ExtractPromoteError(ValueError):
     """Stable, safe service error for API boundaries."""
 
+
     def __init__(
         self,
         message: str,
@@ -99,6 +96,7 @@ class ExtractPromoteError(ValueError):
         self.failure_payload = failure_payload
         self.run_status = run_status
         self.inspection_status = inspection_status
+
 
     def response(self) -> ExtractPromoteErrorResponse:
         return ExtractPromoteErrorResponse(
@@ -131,6 +129,7 @@ def _with_review_package_inspection_context(
     run_status: str,
 ) -> ExtractPromoteError:
     """Attach lifecycle + inspection fields to post-resolution package failures.
+
 
     Pre-resolution identity failures (unknown run, not reviewable, etc.) are
     outside this helper. Every ``ExtractPromoteError`` raised while building the
@@ -207,6 +206,7 @@ def _parse_source_uri_to_path(raw_uri: str) -> Path:
 def resolve_promote_source_uri(raw_uri: str) -> str:
     """Resolve a non-run promote source URI under server-owned roots.
 
+
     Browser clients must not call this for product prepare — prepare is
     ``runId``-only. Kept for confirm defense and dedicated fixture roots.
     Arbitrary ``out/`` paths (including ingest runs) are rejected here; sealed
@@ -215,6 +215,7 @@ def resolve_promote_source_uri(raw_uri: str) -> str:
     path = _parse_source_uri_to_path(raw_uri)
     root = repo_root().resolve()
     allowed = _allowed_source_roots()
+
 
     if is_under_world_store(path, root=root) or is_under_ingest_runs(path, root=root):
         raise ExtractPromoteError(
@@ -256,6 +257,7 @@ def resolve_promote_source_uri(raw_uri: str) -> str:
             ],
         )
 
+
     try:
         rel_posix = path.relative_to(root).as_posix()
         return f"repo://{rel_posix}"
@@ -266,10 +268,12 @@ def resolve_promote_source_uri(raw_uri: str) -> str:
 def assert_sealed_source_uri_allowed(source_uri: str) -> None:
     """Re-check a sealed source URI at confirm time (defense in depth).
 
+
     Accepts:
     - registry-sealed ingest-run normalized_recap under any configured
       ``DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT`` / default registry root
     - traditional allowlisted roots (corpus/Docs/evals/tmp/dedicated)
+
 
     Always denies durable world-graph store trees.
     """
@@ -342,6 +346,7 @@ def _assert_candidate_scope_matches_run(
     run_campaign = (campaign_id or "").strip()
     run_session = (session_id or "").strip()
 
+
     # Sessionless / campaignless runs: never invent scope the exact run omitted.
     if not run_session:
         if cand_session:
@@ -388,6 +393,7 @@ def _assert_candidate_scope_matches_run(
                 ],
             )
         return
+
 
     if not cand_campaign or not cand_session:
         raise ExtractPromoteError(
@@ -448,6 +454,7 @@ def _paragraph_for_span(
 def _load_frozen_span_index_for_resolved_run(resolved: Any) -> Any:
     """Load the SourceSpanIndex pinned by the resolved ExtractionRun component.
 
+
     Uses the run's frozen ``source_span_index`` component path carried on
     ``PromotableIngestRun``. Never re-derives the registry's canonical index
     path from ``source_artifact_id`` alone — a run may pin a different
@@ -463,6 +470,7 @@ def _load_frozen_span_index_for_resolved_run(resolved: Any) -> Any:
     )
     from src.live_play.live_store import load_json
 
+
     span_path = getattr(resolved, "source_span_index_path", None)
     if span_path is None:
         raise ExtractPromoteError(
@@ -476,6 +484,7 @@ def _load_frozen_span_index_for_resolved_run(resolved: Any) -> Any:
                 )
             ],
         )
+
 
     try:
         payload = load_json(span_path)
@@ -536,6 +545,7 @@ def _assert_and_project_candidate_evidence(
 ) -> list[ExactRunReviewAssertion]:
     """Fail closed when candidate evidence is not bound to frozen span content.
 
+
     Uses the typed candidate validator, requires every promotable node/edge
     evidence ref to resolve against the span index + SourceArtifact, and verifies
     anchor quotes against canonical source paragraph bytes.
@@ -545,6 +555,7 @@ def _assert_and_project_candidate_evidence(
         CandidateGraphMappingError,
         load_typed_candidate_graph,
     )
+
 
     try:
         typed = load_typed_candidate_graph(candidate_payload)
@@ -556,10 +567,12 @@ def _assert_and_project_candidate_evidence(
             diagnostics=[_diagnostic("candidate_invalid", str(exc))],
         ) from exc
 
+
     span_by_id = {span.source_span_id: span for span in span_index.spans}
     source_lines = source_prose.splitlines()
     expected_artifact = (source_artifact_id or "").strip()
     assertions: list[ExactRunReviewAssertion] = []
+
 
     def _project_holder(
         *,
@@ -680,6 +693,7 @@ def _assert_and_project_candidate_evidence(
             evidence=projected,
         )
 
+
     for node in typed.nodes:
         node_id = str(node.node_id or "").strip()
         if not node_id:
@@ -715,6 +729,7 @@ def _assert_and_project_candidate_evidence(
 def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
     """Build a source/evidence review projection for one exact ExtractionRun.
 
+
     Resolves the run through the same server-owned promotable seam as prepare,
     then projects canonical source prose and per-assertion span evidence without
     sealing a proposal or inventing campaign/session scope.
@@ -731,6 +746,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             ],
         ) from exc
 
+
     # Entire post-resolution package construction is one inspection boundary:
     # source prose, candidate parse, scope check, frozen span-index load/validate,
     # and evidence projection all share runStatus + inspectionStatus enrichment.
@@ -744,6 +760,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
                 status_code=422,
                 diagnostics=[_diagnostic("source_unreadable", str(exc))],
             ) from exc
+
 
         try:
             candidate_payload = json.loads(
@@ -763,11 +780,13 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
                 status_code=422,
             )
 
+
         _assert_candidate_scope_matches_run(
             candidate_payload,
             campaign_id=resolved.campaign_id,
             session_id=resolved.session_id,
         )
+
 
         span_index = _load_frozen_span_index_for_resolved_run(resolved)
         assertions = _assert_and_project_candidate_evidence(
@@ -776,6 +795,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             source_artifact_id=resolved.source_artifact_id,
             span_index=span_index,
         )
+
 
         inspect_only = _is_worldbuilding_inspect_only(resolved)
         capability = resolve_first_world_capability(
@@ -818,8 +838,10 @@ def prepare(
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
+
     # Defense in depth: registry seal must still pass confirm-time rules.
     assert_sealed_source_uri_allowed(resolved.sealed_source_uri)
+
 
     path = resolved.candidate_graph_path
     try:
@@ -843,11 +865,13 @@ def prepare(
             ],
         )
 
+
     _assert_candidate_scope_matches_run(
         payload,
         campaign_id=resolved.campaign_id,
         session_id=resolved.session_id,
     )
+
 
     # ExtractionRun-backed prepare: every evidence ref must bind to the frozen
     # span index and verify against canonical source bytes before sealing.
@@ -872,12 +896,15 @@ def prepare(
             span_index=span_index,
         )
 
+
     # BLD-07 narrowed: worldbuilding is inspect-only. Fail after evidence
     # validation so binding errors remain visible; never seal draft canon.
     if _is_worldbuilding_inspect_only(resolved):
         raise _worldbuilding_inspect_only_error()
 
+
     extraction_profile = resolved.extraction_profile or "current_default"
+
 
     registry_payload = None
     registry_path = resolved.registry_context_graph_path
@@ -967,8 +994,10 @@ def prepare(
             )
         registry_payload = loaded
 
+
     from apps.live_control_server import config as _config
-    
+
+
     prepare_kwargs = dict(
         candidate_graph=payload,
         source_uri=resolved.sealed_source_uri,
@@ -994,6 +1023,7 @@ def prepare(
                 world_graph_writes,
             )
 
+
             try:
                 mutation_context = world_graph_writes.load_production_mutation_context(
                     DEFAULT_WORLD_ID
@@ -1010,6 +1040,7 @@ def prepare(
                 mutation_context=mutation_context,
             )
             from dataclasses import replace
+
 
             sealed = world_graph_writes.bind_identity_ledger_to_package(
                 result.review_package, mutation_context
@@ -1056,6 +1087,7 @@ def prepare(
             ],
         ) from exc
 
+
     return ExtractPromotePrepareResponse(
         proposal_id=result.proposal_id,
         proposal_digest=result.proposal_digest,
@@ -1086,6 +1118,7 @@ def prepare_worldbuilding(
         prepare_worldbuilding as _prepare,
     )
 
+
     return _prepare(request)
 
 
@@ -1107,6 +1140,7 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
         WORLDBUILDING_PROFILE_ID,
         WORLDBUILDING_PROFILE_VERSION,
     )
+
 
     expected_profile = f"{WORLDBUILDING_PROFILE_ID}@{WORLDBUILDING_PROFILE_VERSION}"
     if resolved.extraction_profile != expected_profile:
@@ -1134,6 +1168,7 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
             ],
         )
 
+
     assert_sealed_source_uri_allowed(resolved.sealed_source_uri)
     try:
         candidate_payload = json.loads(
@@ -1159,6 +1194,7 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
             ],
         )
 
+
     _assert_candidate_scope_matches_run(
         candidate_payload,
         campaign_id=resolved.campaign_id,
@@ -1174,7 +1210,9 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
             diagnostics=[_diagnostic("candidate_invalid", str(exc))],
         ) from exc
 
+
     from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+
 
     try:
         profile = get_extraction_profile(
@@ -1206,6 +1244,7 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
             diagnostics=[_diagnostic("profile_validation_failed", message)],
         )
 
+
     try:
         source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -1233,8 +1272,8 @@ def confirm_worldbuilding(
         confirm_worldbuilding as _confirm,
     )
 
-    return _confirm(request)
 
+    return _confirm(request)
 
 
 def _project_assertion_fields(
@@ -1244,6 +1283,7 @@ def _project_assertion_fields(
     world_root: Path,
 ) -> tuple[list[str], list[str], list[str]]:
     """Project accepted assertion and affected object ids from the sealed package.
+
 
     Reuses ``resolve_merged_contribution_from_package`` — the same helper
     ``confirm_extract_promote`` uses to build the ONE atomic contribution —
@@ -1296,11 +1336,14 @@ def _confirm_outcome_from_ops(
     published = bool(payload.get("published"))
     verification = str(payload.get("post_publication_verification") or "").strip()
 
+
     if outcome_text == "already_applied" and result_ok:
         return "already_applied", False, "ok", []
 
+
     if published and result_ok and verification == "passed":
         return "committed", True, "ok", []
+
 
     if published and (not result_ok or verification in {"degraded", "failed"}):
         warnings: list[str] = []
@@ -1309,6 +1352,7 @@ def _confirm_outcome_from_ops(
             if value:
                 warnings.append(str(value))
         return "published_audit_degraded", True, "degraded", warnings
+
 
     raise ExtractPromoteError(
         "merge did not publish",
@@ -1376,77 +1420,6 @@ def _build_confirm_receipt(
     )
 
 
-def _try_already_applied_after_stale_parent(
-    request: ExtractPromoteConfirmRequest,
-    normalized_assertion_ids: tuple[str, ...],
-    *,
-    world_root: Path,
-) -> ExtractPromoteConfirmReceipt | None:
-    """Resolve exact retry when head advanced past the sealed parent.
-
-    Uses existing contribution ledger authority — no second receipt store.
-    Returns None when the sealed contribution is not already active/applied
-    (true stale proposal → caller re-raises verification failure).
-    """
-    from graph_memory.world_supergraph.contribution_store import (
-        load_contribution_index,
-        load_contribution_record,
-    )
-    import graph_memory.kernel as kernel
-
-    try:
-        world_id_hint = str(
-            ((request.review_package or {}).get("effect") or {}).get("world_id")
-            or DEFAULT_WORLD_ID
-        )
-        verified, contribution = resolve_merged_contribution_from_package(
-            review_package=request.review_package,
-            confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
-            world_id_hint=world_id_hint,
-            root=world_root,
-            expected_parent_revision_id=None,
-            assertion_ids=normalized_assertion_ids,
-        )
-        world_id = str(verified["world_id"])
-        head, _rev, _store = kernel.open_current_world_graph(world_root, world_id)
-        index = load_contribution_index(world_root, world_id)
-        if contribution.contribution_id not in index.active_contribution_ids:
-            return None
-        try:
-            existing = load_contribution_record(
-                world_root, world_id, contribution.contribution_id
-            )
-        except FileNotFoundError:
-            return None
-        if existing is None or existing.status != "active":
-            return None
-        # Same contribution_id encodes sealed proposal + selection; active ledger
-        # membership is the Kernel's durable already-applied authority.
-    except Exception:
-        return None
-
-    payload = {
-        "schema": "dmb_promote_extract_proof_v1",
-        "ok": True,
-        "published": False,
-        "outcome": "already_applied",
-        "world_id": world_id,
-        "proposal_id": verified["proposal_id"],
-        "proposal_digest": verified["proposal_digest"],
-        "parent_revision_id": str(verified["parent_revision_id"]),
-        "committed_revision_id": head.head_revision_id,
-        "contribution_id": contribution.contribution_id,
-        "post_publication_verification": "skipped",
-    }
-    return _build_confirm_receipt(
-        request=request,
-        normalized_assertion_ids=normalized_assertion_ids,
-        result_ok=True,
-        payload=payload,
-        world_root=world_root,
-    )
-
-
 def confirm(
     request: ExtractPromoteConfirmRequest,
 ) -> ExtractPromoteConfirmReceipt:
@@ -1478,8 +1451,10 @@ def confirm(
             ],
         )
 
+
     normalized_assertion_ids = tuple(request.assertion_ids)
     world_root = world_graph_root()
+
 
     sealed_uri = str(
         ((request.review_package or {}).get("effect") or {}).get("verified_source_uri")
@@ -1488,8 +1463,10 @@ def confirm(
     if sealed_uri:
         assert_sealed_source_uri_allowed(sealed_uri)
 
+
     from apps.live_control_server import config as _config
-    
+
+
     if (
         _config.world_graph_authority_mode()
         == _config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
@@ -1497,6 +1474,7 @@ def confirm(
         from apps.live_control_server.integrations.dungeonmind import (
             world_graph_writes,
         )
+
 
         try:
             payload = world_graph_writes.confirm_extract_promote_via_dungeonmind(
@@ -1521,79 +1499,17 @@ def confirm(
             world_root=world_root,
         )
 
-    try:
-        result = confirm_extract_promote(
-            review_package=request.review_package,
-            world_root=world_root,
-            confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
-            assertion_ids=normalized_assertion_ids,
-            dry_run=PRODUCT_CONFIRM_DRY_RUN,
-            allow_live_world=PRODUCT_CONFIRM_ALLOW_LIVE_WORLD,
-            allow_idempotent_noop=PRODUCT_CONFIRM_ALLOW_IDEMPOTENT_NOOP,
-            live_root=live_world_graph_root(),
-            repo_root=repo_root(),
-            disclose_source_digest=False,
-        )
-    except ExtractPromoteEmptySelectionError as exc:
-        raise ExtractPromoteError(
-            str(exc),
-            code="empty_assertion_selection",
-            status_code=422,
-            diagnostics=[_diagnostic("empty_assertion_selection", str(exc))],
-        ) from exc
-    except ExtractPromoteLiveWorldError as exc:
-        raise ExtractPromoteError(
-            str(exc),
-            code="live_world_refused",
-            status_code=403,
-            diagnostics=[_diagnostic("live_world_refused", str(exc))],
-        ) from exc
-    except ExtractPromoteWorldError as exc:
-        raise ExtractPromoteError(
-            str(exc),
-            code="world_not_initialized",
-            status_code=409,
-            diagnostics=[_diagnostic("world_not_initialized", str(exc))],
-        ) from exc
-    except PromoteProposalError as exc:
-        # Exact retry after a successful publish: sealed parent no longer matches
-        # head, but contribution ledger may prove the selection already applied.
-        if PRODUCT_CONFIRM_ALLOW_IDEMPOTENT_NOOP:
-            already = _try_already_applied_after_stale_parent(
-                request,
-                normalized_assertion_ids,
-                world_root=world_root,
+
+    raise ExtractPromoteError(
+        "Buddy filesystem extract-promote confirm is retired; DungeonMind authority is required",
+        code="authority_unavailable",
+        status_code=409,
+        diagnostics=[
+            _diagnostic(
+                "authority_unavailable",
+                "Buddy filesystem extract-promote confirm is retired",
             )
-            if already is not None:
-                return already
-        raise ExtractPromoteError(
-            str(exc),
-            code="proposal_verification_failed",
-            status_code=409,
-            diagnostics=[_diagnostic("proposal_verification_failed", str(exc))],
-        ) from exc
-    except CandidateGraphMappingError as exc:
-        raise _public_mapping_error(exc) from exc
-
-    payload = result.payload
-    outcome_text = str(payload.get("outcome") or "").strip()
-    published = bool(payload.get("published"))
-
-    if not result.ok and not published and outcome_text != "already_applied":
-        raise ExtractPromoteError(
-            "merge did not publish",
-            code="merge_did_not_publish",
-            status_code=409,
-            diagnostics=[_diagnostic("merge_did_not_publish", "merge did not publish")],
-            failure_payload=dict(payload),
-        )
-
-    return _build_confirm_receipt(
-        request=request,
-        normalized_assertion_ids=normalized_assertion_ids,
-        result_ok=result.ok,
-        payload=payload,
-        world_root=world_root,
+        ],
     )
 
 
@@ -1605,6 +1521,7 @@ def prepare_first_world(
         prepare_first_world as _prepare,
     )
 
+
     return _prepare(request)
 
 
@@ -1615,6 +1532,7 @@ def confirm_first_world(
     from apps.live_control_server.services.first_world_graph_publication import (
         confirm_first_world as _confirm,
     )
+
 
     return _confirm(request)
 

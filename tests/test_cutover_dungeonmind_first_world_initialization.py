@@ -1,6 +1,8 @@
 """CUTOVER D.2C2: native first-world initialization behind DungeonMind authority."""
 
+
 from __future__ import annotations
+
 
 import ast
 import hashlib
@@ -11,13 +13,19 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+
 import pytest
 from fastapi.testclient import TestClient
+
 
 import apps.live_control_server.config as live_config
 import apps.live_control_server.services.extract_promote as promote_svc
 import apps.live_control_server.services.promotable_ingest_run as promotable_mod
 from apps.live_control_server.main import create_app
+from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
+    exported_contribution_evidence_ref_id,
+    raw_buddy_evidence_ref_id,
+)
 from apps.live_control_server.models.extract_promote import FirstWorldGraphConfirmRequest
 from apps.live_control_server.ports.world_graph_initialization import (
     WorldGraphInitializationError,
@@ -33,21 +41,22 @@ from apps.live_control_server.services.first_world_graph_publication import (
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GRAPH_INGEST_RUNS_ENV,
 )
-from tests.test_cutover_dungeonmind_world_graph_authority import (
+from tests._cutover_d3a_blocker_safe_fixtures import (
     TRUNCATE_SQL,
-    _ensure_migrated,
-    _test_dsn,
+    ensure_migrated as _ensure_migrated,
+    require_test_dsn as _test_dsn,
 )
-from tests.test_live_extract_promote_api import (
+from tests._cutover_d3a_blocker_safe_fixtures import (
     FIRST_WORLD_CONFIRM_URL,
     FIRST_WORLD_PREPARE_URL,
     GLASS_ORCHARD_WORLD_ID,
-    _first_world_confirm_body,
-    _first_world_decisions,
-    _first_world_prepare_body,
+    first_world_confirm_body as _first_world_confirm_body,
+    first_world_decisions as _first_world_decisions,
+    first_world_prepare_body as _first_world_prepare_body,
     _mutate_extraction_candidate,
-    _write_glass_orchard_bld08_run,
+    write_glass_orchard_bld08_run as _write_glass_orchard_bld08_run,
 )
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DUNGEONMIND_PIN = "5ca5d688612349034f8ca490d465af166d883e6e"
@@ -84,6 +93,7 @@ def test_dungeonmind_pin_is_exact_pr47_merge() -> None:
 def _other_shaped_command(command):
     from dungeonmind.contracts.evidence import SourceDomain
 
+
     assertions = [
         item.model_copy(
             update={
@@ -112,6 +122,7 @@ def _worldbuilding_artifact(*, source_domain=None, source_domain_key="worldbuild
         SourceStatus,
     )
     from dungeonmind.contracts.vocabulary import Visibility
+
 
     now = datetime(2026, 8, 27, tzinfo=UTC)
     return SourceArtifactV2(
@@ -148,9 +159,6 @@ def _mapped_other_contribution():
     from dungeonmind.contracts.evidence import EvidenceRef, EvidenceRole, SourceDomain
     from dungeonmind.contracts.vocabulary import Visibility
 
-    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
-        exported_contribution_evidence_ref_id,
-    )
 
     draft = EvidenceRef(
         evidence_ref_id="ev:raw",
@@ -195,9 +203,11 @@ def _mapped_other_contribution():
 def test_align_preserves_historical_evidence_id_and_copies_artifact_domain() -> None:
     from dungeonmind.contracts.evidence import SourceDomain
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         _align_first_world_command_evidence_domains,
     )
+
 
     contribution, exported_id = _mapped_other_contribution()
     aligned = _align_first_world_command_evidence_domains(
@@ -213,6 +223,7 @@ def test_align_fails_closed_on_missing_source_artifact() -> None:
         _align_first_world_command_evidence_domains,
     )
 
+
     contribution, _exported_id = _mapped_other_contribution()
     with pytest.raises(WorldGraphInitializationError) as exc:
         _align_first_world_command_evidence_domains(contribution, [])
@@ -223,9 +234,11 @@ def test_align_fails_closed_on_missing_source_artifact() -> None:
 def test_align_fails_closed_on_non_worldbuilding_artifact() -> None:
     from dungeonmind.contracts.evidence import SourceDomain
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         _align_first_world_command_evidence_domains,
     )
+
 
     contribution, _exported_id = _mapped_other_contribution()
     with pytest.raises(WorldGraphInitializationError) as exc:
@@ -246,6 +259,7 @@ def test_align_fails_closed_on_ambiguous_source_artifact() -> None:
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         _align_first_world_command_evidence_domains,
     )
+
 
     contribution, _exported_id = _mapped_other_contribution()
     first = _worldbuilding_artifact()
@@ -287,6 +301,7 @@ def test_factory_is_dungeonmind_only_and_rejects_alternate_root(
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
+
 
     prod = tmp_path / "prod"
     other = tmp_path / "other"
@@ -343,6 +358,7 @@ def test_genesis_semantic_profile_is_builtin_worldbuilding_descriptor() -> None:
         load_builtin_v3_descriptor,
     )
 
+
     descriptor = load_builtin_v3_descriptor()
     profile = _genesis_semantic_profile()
     assert profile.profile_id == descriptor.profile_id
@@ -362,6 +378,7 @@ class _FakeReviewedInit:
         self._result = result
         self._error = error
 
+
     def get_for_world(self, world_id: str):
         if self._error is not None:
             raise self._error
@@ -372,6 +389,7 @@ class _FakeGraph:
     def __init__(self, head=None, error: BaseException | None = None) -> None:
         self._head = head
         self._error = error
+
 
     def get_head(self, world_id: str):
         if self._error is not None:
@@ -413,9 +431,11 @@ def test_probe_maps_verified_receipt_integrity_not_unavailable(
 ) -> None:
     from dungeonmind.domain.errors import PersistenceIntegrityError
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
+
 
     adapter = DungeonMindWorldGraphInitializationAdapter(database_url="postgresql://unused")
     bundle = _FakeBundle(
@@ -435,9 +455,11 @@ def test_initialize_maps_verified_receipt_integrity_without_leaking(
 ) -> None:
     from dungeonmind.domain.errors import PersistenceIntegrityError
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
+
 
     adapter = DungeonMindWorldGraphInitializationAdapter(database_url="postgresql://unused")
     bundle = _FakeBundle(
@@ -457,9 +479,11 @@ def test_probe_maps_unavailable_receipt_read_to_authority_unavailable(
 ) -> None:
     from dungeonmind.domain.errors import PersistenceUnavailableError
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
+
 
     adapter = DungeonMindWorldGraphInitializationAdapter(database_url="postgresql://unused")
     bundle = _FakeBundle(
@@ -477,6 +501,7 @@ def test_probe_and_initialize_treat_receipt_without_head_as_integrity(
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
+
 
     adapter = DungeonMindWorldGraphInitializationAdapter(database_url="postgresql://unused")
     bundle = _FakeBundle(receipt=_FakeReceipt(), head=None)
@@ -505,12 +530,15 @@ def native_first_world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     _ensure_migrated(dsn)
     from dungeonmind.infrastructure.postgres import PostgresDatabase
 
+
     database = PostgresDatabase(dsn)
     with database.connect() as conn:
         conn.execute(TRUNCATE_SQL)
         conn.commit()
 
+
     from apps.live_control_server import config as wg_config
+
 
     repo = tmp_path / "repo"
     world_root = tmp_path / "world"
@@ -561,6 +589,7 @@ def _sealed_native_request(repo: Path, plan: dict) -> WorldGraphInitializationRe
     )
     from graph_memory.worldbuilding_write_plan import WorldbuildingDispositionInput
 
+
     resolved = resolve_promotable_ingest_run(plan["runId"], root=repo)
     typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(resolved)
     rematerialized = materialize_first_world_plan(
@@ -598,6 +627,7 @@ def _bundle(dsn: str):
         PostgresRepositoryBundle,
     )
 
+
     return PostgresRepositoryBundle(PostgresDatabase(dsn))
 
 
@@ -606,9 +636,11 @@ def _project_native(dsn: str, *, world_id: str, campaign_id: str):
     from dungeonmind.contracts.projection import Admissibility
     from dungeonmind.contracts.projection_v2 import ScopeModeV2, WorldGraphProjectionRequestV2
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         _build_graph_reader,
     )
+
 
     bundle = _bundle(dsn)
     result = WorldGraphProjectionService(
@@ -630,10 +662,12 @@ def _project_native(dsn: str, *, world_id: str, campaign_id: str):
 def _counts(dsn: str, world_id: str) -> dict[str, int]:
     import psycopg
 
+
     with psycopg.connect(dsn) as conn:
         def count(sql_text: str, params: tuple = (world_id,)) -> int:
             row = conn.execute(sql_text, params).fetchone()
             return int(row[0])
+
 
         return {
             "heads": count(
@@ -668,6 +702,7 @@ def _counts(dsn: str, world_id: str) -> dict[str, int]:
 def _artifact_ids(dsn: str, world_id: str) -> list[tuple[str]]:
     import psycopg
 
+
     with psycopg.connect(dsn) as conn:
         return conn.execute(
             "SELECT source_artifact_id FROM dungeonmind.source_artifacts WHERE world_id = %s",
@@ -677,6 +712,7 @@ def _artifact_ids(dsn: str, world_id: str) -> list[tuple[str]]:
 
 def _revision_ids(dsn: str, world_id: str) -> list[tuple[str]]:
     import psycopg
+
 
     with psycopg.connect(dsn) as conn:
         return conn.execute(
@@ -698,11 +734,13 @@ def test_native_review_prepare_confirm_with_buddy_graph_absent(
     assert not glass_dir.exists()
     assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["receipts"] == 0
 
+
     review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
     assert review.status_code == 200, review.text
     body = review.json()
     assert body["worldState"] == "uninitialized"
     assert body["firstWorldPublishEligible"] is True
+
 
     confirm = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert confirm.status_code == 200, confirm.text
@@ -711,6 +749,7 @@ def test_native_review_prepare_confirm_with_buddy_graph_absent(
     assert receipt["baselineRevisionId"] is None
     assert receipt["committedRevisionId"]
     assert not glass_dir.exists()
+
 
     after = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
     assert after.status_code == 200, after.text
@@ -724,6 +763,7 @@ def test_native_empty_to_d0_topology_and_source_closure(
     native_first_world_client,
 ) -> None:
     from dungeonmind.contracts.identity import IdentityOutcome
+
 
     client, world_root, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo, with_rejected=True)
@@ -740,6 +780,7 @@ def test_native_empty_to_d0_topology_and_source_closure(
     assert counts["adoptions"] == 0
     assert not (world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID).exists()
 
+
     bundle = _bundle(dsn)
     head = bundle.world_graph.get_head(GLASS_ORCHARD_WORLD_ID)
     assert head is not None
@@ -752,6 +793,7 @@ def test_native_empty_to_d0_topology_and_source_closure(
     assert "obj_session22_vial" in object_ids
     assert "mystery_puddles" in object_ids
     assert REJECTED_NODE_ID not in object_ids
+
 
     init = bundle.reviewed_world_initializations.get_for_world(GLASS_ORCHARD_WORLD_ID)
     assert init is not None
@@ -779,6 +821,7 @@ def test_native_empty_to_d0_topology_and_source_closure(
         _genesis_semantic_profile,
     )
 
+
     profile = _genesis_semantic_profile()
     assert profile.profile_id == "dungeonmind.dnd5e"
     artifact_ids = {row[0] for row in _artifact_ids(dsn, GLASS_ORCHARD_WORLD_ID)}
@@ -793,12 +836,9 @@ def test_native_empty_to_d0_topology_and_source_closure(
             assert ref.source_revision_id in revision_ids
             assert ref.source_domain.value == "worldbuilding"
 
+
     from dungeonmind.contracts.evidence import SourceDomain
 
-    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
-        exported_contribution_evidence_ref_id,
-        raw_buddy_evidence_ref_id,
-    )
 
     stored_artifact = bundle.sources.get_artifact(next(iter(artifact_ids)))
     assert stored_artifact is not None
@@ -815,6 +855,7 @@ def test_native_empty_to_d0_topology_and_source_closure(
         )
         assert ref.source_domain is SourceDomain.WORLDBUILDING
 
+
     projected, _ = _project_native(
         dsn,
         world_id=GLASS_ORCHARD_WORLD_ID,
@@ -829,6 +870,7 @@ def _corrected_and_historical_commands(repo: Path, plan: dict, *, initialized_at
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         _build_command,
     )
+
 
     request = _sealed_native_request(repo, plan)
     corrected = _build_command(request, requested_initialized_at=initialized_at)
@@ -849,6 +891,7 @@ def _assert_corrected_preserves_historical_identity(corrected, historical) -> No
         reviewed_world_initialization_replay_identity,
     )
     from dungeonmind.contracts.evidence import SourceDomain
+
 
     corrected_refs = _command_evidence_refs(corrected)
     historical_refs = _command_evidence_refs(historical)
@@ -896,12 +939,14 @@ def test_historical_other_receipt_replays_as_already_initialized(
     )
     from dungeonmind.contracts.evidence import SourceDomain
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         _build_graph_reader,
     )
+
 
     client, _world, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo, with_rejected=True)
@@ -910,6 +955,7 @@ def test_historical_other_receipt_replays_as_already_initialized(
         repo, plan, initialized_at=frozen
     )
     _assert_corrected_preserves_historical_identity(corrected, historical)
+
 
     bundle = _bundle(dsn)
     seeded = initialize_reviewed_world(
@@ -937,6 +983,7 @@ def test_historical_other_receipt_replays_as_already_initialized(
     assert counts["receipts"] == 1
     assert counts["adoptions"] == 0
 
+
     replayed = DungeonMindWorldGraphInitializationAdapter(database_url=dsn).initialize(
         request
     )
@@ -957,6 +1004,7 @@ def test_historical_other_receipt_replays_as_already_initialized(
     assert after_counts["revisions"] == 1
     assert after_counts["receipts"] == 1
     assert after_counts["adoptions"] == 0
+
 
     projected, _ = _project_native(
         dsn,
@@ -1004,10 +1052,12 @@ def test_native_lost_response_restart_replays_same_d0(
         DungeonMindWorldGraphInitializationAdapter,
     )
 
+
     client, _world, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo)
     real = DungeonMindWorldGraphInitializationAdapter.initialize
     lost = {"done": False}
+
 
     def _lose(self, request):
         receipt = real(self, request)
@@ -1018,6 +1068,7 @@ def test_native_lost_response_restart_replays_same_d0(
                 code="initialization_failed",
             )
         return receipt
+
 
     monkeypatch.setattr(DungeonMindWorldGraphInitializationAdapter, "initialize", _lose)
     first = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
@@ -1036,12 +1087,14 @@ def test_native_synchronized_identical_confirms_recover_via_timestamp_conflict(
     from dungeonmind.application import reviewed_world_initialization as rwi
     from dungeonmind.domain.errors import IdempotencyConflictError
 
+
     from apps.live_control_server.integrations.dungeonmind import (
         world_graph_initialization_adapter as init_mod,
     )
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
+
 
     client, _world, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo)
@@ -1052,16 +1105,21 @@ def test_native_synchronized_identical_confirms_recover_via_timestamp_conflict(
     receipt_reads: list[str | None] = []
     provider_calls: list[dict[str, object]] = []
 
+
     real_verified = init_mod._get_verified_reviewed_init_receipt
+
 
     def tracking_verified(repository, world_id):
         receipt = real_verified(repository, world_id)
         receipt_reads.append(None if receipt is None else str(receipt.initialization_id))
         return receipt
 
+
     monkeypatch.setattr(init_mod, "_get_verified_reviewed_init_receipt", tracking_verified)
 
+
     real_provider = rwi.initialize_reviewed_world
+
 
     def tracking_provider(command, **kwargs):
         record: dict[str, object] = {
@@ -1077,7 +1135,9 @@ def test_native_synchronized_identical_confirms_recover_via_timestamp_conflict(
         provider_calls.append(record)
         return result
 
+
     monkeypatch.setattr(rwi, "initialize_reviewed_world", tracking_provider)
+
 
     adapters = [
         DungeonMindWorldGraphInitializationAdapter(
@@ -1092,8 +1152,10 @@ def test_native_synchronized_identical_confirms_recover_via_timestamp_conflict(
         ),
     ]
 
+
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda adapter: adapter.initialize(request), adapters))
+
 
     outcomes = sorted(item.outcome for item in results)
     assert outcomes == ["already_initialized", "initialized"]
@@ -1137,6 +1199,7 @@ def test_native_changed_command_conflicts(native_first_world_client) -> None:
         DungeonMindWorldGraphInitializationAdapter,
     )
 
+
     client, _world, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo)
     first = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
@@ -1155,6 +1218,7 @@ def test_native_non_pristine_without_receipt_fails_closed(
     native_first_world_client,
 ) -> None:
     import psycopg
+
 
     client, _world, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo)
@@ -1190,6 +1254,7 @@ def test_native_workspace_drift_fails_before_publication(
     )
     from src.live_play.live_store import load_json, write_json
 
+
     client, _world, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo)
     artifact = get_source_artifact(repo, plan["sourceArtifactId"])
@@ -1223,9 +1288,11 @@ def test_native_receipt_without_head_is_integrity_not_unavailable(
 ) -> None:
     import psycopg
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
+
 
     client, _world, repo, dsn = native_first_world_client
     run_id, plan = _prepare_native_plan(client, repo)
@@ -1262,9 +1329,11 @@ def test_native_corrupt_d0_receipt_is_integrity_not_unavailable(
 ) -> None:
     import psycopg
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
+
 
     client, _world, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo)

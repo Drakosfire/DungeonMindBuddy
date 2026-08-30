@@ -1,18 +1,20 @@
 """SBW09c1: Threat publication-proposal orchestration.
 
+
 Storage:
     out/threat_publication_proposals/<draft_id>/<operation_id>/ledger.json
     out/threat_publication_proposals/<draft_id>/<operation_id>/.proposal.lock
+
 
 Lock order:
     proposal ledger lock -> SBW09b identity read -> SBW09a publication refresh/read
     -> exact expected-parent World Graph read
 
+
 No graph, ThreatDraft, accepted-mechanics, or predecessor mutation occurs here.
 """
 from __future__ import annotations
 
-import types
 
 import fcntl
 from contextlib import contextmanager
@@ -20,6 +22,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterator, Literal
+
 
 from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.models.world_graph_contribution_values import (
@@ -103,27 +106,12 @@ from apps.live_control_server.models.threat_statblock_binding import (
 )
 from src.live_play.live_store import load_json, write_json
 
+
 DEFAULT_PROPOSAL_REL = "out/threat_publication_proposals"
 LEDGER_NAME = "ledger.json"
 LOCK_NAME = ".proposal.lock"
 EXTRACTION_PROFILE = "dmb_threat_publication_v1"
 IDENTITY_DECISION_SOURCE_KIND = "identity_decision"
-
-class _KernelProxy:
-    """Lazy Buddy kernel access for unmounted/test inject paths only."""
-
-    _mod: types.ModuleType | None = None
-
-    def __getattr__(self, name: str):
-        if type(self)._mod is None:
-            import graph_memory.kernel as kernel_mod
-
-            type(self)._mod = kernel_mod
-        return getattr(type(self)._mod, name)
-
-
-kernel = _KernelProxy()
-
 
 
 @dataclass(frozen=True)
@@ -148,6 +136,7 @@ _RESOLUTION_LABEL_MAP: dict[
     "publication_identity_storage_unavailable": "publication_proposal_storage_unavailable",
     "publication_identity_graph_unavailable": "publication_proposal_graph_unavailable",
 }
+
 
 _PUBLICATION_LABEL_MAP: dict[
     ThreatPublicationResultLabel, ThreatPublicationProposalResultLabel
@@ -527,6 +516,7 @@ def _embed_assertion_provenance(
 ) -> GraphContributionAssertion:
     """Embed evidence + source-artifact payloads so merge can materialize them.
 
+
     Reference-only ``evidence:tpub:…`` ids are not present in the World Graph
     store; contribution merge requires embedded provenance (see ANything dogfood
     packaging) or merge returns ``published=False`` / uncommitted.
@@ -554,6 +544,7 @@ def _embed_assertion_provenance(
             operation_id=operation.operation_id,
             resolution_id=resolution.resolution_id,
         )
+
 
     value = dict(assertion.value or {})
     value["source_domains"] = [source_domain]
@@ -626,6 +617,7 @@ def _build_create_new_assertions(
     role = roles[0] if roles else snapshot.threat_kind.strip() or "threat"
     identity_outcome = "created_new"
 
+
     assertions: list[GraphContributionAssertion] = []
     common = _assertion_common(
         operation=operation,
@@ -653,6 +645,7 @@ def _build_create_new_assertions(
             artifact_scope="operation",
         )
     )
+
 
     description = snapshot.description.strip()
     if description:
@@ -701,6 +694,7 @@ def _build_create_new_assertions(
             )
         )
 
+
     accepted_ref = snapshot.accepted_mechanics_ref
     resource_node_id = external_statblock_node_id(accepted_ref.statblock_id)
     assertions.append(
@@ -732,6 +726,7 @@ def _build_create_new_assertions(
             artifact_scope="resolution",
         )
     )
+
 
     binding_value, _edge_id, _binding_id = _binding_payload(
         threat_node_id=threat_node_id,
@@ -782,6 +777,7 @@ def _build_connect_existing_assertions(
     accepted_ref = snapshot.accepted_mechanics_ref
     resource_node_id = external_statblock_node_id(accepted_ref.statblock_id)
 
+
     assertions: list[GraphContributionAssertion] = []
     assertions.append(
         _embed_assertion_provenance(
@@ -812,6 +808,7 @@ def _build_connect_existing_assertions(
             artifact_scope="resolution",
         )
     )
+
 
     binding_value, _edge_id, _binding_id = _binding_payload(
         threat_node_id=threat_node_id,
@@ -935,6 +932,7 @@ def _reconstruct_expected_contribution(
     mutation_context: Any | None = None,
 ):
     """Return the unmodified reconstructed contribution for c1 authority.
+
 
     ``accepted_assertion_ids`` must record this reconstruction order so c2b can
     prove exact ordered equality without rearranging the reconstructed object.
@@ -1072,10 +1070,12 @@ def _run_exact_parent_preflight(
         if not _node_matches_candidate(existing, resolution):
             return "connect target does not match snapshotted candidate"
 
+
     existing_resource = view.objects.get(resource_node_id)
     if existing_resource is not None:
         if not _existing_resource_matches(existing_resource, accepted_ref.statblock_id):
             return "incompatible external resource already present"
+
 
     _expected_binding_value, expected_edge_id, _ = _binding_payload(
         threat_node_id=threat_node_id,
@@ -1183,6 +1183,7 @@ def prepare_threat_publication_proposal(
     safe_resolution = validate_resolution_id(resolution_id)
     safe_proposal = validate_proposal_id(request.proposal_id)
 
+
     ledger_file = _ledger_path(root, safe_draft, safe_op)
     try:
         commit_claimed = threat_publication_commit_ledger_exists(root, safe_draft, safe_op)
@@ -1193,6 +1194,7 @@ def prepare_threat_publication_proposal(
             safe_resolution,
             ThreatPublicationProposalStorageError(str(exc), kind=exc.kind),
         )
+
 
     # Honest no-artifact fast path only when BOTH proposal and commit authority absent.
     if not ledger_file.is_file() and not commit_claimed:
@@ -1207,6 +1209,7 @@ def prepare_threat_publication_proposal(
                 ),
                 created=False,
             )
+
 
         identity_outcome = read_identity_resolution(root, safe_draft, safe_op, safe_resolution)
         resolution = identity_outcome.response.resolution
@@ -1245,11 +1248,13 @@ def prepare_threat_publication_proposal(
                 )
             )
 
+
     with threat_publication_lifecycle_lock(root, safe_draft, safe_op):
         try:
             existing_ledger = _load_ledger_unlocked(root, safe_draft, safe_op)
         except ThreatPublicationProposalStorageError as exc:
             return _outcome_from_storage_error(safe_draft, safe_op, safe_resolution, exc)
+
 
         try:
             commit_ledger = load_threat_publication_commit_ledger_unlocked(
@@ -1263,6 +1268,7 @@ def prepare_threat_publication_proposal(
                 ThreatPublicationProposalStorageError(str(exc), kind=exc.kind),
             )
 
+
         if commit_ledger is not None and existing_ledger is None:
             return ProposalOutcome(
                 _response(
@@ -1274,6 +1280,7 @@ def prepare_threat_publication_proposal(
                 ),
                 created=False,
             )
+
 
         if existing_ledger is not None:
             existing_proposal = _find_proposal(existing_ledger, safe_proposal)
@@ -1304,6 +1311,7 @@ def prepare_threat_publication_proposal(
                     created=False,
                 )
 
+
             if commit_ledger is not None:
                 claimed = commit_ledger.commit.proposal_id
                 if _find_proposal(existing_ledger, claimed) is None:
@@ -1330,6 +1338,7 @@ def prepare_threat_publication_proposal(
                     ),
                     created=False,
                 )
+
 
             if (
                 existing_ledger.active_proposal_id is not None
@@ -1373,6 +1382,7 @@ def prepare_threat_publication_proposal(
         elif commit_ledger is not None:
             return _commit_claim_busy_outcome(safe_draft, safe_op, safe_resolution)
 
+
         identity_outcome = read_identity_resolution(root, safe_draft, safe_op, safe_resolution)
         resolution = identity_outcome.response.resolution
         if resolution is None:
@@ -1410,12 +1420,14 @@ def prepare_threat_publication_proposal(
                 )
             )
 
+
         refresh = refresh_publication_operation(root, safe_draft, safe_op)
         if refresh.response.result_label != "publication_ready" or refresh.response.operation is None:
             return _outcome_from_publication_failure(
                 safe_draft, safe_op, safe_resolution, refresh
             )
         operation = refresh.response.operation
+
 
         if (
             resolution.draft_id != safe_draft
@@ -1434,6 +1446,7 @@ def prepare_threat_publication_proposal(
                 )
             )
 
+
         decision: ProposalDecision = resolution.decision
         if decision == "create_new":
             assert resolution.created_node_id is not None
@@ -1444,11 +1457,13 @@ def prepare_threat_publication_proposal(
             threat_node_id = resolution.selected_target.node_id
             accepted_assertions = _build_connect_existing_assertions(operation, resolution)
 
+
         graph_root = (world_root if world_root is not None else world_graph_root()).resolve()
         try:
             parent_view = _load_exact_parent_view(operation, world_root=graph_root)
         except ThreatPublicationProposalStorageError as exc:
             return _outcome_from_storage_error(safe_draft, safe_op, safe_resolution, exc)
+
 
         preflight_error = _run_exact_parent_preflight(
             parent_view,
@@ -1471,6 +1486,7 @@ def prepare_threat_publication_proposal(
                     message=preflight_error,
                 )
             )
+
 
         sealed_package = _build_sealed_package(
             operation=operation,
@@ -1517,6 +1533,7 @@ def prepare_threat_publication_proposal(
                 )
             )
 
+
         now = _utc_now_iso()
         proposal_digest_hex = str(sealed_package["proposal_digest"])
         proposal_record = ThreatPublicationProposalV1.model_validate(
@@ -1556,6 +1573,7 @@ def prepare_threat_publication_proposal(
             }
         )
 
+
         ledger = existing_ledger or _empty_ledger(safe_draft, safe_op)
         if len(ledger.proposals) >= MAX_PROPOSALS_PER_OPERATION:
             return ProposalOutcome(
@@ -1567,6 +1585,7 @@ def prepare_threat_publication_proposal(
                     message="publication proposal history bound reached",
                 )
             )
+
 
         updated_proposals = list(ledger.proposals)
         if request.supersedes_proposal_id is not None:
@@ -1599,6 +1618,7 @@ def prepare_threat_publication_proposal(
             )
         updated_proposals = [*updated_proposals, proposal_record]
 
+
         new_ledger = ThreatPublicationProposalLedgerV1.model_validate(
             {
                 "draft_id": safe_draft,
@@ -1611,6 +1631,7 @@ def prepare_threat_publication_proposal(
             _save_ledger_unlocked(root, new_ledger)
         except ThreatPublicationProposalStorageError as exc:
             return _outcome_from_storage_error(safe_draft, safe_op, safe_resolution, exc)
+
 
         return ProposalOutcome(
             _response(
@@ -1634,9 +1655,11 @@ def read_threat_publication_proposal(
     safe_op = validate_publication_operation_id(operation_id)
     safe_proposal = validate_proposal_id(proposal_id)
 
+
     ledger_file = _ledger_path(root, safe_draft, safe_op)
     proposal_ledger_exists = ledger_file.is_file()
     commit_ledger_exists = threat_publication_commit_ledger_exists(root, safe_draft, safe_op)
+
 
     if not proposal_ledger_exists and commit_ledger_exists:
         with threat_publication_lifecycle_lock(root, safe_draft, safe_op):
@@ -1657,6 +1680,7 @@ def read_threat_publication_proposal(
             if commit_ledger is not None and proposal_ledger is None:
                 return _orphan_commit_integrity_outcome(safe_draft, safe_op, None)
 
+
     if not proposal_ledger_exists and not commit_ledger_exists:
         return ProposalOutcome(
             _response(
@@ -1667,6 +1691,7 @@ def read_threat_publication_proposal(
                 message="publication proposal ledger not found",
             )
         )
+
 
     with threat_publication_lifecycle_lock(root, safe_draft, safe_op):
         try:
@@ -1682,8 +1707,10 @@ def read_threat_publication_proposal(
                 ThreatPublicationProposalStorageError(str(exc), kind=exc.kind),
             )
 
+
         if commit_ledger is not None and ledger is None:
             return _orphan_commit_integrity_outcome(safe_draft, safe_op, None)
+
 
         if ledger is None:
             return ProposalOutcome(
@@ -1696,6 +1723,7 @@ def read_threat_publication_proposal(
                 )
             )
 
+
         proposal = _find_proposal(ledger, safe_proposal)
         if proposal is None:
             return ProposalOutcome(
@@ -1707,6 +1735,7 @@ def read_threat_publication_proposal(
                     message="publication proposal not found",
                 )
             )
+
 
         return ProposalOutcome(
             _response(

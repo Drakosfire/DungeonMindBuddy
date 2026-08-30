@@ -1,20 +1,25 @@
 """CUTOVER D.1: native governed write context (no Buddy hydration)."""
 
+
 from __future__ import annotations
+
 
 import ast
 from pathlib import Path
 
+
 import pytest
 
-from graph_memory.kernel.identity_models import IdentityCandidate
-from graph_memory.world_graph_mutation_context import (
+
+from apps.live_control_server.models.world_graph_identity_models import IdentityCandidate
+from apps.live_control_server.models.world_graph_mutation_context import (
     MutationObject,
     WorldGraphMutationContext,
     endpoint_available,
     resolve_identity_against_context,
     wire_kind,
 )
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WRITES_PATH = (
@@ -126,6 +131,7 @@ def test_identity_infers_pc_kind_from_existing_object():
     )
     from graph_memory.extract_identity_gate import _infer_object_kind
 
+
     context = _context(
         MutationObject(object_id="node:caelynn", label="Caelynn", kind="pc")
     )
@@ -206,9 +212,11 @@ def test_identity_ambiguous_same_kind_fails_closed():
 def test_native_producer_honors_reject_and_human_override():
     from types import SimpleNamespace
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         mutation_context_from_revision_payload,
     )
+
 
     stored = SimpleNamespace(
         graph_payload={
@@ -292,9 +300,11 @@ def test_native_producer_honors_reject_and_human_override():
 def test_native_producer_follows_merge_redirect_not_merged_away_source():
     from types import SimpleNamespace
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         mutation_context_from_revision_payload,
     )
+
 
     stored = SimpleNamespace(
         graph_payload={
@@ -358,12 +368,14 @@ def test_native_producer_follows_merge_redirect_not_merged_away_source():
 def test_sealed_identity_ledger_ignores_later_live_decisions():
     from types import SimpleNamespace
 
+
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         bind_identity_ledger_to_package,
         mutation_context_from_revision_payload,
         _hydrate_identity_decisions,
         _require_sealed_identity_ledger,
     )
+
 
     stored = SimpleNamespace(
         graph_payload={
@@ -438,6 +450,7 @@ def test_sealed_identity_ledger_ignores_later_live_decisions():
     )
     assert live_resolution.outcome == "rejected"
 
+
     sealed = mutation_context_from_revision_payload(
         stored,
         world_id="eldyrwild",
@@ -468,11 +481,14 @@ def test_sealed_identity_ledger_ignores_later_live_decisions():
 def test_receipt_ids_from_dungeonmind_reviewed_contribution():
     from types import SimpleNamespace
 
+
     from dungeonmind.contracts.contribution import AcceptanceState
+
 
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         _affected_ids_from_contribution,
     )
+
 
     reviewed = SimpleNamespace(
         assertions=[
@@ -528,22 +544,23 @@ def test_endpoint_existence_parent_same_batch_and_missing():
 def test_dnd_prepare_does_not_open_buddy_graph(monkeypatch, tmp_path):
     import hashlib
 
-    import graph_memory.kernel as kernel
+
     from graph_memory.candidate_graph_preview import (
         CANDIDATE_GRAPH_PREVIEW_SCHEMA,
         CANDIDATE_GRAPH_PREVIEW_VERSION,
     )
     from graph_memory.extract_promote_ops import prepare_extract_promote
 
+
     def _explode(*_args, **_kwargs):
         raise AssertionError("Buddy graph open must not run on DND prepare")
 
-    monkeypatch.setattr(kernel, "open_current_world_graph", _explode)
-    monkeypatch.setattr(kernel, "load_world_graph_revision", _explode)
+
     monkeypatch.setattr(
-        "graph_memory.world_graph_mutation_context.mutation_context_from_world_root",
+        "apps.live_control_server.models.world_graph_mutation_context.mutation_context_from_world_root",
         _explode,
     )
+
 
     source = tmp_path / "recap.md"
     source.write_text("Cutover Tinker arrives in Mireward.\n")
@@ -635,6 +652,7 @@ def test_dnd_prepare_fails_closed_when_authority_unavailable(monkeypatch):
         load_production_mutation_context,
     )
 
+
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY", "dungeonmind")
     monkeypatch.delenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", raising=False)
     with pytest.raises(WorldGraphWriteError) as excinfo:
@@ -644,7 +662,8 @@ def test_dnd_prepare_fails_closed_when_authority_unavailable(monkeypatch):
 
 def test_file_mode_producer_still_opens_explicit_root(tmp_path):
     """buddy_files compatibility is retained and must not be a DND fallback."""
-    from graph_memory.world_graph_mutation_context import mutation_context_from_world_root
+    from apps.live_control_server.models.world_graph_mutation_context import mutation_context_from_world_root
+
 
     with pytest.raises(Exception):
         mutation_context_from_world_root(tmp_path / "missing-graph", "eldyrwild")

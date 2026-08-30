@@ -50,7 +50,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER D.3: Buddy graph-engine demolition
 
 **Created:** 2026-08-25
-**Status:** MERGED — design accepted; D.2C3 / #651 and D.2C4 / #662 are `COMPLETE` / MERGED (#662 accepted head `1ab48453cb556ca9d01ff84173ab3e2fdf81d1ec`; merge `2f1b44aa8ad8bad78269c0cadf624882cd0f459f`; 4 formal review cycles; Cycle 4 PASS-equivalent `5059141212`); D.3A is `DOING` / this PR; D.3B remains `BLOCKED`; D.3 is not `DONE`
+**Status:** MERGED — design accepted; D.2C3 / #651 and D.2C4 / #662 are `COMPLETE` / MERGED (#662 accepted head `1ab48453cb556ca9d01ff84173ab3e2fdf81d1ec`; merge `2f1b44aa8ad8bad78269c0cadf624882cd0f459f`; 4 formal review cycles; Cycle 4 PASS-equivalent `5059141212`); D.3A is `COMPLETE` / MERGED (#665 accepted head `189ffd50157534d192b2af008c48a76d12ccbc4c`; merge `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`; 3 formal review cycles; Cycle 3 PASS-equivalent `5059851179`); D.3B is `DOING` / active lease / `cutover/delete-legacy-graph-engine`; D.3 is not `DONE`
 **Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`
 **Workstream / flow:** `CUTOVER`
 **Direction:** DESIGN → REVIEW
@@ -1846,10 +1846,8 @@ Preferred shape:
 def get_world_graph_authority() -> WorldGraphAuthority:
     return DungeonMindWorldGraphAuthorityAdapter()
 
-
 def get_world_graph_initialization_authority() -> WorldGraphInitializationAuthority:
     return DungeonMindWorldGraphInitializationAdapter()
-
 
 def get_world_graph_source_admission_authority() -> WorldGraphSourceAdmissionAuthority:
     return DungeonMindWorldGraphSourceAdmissionAdapter()

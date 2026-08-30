@@ -1,6 +1,8 @@
 """CUTOVER D.2B: worldbuilding authority-port contract (no PostgreSQL)."""
 
+
 from __future__ import annotations
+
 
 import ast
 import hashlib
@@ -8,7 +10,12 @@ from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
+
 import pytest
+
+
+import apps.live_control_server.config as storage
+
 
 from apps.live_control_server.ports.world_graph_authority import (
     AuthorityEvidenceRef,
@@ -22,19 +29,53 @@ from apps.live_control_server.ports.world_graph_authority import (
     WorldGraphVerificationResult,
 )
 from graph_memory.extract_promote_ops import DEFAULT_WORLD_ID
-from graph_memory.world_graph_mutation_context import (
+from apps.live_control_server.models.world_graph_mutation_context import (
     WORLDBUILDING_IDENTITY_SNAPSHOT_SCHEMA,
     MutationObject,
     WorldGraphMutationContext,
     identity_snapshot_from_context,
 )
+from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
 from graph_memory.worldbuilding_write_plan import (
     WorldbuildingWritePlanError,
     build_worldbuilding_write_plan,
 )
-from tests.test_worldbuilding_write_plan import _dispositions, _preview
+from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    DEFAULT_SEMANTIC_STATE,
+)
+from tests._cutover_d3a_blocker_safe_fixtures import _candidate_graph_payload
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _preview() -> object:
+    payload = _candidate_graph_payload(session_id=None)
+    payload["preview_id"] = "preview:worldbuilding-write-plan"
+    payload["source_artifact_ids"] = ["artifact:worldbuilding:test"]
+    payload["session_id"] = None
+    for index, node in enumerate(payload["nodes"]):
+        node["node_id"] = f"wb_node_{index}"
+        node["node_type"] = "character" if index == 0 else "location"
+        node["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+        for ref in node["evidence_refs"]:
+            ref["source_artifact_id"] = "artifact:worldbuilding:test"
+    for edge in payload["edges"]:
+        edge["edge_id"] = "wb_edge_0"
+        edge["from_node_id"] = "wb_node_0"
+        edge["to_node_id"] = "wb_node_1"
+        edge["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+        for ref in edge["evidence_refs"]:
+            ref["source_artifact_id"] = "artifact:worldbuilding:test"
+    return candidate_graph_preview_from_dict(payload)
+
+
+def _dispositions(*, edge: str = "accept") -> list[dict[str, str]]:
+    return [
+        {"assertion_id": "wb_node_0", "decision": "create_new"},
+        {"assertion_id": "wb_node_1", "decision": "create_new"},
+        {"assertion_id": "wb_edge_0", "decision": edge},
+    ]
 WORLDBUILDING_SERVICE_PATHS = (
     REPO_ROOT / "apps/live_control_server/services/worldbuilding_graph_publication.py",
 )
@@ -80,6 +121,7 @@ class FakeWorldGraphAuthority:
         self.publish_calls = 0
         self.unavailable = False
 
+
     def current_head(self, world_id: str) -> WorldGraphHead:
         if self.unavailable:
             raise WorldGraphAuthorityError("authority down", code="authority_unavailable")
@@ -88,6 +130,7 @@ class FakeWorldGraphAuthority:
             raise WorldGraphAuthorityError("no head", code="revision_unavailable")
         return WorldGraphHead(world_id=world_id, revision_id=revision_id)
 
+
     def read_revision(self, world_id: str, revision_id: str) -> WorldGraphRevisionView:
         if self.unavailable:
             raise WorldGraphAuthorityError("authority down", code="authority_unavailable")
@@ -95,6 +138,7 @@ class FakeWorldGraphAuthority:
         if view is None:
             raise WorldGraphAuthorityError("missing revision", code="revision_unavailable")
         return view
+
 
     def mutation_context(
         self,
@@ -126,9 +170,10 @@ class FakeWorldGraphAuthority:
             from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
                 _identity_decision_prefix_key,
             )
-            from graph_memory.world_graph_mutation_context import (
+            from apps.live_control_server.models.world_graph_mutation_context import (
                 mutation_context_with_sealed_identity,
             )
+
 
             live_decisions = [
                 dict(item)
@@ -173,6 +218,7 @@ class FakeWorldGraphAuthority:
             identity_redirects=redirects,
             identity_ledger_records=ledger,
         )
+
 
     def publish(self, request: WorldGraphPublishRequest) -> WorldGraphPublicationReceipt:
         self.publish_calls += 1
@@ -283,6 +329,7 @@ class FakeWorldGraphAuthority:
         )
         return receipt
 
+
     def recover(
         self,
         world_id: str,
@@ -316,6 +363,7 @@ class FakeWorldGraphAuthority:
                     code="integrity_failure",
                 )
         return existing
+
 
     def verify_child(self, *, receipt, expected) -> WorldGraphVerificationResult:
         del expected
@@ -451,10 +499,12 @@ def test_bind_existing_success_and_kind_mismatch_on_pure_mutation_context():
     plan = build_worldbuilding_write_plan(**_plan_kwargs(ok, dispositions=dispositions))
     assert plan.effect["node_id_map"]["wb_node_0"] == target.object_id
 
+
     missing = _memory_context()
     with pytest.raises(WorldbuildingWritePlanError) as missing_exc:
         build_worldbuilding_write_plan(**_plan_kwargs(missing, dispositions=dispositions))
     assert missing_exc.value.code == "bind_target_missing"
+
 
     wrong_kind = MutationObject(
         object_id="loc:wrong",
@@ -495,6 +545,7 @@ def test_bind_redirected_merged_rejected_and_provisional_targets_fail_closed():
     with pytest.raises(WorldbuildingWritePlanError) as redirected_exc:
         build_worldbuilding_write_plan(**_plan_kwargs(redirected, dispositions=dispositions))
     assert redirected_exc.value.code == "bind_target_not_canonical"
+
 
     for canon, memory in (
         ("merged_away", "merged_away"),
@@ -563,6 +614,7 @@ def test_threat_operation_mapping_is_unchanged_by_worldbuilding_dispatch():
         derive_worldbuilding_review_operation_id,
     )
 
+
     threat = derive_threat_review_operation_id(
         world_id="eldyrwild", authority_operation_id="contrib:abc"
     )
@@ -585,33 +637,45 @@ def _install_fake_authority(monkeypatch, fake: FakeWorldGraphAuthority) -> None:
     from apps.live_control_server.ports import world_graph_authority_access as access
     from apps.live_control_server.services import worldbuilding_graph_publication as wb_svc
 
+
     monkeypatch.setattr(wb_svc, "get_world_graph_authority", lambda **_kwargs: fake)
     monkeypatch.setattr(access, "get_world_graph_authority", lambda **_kwargs: fake)
 
 
 def _explode_buddy_graph_runtime(monkeypatch) -> None:
-    import graph_memory.kernel as kernel
-    from apps.live_control_server.integrations.dungeonmind_kernel import (
-        world_graph_authority as wga,
+    """Assert Buddy graph packages stay unimportable (physical deletion)."""
+    import builtins
+
+
+    real_import = builtins.__import__
+    forbidden = (
+        "graph_memory.kernel",
+        "graph_memory.world_supergraph",
+        "graph_memory.union_supergraph",
+        "apps.live_control_server.integrations.buddy_files",
+        "apps.live_control_server.integrations.dungeonmind_kernel",
     )
 
-    def _explode(*_args, **_kwargs):
-        raise AssertionError("Buddy World Graph runtime must not run on D.2B port path")
 
-    monkeypatch.setattr(kernel, "open_current_world_graph", _explode)
-    monkeypatch.setattr(kernel, "open_world_graph_head", _explode)
-    monkeypatch.setattr(kernel, "load_world_graph_revision", _explode)
-    monkeypatch.setattr(kernel, "load_world_graph_revision_with_integrity", _explode)
-    monkeypatch.setattr(kernel, "merge_contribution_to_revision", _explode)
-    monkeypatch.setattr(kernel, "find_world_graph_revisions_by_operation_id", _explode)
-    monkeypatch.setattr(kernel, "rebuild_from_contributions", _explode)
-    monkeypatch.setattr(kernel, "project_world_graph", _explode)
-    monkeypatch.setattr(wga, "hydrate_world_graph", _explode)
-    monkeypatch.setattr(wga, "ensure_hydrated_authority", _explode)
+    def _guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        full = name
+        if any(full == p or full.startswith(p + ".") for p in forbidden):
+            raise AssertionError(f"Buddy World Graph runtime must not run: import {full}")
+        if name == "graph_memory" and fromlist:
+            for item in fromlist:
+                candidate = f"graph_memory.{item}"
+                if any(candidate == p or candidate.startswith(p + ".") for p in forbidden):
+                    raise AssertionError(
+                        f"Buddy World Graph runtime must not run: import {candidate}"
+                    )
+        return real_import(name, globals, locals, fromlist, level)
+
+
+    monkeypatch.setattr(builtins, "__import__", _guarded_import)
 
 
 def _install_worldbuilding_repo(monkeypatch, tmp_path: Path) -> Path:
-    from graph_memory.world_supergraph import storage
+
 
     import apps.live_control_server.config as live_config
     import apps.live_control_server.services.extract_promote as promote_svc
@@ -619,6 +683,7 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path) -> Path:
     from apps.live_control_server.services.graph_ingest_run_registry import (
         GRAPH_INGEST_RUNS_ENV,
     )
+
 
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -640,7 +705,8 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
     from apps.live_control_server.services.worldbuilding_graph_publication import (
         prepare_worldbuilding,
     )
-    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+
 
     parent = "rev:d-a"
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
@@ -683,7 +749,8 @@ def test_identity_drift_without_graph_head_advance_uses_sealed_snapshot(
         confirm_worldbuilding,
         prepare_worldbuilding,
     )
-    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+
 
     parent = "rev:d-a"
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
@@ -711,6 +778,7 @@ def test_identity_drift_without_graph_head_advance_uses_sealed_snapshot(
     assert plan.effect.identity_authority is not None
     assert plan.effect.identity_authority.identity_redirects == sealed["identity_redirects"]
 
+
     fake.identity[DEFAULT_WORLD_ID] = {
         "identity_redirects": {"obj_session22_vial": "npc:occupied-after-prepare"},
         "decisions": [],
@@ -719,6 +787,7 @@ def test_identity_drift_without_graph_head_advance_uses_sealed_snapshot(
     with pytest.raises(Exception) as live_exc:
         prepare_worldbuilding(request)
     assert getattr(live_exc.value, "code", "") == "new_node_id_conflict"
+
 
     receipt = confirm_worldbuilding(
         WorldbuildingWritePlanConfirmRequest(plan=plan)
@@ -739,7 +808,8 @@ def test_malformed_sealed_identity_fails_closed(tmp_path, monkeypatch):
         confirm_worldbuilding,
         prepare_worldbuilding,
     )
-    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+
 
     parent = "rev:d-a"
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
@@ -767,7 +837,9 @@ def test_malformed_sealed_identity_fails_closed(tmp_path, monkeypatch):
     with pytest.raises(Exception):
         WorldbuildingWritePlanConfirmRequest.model_validate({"plan": dumped})
 
+
     real_context = FakeWorldGraphAuthority.mutation_context
+
 
     def _bad_sealed(self, world_id, revision_id, *, sealed_identity_snapshot=None):
         if sealed_identity_snapshot is not None:
@@ -781,6 +853,7 @@ def test_malformed_sealed_identity_fails_closed(tmp_path, monkeypatch):
             revision_id,
             sealed_identity_snapshot=sealed_identity_snapshot,
         )
+
 
     monkeypatch.setattr(FakeWorldGraphAuthority, "mutation_context", _bad_sealed)
     with pytest.raises(Exception) as exc:
@@ -797,7 +870,8 @@ def test_v1_confirm_requires_reprepare(tmp_path, monkeypatch):
         confirm_worldbuilding,
         prepare_worldbuilding,
     )
-    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+
 
     parent = "rev:d-a"
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
@@ -841,7 +915,8 @@ def test_exact_retry_is_already_applied_with_zero_second_publish(
         confirm_worldbuilding,
         prepare_worldbuilding,
     )
-    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+
 
     parent = "rev:d-a"
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
@@ -883,7 +958,8 @@ def test_stale_distinct_plan_fails_closed_after_unrelated_head_advance(
         confirm_worldbuilding,
         prepare_worldbuilding,
     )
-    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+
 
     parent = "rev:d-a"
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
@@ -933,6 +1009,7 @@ def test_native_verify_accepts_dungeonmind_mapped_edge_predicate():
         _relationship_predicate_matches,
     )
 
+
     assert _relationship_predicate_matches("associated_with", "linked_to")
     assert _relationship_predicate_matches("dnd5e:associated_with", "linked_to")
     assert _relationship_predicate_matches("linked_to", "linked_to")
@@ -971,6 +1048,7 @@ def _wrap_built_plan(built) -> object:
         WorldbuildingWritePlanResponse,
     )
 
+
     return WorldbuildingWritePlanResponse(
         schema=WORLD_BUILDING_WRITE_PLAN_SCHEMA,
         version=2,
@@ -1001,6 +1079,7 @@ def test_publication_provenance_keeps_threat_strings_and_splits_worldbuilding():
         _publication_provenance,
         _threat_publish_capability_policy,
     )
+
 
     assert THREAT_SOURCE_PLAN_SCHEMA == "dmb_threat_publication_contribution_v1"
     assert THREAT_PUBLISH_POLICY_ID == "cutover:threat-publication-confirm"
@@ -1040,10 +1119,11 @@ def test_tampered_identity_snapshot_fails_even_after_recompute(tmp_path, monkeyp
         confirm_worldbuilding,
         prepare_worldbuilding,
     )
-    from graph_memory.world_graph_mutation_context import (
+    from apps.live_control_server.models.world_graph_mutation_context import (
         mutation_context_with_sealed_identity,
     )
-    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+
 
     parent = "rev:d-a"
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
@@ -1069,6 +1149,7 @@ def test_tampered_identity_snapshot_fails_even_after_recompute(tmp_path, monkeyp
     )
     assert honest.effect.identity_authority is not None
     assert honest.effect.identity_authority.decisions
+
 
     resolved = resolve_promotable_ingest_run(run_id, root=repo)
     typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(resolved)
@@ -1140,7 +1221,8 @@ def test_identity_drift_appends_i1_without_changing_sealed_confirm(
         confirm_worldbuilding,
         prepare_worldbuilding,
     )
-    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+
 
     parent = "rev:d-a"
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
@@ -1197,10 +1279,11 @@ def test_recomputed_plan_after_i1_cannot_reuse_prepare_binding(tmp_path, monkeyp
         confirm_worldbuilding,
         prepare_worldbuilding,
     )
-    from graph_memory.world_graph_mutation_context import (
+    from apps.live_control_server.models.world_graph_mutation_context import (
         mutation_context_with_sealed_identity,
     )
-    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+
 
     parent = "rev:d-a"
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
@@ -1271,6 +1354,7 @@ def test_recomputed_plan_after_i1_cannot_reuse_prepare_binding(tmp_path, monkeyp
 def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkeypatch):
     import json
 
+
     from apps.live_control_server.models.extract_promote import (
         WorldbuildingWritePlanConfirmRequest,
         WorldbuildingWritePlanPrepareRequest,
@@ -1287,7 +1371,8 @@ def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkey
         prepare_worldbuilding,
     )
     from src.live_play.live_store import load_json, write_json
-    from tests.test_live_extract_promote_api import _write_bld08_reviewable_run
+    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+
 
     parent = "rev:d-a"
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
@@ -1331,6 +1416,7 @@ def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkey
             record["components"]["candidate_graph"]["sha256"] = digest
             break
     write_json(registry_path, registry)
+
 
     plan = prepare_worldbuilding(
         WorldbuildingWritePlanPrepareRequest.model_validate(

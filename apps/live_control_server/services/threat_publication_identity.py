@@ -1,17 +1,19 @@
 """SBW09b: Threat publication identity-resolution orchestration.
 
+
 Storage:
     out/threat_publication_identity/<draft_id>/<operation_id>/ledger.json
     out/threat_publication_identity/<draft_id>/<operation_id>/.identity.lock
 
+
 Lock order:
     identity-resolution lock -> SBW09a publication lock -> World Graph projection
+
 
 No graph, ThreatDraft, accepted-mechanics, or DungeonMind mutation occurs here.
 """
 from __future__ import annotations
 
-import types
 
 import fcntl
 from contextlib import contextmanager
@@ -19,6 +21,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator, Literal
+
 
 from apps.live_control_server.config import world_graph_root  # noqa: F401
 from apps.live_control_server.ports.world_graph_authority import WorldGraphAuthorityError
@@ -78,25 +81,10 @@ from graph_memory.projection.world_projection import (
 from apps.live_control_server.models.threat_statblock_binding import ThreatStatblockBindingV1
 from src.live_play.live_store import load_json, write_json
 
+
 DEFAULT_IDENTITY_REL = "out/threat_publication_identity"
 LEDGER_NAME = "ledger.json"
 LOCK_NAME = ".identity.lock"
-
-class _KernelProxy:
-    """Lazy Buddy kernel access for unmounted/test inject paths only."""
-
-    _mod: types.ModuleType | None = None
-
-    def __getattr__(self, name: str):
-        if type(self)._mod is None:
-            import graph_memory.kernel as kernel_mod
-
-            type(self)._mod = kernel_mod
-        return getattr(type(self)._mod, name)
-
-
-kernel = _KernelProxy()
-
 
 
 @dataclass(frozen=True)
@@ -116,6 +104,7 @@ _DECISION_LABELS: dict[str, ThreatPublicationIdentityResultLabel] = {
     "connect_existing": "publication_identity_connected_existing",
     "refuse": "publication_identity_refused",
 }
+
 
 _PREDECESSOR_LABEL_MAP: dict[
     ThreatPublicationResultLabel, ThreatPublicationIdentityResultLabel
@@ -400,6 +389,7 @@ _IDENTITY_SURFACE_MATCH_REASONS = frozenset(
 def _has_identity_surface_match(match_reasons: list[str]) -> bool:
     """Return whether a candidate has evidence on an identity surface.
 
+
     Attribute, kind, role, and summary matches remain useful diagnostics but
     cannot make an advisory candidate eligible for connect-or-create. Token
     matches are eligible only when their surface is node_id, label, or alias.
@@ -434,12 +424,14 @@ def _compose_candidate_set(
     ]
     exact_collision_count = len(collision_nodes)
 
+
     if exact_collision_count > MAX_TOTAL_CANDIDATES:
         return (
             None,
             "publication_identity_candidate_overflow",
             "exact-name collisions exceed the maximum candidate bound",
         )
+
 
     ranked, match_reasons = rank_search_node_matches(
         threats, projection.attributes, candidate_query
@@ -454,10 +446,12 @@ def _compose_candidate_set(
             continue
         ranked_non_collision.append((node, score))
 
+
     remaining_slots = MAX_TOTAL_CANDIDATES - exact_collision_count
     advisory_limit = min(SUGGESTED_ADVISORY_CANDIDATES, remaining_slots)
     advisory_non_collision = ranked_non_collision[:advisory_limit]
     truncated = len(ranked_non_collision) > advisory_limit
+
 
     score_by_id = {node.node_id: score for node, score in ranked}
     candidates: list[ThreatIdentityCandidateV1] = []
@@ -473,6 +467,7 @@ def _compose_candidate_set(
             )
         )
 
+
     for node, score in advisory_non_collision:
         candidates.append(
             _candidate_from_node(
@@ -485,6 +480,7 @@ def _compose_candidate_set(
             )
         )
     rebuilt = candidates
+
 
     candidate_set_without_digest = ThreatIdentityCandidateSetV1.model_construct(
         schema_name="dmb_threat_identity_candidate_set_v1",
@@ -543,6 +539,7 @@ def _exact_revision_contains_node_id(
     world_root: Path | None,
 ) -> bool:
     """Check global node-ID occupancy in the immutable expected-parent revision.
+
 
     Candidate projection is intentionally campaign-visible and projectable, so it
     is insufficient for the create-new collision boundary. This read uses the
@@ -658,13 +655,16 @@ def prepare_identity_candidates(
     safe_draft = require_draft_id(draft_id)
     safe_op = validate_publication_operation_id(operation_id)
 
+
     refresh = refresh_publication_operation(root, safe_draft, safe_op)
     if refresh.response.result_label != "publication_ready" or refresh.response.operation is None:
         return _outcome_from_predecessor_failure(safe_draft, safe_op, refresh)
 
+
     operation = refresh.response.operation
     source_name = source_name_from_snapshot(operation.source_snapshot)
     candidate_query = request.query_text or source_name
+
 
     try:
         projection = _project_exact_parent(operation, world_root=world_root)
@@ -679,6 +679,7 @@ def prepare_identity_candidates(
             created=False,
         )
 
+
     projection_error = _validate_pinned_projection(
         projection, operation.expected_parent_revision_id
     )
@@ -692,6 +693,7 @@ def prepare_identity_candidates(
             ),
             created=False,
         )
+
 
     candidate_set, overflow_label, overflow_message = _compose_candidate_set(
         draft_id=safe_draft,
@@ -738,11 +740,13 @@ def decide_identity_resolution(
     safe_draft = require_draft_id(draft_id)
     safe_op = validate_publication_operation_id(operation_id)
 
+
     with _identity_lock(root, safe_draft, safe_op):
         try:
             existing_ledger = _load_ledger_unlocked(root, safe_draft, safe_op)
         except ThreatPublicationIdentityStorageError as exc:
             return _outcome_from_storage_error(safe_draft, safe_op, exc)
+
 
         if existing_ledger is not None:
             existing_resolution = _find_resolution(existing_ledger, request.resolution_id)
@@ -775,6 +779,7 @@ def decide_identity_resolution(
                     ),
                     created=False,
                 )
+
 
             if (
                 existing_ledger.active_resolution_id is not None
@@ -811,10 +816,12 @@ def decide_identity_resolution(
                 created=False,
             )
 
+
         refresh = refresh_publication_operation(root, safe_draft, safe_op)
         if refresh.response.result_label != "publication_ready" or refresh.response.operation is None:
             return _outcome_from_predecessor_failure(safe_draft, safe_op, refresh)
         operation = refresh.response.operation
+
 
         if existing_ledger is not None:
             if (
@@ -854,6 +861,7 @@ def decide_identity_resolution(
                 expected_parent_revision_id=operation.expected_parent_revision_id,
             )
 
+
         if len(ledger.resolutions) >= MAX_RESOLUTIONS_PER_OPERATION:
             return IdentityResolutionOutcome(
                 _response(
@@ -864,6 +872,7 @@ def decide_identity_resolution(
                 ),
                 created=False,
             )
+
 
         source_name = source_name_from_snapshot(operation.source_snapshot)
         if request.candidate_query != (request.candidate_query.strip()):
@@ -878,6 +887,7 @@ def decide_identity_resolution(
             )
         candidate_query = request.candidate_query
 
+
         try:
             projection = _project_exact_parent(operation, world_root=world_root)
         except WorldGraphProjectionServiceError as exc:
@@ -890,6 +900,7 @@ def decide_identity_resolution(
                 ),
                 created=False,
             )
+
 
         projection_error = _validate_pinned_projection(
             projection, operation.expected_parent_revision_id
@@ -904,6 +915,7 @@ def decide_identity_resolution(
                 ),
                 created=False,
             )
+
 
         candidate_set, overflow_label, overflow_message = _compose_candidate_set(
             draft_id=safe_draft,
@@ -927,6 +939,7 @@ def decide_identity_resolution(
             )
         assert candidate_set is not None
 
+
         if candidate_set.candidate_set_digest != request.candidate_set_digest:
             return IdentityResolutionOutcome(
                 _response(
@@ -937,6 +950,7 @@ def decide_identity_resolution(
                 ),
                 created=False,
             )
+
 
         candidate_by_id = {c.node_id: c for c in candidate_set.candidates}
         rejected = list(dict.fromkeys(request.rejected_candidate_node_ids))
@@ -961,11 +975,13 @@ def decide_identity_resolution(
                 created=False,
             )
 
+
         exact_collision_ids = [
             c.node_id for c in candidate_set.candidates if c.exact_name_collision
         ]
         selected_target: ThreatIdentityCandidateV1 | None = None
         created_node_id: str | None = None
+
 
         if request.decision == "create_new":
             if request.target_node_id is not None:
@@ -1083,6 +1099,7 @@ def decide_identity_resolution(
                     created=False,
                 )
 
+
         now = _utc_now_iso()
         superseded_predecessor: ThreatPublicationIdentityResolutionV1 | None = None
         if request.supersedes_resolution_id is not None:
@@ -1097,6 +1114,7 @@ def decide_identity_resolution(
                     ),
                     created=False,
                 )
+
 
         computed_digest = resolution_request_digest(
             safe_draft,
@@ -1131,6 +1149,7 @@ def decide_identity_resolution(
             new_resolution_unvalidated.model_dump(mode="json", by_alias=True)
         )
 
+
         resolutions = list(ledger.resolutions)
         if superseded_predecessor is not None:
             updated_predecessor = ThreatPublicationIdentityResolutionV1.model_validate(
@@ -1149,6 +1168,7 @@ def decide_identity_resolution(
             resolutions.append(new_resolution)
             result_label = _resolution_outcome_label(new_resolution)
 
+
         new_ledger = _revalidate_ledger(
             ledger.model_copy(
                 update={
@@ -1161,6 +1181,7 @@ def decide_identity_resolution(
             _save_ledger_unlocked(root, new_ledger)
         except ThreatPublicationIdentityStorageError as exc:
             return _outcome_from_storage_error(safe_draft, safe_op, exc)
+
 
         return IdentityResolutionOutcome(
             _response(
@@ -1182,11 +1203,13 @@ def read_identity_resolution(
     safe_op = validate_publication_operation_id(operation_id)
     safe_resolution = validate_resolution_id(resolution_id)
 
+
     with _identity_lock(root, safe_draft, safe_op):
         try:
             ledger = _load_ledger_unlocked(root, safe_draft, safe_op)
         except ThreatPublicationIdentityStorageError as exc:
             return _outcome_from_storage_error(safe_draft, safe_op, exc)
+
 
         if ledger is None:
             return IdentityResolutionOutcome(
@@ -1198,6 +1221,7 @@ def read_identity_resolution(
                 ),
                 created=False,
             )
+
 
         resolution = _find_resolution(ledger, safe_resolution)
         if resolution is None:
@@ -1211,6 +1235,7 @@ def read_identity_resolution(
                 created=False,
             )
 
+
         predecessor = read_publication_operation(root, safe_draft, safe_op)
         predecessor_op = predecessor.response.operation
         if predecessor_op is None:
@@ -1219,6 +1244,7 @@ def read_identity_resolution(
                 outcome.response.model_copy(update={"predecessor_usable": None}),
                 created=False,
             )
+
 
         if (
             predecessor_op.source_digest != resolution.source_digest
@@ -1235,6 +1261,7 @@ def read_identity_resolution(
                 created=False,
             )
 
+
         validation_error = _validate_resolution_against_operation(
             resolution, predecessor_op, draft_id=safe_draft
         )
@@ -1248,6 +1275,7 @@ def read_identity_resolution(
                 ),
                 created=False,
             )
+
 
         predecessor_state = predecessor_op.state
         label = _resolution_outcome_label(

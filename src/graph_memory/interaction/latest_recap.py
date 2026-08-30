@@ -1,21 +1,27 @@
 """Server-owned latest-recap comparison context for Hermes S1."""
 
+
 from __future__ import annotations
+
 
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
+
 from pydantic import BaseModel, ConfigDict, Field
 
-from apps.live_control_server.config import repo_root, world_graph_root
+
+from apps.live_control_server.config import repo_root
 from apps.live_control_server.services.recap_artifacts import (
     RecapArtifactRecord,
     list_recap_artifact_records,
 )
 
+
 LATEST_RECAP_CHANGE_SCHEMA = "dmb_latest_recap_change_context_v1"
+
 
 LatestRecapOutcome = Literal[
     "changed",
@@ -30,6 +36,7 @@ LatestRecapContextStatus = Literal["ready", "unknown", "source_unavailable"]
 class LatestRecapReference(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+
     artifact_id: str
     campaign_id: str
     session_id: str
@@ -40,6 +47,7 @@ class LatestRecapReference(BaseModel):
 
 class LatestRecapComparisonBoundary(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
 
     kind: Literal["latest_admitted_recap_to_graph_head"] = (
         "latest_admitted_recap_to_graph_head"
@@ -52,12 +60,15 @@ class LatestRecapComparisonBoundary(BaseModel):
 class LatestRecapGraphFacts(BaseModel):
     """Storage-neutral graph facts for latest-recap comparison.
 
+
     Producers may derive these from a file-backed store or from a native
     ``WorldGraphProjection``. Comparison never requires a hydrated filesystem
     graph.
     """
 
+
     model_config = ConfigDict(extra="forbid")
+
 
     revision_id: str | None = None
     session_ids: list[str] = Field(default_factory=list)
@@ -69,11 +80,14 @@ class LatestRecapGraphFacts(BaseModel):
 class LatestRecapChangeContext(BaseModel):
     """Bounded metadata for a latest-recap sensemaking turn.
 
+
     This context identifies the comparison boundary. It deliberately does not
     include recap prose, corpus paths for model discovery, or any write handle.
     """
 
+
     model_config = ConfigDict(extra="forbid")
+
 
     schema_: Literal["dmb_latest_recap_change_context_v1"] = Field(
         default=LATEST_RECAP_CHANGE_SCHEMA,
@@ -149,6 +163,7 @@ def read_admitted_recap_excerpt(
 ) -> str | None:
     """Server-owned read of a registry-admitted recap path (never model-supplied).
 
+
     Returns frontmatter-stripped body text truncated at a paragraph boundary.
     Returns None when the path is outside root, missing, or empty.
     """
@@ -160,18 +175,22 @@ def read_admitted_recap_excerpt(
     except (OSError, ValueError, UnicodeError):
         return None
 
+
     from src.ingestion.frontmatter import FrontmatterParseError, split_frontmatter
+
 
     try:
         _, body = split_frontmatter(raw)
     except FrontmatterParseError:
         body = raw
 
+
     body = body.strip()
     if not body:
         return None
     if len(body) <= max_chars:
         return body
+
 
     clipped = body[:max_chars]
     paragraph_break = clipped.rfind("\n\n")
@@ -191,6 +210,7 @@ def _graph_session_ids(store: Mapping[str, Any], campaign_id: str) -> list[str]:
         if session_id is not None:
             sessions.add(session_id)
 
+
     for raw_edge in _as_mapping(store.get("edges")).values():
         edge = _as_mapping(raw_edge)
         if str(edge.get("state", {}).get("campaign_scope") or campaign_id) != campaign_id:
@@ -199,6 +219,7 @@ def _graph_session_ids(store: Mapping[str, Any], campaign_id: str) -> list[str]:
             session_id = _normalize_session_id(value)
             if session_id is not None:
                 sessions.add(session_id)
+
 
     return sorted(
         sessions,
@@ -212,6 +233,7 @@ def _object_ids_for_session(store: Mapping[str, Any], session_id: str) -> list[s
         for evidence_id, evidence in _as_mapping(store.get("evidence")).items()
     }
 
+
     def evidence_matches(evidence_ids: Sequence[Any]) -> bool:
         for evidence_id in evidence_ids:
             evidence = evidence_by_id.get(str(evidence_id), {})
@@ -224,6 +246,7 @@ def _object_ids_for_session(store: Mapping[str, Any], session_id: str) -> list[s
             if _normalize_session_id(artifact.get("session_id")) == session_id:
                 return True
         return False
+
 
     object_ids: list[str] = []
     for node_id, raw_node in _as_mapping(store.get("nodes")).items():
@@ -328,6 +351,7 @@ def _facts_from_native_projection(
     )
     from graph_memory.projection.world_projection import WorldGraphProjectionRequest
 
+
     request = WorldGraphProjectionRequest(
         schema="dmb_world_graph_projection_request_v1",
         world_id=world_id,
@@ -382,6 +406,7 @@ def build_latest_recap_change_context(
             diagnostic_code="latest_admitted_recap_not_found",
         )
 
+
     try:
         if not _source_path(root, latest.source_recap_path).is_file():
             return _unknown_context(
@@ -395,6 +420,7 @@ def build_latest_recap_change_context(
             outcome="source_unavailable",
             diagnostic_code="latest_recap_source_unavailable",
         )
+
 
     recap_session_id = _normalize_session_id(latest.session_id)
     assert recap_session_id is not None
@@ -414,6 +440,7 @@ def build_latest_recap_change_context(
     else:
         outcome = "changed"
         diagnostic_codes = ["graph_contains_post_recap_session"]
+
 
     return LatestRecapChangeContext(
         status="ready",
@@ -451,6 +478,7 @@ def resolve_latest_recap_change_context(
 ) -> LatestRecapChangeContext:
     """Resolve the latest registry record against admitted graph comparison facts.
 
+
     In ``dungeonmind`` production the facts come from a native campaign
     projection. File-backed modes and explicit fixture roots keep deriving
     facts from the store. Native failure degrades to unknown without reading
@@ -458,12 +486,14 @@ def resolve_latest_recap_change_context(
     """
     from apps.live_control_server import config
 
+
     repo = (root or repo_root()).resolve()
     records = list_recap_artifact_records(repo, campaign_id=campaign_id)
     if config.world_graph_native_production_read(graph_root):
         from apps.live_control_server.services.world_graph_projection import (
             WorldGraphProjectionServiceError,
         )
+
 
         try:
             facts = _facts_from_native_projection(
@@ -492,25 +522,15 @@ def resolve_latest_recap_change_context(
             records=records,
         )
 
-    graph_base = (graph_root or world_graph_root()).resolve()
-    try:
-        from graph_memory.world_supergraph.storage import load_current_world_graph
-        _, _, store = load_current_world_graph(graph_base, world_id)
-    except Exception:
-        return _unknown_context(
-            campaign_id=campaign_id,
-            outcome="unknown",
-            diagnostic_code="graph_head_unavailable",
-        )
-    return build_latest_recap_change_context(
-        root=repo,
+
+    # Buddy filesystem head fallback retired in D.3B. Without an explicit
+    # DungeonMind revision/facts path above, report unknown rather than loading
+    # ``graph_memory.world_supergraph``.
+    del graph_root, world_id, graph_revision_id
+    return _unknown_context(
         campaign_id=campaign_id,
-        facts=latest_recap_graph_facts_from_store(
-            _as_mapping(store),
-            campaign_id=campaign_id,
-            revision_id=graph_revision_id,
-        ),
-        records=records,
+        outcome="unknown",
+        diagnostic_code="graph_head_unavailable",
     )
 
 

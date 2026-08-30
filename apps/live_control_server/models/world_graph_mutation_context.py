@@ -1,11 +1,14 @@
 """Storage-neutral World Graph facts for governed mutation (CUTOVER D.3A).
 
+
 Buddy-owned pure adaptation logic for mounted DungeonMind publication.
 Does not import ``graph_memory.kernel`` / ``world_supergraph`` / ``union_supergraph``
 at module import time. File-store producers remain lazy and unmounted.
 """
 
+
 from __future__ import annotations
+
 
 import re
 from collections.abc import Mapping, Sequence
@@ -13,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
 
 from apps.live_control_server.models.world_graph_identity_models import (
     IdentityCandidate,
@@ -23,6 +27,7 @@ from apps.live_control_server.models.world_graph_identity_policy import (
     DEFAULT_IDENTITY_RESOLUTION_POLICY,
     IdentityResolutionPolicy,
 )
+
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 _DND_VOCAB_PREFIX = "dnd5e:"
@@ -44,6 +49,7 @@ def wire_kind(value: str | None) -> str:
 class MutationObject:
     """One object identity fact visible to governed mutation."""
 
+
     object_id: str
     label: str
     kind: str
@@ -56,9 +62,11 @@ class MutationObject:
 class WorldGraphMutationContext:
     """Exact-revision identity facts for prepare / confirm.
 
+
     ``revision_id`` is the sealed parent. ``head_revision_id`` is the current
     published head at the moment the context was built (may equal revision_id).
     """
+
 
     world_id: str
     revision_id: str
@@ -69,8 +77,10 @@ class WorldGraphMutationContext:
     identity_decisions: tuple[IdentityDecisionRecord, ...] = ()
     identity_ledger_records: tuple[Mapping[str, Any], ...] = ()
 
+
     def object_ids(self) -> frozenset[str]:
         return frozenset(self.objects)
+
 
     def alias_owner_map(self) -> dict[str, str]:
         """First-owner map for connect-existing alias skip diagnostics."""
@@ -107,6 +117,7 @@ def mutation_context_from_store(
             memory_state=str(state.get("memory_state") or ""),
         )
 
+
     alias_owners: dict[str, tuple[str, ...]] = {}
     for alias, owner in dict(getattr(store, "aliases", {}) or {}).items():
         key = str(alias)
@@ -116,6 +127,7 @@ def mutation_context_from_store(
         prior = alias_owners.get(key, ())
         if owner_id not in prior:
             alias_owners[key] = (*prior, owner_id)
+
 
     redirects: dict[str, str] = {}
     for raw in list(getattr(store, "identity_redirects", None) or []):
@@ -127,6 +139,7 @@ def mutation_context_from_store(
         if source and target and source != target:
             redirects[source] = target
 
+
     decisions: list[IdentityDecisionRecord] = []
     ledger_records: list[dict[str, Any]] = []
     for raw in list(getattr(store, "identity_decisions", None) or []):
@@ -136,6 +149,7 @@ def mutation_context_from_store(
             continue
         decisions.append(record)
         ledger_records.append(record.model_dump(mode="json"))
+
 
     return WorldGraphMutationContext(
         world_id=world_id,
@@ -194,6 +208,7 @@ def identity_snapshot_from_context(
 
 def _hydrate_snapshot_decisions(records: Sequence[Mapping[str, Any]]) -> list[Any]:
     from types import SimpleNamespace
+
 
     hydrated: list[Any] = []
     for item in records:
@@ -299,6 +314,7 @@ def identity_facts_from_dungeonmind_decisions(
 ) -> tuple[dict[str, str], dict[str, tuple[str, ...]], tuple[IdentityDecisionRecord, ...]]:
     """Adapt durable DungeonMind identity decisions into classifier facts.
 
+
     DungeonMind has no ``source_candidate_id`` field. For reject / override /
     ambiguous marks, the native equivalent is ``subject_object_ids[0]`` (the
     candidate id the decision was recorded against). Active merges become
@@ -387,6 +403,7 @@ def apply_identity_redirects_to_objects(
 ) -> dict[str, MutationObject]:
     """Materialize merge redirects onto object identity state.
 
+
     DungeonMind graph payloads may still list merge-source objects as
     canonical. Classifier matching must treat those sources as merged-away
     and follow redirects to the surviving identity.
@@ -413,23 +430,11 @@ def mutation_context_from_world_root(
     *,
     revision_id: str | None = None,
 ) -> WorldGraphMutationContext:
-    """File-mode producer: open a Buddy world root and adapt the pinned revision."""
-    from graph_memory.kernel import open_current_world_graph
-    from graph_memory.kernel.world_graph import load_world_graph_revision
-
-    head, current_revision, current_store = open_current_world_graph(root, world_id)
-    head_id = head.head_revision_id
-    pinned = (revision_id or "").strip() or head_id
-    store = (
-        current_store
-        if pinned == current_revision.revision_id or pinned == head_id
-        else load_world_graph_revision(root, world_id, pinned)
-    )
-    return mutation_context_from_store(
-        store,
-        world_id=world_id,
-        revision_id=pinned,
-        head_revision_id=head_id,
+    """Buddy filesystem mutation-context producer — retired in D.3B."""
+    del root, world_id, revision_id
+    raise RuntimeError(
+        "mutation_context_from_world_root requires the deleted Buddy World Graph engine; "
+        "use DungeonMind-backed mutation context producers instead"
     )
 
 
@@ -639,13 +644,16 @@ def _find_plausible_matches(
     if not terms:
         return [], [], []
 
+
     candidate_kind = _norm(candidate.object_kind)
     same_kind: dict[str, MutationObject] = {}
     cross_kind: dict[str, MutationObject] = {}
     provisional_same_kind: dict[str, MutationObject] = {}
 
+
     canonical = _active_canonical_objects(context)
     provisional = _active_provisional_objects(context)
+
 
     if policy.alias_match_kinds:
         for node_id in _alias_map_matches(context, terms):
@@ -670,6 +678,7 @@ def _find_plausible_matches(
             if policy.block_cross_kind_alias_collision and _norm(obj.kind) != candidate_kind:
                 cross_kind[resolved_id] = obj
 
+
     for object_id, obj in canonical.items():
         if not (terms & _object_surface_terms(obj)):
             continue
@@ -678,6 +687,7 @@ def _find_plausible_matches(
         elif policy.block_cross_kind_alias_collision and _norm(obj.kind) != candidate_kind:
             cross_kind[object_id] = obj
 
+
     for object_id, obj in provisional.items():
         if not (terms & _object_surface_terms(obj)):
             continue
@@ -685,6 +695,7 @@ def _find_plausible_matches(
             provisional_same_kind[object_id] = obj
         elif policy.block_cross_kind_alias_collision:
             cross_kind[object_id] = obj
+
 
     return (
         list(same_kind.values()),
@@ -702,13 +713,16 @@ def resolve_identity_against_context(
     """Classify identity against mutation-context facts. Does not mutate."""
     active_policy = policy or DEFAULT_IDENTITY_RESOLUTION_POLICY
 
+
     prior = _decision_for_candidate(context, candidate)
     if prior is not None:
         return _resolution_from_decision(candidate, prior)
 
+
     same_kind, cross_kind, provisional_same_kind = _find_plausible_matches(
         context, candidate, policy=active_policy
     )
+
 
     if cross_kind and active_policy.block_cross_kind_alias_collision:
         blocked_ids = [obj.object_id for obj in cross_kind]
@@ -734,6 +748,7 @@ def resolve_identity_against_context(
             requires_human_review=True,
         )
 
+
     if len(same_kind) > 1:
         match_ids = [obj.object_id for obj in same_kind]
         return IdentityResolution(
@@ -747,6 +762,7 @@ def resolve_identity_against_context(
             requires_human_review=True,
         )
 
+
     if len(same_kind) == 1:
         target = same_kind[0]
         return IdentityResolution(
@@ -758,6 +774,7 @@ def resolve_identity_against_context(
             requires_human_review=False,
             canon_state="canonical",
         )
+
 
     if len(provisional_same_kind) > 1:
         match_ids = [obj.object_id for obj in provisional_same_kind]
@@ -777,6 +794,7 @@ def resolve_identity_against_context(
             canon_state="noncanonical_provisional",
         )
 
+
     if len(provisional_same_kind) == 1:
         provisional = provisional_same_kind[0]
         return IdentityResolution(
@@ -791,6 +809,7 @@ def resolve_identity_against_context(
             requires_human_review=True,
             canon_state="noncanonical_provisional",
         )
+
 
     has_evidence = bool(candidate.evidence_ref_ids)
     if active_policy.require_evidence_for_created_new and not has_evidence:
@@ -817,6 +836,7 @@ def resolve_identity_against_context(
             requires_human_review=False,
             canon_state="rejected",
         )
+
 
     created_id = _proposed_created_node_id(candidate)
     return IdentityResolution(

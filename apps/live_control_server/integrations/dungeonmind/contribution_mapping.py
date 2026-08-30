@@ -1,16 +1,20 @@
 """Kernel-free Buddy → DungeonMind contribution mapping (CUTOVER D.3A).
 
+
 Extracted from the historical Eldyrwild adoption producer so mounted first-world
 and Graph Review publication can map contributions without importing
 ``graph_memory.kernel`` / ``world_supergraph`` / ``union_supergraph`` or
 ``integrations/dungeonmind_kernel/**``.
 """
 
+
 from __future__ import annotations
+
 
 import json
 from datetime import UTC, datetime
 from typing import Any
+
 
 from dungeonmind.contracts.contribution import (
     AcceptanceState,
@@ -32,6 +36,7 @@ from dungeonmind.domain.canonical import canonical_json, canonical_sha256
 
 class ContributionMappingError(RuntimeError):
     """Fail-closed contribution mapping STOP."""
+
 
     def __init__(self, message: str, *, code: str) -> None:
         super().__init__(message)
@@ -70,6 +75,7 @@ _CONTRIBUTION_EPISTEMIC_DIRECT = {
     "source_derived_candidate": ContributionEpistemicKind.SOURCE_DERIVED_CANDIDATE,
 }
 
+
 CONTRIBUTION_EVIDENCE_ID_MARK = ":dmv1:"
 CONTRIBUTION_EVIDENCE_V1_BINDING_FIELDS = (
     "schema_version",
@@ -103,6 +109,22 @@ def exported_contribution_evidence_ref_id(
     return f"{raw_buddy_evidence_ref_id}{CONTRIBUTION_EVIDENCE_ID_MARK}{digest}"
 
 
+def raw_buddy_evidence_ref_id(exported_evidence_ref_id: str) -> str:
+    marker = CONTRIBUTION_EVIDENCE_ID_MARK
+    if marker not in exported_evidence_ref_id:
+        raise _fail(
+            f"exported evidence_ref_id is missing {marker}: {exported_evidence_ref_id}",
+            "contribution_evidence_id_unmarked",
+        )
+    raw, digest = exported_evidence_ref_id.rsplit(marker, 1)
+    if not raw or len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        raise _fail(
+            f"exported evidence_ref_id is not raw:dmv1:<sha256>: {exported_evidence_ref_id}",
+            "contribution_evidence_id_malformed",
+        )
+    return raw
+
+
 def _map_source_domain(raw: str) -> SourceDomain | None:
     return _SOURCE_DOMAIN_MAP.get(raw)
 
@@ -124,7 +146,6 @@ def _parse_aware(value: str | None, *, field_name: str) -> datetime:
     return parsed
 
 
-
 def _map_source_kind(raw: str | None) -> ContributionSourceKind:
     text = str(raw or "").strip()
     try:
@@ -136,6 +157,7 @@ def _map_source_kind(raw: str | None) -> ContributionSourceKind:
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
+
 def _require_source_pair(
     artifact_id: str | None,
     revision_id: str | None,
@@ -146,6 +168,7 @@ def _require_source_pair(
         raise _fail(f"{field} is missing source identity", "source_identity_missing")
     return artifact_id, revision_id
 
+
 def _map_acceptance(raw: str) -> AcceptanceState:
     if raw == "accepted":
         return AcceptanceState.ACCEPTED
@@ -155,12 +178,14 @@ def _map_acceptance(raw: str) -> AcceptanceState:
         return AcceptanceState.CANDIDATE
     raise _fail(f"unsupported acceptance state {raw!r}", "acceptance_unmapped")
 
+
 def _map_visibility(raw: str | None) -> Visibility:
     if raw in (None, "", "gm"):
         return Visibility.GM
     if raw == "player":
         return Visibility.PLAYER
     raise _fail(f"unsupported visibility {raw!r}", "visibility_unmapped")
+
 
 def _map_identity_outcome(raw: str | None) -> IdentityOutcome | None:
     if raw is None:
@@ -169,6 +194,7 @@ def _map_identity_outcome(raw: str | None) -> IdentityOutcome | None:
         return IdentityOutcome(raw)
     except ValueError as exc:
         raise _fail(f"unsupported identity outcome {raw!r}", "identity_outcome_unmapped") from exc
+
 
 def _map_contribution_evidence_ref(
     store: Any,
@@ -219,6 +245,7 @@ def _map_contribution_evidence_ref(
         }
     )
 
+
 def _map_contribution_epistemic(raw: str | None) -> tuple[ContributionEpistemicKind, str | None]:
     if raw in _CONTRIBUTION_EPISTEMIC_DIRECT:
         return _CONTRIBUTION_EPISTEMIC_DIRECT[raw], None
@@ -227,6 +254,7 @@ def _map_contribution_epistemic(raw: str | None) -> tuple[ContributionEpistemicK
     if raw is None:
         return ContributionEpistemicKind.ASSERTED, "null"
     raise _fail(f"unsupported Buddy epistemic kind {raw!r}", "epistemic_unmapped")
+
 
 def _map_contributions(
     store: Any,

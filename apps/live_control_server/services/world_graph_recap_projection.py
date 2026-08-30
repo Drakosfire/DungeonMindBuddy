@@ -1,9 +1,12 @@
 """World Graph → focus-session recap projection service (PR380A / PR #412)."""
 
+
 from __future__ import annotations
+
 
 from pathlib import Path
 from typing import Any
+
 
 from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
@@ -62,10 +65,11 @@ def validate_recap_projection_request(
 
 def _load_corpus_markdown(*, campaign_id: str, session_id: str) -> str:
     """Load corpus-normalized recap markdown without importing Union builders at module load."""
-    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+    from apps.live_control_server.services.corpus_normalized_recap import (
         CorpusNormalizedRecapLoadError,
         load_corpus_normalized_recap_markdown,
     )
+
 
     try:
         return load_corpus_normalized_recap_markdown(
@@ -97,8 +101,10 @@ def build_world_graph_recap_projection(
     """Project one exact World Graph snapshot + canonical recap into a recap payload."""
     campaign_id, session_id = validate_recap_projection_request(request)
 
+
     # Exactly one generic projection call; never widen scope or retry world.
     world = project_world_graph(request, root=root)
+
 
     markdown = corpus_markdown
     if markdown is None:
@@ -119,12 +125,14 @@ def build_world_graph_recap_projection(
             ],
         )
 
+
     projected_markdown, mentions, mention_diagnostics = project_world_markdown_mentions(
         markdown,
         list(world.nodes),
     )
     node_views = {node.node_id: node for node in world.nodes}
     snapshot = world.snapshot
+
 
     return WorldGraphRecapProjection(
         schema=RECAP_PROJECTION_RESPONSE_SCHEMA,

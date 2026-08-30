@@ -1,14 +1,24 @@
 """CUTOVER D.2A: World Graph authority port contract (no PostgreSQL)."""
 
+
 from __future__ import annotations
+
 
 import ast
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
+
 import pytest
 
+
+import apps.live_control_server.config as storage
+
+
+from apps.live_control_server.models.threat_statblock_binding import (
+    external_statblock_node_id,
+)
 from apps.live_control_server.ports.world_graph_authority import (
     AuthorityObject,
     WorldGraphAuthorityError,
@@ -24,6 +34,7 @@ from apps.live_control_server.services import threat_publication_operations as o
 from apps.live_control_server.services.threat_publication_operations import (
     GraphHeadUnavailable,
 )
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 THREAT_SERVICE_PATHS = (
@@ -72,6 +83,7 @@ class FakeWorldGraphAuthority:
         self.publish_calls = 0
         self.unavailable = False
 
+
     def current_head(self, world_id: str) -> WorldGraphHead:
         if self.unavailable:
             raise WorldGraphAuthorityError("authority down", code="authority_unavailable")
@@ -80,6 +92,7 @@ class FakeWorldGraphAuthority:
             raise WorldGraphAuthorityError("no head", code="revision_unavailable")
         return WorldGraphHead(world_id=world_id, revision_id=revision_id)
 
+
     def read_revision(self, world_id: str, revision_id: str) -> WorldGraphRevisionView:
         if self.unavailable:
             raise WorldGraphAuthorityError("authority down", code="authority_unavailable")
@@ -87,6 +100,7 @@ class FakeWorldGraphAuthority:
         if view is None:
             raise WorldGraphAuthorityError("missing revision", code="revision_unavailable")
         return view
+
 
     def publish(self, request: WorldGraphPublishRequest) -> WorldGraphPublicationReceipt:
         self.publish_calls += 1
@@ -147,6 +161,7 @@ class FakeWorldGraphAuthority:
         )
         return receipt
 
+
     def recover(
         self,
         world_id: str,
@@ -179,6 +194,7 @@ class FakeWorldGraphAuthority:
                     code="integrity_failure",
                 )
         return existing
+
 
     def verify_child(
         self,
@@ -263,12 +279,15 @@ def test_occupancy_uses_exact_revision_not_projection(monkeypatch):
         identity_svc, "get_world_graph_authority", lambda **_kwargs: fake
     )
 
+
     class _Snapshot:
         world_id = "world_1"
+
 
     class _Operation:
         source_snapshot = _Snapshot()
         expected_parent_revision_id = "rev:parent"
+
 
     assert identity_svc._exact_revision_contains_node_id(
         _Operation(), hidden_id, world_root=None
@@ -281,9 +300,11 @@ def test_occupancy_uses_exact_revision_not_projection(monkeypatch):
 def test_preflight_conflicting_resource_and_missing_connect_target():
     from types import SimpleNamespace
 
+
     from apps.live_control_server.services.threat_publication_proposals import (
         _run_exact_parent_preflight,
     )
+
 
     view = WorldGraphRevisionView(
         world_id="world_1",
@@ -334,11 +355,13 @@ def _install_fake_authority(monkeypatch, fake: FakeWorldGraphAuthority) -> None:
     def factory(**_kwargs):
         return fake
 
+
     monkeypatch.setattr(ops_svc, "get_world_graph_authority", factory)
     monkeypatch.setattr(identity_svc, "get_world_graph_authority", factory)
     from apps.live_control_server.services import threat_publication_proposals as proposal_svc
     from apps.live_control_server.services import threat_publication_commits as commit_svc
     from apps.live_control_server.ports import world_graph_authority_access as access
+
 
     monkeypatch.setattr(proposal_svc, "get_world_graph_authority", factory)
     monkeypatch.setattr(commit_svc, "get_world_graph_authority", factory)
@@ -346,33 +369,42 @@ def _install_fake_authority(monkeypatch, fake: FakeWorldGraphAuthority) -> None:
 
 
 def _explode_buddy_graph_runtime(monkeypatch) -> None:
-    import graph_memory.kernel as kernel
-    from apps.live_control_server.integrations.dungeonmind_kernel import (
-        world_graph_authority as wga,
+    """Assert Buddy graph packages stay unimportable (physical deletion)."""
+    import builtins
+
+
+    real_import = builtins.__import__
+    forbidden = (
+        "graph_memory.kernel",
+        "graph_memory.world_supergraph",
+        "graph_memory.union_supergraph",
+        "apps.live_control_server.integrations.buddy_files",
+        "apps.live_control_server.integrations.dungeonmind_kernel",
     )
-    from apps.live_control_server.services import threat_publication_commits as commit_svc
 
-    def _explode(*_args, **_kwargs):
-        raise AssertionError("Buddy World Graph runtime must not run on D.2A port path")
 
-    monkeypatch.setattr(kernel, "open_current_world_graph", _explode)
-    monkeypatch.setattr(kernel, "open_world_graph_head", _explode)
-    monkeypatch.setattr(kernel, "load_world_graph_revision", _explode)
-    monkeypatch.setattr(kernel, "load_world_graph_revision_with_integrity", _explode)
-    monkeypatch.setattr(kernel, "merge_contribution_to_revision", _explode)
-    monkeypatch.setattr(kernel, "find_world_graph_revisions_by_operation_id", _explode)
-    monkeypatch.setattr(kernel, "rebuild_from_contributions", _explode)
-    monkeypatch.setattr(kernel, "project_world_graph", _explode)
-    monkeypatch.setattr(commit_svc.kernel, "open_current_world_graph", _explode)
-    monkeypatch.setattr(wga, "hydrate_world_graph", _explode)
-    monkeypatch.setattr(wga, "ensure_hydrated_authority", _explode)
+    def _guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        full = name
+        if any(full == p or full.startswith(p + ".") for p in forbidden):
+            raise AssertionError(f"Buddy World Graph runtime must not run: import {full}")
+        # also catch from graph_memory import kernel style via fromlist
+        if name == "graph_memory" and fromlist:
+            for item in fromlist:
+                candidate = f"graph_memory.{item}"
+                if any(candidate == p or candidate.startswith(p + ".") for p in forbidden):
+                    raise AssertionError(
+                        f"Buddy World Graph runtime must not run: import {candidate}"
+                    )
+        return real_import(name, globals, locals, fromlist, level)
+
+
+    monkeypatch.setattr(builtins, "__import__", _guarded_import)
 
 
 def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, monkeypatch):
     """Handoff §16.10: begin → identity → proposal → confirm with no Buddy graph."""
     import uuid
 
-    from graph_memory.world_supergraph import storage
 
     from apps.live_control_server.models.statblock_mechanics_acceptance import (
         AcceptedMechanicsRefV1,
@@ -388,7 +420,7 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     from apps.live_control_server.services.threat_draft_store import (
         attach_accepted_mechanics_ref,
     )
-    from tests.test_threat_publication_proposals import (
+    from tests._threat_publication_helpers import (
         _create_draft,
         _create_new_resolution,
         _locator,
@@ -418,6 +450,7 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
 
+
     draft = _create_draft(tmp_path)
     ref = AcceptedMechanicsRefV1.from_locator(
         _locator(),
@@ -446,6 +479,7 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     assert begin.response.result_label == "publication_ready"
     assert not absent.exists()
 
+
     resolution_id, _resolution = _create_new_resolution(
         tmp_path, draft, op_id, parent
     )
@@ -461,6 +495,7 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     assert prepared.response.result_label == "publication_proposal_ready"
     proposal = prepared.response.proposal
     assert proposal is not None
+
 
     first = commit_svc.confirm_threat_publication(
         tmp_path,
@@ -485,6 +520,7 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     child = first.response.commit.committed_revision_id
     assert child
     assert fake.publish_calls == 1
+
 
     retry = commit_svc.confirm_threat_publication(
         tmp_path,
@@ -609,6 +645,7 @@ def test_derive_threat_review_operation_id_is_deterministic_reviewop():
         derive_threat_review_operation_id,
     )
 
+
     first = derive_threat_review_operation_id(
         world_id="eldyrwild", authority_operation_id="contrib:abc"
     )
@@ -631,6 +668,7 @@ def test_replay_identity_helper_fails_closed_on_parent_or_digest_mismatch():
         WorldGraphWriteError,
         _assert_publication_replay_identity,
     )
+
 
     existing = SimpleNamespace(
         expected_parent_revision_id="rev:a",
@@ -661,12 +699,15 @@ def test_world_graph_expressible_strips_resource_and_binding_assertions():
         _world_graph_expressible,
     )
 
+
     class _Contribution:
         def __init__(self, assertions):
             self.accepted_assertions = assertions
 
+
         def model_copy(self, update):
             return _Contribution(update["accepted_assertions"])
+
 
     threat = SimpleNamespace(predicate="exists", value={"kind": "threat"})
     resource = SimpleNamespace(
@@ -683,6 +724,7 @@ def test_native_verify_child_proves_threat_object_not_resource_binding(monkeypat
     from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
         DungeonMindWorldGraphAuthorityAdapter,
     )
+
 
     adapter = DungeonMindWorldGraphAuthorityAdapter(database_url="postgresql://unused")
     view = WorldGraphRevisionView(
@@ -723,11 +765,12 @@ def test_native_verify_child_proves_threat_object_not_resource_binding(monkeypat
 
 
 def test_exact_parent_preflight_still_rejects_incompatible_resource_on_revision_view():
-    from graph_memory.union_supergraph.statblock_binding import external_statblock_node_id
+
 
     from apps.live_control_server.services.threat_publication_proposals import (
         _run_exact_parent_preflight,
     )
+
 
     resource_id = external_statblock_node_id("sb_abc")
     view = WorldGraphRevisionView(
@@ -767,7 +810,8 @@ def test_effect_summary_records_resource_binding_ids_from_accepted_mechanics():
     from apps.live_control_server.services.threat_publication_proposals import (
         _effect_summary,
     )
-    from tests.test_threat_publication_proposals import _locator
+    from tests._threat_publication_helpers import _locator
+
 
     ref = AcceptedMechanicsRefV1.from_locator(
         _locator(),
@@ -790,6 +834,7 @@ def test_receipt_to_merge_result_keeps_buddy_operation_identity():
     from apps.live_control_server.services.threat_publication_commits import (
         _receipt_to_merge_result,
     )
+
 
     receipt = WorldGraphPublicationReceipt(
         world_id="eldyrwild",
@@ -819,6 +864,7 @@ def test_qualified_assertion_update_clears_attribute_predicate():
         _qualified_assertion_update,
     )
 
+
     assertion = SimpleNamespace(
         assertion_kind="attribute",
         predicate="description",
@@ -828,4 +874,3 @@ def test_qualified_assertion_update_clears_attribute_predicate():
     assert update["predicate"] is None
     assert '"property_term":"description"' in update["value"]
     assert "brutal enforcer" in update["value"]
-

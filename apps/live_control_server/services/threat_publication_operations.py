@@ -1,17 +1,22 @@
 """SBW09a: durable no-write Threat publication-operation orchestration.
 
+
 Storage:
     out/threat_publication_operations/<draft_id>/ledger.json
     out/threat_publication_operations/<draft_id>/.publication.lock
 
+
 Lock order (never acquire in the reverse direction):
 
+
     publication ledger lock -> ThreatDraft store read -> trusted World Graph head read
+
 
 No path in this module acquires the publication lock while already holding
 the ThreatDraft store lock. ``get_threat_draft`` acquires and releases its own
 store lock internally; this module always calls it only while already holding
 the publication lock for the same draft, never the other way around.
+
 
 This module never mutates ThreatDraft, accepted mechanics, DungeonMind, or the
 World Graph. The only durable write this module performs is an atomic replace
@@ -19,7 +24,6 @@ of one draft-scoped ``ThreatPublicationLedgerV1``.
 """
 from __future__ import annotations
 
-import types
 
 import fcntl
 from contextlib import contextmanager
@@ -27,6 +31,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator, Literal
+
 
 from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.ports.world_graph_authority import (
@@ -59,35 +64,22 @@ from apps.live_control_server.services.threat_draft_store import (
 )
 from src.live_play.live_store import load_json, write_json
 
+
 DEFAULT_PUBLICATION_REL = "out/threat_publication_operations"
 LEDGER_NAME = "ledger.json"
 LOCK_NAME = ".publication.lock"
-
-class _KernelProxy:
-    """Lazy Buddy kernel access for unmounted/test inject paths only."""
-
-    _mod: types.ModuleType | None = None
-
-    def __getattr__(self, name: str):
-        if type(self)._mod is None:
-            import graph_memory.kernel as kernel_mod
-
-            type(self)._mod = kernel_mod
-        return getattr(type(self)._mod, name)
-
-
-kernel = _KernelProxy()
-
 
 
 @dataclass(frozen=True)
 class PublicationOperationOutcome:
     """Result of a service call plus whether it minted a brand-new operation.
 
+
     ``created`` is only ever true for begin/retry paths that appended a new
     ``ready`` operation to the ledger; it drives the 201-vs-200 HTTP mapping
     at the route layer (handoff §9.9). It is never true for read/refresh/cancel.
     """
+
 
     response: ThreatPublicationOperationResponseV1
     created: bool = False
@@ -95,6 +87,7 @@ class PublicationOperationOutcome:
 
 class ThreatPublicationStorageError(Exception):
     """Internal signal for storage unavailability vs. corrupt/impossible state."""
+
 
     def __init__(self, message: str, *, kind: Literal["unavailable", "integrity"]) -> None:
         super().__init__(message)
@@ -307,6 +300,7 @@ def _eligible_draft_or_response(
 ) -> tuple[object, PublicationOperationOutcome | None]:
     """Load the committed draft and validate begin/retry source eligibility.
 
+
     Returns ``(draft, None)`` on success or ``(None, outcome)`` carrying the
     typed rejection response. No ledger mutation happens on rejection.
     """
@@ -314,6 +308,7 @@ def _eligible_draft_or_response(
         draft = get_threat_draft(root, draft_id)
     except ThreatDraftStoreError as exc:
         return None, _draft_outcome_from_store_error(draft_id, exc)
+
 
     if draft.version != expected_draft_version:
         return None, PublicationOperationOutcome(
@@ -356,11 +351,13 @@ def begin_publication_operation(
     safe_draft = require_draft_id(draft_id)
     computed_digest = begin_request_digest(safe_draft, request)
 
+
     with _publication_lock(root, safe_draft):
         try:
             ledger = _load_ledger_unlocked(root, safe_draft)
         except ThreatPublicationStorageError as exc:
             return _outcome_from_storage_error(safe_draft, exc)
+
 
         existing = _find_operation(ledger, request.operation_id)
         if existing is not None:
@@ -377,6 +374,7 @@ def begin_publication_operation(
                 ),
                 created=False,
             )
+
 
         if ledger.active_operation_id is not None:
             active = _find_operation(ledger, ledger.active_operation_id)
@@ -395,6 +393,7 @@ def begin_publication_operation(
                 created=False,
             )
 
+
         if len(ledger.operations) >= MAX_PUBLICATION_OPERATIONS_PER_DRAFT:
             return PublicationOperationOutcome(
                 _response(
@@ -405,12 +404,14 @@ def begin_publication_operation(
                 created=False,
             )
 
+
         draft, rejection = _eligible_draft_or_response(
             root, safe_draft, request.expected_draft_version
         )
         if rejection is not None:
             return rejection
         assert draft is not None
+
 
         try:
             observed_head = _read_graph_head(root, draft.world_id)
@@ -419,6 +420,7 @@ def begin_publication_operation(
                 _response(safe_draft, "publication_graph_unavailable", message=str(exc)),
                 created=False,
             )
+
 
         if observed_head != request.expected_parent_revision_id:
             return PublicationOperationOutcome(
@@ -429,6 +431,7 @@ def begin_publication_operation(
                 ),
                 created=False,
             )
+
 
         snapshot = build_source_snapshot(draft)
         digest = source_digest_for_snapshot(snapshot)
@@ -459,6 +462,7 @@ def begin_publication_operation(
         except ThreatPublicationStorageError as exc:
             return _outcome_from_storage_error(safe_draft, exc)
 
+
         return PublicationOperationOutcome(
             _response(safe_draft, "publication_ready", operation=new_op), created=True
         )
@@ -471,11 +475,13 @@ def read_publication_operation(
     safe_draft = require_draft_id(draft_id)
     safe_op = validate_publication_operation_id(operation_id)
 
+
     with _publication_lock(root, safe_draft):
         try:
             ledger = _load_ledger_unlocked(root, safe_draft)
         except ThreatPublicationStorageError as exc:
             return _outcome_from_storage_error(safe_draft, exc)
+
 
         existing = _find_operation(ledger, safe_op)
         if existing is None:
@@ -495,11 +501,13 @@ def refresh_publication_operation(
     safe_draft = require_draft_id(draft_id)
     safe_op = validate_publication_operation_id(operation_id)
 
+
     with _publication_lock(root, safe_draft):
         try:
             ledger = _load_ledger_unlocked(root, safe_draft)
         except ThreatPublicationStorageError as exc:
             return _outcome_from_storage_error(safe_draft, exc)
+
 
         existing = _find_operation(ledger, safe_op)
         if existing is None:
@@ -512,10 +520,12 @@ def refresh_publication_operation(
                 _response(safe_draft, _state_to_label(existing), operation=existing), created=False
             )
 
+
         try:
             draft = get_threat_draft(root, safe_draft)
         except ThreatDraftStoreError as exc:
             return _draft_outcome_from_store_error(safe_draft, exc)
+
 
         try:
             observed_head = _read_graph_head(root, draft.world_id)
@@ -524,6 +534,7 @@ def refresh_publication_operation(
                 _response(safe_draft, "publication_graph_unavailable", message=str(exc)),
                 created=False,
             )
+
 
         reasons: list[str] = []
         if draft.version != existing.source_snapshot.draft_version:
@@ -539,6 +550,7 @@ def refresh_publication_operation(
         ):
             reasons.append("accepted_mechanics_changed")
 
+
         current_digest: str | None = None
         if draft.workflow_state == "mechanics_saved" and draft.accepted_mechanics_ref is not None:
             try:
@@ -550,13 +562,16 @@ def refresh_publication_operation(
             if "source_digest_changed" not in reasons:
                 reasons.append("source_digest_changed")
 
+
         if observed_head != existing.expected_parent_revision_id:
             reasons.append("graph_parent_changed")
+
 
         if not reasons:
             return PublicationOperationOutcome(
                 _response(safe_draft, "publication_ready", operation=existing), created=False
             )
+
 
         updated_op = _revalidate_operation(
             existing.model_copy(
@@ -575,6 +590,7 @@ def refresh_publication_operation(
         except ThreatPublicationStorageError as exc:
             return _outcome_from_storage_error(safe_draft, exc)
 
+
         return PublicationOperationOutcome(
             _response(safe_draft, "publication_stale", operation=updated_op), created=False
         )
@@ -590,11 +606,13 @@ def cancel_publication_operation(
     safe_draft = require_draft_id(draft_id)
     safe_op = validate_publication_operation_id(operation_id)
 
+
     with _publication_lock(root, safe_draft):
         try:
             ledger = _load_ledger_unlocked(root, safe_draft)
         except ThreatPublicationStorageError as exc:
             return _outcome_from_storage_error(safe_draft, exc)
+
 
         existing = _find_operation(ledger, safe_op)
         if existing is None:
@@ -602,6 +620,7 @@ def cancel_publication_operation(
                 _response(safe_draft, "publication_not_found", message="publication operation not found"),
                 created=False,
             )
+
 
         if existing.state == "cancelled":
             same_request = (
@@ -621,6 +640,7 @@ def cancel_publication_operation(
                 created=False,
             )
 
+
         if existing.state == "superseded":
             return PublicationOperationOutcome(
                 _response(
@@ -630,6 +650,7 @@ def cancel_publication_operation(
                 ),
                 created=False,
             )
+
 
         updated_op = _revalidate_operation(
             existing.model_copy(
@@ -657,6 +678,7 @@ def cancel_publication_operation(
         except ThreatPublicationStorageError as exc:
             return _outcome_from_storage_error(safe_draft, exc)
 
+
         return PublicationOperationOutcome(
             _response(safe_draft, "publication_cancelled", operation=updated_op), created=False
         )
@@ -673,11 +695,13 @@ def retry_publication_operation(
     safe_old_op = validate_publication_operation_id(operation_id)
     computed_digest = retry_request_digest(safe_draft, safe_old_op, request)
 
+
     with _publication_lock(root, safe_draft):
         try:
             ledger = _load_ledger_unlocked(root, safe_draft)
         except ThreatPublicationStorageError as exc:
             return _outcome_from_storage_error(safe_draft, exc)
+
 
         old = _find_operation(ledger, safe_old_op)
         if old is None:
@@ -685,6 +709,7 @@ def retry_publication_operation(
                 _response(safe_draft, "publication_not_found", message="publication operation not found"),
                 created=False,
             )
+
 
         existing_new = _find_operation(ledger, request.new_operation_id)
         if existing_new is not None:
@@ -705,6 +730,7 @@ def retry_publication_operation(
                 created=False,
             )
 
+
         if request.new_operation_id == safe_old_op:
             return PublicationOperationOutcome(
                 _response(
@@ -714,6 +740,7 @@ def retry_publication_operation(
                 ),
                 created=False,
             )
+
 
         if old.state != "stale" or ledger.active_operation_id != safe_old_op:
             return PublicationOperationOutcome(
@@ -725,6 +752,7 @@ def retry_publication_operation(
                 created=False,
             )
 
+
         if len(ledger.operations) >= MAX_PUBLICATION_OPERATIONS_PER_DRAFT:
             return PublicationOperationOutcome(
                 _response(
@@ -735,10 +763,12 @@ def retry_publication_operation(
                 created=False,
             )
 
+
         try:
             draft = get_threat_draft(root, safe_draft)
         except ThreatDraftStoreError as exc:
             return _draft_outcome_from_store_error(safe_draft, exc)
+
 
         if draft.workflow_state != "mechanics_saved" or draft.accepted_mechanics_ref is None:
             return PublicationOperationOutcome(
@@ -771,6 +801,7 @@ def retry_publication_operation(
                 created=False,
             )
 
+
         try:
             observed_head = _read_graph_head(root, draft.world_id)
         except GraphHeadUnavailable as exc:
@@ -787,6 +818,7 @@ def retry_publication_operation(
                 ),
                 created=False,
             )
+
 
         now = _utc_now_iso()
         new_op = ThreatPublicationOperationV1(
@@ -823,6 +855,7 @@ def retry_publication_operation(
             _save_ledger_unlocked(root, new_ledger)
         except ThreatPublicationStorageError as exc:
             return _outcome_from_storage_error(safe_draft, exc)
+
 
         return PublicationOperationOutcome(
             _response(safe_draft, "publication_ready", operation=new_op), created=True

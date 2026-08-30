@@ -1,9 +1,12 @@
 """Preview-only graph-ingest wiring for recap ingestion."""
 
+
 # PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION:
 # Retained until PR006/PR007 replaces live Graph Review preview materialization.
 
+
 from __future__ import annotations
+
 
 import hashlib
 import json
@@ -11,6 +14,7 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
+
 
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestRunSummary,
@@ -35,23 +39,22 @@ from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestRunStatus,
 )
 
+
 _MANIFEST_NAME = "graph_ingest_run_manifest.json"
 _RUNS_ROOT = Path("out/graph_memory/runs")
 logger = logging.getLogger(__name__)
 
-def __materialize_preview_union_store_from_graph_ingest_run(*args, **kwargs):
-    from src.graph_memory.union_supergraph.preview_run_materialize import (
-        materialize_preview_union_store_from_graph_ingest_run as _impl,
+
+def _materialize_preview_union_store_from_graph_ingest_run(*args, **kwargs):
+    raise RuntimeError(
+        "preview UnionSupergraph materialization is retired with D.3B package deletion"
     )
-    return _impl(*args, **kwargs)
 
 
-def __PreviewUnionMaterializeOptions(*args, **kwargs):
-    from src.graph_memory.union_supergraph.preview_run_materialize import (
-        PreviewUnionMaterializeOptions as _Cls,
+def _PreviewUnionMaterializeOptions(*args, **kwargs):
+    raise RuntimeError(
+        "preview UnionSupergraph materialization is retired with D.3B package deletion"
     )
-    return _Cls(*args, **kwargs)
-
 
 
 def _resolve_repo_uri_path(repo: Path, uri: str) -> Path:
@@ -67,6 +70,7 @@ def _production_immutable_source_path(repo: Path, production: Any) -> Path | Non
         SourceArtifactRegistryError,
         get_source_artifact,
     )
+
 
     run = getattr(production, "run", None)
     components = getattr(run, "components", {}) or {}
@@ -150,6 +154,7 @@ def inspect_recap_graph_preview_status(
 ) -> dict[str, Any]:
     """Return latest graph-ingest status for a recap session without writing files."""
 
+
     repo = repo_root.resolve()
     source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
         repo, normalized_recap_path
@@ -184,6 +189,7 @@ def build_recap_graph_preview_bundle(
 ) -> dict[str, Any]:
     """Build a preview graph-ingest run from a normalized recap."""
 
+
     repo = repo_root.resolve()
     normalized = _resolve_existing_readable_path(normalized_recap_path, field_name="normalized_recap_path")
     source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
@@ -217,6 +223,7 @@ def build_recap_graph_preview_bundle(
         profile_version,
     )
 
+
     desired_statuses = {
         GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value,
         GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value,
@@ -246,6 +253,7 @@ def build_recap_graph_preview_bundle(
                 reusable.run_dir,
             )
             return _status_from_summary(repo, reusable, normalized_recap_path=normalized_recap_path)
+
 
     run_dir = _new_run_dir(repo, campaign_id, session)
     logger.info(
@@ -278,6 +286,7 @@ def build_recap_graph_preview_bundle(
         production.failure_kind,
     )
 
+
     production_candidate: Path | None = None
     if extract_graph and _production_candidate_is_packageable(production):
         candidate_component = production.run.components.get("candidate_graph")
@@ -304,6 +313,7 @@ def build_recap_graph_preview_bundle(
             production.run.status.value,
             production.failure_kind,
         )
+
 
     # Legacy GraphIngest packaging only — never perform a second model call here.
     # When the production ExtractionRun is reviewable, its candidate is authoritative
@@ -349,6 +359,7 @@ def build_recap_graph_preview_bundle(
         )
         _stamp_known_entity_artifact_digest(repo, result.manifest_path, known_out)
 
+
     summary = _summary_for_manifest(repo, result.manifest_path)
     logger.info(
         "graph preview bundle finished campaign=%s session=session-%s status=%s manifest=%s "
@@ -360,6 +371,7 @@ def build_recap_graph_preview_bundle(
         _repo_relative(result.candidate_graph_path, repo) if result.candidate_graph_path else None,
         _repo_relative(result.validation_report_path, repo) if result.validation_report_path else None,
     )
+
 
     if extract_graph and not _production_candidate_is_packageable(production):
         # Persist llm_blocked on the GraphIngest manifest so materialize/status
@@ -385,6 +397,7 @@ def build_recap_graph_preview_bundle(
         )
         summary = _summary_for_manifest(repo, result.manifest_path)
 
+
     if extract_graph and _production_candidate_is_packageable(production):
         manifest_payload = json.loads(result.manifest_path.read_text(encoding="utf-8"))
         diagnostics = dict(manifest_payload.get("diagnostics") or {})
@@ -407,6 +420,7 @@ def build_recap_graph_preview_bundle(
             production_run=production.run,
         )
         summary = _summary_for_manifest(repo, result.manifest_path)
+
 
     status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
     status["extraction_run_id"] = production.run.run_id
@@ -443,6 +457,7 @@ def materialize_recap_preview_supergraph(
     enable_edge_vocabulary_packet: bool = False,
 ) -> dict[str, Any]:
     """Materialize a preview union supergraph from a recap graph-ingest run."""
+
 
     repo = repo_root.resolve()
     source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
@@ -482,6 +497,7 @@ def materialize_recap_preview_supergraph(
             enable_node_vocabulary_packet=enable_node_vocabulary_packet,
             enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
         )
+
 
     if extract_graph and not candidate_graph_path and normalized_recap_path:
         needs_extract = force_graph_run
@@ -524,6 +540,7 @@ def materialize_recap_preview_supergraph(
                 enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
             )
 
+
     if manifest_path:
         manifest = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
         summary = _summary_for_manifest(repo, manifest)
@@ -543,6 +560,7 @@ def materialize_recap_preview_supergraph(
             source_recap_sha256=source_recap_sha256,
         )
         summary = runs[0] if runs else None
+
 
     if summary is None:
         logger.warning(
@@ -663,6 +681,7 @@ def materialize_recap_preview_supergraph(
         status["next_actions"] = ["force_graph_run", "extract_graph"]
         return status
 
+
     logger.info(
         "preview union materialization starting campaign=%s session=session-%s manifest=%s",
         campaign_id,
@@ -698,143 +717,9 @@ def ensure_graph_ingest_projection_payload(
     manifest_path: str | None,
     session_id: str,
 ) -> Path | None:
-    """Persist projection_payload.json on a preview_union_store_ready graph-ingest run."""
-
-    if not manifest_path:
-        return None
-    from apps.live_control_server.services.graph_authoring_overlay_projection import (
-        load_authored_overlay_bundle,
-    )
-    from apps.live_control_server.services.union_supergraph_projection_adapter import (
-        build_projection_payload_from_verified_snapshot,
-    )
-    from dataclasses import replace
-    from graph_memory.ingestion.graph_ingest_run_lock import (
-        graph_ingest_manifest_mutation_lock,
-        manifest_content_token,
-    )
-    from graph_memory.ingestion.graph_ingest_verified_snapshot import (
-        PROJECTION_SCHEMA,
-        load_reusable_projection_from_snapshot,
-        load_verified_projection_ready_snapshot,
-    )
-
-    repo = repo_root.resolve()
-    manifest_full = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
-
-    with graph_ingest_manifest_mutation_lock(manifest_full):
-        token_t0 = manifest_content_token(manifest_full)
-        peek = json.loads(manifest_full.read_text(encoding="utf-8"))
-        if not isinstance(peek, dict):
-            raise ValueError("graph-ingest manifest payload must be an object")
-        campaign_id = str(peek.get("campaign_id") or "").strip()
-        overlay = None
-        overlay_summary = None
-        overlay_identity = "absent"
-        if campaign_id:
-            overlay, overlay_summary, overlay_identity = load_authored_overlay_bundle(
-                campaign_id=campaign_id,
-            )
-        snapshot = load_verified_projection_ready_snapshot(
-            repo,
-            manifest_full,
-            session_id=session_id,
-            authored_overlay_identity=overlay_identity,
-        )
-        # Always attach the bundle result (including missing-overlay summary) so
-        # enrichment never re-reads disk on the manifest-backed path.
-        if campaign_id:
-            snapshot = replace(
-                snapshot,
-                authored_overlay=overlay,
-                authored_overlay_summary=overlay_summary,
-            )
-        if snapshot.manifest_sha256 != token_t0:
-            raise ValueError(
-                "graph-ingest manifest changed during verified snapshot load"
-            )
-
-        contract_overlay_identity = snapshot.dependency_contract.authored_overlay_identity
-        if contract_overlay_identity != overlay_identity:
-            raise ValueError(
-                "authored overlay identity changed after dependency contract capture"
-            )
-
-        reusable = load_reusable_projection_from_snapshot(snapshot, repo)
-        artifacts = (
-            snapshot.manifest_payload.get("artifacts")
-            if isinstance(snapshot.manifest_payload.get("artifacts"), dict)
-            else {}
-        )
-        if reusable is not None:
-            existing = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
-            if isinstance(existing, dict):
-                uri = existing.get("uri")
-                if isinstance(uri, str) and uri.strip():
-                    return _resolve_existing_repo_path(
-                        repo, uri, field_name="projection_payload"
-                    )
-
-        # Build from the already-verified snapshot; do not reopen protected artifacts.
-        projection_payload = build_projection_payload_from_verified_snapshot(
-            snapshot,
-            session_id=session_id,
-        )
-        depends_on = snapshot.dependency_contract.to_dict()
-        if snapshot.known_entity_mentions_sha256 and isinstance(projection_payload, dict):
-            projection_payload = {
-                **projection_payload,
-                "known_entity_mentions_contract": True,
-                "known_entity_mentions_sha256": (
-                    f"sha256:{snapshot.known_entity_mentions_sha256}"
-                ),
-                "projection_depends_on": depends_on,
-            }
-        elif isinstance(projection_payload, dict):
-            projection_payload = {
-                **projection_payload,
-                "projection_depends_on": depends_on,
-            }
-
-        token_t1 = manifest_content_token(manifest_full)
-        if token_t1 != token_t0:
-            raise ValueError(
-                "graph-ingest manifest changed concurrently during projection "
-                "persistence; refusing to overwrite newer run state"
-            )
-
-        # Re-parse under lock so we mutate current bytes, not a stale pre-lock copy.
-        payload_data = json.loads(manifest_full.read_text(encoding="utf-8"))
-        if not isinstance(payload_data, dict):
-            raise ValueError("graph-ingest manifest payload must be an object")
-        artifacts = dict(
-            payload_data.get("artifacts")
-            if isinstance(payload_data.get("artifacts"), dict)
-            else {}
-        )
-
-        projection_path = manifest_full.parent / "projection_payload.json"
-        projection_path.write_text(
-            json.dumps(projection_payload, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        artifacts[GraphIngestArtifactKind.PROJECTION_PAYLOAD.value] = {
-            "kind": GraphIngestArtifactKind.PROJECTION_PAYLOAD.value,
-            "uri": _repo_relative(projection_path, repo),
-            "schema": PROJECTION_SCHEMA,
-            "exists": True,
-            "preview_only": True,
-            "sha256": (
-                f"sha256:{hashlib.sha256(projection_path.read_bytes()).hexdigest()}"
-            ),
-            "depends_on": depends_on,
-        }
-        payload_data["artifacts"] = artifacts
-        manifest_full.write_text(
-            json.dumps(payload_data, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        return projection_path
+    """Union-store projection payload persistence retired in D.3B."""
+    del repo_root, session_id
+    return None
 
 
 def _stamp_known_entity_artifact_digest(
@@ -865,9 +750,11 @@ def _lineage_for_normalized_recap(
 ) -> tuple[str | None, str | None]:
     """Return (repo-relative path, content digest) for discovery matching.
 
+
     Digests use the same trailing-newline normalization as SourceArtifact admission
     so newline-only differences do not masquerade as content changes, and so
     discovery compares against packaged ``normalized_recap_sha256`` values.
+
 
     If the path resolves to an existing file that cannot produce a canonical digest
     (empty, whitespace-only, unreadable, or invalid UTF-8), return
@@ -878,6 +765,7 @@ def _lineage_for_normalized_recap(
         SourceArtifactRegistryError,
         _normalize_source_text,
     )
+
 
     if not normalized_recap_path:
         return None, None
@@ -969,6 +857,7 @@ def _load_extraction_run_record(repo: Path, run_id: str) -> Any | None:
         get_reviewable_extraction_run,
     )
 
+
     try:
         return get_reviewable_extraction_run(repo, run_id)
     except GraphRunRegistryError:
@@ -977,6 +866,7 @@ def _load_extraction_run_record(repo: Path, run_id: str) -> Any | None:
 
 def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> bool:
     """True when the run's ExtractionRun registry record proves reviewable lineage.
+
 
     Manifest diagnostics alone are insufficient: the referenced ExtractionRun must
     exist, be REVIEWABLE under current SourceArtifact/component integrity, match the
@@ -991,6 +881,7 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
         ExtractionRunComponentKind,
         normalize_content_digest,
     )
+
 
     if not manifest_path:
         return False
@@ -1009,10 +900,12 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
     if not isinstance(source_artifact_id, str) or not source_artifact_id.strip():
         return False
 
+
     source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
     manifest_source_id = str(source.get("source_artifact_id") or "").strip()
     if not manifest_source_id or manifest_source_id != source_artifact_id.strip():
         return False
+
 
     try:
         run = get_reviewable_extraction_run(repo, run_id.strip())
@@ -1023,17 +916,21 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
     if run.source_artifact_id != manifest_source_id:
         return False
 
+
     source_component = run.components.get(ExtractionRunComponentKind.SOURCE_ARTIFACT.value)
     if source_component is None or not (source_component.sha256 or "").strip():
         return False
+
 
     candidate_component = run.components.get(ExtractionRunComponentKind.CANDIDATE_GRAPH.value)
     if candidate_component is None or not (candidate_component.sha256 or "").strip():
         return False
 
+
     span_component = run.components.get(ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value)
     if span_component is None or not (span_component.sha256 or "").strip():
         return False
+
 
     artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
     candidate = artifacts.get(GraphIngestArtifactKind.CANDIDATE_GRAPH.value)
@@ -1050,6 +947,7 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
     if not candidate_path.is_file():
         return False
 
+
     packaged_bytes = candidate_path.read_bytes()
     packaged_digest = normalize_content_digest(
         candidate.get("sha256") or f"sha256:{hashlib.sha256(packaged_bytes).hexdigest()}"
@@ -1060,6 +958,7 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
     if packaged_digest != hashlib.sha256(packaged_bytes).hexdigest().lower():
         return False
 
+
     try:
         graph = json.loads(packaged_bytes.decode("utf-8"))
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
@@ -1069,6 +968,7 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
     bound_ids = graph.get("source_artifact_ids") or []
     if not isinstance(bound_ids, list) or source_artifact_id not in bound_ids:
         return False
+
 
     # Fail closed: a REVIEWABLE ExtractionRun always has a SourceSpanIndex component,
     # so GraphIngest must declare a matching artifact with URI + digest.
@@ -1095,6 +995,7 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
     if packaged_span_digest != hashlib.sha256(span_bytes).hexdigest().lower():
         return False
 
+
     # Projection reads source.source_span_index_uri only — require it and bind it
     # to the same verified SourceSpanIndex artifact bytes.
     source_span_uri = source.get("source_span_index_uri")
@@ -1113,6 +1014,7 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
         != packaged_span_digest
     ):
         return False
+
 
     # Packaged review source must still match the immutable SourceArtifact digest.
     packaged_source_digest = normalize_content_digest(
@@ -1136,6 +1038,7 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
         ):
             return False
 
+
     return True
 
 
@@ -1151,6 +1054,7 @@ def _assert_packaged_identity_matches_extraction_run(
         normalize_content_digest,
     )
 
+
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     expected = str(getattr(production_run, "source_artifact_id", "") or "").strip()
     if not expected:
@@ -1162,6 +1066,7 @@ def _assert_packaged_identity_matches_extraction_run(
     if str(diagnostics.get("source_artifact_id") or "").strip() != expected:
         raise ValueError("GraphIngest diagnostics.source_artifact_id does not match ExtractionRun")
 
+
     span_uri = source.get("source_span_index_uri")
     if isinstance(span_uri, str) and span_uri.strip():
         span_path = (repo / span_uri).resolve()
@@ -1172,12 +1077,14 @@ def _assert_packaged_identity_matches_extraction_run(
     else:
         span_content_digest = ""
 
+
     provenance_uri = source.get("provenance_index_uri")
     if isinstance(provenance_uri, str) and provenance_uri.strip():
         provenance = json.loads((repo / provenance_uri).resolve().read_text(encoding="utf-8"))
         for row in provenance.get("source_artifacts") or []:
             if isinstance(row, dict) and str(row.get("artifact_id") or "").strip() != expected:
                 raise ValueError("provenance_index artifact_id does not match ExtractionRun")
+
 
     artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
     candidate = artifacts.get(GraphIngestArtifactKind.CANDIDATE_GRAPH.value)
@@ -1188,6 +1095,7 @@ def _assert_packaged_identity_matches_extraction_run(
             bound = graph.get("source_artifact_ids") or []
             if expected not in bound:
                 raise ValueError("candidate_graph is not bound to ExtractionRun source_artifact_id")
+
 
     source_component = getattr(production_run, "components", {}).get(
         ExtractionRunComponentKind.SOURCE_ARTIFACT.value
@@ -1225,6 +1133,7 @@ def _manifest_has_known_entity_mentions(repo: Path, manifest_path: str | None) -
         validate_manifest_known_entity_mentions,
     )
 
+
     if not manifest_path:
         return False
     try:
@@ -1244,6 +1153,7 @@ def _manifest_has_usable_source_span_linkage(repo: Path, manifest_path: str | No
     from graph_memory.ingestion.graph_ingest_validate import (
         validate_manifest_source_span_index_linkage,
     )
+
 
     if not manifest_path:
         return False
@@ -1295,43 +1205,9 @@ def _artifact_uri(repo: Path, artifact: dict[str, Any] | None) -> str | None:
 
 def _extracted_nodes_from_preview_union(
     repo: Path, preview_union_store_path: str | None
-) -> list[dict[str, str]]:
-    """Compact kind/label roster from the preview union store (for ingest diagnostics)."""
-
-    if not preview_union_store_path:
-        return []
-    store_path = (repo / preview_union_store_path).resolve()
-    try:
-        payload = json.loads(store_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return []
-    if not isinstance(payload, dict):
-        return []
-    raw_nodes = payload.get("nodes")
-    if isinstance(raw_nodes, dict):
-        node_iter = raw_nodes.values()
-    elif isinstance(raw_nodes, list):
-        node_iter = raw_nodes
-    else:
-        return []
-    extracted: list[dict[str, str]] = []
-    for node in node_iter:
-        if not isinstance(node, dict):
-            continue
-        label = node.get("label") or node.get("name") or node.get("display_name")
-        node_id = node.get("node_id") or node.get("id")
-        kind = node.get("kind") or node.get("type") or node.get("node_type") or "unknown"
-        if not label and not node_id:
-            continue
-        extracted.append(
-            {
-                "node_id": str(node_id or label),
-                "kind": str(kind),
-                "label": str(label or node_id),
-            }
-        )
-    extracted.sort(key=lambda row: (row["kind"].lower(), row["label"].lower(), row["node_id"]))
-    return extracted
+) -> list[dict]:
+    del repo, preview_union_store_path
+    return []
 
 
 def _status_from_summary(

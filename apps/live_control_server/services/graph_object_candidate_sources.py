@@ -1,16 +1,21 @@
 """Cross-scope graph object candidate loaders for existing-object resolution (A7)."""
 
+
 # PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION:
 # Retained until PR006/PR007 replaces live Graph Review preview materialization.
 
+
 from __future__ import annotations
+
 
 import re
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
+
 from pydantic import BaseModel, Field
+
 
 from apps.live_control_server.services.graph_authoring_overlay_projection import (
     build_authored_projection_node_views,
@@ -47,6 +52,7 @@ SCOPE_SOURCE_LABELS: dict[GraphObjectCandidateScope, str] = {
     GraphObjectCandidateScope.party_pc: "Party / PCs",
     GraphObjectCandidateScope.gm_private: "GM private",
 }
+
 
 WORLDBUILDING_SOURCE_DOMAINS = frozenset(
     {"worldbuilding", "location_note", "faction_note", "npc_note", "item_note"}
@@ -116,11 +122,13 @@ def score_query_match(
     if not normalized_query:
         return None
 
+
     normalized_label = normalize_candidate_text(label)
     normalized_aliases = [normalize_candidate_text(alias) for alias in (aliases or []) if alias]
     normalized_anchors = [
         normalize_candidate_text(anchor) for anchor in (source_anchors or []) if anchor
     ]
+
 
     if normalized_query == normalized_label:
         return 1.0, "Exact label match"
@@ -162,24 +170,8 @@ def _load_union_supergraph_store(
     live_run_manifest_path: str | None,
     repo: Path,
 ) -> Any | None:
-    """Legacy UnionSupergraph candidate source (unmounted under D.3A blocker)."""
-    try:
-        from apps.live_control_server.services.union_supergraph_projection_adapter import (
-            load_preview_union_store_from_graph_run_manifest,
-        )
-        from graph_memory.union_supergraph.load import (
-            DEFAULT_FIXTURE_PATH,
-            load_union_supergraph_store,
-        )
-    except ImportError:
-        return None
-    if live_run_manifest_path:
-        try:
-            return load_preview_union_store_from_graph_run_manifest(Path(live_run_manifest_path))
-        except (FileNotFoundError, ValueError, GraphGoldReviewError):
-            pass
-    if campaign_id == "longmont-c2" and DEFAULT_FIXTURE_PATH.is_file():
-        return load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
+    """UnionSupergraph candidate source retired with D.3B package deletion."""
+    del campaign_id, live_run_manifest_path, repo
     return None
 
 
@@ -444,6 +436,7 @@ def _load_npc_registry_rows(
 def _canonical_party_member_node_id(member: Any) -> str:
     """Bindable graph ID for a registry member from its identity-bearing corpus_ref.
 
+
     Party / PC search must stage durable identities (``pc:<slug>``, ``npc:<slug>``),
     never a synthetic ``party:<slug>`` display key that materializes a parallel node.
     """
@@ -678,6 +671,7 @@ def search_cross_scope_candidates(
     diagnostics: list[GraphObjectCandidateDiagnostic] = []
     scopes_searched: list[GraphObjectCandidateScope] = []
 
+
     for scope in enabled_scopes:
         scopes_searched.append(scope)
         if scope == GraphObjectCandidateScope.current_recap_projection:
@@ -703,7 +697,9 @@ def search_cross_scope_candidates(
         diagnostics.extend(scope_diag)
         all_rows.extend(rows)
 
+
     by_key: dict[tuple[str, str], GraphObjectCandidate] = {}
+
 
     for row in all_rows:
         scope = row.get("scope")
@@ -742,11 +738,13 @@ def search_cross_scope_candidates(
         if existing is None or candidate.score > existing.score:
             by_key[key] = candidate
 
+
     grouped: dict[GraphObjectCandidateScope, list[GraphObjectCandidate]] = {
         scope: [] for scope in enabled_scopes
     }
     for candidate in by_key.values():
         grouped[candidate.source.scope].append(candidate)
+
 
     merged: list[GraphObjectCandidate] = []
     for scope in enabled_scopes:

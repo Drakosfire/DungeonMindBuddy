@@ -1,6 +1,8 @@
 """Bounded head-following projection recipe registry and replay (OPT03)."""
 
+
 from __future__ import annotations
+
 
 import logging
 import threading
@@ -11,10 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-def _kernel():
-    import graph_memory.kernel as kernel
-
-    return kernel
 
 from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
@@ -22,7 +20,9 @@ from graph_memory.projection.world_projection import (
 )
 from graph_memory.world_projection_cache import projection_cache_enabled
 
+
 logger = logging.getLogger(__name__)
+
 
 RecipeStatus = Literal[
     "registered",
@@ -38,16 +38,19 @@ RecipeStatus = Literal[
 def _dungeonmind_authority_active() -> bool:
     """R.3: in ``dungeonmind`` mode reads execute natively in DungeonMind.
 
+
     Projection recipes exist only to warm the Buddy projection cache, which
     has no consumer on the direct read path; registration and replay are
     no-ops in this mode.
     """
     from apps.live_control_server import config
 
+
     return (
         config.world_graph_authority_mode()
         == config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
     )
+
 
 _DEFAULT_MAX_ENTRIES = 16
 _DEFAULT_TTL_S = 900.0
@@ -90,6 +93,7 @@ class RecipeObservation:
     warm_ms: float | None = None
     error_type: str | None = None
 
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "event": self.event,
@@ -111,6 +115,7 @@ _REGISTRY: OrderedDict[RecipeKey, _RecipeEntry] = OrderedDict()
 _REGISTRY_LOCK = threading.Lock()
 _OBSERVATIONS: list[RecipeObservation] = []
 _OBS_LOCK = threading.Lock()
+
 
 _MAX_ENTRIES = _DEFAULT_MAX_ENTRIES
 _TTL_S = _DEFAULT_TTL_S
@@ -226,8 +231,9 @@ def register_projection_recipe(
 
 
 def _head_matches(*, root: Path, world_id: str, revision_id: str) -> bool:
-    head = _kernel().open_world_graph_head(root, world_id)
-    return head.head_revision_id == revision_id
+    """Buddy head matching retired; recipes never warm against filesystem graphs."""
+    del root, world_id, revision_id
+    return False
 
 
 def _snapshot_recipes(*, root: Path, world_id: str) -> list[_RecipeEntry]:
@@ -266,6 +272,7 @@ def warm_projection_recipes_for_ready_revision(
         if not _head_matches(root=root, world_id=world_id, revision_id=revision_id):
             return
 
+
         recipes = _snapshot_recipes(root=root, world_id=world_id)
         for entry in recipes:
             if not still_current():
@@ -286,11 +293,13 @@ def warm_projection_recipes_for_ready_revision(
                 )
                 return
 
+
             block = _WARM_BLOCK
             release = _WARM_BLOCK_RELEASE
             if block is not None and release is not None:
                 block.wait(timeout=30.0)
                 release.wait(timeout=30.0)
+
 
             warm_request = entry.request.model_copy(
                 update={"revision_pin": revision_id},
@@ -301,8 +310,9 @@ def warm_projection_recipes_for_ready_revision(
                     project_world_graph,
                 )
 
+
                 project_world_graph(warm_request, root=root)
-                observation = _kernel().get_last_projection_observation()
+                observation = None
                 cache_status = (
                     observation.projection_cache_status if observation is not None else None
                 )

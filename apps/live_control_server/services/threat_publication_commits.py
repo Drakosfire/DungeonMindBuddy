@@ -1,15 +1,16 @@
 """SBW09c2b: proposal-bound Threat publication commit, recovery, and verification.
 
+
 Storage:
     out/threat_publication_commits/<draft_id>/<operation_id>/ledger.json
 
+
 Lock order (shared c1 lifecycle lock):
     lifecycle lock -> proposal ledger -> commit ledger
-    -> SBW09b identity read -> SBW09a refresh/read -> Kernel APIs
+    -> SBW09b identity read -> SBW09a refresh/read -> DungeonMind authority
 """
 from __future__ import annotations
 
-import types
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -17,12 +18,8 @@ from pathlib import Path
 from collections.abc import Mapping
 from typing import Any, Callable, Literal
 
+
 from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
-from graph_memory.projection.world_projection import (
-    PROJECTION_REQUEST_SCHEMA,
-    WorldGraphProjectionFocus,
-    WorldGraphProjectionRequest,
-)
 from apps.live_control_server.models.threat_statblock_binding import (
     CONTRACT,
     CONTRACT_VERSION,
@@ -34,8 +31,8 @@ from apps.live_control_server.models.threat_statblock_binding import (
     edge_id_from_binding_id,
     external_statblock_node_id,
     parse_threat_statblock_binding_assertion,
-    reject_mechanics_keys,
 )
+
 
 from apps.live_control_server.config import world_graph_native_production_read, world_graph_root
 from apps.live_control_server.models.world_graph_contribution_values import (
@@ -89,32 +86,13 @@ from apps.live_control_server.services.threat_publication_proposals import (
     threat_publication_lifecycle_lock,
 )
 
+
 MergeFn = Callable[..., ContributionMergeResult]
 LookupFn = Callable[..., tuple[Any, ...]]
 
+
 class WorldGraphIntegrityError(Exception):
-    """Revision integrity failure on unmounted BuddyFiles verification paths."""
-
-
-class _KernelProxy:
-    """Lazy Buddy kernel access for unmounted/test inject paths only.
-
-    Mounted DungeonMind publication must not call through this proxy. Threat
-    tests may ``setattr`` tripwires on the instance.
-    """
-
-    _mod: types.ModuleType | None = None
-
-    def __getattr__(self, name: str):
-        if type(self)._mod is None:
-            import graph_memory.kernel as kernel_mod
-
-            type(self)._mod = kernel_mod
-        return getattr(type(self)._mod, name)
-
-
-kernel = _KernelProxy()
-
+    """Revision integrity failure on retired Buddy filesystem verification paths."""
 
 
 def _authority_for_commit(
@@ -123,29 +101,17 @@ def _authority_for_commit(
     merge_fn: MergeFn | None,
     lookup_fn: LookupFn | None,
 ) -> WorldGraphAuthority:
+    """DungeonMind-only authority. Injected Buddy hooks are not reconstructable."""
     if merge_fn is not None or lookup_fn is not None:
-        from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
-            BuddyFilesWorldGraphAuthorityAdapter,
-        )
-
-        return BuddyFilesWorldGraphAuthorityAdapter(
-            world_root,
-            merge_fn=merge_fn,
-            lookup_fn=lookup_fn,
+        raise WorldGraphAuthorityError(
+            "injected Buddy graph hooks are retired; use DungeonMind World Graph authority",
+            code="authority_unavailable",
         )
     return get_world_graph_authority(world_root=world_root)
 
 
 def _current_head_id(world_root: Path, world_id: str) -> str:
-    if world_graph_native_production_read(world_root):
-        return get_world_graph_authority(world_root=world_root).current_head(world_id).revision_id
-    try:
-        head, _revision, _store = kernel.open_current_world_graph(world_root, world_id)
-    except OSError as exc:
-        raise WorldGraphAuthorityError(str(exc), code="authority_unavailable") from exc
-    except Exception as exc:
-        raise WorldGraphAuthorityError(str(exc), code="authority_unavailable") from exc
-    return str(head.head_revision_id)
+    return get_world_graph_authority(world_root=world_root).current_head(world_id).revision_id
 
 
 def _receipt_to_merge_result(
@@ -313,6 +279,7 @@ def _unmodified_contribution_matches_expected_ids(
 ) -> bool:
     """Prove the unmodified reconstructed contribution already has exact order.
 
+
     Rearranging assertions before digest/merge is forbidden. Admission and
     authority checks must fail when reconstruction order disagrees with the
     c1 ledger list (which itself records reconstruction order).
@@ -324,6 +291,7 @@ def _historical_seal_order_ids(
     sealed_proposal: Mapping[str, Any] | None,
 ) -> list[str] | None:
     """Exact pre-reconstruction seal-time assertion order from the sealed package.
+
 
     Old c1 persisted ``accepted_assertion_ids`` in the order of
     ``effect.accepted_proposals`` passed to ``seal_promote_proposal``. That list
@@ -360,6 +328,7 @@ def _contribution_order_disposition(
 ) -> Literal["exact", "legacy_seal_order", "corrupt_permutation", "set_mismatch"]:
     """Classify persisted assertion order against reconstruction and historical seal.
 
+
     - reconstruction order == persisted → current exact proposal
     - known historical seal order == persisted → legacy; supersession only before
       a commit claim
@@ -387,11 +356,13 @@ _LEGACY_SEAL_ORDER_MESSAGE = (
     "(reconstruction order) before confirm"
 )
 
+
 _LEGACY_COMMIT_CLAIM_NO_REVISION_MESSAGE = (
     "commit claim uses pre-reconstruction seal-order assertion IDs and no "
     "recoverable revision was found; a new publication operation is required "
     "(proposal supersession remains blocked after a commit claim)"
 )
+
 
 _IDENTITY_UNAVAILABLE_LABELS = frozenset(
     {
@@ -417,6 +388,7 @@ _PUBLICATION_UNAVAILABLE_LABELS = frozenset(
 )
 _PUBLICATION_INTEGRITY_LABELS = frozenset({"publication_integrity_failure"})
 
+
 IdentityAuthorityStatus = Literal["ok", "unavailable", "mismatch", "integrity"]
 PublicationAuthorityStatus = Literal["ok", "unavailable", "mismatch", "integrity"]
 
@@ -430,17 +402,21 @@ def _classify_identity_authority(
 ) -> tuple[IdentityAuthorityStatus, Any | None, str | None]:
     """Classify a complete SBW09b resolution against the commit (and proposal).
 
+
     Binds more than ``selected_target``: publishable decision, exact
     request/candidate/source/parent identity, and decision-specific node identity.
+
 
     ``require_active=True`` (admission / retry): the named resolution must still
     be active and carry a publishable success label. Superseded or inactive
     resolutions are mismatches.
 
+
     ``require_active=False`` (post-commit verification): validate the exact named
     historical resolution content when readable, but do not require it to remain
     active. Later supersession must not permanently block verification of a known
     committed revision.
+
 
     ``read_identity_resolution`` represents missing/unavailable/integrity-failed
     dependencies as ``resolution is None`` plus a result label — it does not raise.
@@ -463,6 +439,7 @@ def _classify_identity_authority(
         if label in {"publication_identity_refused", "publication_identity_superseded"}:
             return "mismatch", None, f"identity dependency mismatch: {label}"
         return "integrity", None, f"identity resolution missing for label: {label}"
+
 
     resolution_state = getattr(resolution, "state", None)
     is_superseded = (
@@ -493,6 +470,7 @@ def _classify_identity_authority(
                 f"identity resolution state is {resolution_state}",
             )
 
+
     if proposal is not None and (
         record.source_digest != proposal.source_digest
         or record.resolution_request_digest != proposal.resolution_request_digest
@@ -503,6 +481,7 @@ def _classify_identity_authority(
         or record.resolution_id != proposal.resolution_id
     ):
         return "integrity", None, "commit record identity fields disagree with proposal"
+
 
     expected_source = proposal.source_digest if proposal is not None else record.source_digest
     expected_request = (
@@ -521,6 +500,7 @@ def _classify_identity_authority(
     expected_decision = proposal.decision if proposal is not None else record.decision
     expected_threat = proposal.threat_node_id if proposal is not None else record.threat_node_id
 
+
     if getattr(resolution, "resolution_id", None) != record.resolution_id:
         return "mismatch", None, "identity resolution_id mismatch"
     if (
@@ -538,6 +518,7 @@ def _classify_identity_authority(
         return "mismatch", None, "identity expected_parent_revision_id mismatch"
     if getattr(resolution, "decision", None) != expected_decision:
         return "mismatch", None, "identity decision mismatch"
+
 
     if expected_decision == "create_new":
         if getattr(resolution, "created_node_id", None) != expected_threat:
@@ -570,6 +551,7 @@ def _classify_identity_authority(
             return "mismatch", None, f"identity result label unexpected: {label}"
     else:
         return "mismatch", None, "identity decision is not publishable"
+
 
     return "ok", resolution, None
 
@@ -772,6 +754,7 @@ def _persist_committed_unverified_receipt(
 ) -> tuple[ThreatPublicationCommitV1, ThreatPublicationCommitResultLabel | None, str | None]:
     """Persist a known committed_unverified receipt.
 
+
     On receipt-save failure after a core-proven revision, durable-consume the
     governed retry (``merge_attempt_count=2``) so a later zero-match replay
     cannot enter ``_maybe_retry``. The prior committing claim remains until
@@ -804,6 +787,7 @@ _MECHANICS_SCAN_KEYS = FORBIDDEN_MECHANICS_KEYS | frozenset({"mechanics_body"})
 def _scan_forbidden_mechanics_keys(value: Any, *, context: str) -> str | None:
     forbidden: set[str] = set()
 
+
     def collect(candidate: Any) -> None:
         if isinstance(candidate, Mapping):
             forbidden.update(_MECHANICS_SCAN_KEYS.intersection(candidate))
@@ -812,6 +796,7 @@ def _scan_forbidden_mechanics_keys(value: Any, *, context: str) -> str | None:
         elif isinstance(candidate, list):
             for nested in candidate:
                 collect(nested)
+
 
     collect(value)
     if forbidden:
@@ -912,12 +897,14 @@ def _record_matches_proposal_authority(
         if actual != expected:
             return f"{label}_mismatch"
 
+
     if contribution is not None:
         derived_binding = _binding_id_from_contribution(contribution, record)
         if derived_binding is None or derived_binding != record.binding_id:
             return "binding_id_mismatch"
         if edge_id_from_binding_id(record.binding_id) != record.binding_edge_id:
             return "binding_id_edge_mismatch"
+
 
     if record.decision == "create_new":
         if record.selected_target is not None:
@@ -961,6 +948,7 @@ def _historical_contribution_source_digest(
 ) -> str | None:
     """Digest of the reconstructed contribution reordered to historical seal order.
 
+
     Old c1 persisted seal-time assertion order; the contribution source digest
     therefore differs from current reconstruction order even when the assertion
     set is identical. Derive the historical payload from immutable sealed
@@ -992,6 +980,7 @@ def _record_matches_c2a_trust(
 ) -> str | None:
     """Validate fields required to trust the c2a lookup key before reconciliation.
 
+
     Live identity selected_target authority is deferred until after a zero-match
     c2a result (committing replay must consult revision authority first).
     Legacy seal-order claims keep contribution_id trust and require the persisted
@@ -1000,6 +989,7 @@ def _record_matches_c2a_trust(
     """
     if order_disposition in {"corrupt_permutation", "set_mismatch"}:
         return "accepted_assertion_ids_mismatch"
+
 
     # Snapshot self-consistency only — live identity is checked after zero match.
     selected_target_authority = (
@@ -1047,7 +1037,9 @@ def _advance_committed_verification(
 ) -> tuple[ThreatPublicationCommitV1, ThreatPublicationCommitResultLabel, str | None]:
     """Verify a persisted committed_unverified receipt; never hide it on verify-save failure.
 
+
     After a committed revision is known:
+
 
     - create_new: verification consumes record/proposal/contribution/revision only
       (no SBW09b read).
@@ -1075,6 +1067,7 @@ def _advance_committed_verification(
                 identity_detail,
             )
 
+
     if authority is not None and world_graph_native_production_read(world_root):
         return _advance_native_child_verification(
             root=root,
@@ -1082,6 +1075,7 @@ def _advance_committed_verification(
             contribution=contribution,
             authority=authority,
         )
+
 
     verified = _verify_committed(
         root=root,
@@ -1202,6 +1196,7 @@ def _provenance_domains_for_object(
 ) -> list[str]:
     """Return source domains declared by assertions connected to one graph object.
 
+
     Projection nodes aggregate provenance from their authored fields and
     connected binding edges, so verification compares this declared package
     contract as a subset of the projected domains rather than requiring the
@@ -1261,6 +1256,7 @@ def _identity_fields_match(
                 return False
         elif expected != actual:
             return False
+
 
     # Candidate binding_ids are the pre-publication parent snapshot. Connect-existing
     # publication adds record.binding_id, so the committed store must equal
@@ -1444,6 +1440,7 @@ def _verify_create_new_materialization(
     if sorted(threat.source_domains) != sorted(expected_domains):
         codes.append("threat_source_domains_materialization_mismatch")
 
+
     authored_ids = {item.assertion_id for item in _authored_field_assertions(contribution, record.threat_node_id)}
     for assertion_id in record.accepted_assertion_ids:
         if assertion_id not in authored_ids:
@@ -1557,6 +1554,7 @@ def _verify_projection_audit(
         codes.append("projection_revision_mismatch")
         return codes
 
+
     nodes_by_id = {node.node_id: node for node in projection.nodes}
     threat = nodes_by_id.get(record.threat_node_id)
     if threat is None:
@@ -1601,6 +1599,7 @@ def _verify_projection_audit(
             if dict(attr.value or {}) != dict(assertion.value or {}):
                 codes.append(f"projection_authored_value_mismatch:{assertion.assertion_id}")
 
+
     resource = nodes_by_id.get(record.external_resource_node_id)
     if resource is None:
         codes.append("projection_missing_resource")
@@ -1614,6 +1613,7 @@ def _verify_projection_audit(
         )
         if resource_reason is not None:
             codes.append(f"projection_{resource_reason}")
+
 
     binding_matches = [
         rel
@@ -1702,38 +1702,9 @@ def _core_proof_match(
     record: ThreatPublicationCommitV1,
     world_root: Path,
 ) -> tuple[bool, str | None]:
-    if manifest.world_id != record.world_id:
-        return False, "manifest_world_mismatch"
-    if manifest.parent_revision_id != record.expected_parent_revision_id:
-        return False, "manifest_parent_mismatch"
-    if record.expected_contribution_id not in manifest.operation_ids:
-        return False, "manifest_operation_membership"
-    if manifest.status != "published":
-        return False, "manifest_status"
-    try:
-        store = kernel.load_world_graph_revision_with_integrity(
-            world_root, record.world_id, manifest.revision_id
-        )
-    except WorldGraphIntegrityError:
-        raise
-    except Exception as exc:  # noqa: BLE001
-        raise WorldGraphIntegrityError(str(exc)) from exc
-
-    digests = store.contribution_source_payload_sha256 or {}
-    actual = digests.get(record.expected_contribution_id)
-    if actual != record.expected_contribution_source_payload_sha256:
-        return False, "contribution_source_digest_mismatch"
-
-    active = [
-        entry
-        for entry in (store.contribution_replay_manifest or [])
-        if entry.contribution_id == record.expected_contribution_id and entry.status == "active"
-    ]
-    if len(active) != 1:
-        return False, "replay_manifest_mismatch"
-    if active[0].source_payload_sha256 != record.expected_contribution_source_payload_sha256:
-        return False, "replay_manifest_digest_mismatch"
-    return True, None
+    """Buddy filesystem core-proof is retired with the Kernel store."""
+    del manifest, record, world_root
+    return False, "buddy_filesystem_verification_retired"
 
 
 def _save_commit(root: Path, commit: ThreatPublicationCommitV1) -> None:
@@ -1761,290 +1732,24 @@ def _verify_committed(
     contribution: GraphContribution,
     lookup_fn: LookupFn,
 ) -> ThreatPublicationCommitV1:
-    codes: list[str] = []
-    warnings: list[str] = []
-    status: Literal["passed", "degraded", "failed", "not_started"] = "passed"
+    """Buddy filesystem verification path — retired in D.3B.
 
-    if not _unmodified_contribution_matches_expected_ids(
-        contribution, list(record.accepted_assertion_ids)
-    ) or not _assertion_ids_match(
-        list(record.accepted_assertion_ids), list(proposal.accepted_assertion_ids)
-    ):
-        return _with_updated(
-            record,
-            state="committed_unverified",
-            verification_status="failed",
-            verification_codes=["verification_assertion_order_mismatch"],
-            warnings=warnings,
-        )
 
-    try:
-        matches = lookup_fn(
-            world_root, record.world_id, record.expected_contribution_id
-        )
-    except WorldGraphIntegrityError as exc:
-        return _with_updated(
-            record,
-            state="committed_unverified",
-            verification_status="failed",
-            verification_codes=["verification_lookup_integrity", str(exc)[:180]],
-            warnings=warnings,
-        )
-    except OSError as exc:
-        return _with_updated(
-            record,
-            state="committed_unverified",
-            verification_status="degraded",
-            verification_codes=["verification_lookup_unavailable"],
-            warnings=[str(exc)[:180]],
-        )
-
-    if len(matches) != 1 or matches[0].revision_id != record.committed_revision_id:
-        codes.append("verification_c2a_revision_mismatch")
-        status = "failed"
-    elif status != "failed":
-        try:
-            ok, reason = _core_proof_match(
-                manifest=matches[0], record=record, world_root=world_root
-            )
-            if not ok:
-                codes.append(reason or "verification_core_mismatch")
-                status = "failed"
-        except WorldGraphIntegrityError as exc:
-            codes.append("verification_integrity_load")
-            warnings.append(str(exc)[:180])
-            status = "failed"
-
-    store = None
-    statblock_id: str | None = None
-    binding_value: Mapping[str, Any] | None = None
-
-    if status != "failed":
-        try:
-            store = kernel.load_world_graph_revision_with_integrity(
-                world_root, record.world_id, str(record.committed_revision_id)
-            )
-        except Exception as exc:  # noqa: BLE001
-            codes.append("verification_store_load")
-            warnings.append(str(exc)[:180])
-            status = "failed"
-            store = None
-
-        if store is not None:
-            statblock_id = _resource_statblock_id_from_contribution(
-                contribution, record.external_resource_node_id
-            )
-            binding_value = _binding_assertion_value(contribution, record)
-
-            assertion_by_id = {
-                item.assertion_id: item for item in contribution.accepted_assertions
-            }
-            for assertion_id in record.accepted_assertion_ids:
-                raw = (store.assertion_support or {}).get(assertion_id)
-                if not isinstance(raw, dict):
-                    codes.append(f"missing_support:{assertion_id}")
-                    status = "failed"
-                    continue
-                if raw.get("support_state") != "supported":
-                    codes.append(f"unsupported:{assertion_id}")
-                    status = "failed"
-                active = list(raw.get("active_contribution_ids") or [])
-                if record.expected_contribution_id not in active:
-                    codes.append(f"support_contribution_mismatch:{assertion_id}")
-                    status = "failed"
-                assertion = assertion_by_id.get(assertion_id)
-                if assertion is not None:
-                    cid = record.expected_contribution_id
-                    expected_evidence = list(assertion.evidence_ref_ids or [])
-                    expected_artifacts = (
-                        [assertion.source_artifact_id]
-                        if assertion.source_artifact_id
-                        else []
-                    )
-                    per_evidence = dict(raw.get("per_contribution_evidence_ref_ids") or {})
-                    per_artifacts = dict(
-                        raw.get("per_contribution_source_artifact_ids") or {}
-                    )
-                    if expected_evidence or cid in per_evidence:
-                        if list(per_evidence.get(cid) or []) != expected_evidence:
-                            codes.append(f"support_evidence_lineage_mismatch:{assertion_id}")
-                            status = "failed"
-                    if expected_artifacts or cid in per_artifacts:
-                        if list(per_artifacts.get(cid) or []) != expected_artifacts:
-                            codes.append(
-                                f"support_source_artifact_lineage_mismatch:{assertion_id}"
-                            )
-                            status = "failed"
-
-            resource = store.nodes.get(record.external_resource_node_id)
-            binding = store.edges.get(record.binding_edge_id)
-            if resource is None:
-                codes.append("missing_external_resource")
-                status = "failed"
-            elif statblock_id is None:
-                codes.append("missing_statblock_id")
-                status = "failed"
-            else:
-                resource_reason = _verify_external_resource_node(
-                    resource,
-                    statblock_id=statblock_id,
-                    expected_source_domains=_provenance_domains_for_object(
-                        contribution, record.external_resource_node_id
-                    ),
-                )
-                if resource_reason is not None:
-                    codes.append(resource_reason)
-                    status = "failed"
-                try:
-                    reject_mechanics_keys(
-                        resource.model_dump(mode="json", by_alias=True),
-                        context="external resource node",
-                    )
-                except ValueError as exc:
-                    codes.append("external_resource_mechanics_leak")
-                    warnings.append(str(exc)[:180])
-                    status = "failed"
-                leak = _scan_forbidden_mechanics_keys(
-                    resource.model_dump(mode="json", by_alias=True),
-                    context="external resource node",
-                )
-                if leak is not None:
-                    codes.append("external_resource_mechanics_body_leak")
-                    warnings.append(leak[:180])
-                    status = "failed"
-
-            if binding is None:
-                codes.append("missing_binding_edge")
-                status = "failed"
-            elif binding_value is None:
-                codes.append("missing_binding_assertion")
-                status = "failed"
-            else:
-                binding_reason = _verify_binding_edge(
-                    binding,
-                    record=record,
-                    binding_value=binding_value,
-                )
-                if binding_reason is not None:
-                    codes.append(binding_reason)
-                    status = "failed"
-                try:
-                    reject_mechanics_keys(
-                        binding.model_dump(mode="json", by_alias=True),
-                        context="binding edge",
-                    )
-                except ValueError as exc:
-                    codes.append("binding_mechanics_leak")
-                    warnings.append(str(exc)[:180])
-                    status = "failed"
-                leak = _scan_forbidden_mechanics_keys(
-                    binding.model_dump(mode="json", by_alias=True),
-                    context="binding edge",
-                )
-                if leak is not None:
-                    codes.append("binding_mechanics_body_leak")
-                    warnings.append(leak[:180])
-                    status = "failed"
-
-            for assertion in contribution.accepted_assertions:
-                value = assertion.value
-                if isinstance(value, Mapping):
-                    try:
-                        reject_mechanics_keys(value, context="contribution assertion")
-                    except ValueError as exc:
-                        codes.append("mechanics_body_leak")
-                        warnings.append(str(exc)[:180])
-                        status = "failed"
-                        break
-                    leak = _scan_forbidden_mechanics_keys(
-                        value, context="contribution assertion"
-                    )
-                    if leak is not None:
-                        codes.append("mechanics_body_leak")
-                        warnings.append(leak[:180])
-                        status = "failed"
-                        break
-
-            if record.decision == "create_new":
-                for code in _verify_create_new_materialization(
-                    store=store,
-                    contribution=contribution,
-                    record=record,
-                ):
-                    codes.append(code)
-                    status = "failed"
-            else:
-                for code in _verify_connect_existing_constraints(
-                    store=store,
-                    contribution=contribution,
-                    record=record,
-                ):
-                    codes.append(code)
-                    status = "failed"
-
-    if status != "failed":
-        try:
-            rebuild = kernel.rebuild_from_contributions(
-                world_root,
-                world_id=record.world_id,
-                compare_revision_id=record.committed_revision_id,
-                publish=False,
-            )
-            if "rebuild_equivalent_to_pinned_revision" not in (rebuild.diagnostics or []):
-                codes.append("rebuild_not_equivalent")
-                status = "degraded" if status == "passed" else status
-        except Exception as exc:  # noqa: BLE001
-            codes.append("rebuild_unavailable")
-            warnings.append(str(exc)[:180])
-            status = "degraded" if status == "passed" else status
-
-        if store is not None and statblock_id is not None:
-            try:
-                projection = kernel.project_world_graph(
-                    world_root,
-                    WorldGraphProjectionRequest(
-                        schema=PROJECTION_REQUEST_SCHEMA,
-                        world_id=record.world_id,
-                        campaign_id=record.campaign_id,
-                        focus=WorldGraphProjectionFocus(kind="none"),
-                        admissibility="gm",
-                        scope_mode="campaign",
-                        revision_pin=record.committed_revision_id,
-                        query_text=record.threat_node_id,
-                    ),
-                )
-                for code in _verify_projection_audit(
-                    projection,
-                    record=record,
-                    contribution=contribution,
-                    statblock_id=statblock_id,
-                ):
-                    codes.append(code)
-                    status = "failed"
-            except Exception as exc:  # noqa: BLE001
-                codes.append("projection_unavailable")
-                warnings.append(str(exc)[:180])
-                status = "degraded" if status == "passed" else status
-
-    if status == "passed":
-        return _with_updated(
-            record,
-            state="committed_verified",
-            verification_status="passed",
-            verification_codes=codes,
-            warnings=warnings,
-        )
+    Mounted DungeonMind commits use ``_advance_native_child_verification`` instead.
+    """
+    del root, world_root, proposal, contribution, lookup_fn
     return _with_updated(
         record,
         state="committed_unverified",
-        verification_status=status if status != "not_started" else "failed",
-        verification_codes=codes,
-        warnings=warnings,
+        verification_status="failed",
+        verification_codes=["buddy_filesystem_verification_retired"],
+        warnings=[],
     )
 
 
 def _merge_failure_message(result: ContributionMergeResult | None) -> str | None:
     """Return the governed merge failure diagnostic for the UI.
+
 
     New merge results carry a structured ``failure_code`` / ``failure_message``
     pair. The prefixed diagnostic fallback is retained only for old injected
@@ -2110,6 +1815,7 @@ def _reconcile_via_authority(
             return record, merge_calls, "publication_commit_recovery_pending", False, None
         return record, merge_calls, "publication_commit_integrity_failure", False, None
 
+
     if recovered is not None:
         if recovered.parent_revision_id != record.expected_parent_revision_id:
             return record, merge_calls, "publication_commit_integrity_failure", False, None
@@ -2148,6 +1854,7 @@ def _reconcile_via_authority(
             )
             return verified, merge_calls, label, False, message
         return updated, merge_calls, "publication_commit_committed_unverified", False, None
+
 
     if published_false:
         updated = _with_updated(record, state="uncommitted")
@@ -2200,6 +1907,7 @@ def _reconcile(
 ]:
     """Reconcile an uncertain outcome through c2a.
 
+
     The fourth return value is True only when the lookup completed and returned
     zero matches with attempt_count==1, so the caller may run the one governed
     recovery retry. Transient lookup unavailability and integrity-unloadable
@@ -2249,10 +1957,12 @@ def _reconcile(
             None,
         )
 
+
     if len(matches) > 1:
         updated = _with_updated(record, state="ambiguous")
         _save_commit(root, updated)
         return updated, merge_calls, "publication_commit_outcome_ambiguous", False, None
+
 
     if len(matches) == 1:
         try:
@@ -2290,6 +2000,7 @@ def _reconcile(
             return verified, merge_calls, label, False, message
         return updated, merge_calls, "publication_commit_committed_unverified", False, None
 
+
     # zero matches
     if published_false:
         updated = _with_updated(record, state="uncommitted")
@@ -2306,6 +2017,7 @@ def _reconcile(
             ),
         )
 
+
     if record.merge_attempt_count >= 2:
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
@@ -2317,6 +2029,7 @@ def _reconcile(
             "World Graph merge did not publish after recovery retry. "
             "Cancel this publication and prepare again.",
         )
+
 
     # Conditional single retry requires full revalidation by caller.
     return record, merge_calls, "publication_commit_recovery_pending", True, None
@@ -2348,6 +2061,7 @@ def _admit_and_build_record(
             )
         ), None, None
 
+
     proposal = find_threat_publication_proposal(proposal_ledger, proposal_id)
     if (
         proposal is None
@@ -2364,6 +2078,7 @@ def _admit_and_build_record(
                 message="proposal is not active",
             )
         ), None, None
+
 
     if request.sealed_proposal_digest != proposal.sealed_proposal_digest:
         return None, CommitOutcome(
@@ -2387,6 +2102,7 @@ def _admit_and_build_record(
                 message="expected_parent_revision_id mismatch",
             )
         ), None, proposal
+
 
     identity = read_identity_resolution(root, draft_id, operation_id, proposal.resolution_id)
     resolution = identity.response.resolution
@@ -2421,6 +2137,7 @@ def _admit_and_build_record(
         )
     assert resolution is not None
 
+
     refresh = refresh_publication_operation(root, draft_id, operation_id)
     pub_status, operation, pub_detail = _classify_publication_operation_authority(
         refresh, record=probe
@@ -2442,12 +2159,15 @@ def _admit_and_build_record(
         )
     assert operation is not None
 
+
     snapshot = operation.source_snapshot
+
 
     try:
         from apps.live_control_server.services.threat_publication_proposals import (
             _mutation_context_from_view,
         )
+
 
         parent_view = graph_authority.read_revision(
             snapshot.world_id, proposal.expected_parent_revision_id
@@ -2490,6 +2210,7 @@ def _admit_and_build_record(
             )
         ), None, proposal
 
+
     if not _contribution_matches_proposal(contribution, proposal):
         disposition = _contribution_order_disposition(
             contribution,
@@ -2523,6 +2244,7 @@ def _admit_and_build_record(
             )
         ), None, proposal
 
+
     source_digest = compute_contribution_source_payload_sha256(contribution)
     try:
         binding_id = _derive_binding_id(
@@ -2541,6 +2263,7 @@ def _admit_and_build_record(
                 message=f"binding identity derivation failed: {exc}",
             )
         ), None, proposal
+
 
     try:
         observed_head = _current_head_id(world_root, snapshot.world_id)
@@ -2567,6 +2290,7 @@ def _admit_and_build_record(
             )
         ), None, proposal
 
+
     selected_target = (
         None
         if proposal.decision == "create_new"
@@ -2583,6 +2307,7 @@ def _admit_and_build_record(
                 message="connect_existing requires selected_target snapshot",
             )
         ), None, proposal
+
 
     now = _utc_now_iso()
     record = ThreatPublicationCommitV1.model_validate(
@@ -2653,6 +2378,7 @@ def _maybe_retry(
         _save_commit(root, updated)
         return updated, merge_calls, "publication_commit_uncommitted", None
 
+
     identity = read_identity_resolution(
         root, record.draft_id, record.operation_id, record.resolution_id
     )
@@ -2668,6 +2394,7 @@ def _maybe_retry(
         _save_commit(root, updated)
         return updated, merge_calls, "publication_commit_uncommitted", identity_detail
 
+
     refresh = refresh_publication_operation(root, record.draft_id, record.operation_id)
     pub_status, _operation, pub_detail = _classify_publication_operation_authority(
         refresh, record=record
@@ -2680,6 +2407,7 @@ def _maybe_retry(
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
         return updated, merge_calls, "publication_commit_uncommitted", pub_detail
+
 
     try:
         _verified, rebuilt = resolve_merged_contribution_from_package(
@@ -2713,6 +2441,7 @@ def _maybe_retry(
             f"contribution reconstruction integrity failure: {exc}",
         )
 
+
     if (
         not _unmodified_contribution_matches_expected_ids(
             rebuilt, list(record.accepted_assertion_ids)
@@ -2724,6 +2453,7 @@ def _maybe_retry(
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
         return updated, merge_calls, "publication_commit_uncommitted", None
+
 
     attempt2 = _with_updated(record, merge_attempt_count=2)
     try:
@@ -2758,6 +2488,7 @@ def _maybe_retry(
         )
         return updated, merge_calls, label, message
 
+
     if _direct_publish_usable(result, attempt2):
         updated = _with_updated(
             attempt2,
@@ -2781,6 +2512,7 @@ def _maybe_retry(
             lookup_fn=lookup_fn,
         )
         return verified, merge_calls, label, message
+
 
     updated, merge_calls, label, _allow_retry, message = _reconcile(
         root=root,
@@ -2813,25 +2545,29 @@ def confirm_threat_publication(
     safe_proposal = validate_proposal_id(proposal_id)
     safe_commit = validate_commit_id(request.commit_id)
     configured_world = world_root if world_root is not None else world_graph_root()
+    if _uses_injected_graph_hooks(merge_fn, lookup_fn):
+        raise WorldGraphAuthorityError(
+            "injected Buddy graph hooks are retired; use DungeonMind World Graph authority",
+            code="authority_unavailable",
+        )
     authority = _authority_for_commit(
         world_root=configured_world,
-        merge_fn=merge_fn,
-        lookup_fn=lookup_fn,
+        merge_fn=None,
+        lookup_fn=None,
     )
-    use_port_recover = not _uses_injected_graph_hooks(merge_fn, lookup_fn)
-    if use_port_recover:
-        # Mounted DungeonMind path: never touch the lazy Buddy kernel proxy.
-        def _blocked_kernel_hook(*_args, **_kwargs):
-            raise AssertionError(
-                "Buddy World Graph kernel hook must not run on DungeonMind threat commit"
-            )
+    use_port_recover = True
 
-        merge: MergeFn = merge_fn or _blocked_kernel_hook
-        lookup: LookupFn = lookup_fn or _blocked_kernel_hook
-    else:
-        merge = merge_fn or kernel.merge_contribution_to_revision
-        lookup = lookup_fn or kernel.find_world_graph_revisions_by_operation_id
+
+    def _blocked_kernel_hook(*_args, **_kwargs):
+        raise AssertionError(
+            "Buddy World Graph kernel hook must not run on DungeonMind threat commit"
+        )
+
+
+    merge: MergeFn = _blocked_kernel_hook
+    lookup: LookupFn = _blocked_kernel_hook
     merge_calls = 0
+
 
     with threat_publication_lifecycle_lock(root, safe_draft, safe_op):
         try:
@@ -2847,6 +2583,7 @@ def confirm_threat_publication(
                 exc,
                 admission_known=False,
             )
+
 
         if existing is not None:
             record = existing.commit
@@ -2890,6 +2627,7 @@ def confirm_threat_publication(
                     )
                 )
 
+
             # §8.1 — terminal / verified replay before dependency reads.
             if record.state == "committed_verified":
                 return CommitOutcome(
@@ -2913,6 +2651,7 @@ def confirm_threat_publication(
                         commit=record,
                     )
                 )
+
 
             try:
                 proposal_ledger = load_threat_publication_proposal_ledger_unlocked(
@@ -2972,6 +2711,7 @@ def confirm_threat_publication(
                     )
                 )
 
+
             if record.state == "committing":
                 authority_err = _record_matches_proposal_authority(
                     record,
@@ -2994,12 +2734,14 @@ def confirm_threat_publication(
                         )
                     )
 
+
                 contribution: GraphContribution | None = None
                 order_disposition: Literal[
                     "exact", "legacy_seal_order", "corrupt_permutation", "set_mismatch"
                 ] | None = None
                 reconstruction_blocker: str | None = None
                 reconstruction_integrity = False
+
 
                 def _order_after_reconstruction_failure() -> Literal[
                     "exact", "legacy_seal_order"
@@ -3015,6 +2757,7 @@ def confirm_threat_publication(
                         return "legacy_seal_order"
                     return "exact"
 
+
                 try:
                     mutation_context = None
                     resolve_root: Path | None = configured_world
@@ -3022,6 +2765,7 @@ def confirm_threat_publication(
                         from apps.live_control_server.services.threat_publication_proposals import (
                             _mutation_context_from_view,
                         )
+
 
                         parent_view = authority.read_revision(
                             record.world_id, record.expected_parent_revision_id
@@ -3064,6 +2808,7 @@ def confirm_threat_publication(
                     contribution = None
                     order_disposition = _order_after_reconstruction_failure()
 
+
                 assert order_disposition is not None
                 if (
                     contribution is not None
@@ -3086,6 +2831,7 @@ def confirm_threat_publication(
                             ),
                         )
                     )
+
 
                 if contribution is not None:
                     trust_err = _record_matches_c2a_trust(
@@ -3114,6 +2860,7 @@ def confirm_threat_publication(
                             )
                         )
 
+
                 # c2a runs once the durable record/proposal establish the lookup
                 # key, regardless of reconstruction success. Reconstruction
                 # integrity blocks retry/verification but must not hide a
@@ -3136,6 +2883,7 @@ def confirm_threat_publication(
                         use_port_recover=use_port_recover,
                     )
                 )
+
 
                 if updated.state != "committing":
                     message = reconcile_message
@@ -3162,6 +2910,7 @@ def confirm_threat_publication(
                         merge_calls=merge_calls,
                     )
 
+
                 # Unique c2a match proved a committed revision but receipt
                 # persistence failed: durable record remains committing-shaped,
                 # yet merge retry must never be advertised.
@@ -3180,6 +2929,7 @@ def confirm_threat_publication(
                         merge_calls=merge_calls,
                     )
 
+
                 if reconstruction_integrity:
                     # Zero/unavailable c2a after reconstruction integrity: keep
                     # committing, block retry, surface integrity. Do not enter
@@ -3197,6 +2947,7 @@ def confirm_threat_publication(
                         ),
                         merge_calls=merge_calls,
                     )
+
 
                 if order_disposition == "legacy_seal_order":
                     # Only terminalize after an authoritative completed zero-match
@@ -3230,6 +2981,7 @@ def confirm_threat_publication(
                         ),
                         merge_calls=merge_calls,
                     )
+
 
                 if (
                     allow_zero_match_retry
@@ -3331,6 +3083,7 @@ def confirm_threat_publication(
                     merge_calls=merge_calls,
                 )
 
+
             try:
                 _v, contribution = resolve_merged_contribution_from_package(
                     review_package=proposal.sealed_proposal,
@@ -3354,6 +3107,7 @@ def confirm_threat_publication(
                         message=f"verification dependency unavailable: {exc}",
                     )
                 )
+
 
             order_disposition = _contribution_order_disposition(
                 contribution,
@@ -3379,6 +3133,7 @@ def confirm_threat_publication(
                     )
                 )
 
+
             # committed_unverified — preserve known receipt across dependency gaps.
             if order_disposition == "legacy_seal_order":
                 return CommitOutcome(
@@ -3396,6 +3151,7 @@ def confirm_threat_publication(
                         ),
                     )
                 )
+
 
             selected_target_authority = None
             if record.decision == "connect_existing":
@@ -3438,6 +3194,7 @@ def confirm_threat_publication(
                 if resolution_authority is not None:
                     selected_target_authority = resolution_authority.selected_target
 
+
             matched_contribution, authority_err = _record_contribution_matches_authority(
                 record,
                 proposal,
@@ -3457,6 +3214,7 @@ def confirm_threat_publication(
                     )
                 )
             contribution = matched_contribution
+
 
             verified = _verify_committed(
                 root=root,
@@ -3492,6 +3250,7 @@ def confirm_threat_publication(
                 )
             )
 
+
         # New admission
         try:
             record, early, contribution, proposal = _admit_and_build_record(
@@ -3508,14 +3267,17 @@ def confirm_threat_publication(
         except ThreatPublicationCommitStorageError as exc:
             return _outcome_storage(safe_draft, safe_op, safe_proposal, safe_commit, exc)
 
+
         if early is not None:
             return early
         assert record is not None and contribution is not None and proposal is not None
+
 
         try:
             _save_commit(root, record)
         except ThreatPublicationCommitStorageError as exc:
             return _outcome_storage(safe_draft, safe_op, safe_proposal, safe_commit, exc)
+
 
         published_false = False
         result: ContributionMergeResult | None = None
@@ -3558,6 +3320,7 @@ def confirm_threat_publication(
         except Exception:
             merge_calls += 1
             result = None
+
 
         if result is not None and _direct_publish_usable(result, record):
             updated = _with_updated(
@@ -3609,6 +3372,7 @@ def confirm_threat_publication(
                 created=True,
                 merge_calls=merge_calls,
             )
+
 
         updated, merge_calls, label, allow_zero_match_retry, reconcile_message = (
             _reconcile(
@@ -3668,10 +3432,12 @@ def read_threat_publication_commit(
     safe_op = validate_publication_operation_id(operation_id)
     safe_commit = validate_commit_id(commit_id)
 
+
     # Missing GET must not create directories or locks.
     from apps.live_control_server.services.threat_publication_commit_store import (
         threat_publication_commit_ledger_exists,
     )
+
 
     if not threat_publication_commit_ledger_exists(root, safe_draft, safe_op):
         return CommitOutcome(
@@ -3684,6 +3450,7 @@ def read_threat_publication_commit(
                 message="publication commit ledger not found",
             )
         )
+
 
     with threat_publication_lifecycle_lock(root, safe_draft, safe_op):
         try:

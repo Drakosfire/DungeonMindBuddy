@@ -1,9 +1,12 @@
 """D.3A owning-workflow execution under the legacy import blocker.
 
+
 Imported only from the fresh-interpreter witness body after the blocker is armed.
 """
 
+
 from __future__ import annotations
+
 
 import os
 import tempfile
@@ -11,6 +14,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
+
 
 from tests._cutover_d3a_blocker_safe_fixtures import (
     COMMIT_URL,
@@ -38,10 +42,13 @@ from tests._cutover_d3a_blocker_safe_fixtures import (
 def _assert_no_forbidden_loaded() -> None:
     import sys
 
+
     forbidden = (
         "graph_memory.kernel",
         "graph_memory.world_supergraph",
         "graph_memory.union_supergraph",
+        "apps.live_control_server.integrations.buddy_files",
+        "apps.live_control_server.integrations.dungeonmind_kernel",
     )
     loaded = [
         name
@@ -55,6 +62,7 @@ def _patch_repo_root(repo: Path) -> list[Any]:
     import apps.live_control_server.config as live_config
     import apps.live_control_server.services.extract_promote as promote_svc
     import apps.live_control_server.services.promotable_ingest_run as promotable_mod
+
 
     originals = [
         (live_config, "repo_root", live_config.repo_root),
@@ -81,6 +89,7 @@ def _snapshot_authority_factories() -> list[tuple[object, str, object]]:
     from apps.live_control_server.services import threat_publication_proposals as proposal_svc
     from apps.live_control_server.services import worldbuilding_graph_publication as wb_svc
 
+
     targets = (
         (access, "get_world_graph_authority"),
         (ops_svc, "get_world_graph_authority"),
@@ -95,7 +104,6 @@ def _snapshot_authority_factories() -> list[tuple[object, str, object]]:
 def _restore_authority_factories(snapshot: list[tuple[object, str, object]]) -> None:
     for owner, name, value in snapshot:
         setattr(owner, name, value)
-
 
 
 def exercise_threat_publish_recover(base: Path) -> None:
@@ -141,6 +149,7 @@ def exercise_threat_publish_recover(base: Path) -> None:
         _install_fake_authority,
     )
 
+
     tmp_path = base / "threat-workspace"
     tmp_path.mkdir(parents=True, exist_ok=True)
     absent = base / "buddy-world-graph-absent-threat"
@@ -155,6 +164,7 @@ def exercise_threat_publish_recover(base: Path) -> None:
         relationships={},
     )
 
+
     class _MP:
         def setattr(self, target, name=None, value=None):  # noqa: A003
             if isinstance(target, str) and value is None and name is not None:
@@ -163,6 +173,7 @@ def exercise_threat_publish_recover(base: Path) -> None:
                 module_path, attr = target.rsplit(".", 1)
                 import importlib
 
+
                 mod = importlib.import_module(module_path)
                 setattr(mod, attr, value)
                 return
@@ -170,16 +181,20 @@ def exercise_threat_publish_recover(base: Path) -> None:
                 module_path, attr = target.rsplit(".", 1)
                 import importlib
 
+
                 mod = importlib.import_module(module_path)
                 setattr(mod, attr, name if value is None else value)
                 return
             setattr(target, name, value)
 
+
         def setenv(self, key: str, value: str) -> None:
             os.environ[key] = value
 
+
     monkeypatch = _MP()
     from apps.live_control_server import config as live_config
+
 
     monkeypatch.setenv(
         live_config.WORLD_GRAPH_AUTHORITY_ENV,
@@ -192,6 +207,7 @@ def exercise_threat_publish_recover(base: Path) -> None:
         monkeypatch.setattr(mod, "world_graph_root", lambda: absent)
     authority_snapshot = _snapshot_authority_factories()
     _install_fake_authority(monkeypatch, fake)
+
 
     draft = create_threat_draft(
         tmp_path,
@@ -250,6 +266,7 @@ def exercise_threat_publish_recover(base: Path) -> None:
     assert begin.response.result_label == "publication_ready"
     assert not absent.exists()
 
+
     projection = identity_svc.build_projection_fixture(
         revision_id=parent,
         nodes=[
@@ -300,6 +317,7 @@ def exercise_threat_publish_recover(base: Path) -> None:
     assert resolution.response.result_label == "publication_identity_created_new"
     resolution_id = resolution.response.resolution.resolution_id
 
+
     prepared = proposal_svc.prepare_threat_publication_proposal(
         tmp_path,
         draft.draft_id,
@@ -313,6 +331,7 @@ def exercise_threat_publish_recover(base: Path) -> None:
     assert prepared.response.result_label == "publication_proposal_ready"
     proposal = prepared.response.proposal
     assert proposal is not None
+
 
     first = commit_svc.confirm_threat_publication(
         tmp_path,
@@ -337,6 +356,7 @@ def exercise_threat_publish_recover(base: Path) -> None:
     child = first.response.commit.committed_revision_id
     assert child
     assert fake.publish_calls == 1
+
 
     retry = commit_svc.confirm_threat_publication(
         tmp_path,
@@ -374,6 +394,7 @@ def exercise_worldbuilding_publish_recover(base: Path) -> None:
         GRAPH_INGEST_RUNS_ENV,
     )
 
+
     repo = base / "wb-repo"
     repo.mkdir(parents=True, exist_ok=True)
     absent = base / "buddy-world-graph-absent-wb"
@@ -381,6 +402,7 @@ def exercise_worldbuilding_publish_recover(base: Path) -> None:
     fake = FakeWorldGraphAuthority()
     fake.heads[DEFAULT_WORLD_ID] = parent
     fake.revisions[(DEFAULT_WORLD_ID, parent)] = _empty_parent(revision_id=parent)
+
 
     os.environ[live_config.WORLD_GRAPH_AUTHORITY_ENV] = (
         live_config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
@@ -432,16 +454,20 @@ def exercise_hermes_graph_query(base: Path) -> None:
     )
     from apps.live_control_server.services.hermes_graph_query import run_hermes_graph_query
 
+
     class FakeHost:
         descriptor = HERMES_RUNTIME_DESCRIPTOR
+
 
         def __init__(self, result: AgentRuntimeResult) -> None:
             self._result = result
             self.calls: list[Any] = []
 
+
         def run(self, invocation: Any) -> AgentRuntimeResult:
             self.calls.append(invocation)
             return self._result
+
 
     ready_envelope = {
         "schema": "dmb_agent_world_graph_query_context_v1",
@@ -561,14 +587,17 @@ def exercise_first_world_and_graph_review(client, base: Path) -> None:
     )
     from fastapi.testclient import TestClient
 
+
     dsn = require_test_dsn()
     ensure_migrated(dsn)
     truncate_dungeonmind(dsn)
+
 
     repo = base / "fw-gr-repo"
     world_root = base / "fw-gr-world"
     repo.mkdir(parents=True, exist_ok=True)
     world_root.mkdir(parents=True, exist_ok=True)
+
 
     os.environ[live_config.WORLD_GRAPH_AUTHORITY_ENV] = (
         live_config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
@@ -579,6 +608,7 @@ def exercise_first_world_and_graph_review(client, base: Path) -> None:
     os.environ.pop("DUNGEONMIND_EXTRACT_PROMOTE_SOURCE_ROOT", None)
     os.environ[GRAPH_INGEST_RUNS_ENV] = "out/graph_memory/runs"
     os.environ[GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV] = "d3a-owning-witness-key"
+
 
     originals = _patch_repo_root(repo)
     try:
@@ -598,9 +628,11 @@ def exercise_first_world_and_graph_review(client, base: Path) -> None:
         glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID
         assert not glass_dir.exists()
 
+
         review_run_id = write_post_genesis_graph_review_run(repo)
         resolved = resolve_promotable_ingest_run(review_run_id, root=repo)
         buddy_artifact_id = resolved.source_artifact_id
+
 
         object_prepare = client.post(
             PREPARE_URL, json=authoring_body(review_run_id, [object_proposal()])
@@ -610,6 +642,7 @@ def exercise_first_world_and_graph_review(client, base: Path) -> None:
         assert prepared["expressibility"] == "EXPRESSIBLE"
         assert prepared["expected_parent_revision_id"] == d0
         assert prepared["source_artifact_id"] == buddy_artifact_id
+
 
         object_commit = client.post(
             COMMIT_URL,
@@ -630,6 +663,7 @@ def exercise_first_world_and_graph_review(client, base: Path) -> None:
         assert body["idempotency_status"] == "published"
         assert body.get("overlay_path") is None
 
+
         retry = client.post(
             COMMIT_URL,
             json=authoring_body(
@@ -642,6 +676,7 @@ def exercise_first_world_and_graph_review(client, base: Path) -> None:
         assert retry.status_code == 200, retry.text
         assert retry.json()["published_revision_id"] == d1
         assert retry.json()["idempotency_status"] == "already_applied"
+
 
         # Recovery across a fresh client (lost in-memory state).
         fresh = TestClient(client.app)
@@ -658,9 +693,11 @@ def exercise_first_world_and_graph_review(client, base: Path) -> None:
         assert recovered.json()["published_revision_id"] == d1
         assert recovered.json()["idempotency_status"] == "already_applied"
 
+
         from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
             DungeonMindWorldGraphAuthorityAdapter,
         )
+
 
         adapter = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
         d1_view = adapter.read_revision(GLASS_ORCHARD_WORLD_ID, d1)

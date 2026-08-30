@@ -15,29 +15,28 @@ pr_body_template: |
   - Steward re-anchor base before this handoff commit: `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`
   - Branch: `cutover/delete-legacy-graph-engine`
   - PR title: `CUTOVER: delete legacy Buddy graph engine`
-
   ## Verification pointer
   The checked-in handoff, executable-consumer disposition ledger, cumulative diff,
   source-absence proof, retained D.3A fresh-interpreter witness, exact DungeonMind
   read/write regression evidence, and verification provenance are the review contract.
   The PR body is transport metadata.
+
 ---
 
 # HANDOFF — CUTOVER D.3B: physical legacy graph-engine deletion
-
-**Created:** 2026-08-29  
-**Status:** ACTIVE — dispatch one implementation capability  
-**Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-delete-legacy-graph-engine.md`  
-**Workstream / flow:** CUTOVER  
-**Direction:** DESIGN → CODE  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Branch:** `cutover/delete-legacy-graph-engine`  
-**PR title:** `CUTOVER: delete legacy Buddy graph engine`  
-**Frozen design authority:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` §8  
-**Steward re-anchor base before this handoff commit:** `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`  
-**Predecessor:** D.3A / Buddy #665 / accepted head `189ffd50157534d192b2af008c48a76d12ccbc4c` / merge `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b` / 3 formal review cycles / Cycle 3 PASS-equivalent `5059851179`  
+**Created:** 2026-08-29
+**Status:** DOING / CODE — implementation in progress (PR pending)
+**Canonical handoff:** `Docs/Plans/HANDOFF-CUTOVER-delete-legacy-graph-engine.md`
+**Workstream / flow:** CUTOVER
+**Direction:** DESIGN → CODE
+**Repository:** `Drakosfire/DungeonMindBuddy`
+**Branch:** `cutover/delete-legacy-graph-engine`
+**PR title:** `CUTOVER: delete legacy Buddy graph engine`
+**Frozen design authority:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` §8
+**Steward re-anchor base before this handoff commit:** `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`
+**Exact dispatch base (implementation start):** `d4a91d7b727c0eae7dd0e09ba068e250b4819b44`
+**Predecessor:** D.3A / Buddy #665 / accepted head `189ffd50157534d192b2af008c48a76d12ccbc4c` / merge `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b` / 3 formal review cycles / Cycle 3 PASS-equivalent `5059851179`
 **Named successor:** none inside D.3. This is the final D.3 implementation slice. After merge + final absence proof, D.3 may become `DONE`.
-
 > D.3A proved the mounted product does not need the Buddy graph engine.
 > D.3B removes the retired executable implementation from the repository.
 >
@@ -49,11 +48,9 @@ pr_body_template: |
 ---
 
 ## Dispatch law
-
 The worker must branch from the current `main` **containing this handoff**, record
 that exact SHA before changing executable code, and re-check active PRs/write leases.
 The immutable predecessor truth at steward design time is:
-
 ```text
 D.3A / Buddy #665
 accepted head               189ffd50157534d192b2af008c48a76d12ccbc4c
@@ -62,10 +59,8 @@ merge                       1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b
 formal review cycles        3
 final review                5059851179 — PASS-equivalent
 ```
-
 D.3A's accepted proof established, with the forbidden imports blocked before app
 import and with the legacy graph filesystem absent:
-
 ```text
 mounted app boot/lifespan                    GREEN
 native projection/retrieval                  GREEN
@@ -81,17 +76,13 @@ retired 410 routes                           GREEN
 legacy graph filesystem absent before/after  GREEN
 required PostgreSQL skips                    0
 ```
-
 That proof is D.3B's safety floor. D.3B may delete implementation that D.3A proved
 unnecessary; it may not weaken or replace those surviving product contracts.
 
 ### Parallel-lane check at design time
-
 The only open PR observed after #665 merged is AGENT-INTERACTION #666,
 `AGENT-INTERACTION: extract ContextAssembler v1`.
-
 Its changed paths are:
-
 ```text
 Docs/Plans/HANDOFF-AGENT-INTERACTION-context-assembler-v1.md
 Docs/Plans/HANDOFF-AGENT-INTERACTION-graph-agent-policy-boundary-v1.md
@@ -103,7 +94,6 @@ tests/test_agent_turn_trace.py
 tests/test_live_control_server.py
 tests/test_live_query_hermes_graph.py
 ```
-
 D.3B is expected to be disjoint from those paths. Do **not** edit them merely to
 make broad deletion fallout green. If physical deletion exposes a genuine dependency
 inside a #666-leased path, STOP and report the exact dependency / ownership collision.
@@ -114,22 +104,18 @@ Whichever branch merges second must re-anchor normally.
 ## §1 Mission and merge-ready invariant
 
 ### Mission
-
 Physically remove the retired Buddy World Graph engine and its obsolete compatibility
 adapters from executable repository state while preserving the already-proven
 DungeonMind-native product behavior.
 
 ### Merge-ready invariant
-
 > **The retired Buddy graph-engine source packages, BuddyFiles authority adapter,
 > and obsolete Kernel compatibility implementation no longer exist as executable
 > code; every surviving executable consumer has either been deleted with them or
 > explicitly rehomed under a non-engine historical/tooling owner; the mounted
 > DungeonBuddy application remains green on DungeonMind; and the D.3A legacy-import
 > and legacy-filesystem-absence proof still passes.**
-
 The final state must make this statement true without qualification:
-
 ```text
 src/graph_memory/kernel/              ABSENT
 src/graph_memory/world_supergraph/    ABSENT
@@ -140,7 +126,6 @@ product fallback to Buddy graph files                      IMPOSSIBLE
 DungeonMind-native read/write/init/authoring               GREEN
 legacy <root>/graph_memory/worlds creation                  ABSENT
 ```
-
 `apps/live_control_server/integrations/dungeonmind_kernel/**` is also part of the
 D.3B executable-consumer inventory. It is a historical compatibility/migration tree,
 not a mounted product owner after D.3A. It must not remain as an executable
@@ -150,9 +135,7 @@ tool under an explicit non-engine tooling owner before deleting the compatibilit
 tree. Do not preserve or rename the whole bridge.
 
 ### What this capability is not
-
 D.3B does **not**:
-
 - change DungeonMind graph schemas, publication semantics, identity semantics, or
   source provenance;
 - add another graph authority or compatibility mode;
@@ -168,9 +151,7 @@ D.3B does **not**:
 ---
 
 ## §2 Authority and predecessor truth
-
 Read before editing, in this order:
-
 1. `AGENTS.md`
 2. `Docs/Plans/PR-TRACKER-campaign-supergraph.md`
 3. `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` §8
@@ -178,36 +159,28 @@ Read before editing, in this order:
 5. `Docs/Plans/HANDBACK-CUTOVER-D3A-Review-Cycle-3.md`
 6. this handoff
 7. current repository import/entrypoint/test inventory on the exact dispatch head
-
 Frozen predecessor chain:
-
 ```text
 D.2C2 first-world initialization
   #645 / merge 3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c
-
 D.2C3 native genesis continuity
   #651 / accepted 9508b71655665005df8f12da74c239fe7eb17c0c
   merge 84f3401b23fcac32a57416d5419dc7d33cf6eabc
   4 formal cycles
-
 D.2C4 Graph Review manual authoring continuity
   #662 / accepted 1ab48453cb556ca9d01ff84173ab3e2fdf81d1ec
   merge 2f1b44aa8ad8bad78269c0cadf624882cd0f459f
   4 formal cycles / PASS 5059141212
-
 D.3A mounted graph-engine excision
   #665 / accepted 189ffd50157534d192b2af008c48a76d12ccbc4c
   executable tip 064db76a7be5af73a655480506eab1baf6161a24
   merge 1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b
   3 formal cycles / PASS 5059851179
 ```
-
 Current DungeonMind pin at design time remains:
-
 ```text
 5ca5d688612349034f8ca490d465af166d883e6e
 ```
-
 Do not move that pin in D.3B unless physical deletion exposes an independently
 reviewable provider-contract blocker. That is a STOP/split signal, not incidental
 cleanup.
@@ -215,15 +188,12 @@ cleanup.
 ---
 
 ## §3 Step 0 is mandatory: executable-consumer disposition ledger
-
 D.3B must **not** begin with recursive deletion. Begin by proving what still imports,
 loads, executes, re-exports, references through an entrypoint, or dynamically imports
 the retired implementation.
 
 ### 3.1 Inventory targets
-
 Inventory executable consumers of at least:
-
 ```text
 graph_memory.kernel
 graph_memory.kernel.*
@@ -236,9 +206,7 @@ apps.live_control_server.integrations.buddy_files.*
 apps.live_control_server.integrations.dungeonmind_kernel
 apps.live_control_server.integrations.dungeonmind_kernel.*
 ```
-
 Also inventory direct filesystem assumptions tied to the retired store:
-
 ```text
 graph_memory/worlds
 WorldGraphStore / head files / revision files
@@ -247,9 +215,7 @@ legacy union-store paths
 BuddyFilesWorldGraphAuthorityAdapter
 BuddyFilesWorldGraphInitializationAdapter
 ```
-
 Search these executable domains, not just mounted server imports:
-
 ```text
 apps/**
 src/**
@@ -258,94 +224,74 @@ tests/**
 pyproject.toml / packaging entrypoints
 other executable migration/conformance tooling
 ```
-
 Historical Markdown, merged reports, sealed evidence, and old PR records may mention
 these names forever. Textual history is not an executable consumer and is not a
 reason to rewrite history.
 
 ### 3.2 Inventory method
-
 Use AST/import inspection plus literal/dynamic import and entrypoint searches. A
 plain grep count is useful as a seed but is not sufficient authority.
-
 Classify every executable hit into one of exactly four dispositions:
-
 ```text
 DELETE
   The executable consumer exists only for the retired Buddy graph engine or a
   completed migration/conformance operation. Delete it and its legacy-only tests.
-
 REHOME
   The executable tool still has explicit operational/forensic value, but that value
   is not graph-engine authority. Move only the minimal tool/value into an existing
   explicit non-engine tooling owner, preserve behavior with focused parity evidence,
   then delete the old dependency.
-
 REWRITE
   The consumer is still a current product/proof boundary but can consume already-
   landed DungeonMind/Buddy-owned contracts without changing public behavior. Keep
   the rewrite minimal and prove parity at the owning boundary.
-
 STOP
   The consumer still requires real Buddy graph-head/revision/store semantics,
   would require a new DungeonMind provider contract, or would change a surviving
   product workflow. Report it before deletion. That means D.3A's claimed semantic
   migration was incomplete or D.3B needs an explicit split.
 ```
-
 No `KEEP_LEGACY` category exists.
 
 ### 3.3 Rehome law
-
 Do not create a new generic `legacy_graph_engine`, `old_kernel`, `compat_graph`, or
 similar package merely to make deletion statistics look green.
-
 A REHOME is valid only when:
-
 1. the surviving behavior is explicitly non-authoritative tooling/history;
 2. the target owner is semantically honest and non-mounted;
 3. the moved code is minimal rather than a renamed dependency subtree;
 4. no deleted engine type/store becomes a new public product abstraction;
 5. focused parity evidence proves the moved behavior did not change.
-
 If there is no natural owner, STOP rather than invent one casually.
 
 ### 3.4 Current-main seed that must be resolved
-
 D.3A intentionally left at least one known executable compatibility seam:
-
 ```text
 apps/live_control_server/services/threat_publication_commits.py
   _KernelProxy
     → lazy import graph_memory.kernel
 ```
-
 D.3A proved mounted DungeonMind publication never touches that proxy; it exists for
 explicit unmounted/test-injected graph hooks. D.3B cannot delete `graph_memory.kernel`
 and leave a product service with a latent import of the deleted package.
-
 Expected D.3B disposition:
-
 - remove the Kernel default/adapter path if it exists only for legacy tests;
 - keep explicit injected `merge_fn` / `lookup_fn` testing hooks only if they remain
   useful without importing Kernel;
 - legacy behavior tests that require real Kernel semantics become DELETE or explicit
   historical-tooling REHOME, not product fallbacks.
-
 If inspection proves a current user-facing Threat path still genuinely requires this
 Kernel fallback, STOP: that contradicts the D.3A authority invariant.
 
 ---
 
 ## §4 Physical deletion targets and write lease
-
 The HANDOFF §4 allowlist is this lane's write lease. D.3B is deletion-heavy, so the
 lease is category-bounded rather than pretending every obsolete file is already
 known. Every changed path must appear in the final handback with its Step-0
 classification.
 
 ### 4.1 Primary package deletion lease
-
 ```text
 src/graph_memory/kernel/**
 src/graph_memory/world_supergraph/**
@@ -353,23 +299,18 @@ src/graph_memory/union_supergraph/**
 apps/live_control_server/integrations/buddy_files/**
 apps/live_control_server/integrations/dungeonmind_kernel/**
 ```
-
 Target final state:
-
 ```text
 all five trees above are absent as executable compatibility/engine owners
 ```
-
 For `dungeonmind_kernel/**`, a bounded REHOME of genuinely useful historical tooling
 is allowed only under §3.3; the integration compatibility tree itself must disappear.
 
 ### 4.2 Legacy implementation cleanup lease
-
 Files outside the primary trees may be edited/deleted when Step 0 classifies them as
 an executable consumer of those trees or as an implementation behind a capability
 already frozen retired in D.3A. Expected seeds include, if still present on dispatch
 head:
-
 ```text
 apps/live_control_server/services/world_graph_prewarm.py
 apps/live_control_server/services/union_supergraph_projection_adapter.py
@@ -379,23 +320,18 @@ retired hydration/replay/cache implementation
 legacy-only migration/conformance services under apps/live_control_server/services/*cutover*
 legacy-only CLI / scripts / entrypoints
 ```
-
 The mounted **410 route stubs themselves are retained** where D.3A froze a stable
 public retirement contract. Delete obsolete implementation behind them, not the
 registered 410 behavior.
-
 Do not assume every `cutover_*` service is deletable. Step 0 must classify it from
 current consumers and preserved evidence authority.
 
 ### 4.3 Surviving storage-neutral `graph_memory` modules are not deletion targets
-
 D.3B deletes the retired engine packages, **not all of `src/graph_memory`**.
 Storage-neutral candidate/extraction/evidence/projection/retrieval/value modules that
 remain legitimate product contracts may stay when they do not depend on the three
 retired namespaces.
-
 Examples of categories that may legitimately survive after proof:
-
 ```text
 candidate graph / extraction DTOs
 source/evidence utilities
@@ -403,15 +339,12 @@ projection/retrieval DTOs and pure view helpers
 extract-promote sealed proposal/value helpers
 non-authoritative ingestion artifacts/contracts
 ```
-
 Do not rename them merely because `graph_memory` is aesthetically broad. The final
 absence target is authority/engine implementation, not vocabulary cleansing.
 
 ### 4.4 Bounded dependent-consumer lease
-
 Any executable file under these domains may be changed **only after** Step 0 records
 its exact DELETE / REHOME / REWRITE disposition:
-
 ```text
 apps/live_control_server/**
 src/graph_memory/** outside the primary deletion trees
@@ -419,15 +352,12 @@ scripts/**
 tests/**
 pyproject.toml
 ```
-
 `uv.lock` is not expected to change. If dependency/package metadata must change only
 because deleted internal modules disappear, keep it minimal and explain it. A new
 third-party dependency is a STOP/split signal.
 
 ### 4.5 Explicit parallel exclusions
-
 While PR #666 is open, D.3B does not lease:
-
 ```text
 apps/live_control_server/services/agent_context_assembler.py
 apps/live_control_server/services/agent_turn_trace.py
@@ -439,15 +369,12 @@ tests/test_live_query_hermes_graph.py
 Docs/Plans/HANDOFF-AGENT-INTERACTION-context-assembler-v1.md
 Docs/Plans/HANDOFF-AGENT-INTERACTION-graph-agent-policy-boundary-v1.md
 ```
-
 If #666 merges before dispatch, re-anchor and re-run Step 0. If D.3B truly needs one
 of these paths after re-anchor, report the dependency and serialize/transfer the
 lease; do not create a silent cross-lane edit.
 
 ### 4.6 Backward-looking state-authority sync lease
-
 D.3B implementation owns the truthful predecessor sync for merged D.3A #665:
-
 ```text
 Docs/Plans/HANDOFF-CUTOVER-mounted-graph-engine-excision.md
 Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md
@@ -460,9 +387,7 @@ Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-campaign-supergraph.md
 Docs/Sources/design-agent/ACTIVE_REFERENCE/STATUS-world-graph-continuity-spine.md
 this handoff
 ```
-
 That sync should record:
-
 ```text
 D.3A   COMPLETE / MERGED
        PR #665
@@ -470,14 +395,11 @@ D.3A   COMPLETE / MERGED
        merge 1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b
        formal review cycles 3
        final PASS-equivalent 5059851179
-
 D.3B   DOING / active CUTOVER write lease / this implementation PR
 D.3    NOT DONE
 ```
-
 Do **not** pre-mark D.3B `DONE`, invent its future merge/review facts, or mark D.3
 complete inside the in-flight implementation PR.
-
 Because D.3B has no dependent D.3 implementation successor, the final D.3B merge facts
 and D.3=`DONE` state require a direct guarded steward sync after merge/re-anchor unless
 another genuinely dependent CUTOVER implementation has been intentionally created.
@@ -515,14 +437,11 @@ Do not open a routine docs-only PR for that sync.
 ---
 
 ## §6 Required source-absence proof
-
 D.3B needs proof stronger than “our mounted test did not import it.” The source itself
 must be gone.
 
 ### 6.1 Directory absence
-
 At final executable head assert the following paths do not exist:
-
 ```text
 src/graph_memory/kernel
 src/graph_memory/world_supergraph
@@ -530,15 +449,12 @@ src/graph_memory/union_supergraph
 apps/live_control_server/integrations/buddy_files
 apps/live_control_server/integrations/dungeonmind_kernel
 ```
-
 If an explicitly approved historical REHOME occurred, prove the old compatibility
 tree is absent and identify the exact new non-engine owner in the disposition ledger.
 
 ### 6.2 Executable import absence
-
 AST/literal/entrypoint proof across executable source must find zero imports or
 dynamic loads of:
-
 ```text
 graph_memory.kernel
 graph_memory.world_supergraph
@@ -546,9 +462,7 @@ graph_memory.union_supergraph
 apps.live_control_server.integrations.buddy_files
 apps.live_control_server.integrations.dungeonmind_kernel
 ```
-
 Allowed textual hits:
-
 ```text
 historical docs
 comments explaining removed compatibility
@@ -556,15 +470,12 @@ sealed reports/evidence
 negative tests asserting absence
 this handoff / D.3 design history
 ```
-
 Any executable import hit is a blocker even if its test is currently skipped or the
 path is described as “legacy.”
 
 ### 6.3 Import behavior after physical deletion
-
 A fresh interpreter should prove deleted namespaces are not importable from the
 working tree. This complements—not replaces—the D.3A blocker witness.
-
 Do not add empty tombstone packages that merely raise on use; physical deletion means
 those executable package directories are absent.
 
@@ -573,13 +484,10 @@ those executable package directories are absent.
 ## §7 Required runtime proof after deletion
 
 ### 7.1 Retain the D.3A fresh-interpreter witness
-
 The accepted D.3A witness remains the owner for “mounted product does not require the
 legacy engine.” Adapt only what is necessary because source packages no longer exist;
 do not weaken its behavior matrix.
-
 It must still run in a fresh interpreter with:
-
 ```text
 legacy import blocker installed before app import
 legacy graph filesystem absent before boot
@@ -587,15 +495,12 @@ real create_app() / lifespan
 retained DungeonMind read/write workflows executed
 legacy filesystem absent after workflows
 ```
-
 Physical deletion should make the blocker redundant in principle, but retaining it
 protects against accidental vendored/reintroduced compatibility modules and proves
 that D.3B did not weaken D.3A while cleaning tests.
 
 ### 7.2 Owning workflow floor
-
 Under the fresh-process proof, retain execution of:
-
 ```text
 native projection
 search / exact object / neighborhood / evidence / source-anchor
@@ -611,14 +516,11 @@ Hermes owning graph-query boundary, unless #666 owns an equivalent current test 
   dispatch time — coordinate rather than edit its active lease
 retired 410 routes
 ```
-
 Required PostgreSQL witnesses must run with **zero required skips**.
 
 ### 7.3 Current DungeonMind cohorts
-
 Run the current focused D.2/D.3 regression cohorts appropriate to the final tree,
 including at least:
-
 ```text
 D.2C3 native genesis continuity
 D.2C4 Graph Review authoring continuity
@@ -629,7 +531,6 @@ Threat publication/recovery
 worldbuilding publication/recovery
 first-world initialization
 ```
-
 When a legacy-only test is deleted, record why it is DELETE rather than silently
 shrinking the suite. Surviving product behavior must remain covered at its new owner.
 
@@ -638,59 +539,45 @@ shrinking the suite. Surviving product behavior must remain covered at its new o
 ## §8 Legacy tests and historical tooling
 
 ### 8.1 Test disposition
-
 Tests are executable consumers and must be classified too.
-
 ```text
 DELETE
   Test exists only to exercise removed Kernel/WorldSupergraph/UnionSupergraph/BuddyFiles
   runtime semantics that are no longer a product capability.
-
 REHOME/REWRITE
   Test contains valuable contract/parity evidence for surviving product behavior.
   Move it to the surviving owner and remove legacy imports.
-
 STOP
   Test exposes a product invariant that has no surviving DungeonMind/Buddy-owned owner.
 ```
-
 Do not preserve thousands of lines of dead compatibility implementation solely to
 keep legacy implementation tests green.
-
 Do not delete a regression test solely because it fails after deletion if the behavior
 it protects is still part of the surviving product matrix.
 
 ### 8.2 Historical migration/conformance tools
-
 Completed Eldyrwild/CUTOVER producers may be deleted when their authoritative outputs
 are already preserved by:
-
 ```text
 merged Git history
 sealed source/evidence artifacts
 accepted DungeonMind state
 checked-in non-executable reports / design evidence
 ```
-
 A useful read-only forensic tool may be REHOME only if its operational value is
 explicit and it can run without the deleted authority packages.
-
 No historical tool may recreate or mutate the retired Buddy graph authority after
 D.3B.
 
 ### 8.3 User-data safety
-
 D.3B deletes source code, not user data.
-
 Forbidden without explicit separate approval:
-
 ```text
 rm / truncate / migrate local graph worlds
 modify historical campaign data to fit deletion
 rewrite source recaps/evidence artifacts
 purge generated artifacts merely because old code produced them
 ```
-
 Test-database truncation remains allowed only under the existing explicit cutover test
 DB guard used by accepted owning witnesses.
 
@@ -716,9 +603,7 @@ DB guard used by accepted owning witnesses.
 ---
 
 ## §10 STOP / split conditions
-
 STOP and report before widening scope if any of the following is true:
-
 1. A mounted/user-facing product path still requires Buddy graph head/revision/store
    semantics.
 2. A surviving capability requires a new DungeonMind provider API or schema change.
@@ -734,16 +619,13 @@ STOP and report before widening scope if any of the following is true:
    import-only assertions to get green.
 9. Required PostgreSQL witnesses cannot run with zero required skips.
 10. Any proposed cleanup deletes local/user campaign data.
-
 A STOP is useful evidence. It means the “D.3A made D.3B boring” hypothesis found a real
 exception that should be understood explicitly.
 
 ---
 
 ## §11 Suggested implementation sequence / nano-commit story
-
 Keep deletion reviewable. Suggested semantic commits:
-
 ```text
 1. sync merged D.3A predecessor state + freeze D.3B executable-consumer ledger
 2. retire remaining product-side Kernel/BuddyFiles compatibility hooks
@@ -755,15 +637,12 @@ Keep deletion reviewable. Suggested semantic commits:
 8. rerun D.3A mounted witness + DungeonMind regression floor
 9. final docs/state handback only; do not pre-mark D.3B or D.3 DONE
 ```
-
 The exact commit count may differ. Keep each commit semantically understandable.
-
 Do not mix broad formatting/refactoring with deletion.
 
 ---
 
 ## §12 Verification matrix
-
 The worker must return exact commands and exact result counts/provenance.
 
 ### Required evidence families
@@ -793,9 +672,7 @@ The worker must return exact commands and exact result counts/provenance.
 | manual dogfood | Record separately; never relabel as automated evidence. |
 
 ### Test deletion accounting
-
 The handback must report:
-
 ```text
 legacy tests deleted: N
   each grouped by deleted capability / disposition
@@ -803,13 +680,10 @@ surviving tests rewritten/rehomed: N
 new absence tests: N
 required PG skipped: 0
 ```
-
 Counts need not be targets; they are evidence that suite shrinkage was intentional.
 
 ### Provenance vocabulary
-
 Use exactly:
-
 ```text
 author-local
 reviewer-independent rerun
@@ -818,15 +692,12 @@ manual/operator dogfood
 BLOCKED_DEPENDENCY
 NOT_RUN
 ```
-
 Do not call author-local execution independent verification.
 
 ---
 
 ## §13 Final D.3 evidence contract
-
 At the accepted D.3B executable head, reviewers must be able to verify:
-
 ```text
 legacy source package directories absent
 buddy_files integration absent
@@ -843,29 +714,22 @@ no user-data cleanup performed
 DungeonMind pin unchanged (unless separately approved split)
 D.3B package deletion is the only semantic capability in the PR
 ```
-
 Only after D.3B merges and this evidence is accepted may repository authority say:
-
 ```text
 D.3 Buddy graph-engine demolition DONE
 ```
-
 The implementation PR itself remains:
-
 ```text
 D.3A COMPLETE / MERGED
 D.3B DOING
 D.3 NOT DONE
 ```
-
 Final completion facts become knowable only after merge.
 
 ---
 
 ## §14 CODE → REVIEW handback contract
-
 Return one cumulative checked-in handback containing:
-
 1. PR / branch / exact final PR head SHA.
 2. Exact implementation/executable tip if the final head is docs-only.
 3. Exact dispatch base containing this handoff and any later main rebase/merge.
@@ -904,7 +768,6 @@ Return one cumulative checked-in handback containing:
 34. Confirmation D.3A is synced COMPLETE/MERGED while D.3B remains DOING and D.3
     remains NOT DONE in the in-flight PR.
 35. Stop conditions encountered or `none`.
-
 If a final docs-only commit records the handback after all executable verification:
 identify the exact executable tip. Do not rerun unrelated expensive executable gates
 solely because the final delta is handback/state documentation; final-head-sensitive
@@ -914,9 +777,7 @@ checks still apply to the final PR head.
 ---
 
 ## §15 Reviewer checklist
-
 Review D.3B against these questions, in order:
-
 1. **Was deletion earned?** Is D.3A #665 actually merged and is this branch based on
    current main containing its accepted implementation?
 2. **Was every executable consumer classified before deletion?** No unowned imports,
@@ -949,11 +810,8 @@ Review D.3B against these questions, in order:
 ---
 
 ## §16 Definition of completion after merge
-
 D.3B implementation acceptance is not itself the final state-authority sync.
-
 After the PR is formally PASS-equivalent and merged:
-
 1. re-anchor current `main` and exact merge SHA;
 2. verify no successor implementation needs to carry the backward-looking completion
    facts;
@@ -966,9 +824,7 @@ After the PR is formally PASS-equivalent and merged:
    absence proof remains accepted;
 7. do not rewrite historical architecture/design evidence to pretend the old engine
    never existed.
-
 At that point the migration-specific invariant becomes simple:
-
 ```text
 one durable World Graph identity
 one runtime World Graph authority: DungeonMind
@@ -976,5 +832,4 @@ one publication lineage
 one provenance model
 no executable Buddy graph engine
 ```
-
 That is the exit from CUTOVER's graph-authority demolition phase.
