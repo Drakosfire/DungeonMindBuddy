@@ -60,6 +60,40 @@ export function GraphReviewLiveProjectionPanel() {
         </p>
       ) : null}
 
+      {projectionStatus === "retired" && liveRun ? (
+        <div
+          className="graph-review-live-projection-status"
+          role="status"
+          data-testid="graph-review-union-preview-retired"
+          data-retired-code="union_supergraph_preview_retired"
+        >
+          <p>
+            UnionSupergraph store preview for this live/candidate lane is retired
+            (HTTP 410 <code>union_supergraph_preview_retired</code>). This is not a
+            missing ingest artifact. Committed DungeonMind World Graph projection
+            remains available after prepare/commit.
+          </p>
+          <dl className="graph-review-lane-meta">
+            <div>
+              <dt>Run label</dt>
+              <dd>{metadataValue(liveRun.run_label)}</dd>
+            </div>
+            <div>
+              <dt>Run id</dt>
+              <dd>{metadataValue(liveRun.run_id)}</dd>
+            </div>
+            <div>
+              <dt>Manifest path</dt>
+              <dd>{metadataValue(liveRun.manifest_path)}</dd>
+            </div>
+            <div>
+              <dt>Preview union path</dt>
+              <dd>{metadataValue(liveRun.preview_union_store_path)}</dd>
+            </div>
+          </dl>
+        </div>
+      ) : null}
+
       {projectionStatus === "unavailable" && liveRun ? (
         <div className="graph-review-live-projection-status" role="status">
           <p>

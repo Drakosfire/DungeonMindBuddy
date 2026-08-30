@@ -1,22 +1,14 @@
-"""World Graph retrieval + source-anchor admission service (PR010A)."""
+"""World Graph retrieval + source-anchor admission service (PR010A / CUTOVER D.3A)."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
-def _kernel():
-    """Lazy Buddy kernel for unmounted/non-native read paths only."""
-    import graph_memory.kernel as kernel
-
-    return kernel
-
-from apps.live_control_server.config import repo_root as default_repo_root
-from apps.live_control_server.config import world_graph_root
-from apps.live_control_server.services.worldbuilding_source_span_read import (
-    read_admitted_worldbuilding_span,
+from apps.live_control_server.config import (
+    WorldGraphAuthorityConfigurationError,
+    repo_root as default_repo_root,
+    require_mounted_dungeonmind_world_graph,
 )
-from graph_memory.retrieval.errors import WorldGraphRetrievalError
 from graph_memory.retrieval.models import (
     RETRIEVAL_ERROR_SCHEMA,
     WorldGraphEvidenceRequest,
@@ -24,11 +16,10 @@ from graph_memory.retrieval.models import (
     WorldGraphObjectRequest,
     WorldGraphRetrievalDiagnostic,
     WorldGraphRetrievalErrorResponse,
-    WorldGraphRetrievalRequestContext,
-    WorldGraphRetrievalResult,
     WorldGraphSearchRequest,
     WorldGraphSourceAnchorReadRequest,
     WorldGraphSourceAnchorReadResult,
+    WorldGraphRetrievalResult,
 )
 
 
@@ -58,26 +49,24 @@ class WorldGraphRetrievalServiceError(ValueError):
         )
 
 
-def _resolved_root(root: Path | None) -> Path:
-    return (root if root is not None else world_graph_root()).resolve()
+def _map_configuration_error(
+    exc: WorldGraphAuthorityConfigurationError,
+) -> WorldGraphRetrievalServiceError:
+    return WorldGraphRetrievalServiceError(
+        str(exc),
+        code=exc.code,
+        status_code=400,
+        diagnostics=[
+            WorldGraphRetrievalDiagnostic(
+                code=exc.code,
+                message=str(exc),
+                severity="error",
+            )
+        ],
+    )
 
 
-def _direct_read_active(root: Path | None) -> bool:
-    """True when this read executes in DungeonMind native services.
-
-    An explicit root differing from the configured production World Graph root
-    is a test/tooling override and stays on the file-store path. In
-    ``dungeonmind`` authority mode the configured production root is not an
-    override: ``root is None`` and ``root == world_graph_root()`` are both
-    native. Native construction/read failure fails closed; this predicate
-    never consults a rollout flag.
-    """
-    from apps.live_control_server import config
-
-    return config.world_graph_native_production_read(root)
-
-
-def _map_direct_error(exc: Any) -> WorldGraphRetrievalServiceError:
+def _map_direct_error(exc) -> WorldGraphRetrievalServiceError:
     return WorldGraphRetrievalServiceError(
         str(exc),
         code=exc.code,
@@ -94,77 +83,20 @@ def _map_direct_error(exc: Any) -> WorldGraphRetrievalServiceError:
     )
 
 
-def _route_authority_read(
-    request: WorldGraphRetrievalRequestContext,
-    root: Path | None,
-) -> Any:
-    """Route a non-native read through the selected World Graph authority.
-
-    Used for ``buddy_files`` / ``quiesced`` and for explicit test/tooling
-    roots. Production ``dungeonmind`` reads never enter this function.
-    """
-    from apps.live_control_server.integrations.dungeonmind_kernel import (
-        world_graph_authority,
-    )
-
+def _require_mounted_native_read(root: Path | None) -> None:
+    """Fail closed for retired modes and alternate world_root (no Kernel escape)."""
     try:
-        return world_graph_authority.route_service_read(
-            request, root, default_root=world_graph_root()
-        )
-    except world_graph_authority.WorldGraphAuthorityError as exc:
-        raise WorldGraphRetrievalServiceError(
-            str(exc),
-            code=exc.code,
-            status_code=world_graph_authority.authority_error_status_code(exc),
-            diagnostics=[
-                WorldGraphRetrievalDiagnostic(
-                    code=exc.code,
-                    message=str(exc),
-                    severity="error",
-                )
-            ],
-        ) from None
-
-
-def _normalize_authority_identity(result: Any, route: Any) -> Any:
-    """Rewrite private hydrated-cache revision ids to public DungeonMind ids.
-
-    Product-visible revision/head identity names the selected/current
-    DungeonMind revision so a returned id is exactly re-pinnable against the
-    authority; the hydrated cache's Buddy content-addressed ids stay internal.
-    """
-    if route.public_revision_id is None:
-        return result
-    snapshot = getattr(result, "snapshot", None)
-    if snapshot is None:
-        return result
-    return result.model_copy(
-        update={
-            "snapshot": snapshot.model_copy(
-                update={
-                    "revision_id": route.public_revision_id,
-                    "head_revision_id": route.public_head_revision_id,
-                    "is_head": route.public_revision_id
-                    == route.public_head_revision_id,
-                }
-            )
-        }
-    )
+        require_mounted_dungeonmind_world_graph(world_root=root)
+    except WorldGraphAuthorityConfigurationError as exc:
+        raise _map_configuration_error(exc) from None
 
 
 def _resolved_repo_root(*, root: Path | None, repo_root: Path | None) -> Path:
-    """Resolve the registry/file root for worldbuilding SourceSpan reads.
-
-    Production Hermes passes the World Graph store root separately from the
-    repository root that owns ``out/registries`` and corpus Markdown. Tests that
-    pass an explicit ``repo_root`` (or a self-contained ``root`` tree) keep that
-    layout.
-    """
+    """Resolve the registry/file root for worldbuilding SourceSpan reads."""
     if repo_root is not None:
         return Path(repo_root).resolve()
     if root is not None:
         candidate = Path(root).resolve()
-        # Self-contained test trees host registries under the same root.
         if (candidate / "out" / "registries").exists() or (
             candidate / "corpus"
         ).exists():
@@ -172,57 +104,22 @@ def _resolved_repo_root(*, root: Path | None, repo_root: Path | None) -> Path:
     return default_repo_root().resolve()
 
 
-def _map_kernel_error(
-    exc: Any,
-) -> WorldGraphRetrievalServiceError:
-    return WorldGraphRetrievalServiceError(
-        str(exc),
-        code=exc.code,
-        status_code=exc.status_code,
-        diagnostics=exc.diagnostics,
-    )
-
-
-def _internal_error() -> WorldGraphRetrievalServiceError:
-    return WorldGraphRetrievalServiceError(
-        "World graph retrieval failed unexpectedly.",
-        code="retrieval_internal_error",
-        status_code=500,
-        diagnostics=[
-            WorldGraphRetrievalDiagnostic(
-                code="retrieval_internal_error",
-                message="World graph retrieval failed unexpectedly.",
-                severity="error",
-            )
-        ],
-    )
-
-
 def search_campaign_graph(
     request: WorldGraphSearchRequest,
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    if _direct_read_active(root):
-        from apps.live_control_server.integrations.dungeonmind import (
-            world_graph_reads as direct,
-        )
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
 
-        try:
-            return direct.search_world_graph_direct(
-                direct.direct_services_from_config(request.world_id), request
-            )
-        except direct.DirectWorldGraphReadError as exc:
-            raise _map_direct_error(exc) from None
-    route = _route_authority_read(request, root)
     try:
-        return _normalize_authority_identity(
-            _kernel().search_campaign_graph(route.graph_root, route.request), route
+        return direct.search_world_graph_direct(
+            direct.direct_services_from_config(request.world_id), request
         )
-    except WorldGraphRetrievalError as exc:
-        raise _map_kernel_error(exc) from None
-    except Exception:
-        raise _internal_error() from None
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
 
 
 def get_campaign_object(
@@ -230,26 +127,17 @@ def get_campaign_object(
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    if _direct_read_active(root):
-        from apps.live_control_server.integrations.dungeonmind import (
-            world_graph_reads as direct,
-        )
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
 
-        try:
-            return direct.get_object_direct(
-                direct.direct_services_from_config(request.world_id), request
-            )
-        except direct.DirectWorldGraphReadError as exc:
-            raise _map_direct_error(exc) from None
-    route = _route_authority_read(request, root)
     try:
-        return _normalize_authority_identity(
-            _kernel().get_campaign_object(route.graph_root, route.request), route
+        return direct.get_object_direct(
+            direct.direct_services_from_config(request.world_id), request
         )
-    except WorldGraphRetrievalError as exc:
-        raise _map_kernel_error(exc) from None
-    except Exception:
-        raise _internal_error() from None
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
 
 
 def get_object_neighborhood(
@@ -257,26 +145,17 @@ def get_object_neighborhood(
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    if _direct_read_active(root):
-        from apps.live_control_server.integrations.dungeonmind import (
-            world_graph_reads as direct,
-        )
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
 
-        try:
-            return direct.get_neighborhood_direct(
-                direct.direct_services_from_config(request.world_id), request
-            )
-        except direct.DirectWorldGraphReadError as exc:
-            raise _map_direct_error(exc) from None
-    route = _route_authority_read(request, root)
     try:
-        return _normalize_authority_identity(
-            _kernel().get_object_neighborhood(route.graph_root, route.request), route
+        return direct.get_neighborhood_direct(
+            direct.direct_services_from_config(request.world_id), request
         )
-    except WorldGraphRetrievalError as exc:
-        raise _map_kernel_error(exc) from None
-    except Exception:
-        raise _internal_error() from None
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
 
 
 def get_object_evidence(
@@ -284,26 +163,17 @@ def get_object_evidence(
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    if _direct_read_active(root):
-        from apps.live_control_server.integrations.dungeonmind import (
-            world_graph_reads as direct,
-        )
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
 
-        try:
-            return direct.get_evidence_direct(
-                direct.direct_services_from_config(request.world_id), request
-            )
-        except direct.DirectWorldGraphReadError as exc:
-            raise _map_direct_error(exc) from None
-    route = _route_authority_read(request, root)
     try:
-        return _normalize_authority_identity(
-            _kernel().get_object_evidence(route.graph_root, route.request), route
+        return direct.get_evidence_direct(
+            direct.direct_services_from_config(request.world_id), request
         )
-    except WorldGraphRetrievalError as exc:
-        raise _map_kernel_error(exc) from None
-    except Exception:
-        raise _internal_error() from None
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
 
 
 def read_source_anchor(
@@ -312,56 +182,19 @@ def read_source_anchor(
     root: Path | None = None,
     repo_root: Path | None = None,
 ) -> WorldGraphSourceAnchorReadResult:
-    if _direct_read_active(root):
-        from apps.live_control_server.integrations.dungeonmind import (
-            world_graph_reads as direct,
-        )
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
 
-        try:
-            return direct.read_source_anchor_direct(
-                direct.direct_services_from_config(request.world_id),
-                request,
-                repo_root=_resolved_repo_root(root=root, repo_root=repo_root),
-            )
-        except direct.DirectWorldGraphReadError as exc:
-            raise _map_direct_error(exc) from None
-    route = _route_authority_read(request, root)
-    graph_root, request = route.graph_root, route.request
-    file_root = _resolved_repo_root(root=root, repo_root=repo_root)
     try:
-        resolved = _kernel().resolve_admitted_anchor_match(graph_root, request)
-        if isinstance(resolved, WorldGraphSourceAnchorReadResult):
-            return _normalize_authority_identity(resolved, route)
-        anchor = resolved.derivation.anchor
-        if (
-            anchor.locator_kind == "source_span"
-            and str(anchor.source_domain) == "worldbuilding"
-            and (anchor.source_span_ref_id or "").strip()
-        ):
-            return _normalize_authority_identity(
-                read_admitted_worldbuilding_span(
-                    root=file_root,
-                    source_artifact_id=anchor.source_artifact_id,
-                    source_span_ref_id=str(anchor.source_span_ref_id),
-                    graph_content_sha256=resolved.graph_content_sha256,
-                    max_chars=request.max_chars,
-                    anchor_id=request.anchor_id,
-                    evidence_ref_id=anchor.evidence_ref_id,
-                    snapshot=resolved.snapshot,
-                    graph_artifact=resolved.store.source_artifacts.get(
-                        anchor.source_artifact_id
-                    ),
-                ),
-                route,
-            )
-        return _normalize_authority_identity(
-            _kernel().read_source_anchor(graph_root, request, repo_root=file_root),
-            route,
+        return direct.read_source_anchor_direct(
+            direct.direct_services_from_config(request.world_id),
+            request,
+            repo_root=_resolved_repo_root(root=root, repo_root=repo_root),
         )
-    except WorldGraphRetrievalError as exc:
-        raise _map_kernel_error(exc) from None
-    except Exception:
-        raise _internal_error() from None
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
 
 
 __all__ = [

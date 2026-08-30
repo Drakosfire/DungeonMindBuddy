@@ -2,18 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   getLatestGraphIngestRun,
-  getUnionSupergraphProjection,
   LiveApiError,
 } from "../../api/liveApi";
 import type {
   GraphIngestRunSummary,
-  UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import type { PlanContextDescriptor } from "../types";
-import { UnionSupergraphRecapProjection } from "./UnionSupergraphRecapProjection";
 
 type LatestRunStatus = "loading" | "ready" | "unavailable" | "warning" | "error";
-type ProjectionLoadStatus = "idle" | "loading" | "ready" | "error";
 
 function requestedSessionFromLocation(): string | null {
   if (typeof window === "undefined") return null;
@@ -40,24 +36,6 @@ function displayBoolean(value: boolean): string {
   return value ? "Yes" : "No";
 }
 
-function friendlyProjectionError(error: unknown): string {
-  if (error instanceof LiveApiError) {
-    if (
-      error.status === 410
-      || error.code === "union_supergraph_preview_retired"
-    ) {
-      return (
-        "UnionSupergraph store preview is retired. This is not a missing ingest artifact — "
-        + "use retained gold/manual/recap graph-preview surfaces instead."
-      );
-    }
-    if (error.status === 404) return "The latest graph-ingest run disappeared or its projection artifact is missing.";
-    if (error.status === 400) return `The projection API rejected this manifest/store: ${error.message}`;
-    if (error.status >= 500) return `Unexpected backend failure while loading projection: ${error.message}`;
-  }
-  return error instanceof Error ? error.message : "Failed to load union graph projection.";
-}
-
 export function GraphIngestProjectionPanel({
   context,
   sessionId: providedSessionId,
@@ -68,16 +46,10 @@ export function GraphIngestProjectionPanel({
   const [latestStatus, setLatestStatus] = useState<LatestRunStatus>("loading");
   const [latestGraphRun, setLatestGraphRun] = useState<GraphIngestRunSummary | null>(null);
   const [latestGraphRunError, setLatestGraphRunError] = useState<string | null>(null);
-  const [projectionStatus, setProjectionStatus] = useState<ProjectionLoadStatus>("idle");
-  const [projectionError, setProjectionError] = useState<string | null>(null);
-  const [unionProjection, setUnionProjection] = useState<UnionSupergraphProjectionResponse | null>(null);
 
   const loadLatest = useCallback(async () => {
     setLatestStatus("loading");
     setLatestGraphRunError(null);
-    setProjectionStatus("idle");
-    setProjectionError(null);
-    setUnionProjection(null);
     try {
       const response = await getLatestGraphIngestRun(
         context.campaignId,
@@ -112,39 +84,37 @@ export function GraphIngestProjectionPanel({
     window.location.assign(`/plan?tool=ingest-recap&session=${encodeURIComponent(sessionId)}`);
   };
 
-  const openUnionGraph = async () => {
-    setProjectionStatus("loading");
-    setProjectionError(null);
-    try {
-      const projection = await getUnionSupergraphProjection({
-        campaignId: context.campaignId,
-        sessionId,
-        useLatestGraphIngest: true,
-        sourceRecapPath,
-        sourceRecapSha256,
-      });
-      setUnionProjection(projection);
-      setProjectionStatus("ready");
-    } catch (error) {
-      setProjectionStatus("error");
-      setProjectionError(friendlyProjectionError(error));
-    }
-  };
-
   return (
     <section className="graph-ingest-panel" aria-label="Latest Graph-Ingest Projection">
       <header className="graph-ingest-panel-header">
         <div>
           <p className="plan-surface-kicker">Latest Graph-Ingest Projection</p>
-          <h2>Open latest union graph (retired)</h2>
+          <h2>Union Graph store preview retired</h2>
           <p>
-            Looks for the latest preview-union-ready graph-ingest run for {context.campaignId} / {sessionId}.
+            Latest graph-ingest run metadata for {context.campaignId} / {sessionId}.
+            UnionSupergraph store preview is intentionally retired (HTTP 410{" "}
+            <code>union_supergraph_preview_retired</code>); use retained gold/manual/recap
+            graph-preview surfaces or committed DungeonMind World Graph projection.
           </p>
         </div>
         <button type="button" onClick={loadLatest} disabled={latestStatus === "loading"}>
           Refresh
         </button>
       </header>
+
+      <div
+        className="graph-ingest-run-card"
+        data-state="retired"
+        data-testid="union-supergraph-preview-retired"
+        data-retired-code="union_supergraph_preview_retired"
+        role="status"
+      >
+        <strong>Open Union Graph is no longer a working action</strong>
+        <p>
+          Calling <code>/api/live/graph-preview/union-supergraph/projection</code> is retired.
+          This is not a missing ingest artifact.
+        </p>
+      </div>
 
       {latestStatus === "loading" ? (
         <p className="graph-ingest-status-row">Loading latest graph-ingest run…</p>
@@ -175,7 +145,7 @@ export function GraphIngestProjectionPanel({
 
       {latestStatus === "ready" && latestGraphRun ? (
         <div className="graph-ingest-run-card" data-state="ready">
-          <strong>Ready: latest preview_union_store_ready run found</strong>
+          <strong>Latest preview_union_store_ready run (metadata only)</strong>
           <dl className="graph-ingest-status-row">
             <div>
               <dt>Status</dt>
@@ -244,32 +214,10 @@ export function GraphIngestProjectionPanel({
             </div>
           ) : null}
           <div className="graph-ingest-projection-actions">
-            <button type="button" onClick={openUnionGraph} disabled={projectionStatus === "loading"}>
-              {projectionStatus === "loading" ? "Opening Union Graph…" : "Open Union Graph"}
-            </button>
             <button type="button" onClick={loadLatest}>
               Refresh
             </button>
           </div>
-        </div>
-      ) : null}
-
-      {projectionStatus === "error" ? (
-        <p className="graph-preview-error" role="alert">
-          {projectionError}
-        </p>
-      ) : null}
-
-      {projectionStatus === "ready" && unionProjection ? (
-        <div className="graph-ingest-projection-layout">
-          <UnionSupergraphRecapProjection
-            payload={unionProjection}
-            selectedSessionId={sessionId}
-            onSelectSession={() => undefined}
-            sessionOptions={[sessionId]}
-            selectedCampaignId={context.campaignId}
-            onSelectCampaign={() => undefined}
-          />
         </div>
       ) : null}
     </section>

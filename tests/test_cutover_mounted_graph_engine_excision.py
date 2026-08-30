@@ -38,38 +38,15 @@ sys.meta_path.insert(0, Blocker())
 root = Path(os.environ["DMB_D3A_WITNESS_ROOT"])
 os.environ["DUNGEONMIND_WORLD_GRAPH_ROOT"] = str(root)
 os.environ.pop("DUNGEONMIND_WORLD_GRAPH_AUTHORITY", None)
+os.environ.setdefault(
+    "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL",
+    "postgresql://unused",
+)
 
-legacy = root / "graph_memory" / "worlds"
-assert not legacy.exists(), "legacy graph filesystem must be absent before boot"
+# Import witness body only after the blocker is armed.
+from tests._cutover_d3a_excision_witness_body import run_witness
 
-from apps.live_control_server.main import create_app
-from fastapi.testclient import TestClient
-
-app = create_app()
-with TestClient(app) as client:
-    assert client.get("/health").status_code == 200
-    union = client.get("/api/live/graph-preview/union-supergraph/projection")
-    assert union.status_code == 410
-    assert union.json()["detail"]["code"] == "union_supergraph_preview_retired"
-    boot = client.get("/api/live/world-graph-bootstrap/status")
-    assert boot.status_code == 410
-    assert boot.json()["detail"]["code"] == "world_graph_bootstrap_retired"
-    merge = client.post("/api/live/graph-authoring/merge-reconciliation/prepare", json={})
-    assert merge.status_code == 410
-    assert merge.json()["detail"]["code"] == "graph_authoring_store_retired"
-    # Retained Graph Review prepare route stays registered (validation 422 ≠ 404/410).
-    prep = client.post("/api/live/graph-authoring/prepare", json={})
-    assert prep.status_code != 404
-    assert prep.status_code != 410
-
-assert not legacy.exists(), "legacy graph filesystem must remain absent after boot"
-loaded = [
-    name
-    for name in sys.modules
-    if any(name == f or name.startswith(f + ".") for f in FORBIDDEN)
-]
-assert loaded == [], f"forbidden modules loaded: {loaded}"
-print("WITNESS_OK")
+run_witness()
 '''
 
 
@@ -92,3 +69,12 @@ def test_fresh_interpreter_mounted_graph_engine_excision() -> None:
                 f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
             )
         assert "WITNESS_OK" in proc.stdout
+
+
+def test_mounted_projection_retrieval_source_has_no_kernel_escape() -> None:
+    """Static proof: mounted projection/retrieval cannot call Kernel/passthrough."""
+    from tests._cutover_d3a_excision_witness_body import (
+        _assert_mounted_services_have_no_kernel_escape,
+    )
+
+    _assert_mounted_services_have_no_kernel_escape()

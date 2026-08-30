@@ -510,13 +510,16 @@ def native_first_world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         conn.execute(TRUNCATE_SQL)
         conn.commit()
 
-    from graph_memory.world_supergraph import storage
+    from apps.live_control_server import config as wg_config
 
     repo = tmp_path / "repo"
     world_root = tmp_path / "world"
     repo.mkdir()
     world_root.mkdir()
-    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    monkeypatch.setenv(
+        wg_config.WORLD_GRAPH_AUTHORITY_ENV,
+        wg_config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND,
+    )
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", dsn)
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(world_root))
     monkeypatch.setenv(

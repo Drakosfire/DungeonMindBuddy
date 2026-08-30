@@ -1459,36 +1459,42 @@ def test_recap_line_span_slices_digest_prefixed_parent_lines(services, tmp_path)
 
 
 @pytest.mark.usefixtures("_dungeonmind_mode")
-def test_explicit_nonproduction_root_bypasses_direct(monkeypatch, services, tmp_path):
-    """Tests/tooling with an explicit non-production root stay on the file path."""
-    svc, _ = services
+def test_explicit_nonproduction_root_fails_closed(monkeypatch, services, tmp_path):
+    """Mounted projection refuses alternate world_root (no Kernel/file escape)."""
     monkeypatch.setattr(
         direct,
         "direct_services_from_config",
         lambda world_id: (_ for _ in ()).throw(
-            AssertionError("direct path must not run for explicit test roots")
+            AssertionError("direct path must not run for explicit alternate roots")
         ),
     )
     request = _projection_request()
-    with pytest.raises(projection_service.WorldGraphProjectionServiceError):
-        # No graph store under tmp_path → legacy path fails closed, proving
-        # the read did not dispatch to DungeonMind.
+    with pytest.raises(
+        projection_service.WorldGraphProjectionServiceError,
+        match="alternate world_root",
+    ) as raised:
         projection_service.project_world_graph(request, root=tmp_path / "empty-store")
+    assert raised.value.code == "world_graph_authority_configuration_invalid"
 
 
-def test_buddy_files_mode_never_dispatches_direct(monkeypatch, services, tmp_path):
-    monkeypatch.delenv(storage.WORLD_GRAPH_AUTHORITY_ENV, raising=False)
+def test_buddy_files_mode_fails_closed_before_dispatch(monkeypatch, services, tmp_path):
+    """Retired buddy_files mode fails at mounted config; never reaches Kernel."""
+    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, "buddy_files")
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path / "graph-root"))
     storage.clear_world_graph_cache_roots()
     monkeypatch.setattr(
         direct,
         "direct_services_from_config",
         lambda world_id: (_ for _ in ()).throw(
-            AssertionError("direct path must not run outside dungeonmind mode")
+            AssertionError("direct path must not run for retired buddy_files mode")
         ),
     )
-    with pytest.raises(projection_service.WorldGraphProjectionServiceError):
+    with pytest.raises(
+        projection_service.WorldGraphProjectionServiceError,
+        match="retired",
+    ) as raised:
         projection_service.project_world_graph(_projection_request())
+    assert raised.value.code == "world_graph_authority_configuration_invalid"
 
 
 @pytest.mark.parametrize("direct_read_value", [None, "0", "1", "garbage"])

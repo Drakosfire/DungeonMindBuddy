@@ -210,9 +210,6 @@ D.2C4 manual Graph Review authoring continuity
 D.3A mounted graph-engine excision
   DOING / successor PR
 
-D.3A
-  BLOCKED
-
 D.3B
   BLOCKED
 

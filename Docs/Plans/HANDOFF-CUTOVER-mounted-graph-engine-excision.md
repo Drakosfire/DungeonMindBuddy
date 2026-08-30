@@ -34,7 +34,7 @@ pr_body_template: |
 **Frozen design authority:** `Docs/Plans/HANDOFF-CUTOVER-buddy-graph-engine-demolition.md` §§6–7  
 **Steward re-anchor base before this handoff commit:** `2f1b44aa8ad8bad78269c0cadf624882cd0f459f`  
 **Named successor:** D.3B — physical legacy-package deletion / `cutover/delete-legacy-graph-engine`
-**Exact dispatch base (implementation start):** `619aa2b0c4be67e1d3931ff50899d126d2dafa13` (contains handoff commit `6b7706eec400129dbe01288630c443ae2d8a1e67`; one AGENT-INTERACTION sync landed after the handoff commit)
+**Exact dispatch base (implementation start):** `619aa2b0c4be67e1d3931ff50899d126d2dafa13` (contains handoff commit `6b7706eec400129dbe01288630c443ae2d8a1e67`). **PR base / current Buddy `main` at Review Cycle 1:** `9570bd2636231b1f4ed9b6651da6c9a653abaa07`.
 
 > This is the execution wrapper for the already-reviewed D.3A design. It does not
 > reopen the frozen FAIL_CLOSED / REHOME_DTO / REWRITE_PORT choices in the D.3

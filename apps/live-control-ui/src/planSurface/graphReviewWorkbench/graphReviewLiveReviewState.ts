@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getGoldGraphProjection,
   getGoldReviewEvidence,
-  getUnionSupergraphProjection,
   postWorldGraphProjection,
   verifyGraphGoldAuthoringCommit,
   LiveApiError,
@@ -66,7 +65,8 @@ export type GraphReviewProjectionStatus =
   | "loading"
   | "ready"
   | "error"
-  | "unavailable";
+  | "unavailable"
+  | "retired";
 
 export type GraphReviewEvidenceStatus =
   | "idle"
@@ -214,66 +214,28 @@ export function useGraphReviewLiveReviewState({
   ]);
 
   useEffect(() => {
-    let cancelled = false;
-
     setProjection(null);
     setProjectionError(null);
 
     if (!liveRun) {
       setProjectionStatus("idle");
-      return () => {
-        cancelled = true;
-      };
+      return;
     }
 
-    if (!liveRun.preview_union_available) {
-      setProjectionStatus("unavailable");
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setProjectionStatus("loading");
-
-    void getUnionSupergraphProjection({
-      campaignId,
-      sessionId,
-      graphRunManifestPath: liveRun.manifest_path,
-      previewUnionStorePath: liveRun.preview_union_store_path ?? null,
-    })
-      .then((response) => {
-        if (cancelled) return;
-        setProjection(response);
-        setProjectionStatus("ready");
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setProjection(null);
-        setProjectionStatus("error");
-        setProjectionError(friendlyProjectionError(error));
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [campaignId, sessionId, liveRun, liveRunKey]);
+    // CUTOVER D.3A: store-backed UnionSupergraph preview is retired. Do not
+    // call getUnionSupergraphProjection; committed DungeonMind projection remains.
+    setProjectionStatus("retired");
+  }, [liveRun, liveRunKey]);
 
   const reloadLiveProjection = useCallback(async () => {
-    if (!liveRun?.preview_union_available) {
-      throw new Error("Selected live run does not have a preview-union projection.");
-    }
-    setProjectionStatus("loading");
+    setProjection(null);
     setProjectionError(null);
-    const response = await getUnionSupergraphProjection({
-      campaignId,
-      sessionId,
-      graphRunManifestPath: liveRun.manifest_path,
-      previewUnionStorePath: liveRun.preview_union_store_path ?? null,
-    });
-    setProjection(response);
-    setProjectionStatus("ready");
-    return response;
-  }, [campaignId, sessionId, liveRun]);
+    setProjectionStatus(liveRun ? "retired" : "idle");
+    throw new Error(
+      "UnionSupergraph store preview is retired (union_supergraph_preview_retired). "
+      + "Use committed DungeonMind World Graph projection instead.",
+    );
+  }, [liveRun]);
 
   const reloadGoldProjection = useCallback(async () => {
     setGoldProjectionStatus("loading");
