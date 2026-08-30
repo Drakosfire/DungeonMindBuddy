@@ -85,7 +85,7 @@ from apps.live_control_server.services.threat_publication_operations import (
     PublicationOperationOutcome,
     refresh_publication_operation,
 )
-from graph_memory.world_graph_mutation_context import (
+from apps.live_control_server.models.world_graph_mutation_context import (
     MutationObject,
     WorldGraphMutationContext,
 )

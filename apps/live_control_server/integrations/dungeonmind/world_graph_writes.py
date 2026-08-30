@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from graph_memory.world_graph_mutation_context import (
+from apps.live_control_server.models.world_graph_mutation_context import (
     MutationObject,
     WorldGraphMutationContext,
     apply_identity_redirects_to_objects,
@@ -808,7 +808,7 @@ def load_authority_mutation_context(
     I0 snapshot with a server-MAC'd prepare binding; this function does not
     persist Buddy prepare records.
     """
-    from graph_memory.world_graph_mutation_context import (
+    from apps.live_control_server.models.world_graph_mutation_context import (
         mutation_context_with_sealed_identity,
     )
 
