@@ -624,3 +624,48 @@ def test_descriptor_constant_is_truthful() -> None:
     assert PYDANTIC_AI_RUNTIME_DESCRIPTOR.trace_runtime == "in_process"
     assert PYDANTIC_AI_RUNTIME_DESCRIPTOR.trace_mode == "pydantic_ai_graph_agent"
     assert CREDENTIALS_MISSING.startswith("pydantic_ai_")
+
+
+def test_surface_context_block_parity_with_hermes_renderer() -> None:
+    from apps.live_control_server.services.agent_runtime import (
+        AgentCurrentWorkContext,
+        AgentSurfaceContext,
+    )
+    from apps.live_control_server.services.agent_surface_context import (
+        render_agent_surface_context,
+    )
+    from apps.live_control_server.services.hermes_agent_runtime import (
+        map_invocation_to_hermes_request,
+    )
+
+    surface = AgentSurfaceContext(
+        surface_id="plan",
+        current_work=AgentCurrentWorkContext(
+            kind="plan",
+            work_object_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            title="C2 Session 27 Prep",
+            object_revision=4,
+            target_session=27,
+        ),
+    )
+    base = _invocation()
+    invocation = _invocation(
+        context_packet=AgentContextPacket(
+            world_scope=base.context_packet.world_scope,
+            retrieval_session=base.context_packet.retrieval_session,
+            surface_context=surface,
+        )
+    )
+    instructions = pydantic_ai_agent_instructions(invocation)
+    block = render_agent_surface_context(surface)
+    assert block is not None
+    assert block in instructions
+    assert instructions.startswith(GRAPH_SYSTEM_POLICY)
+    assert "Turn capability policy" in instructions
+    hermes_block = map_invocation_to_hermes_request(invocation).surface_context_block
+    assert hermes_block == block
+    bare = pydantic_ai_agent_instructions(_invocation())
+    assert block not in bare
+    assert bare.startswith(GRAPH_SYSTEM_POLICY)
+    assert "Turn capability policy" in bare
+    assert "Current DungeonBuddy work" not in bare

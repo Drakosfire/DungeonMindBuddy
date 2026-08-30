@@ -263,3 +263,44 @@ def test_error_host_result_keeps_partial_telemetry() -> None:
     assert result.telemetry_warnings == ["streamed_before_timeout"]
     assert result.observed_model_call_count == 1
     assert result.runtime_metadata["process_isolation"] == "process_exclusive"
+
+
+def test_map_invocation_carries_surface_context_block_without_mutating_question() -> None:
+    from apps.live_control_server.services.agent_runtime import (
+        AgentCurrentWorkContext,
+        AgentSurfaceContext,
+    )
+    from apps.live_control_server.services.agent_surface_context import (
+        render_agent_surface_context,
+    )
+
+    surface = AgentSurfaceContext(
+        surface_id="plan",
+        current_work=AgentCurrentWorkContext(
+            kind="plan",
+            work_object_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            title='C2 Session 27 Prep',
+            object_revision=4,
+            target_session=27,
+        ),
+    )
+    base = _invocation()
+    with_surface = _invocation(
+        message="What does Lysandra know about the swarm?",
+        context_packet=AgentContextPacket(
+            world_scope=base.context_packet.world_scope,
+            retrieval_session=base.context_packet.retrieval_session,
+            surface_context=surface,
+        ),
+    )
+    without = map_invocation_to_hermes_request(
+        _invocation(message="What does Lysandra know about the swarm?")
+    )
+    request = map_invocation_to_hermes_request(with_surface)
+    expected = render_agent_surface_context(surface)
+    assert request.surface_context_block == expected
+    assert without.surface_context_block is None
+    assert request.question == without.question == "What does Lysandra know about the swarm?"
+    assert request.conversation_history == without.conversation_history
+    assert "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" not in (request.surface_context_block or "")
+    assert "revision" not in (request.surface_context_block or "").lower()

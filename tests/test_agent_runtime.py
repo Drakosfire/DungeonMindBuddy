@@ -474,3 +474,34 @@ def test_context_packet_is_world_scope_plus_retrieval_session() -> None:
     assert invocation.context_packet.world_scope.world_id == "world:eldyrwild"
     assert invocation.context_packet.retrieval_session is not None
     assert invocation.context_packet.retrieval_session.session_id == "sess"
+    assert invocation.context_packet.surface_context is None
+
+
+def test_context_packet_carries_optional_surface_context() -> None:
+    from apps.live_control_server.services.agent_runtime import (
+        AgentCurrentWorkContext,
+        AgentSurfaceContext,
+    )
+
+    surface = AgentSurfaceContext(
+        surface_id="plan",
+        current_work=AgentCurrentWorkContext(
+            kind="plan",
+            work_object_id="doc-1",
+            title="Prep",
+            object_revision=1,
+            target_session=27,
+        ),
+    )
+    packet = AgentContextPacket(
+        world_scope=AgentWorldScope(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            focus={"kind": "none"},
+            admissibility="gm",
+            revision_id="revision:1",
+        ),
+        surface_context=surface,
+    )
+    assert packet.surface_context is surface
+    assert packet.retrieval_session is None

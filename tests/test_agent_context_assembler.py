@@ -215,3 +215,49 @@ def test_compatibility_wrapper_translates_errors(tmp_path: Path) -> None:
     )
     assert inv.context_packet.world_scope.revision_id == scope.revision_id
     assert scope.world_id == "world:eldyrwild"
+    assert inv.context_packet.surface_context is None
+
+
+def test_assembler_carries_resolved_surface_context(tmp_path: Path) -> None:
+    from apps.live_control_server.services.agent_runtime import (
+        AgentCurrentWorkContext,
+        AgentSurfaceContext,
+    )
+
+    surface = AgentSurfaceContext(
+        surface_id="plan",
+        current_work=AgentCurrentWorkContext(
+            kind="plan",
+            work_object_id="doc-1",
+            title="SECRET-TITLE-a6",
+            object_revision=2,
+            target_session=27,
+        ),
+    )
+    assembly = assemble_agent_graph_context(
+        question="What does Lysandra know about the swarm?",
+        graph_envelope=READY_ENVELOPE,
+        root=tmp_path,
+        surface_context=surface,
+    )
+    assert assembly.invocation.context_packet.surface_context is surface
+    assert assembly.invocation.message == "What does Lysandra know about the swarm?"
+    # A5 summary unchanged — no surface keys leaked into context_assembly telemetry
+    assert set(assembly.trace_summary) == CONTEXT_SUMMARY_KEYS
+    _assert_summary_privacy(dict(assembly.trace_summary), "SECRET-TITLE-a6")
+
+    inv, _scope = build_hermes_graph_turn_request(
+        question="What does Lysandra know about the swarm?",
+        graph_envelope=READY_ENVELOPE,
+        root=tmp_path,
+        surface_context=surface,
+    )
+    assert inv.context_packet.surface_context is surface
+    assert inv.message == "What does Lysandra know about the swarm?"
+    world_only = build_hermes_graph_turn_request(
+        question="What does Lysandra know about the swarm?",
+        graph_envelope=READY_ENVELOPE,
+        root=tmp_path,
+    )[0]
+    assert world_only.context_packet.world_scope == inv.context_packet.world_scope
+    assert world_only.context_packet.surface_context is None
