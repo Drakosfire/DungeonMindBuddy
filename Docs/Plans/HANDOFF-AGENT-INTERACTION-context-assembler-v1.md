@@ -991,15 +991,20 @@ The likely next capability is a **SurfaceContext Contract v1** characterized end
 
 ```text
 dispatch base: 9570bd2636231b1f4ed9b6651da6c9a653abaa07
+Cycle 1 reviewed head: 38c9f6523c077fca413061e3e639b2629db9993d
+  formal review: 5059919962 — CHANGES REQUESTED (sequencing)
+Cycle 2 rebase onto: d4a91d7b727c0eae7dd0e09ba068e250b4819b44
+  (origin/main after #665 CUTOVER merge)
 implementation branch: agent/context-assembler-v1
 worktree: DungeonMindBuddy-context-assembler-v1
-head at handback: 6a47b756557d6aa2073ff0c9a3a489239085162e
+head at Cycle 2 handback: PIN_AFTER_COMMIT
 
-open PR at dispatch: #665 CUTOVER mounted graph-engine excision
-steward disposition: SPLIT
-  #665 owns only the HERMES_GRAPH_READ_TOOL_NAMES import rename (4 lines)
-  A5 left that import hunk untouched (still graph_memory.hermes_graph_plugin)
-  A5 owns composition extraction / wrapper / context_assembly telemetry
+steward disposition at dispatch: SPLIT
+  #665 owned HERMES_GRAPH_READ_TOOL_NAMES import rename
+  A5 left that hunk untouched on the dispatch base
+  after #665 merge + rebase, A5 preserves D.3A import:
+    apps/live_control_server/services/hermes_graph_interaction_tools.py
+      HERMES_GRAPH_INTERACTION_TOOL_NAMES as HERMES_GRAPH_READ_TOOL_NAMES
 ```
 
 §11.5 discovery exception used:
@@ -1009,6 +1014,20 @@ path: tests/test_live_control_server.py
 existing assertion: body["agent_trace"]["context_summary"] == {}
 why: product HTTP path now populates dmb_agent_context_summary_v1;
      empty assertion cannot remain green through compatibility alone
+```
+
+Cycle 2 lease exception (post-#665 main regression blocking owning suite):
+
+```text
+path: src/graph_memory/interaction/answer_validator.py
+introduced by: e5cdd9f7 (CUTOVER #665) — broken lazy wrapper
+  defined __read_admitted_recap_excerpt but called _read_admitted_recap_excerpt
+  and returned the undefined _read_… name (NameError on current main)
+why A5 touched it: owning suite
+  test_s1_admitted_recap_read_uses_corpus_root_not_graph_store_root
+  fails on exact post-#665 main; outside A5 mission but blocks Cycle 2 verification
+fix: restore pre-#665 direct import of read_admitted_recap_excerpt
+  (removes broken wrapper; no behavior change vs pre-#665)
 ```
 
 ## 23.2 Neutral assembler API
@@ -1041,31 +1060,29 @@ admitted_recap_excerpt_char_count, runtime_continuity_present
 
 A0: `complete_phase(..., attributes=...)` merges; `builder.context_summary` before finalize; mirrored on `context_assembly` span.
 
-## 23.4 Verification provenance
+## 23.4 Verification provenance (Cycle 2 / rebased head)
 
 ```text
 uv run pytest tests/test_agent_context_assembler.py tests/test_agent_turn_trace.py \
-  tests/test_live_query_hermes_graph.py -q
-  78 passed, 10 warnings
-
-uv run pytest tests/test_live_control_server.py::test_hermes_graph_host_path_ignores_legacy_lookup -q
-  1 passed (§11.5)
+  tests/test_live_query_hermes_graph.py \
+  tests/test_live_control_server.py::test_hermes_graph_host_path_ignores_legacy_lookup -q
+  79 passed, 10 warnings
 
 uv run pytest tests/test_agent_runtime.py tests/test_hermes_agent_runtime.py \
   tests/test_pydantic_ai_agent_runtime.py tests/test_hermes_graph_agent.py \
   tests/test_hermes_graph_agent_host.py -q
-  129 passed (boundary)
+  129 passed, 11 warnings
 
-uv run ruff check (leased Python files)
+uv run ruff check (leased Python files + Cycle 2 validator exception)
   All checks passed
 
 git diff --check: clean
-lockfile / frontend / routes / graph_memory / pyproject: unchanged
-#665 import line: unchanged
+D.3A import preserved after rebase onto d4a91d7b727c0eae7dd0e09ba068e250b4819b44
+lockfile / frontend / routes / pyproject: unchanged
 ```
 
-Stop conditions: `none`.
+Stop conditions: `none` (validator edit is documented Cycle 2 lease exception only).
 
 Successor claims still false: SurfaceContext, ResolvedSurfaceContext, query-entity extraction, relevance weights, token-budget compiler, Interaction Memory, Attention, WorkSelection Graph Assessment, PydanticAI production selection, World writes.
 
-A5 merge SHA and review-cycle count are not invented here.
+A5 merge SHA and final review-cycle count are not invented here.
