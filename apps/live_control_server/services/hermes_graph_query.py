@@ -14,19 +14,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from apps.live_control_server.config import world_graph_root
+from apps.live_control_server.services.agent_context_assembler import (
+    AgentContextAssembly,
+    AgentContextAssemblyError,
+    assemble_agent_graph_context,
+)
 from apps.live_control_server.services.agent_runtime import (
     HERMES_RUNTIME_DESCRIPTOR,
-    WORLD_GRAPH_READ_POLICY,
-    AgentContextPacket,
-    AgentRetrievalSession,
-    AgentRunOptions,
     AgentRuntime,
     AgentRuntimeDescriptor,
     AgentRuntimeInvocation,
     AgentRuntimeResult,
     AgentRuntimeToolEvent,
-    AgentWorldScope,
     descriptor_for_runtime,
 )
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
@@ -47,7 +46,6 @@ from graph_memory.interaction.forensic import (
     build_forensic_envelope,
     forensic_enabled,
 )
-from graph_memory.interaction.initial_resolve import create_session_from_preflight
 from graph_memory.interaction.session import GraphRetrievalSession
 from graph_memory.interaction.session_hydrate import hydrate_session_from_packet
 from graph_memory.interaction.session_store import get_session, replace_session
@@ -256,14 +254,46 @@ def _focus_for_grounding(focus: Mapping[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def _require_resolved_revision(graph_envelope: Mapping[str, Any]) -> str:
-    revision_id = graph_envelope.get("revision_id")
-    if not isinstance(revision_id, str) or not revision_id.strip():
-        raise HermesGraphQueryRequestError(
-            "Hermes graph queries require a resolved revision_id before dispatch.",
-            code="world_graph_context_invalid",
+def _assemble_graph_turn(
+    *,
+    question: str,
+    graph_envelope: Mapping[str, Any],
+    root: Path | None = None,
+    corpus_root: Path | None = None,
+    conversation_history: list[dict[str, str]] | None = None,
+    retrieval_session: GraphRetrievalSession | None = None,
+    continuity_session_id: str | None = None,
+    thread_id: str | None = None,
+    turn_id: str | None = None,
+) -> tuple[AgentContextAssembly, _DispatchedScope]:
+    """Neutral assembly + product scope, translating assembler errors."""
+    try:
+        assembly = assemble_agent_graph_context(
+            question=question,
+            graph_envelope=graph_envelope,
+            root=root,
+            corpus_root=corpus_root,
+            conversation_history=conversation_history,
+            retrieval_session=retrieval_session,
+            runtime_session_id=continuity_session_id,
+            thread_id=thread_id,
+            turn_id=turn_id,
         )
-    return revision_id.strip()
+    except AgentContextAssemblyError as exc:
+        raise HermesGraphQueryRequestError(
+            str(exc),
+            code=exc.code,
+            status_code=exc.status_code,
+        ) from exc
+    world_scope = assembly.invocation.context_packet.world_scope
+    scope = _DispatchedScope(
+        world_id=world_scope.world_id,
+        campaign_id=world_scope.campaign_id,
+        focus=dict(world_scope.focus),
+        admissibility=world_scope.admissibility,
+        revision_id=world_scope.revision_id,
+    )
+    return assembly, scope
 
 
 def build_hermes_graph_turn_request(
@@ -279,99 +309,18 @@ def build_hermes_graph_turn_request(
     turn_id: str | None = None,
 ) -> tuple[AgentRuntimeInvocation, _DispatchedScope]:
     """Assemble one DMB AgentRuntime invocation from resolved World Graph context."""
-    from apps.live_control_server.config import repo_root as default_repo_root
-    from graph_memory.interaction.latest_recap import read_admitted_recap_excerpt
-
-    revision_id = _require_resolved_revision(graph_envelope)
-    world_id = str(graph_envelope.get("world_id") or "").strip()
-    campaign_id = str(graph_envelope.get("campaign_id") or "").strip()
-    if not world_id or not campaign_id:
-        raise HermesGraphQueryRequestError(
-            "Resolved world_graph_context is missing world_id or campaign_id.",
-            code="world_graph_context_invalid",
-        )
-    focus_raw = graph_envelope.get("focus")
-    focus_map = focus_raw if isinstance(focus_raw, Mapping) else None
-    product_focus = _focus_for_grounding(focus_map)
-    admissibility = str(graph_envelope.get("admissibility") or "gm")
-    graph_root = (root or world_graph_root()).resolve()
-    if not graph_root.is_absolute():
-        raise HermesGraphQueryRequestError(
-            "Server-selected graph root must be absolute.",
-            code="world_graph_context_invalid",
-        )
-    history_copy = (
-        [{"role": item["role"], "content": item["content"]} for item in conversation_history]
-        if conversation_history
-        else None
-    )
-    session = retrieval_session
-    if session is None:
-        session = create_session_from_preflight(graph_envelope, question=question)
-    latest_recap_change = graph_envelope.get("latest_recap_change")
-    if isinstance(latest_recap_change, Mapping) and session.latest_recap_change is None:
-        # Preserve S1 context on the shared session object so host hydrate and
-        # claim validation see the same server-owned comparison boundary.
-        session.latest_recap_change = dict(latest_recap_change)
-    if isinstance(session.latest_recap_change, dict):
-        # Server-owned admitted-recap read for Hermes sensemaking (not a model path).
-        latest = session.latest_recap_change.get("latest_recap")
-        source_path = ""
-        if isinstance(latest, Mapping):
-            source_path = str(latest.get("source_recap_path") or "").strip()
-        memory_lag = bool(session.latest_recap_change.get("memory_lag")) or (
-            str(session.latest_recap_change.get("outcome") or "") == "memory_lag"
-        )
-        mutated = False
-        if memory_lag and source_path and not session.latest_recap_change.get(
-            "admitted_recap_excerpt"
-        ):
-            excerpt = read_admitted_recap_excerpt(
-                root=(corpus_root or default_repo_root()).resolve(),
-                source_recap_path=source_path,
-            )
-            if excerpt:
-                session.latest_recap_change = {
-                    **session.latest_recap_change,
-                    "admitted_recap_excerpt": excerpt,
-                }
-                mutated = True
-        if mutated or isinstance(latest_recap_change, Mapping):
-            replace_session(session)
-    retrieval_session_packet = session.project_for_hermes()
-    world_scope = AgentWorldScope(
-        world_id=world_id,
-        campaign_id=campaign_id,
-        focus=product_focus,
-        admissibility=admissibility,
-        revision_id=revision_id,
-    )
-    invocation = AgentRuntimeInvocation(
+    assembly, scope = _assemble_graph_turn(
+        question=question,
+        graph_envelope=graph_envelope,
+        root=root,
+        corpus_root=corpus_root,
+        conversation_history=conversation_history,
+        retrieval_session=retrieval_session,
+        continuity_session_id=continuity_session_id,
         thread_id=thread_id,
         turn_id=turn_id,
-        message=question,
-        conversation_history=history_copy,
-        context_packet=AgentContextPacket(
-            world_scope=world_scope,
-            retrieval_session=AgentRetrievalSession(
-                session_id=session.id,
-                packet=retrieval_session_packet,
-            ),
-        ),
-        capability_policy=WORLD_GRAPH_READ_POLICY,
-        run_options=AgentRunOptions(
-            runtime_session_id=(continuity_session_id or None),
-            execution_root=graph_root,
-        ),
     )
-    scope = _DispatchedScope(
-        world_id=world_id,
-        campaign_id=campaign_id,
-        focus=product_focus,
-        admissibility=admissibility,
-        revision_id=revision_id,
-    )
-    return invocation, scope
+    return assembly.invocation, scope
 
 
 def _normalize_focus_for_compare(focus: Mapping[str, Any] | None) -> dict[str, str | None]:
@@ -1470,7 +1419,8 @@ def run_hermes_graph_query(
             )
 
         resolved_corpus_root = (corpus_root or default_repo_root()).resolve()
-        with builder.phase("context_assembly"):
+        context_span_id = builder.start_phase("context_assembly")
+        try:
             continuity_campaign_id = _continuity_campaign_id(packet)
             pointer_store = (
                 HermesSessionPointerStore(session_base)
@@ -1491,7 +1441,7 @@ def run_hermes_graph_query(
                 agent_thread_id=agent_thread_id,
                 hermes_session_pointer=hermes_session_pointer,
             )
-            invocation, scope = build_hermes_graph_turn_request(
+            assembly, scope = _assemble_graph_turn(
                 question=text,
                 graph_envelope=graph_envelope,
                 root=root,
@@ -1501,6 +1451,8 @@ def run_hermes_graph_query(
                 thread_id=agent_thread_id,
                 turn_id=turn_id,
             )
+            invocation = assembly.invocation
+            builder.context_summary = dict(assembly.trace_summary)
             if agent_runtime is None:
                 from apps.live_control_server.services.hermes_agent_runtime import (
                     default_hermes_agent_runtime,
@@ -1509,6 +1461,14 @@ def run_hermes_graph_query(
                 runtime = default_hermes_agent_runtime()
             else:
                 runtime = agent_runtime
+        except Exception:
+            builder.complete_phase(context_span_id, status="error")
+            raise
+        else:
+            builder.complete_phase(
+                context_span_id,
+                attributes=assembly.trace_summary,
+            )
 
         with builder.phase("harness_turn"):
             result = runtime.run(invocation)
