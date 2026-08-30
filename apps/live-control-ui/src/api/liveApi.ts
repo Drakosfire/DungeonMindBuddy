@@ -1206,6 +1206,9 @@ export async function postLiveQuery(
       ...(options.worldGraphContext != null
         ? { world_graph_context: options.worldGraphContext }
         : {}),
+      ...(options.surfaceContext != null
+        ? { surface_context: options.surfaceContext }
+        : {}),
       ...(normalizedHistory.length > 0
         ? { conversation_history: normalizedHistory }
         : {}),

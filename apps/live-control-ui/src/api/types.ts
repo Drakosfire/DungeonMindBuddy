@@ -797,6 +797,21 @@ export interface PersistedWorldGraphContextSummary {
   }>;
 }
 
+export interface AgentSurfacePointerRequestV1 {
+  kind: string;
+  value: string;
+}
+
+/** Identity-only SurfaceContext wire (A6). No label/ambientSummary/title. */
+export interface AgentSurfaceContextRequestV1 {
+  schema: "dmb_agent_surface_context_request_v1";
+  surface_id: string;
+  campaign_id: string | null;
+  document_id: string | null;
+  session_number: number | null;
+  pointers: AgentSurfacePointerRequestV1[];
+}
+
 export interface LiveQueryOptions {
   agentThreadId?: string | null;
   hermesSessionId?: string | null;
@@ -804,6 +819,8 @@ export interface LiveQueryOptions {
   traceRequested?: boolean | null;
   worldGraphContext?: AgentWorldGraphQueryContextRequest | null;
   conversationHistory?: unknown;
+  /** Hermes-only; omit on live backend. Identity-only Plan/Surface snapshot. */
+  surfaceContext?: AgentSurfaceContextRequestV1 | null;
 }
 
 export interface AgentInteractionTurnMeta {

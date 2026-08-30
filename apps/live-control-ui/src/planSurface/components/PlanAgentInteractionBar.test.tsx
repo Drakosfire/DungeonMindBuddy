@@ -1,12 +1,13 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createElement, type ReactNode } from "react";
+import { createElement, useEffect, type ReactNode } from "react";
 
-import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
+import { AgentInteractionProvider, useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
 import { AskPluginSlotProvider } from "../../agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "../../agentInteraction/AgentInteractionChrome";
-import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
+import { buildPlanSurfaceIdentity } from "../../agentInteraction/projectionSurfacePublication";
+import { fixturePlanSessionDescriptor, FIXTURE_DOC_ID } from "../config/planSessionDescriptor";
 import { PlanGraphLensProvider } from "../PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import { PlanAgentInteractionBar } from "./PlanAgentInteractionBar";
@@ -20,6 +21,34 @@ const planView = {
 } as PlanViewProjection;
 
 const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: null });
+
+function PlanLeasePublisher({ children }: { children: ReactNode }) {
+  const { publishProjectionSurface } = useAgentInteraction();
+  useEffect(() => {
+    return publishProjectionSurface({
+      identity: buildPlanSurfaceIdentity({
+        documentId: FIXTURE_DOC_ID,
+        campaignId: "longmont-c2",
+        liveSession: 22,
+        memorySession: null,
+      }),
+      config: {
+        id: "plan",
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "C2 Session 27 Prep — ambient must not ship",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: { themeId: "mireward" },
+      },
+    });
+  }, [publishProjectionSurface]);
+  return createElement("div", null, children);
+}
 
 function wrapper({ children }: { children: ReactNode }) {
   return createElement(
@@ -35,7 +64,7 @@ function wrapper({ children }: { children: ReactNode }) {
           PlanGraphReferenceResolverProvider,
           { sessionDescriptor },
           createElement(AgentInteractionChrome),
-          children,
+          createElement(PlanLeasePublisher, null, children),
         ),
       ),
     ),
@@ -123,6 +152,16 @@ describe("PlanAgentInteractionBar graph lens", () => {
       campaign_id: "longmont-c1",
       scope_mode: "campaign",
     });
+    expect(options.surfaceContext).toEqual({
+      schema: "dmb_agent_surface_context_request_v1",
+      surface_id: "plan",
+      campaign_id: "longmont-c2",
+      document_id: FIXTURE_DOC_ID,
+      session_number: 22,
+      pointers: [],
+    });
+    expect(JSON.stringify(options.surfaceContext)).not.toContain("ambient must not ship");
+    expect(JSON.stringify(options.surfaceContext)).not.toContain("C2 Session 27 Prep");
 
     await waitFor(() => {
       expect(screen.getByText("C1 only answer")).toBeInTheDocument();
