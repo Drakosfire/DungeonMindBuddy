@@ -19,6 +19,8 @@ of one draft-scoped ``ThreatPublicationLedgerV1``.
 """
 from __future__ import annotations
 
+import types
+
 import fcntl
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -27,9 +29,6 @@ from pathlib import Path
 from typing import Iterator, Literal
 
 from apps.live_control_server.config import world_graph_root
-from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
-    kernel,  # noqa: F401  # tests patch svc.kernel
-)
 from apps.live_control_server.ports.world_graph_authority import (
     WorldGraphAuthority,
     WorldGraphAuthorityError,
@@ -63,6 +62,22 @@ from src.live_play.live_store import load_json, write_json
 DEFAULT_PUBLICATION_REL = "out/threat_publication_operations"
 LEDGER_NAME = "ledger.json"
 LOCK_NAME = ".publication.lock"
+
+class _KernelProxy:
+    """Lazy Buddy kernel access for unmounted/test inject paths only."""
+
+    _mod: types.ModuleType | None = None
+
+    def __getattr__(self, name: str):
+        if type(self)._mod is None:
+            import graph_memory.kernel as kernel_mod
+
+            type(self)._mod = kernel_mod
+        return getattr(type(self)._mod, name)
+
+
+kernel = _KernelProxy()
+
 
 
 @dataclass(frozen=True)

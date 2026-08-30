@@ -49,11 +49,11 @@ from graph_memory.projection.node_view import (
     GraphProjectionAdjacencyCandidate,
     GraphProjectionNodeView,
 )
-from graph_memory.projection.recap_projection import (
+from graph_memory.projection.markdown_mentions import splice_node_link_spans
+from graph_memory.projection.recap_projection_contracts import (
     RecapGraphProjection,
     RecapProjectionMention,
     RecapProjectionSourceSpan,
-    splice_node_link_spans,
 )
 from src.graph_memory.source_span import ResolvedEvidence, resolve_many_source_span_refs
 

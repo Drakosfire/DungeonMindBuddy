@@ -5,12 +5,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import graph_memory.kernel as kernel
+def _kernel():
+    """Lazy Buddy kernel for unmounted/non-native read paths only."""
+    import graph_memory.kernel as kernel
+
+    return kernel
+
 from apps.live_control_server.config import repo_root as default_repo_root
 from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.services.worldbuilding_source_span_read import (
     read_admitted_worldbuilding_span,
 )
+from graph_memory.retrieval.errors import WorldGraphRetrievalError
 from graph_memory.retrieval.models import (
     RETRIEVAL_ERROR_SCHEMA,
     WorldGraphEvidenceRequest,
@@ -167,7 +173,7 @@ def _resolved_repo_root(*, root: Path | None, repo_root: Path | None) -> Path:
 
 
 def _map_kernel_error(
-    exc: kernel.WorldGraphRetrievalError,
+    exc: Any,
 ) -> WorldGraphRetrievalServiceError:
     return WorldGraphRetrievalServiceError(
         str(exc),
@@ -211,9 +217,9 @@ def search_campaign_graph(
     route = _route_authority_read(request, root)
     try:
         return _normalize_authority_identity(
-            kernel.search_campaign_graph(route.graph_root, route.request), route
+            _kernel().search_campaign_graph(route.graph_root, route.request), route
         )
-    except kernel.WorldGraphRetrievalError as exc:
+    except WorldGraphRetrievalError as exc:
         raise _map_kernel_error(exc) from None
     except Exception:
         raise _internal_error() from None
@@ -238,9 +244,9 @@ def get_campaign_object(
     route = _route_authority_read(request, root)
     try:
         return _normalize_authority_identity(
-            kernel.get_campaign_object(route.graph_root, route.request), route
+            _kernel().get_campaign_object(route.graph_root, route.request), route
         )
-    except kernel.WorldGraphRetrievalError as exc:
+    except WorldGraphRetrievalError as exc:
         raise _map_kernel_error(exc) from None
     except Exception:
         raise _internal_error() from None
@@ -265,9 +271,9 @@ def get_object_neighborhood(
     route = _route_authority_read(request, root)
     try:
         return _normalize_authority_identity(
-            kernel.get_object_neighborhood(route.graph_root, route.request), route
+            _kernel().get_object_neighborhood(route.graph_root, route.request), route
         )
-    except kernel.WorldGraphRetrievalError as exc:
+    except WorldGraphRetrievalError as exc:
         raise _map_kernel_error(exc) from None
     except Exception:
         raise _internal_error() from None
@@ -292,9 +298,9 @@ def get_object_evidence(
     route = _route_authority_read(request, root)
     try:
         return _normalize_authority_identity(
-            kernel.get_object_evidence(route.graph_root, route.request), route
+            _kernel().get_object_evidence(route.graph_root, route.request), route
         )
-    except kernel.WorldGraphRetrievalError as exc:
+    except WorldGraphRetrievalError as exc:
         raise _map_kernel_error(exc) from None
     except Exception:
         raise _internal_error() from None
@@ -323,7 +329,7 @@ def read_source_anchor(
     graph_root, request = route.graph_root, route.request
     file_root = _resolved_repo_root(root=root, repo_root=repo_root)
     try:
-        resolved = kernel.resolve_admitted_anchor_match(graph_root, request)
+        resolved = _kernel().resolve_admitted_anchor_match(graph_root, request)
         if isinstance(resolved, WorldGraphSourceAnchorReadResult):
             return _normalize_authority_identity(resolved, route)
         anchor = resolved.derivation.anchor
@@ -349,10 +355,10 @@ def read_source_anchor(
                 route,
             )
         return _normalize_authority_identity(
-            kernel.read_source_anchor(graph_root, request, repo_root=file_root),
+            _kernel().read_source_anchor(graph_root, request, repo_root=file_root),
             route,
         )
-    except kernel.WorldGraphRetrievalError as exc:
+    except WorldGraphRetrievalError as exc:
         raise _map_kernel_error(exc) from None
     except Exception:
         raise _internal_error() from None

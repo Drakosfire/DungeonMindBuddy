@@ -34,14 +34,24 @@ from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestArtifactKind,
     GraphIngestRunStatus,
 )
-from src.graph_memory.union_supergraph.preview_run_materialize import (
-    PreviewUnionMaterializeOptions,
-    materialize_preview_union_store_from_graph_ingest_run,
-)
 
 _MANIFEST_NAME = "graph_ingest_run_manifest.json"
 _RUNS_ROOT = Path("out/graph_memory/runs")
 logger = logging.getLogger(__name__)
+
+def __materialize_preview_union_store_from_graph_ingest_run(*args, **kwargs):
+    from src.graph_memory.union_supergraph.preview_run_materialize import (
+        materialize_preview_union_store_from_graph_ingest_run as _impl,
+    )
+    return _impl(*args, **kwargs)
+
+
+def __PreviewUnionMaterializeOptions(*args, **kwargs):
+    from src.graph_memory.union_supergraph.preview_run_materialize import (
+        PreviewUnionMaterializeOptions as _Cls,
+    )
+    return _Cls(*args, **kwargs)
+
 
 
 def _resolve_repo_uri_path(repo: Path, uri: str) -> Path:
@@ -659,8 +669,8 @@ def materialize_recap_preview_supergraph(
         session,
         summary.manifest_path,
     )
-    result = materialize_preview_union_store_from_graph_ingest_run(
-        PreviewUnionMaterializeOptions(
+    result = _materialize_preview_union_store_from_graph_ingest_run(
+        _PreviewUnionMaterializeOptions(
             manifest_path=(repo / summary.manifest_path).resolve(),
             repo_root=repo,
             update_manifest=True,

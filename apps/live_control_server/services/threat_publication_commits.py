@@ -9,6 +9,8 @@ Lock order (shared c1 lifecycle lock):
 """
 from __future__ import annotations
 
+import types
+
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,7 +23,7 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionFocus,
     WorldGraphProjectionRequest,
 )
-from graph_memory.union_supergraph.statblock_binding import (
+from apps.live_control_server.models.threat_statblock_binding import (
     CONTRACT,
     CONTRACT_VERSION,
     ExternalResourceV1,
@@ -36,11 +38,6 @@ from graph_memory.union_supergraph.statblock_binding import (
 )
 
 from apps.live_control_server.config import world_graph_native_production_read, world_graph_root
-from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
-    BuddyFilesWorldGraphAuthorityAdapter,
-    WorldGraphIntegrityError,
-    kernel,
-)
 from apps.live_control_server.models.world_graph_contribution_values import (
     ContributionMergeResult,
     GraphContribution,
@@ -95,6 +92,30 @@ from apps.live_control_server.services.threat_publication_proposals import (
 MergeFn = Callable[..., ContributionMergeResult]
 LookupFn = Callable[..., tuple[Any, ...]]
 
+class WorldGraphIntegrityError(Exception):
+    """Revision integrity failure on unmounted BuddyFiles verification paths."""
+
+
+class _KernelProxy:
+    """Lazy Buddy kernel access for unmounted/test inject paths only.
+
+    Mounted DungeonMind publication must not call through this proxy. Threat
+    tests may ``setattr`` tripwires on the instance.
+    """
+
+    _mod: types.ModuleType | None = None
+
+    def __getattr__(self, name: str):
+        if type(self)._mod is None:
+            import graph_memory.kernel as kernel_mod
+
+            type(self)._mod = kernel_mod
+        return getattr(type(self)._mod, name)
+
+
+kernel = _KernelProxy()
+
+
 
 def _authority_for_commit(
     *,
@@ -103,6 +124,10 @@ def _authority_for_commit(
     lookup_fn: LookupFn | None,
 ) -> WorldGraphAuthority:
     if merge_fn is not None or lookup_fn is not None:
+        from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
+            BuddyFilesWorldGraphAuthorityAdapter,
+        )
+
         return BuddyFilesWorldGraphAuthorityAdapter(
             world_root,
             merge_fn=merge_fn,

@@ -22,12 +22,12 @@ from graph_memory.ingestion.graph_ingest_validate import (
     FORBIDDEN_DIAGNOSTIC_FLAGS,
     validate_graph_ingest_run_manifest,
 )
-from graph_memory.projection import (
-    GraphFocusOverlay,
-    RecapGraphProjection,
+from graph_memory.projection.focus_overlay import GraphFocusOverlay
+from graph_memory.projection.recap_projection import (
+    RecapProjectionSourceSpan,
     build_recap_graph_projection,
 )
-from graph_memory.projection.recap_projection import RecapProjectionSourceSpan
+from graph_memory.projection.recap_projection_contracts import RecapGraphProjection
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
     load_union_supergraph_store,

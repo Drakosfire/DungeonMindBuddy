@@ -7,7 +7,12 @@ import time
 from pathlib import Path
 from typing import Any
 
-import graph_memory.kernel as kernel
+def _kernel():
+    """Lazy Buddy kernel for unmounted/non-native read paths only."""
+    import graph_memory.kernel as kernel
+
+    return kernel
+
 from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.services.world_graph_projection_recipes import (
     register_projection_recipe,
@@ -175,7 +180,7 @@ def _normalize_authority_identity(
 
 
 def _map_kernel_error(
-    exc: kernel.WorldGraphProjectionError,
+    exc: Any,
 ) -> WorldGraphProjectionServiceError:
     return WorldGraphProjectionServiceError(
         str(exc),
@@ -185,7 +190,7 @@ def _map_kernel_error(
     )
 
 
-def _emit_observation(observation: kernel.ProjectionRequestObservation) -> None:
+def _emit_observation(observation: Any) -> None:
     logger.info(
         "world_graph_projection_observation",
         extra={
@@ -217,14 +222,14 @@ def _emit_observation(observation: kernel.ProjectionRequestObservation) -> None:
 
 
 def _sync_observation_from_counters(
-    observation: kernel.ProjectionRequestObservation,
-    counters: kernel.RequestIoCounters,
+    observation: Any,
+    counters: Any,
 ) -> None:
     observation.resident_status = counters.last_resident_status
     observation.resident_wait_ms = counters.resident_wait_ms
     observation.cold_load_ms = counters.cold_load_ms
     observation.resident_revision_count = (
-        kernel.get_world_read_runtime().resident_count()
+        _kernel().get_world_read_runtime().resident_count()
     )
     observation.graph_payload_reads_this_request = counters.graph_payload_reads
     observation.revision_manifest_reads_this_request = counters.revision_manifest_reads
@@ -252,19 +257,19 @@ def project_world_graph(
         return _project_world_graph_direct(request)
     route = _route_authority_read(request, root)
     graph_root, request = route.graph_root, route.request
-    counters = kernel.begin_request_io()
-    observation = kernel.ProjectionRequestObservation(
+    counters = _kernel().begin_request_io()
+    observation = _kernel().ProjectionRequestObservation(
         world_id=request.world_id,
         campaign_id=request.campaign_id,
     )
     try:
         # Request-only policy must win over storage failures.
-        request = kernel.validate_projection_request_policy(request)
+        request = _kernel().validate_projection_request_policy(request)
         observation.world_id = request.world_id
         observation.campaign_id = request.campaign_id
 
         head_started = time.perf_counter()
-        context = kernel.resolve_projection_read_context(graph_root, request)
+        context = _kernel().resolve_projection_read_context(graph_root, request)
         observation.head_resolution_ms = (time.perf_counter() - head_started) * 1000.0
         observation.selected_revision_id = context.selected_revision_id
         observation.head_revision_id = context.head_revision_id
@@ -291,13 +296,13 @@ def project_world_graph(
                 observation.nodes_returned = len(cached.nodes)
                 observation.relationships_returned = len(cached.relationships)
                 observation.attributes_returned = len(cached.attributes)
-                kernel.set_last_projection_observation(observation)
+                _kernel().set_last_projection_observation(observation)
                 _emit_observation(observation)
                 _register_recipe_best_effort(request, graph_root=graph_root)
                 return _normalize_authority_identity(cached, route)
 
             def _builder() -> WorldGraphProjection:
-                return kernel.project_world_graph_from_context(
+                return _kernel().project_world_graph_from_context(
                     graph_root,
                     request,
                     context,
@@ -314,7 +319,7 @@ def project_world_graph(
         else:
             observation.projection_cache_status = "disabled"
             build_started = time.perf_counter()
-            projection = kernel.project_world_graph_from_context(
+            projection = _kernel().project_world_graph_from_context(
                 graph_root,
                 request,
                 context,
@@ -327,18 +332,18 @@ def project_world_graph(
         observation.relationships_returned = len(projection.relationships)
         observation.attributes_returned = len(projection.attributes)
 
-        kernel.set_last_projection_observation(observation)
+        _kernel().set_last_projection_observation(observation)
         _emit_observation(observation)
         _register_recipe_best_effort(request, graph_root=graph_root)
         return _normalize_authority_identity(projection, route)
-    except kernel.WorldGraphProjectionError as exc:
+    except _kernel().WorldGraphProjectionError as exc:
         _sync_observation_from_counters(observation, counters)
-        kernel.set_last_projection_observation(observation)
+        _kernel().set_last_projection_observation(observation)
         _emit_observation(observation)
         raise _map_kernel_error(exc) from None
     except Exception:
         _sync_observation_from_counters(observation, counters)
-        kernel.set_last_projection_observation(observation)
+        _kernel().set_last_projection_observation(observation)
         _emit_observation(observation)
         raise WorldGraphProjectionServiceError(
             "World graph projection failed unexpectedly.",
@@ -353,7 +358,7 @@ def project_world_graph(
             ],
         ) from None
     finally:
-        kernel.reset_request_io()
+        _kernel().reset_request_io()
 
 
 __all__ = [

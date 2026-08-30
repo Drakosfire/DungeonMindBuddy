@@ -41,10 +41,10 @@ from graph_memory.projection.node_view import (
     GraphProjectionNodeView,
     GraphProjectionTextHighlightSpan,
 )
-from graph_memory.projection.recap_projection import (
+from graph_memory.projection.markdown_mentions import splice_node_link_spans
+from graph_memory.projection.recap_projection_contracts import (
     RecapGraphProjection,
     RecapProjectionMention,
-    splice_node_link_spans,
 )
 
 AUTHORED_SOURCE_DOMAIN = "authored_overlay"
