@@ -1457,7 +1457,8 @@ dispatch base / origin/main at dispatch = da4a2c9a3bce80f7a271252e3a5ed105d5ae1d
 open PRs at dispatch = none
 open PRs at handback = #669
 PR URL = https://github.com/Drakosfire/DungeonMindBuddy/pull/669
-exact head SHA = 922c1b21efbed4d1dce841009a13472ca7c62d43
+authoritative tip = origin/agent/surface-context-v1 (GitHub PR head)
+PR-open metadata commit = 253e814da739d836da0ae6e2dec352096b8d64e3
 branch = agent/surface-context-v1
 worktree = /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy-surface-context-v1
 ```
