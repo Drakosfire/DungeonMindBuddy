@@ -265,6 +265,39 @@ def test_partial_aggregate_usage_and_cost() -> None:
     assert cost["status"] == "partial"
 
 
+def test_complete_phase_merges_completion_attributes() -> None:
+    builder = AgentTurnTraceBuilder(
+        agent_thread_id="agent-thread-1",
+        turn_id="agent-turn-1",
+        runtime="process_isolated",
+        backend="hermes",
+        mode="hermes_graph_agent",
+        trace_id="agent-trace-attrs",
+    )
+    span_id = builder.start_phase(
+        "context_assembly",
+        attributes={"start_only": "keep", "overlap": "start"},
+    )
+    builder.complete_phase(
+        span_id,
+        attributes={"overlap": "complete", "complete_only": 3},
+    )
+    span = builder.spans[0]
+    assert span["name"] == "context_assembly"
+    assert span["status"] == "ok"
+    assert span["duration_ms"] is not None
+    assert span["duration_ms"] >= 0
+    assert span["attributes"] == {
+        "start_only": "keep",
+        "overlap": "complete",
+        "complete_only": 3,
+    }
+    # Callers without completion attributes remain unchanged.
+    with builder.phase("harness_turn", attributes={"phase_attr": True}):
+        pass
+    assert builder.spans[1]["attributes"] == {"phase_attr": True}
+
+
 def test_span_ordering_and_nonnegative_duration() -> None:
     builder = AgentTurnTraceBuilder(
         agent_thread_id="agent-thread-1",
