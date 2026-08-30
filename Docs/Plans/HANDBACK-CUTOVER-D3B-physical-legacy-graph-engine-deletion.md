@@ -16,8 +16,8 @@
 | Predecessor #665 accepted head | `189ffd50157534d192b2af008c48a76d12ccbc4c` |
 | Predecessor #665 merge | `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b` |
 | Predecessor review | 3 formal cycles; Cycle 3 PASS-equivalent `5059851179` |
-| Final PR head SHA |  |
-| Executable tip |  |
+| Final PR head SHA | GitHub PR #667 HEAD (docs tip; executable tip below) |
+| Executable tip | `9a4f0eda2bd4553872ddea3cb121d6ebe617af03` |
 
 ## 5. DungeonMind pin
 
