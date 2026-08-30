@@ -1,8 +1,8 @@
 # HANDBACK — CUTOVER D.3B physical legacy graph-engine deletion
 
-**Lane:** CODE → REVIEW  
-**Branch:** `cutover/delete-legacy-graph-engine`  
-**PR title:** `CUTOVER: delete legacy Buddy graph engine`  
+**Lane:** CODE → REVIEW
+**Branch:** `cutover/delete-legacy-graph-engine`
+**PR title:** `CUTOVER: delete legacy Buddy graph engine`
 **Status in PR:** D.3A COMPLETE/MERGED · D.3B DOING · D.3 NOT DONE
 
 ---
@@ -16,7 +16,7 @@
 | Predecessor #665 accepted head | `189ffd50157534d192b2af008c48a76d12ccbc4c` |
 | Predecessor #665 merge | `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b` |
 | Predecessor review | 3 formal cycles; Cycle 3 PASS-equivalent `5059851179` |
-| Final PR head SHA | `8eff0dfc25eedd9f23a5d0bc41e80420939383fb` |
+| Final PR head SHA | *(set after blank-line fix commit)* |
 | Executable tip | same as final PR head unless a docs-only tip follows |
 
 ## 5. DungeonMind pin
