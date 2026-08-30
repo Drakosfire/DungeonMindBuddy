@@ -997,7 +997,7 @@ Cycle 2 rebase onto: d4a91d7b727c0eae7dd0e09ba068e250b4819b44
   (origin/main after #665 CUTOVER merge)
 implementation branch: agent/context-assembler-v1
 worktree: DungeonMindBuddy-context-assembler-v1
-head at Cycle 2 handback: 9e321dc8075f8b76c1f6c6448b602e0039d62b01 (pre-align commit; PR head is authoritative)
+head at Cycle 2 handback: ffe6fcad7e41a4401832b42df9d6d3c214556a70
 
 steward disposition at dispatch: SPLIT
   #665 owned HERMES_GRAPH_READ_TOOL_NAMES import rename
