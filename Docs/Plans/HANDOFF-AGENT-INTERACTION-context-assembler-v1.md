@@ -25,19 +25,21 @@ pr_body_template: |
 
 # HANDOFF — ContextAssembler v1 (A5)
 
-**Created:** 2026-08-29  
-**Updated:** 2026-08-29 — design released after Agent Context Compilation decision  
-**Status:** **READY FOR DISPATCH**  
-**Canonical handoff:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-context-assembler-v1.md`  
-**Companion decision:** `Docs/Design/DECISION-agent-context-compilation.md`  
-**Design base:** `619aa2b0c4be67e1d3931ff50899d126d2dafa13`  
-**Workstream:** `AGENT-INTERACTION / A5`  
-**Flow / owner:** `AGENT-INTERACTION`  
-**Predecessor:** A4 — Graph Agent Policy Boundary v1  
-**Predecessor PR:** #664  
-**Accepted predecessor head:** `497dcfb6c21507ee1d0e26d009add0ce044c0ec6`  
-**Predecessor merge:** `cbdc342ef79c8e3db5d45fbb52468c0c258a4d47`  
-**Predecessor formal review cycles:** 1  
+**Created:** 2026-08-29
+**Updated:** 2026-08-29 — design released after Agent Context Compilation decision
+**Status:** IMPLEMENTATION HANDED BACK FOR REVIEW — evidence in §23
+**Canonical handoff:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-context-assembler-v1.md`
+**Companion decision:** `Docs/Design/DECISION-agent-context-compilation.md`
+**Design base:** `619aa2b0c4be67e1d3931ff50899d126d2dafa13`
+**Dispatch base:** `9570bd2636231b1f4ed9b6651da6c9a653abaa07`
+**Implementation branch:** `agent/context-assembler-v1`
+**Workstream:** `AGENT-INTERACTION / A5`
+**Flow / owner:** `AGENT-INTERACTION`
+**Predecessor:** A4 — Graph Agent Policy Boundary v1
+**Predecessor PR:** #664
+**Accepted predecessor head:** `497dcfb6c21507ee1d0e26d009add0ce044c0ec6`
+**Predecessor merge:** `cbdc342ef79c8e3db5d45fbb52468c0c258a4d47`
+**Predecessor formal review cycles:** 1
 
 ---
 
@@ -980,3 +982,89 @@ After A5 merges, re-anchor and ask:
 The first proving surface should be chosen from current repository truth, not preselected here.
 
 The likely next capability is a **SurfaceContext Contract v1** characterized end-to-end by one real surface, but that is not part of A5.
+
+---
+
+# 23. Implementation evidence (CODE handback)
+
+## 23.1 Dispatch / lease recheck
+
+```text
+dispatch base: 9570bd2636231b1f4ed9b6651da6c9a653abaa07
+implementation branch: agent/context-assembler-v1
+worktree: DungeonMindBuddy-context-assembler-v1
+
+open PR at dispatch: #665 CUTOVER mounted graph-engine excision
+steward disposition: SPLIT
+  #665 owns only the HERMES_GRAPH_READ_TOOL_NAMES import rename (4 lines)
+  A5 left that import hunk untouched (still graph_memory.hermes_graph_plugin)
+  A5 owns composition extraction / wrapper / context_assembly telemetry
+```
+
+§11.5 discovery exception used:
+
+```text
+path: tests/test_live_control_server.py
+existing assertion: body["agent_trace"]["context_summary"] == {}
+why: product HTTP path now populates dmb_agent_context_summary_v1;
+     empty assertion cannot remain green through compatibility alone
+```
+
+## 23.2 Neutral assembler API
+
+```text
+apps/live_control_server/services/agent_context_assembler.py
+  CONTEXT_SUMMARY_SCHEMA = "dmb_agent_context_summary_v1"
+  AgentContextAssemblyError(code, status_code)
+  AgentContextAssembly(invocation, trace_summary)
+  assemble_agent_graph_context(...) -> AgentContextAssembly
+```
+
+Compatibility:
+
+```text
+build_hermes_graph_turn_request(...) -> (AgentRuntimeInvocation, _DispatchedScope)
+  thin wrapper; translates AgentContextAssemblyError -> HermesGraphQueryRequestError
+```
+
+Remaining naming debt (unchanged): `GraphRetrievalSession.project_for_hermes()`.
+
+## 23.3 Telemetry (exact 14 scalars)
+
+```text
+context_schema, world_id, campaign_id, revision_id, focus_kind, admissibility,
+history_message_count, history_char_count, retrieval_session_id,
+retrieval_candidate_count, retrieval_claim_count, latest_recap_change_present,
+admitted_recap_excerpt_char_count, runtime_continuity_present
+```
+
+A0: `complete_phase(..., attributes=...)` merges; `builder.context_summary` before finalize; mirrored on `context_assembly` span.
+
+## 23.4 Verification provenance
+
+```text
+uv run pytest tests/test_agent_context_assembler.py tests/test_agent_turn_trace.py \
+  tests/test_live_query_hermes_graph.py -q
+  78 passed, 10 warnings
+
+uv run pytest tests/test_live_control_server.py::test_hermes_graph_host_path_ignores_legacy_lookup -q
+  1 passed (§11.5)
+
+uv run pytest tests/test_agent_runtime.py tests/test_hermes_agent_runtime.py \
+  tests/test_pydantic_ai_agent_runtime.py tests/test_hermes_graph_agent.py \
+  tests/test_hermes_graph_agent_host.py -q
+  129 passed (boundary)
+
+uv run ruff check (leased Python files)
+  All checks passed
+
+git diff --check: clean
+lockfile / frontend / routes / graph_memory / pyproject: unchanged
+#665 import line: unchanged
+```
+
+Stop conditions: `none`.
+
+Successor claims still false: SurfaceContext, ResolvedSurfaceContext, query-entity extraction, relevance weights, token-budget compiler, Interaction Memory, Attention, WorkSelection Graph Assessment, PydanticAI production selection, World writes.
+
+A5 merge SHA and review-cycle count are not invented here.
