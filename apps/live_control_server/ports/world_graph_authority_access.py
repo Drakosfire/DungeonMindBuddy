@@ -1,6 +1,7 @@
 """Resolve the World Graph authority implementation for the current process.
 
 Product services depend on this factory, not DungeonMind or PostgreSQL types.
+Mounted production is DungeonMind-only (CUTOVER D.3A).
 """
 
 from __future__ import annotations
@@ -11,22 +12,16 @@ from apps.live_control_server.ports.world_graph_authority import WorldGraphAutho
 
 
 def get_world_graph_authority(*, world_root: Path | None = None) -> WorldGraphAuthority:
-    """Return the mounted World Graph authority for this process.
+    """Return the mounted DungeonMind World Graph authority.
 
-    ``dungeonmind`` production reads/writes use the DungeonMind adapter.
-    Any explicit non-production root, or buddy_files/quiesced mode, uses the
-    named file adapter (D.3 deletion owner).
+    Retired ``buddy_files`` / ``quiesced`` modes and alternate ``world_root``
+    values fail closed. Unmounted tooling may construct the named BuddyFiles
+    adapter directly; this factory must not.
     """
-    from apps.live_control_server.config import world_graph_native_production_read
-
-    if world_graph_native_production_read(world_root):
-        from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
-            DungeonMindWorldGraphAuthorityAdapter,
-        )
-
-        return DungeonMindWorldGraphAuthorityAdapter()
-    from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
-        BuddyFilesWorldGraphAuthorityAdapter,
+    from apps.live_control_server.config import require_mounted_dungeonmind_world_graph
+    from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
+        DungeonMindWorldGraphAuthorityAdapter,
     )
 
-    return BuddyFilesWorldGraphAuthorityAdapter(world_root)
+    require_mounted_dungeonmind_world_graph(world_root=world_root)
+    return DungeonMindWorldGraphAuthorityAdapter()

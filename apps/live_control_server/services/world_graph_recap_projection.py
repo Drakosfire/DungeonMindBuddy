@@ -5,10 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from apps.live_control_server.services.union_supergraph_projection_adapter import (
-    CorpusNormalizedRecapLoadError,
-    load_corpus_normalized_recap_markdown,
-)
 from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
     project_world_graph,
@@ -64,6 +60,34 @@ def validate_recap_projection_request(
     return request.campaign_id, request.focus.session_id
 
 
+def _load_corpus_markdown(*, campaign_id: str, session_id: str) -> str:
+    """Load corpus-normalized recap markdown without importing Union builders at module load."""
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        CorpusNormalizedRecapLoadError,
+        load_corpus_normalized_recap_markdown,
+    )
+
+    try:
+        return load_corpus_normalized_recap_markdown(
+            campaign_id=campaign_id,
+            session_id=session_id,
+            on_ambiguous="fail",
+        )
+    except CorpusNormalizedRecapLoadError as exc:
+        raise WorldGraphProjectionServiceError(
+            str(exc),
+            code=exc.code,
+            status_code=exc.status_code,
+            diagnostics=[
+                WorldGraphProjectionDiagnostic(
+                    code=exc.code,
+                    message=str(exc),
+                    severity="error",
+                )
+            ],
+        ) from None
+
+
 def build_world_graph_recap_projection(
     request: WorldGraphProjectionRequest,
     *,
@@ -78,25 +102,7 @@ def build_world_graph_recap_projection(
 
     markdown = corpus_markdown
     if markdown is None:
-        try:
-            markdown = load_corpus_normalized_recap_markdown(
-                campaign_id=campaign_id,
-                session_id=session_id,
-                on_ambiguous="fail",
-            )
-        except CorpusNormalizedRecapLoadError as exc:
-            raise WorldGraphProjectionServiceError(
-                str(exc),
-                code=exc.code,
-                status_code=exc.status_code,
-                diagnostics=[
-                    WorldGraphProjectionDiagnostic(
-                        code=exc.code,
-                        message=str(exc),
-                        severity="error",
-                    )
-                ],
-            ) from None
+        markdown = _load_corpus_markdown(campaign_id=campaign_id, session_id=session_id)
     if not (markdown or "").strip():
         raise WorldGraphProjectionServiceError(
             f"Normalized recap markdown not found for {campaign_id} {session_id}.",

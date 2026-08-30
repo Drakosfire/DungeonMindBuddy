@@ -5,16 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
-from apps.live_control_server.services.graph_merge_reconciliation_materialize import (
-    GraphMergeReconciliationApplyRequest,
-    GraphMergeReconciliationApplyResponse,
-    GraphMergeReconciliationMaterializeError,
-    GraphMergeReconciliationPrepareRequest,
-    GraphMergeReconciliationPrepareResponse,
-    apply_graph_merge_reconciliation_materialization,
-    prepare_graph_merge_reconciliation_materialization,
-)
 from apps.live_control_server.services.graph_object_authoring_commit import (
     commit_graph_object_authoring_write,
 )
@@ -29,6 +21,14 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
 
 router = APIRouter(prefix="/api/live/graph-authoring", tags=["graph-authoring"])
 
+_STORE_RETIRED = {
+    "code": "graph_authoring_store_retired",
+    "message": (
+        "Graph authoring merge-reconciliation file materialization is retired. "
+        "Use Graph Review prepare/commit on DungeonMind World Graph authority."
+    ),
+}
+
 
 @router.post("/prepare", response_model=GraphObjectAuthoringPrepareResponse)
 def post_graph_object_authoring_prepare(
@@ -37,7 +37,9 @@ def post_graph_object_authoring_prepare(
     try:
         response = prepare_graph_object_authoring_write(request)
     except GraphObjectAuthoringError as exc:
-        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}) from exc
+        raise HTTPException(
+            status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}
+        ) from exc
     return response.model_dump(mode="json", by_alias=False)
 
 
@@ -48,33 +50,21 @@ def post_graph_object_authoring_commit(
     try:
         response = commit_graph_object_authoring_write(request)
     except GraphObjectAuthoringError as exc:
-        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}) from exc
+        raise HTTPException(
+            status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}
+        ) from exc
     return response.model_dump(mode="json", by_alias=False)
 
 
-@router.post(
-    "/merge-reconciliation/prepare",
-    response_model=GraphMergeReconciliationPrepareResponse,
-)
+@router.post("/merge-reconciliation/prepare")
 def post_graph_merge_reconciliation_prepare(
-    request: GraphMergeReconciliationPrepareRequest,
-) -> dict[str, Any]:
-    try:
-        response = prepare_graph_merge_reconciliation_materialization(request)
-    except GraphMergeReconciliationMaterializeError as exc:
-        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}) from exc
-    return response.model_dump(mode="json", by_alias=False)
+    _body: dict[str, Any] | None = None,
+) -> JSONResponse:
+    return JSONResponse(status_code=410, content={"detail": _STORE_RETIRED})
 
 
-@router.post(
-    "/merge-reconciliation/apply",
-    response_model=GraphMergeReconciliationApplyResponse,
-)
+@router.post("/merge-reconciliation/apply")
 def post_graph_merge_reconciliation_apply(
-    request: GraphMergeReconciliationApplyRequest,
-) -> dict[str, Any]:
-    try:
-        response = apply_graph_merge_reconciliation_materialization(request)
-    except GraphMergeReconciliationMaterializeError as exc:
-        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}) from exc
-    return response.model_dump(mode="json", by_alias=False)
+    _body: dict[str, Any] | None = None,
+) -> JSONResponse:
+    return JSONResponse(status_code=410, content={"detail": _STORE_RETIRED})

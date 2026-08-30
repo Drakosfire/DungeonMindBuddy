@@ -60,10 +60,6 @@ from apps.live_control_server.services.hermes_graph_agent_host import (
     get_hermes_graph_agent_host,
     shutdown_hermes_graph_agent_host,
 )
-from apps.live_control_server.services.world_graph_prewarm import (
-    start_world_graph_prewarm_coordinator,
-    stop_world_graph_prewarm_coordinator,
-)
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 
 load_dungeonmindbuddy_dotenv()
@@ -71,18 +67,11 @@ load_dungeonmindbuddy_dotenv()
 
 @asynccontextmanager
 async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
-    """Own Hermes host + OPT02 prewarm coordinator for deterministic shutdown."""
-    # Lazy start on first execute remains allowed; shutdown ownership is required.
+    """Own Hermes host for deterministic shutdown (Kernel prewarm retired)."""
     get_hermes_graph_agent_host()
-    coordinator = start_world_graph_prewarm_coordinator(wait_s=30.0)
-    if coordinator is None:
-        raise RuntimeError(
-            "world graph prewarm coordinator failed to start for this app lifecycle"
-        )
     try:
         yield
     finally:
-        stop_world_graph_prewarm_coordinator()
         shutdown_hermes_graph_agent_host()
 
 

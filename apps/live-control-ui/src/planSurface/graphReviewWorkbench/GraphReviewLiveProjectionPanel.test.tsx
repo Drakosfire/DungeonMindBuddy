@@ -149,7 +149,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
   });
 
-  it("renders unavailable metadata and does not call the projection API", () => {
+  it("marks preview-unavailable runs retired without calling the Union API", async () => {
     renderGraphReviewLiveHarness({
       liveRun: {
         ...baseRun,
@@ -159,56 +159,33 @@ describe("GraphReviewLiveProjectionPanel", () => {
       children: <GraphReviewLiveProjectionPanel />,
     });
 
-    expect(
-      screen.getByText(
-        "Selected live run does not have a preview-union projection available yet.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Generate preview union")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("graph-review-union-preview-retired"),
+      ).toBeInTheDocument(),
+    );
     expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
   });
 
-  it("loads the selected run projection by manifest and preview-union paths", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue({
-      ...projection,
-      authored_overlay: {
-        loaded: true,
-        assertion_count: 2,
-        projected_node_count: 0,
-        projected_link_existing_count: 1,
-        projected_relationship_count: 1,
-        diagnostics: [],
-      },
-    });
-
+  it("marks store-preview retired and does not call the Union projection API", async () => {
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
       children: <GraphReviewLiveProjectionPanel />,
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(
+        screen.getByTestId("graph-review-union-preview-retired"),
+      ).toBeInTheDocument(),
     );
-    expect(getUnionSupergraphProjection).toHaveBeenCalledWith({
-      campaignId: "longmont-c2",
-      sessionId: "session-23",
-      graphRunManifestPath: "artifacts/run-a/manifest.json",
-      previewUnionStorePath: "artifacts/run-a/preview-union.json",
-    });
-    expect(getUnionSupergraphProjection).not.toHaveBeenCalledWith(
-      expect.objectContaining({ useLatestGraphIngest: true }),
-    );
-    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
-    expect(screen.queryByText("Live Run · read-only")).not.toBeInTheDocument();
-    expect(screen.queryByText("Selected live lane")).not.toBeInTheDocument();
+    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
     expect(
-      screen.queryByRole("heading", { name: "Source projection" }),
-    ).not.toBeInTheDocument();
+      screen.getByText(/UnionSupergraph store preview for this live\/candidate lane is retired/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-projection-reader")).not.toBeInTheDocument();
   });
 
-  it("renders a single live lane without fetching gold projection when hasGold is false", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
-
+  it("never calls getUnionSupergraphProjection for preview-ready live runs", async () => {
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
       hasGold: false,
@@ -216,25 +193,16 @@ describe("GraphReviewLiveProjectionPanel", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(
+        screen.getByTestId("graph-review-union-preview-retired"),
+      ).toBeInTheDocument(),
     );
+    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
     expect(getGoldGraphProjection).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Ingested recap projection")).toBeInTheDocument();
-    expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-projection-reader")).not.toBeInTheDocument();
   });
 
-  it("opens and closes one projected interaction surface from a graph mention", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(
-      projectionWithMention,
-    );
-    vi.mocked(getGoldGraphProjection).mockResolvedValue({
-      ...projectionWithMention,
-      source_kind: "gold_fixture",
-      gold_fixture_id: "fixture-a",
-      gold_fixture_relpath: "gold/session-23.json",
-    });
-
+  it("still loads gold fixture metadata requests only when hasGold, without Union store preview", async () => {
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
       hasGold: true,
@@ -242,170 +210,14 @@ describe("GraphReviewLiveProjectionPanel", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(
+        screen.getByTestId("graph-review-union-preview-retired"),
+      ).toBeInTheDocument(),
     );
-    const liveReader = screen.getByTestId("graph-projection-reader");
-    const liveAldenPill = await waitFor(() => {
-      const pill = within(liveReader)
-        .getAllByRole("button", { name: /Alden/ })
-        .find((button) => button.classList.contains("recap-node-token"));
-      expect(pill).toBeTruthy();
-      return pill as HTMLButtonElement;
-    });
-    fireEvent.click(liveAldenPill);
-
-    const dialog = screen.getByRole("dialog", { name: "Selected object: Alden" });
-    expect(dialog).toHaveTextContent("Selected object");
-    expect(dialog).toHaveTextContent("Live Run · read-only");
-    expect(dialog).toHaveTextContent(
-      "Alden guards the western gate and knows the patrol routes.",
-    );
-    expect(
-      screen.queryByRole("button", { name: "Highlight counterpart" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Stage node assertion" }),
-    ).not.toBeInTheDocument();
-    expect(within(dialog).queryByText("Find existing object")).not.toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Close selected object" }),
-    );
-    expect(
-      screen.queryByRole("dialog", { name: "Selected object: Alden" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("renders gold and live projection lanes side by side in the two-lane layout", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
-    vi.mocked(getGoldGraphProjection).mockResolvedValue({
-      ...projection,
-      source_kind: "gold_fixture",
-      gold_fixture_id: "fixture-a",
-      gold_fixture_relpath: "gold/session-23.json",
-    });
-
-    renderGraphReviewLiveHarness({
-      liveRun: baseRun,
-      hasGold: true,
-      children: <GraphReviewLiveProjectionPanel />,
-    });
-
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-review-projection-layout")).toBeInTheDocument(),
-    );
-
-    const layout = screen.getByTestId("graph-review-projection-layout");
-    expect(layout).toHaveClass("graph-review-real-two-lane-projections");
-    expect(within(layout).getByLabelText("Gold fixture prose")).toBeInTheDocument();
-    expect(within(layout).getByLabelText("Live run prose")).toBeInTheDocument();
-    expect(layout.querySelectorAll(".graph-review-projection-lane")).toHaveLength(2);
-  });
-
-  it("preserves gold-vs-live compare decorations on the live lane when authoring mode is off", async () => {
-    const goldNodeViews = {
-      "gold:alden": {
-        node_id: "gold:alden",
-        label: "Alden",
-        kind: "npc" as const,
-        role: "gate warden",
-        summary: null,
-        aliases: [],
-        source_domains: [],
-        evidence_badges: [],
-        adjacency: [],
-      },
-    };
-    const liveNodeViews = {
-      "live:alden": {
-        ...goldNodeViews["gold:alden"],
-        node_id: "live:alden",
-      },
-    };
-    const goldProjectionPayload: UnionSupergraphProjectionResponse = {
-      ...projection,
-      markdown: "The party met [Alden](dmb-node:gold:alden) at the gate.",
-      node_views: goldNodeViews,
-      mentions: [],
-    };
-    const liveProjectionPayload: UnionSupergraphProjectionResponse = {
-      ...projection,
-      markdown: "The party met [Alden](dmb-node:live:alden) at the gate.",
-      node_views: liveNodeViews,
-      mentions: [],
-    };
-
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(liveProjectionPayload);
-    vi.mocked(getGoldGraphProjection).mockResolvedValue({
-      ...goldProjectionPayload,
-      source_kind: "gold_fixture",
-      gold_fixture_id: "fixture-a",
-      gold_fixture_relpath: "gold/session-23.json",
-    });
-
-    renderGraphReviewLiveHarness({
-      liveRun: baseRun,
-      hasGold: true,
-      children: <GraphReviewLiveProjectionPanel />,
-    });
-
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
-    );
-
-    const liveReader = screen.getByLabelText("Live run prose");
-    expect(liveReader).toHaveAttribute("data-lane-role", "live");
-    const livePill = await waitFor(() => {
-      const pill = within(liveReader)
-        .getAllByRole("button", { name: /Alden/ })
-        .find((button) => button.classList.contains("recap-node-token"));
-      expect(pill).toBeTruthy();
-      return pill as HTMLButtonElement;
-    });
-    expect(livePill).toHaveAttribute("data-delta-status");
-    expect(
-      liveReader.querySelector(".union-supergraph-tiptap-reader"),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByTestId("graph-authoring-action")).not.toBeInTheDocument();
-  });
-
-  it("does not render diagnostic panels on the main surface", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
-
-    renderGraphReviewLiveHarness({
-      liveRun: baseRun,
-      children: <GraphReviewLiveProjectionPanel />,
-    });
-
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
-    );
-    expect(
-      screen.queryByRole("heading", { name: "Gold-vs-live smoke alarms" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Author Draft text-selection actions"),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByTestId("graph-object-authoring-surface")).not.toBeInTheDocument();
-    expect(document.querySelector(".union-supergraph-tiptap-reader")).not.toBeInTheDocument();
-  });
-
-  it("renders a friendly error for failed projection loading", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockRejectedValue(
-      new Error("Projection fixture missing"),
-    );
-
-    renderGraphReviewLiveHarness({
-      liveRun: baseRun,
-      children: <GraphReviewLiveProjectionPanel />,
-    });
-
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "Projection fixture missing",
-      ),
-    );
-    expect(screen.getByRole("alert")).toHaveTextContent("Selected run: Run A");
+    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
+    // Gold fetch remains for other surfaces; live store-preview lane stays retired.
+    await waitFor(() => expect(getGoldGraphProjection).toHaveBeenCalled());
+    expect(screen.queryByTestId("graph-review-projection-layout")).not.toBeInTheDocument();
   });
 
   it("switches from candidate projection to committed panel after receipt adoption", async () => {
@@ -523,8 +335,9 @@ describe("GraphReviewLiveProjectionPanel", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-review-projection-layout")).toBeInTheDocument(),
+      expect(screen.getByTestId("graph-review-union-preview-retired")).toBeInTheDocument(),
     );
+    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByTestId("adopt-receipt"));
 

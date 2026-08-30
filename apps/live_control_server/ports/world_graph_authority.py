@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
-from graph_memory.world_graph_mutation_context import WorldGraphMutationContext
+from apps.live_control_server.models.world_graph_mutation_context import WorldGraphMutationContext
 
 WorldGraphAuthorityFailureCode = Literal[
     "authority_unavailable",

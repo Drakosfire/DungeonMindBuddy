@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
-from graph_memory.union_supergraph.statblock_binding import (
+from apps.live_control_server.models.threat_statblock_binding import (
     ExternalResourceV1,
     ThreatStatblockBindingV1,
     WorldObjectStatblockBindingV1,

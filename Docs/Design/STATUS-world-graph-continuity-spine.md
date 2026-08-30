@@ -1,10 +1,10 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-28 — D.2C3 native genesis continuity is `COMPLETE` / MERGED Buddy #651 (accepted head `9508b71655665005df8f12da74c239fe7eb17c0c`; merge `84f3401b23fcac32a57416d5419dc7d33cf6eabc`; 4 formal review cycles); D.2C4 manual Graph Review authoring continuity is `DOING` / this PR; D.3A/D.3B remain `BLOCKED`; D.3 is not `DONE`
-**Active CUTOVER slice:** D.2C4 manual Graph Review authoring continuity (`cutover/manual-authoring-continuity`). Predecessor D.2C3 / #651 is `COMPLETE` / MERGED.
-**Repository anchor:** `84f3401b23fcac32a57416d5419dc7d33cf6eabc` (Buddy `main` at #651 D.2C3 merge). Historical #658: `d94822f7681da440fdeea981662383980bfbcaf9`. Historical AGENT-INTERACTION: `d721cba261c35fd1d77566df6c03be614a26f510`. Historical AGENT-INTERACTION surface-authority re-anchor: `5b2d9bc7cc61c7a485c3bd801cd44d7251134466`. Historical PLAY-SURFACE: `555a9c7965aca47a24536277b9b36ae569a7285a`. Historical #650: `cc016661f80416e0816f56349217cf33c53a195f`. Historical D.2C3 design #647 merge: `d96a21363fd0decbcb8c4390f951a6316b53060c`
-**Dispatch gate:** D.2C4 manual Graph Review authoring continuity owns the active CUTOVER write lease. Do not mark D.2C4 `DONE` before merge. Do not dispatch D.3A, D.3B, or the parked catch-up handoff absent a newly observed `STALE`.
+**Updated:** 2026-08-29 — D.2C4 manual Graph Review authoring continuity is `COMPLETE` / MERGED Buddy #662 (accepted head `1ab48453cb556ca9d01ff84173ab3e2fdf81d1ec`; merge `2f1b44aa8ad8bad78269c0cadf624882cd0f459f`; 4 formal review cycles; Cycle 4 PASS-equivalent `5059141212`); D.3A mounted graph-engine excision is `DOING` / this PR; D.3B remains `BLOCKED`; D.3 is not `DONE`
+**Active CUTOVER slice:** D.3A mounted graph-engine excision (`cutover/mounted-graph-engine-excision`). Predecessor D.2C4 / #662 is `COMPLETE` / MERGED.
+**Repository anchor:** `9570bd2636231b1f4ed9b6651da6c9a653abaa07` (Buddy `main` / PR #665 base at Review Cycle 1)
+**Dispatch gate:** D.3A mounted graph-engine excision owns the active CUTOVER write lease. Do not mark D.3A `DONE` before merge. Do not dispatch D.3B or physical package deletion. D.3 remains not `DONE` until D.3B merges.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
 **DungeonMind pin:** `5ca5d688612349034f8ca490d465af166d883e6e` (DungeonMind PR #47 merge / reviewed-init provenance compatibility; consumed unchanged by #658 and this D.2C3 resume). Historical D.2C2 runtime pin was PR #46 `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`.
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)

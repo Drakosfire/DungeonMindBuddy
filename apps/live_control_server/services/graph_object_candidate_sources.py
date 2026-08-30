@@ -24,14 +24,7 @@ from apps.live_control_server.services.graph_gold_review import (
 from apps.live_control_server.services.party_registry_surface import (
     build_party_registry_surface,
 )
-from apps.live_control_server.services.union_supergraph_projection_adapter import (
-    load_preview_union_store_from_graph_run_manifest,
-)
 from evals.graph_memory_layer.live_vs_gold_compare import parts_from_raw_graph
-from graph_memory.union_supergraph.load import (
-    DEFAULT_FIXTURE_PATH,
-    load_union_supergraph_store,
-)
 from src.contracts.npc_registry import load_npc_registry
 from src.graph_memory.party_context import resolve_campaign_corpus
 from src.live_play.recap_stage_paths import corpus_root
@@ -169,6 +162,17 @@ def _load_union_supergraph_store(
     live_run_manifest_path: str | None,
     repo: Path,
 ) -> Any | None:
+    """Legacy UnionSupergraph candidate source (unmounted under D.3A blocker)."""
+    try:
+        from apps.live_control_server.services.union_supergraph_projection_adapter import (
+            load_preview_union_store_from_graph_run_manifest,
+        )
+        from graph_memory.union_supergraph.load import (
+            DEFAULT_FIXTURE_PATH,
+            load_union_supergraph_store,
+        )
+    except ImportError:
+        return None
     if live_run_manifest_path:
         try:
             return load_preview_union_store_from_graph_run_manifest(Path(live_run_manifest_path))

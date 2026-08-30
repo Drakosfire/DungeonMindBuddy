@@ -11,7 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-import graph_memory.kernel as kernel
+def _kernel():
+    import graph_memory.kernel as kernel
+
+    return kernel
+
 from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
     WorldGraphProjectionRequest,
@@ -39,11 +43,10 @@ def _dungeonmind_authority_active() -> bool:
     no-ops in this mode.
     """
     from apps.live_control_server import config
-    from graph_memory.world_supergraph import storage
 
     return (
         config.world_graph_authority_mode()
-        == storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+        == config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
     )
 
 _DEFAULT_MAX_ENTRIES = 16
@@ -223,7 +226,7 @@ def register_projection_recipe(
 
 
 def _head_matches(*, root: Path, world_id: str, revision_id: str) -> bool:
-    head = kernel.open_world_graph_head(root, world_id)
+    head = _kernel().open_world_graph_head(root, world_id)
     return head.head_revision_id == revision_id
 
 
@@ -299,7 +302,7 @@ def warm_projection_recipes_for_ready_revision(
                 )
 
                 project_world_graph(warm_request, root=root)
-                observation = kernel.get_last_projection_observation()
+                observation = _kernel().get_last_projection_observation()
                 cache_status = (
                     observation.projection_cache_status if observation is not None else None
                 )

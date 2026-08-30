@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from graph_memory.kernel.contribution_merge import _support_map
-from graph_memory.kernel.contribution_models import ContributionIntegrityReport
+from apps.live_control_server.models.world_graph_contribution_models import ContributionIntegrityReport
 from graph_memory.kernel.contribution_rebuild import (
     _canonical_graph_fingerprint,
     rebuild_from_contributions,

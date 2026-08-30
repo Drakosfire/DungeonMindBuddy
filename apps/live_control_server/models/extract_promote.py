@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
-from graph_memory.kernel import (
+from apps.live_control_server.models.world_graph_contribution_models import (
     ContributionIdentityMention,
     GraphContributionAssertion,
 )

@@ -10,11 +10,11 @@ from typing import Any, Mapping
 from pydantic import ValidationError
 
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
-from graph_memory.kernel.contribution_models import (
+from apps.live_control_server.models.world_graph_contribution_models import (
     GraphContribution,
     GraphContributionAssertion,
 )
-from graph_memory.kernel.contributions import (
+from apps.live_control_server.models.world_graph_contributions import (
     compute_assertion_id,
     explicit_assertion_evidence_ref_ids,
     explicit_assertion_source_artifact_ids,

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 
 from apps.live_control_server.config import repo_root
 from apps.live_control_server.services.graph_ingest_run_registry import (
@@ -24,10 +25,6 @@ from apps.live_control_server.services.graph_preview_surface import (
     build_recap_graph_presentation,
     discover_graph_preview_runs,
     GraphPreviewSurfaceError,
-)
-from apps.live_control_server.services.union_supergraph_projection_adapter import (
-    build_recap_only_projection_payload,
-    build_plan_union_supergraph_projection_payload,
 )
 from apps.live_control_server.services.graph_gold_authoring_prepare import (
     GraphGoldAuthoringPrepareRequest,
@@ -417,57 +414,24 @@ def get_latest_graph_ingest_run(
 
 @router.get("/union-supergraph/projection")
 def get_union_supergraph_projection(
-    session_id: Annotated[str, Query()],
-    campaign_id: Annotated[str | None, Query()] = None,
-    use_latest_graph_ingest: Annotated[bool, Query()] = False,
-    allow_recap_only: Annotated[bool, Query()] = False,
-    store_path: Annotated[str | None, Query()] = None,
-    preview_source: Annotated[str | None, Query()] = None,
-    graph_run_manifest_path: Annotated[str | None, Query()] = None,
-    preview_union_store_path: Annotated[str | None, Query()] = None,
-    source_recap_path: Annotated[str | None, Query()] = None,
-    source_recap_sha256: Annotated[str | None, Query()] = None,
-) -> dict[str, Any]:
-    try:
-        if allow_recap_only:
-            if campaign_id is None:
-                raise ValueError("campaign_id is required when allow_recap_only=true")
-            return build_recap_only_projection_payload(
-                campaign_id=campaign_id,
-                session_id=session_id,
-            )
-        resolved_manifest_path = graph_run_manifest_path
-        if resolved_manifest_path is None and use_latest_graph_ingest:
-            if campaign_id is None:
-                raise ValueError(
-                    "campaign_id is required when use_latest_graph_ingest=true"
-                )
-            latest = resolve_latest_preview_union_graph_ingest_run(
-                repo_root(),
-                campaign_id=campaign_id,
-                session_id=session_id,
-                source_recap_path=source_recap_path,
-                source_recap_sha256=source_recap_sha256,
-            )
-            resolved_manifest_path = latest.manifest_path
-        return build_plan_union_supergraph_projection_payload(
-            session_id=session_id,
-            store_path=Path(store_path) if store_path else None,
-            preview_source=preview_source,
-            graph_run_manifest_path=(
-                Path(resolved_manifest_path) if resolved_manifest_path else None
-            ),
-            preview_union_store_path=(
-                Path(preview_union_store_path) if preview_union_store_path else None
-            ),
-        )
-    except GraphIngestRunRegistryError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
+    plan_id: Annotated[str | None, Query()] = None,
+    campaign_rel: Annotated[str | None, Query()] = None,
+    run_id: Annotated[str | None, Query()] = None,
+    audience: Annotated[str | None, Query()] = None,
+) -> JSONResponse:
+    _ = (plan_id, campaign_rel, run_id, audience)
+    return JSONResponse(
+        status_code=410,
+        content={
+            "detail": {
+                "code": "union_supergraph_preview_retired",
+                "message": (
+                    "UnionSupergraph store preview is retired. "
+                    "Retained graph-preview extraction/gold/manual/recap routes remain."
+                ),
+            }
+        },
+    )
 
 @router.post("/existing-object-resolver/candidates", response_model=GraphReviewExistingObjectResolverResponse)
 def post_existing_object_resolver_candidates(

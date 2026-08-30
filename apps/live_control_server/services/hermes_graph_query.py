@@ -36,7 +36,9 @@ from apps.live_control_server.services.hermes_session_store import (
     HermesSessionPointerError,
     HermesSessionPointerStore,
 )
-from graph_memory.hermes_graph_plugin import HERMES_GRAPH_READ_TOOL_NAMES
+from apps.live_control_server.services.hermes_graph_interaction_tools import (
+    HERMES_GRAPH_INTERACTION_TOOL_NAMES as HERMES_GRAPH_READ_TOOL_NAMES,
+)
 from graph_memory.interaction.answer_validator import (
     ABSTENTION_ANSWER as CLAIM_ABSTENTION_ANSWER,
     validate_structured_answer,

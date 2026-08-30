@@ -10,9 +10,6 @@ from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.integrations.dungeonmind_kernel.config import (
     dungeonmind_threat_shadow_enabled,
 )
-from apps.live_control_server.integrations.dungeonmind_kernel.threat_hydration_shadow import (
-    run_dungeonmind_threat_hydration_shadow,
-)
 from apps.live_control_server.models.threat_query_hydration import (
     ThreatQueryHydrationRequestV1,
 )
@@ -44,6 +41,10 @@ def post_threat_query_hydration(body: ThreatQueryHydrationRequestV1) -> JSONResp
 
     background: BackgroundTasks | None = None
     if dungeonmind_threat_shadow_enabled():
+        from apps.live_control_server.integrations.dungeonmind_kernel.threat_hydration_shadow import (
+            run_dungeonmind_threat_hydration_shadow,
+        )
+
         background = BackgroundTasks()
         # No pre-response deep-copy: BackgroundTasks retains references, and
         # neither request nor response is mutated after this point.

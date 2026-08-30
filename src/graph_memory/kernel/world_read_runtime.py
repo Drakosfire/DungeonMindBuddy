@@ -26,7 +26,7 @@ from typing import Any, Literal, Mapping
 from pydantic import ValidationError
 
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
-from graph_memory.kernel.contribution_models import GraphContribution
+from apps.live_control_server.models.world_graph_contribution_models import GraphContribution
 from graph_memory.kernel.world_graph import (
     WorldGraphNotFoundError,
     open_world_graph_head,

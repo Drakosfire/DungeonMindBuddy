@@ -13,13 +13,13 @@ from pathlib import Path
 from typing import Iterator
 
 from graph_memory.kernel.contribution_diagnostics import build_contribution_integrity_report
-from graph_memory.kernel.contribution_models import GraphContribution
+from apps.live_control_server.models.world_graph_contribution_models import GraphContribution
 from graph_memory.kernel.contribution_merge import (
     merge_contribution_to_revision,
     stamp_initialization_authority,
 )
 from graph_memory.kernel.contribution_rebuild import rebuild_from_contributions
-from graph_memory.kernel.contributions import (
+from apps.live_control_server.models.world_graph_contributions import (
     canonical_payload_sha256,
     compute_contribution_payload_sha256,
 )

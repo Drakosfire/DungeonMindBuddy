@@ -11,7 +11,7 @@ from graph_memory.contribution_bundles.models import (
     ContributionBundleManifest,
     LoadedContributionBundle,
 )
-from graph_memory.kernel.contribution_models import GraphContribution
+from apps.live_control_server.models.world_graph_contribution_models import GraphContribution
 from graph_memory.kernel.identity_models import IdentityDecisionRecord
 
 

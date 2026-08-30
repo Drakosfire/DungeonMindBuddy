@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from graph_memory.kernel.contribution_models import GraphContribution
+from apps.live_control_server.models.world_graph_contribution_models import GraphContribution
 from graph_memory.temporal_shadow import (
     TemporalShadowBuildError,
     build_temporal_shadow_preview,

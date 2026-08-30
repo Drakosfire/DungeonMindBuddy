@@ -65,7 +65,11 @@ from graph_memory.extract_promote_ops import (
     resolve_merged_contribution_from_package,
 )
 from graph_memory.extract_promote_proposal import PromoteProposalError
-from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
+
+
+class WorldGraphNotFoundError(Exception):
+    """World graph missing or unreadable (Buddy store path)."""
+
 
 # Narrow server-owned roots for non-run promote source evidence (confirm of
 # legacy/CLI seals, dedicated fixture roots). Product prepare never uses these
@@ -964,8 +968,7 @@ def prepare(
         registry_payload = loaded
 
     from apps.live_control_server import config as _config
-    from graph_memory.world_supergraph import storage as _wg_storage
-
+    
     prepare_kwargs = dict(
         candidate_graph=payload,
         source_uri=resolved.sealed_source_uri,
@@ -985,7 +988,7 @@ def prepare(
     try:
         if (
             _config.world_graph_authority_mode()
-            == _wg_storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+            == _config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
         ):
             from apps.live_control_server.integrations.dungeonmind import (
                 world_graph_writes,
@@ -1486,11 +1489,10 @@ def confirm(
         assert_sealed_source_uri_allowed(sealed_uri)
 
     from apps.live_control_server import config as _config
-    from graph_memory.world_supergraph import storage as _wg_storage
-
+    
     if (
         _config.world_graph_authority_mode()
-        == _wg_storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+        == _config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
     ):
         from apps.live_control_server.integrations.dungeonmind import (
             world_graph_writes,

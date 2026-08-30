@@ -30,13 +30,11 @@ from graph_memory.candidate_graph_to_contribution import (
     require_single_verified_source_artifact,
 )
 from graph_memory.candidate_semantic_promote_matrix import semantic_diagnostics
-from graph_memory.kernel.contribution_models import GraphContribution
-from graph_memory.kernel.contributions import (
+from apps.live_control_server.models.world_graph_contribution_models import GraphContribution
+from apps.live_control_server.models.world_graph_contributions import (
     compute_contribution_payload_sha256,
     create_graph_contribution,
 )
-from graph_memory.world_supergraph import paths as world_paths
-from graph_memory.world_supergraph.storage import try_open_world_graph_head
 from graph_memory.worldbuilding_write_plan import (
     WORLD_BUILDING_WRITE_PLAN_AUTHORED_BY,
     WORLD_BUILDING_WRITE_PLAN_SOURCE_KIND,
@@ -157,10 +155,14 @@ def admit_managed_world(repo: Path, world_id: str):
 
 def classify_world_graph_state(world_root: Path, world_id: str) -> FirstWorldGraphState:
     """Classify production graph storage for a managed world id."""
+    from graph_memory.world_supergraph import paths as world_paths
+
     world_dir = world_paths.world_dir(world_root, world_id)
     if not world_dir.exists():
         return "uninitialized"
     try:
+        from graph_memory.world_supergraph.storage import try_open_world_graph_head
+
         head = try_open_world_graph_head(world_root, world_id)
     except Exception:  # noqa: BLE001 — damaged head/storage is unreadable
         return "unreadable"

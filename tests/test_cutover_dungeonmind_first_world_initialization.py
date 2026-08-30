@@ -280,27 +280,26 @@ def test_initialization_id_is_deterministic() -> None:
     assert first == "dmb:first-world:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def test_factory_selects_native_only_for_production_root(
+def test_factory_is_dungeonmind_only_and_rejects_alternate_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from apps.live_control_server.integrations.buddy_files.world_graph_initialization_adapter import (
-        BuddyFilesWorldGraphInitializationAdapter,
-    )
+    from apps.live_control_server import config
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
-    from graph_memory.world_supergraph import storage
 
     prod = tmp_path / "prod"
     other = tmp_path / "other"
     prod.mkdir()
     other.mkdir()
-    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    monkeypatch.setenv(
+        config.WORLD_GRAPH_AUTHORITY_ENV, config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(prod))
     native = get_world_graph_initialization_authority(world_root=prod)
-    compat = get_world_graph_initialization_authority(world_root=other)
     assert isinstance(native, DungeonMindWorldGraphInitializationAdapter)
-    assert isinstance(compat, BuddyFilesWorldGraphInitializationAdapter)
+    with pytest.raises(config.WorldGraphAuthorityConfigurationError, match="alternate"):
+        get_world_graph_initialization_authority(world_root=other)
 
 
 def test_product_services_do_not_import_postgres_infrastructure() -> None:
@@ -511,13 +510,16 @@ def native_first_world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         conn.execute(TRUNCATE_SQL)
         conn.commit()
 
-    from graph_memory.world_supergraph import storage
+    from apps.live_control_server import config as wg_config
 
     repo = tmp_path / "repo"
     world_root = tmp_path / "world"
     repo.mkdir()
     world_root.mkdir()
-    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    monkeypatch.setenv(
+        wg_config.WORLD_GRAPH_AUTHORITY_ENV,
+        wg_config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND,
+    )
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", dsn)
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(world_root))
     monkeypatch.setenv(

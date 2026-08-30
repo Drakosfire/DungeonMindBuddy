@@ -24,7 +24,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
 )
 from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
-from graph_memory.kernel.world_retrieval import WorldGraphRetrievalError
+from graph_memory.retrieval.errors import WorldGraphRetrievalError
 from graph_memory.retrieval.models import (
     WorldGraphRetrievalDiagnostic,
     WorldGraphRetrievalSnapshot,

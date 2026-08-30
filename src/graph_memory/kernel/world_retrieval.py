@@ -20,7 +20,7 @@ from typing import Any, TypeVar
 from pydantic import BaseModel
 
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
-from graph_memory.kernel.contributions import (
+from apps.live_control_server.models.world_graph_contributions import (
     compute_contribution_source_payload_sha256,
     contribution_source_payload,
 )
@@ -54,6 +54,7 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionRequest,
     rank_search_node_matches,
 )
+from graph_memory.retrieval.errors import WorldGraphRetrievalError
 from graph_memory.retrieval.models import (
     RetrievalOperation,
     RetrievalOutcome,
@@ -128,21 +129,6 @@ _TRUST_CANNOT = [
 ]
 
 
-class WorldGraphRetrievalError(Exception):
-    """Stable retrieval failure with an API-safe code and diagnostics."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        code: str,
-        status_code: int,
-        diagnostics: list[WorldGraphRetrievalDiagnostic] | None = None,
-    ) -> None:
-        super().__init__(message)
-        self.code = code
-        self.status_code = status_code
-        self.diagnostics = list(diagnostics or [])
 
 
 @dataclass(frozen=True)

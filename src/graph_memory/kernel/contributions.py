@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from graph_memory.kernel.contribution_models import (
+from apps.live_control_server.models.world_graph_contribution_models import (
     ContributionIdentityMention,
     ContributionSourceKind,
     GraphContribution,

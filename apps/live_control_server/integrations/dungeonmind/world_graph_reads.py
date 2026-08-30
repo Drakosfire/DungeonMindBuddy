@@ -161,7 +161,7 @@ from graph_memory.retrieval.source_reader import (
     read_graph_data_json_pointer_anchor,
     read_repo_heading_anchor,
 )
-from graph_memory.kernel.world_retrieval import WorldGraphRetrievalError
+from graph_memory.retrieval.errors import WorldGraphRetrievalError
 
 logger = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from apps.live_control_server.services.graph_authoring_overlay_projection import (
+from apps.live_control_server.services.graph_authoring_ids import (
     authored_object_node_id,
 )
 from apps.live_control_server.services.graph_object_authoring_prepare import (

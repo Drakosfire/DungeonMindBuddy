@@ -35,7 +35,7 @@ from apps.live_control_server.models.graph_authoring_overlay import (
 from apps.live_control_server.services.graph_authoring_overlay_store import (
     GraphAuthoringOverlayStore,
 )
-from apps.live_control_server.services.graph_authoring_overlay_projection import (
+from apps.live_control_server.services.graph_authoring_ids import (
     authored_object_node_id,
 )
 from apps.live_control_server.services.graph_object_authoring_merge_guard import (
@@ -1020,7 +1020,10 @@ def translate_assertions_to_contribution(
     source_revision_id: str,
     assertions: list[AuthoredGraphAssertion],
 ):
-    from graph_memory.kernel.contributions import build_assertion, create_graph_contribution
+    from apps.live_control_server.models.world_graph_contributions import (
+        build_assertion,
+        create_graph_contribution,
+    )
 
     evidence_ref_ids = [graph_review_source_evidence_ref_id(source_artifact_id)]
     node_id_by_local_proposal_id = {

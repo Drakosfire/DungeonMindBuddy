@@ -40,7 +40,7 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionRelationshipView,
     WorldGraphProjectionRequest,
 )
-from graph_memory.union_supergraph.statblock_binding import (
+from apps.live_control_server.models.threat_statblock_binding import (
     PROVIDER,
     ThreatStatblockBindingV1,
     compute_binding_id,

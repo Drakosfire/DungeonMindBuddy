@@ -222,7 +222,7 @@ def _relationship_predicate_matches(published: str, expected: str) -> bool:
     expected_tail = expected.rsplit(":", 1)[-1]
     if published_tail == expected or published_tail == expected_tail:
         return True
-    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
         resolve_buddy_predicate_mapping_v4,
     )
 

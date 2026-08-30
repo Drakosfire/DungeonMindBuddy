@@ -50,7 +50,9 @@ from apps.live_control_server.services.promotable_ingest_run import (
 from apps.live_control_server.services.source_artifact_registry import (
     get_source_artifact,
 )
-from graph_memory.kernel.contributions import compute_contribution_payload_sha256
+from apps.live_control_server.models.world_graph_contributions import (
+    compute_contribution_payload_sha256,
+)
 from graph_memory.worldbuilding_write_plan import (
     WorldbuildingDispositionInput,
     WorldbuildingWritePlanError,

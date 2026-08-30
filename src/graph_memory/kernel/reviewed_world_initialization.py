@@ -14,8 +14,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from graph_memory.kernel.contribution_models import GraphContribution
-from graph_memory.kernel.contributions import (
+from apps.live_control_server.models.world_graph_contribution_models import GraphContribution
+from apps.live_control_server.models.world_graph_contributions import (
     canonical_payload_sha256,
     compute_contribution_payload_sha256,
 )

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
-from graph_memory.kernel.contributions import semantic_assertion_value
+from apps.live_control_server.models.world_graph_contributions import semantic_assertion_value
 from graph_memory.kernel.identity_models import (
     IdentityAliasMapRewrite,
     IdentityDecisionKind,

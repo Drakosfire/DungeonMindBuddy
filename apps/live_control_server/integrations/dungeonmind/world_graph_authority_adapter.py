@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from copy import copy as shallow_copy
 from typing import Any
 
-from graph_memory.world_graph_mutation_context import wire_kind
+from apps.live_control_server.models.world_graph_mutation_context import wire_kind
 
 from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
     WorldGraphWriteError,

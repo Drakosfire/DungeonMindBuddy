@@ -12,6 +12,8 @@ No graph, ThreatDraft, accepted-mechanics, or predecessor mutation occurs here.
 """
 from __future__ import annotations
 
+import types
+
 import fcntl
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -20,9 +22,6 @@ from pathlib import Path
 from typing import Any, Iterator, Literal
 
 from apps.live_control_server.config import world_graph_root
-from apps.live_control_server.integrations.buddy_files.world_graph_authority_adapter import (
-    kernel,  # noqa: F401  # tests patch svc.kernel
-)
 from apps.live_control_server.models.world_graph_contribution_values import (
     GraphContributionAssertion,
     build_assertion,
@@ -85,13 +84,13 @@ from apps.live_control_server.services.threat_publication_operations import (
     PublicationOperationOutcome,
     refresh_publication_operation,
 )
-from graph_memory.world_graph_mutation_context import (
+from apps.live_control_server.models.world_graph_mutation_context import (
     MutationObject,
     WorldGraphMutationContext,
 )
 from graph_memory.extract_promote_proposal import seal_promote_proposal, verify_promote_proposal
 from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
-from graph_memory.union_supergraph.statblock_binding import (
+from apps.live_control_server.models.threat_statblock_binding import (
     CONTRACT,
     CONTRACT_VERSION,
     PROVIDER,
@@ -109,6 +108,22 @@ LEDGER_NAME = "ledger.json"
 LOCK_NAME = ".proposal.lock"
 EXTRACTION_PROFILE = "dmb_threat_publication_v1"
 IDENTITY_DECISION_SOURCE_KIND = "identity_decision"
+
+class _KernelProxy:
+    """Lazy Buddy kernel access for unmounted/test inject paths only."""
+
+    _mod: types.ModuleType | None = None
+
+    def __getattr__(self, name: str):
+        if type(self)._mod is None:
+            import graph_memory.kernel as kernel_mod
+
+            type(self)._mod = kernel_mod
+        return getattr(type(self)._mod, name)
+
+
+kernel = _KernelProxy()
+
 
 
 @dataclass(frozen=True)

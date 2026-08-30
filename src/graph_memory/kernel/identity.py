@@ -42,7 +42,7 @@ def classify_identity_outcome(
     File-mode wrapper: adapt the store into ``WorldGraphMutationContext`` and
     run the single storage-neutral classifier.
     """
-    from graph_memory.world_graph_mutation_context import (
+    from apps.live_control_server.models.world_graph_mutation_context import (
         mutation_context_from_store,
         resolve_identity_against_context,
     )

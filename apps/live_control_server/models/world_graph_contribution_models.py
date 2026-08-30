@@ -1,0 +1,182 @@
+"""Buddy-owned GraphContribution models (CUTOVER D.3A)."""
+
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from graph_memory.evidence.assertion_support import (
+    ContributionAssertionKind,
+)
+
+ContributionStatus = Literal[
+    "active",
+    "superseded",
+    "retracted",
+    "failed",
+]
+
+ContributionAssertionStatus = Literal[
+    "candidate",
+    "accepted",
+    "rejected",
+    "ambiguous_identity",
+    "blocked_collision",
+    "superseded",
+    "retracted",
+]
+
+ContributionSourceKind = Literal[
+    "source_extraction",
+    "standing_context",
+    "graph_review_authored_assertion",
+    "identity_decision",
+    "manual_import",
+]
+
+class _ContributionModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class ContributionIdentityMention(_ContributionModel):
+    """Unresolved / ambiguous / blocked identity mention retained at contribution level."""
+
+    mention_id: str
+    label: str
+    object_kind: str
+    aliases: list[str] = Field(default_factory=list)
+    evidence_ref_ids: list[str] = Field(default_factory=list)
+    identity_resolution_outcome: str
+    diagnostics: list[str] = Field(default_factory=list)
+    candidate_node_ids: list[str] = Field(default_factory=list)
+
+
+def _reject_blank_campaign_scope(value: str | None) -> str | None:
+    """Only explicit JSON null means world-universal; blank strings fail closed."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError("campaign_scope must be a string or null")
+    if not value.strip():
+        raise ValueError(
+            "campaign_scope must be null (world-universal) or a non-blank campaign id"
+        )
+    return value
+
+
+class GraphContributionAssertion(_ContributionModel):
+    assertion_id: str
+    assertion_kind: ContributionAssertionKind
+    subject_node_id: str | None = None
+    target_node_id: str | None = None
+    predicate: str | None = None
+    label: str | None = None
+    value: dict[str, Any] = Field(default_factory=dict)
+    evidence_ref_ids: list[str] = Field(default_factory=list)
+    source_artifact_id: str | None = None
+    source_revision_id: str | None = None
+    campaign_scope: str | None = None
+    temporal_scope: dict[str, Any] | None = None
+    visibility: str | None = None
+    epistemic_kind: str | None = None
+    acceptance_state: ContributionAssertionStatus
+    identity_resolution_outcome: str | None = None
+    contribution_id: str
+
+    @field_validator("campaign_scope")
+    @classmethod
+    def _campaign_scope_not_blank(cls, value: str | None) -> str | None:
+        return _reject_blank_campaign_scope(value)
+
+
+class GraphContributionAssertionCorrection(_ContributionModel):
+    """Durable link from one exact target assertion support to a correction.
+
+    ``contradicts_and_replaces`` requires a nonblank ``replacement_assertion_id``.
+    ``contradicts`` requires explicit ``replacement_assertion_id=null`` and does
+    not author replacement graph truth. The field remains required in the
+    serialized shape so historical replacement corrections stay compatible.
+    """
+
+    correction_kind: Literal["contradicts_and_replaces", "contradicts"]
+    target_contribution_id: str
+    target_assertion_id: str
+    replacement_assertion_id: str | None
+
+    @model_validator(mode="after")
+    def _replacement_id_matches_kind(self) -> GraphContributionAssertionCorrection:
+        if self.correction_kind == "contradicts_and_replaces":
+            if (
+                self.replacement_assertion_id is None
+                or not str(self.replacement_assertion_id).strip()
+            ):
+                raise ValueError(
+                    "contradicts_and_replaces requires a nonblank "
+                    "replacement_assertion_id"
+                )
+        elif self.correction_kind == "contradicts":
+            if self.replacement_assertion_id is not None:
+                raise ValueError(
+                    "contradicts requires replacement_assertion_id to be null"
+                )
+        return self
+
+
+class GraphContribution(_ContributionModel):
+    contribution_id: str
+    world_id: str
+    source_kind: ContributionSourceKind
+    source_artifact_id: str | None = None
+    source_revision_id: str | None = None
+    extraction_profile: str | None = None
+    produced_at: str
+    campaign_scope: str | None = None
+    status: ContributionStatus = "active"
+    supersedes_contribution_id: str | None = None
+    candidate_assertions: list[GraphContributionAssertion] = Field(default_factory=list)
+    accepted_assertions: list[GraphContributionAssertion] = Field(default_factory=list)
+    rejected_assertions: list[GraphContributionAssertion] = Field(default_factory=list)
+    unresolved_mentions: list[ContributionIdentityMention] = Field(default_factory=list)
+    identity_decision_ids: list[str] = Field(default_factory=list)
+    assertion_corrections: list[GraphContributionAssertionCorrection] = Field(
+        default_factory=list
+    )
+    authored_by: str | None = None
+    diagnostics: list[str] = Field(default_factory=list)
+
+    @field_validator("campaign_scope")
+    @classmethod
+    def _campaign_scope_not_blank(cls, value: str | None) -> str | None:
+        return _reject_blank_campaign_scope(value)
+
+
+class ContributionMergeResult(_ContributionModel):
+    world_id: str
+    parent_revision_id: str | None = None
+    revision_id: str | None = None
+    contribution_ids: list[str] = Field(default_factory=list)
+    accepted_assertion_ids: list[str] = Field(default_factory=list)
+    rejected_assertion_ids: list[str] = Field(default_factory=list)
+    retracted_assertion_ids: list[str] = Field(default_factory=list)
+    contradicted_assertion_ids: list[str] = Field(default_factory=list)
+    superseded_contribution_ids: list[str] = Field(default_factory=list)
+    diagnostics: list[str] = Field(default_factory=list)
+    failure_code: str | None = None
+    failure_message: str | None = None
+    published: bool = False
+
+
+class ContributionIntegrityReport(_ContributionModel):
+    world_id: str
+    head_revision_id: str | None = None
+    contribution_count: int = 0
+    active_contribution_count: int = 0
+    superseded_contribution_count: int = 0
+    retracted_contribution_count: int = 0
+    failed_contribution_ids: list[str] = Field(default_factory=list)
+    unsupported_assertion_ids: list[str] = Field(default_factory=list)
+    assertion_introduced_by: dict[str, str] = Field(default_factory=dict)
+    assertion_active_support: dict[str, list[str]] = Field(default_factory=dict)
+    rebuild_equivalent_to_head: bool | None = None
+    diagnostics: list[str] = Field(default_factory=list)
