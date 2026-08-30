@@ -22,7 +22,7 @@ This is the cumulative CODE → REVIEW handback for **Review Cycle 3**. No check
 | Cycle 1 review | REQUEST-CHANGES-equivalent **#5059665039** |
 | Formal Cycle 2 reviewed head (previous reviewed head) | `8390f63dce142a51f54d265a54d2e69ef44f374a` |
 | Cycle 2 review | REQUEST-CHANGES-equivalent **#5059754135** |
-| Exact final head SHA (Review Cycle 3) | `TBD-PLACEHOLDER` |
+| Exact final head SHA (Review Cycle 3) | `064db76a7be5af73a655480506eab1baf6161a24` |
 
 ### 2. Exact dispatch base and later rebase
 
