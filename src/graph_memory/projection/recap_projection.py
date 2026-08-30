@@ -130,48 +130,12 @@ def _resolve_evidence_source_excerpt(
     return _ResolvedSourceExcerpt(None)
 
 
-class RecapProjectionSourceSpan(BaseModel):
-    model_config = ConfigDict(extra="allow", strict=True)
-
-    span_id: str
-    kind: str
-    ordinal: int | None = None
-    text_excerpt: str | None = None
-    line_start: int | None = None
-    line_end: int | None = None
-
-
-class RecapProjectionMention(BaseModel):
-    """A mention in recap text that resolves to a global graph node."""
-
-    model_config = ConfigDict(extra="allow", strict=True)
-
-    mention_id: str
-    node_id: str
-    label: str
-    start_offset: int | None = None
-    end_offset: int | None = None
-    evidence_ref_ids: list[str] = Field(default_factory=list)
-
-
-class RecapGraphProjection(BaseModel):
-    """Backend-neutral projection payload for a graph-backed recap view."""
-
-    model_config = ConfigDict(extra="allow", strict=True)
-
-    campaign_id: str
-    session_id: str
-    graph_id: str | None = None
-    markdown: str | None = None
-    focus: GraphFocusOverlay
-    node_views: dict[str, GraphProjectionNodeView]
-    mentions: list[RecapProjectionMention] = Field(default_factory=list)
-    source_spans: list[RecapProjectionSourceSpan] = Field(default_factory=list)
-    union_identity_diagnostics: list[UnionProjectionIdentityDiagnostic] = Field(
-        default_factory=list
-    )
-    union_identity_applied_assertion_ids: list[str] = Field(default_factory=list)
-
+from graph_memory.projection.recap_projection_contracts import (
+    RecapGraphProjection,
+    RecapProjectionMention,
+    RecapProjectionSourceSpan,
+    UnionProjectionIdentityDiagnostic,
+)
 
 def build_focus_overlay(
     store: UnionSupergraphStore,

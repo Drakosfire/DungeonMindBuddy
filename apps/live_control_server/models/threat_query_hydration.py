@@ -16,7 +16,7 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionNodeView,
     WorldGraphProjectionRelationshipView,
 )
-from graph_memory.union_supergraph.statblock_binding import ThreatStatblockBindingV1
+from apps.live_control_server.models.threat_statblock_binding import ThreatStatblockBindingV1
 
 QUERY_REQUEST_SCHEMA = "dmb_threat_query_hydration_request_v1"
 QUERY_RESPONSE_SCHEMA = "dmb_threat_query_hydration_response_v1"

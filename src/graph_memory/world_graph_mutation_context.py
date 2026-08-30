@@ -22,12 +22,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from graph_memory.kernel.identity_models import (
+from apps.live_control_server.models.world_graph_identity_models import (
     IdentityCandidate,
     IdentityDecisionRecord,
     IdentityResolution,
 )
-from graph_memory.kernel.identity_policy import (
+from apps.live_control_server.models.world_graph_identity_policy import (
     DEFAULT_IDENTITY_RESOLUTION_POLICY,
     IdentityResolutionPolicy,
 )

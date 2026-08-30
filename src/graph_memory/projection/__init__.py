@@ -1,3 +1,12 @@
+"""World Graph projection contracts.
+
+Recap/UnionSupergraph helpers live in ``graph_memory.projection.recap_projection``
+and are not imported here so mounted product can load request/node contracts
+without the retired UnionSupergraph package (CUTOVER D.3A).
+"""
+
+from __future__ import annotations
+
 from graph_memory.projection.focus_overlay import (
     GraphFocusOverlay,
     GraphProjectionEvidenceBadge,
@@ -24,16 +33,14 @@ from graph_memory.projection.world_projection import (
     WorldGraphRelationshipDirection,
     normalize_world_graph_relationship_direction,
 )
-from graph_memory.projection.recap_projection import (
-    RecapGraphProjection,
-    RecapProjectionMention,
-    build_focus_overlay,
-    build_node_view,
-    build_recap_graph_projection,
-)
 from graph_memory.projection.world_recap_projection import (
     WorldGraphRecapProjection,
     project_world_markdown_mentions,
+)
+from graph_memory.projection.recap_projection_contracts import (
+    RecapGraphProjection,
+    RecapProjectionMention,
+    RecapProjectionSourceSpan,
 )
 
 __all__ = [
@@ -47,13 +54,11 @@ __all__ = [
     "MarkdownMention",
     "MarkdownMentionDiagnostic",
     "MentionBinding",
+    "WorldGraphRecapProjection",
     "RecapGraphProjection",
     "RecapProjectionMention",
-    "WorldGraphRecapProjection",
+    "RecapProjectionSourceSpan",
     "WorldGraphRelationshipDirection",
-    "build_focus_overlay",
-    "build_node_view",
-    "build_recap_graph_projection",
     "normalize_world_graph_relationship_direction",
     "project_markdown_mentions",
     "project_world_markdown_mentions",

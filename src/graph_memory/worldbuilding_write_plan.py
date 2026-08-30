@@ -35,13 +35,13 @@ from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
 )
-from graph_memory.kernel.contribution_models import (
+from apps.live_control_server.models.world_graph_contribution_models import (
     ContributionIdentityMention,
     GraphContribution,
     GraphContributionAssertion,
 )
-from graph_memory.kernel.contributions import build_assertion, create_graph_contribution
-from graph_memory.world_graph_mutation_context import (
+from apps.live_control_server.models.world_graph_contributions import build_assertion, create_graph_contribution
+from apps.live_control_server.models.world_graph_mutation_context import (
     WORLDBUILDING_IDENTITY_SNAPSHOT_SCHEMA,
     MutationObject,
     WorldGraphMutationContext,

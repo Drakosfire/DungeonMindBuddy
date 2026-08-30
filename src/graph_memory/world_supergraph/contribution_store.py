@@ -15,7 +15,7 @@ from typing import Any, Iterator
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from graph_memory.kernel.contribution_models import GraphContribution
+from apps.live_control_server.models.world_graph_contribution_models import GraphContribution
 from graph_memory.world_supergraph import paths as world_paths
 
 

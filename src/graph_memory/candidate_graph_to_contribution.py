@@ -26,8 +26,14 @@ from graph_memory.candidate_semantic_promote_matrix import (
     map_candidate_semantics_to_kernel,
     semantic_diagnostics,
 )
-from graph_memory.kernel.contributions import build_assertion, create_graph_contribution
-from graph_memory.kernel.contribution_models import GraphContribution, GraphContributionAssertion
+from apps.live_control_server.models.world_graph_contributions import (
+    build_assertion,
+    create_graph_contribution,
+)
+from apps.live_control_server.models.world_graph_contribution_models import (
+    GraphContribution,
+    GraphContributionAssertion,
+)
 from graph_memory.source_artifact_domains import CAMPAIGN_STABLE_SOURCE_DOMAINS
 
 # Re-export for back-compat with callers that imported from this module.

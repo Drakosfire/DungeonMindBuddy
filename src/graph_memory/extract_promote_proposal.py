@@ -13,12 +13,12 @@ import json
 import uuid
 from typing import Any, Mapping, Sequence
 
-from graph_memory.kernel.contribution_models import (
+from apps.live_control_server.models.world_graph_contribution_models import (
     ContributionIdentityMention,
     GraphContribution,
     GraphContributionAssertion,
 )
-from graph_memory.kernel.contributions import canonical_payload_sha256
+from apps.live_control_server.models.world_graph_contributions import canonical_payload_sha256
 
 PROMOTE_PROPOSAL_SCHEMA = "dmb_extract_promote_proposal_v1"
 PROMOTE_PROPOSAL_VERSION = 3

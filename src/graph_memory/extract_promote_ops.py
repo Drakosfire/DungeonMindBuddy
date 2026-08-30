@@ -11,7 +11,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-import graph_memory.kernel as kernel
+def _kernel():
+    import graph_memory.kernel as kernel
+
+    return kernel
+
 from graph_memory.candidate_graph_to_contribution import (
     CandidateGraphMappingError,
     load_typed_candidate_graph,
@@ -22,7 +26,7 @@ from graph_memory.extract_identity_gate import (
     build_accepted_contribution_from_multi_slice_proposals,
     gate_candidate_graph_against_head,
 )
-from graph_memory.world_graph_mutation_context import (
+from apps.live_control_server.models.world_graph_mutation_context import (
     WorldGraphMutationContext,
     mutation_context_from_world_root,
 )
@@ -41,7 +45,9 @@ from graph_memory.standing_context_partition import (
 from graph_memory.extract_promote_review_projection import (
     project_promote_review_as_dicts,
 )
-from graph_memory.kernel.contributions import create_graph_contribution
+from apps.live_control_server.models.world_graph_contributions import (
+    create_graph_contribution,
+)
 
 DEFAULT_WORLD_ID = "eldyrwild"
 DEFAULT_LIVE_ROOT_NAME = "out"
@@ -200,7 +206,7 @@ def get_extract_promote_status(
     root = world_root.resolve()
     world = (world_id or DEFAULT_WORLD_ID).strip() or DEFAULT_WORLD_ID
     try:
-        head, _rev, _store = kernel.open_current_world_graph(root, world)
+        head, _rev, _store = _kernel().open_current_world_graph(root, world)
     except FileNotFoundError as exc:
         return ExtractPromoteStatusResult(
             world_id=world,
@@ -604,7 +610,7 @@ def confirm_extract_promote(
         (package.get("effect") or {}).get("world_id") or DEFAULT_WORLD_ID
     )
     try:
-        head, _rev, _store = kernel.open_current_world_graph(root, world_id_hint)
+        head, _rev, _store = _kernel().open_current_world_graph(root, world_id_hint)
     except Exception as exc:  # noqa: BLE001
         raise ExtractPromoteWorldError(
             f"world graph not initialized or unreadable: {exc}"
@@ -749,7 +755,7 @@ def confirm_extract_promote(
     verification_head_revision_id: str | None = None
 
     try:
-        rebuild = kernel.rebuild_from_contributions(
+        rebuild = _kernel().rebuild_from_contributions(
             root,
             world_id=gate.world_id,
             publish=False,
@@ -777,7 +783,7 @@ def confirm_extract_promote(
             WorldGraphProjectionRequest,
         )
 
-        projection = kernel.project_world_graph(
+        projection = _kernel().project_world_graph(
             root,
             WorldGraphProjectionRequest(
                 schema=PROJECTION_REQUEST_SCHEMA,

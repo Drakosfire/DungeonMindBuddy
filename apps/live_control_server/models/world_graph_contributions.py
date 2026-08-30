@@ -1,4 +1,4 @@
-"""GraphContribution factory and deterministic ID helpers (PR005)."""
+"""Buddy-owned GraphContribution factories and digests (CUTOVER D.3A)."""
 
 from __future__ import annotations
 

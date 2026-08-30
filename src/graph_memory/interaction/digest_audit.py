@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from graph_memory.interaction.schema_constants import DIGEST_AUDIT_SCHEMA
-from graph_memory.kernel.contributions import compute_contribution_source_payload_sha256
+from apps.live_control_server.models.world_graph_contributions import compute_contribution_source_payload_sha256
 from graph_memory.world_supergraph.contribution_store import (
     load_contribution_index,
     load_contribution_record,

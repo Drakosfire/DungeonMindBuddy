@@ -8,13 +8,13 @@ from typing import Any, Literal, Mapping
 
 from graph_memory.source_artifact_domains import CAMPAIGN_STABLE_SOURCE_DOMAINS
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
-from graph_memory.kernel.contribution_models import (
+from apps.live_control_server.models.world_graph_contribution_models import (
     ContributionMergeResult,
     GraphContribution,
     GraphContributionAssertion,
     GraphContributionAssertionCorrection,
 )
-from graph_memory.kernel.contributions import (
+from apps.live_control_server.models.world_graph_contributions import (
     _canonicalize_graph_contribution_assertions,
     compute_contribution_source_payload_sha256,
     create_graph_contribution,

@@ -10,11 +10,11 @@ from graph_memory.contribution_bundles.models import (
     LoadedContributionBundle,
 )
 from graph_memory.evidence.source_domain import KNOWN_SOURCE_DOMAINS
-from graph_memory.kernel.contribution_models import (
+from apps.live_control_server.models.world_graph_contribution_models import (
     GraphContribution,
     GraphContributionAssertion,
 )
-from graph_memory.kernel.contributions import (
+from apps.live_control_server.models.world_graph_contributions import (
     compute_assertion_id,
     compute_contribution_id,
 )

@@ -21,7 +21,7 @@ from graph_memory.kernel.contribution_merge import (
     retract_graph_contribution,
     supersede_graph_contribution,
 )
-from graph_memory.kernel.contribution_models import (
+from apps.live_control_server.models.world_graph_contribution_models import (
     ContributionAssertionStatus,
     ContributionIdentityMention,
     ContributionIntegrityReport,
@@ -33,7 +33,7 @@ from graph_memory.kernel.contribution_models import (
     GraphContributionAssertionCorrection,
 )
 from graph_memory.kernel.contribution_rebuild import rebuild_from_contributions
-from graph_memory.kernel.contributions import (
+from apps.live_control_server.models.world_graph_contributions import (
     build_assertion,
     compute_assertion_id,
     compute_contribution_id,

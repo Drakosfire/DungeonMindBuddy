@@ -19,11 +19,11 @@ from src.llm.api_client import DungeonMindApiClient
 from graph_memory.extraction.category_candidate_graph_extractor import (
     resolve_category_graph_model,
 )
-from graph_memory.kernel.contribution_models import (
+from apps.live_control_server.models.world_graph_contribution_models import (
     GraphContribution,
     GraphContributionAssertion,
 )
-from graph_memory.kernel.contributions import (
+from apps.live_control_server.models.world_graph_contributions import (
     compute_assertion_id,
     compute_contribution_source_payload_sha256,
     explicit_assertion_evidence_ref_ids,

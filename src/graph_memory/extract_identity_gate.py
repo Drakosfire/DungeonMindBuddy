@@ -28,14 +28,16 @@ from graph_memory.extract_promote_proposal import (
     contribution_meta_from_contribution,
     seal_promote_proposal,
 )
-from graph_memory.kernel import (
+from apps.live_control_server.models.world_graph_contribution_models import (
     ContributionIdentityMention,
     GraphContribution,
     GraphContributionAssertion,
-    IdentityCandidate,
+)
+from apps.live_control_server.models.world_graph_contributions import (
     create_graph_contribution,
 )
-from graph_memory.world_graph_mutation_context import (
+from apps.live_control_server.models.world_graph_identity_models import IdentityCandidate
+from apps.live_control_server.models.world_graph_mutation_context import (
     WorldGraphMutationContext,
     endpoint_available,
     mutation_context_from_world_root,

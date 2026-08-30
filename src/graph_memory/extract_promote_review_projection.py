@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from graph_memory.extract_identity_gate import IdentityGateResult
 from graph_memory.extract_promote_proposal import SLICE_SELECTOR_DELIMITER
-from graph_memory.kernel.contribution_models import (
+from apps.live_control_server.models.world_graph_contribution_models import (
     ContributionIdentityMention,
     GraphContributionAssertion,
 )
