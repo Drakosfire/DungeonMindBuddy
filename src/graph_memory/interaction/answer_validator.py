@@ -9,17 +9,13 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from graph_memory.interaction.claims import GraphClaim, TurnOutcomeState
+from graph_memory.interaction.latest_recap import read_admitted_recap_excerpt
 from graph_memory.interaction.references import (
     GraphReference,
     InferenceReference,
     SourceCitation,
 )
 from graph_memory.interaction.schema_constants import STRUCTURED_ANSWER_DRAFT_SCHEMA
-
-def __read_admitted_recap_excerpt(*args, **kwargs):
-    from graph_memory.interaction.latest_recap import read_admitted_recap_excerpt
-    return _read_admitted_recap_excerpt(*args, **kwargs)
-
 from graph_memory.interaction.session import GraphRetrievalSession
 
 StatementKind = Literal["graph_fact", "source_detail", "inference", "suggestion", "gap"]
@@ -200,7 +196,7 @@ def _s1_support_fields(
 
     excerpt = context.get("admitted_recap_excerpt")
     if not isinstance(excerpt, str) or not excerpt.strip():
-        excerpt = _read_admitted_recap_excerpt(root=corpus_root, source_recap_path=source_path)
+        excerpt = read_admitted_recap_excerpt(root=corpus_root, source_recap_path=source_path)
     if isinstance(excerpt, str) and excerpt.strip():
         return (
             lag,
