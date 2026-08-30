@@ -27,14 +27,17 @@ pr_body_template: |
 # HANDOFF — SurfaceContext Contract v1, Plan-characterized (A6)
 
 **Created:** 2026-08-29  
-**Status:** **READY FOR DISPATCH after exact-current-main / active-lease recheck**  
+**Updated:** 2026-08-30 — implementation handed back for review  
+**Status:** IMPLEMENTATION HANDED BACK FOR REVIEW — evidence in §23  
 **Canonical handoff:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-surface-context-v1.md`  
 **Companion decision:** `Docs/Design/DECISION-agent-context-compilation.md`  
 **Surface authority:** `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`  
 **Playable/runtime authority:** `Docs/Design/ARCHITECTURE-playable-material-and-runtime.md`  
 **Design re-anchor:** `2ed2c43cb5914764bf492eb7d0b5372e6ef486da`  
-**Workstream / flow:** `AGENT-INTERACTION / A6`  
+**Dispatch base:** `da4a2c9a3bce80f7a271252e3a5ed105d5ae1dbb`  
 **Implementation branch:** `agent/surface-context-v1`  
+**Worktree:** `/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy-surface-context-v1`  
+**Workstream / flow:** `AGENT-INTERACTION / A6`  
 **PR title:** `AGENT-INTERACTION: establish SurfaceContext v1`  
 **Predecessor:** A5 — ContextAssembler v1 / PR #666  
 **Accepted predecessor head:** `4917abd90fc79d65d84057b27d26309f681090b6`  
@@ -1442,3 +1445,77 @@ A reviewer should be able to answer **yes** to all of these:
 ```
 
 If any answer is no, the slice is not merge-ready.
+
+---
+
+# 23. CODE handback evidence
+
+## 23.1 Dispatch / recheck
+
+```text
+dispatch base / origin/main at dispatch = da4a2c9a3bce80f7a271252e3a5ed105d5ae1dbb
+open PRs at dispatch = none
+open PRs at handback = (filled after PR open)
+branch = agent/surface-context-v1
+worktree = /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy-surface-context-v1
+```
+
+## 23.2 Mission preserved
+
+Lease-guarded Plan publication → identity-only wire → APP-STATE resolve → ContextAssembler → AgentRuntime → bounded CURRENT WORK prose. Explicit user question remains the World retrieval seed. Failures omit SurfaceContext enrichment only.
+
+## 23.3 Wire + resolution
+
+```text
+dmb_agent_surface_context_request_v1
+  schema, surface_id, campaign_id?, document_id?, session_number?, pointers[]
+  extra=forbid (no label / ambientSummary / title)
+
+statuses: absent | resolved | surface_only | rejected_scope | rejected_surface | unavailable
+APP-STATE: get_workspace_document(root, document_id) — kind=plan, status=active, campaign match
+Plan pointers: non-empty → rejected_surface (not silently ignored)
+local-plan:* client IDs → document_id null on wire builder
+```
+
+## 23.4 Runtime + model
+
+```text
+AgentContextPacket.surface_context: AgentSurfaceContext | None
+AgentSurfaceContext(surface_id, current_work?: AgentCurrentWorkContext)
+title model-visible ≤240; full block ≤512; JSON-escaped titles
+Hermes: surface_context_block on host request + ephemeral system prompt
+PydanticAI: same render_agent_surface_context(...) appended to instructions
+A5 dmb_agent_context_summary_v1 (14 keys) unchanged
+new span surface_context_resolution + dmb_agent_surface_context_summary_v1 (8 keys)
+```
+
+## 23.5 Verification totals
+
+```text
+§16.1 server owning: 267 passed
+§16.2 A5/A4 floor: 27 passed
+frontend focused Vitest: 82 passed (3 files)
+ruff leased Python paths: All checks passed!
+lockfile/dependency: unchanged (npm ci local-only for Vitest; node_modules gitignored)
+```
+
+## 23.6 A5 predecessor sync
+
+```text
+Docs/Plans/HANDOFF-AGENT-INTERACTION-context-assembler-v1.md
+  status COMPLETE / MERGED
+  PR #666 / accepted 4917abd… / merge 44f4e04… / 2 cycles
+  Cycle 1 5059919962 CHANGES REQUESTED-equivalent
+  Cycle 2 5059964443 PASS-equivalent
+  active successor A6
+```
+
+## 23.7 Stop conditions / successors still false
+
+```text
+stop conditions encountered: none
+Play current-moment SurfaceContext: not implemented
+Plan body / selection / memory / ranking / token budget: not implemented
+A6 merge SHA / final review-cycle count: not invented
+```
+
