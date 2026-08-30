@@ -1205,7 +1205,11 @@ def test_hermes_graph_host_path_ignores_legacy_lookup(
     assert body["agent_trace"]["hermes_session_id"] == "obs-only"
     assert body["agent_trace"]["usage"]["available"] is False
     assert body["agent_trace"]["steps"] == []
-    assert body["agent_trace"]["context_summary"] == {}
+    # A5: product path populates content-free dmb_agent_context_summary_v1.
+    assert body["agent_trace"]["context_summary"]["context_schema"] == (
+        "dmb_agent_context_summary_v1"
+    )
+    assert "world_id" in body["agent_trace"]["context_summary"]
     assert body["agent_trace"]["artifact_refs"] == []
     assert body["citations"] == [
         {

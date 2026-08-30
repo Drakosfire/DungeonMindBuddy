@@ -950,11 +950,60 @@ def test_agent_trace_preserves_plan_shell_fields(tmp_path: Path) -> None:
     assert trace["cost"]["status"] == "unavailable"
     assert trace["cost"]["usd"] is None
     assert trace["steps"] == []
-    assert trace["context_summary"] == {}
+    assert trace["context_summary"]["context_schema"] == "dmb_agent_context_summary_v1"
+    assert set(trace["context_summary"]) <= {
+        "context_schema",
+        "world_id",
+        "campaign_id",
+        "revision_id",
+        "focus_kind",
+        "admissibility",
+        "history_message_count",
+        "history_char_count",
+        "retrieval_session_id",
+        "retrieval_candidate_count",
+        "retrieval_claim_count",
+        "latest_recap_change_present",
+        "admitted_recap_excerpt_char_count",
+        "runtime_continuity_present",
+    }
+    context_span = next(
+        span for span in trace["spans"] if span.get("name") == "context_assembly"
+    )
+    assert context_span["attributes"]["context_schema"] == "dmb_agent_context_summary_v1"
+    assert len(context_span["attributes"]) <= 14
     assert trace["artifact_refs"] == []
     assert isinstance(trace["tool_events"], list)
     assert trace["tool_event_count"] >= 1
     assert trace["final_response_present"] is True
+
+
+def test_context_assembly_trace_is_content_free(tmp_path: Path) -> None:
+    secret_q = "SECRET-PRODUCT-PATH-QUESTION-a5-88aa"
+    secret_hist = "SECRET-PRODUCT-PATH-HISTORY-a5-99bb"
+    response = run_hermes_graph_query(
+        text=secret_q,
+        packet=PACKET,
+        graph_envelope=READY_ENVELOPE,
+        agent_thread_id="agent-thread-context",
+        turn_id="agent-turn-context",
+        root=tmp_path,
+        conversation_history=[
+            {"role": "user", "content": secret_hist},
+            {"role": "assistant", "content": "ok"},
+        ],
+        agent_runtime=_FakeRuntime(_ok_result()),  # type: ignore[arg-type, return-value]
+    )
+    trace = response["agent_trace"]
+    blob = json.dumps(trace)
+    assert secret_q not in blob
+    assert secret_hist not in blob
+    assert trace["context_summary"]["history_message_count"] == 2
+    assert trace["context_summary"]["world_id"] == "world:eldyrwild"
+    context_span = next(
+        span for span in trace["spans"] if span.get("name") == "context_assembly"
+    )
+    assert context_span["attributes"]["history_message_count"] == 2
 
 
 def test_malformed_tool_event_returns_typed_contract_error_not_500() -> None:

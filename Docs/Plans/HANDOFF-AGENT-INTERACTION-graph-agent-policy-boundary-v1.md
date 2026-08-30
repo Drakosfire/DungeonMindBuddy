@@ -23,18 +23,24 @@ pr_body_template: |
 
 # HANDOFF — Graph Agent Policy Boundary v1 (A4)
 
-**Created:** 2026-08-29  
-**Status:** IMPLEMENTATION HANDED BACK FOR REVIEW — evidence in §18
-**Canonical handoff path:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-graph-agent-policy-boundary-v1.md`  
-**Design branch:** `agent/graph-agent-policy-boundary-design`  
-**Design base:** `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`  
-**Workstream:** `AGENT-INTERACTION / A4`  
-**Flow / owner:** `AGENT-INTERACTION`  
-**Predecessor:** A3 — PydanticAI AgentRuntime Adapter Experiment  
-**Predecessor PR:** #663  
-**Accepted predecessor head:** `4e4fa25268fc3c3bf2fec56fcbe465c4c7e08c55`  
-**Predecessor merge:** `5eb4e030a66b09d98525f0f934c7e91051e48549`  
-**Predecessor formal review cycles:** 2  
+**Created:** 2026-08-29
+**Status:** COMPLETE / MERGED — PR #664 / accepted head `497dcfb6c21507ee1d0e26d009add0ce044c0ec6` / merge `cbdc342ef79c8e3db5d45fbb52468c0c258a4d47` / 1 formal review cycle
+**Canonical handoff path:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-graph-agent-policy-boundary-v1.md`
+**Design branch:** `agent/graph-agent-policy-boundary-design`
+**Design base:** `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`
+**Workstream:** `AGENT-INTERACTION / A4`
+**Flow / owner:** `AGENT-INTERACTION`
+**Predecessor:** A3 — PydanticAI AgentRuntime Adapter Experiment
+**Predecessor PR:** #663
+**Accepted predecessor head:** `4e4fa25268fc3c3bf2fec56fcbe465c4c7e08c55`
+**Predecessor merge:** `5eb4e030a66b09d98525f0f934c7e91051e48549`
+**Predecessor formal review cycles:** 2
+**A4 PR:** #664
+**A4 accepted head:** `497dcfb6c21507ee1d0e26d009add0ce044c0ec6`
+**A4 merge SHA:** `cbdc342ef79c8e3db5d45fbb52468c0c258a4d47`
+**A4 formal review cycles:** 1
+**Active successor:** A5 — ContextAssembler v1
+**PydanticAI production selection:** false
 
 ---
 
@@ -56,9 +62,15 @@ A3  PydanticAI Adapter Experiment          MERGED #663
     second harness proved the boundary; production selection stayed false
     disposition: PROMISING_WITH_DEPENDENCY_BLOCKER
     ↓
-A4  Graph Agent Policy Boundary            THIS SLICE
-    move DMB-owned shared policy out of Hermes-named runtime ownership
+A4  Graph Agent Policy Boundary            COMPLETE / MERGED #664
+    shared behavior/model policy moved to neutral DMB ownership
+    accepted head 497dcfb6… / merge cbdc342e… / 1 review cycle
+    ↓
+A5  ContextAssembler v1                    ACTIVE SUCCESSOR
+    make context composition one product-owned, inspectable boundary
 ```
+
+PydanticAI production selection remains false.
 
 A3 proved the architectural seam rather than selecting a runtime.
 
@@ -100,10 +112,10 @@ OBSERVABILITY
 HARNESS BOUNDARY
   A2 AgentRuntime              DONE
   A3 second-harness proof      DONE
-  A4 neutral shared policy     NEXT
+  A4 neutral shared policy     DONE / MERGED #664
 
 PRODUCT CONTEXT / CONTINUITY
-  ContextAssembler             NOT SELECTED
+  ContextAssembler             ACTIVE (A5)
   Interaction Memory           NOT SELECTED
   Attention Ledger             NOT SELECTED
   Open Loops                   NOT SELECTED

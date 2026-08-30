@@ -482,6 +482,7 @@ class AgentTurnTraceBuilder:
         self.spans: list[dict[str, Any]] = []
         self.warnings: list[str] = []
         self.logged = False
+        self.context_summary: dict[str, Any] = {}
         self._open_phases: dict[str, dict[str, Any]] = {}
 
     def elapsed_ms(self) -> int:
@@ -511,10 +512,19 @@ class AgentTurnTraceBuilder:
         }
         return span_id
 
-    def complete_phase(self, span_id: str, *, status: SpanStatus = "ok") -> None:
+    def complete_phase(
+        self,
+        span_id: str,
+        *,
+        status: SpanStatus = "ok",
+        attributes: Mapping[str, Any] | None = None,
+    ) -> None:
         open_span = self._open_phases.pop(span_id, None)
         if open_span is None:
             return
+        merged_attributes = dict(open_span["attributes"])
+        if attributes:
+            merged_attributes.update(dict(attributes))
         self.spans.append(
             {
                 "span_id": span_id,
@@ -527,7 +537,7 @@ class AgentTurnTraceBuilder:
                 "duration_ms": max(
                     0, int((time.monotonic() - open_span["started_mono"]) * 1000)
                 ),
-                "attributes": open_span["attributes"],
+                "attributes": merged_attributes,
             }
         )
 
@@ -621,7 +631,7 @@ class AgentTurnTraceBuilder:
             "model_calls": calls,
             "spans": list(self.spans),
             "steps": [],
-            "context_summary": {},
+            "context_summary": dict(self.context_summary),
             "artifact_refs": [],
             "warnings": list(self.warnings),
         }
