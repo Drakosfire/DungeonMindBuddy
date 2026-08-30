@@ -2818,9 +2818,19 @@ def confirm_threat_publication(
         merge_fn=merge_fn,
         lookup_fn=lookup_fn,
     )
-    merge = merge_fn or kernel.merge_contribution_to_revision
-    lookup = lookup_fn or kernel.find_world_graph_revisions_by_operation_id
     use_port_recover = not _uses_injected_graph_hooks(merge_fn, lookup_fn)
+    if use_port_recover:
+        # Mounted DungeonMind path: never touch the lazy Buddy kernel proxy.
+        def _blocked_kernel_hook(*_args, **_kwargs):
+            raise AssertionError(
+                "Buddy World Graph kernel hook must not run on DungeonMind threat commit"
+            )
+
+        merge: MergeFn = merge_fn or _blocked_kernel_hook
+        lookup: LookupFn = lookup_fn or _blocked_kernel_hook
+    else:
+        merge = merge_fn or kernel.merge_contribution_to_revision
+        lookup = lookup_fn or kernel.find_world_graph_revisions_by_operation_id
     merge_calls = 0
 
     with threat_publication_lifecycle_lock(root, safe_draft, safe_op):

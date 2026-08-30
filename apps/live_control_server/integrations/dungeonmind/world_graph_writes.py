@@ -971,10 +971,10 @@ def _candidate_endpoint_kinds(
 
 
 def _qualified_value(assertion: Any) -> str | None:
-    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+    from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
         _canonical_json,
     )
-    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
         CURRENT_V5_TARGET,
     )
 
@@ -1006,10 +1006,10 @@ def _assert_edge_endpoint_admission(
     reverse_endpoints: bool,
     endpoint_kinds: Mapping[str, str],
 ) -> None:
-    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
         _predicate_allowed_endpoints,
     )
-    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
         CURRENT_V5_TARGET,
     )
 
@@ -1061,10 +1061,10 @@ def _assert_edge_endpoint_admission(
 def _qualified_edge_update(
     assertion: Any, *, endpoint_kinds: Mapping[str, str]
 ) -> dict[str, Any]:
-    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+    from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
         _canonical_json,
     )
-    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
         edge_has_reverse_direction_qualifier_v4,
         resolve_buddy_predicate_mapping_v4,
     )
@@ -1124,7 +1124,7 @@ def _qualified_assertion_update(
     if assertion.assertion_kind == "edge":
         return _qualified_edge_update(assertion, endpoint_kinds=endpoint_kinds)
     if assertion.assertion_kind == "attribute":
-        from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+        from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
             _canonical_json,
         )
 
@@ -1164,7 +1164,7 @@ def _build_v2_candidate(
     produced_at: Any,
     sources: Any | None = None,
 ) -> tuple[Any, dict[str, Any]]:
-    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+    from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
         _map_contributions,
     )
     from dungeonmind.contracts.contribution import AcceptanceState, ContributionStatus

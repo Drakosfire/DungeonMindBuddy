@@ -439,7 +439,11 @@ def run_witness() -> None:
 
         _exercise_projection_and_retrieval()
         _exercise_source_admission()
-        _exercise_hermes_and_mounted_modules()
+        from tests._cutover_d3a_blocker_safe_exec import (
+            exercise_all_owning_workflows,
+        )
+
+        exercise_all_owning_workflows(client, root)
 
     assert not legacy.exists(), "legacy graph filesystem must remain absent after boot"
     _assert_no_forbidden_loaded()

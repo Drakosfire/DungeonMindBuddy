@@ -55,6 +55,11 @@ def test_fresh_interpreter_mounted_graph_engine_excision() -> None:
         env = os.environ.copy()
         env["DMB_D3A_WITNESS_ROOT"] = tmp
         env["PYTHONPATH"] = str(REPO_ROOT)
+        # Required PG witnesses must not skip: pin the local cutover test DSN when unset.
+        env.setdefault(
+            "DMB_CUTOVER_TEST_DATABASE_URL",
+            "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dmb_cutover_test",
+        )
         proc = subprocess.run(
             [sys.executable, "-c", WITNESS_SCRIPT],
             cwd=REPO_ROOT,

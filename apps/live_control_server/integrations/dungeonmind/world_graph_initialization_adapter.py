@@ -97,7 +97,7 @@ def _qualify_first_world_contribution(contribution: Any) -> Any:
 
 
 def _map_sources(request: WorldGraphInitializationRequest) -> tuple[list[Any], list[Any], dict[tuple[str, str], str]]:
-    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
         _digest_from_buddy_revision,
         _dm_revision_id,
         _parse_optional_aware,
@@ -239,7 +239,7 @@ def _align_first_world_command_evidence_domains(
 
 
 def _map_contribution(request: WorldGraphInitializationRequest, pair_to_dm: dict[tuple[str, str], str]):
-    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+    from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
         _map_contributions,
     )
 
