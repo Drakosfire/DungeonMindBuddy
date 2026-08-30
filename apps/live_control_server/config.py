@@ -12,20 +12,26 @@ LIVE_WORLD_GRAPH_ROOT_ENV = "DUNGEONMIND_LIVE_WORLD_GRAPH_ROOT"
 # Dedicated root for promote source evidence fixtures / server-owned sources.
 # Never treat the world graph store (world_graph_root / out/) as source authority.
 EXTRACT_PROMOTE_SOURCE_ROOT_ENV = "DUNGEONMIND_EXTRACT_PROMOTE_SOURCE_ROOT"
-# Whole-world authority transfer (cutover): tri-state World Graph authority
-# selector (buddy_files | quiesced | dungeonmind). The canonical parser and the
-# fail-closed local-mutation guard live in
-# ``graph_memory.world_supergraph.storage``; re-exported here for the app layer.
+# Mounted World Graph authority selector (CUTOVER D.3A).
+# Unset / dungeonmind → DungeonMind. buddy_files / quiesced / unknown fail closed.
+# Legacy storage parser under graph_memory remains for HISTORICAL_TOOL until D.3B.
 WORLD_GRAPH_AUTHORITY_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY"
+WORLD_GRAPH_AUTHORITY_BUDDY_FILES = "buddy_files"
+WORLD_GRAPH_AUTHORITY_QUIESCED = "quiesced"
+WORLD_GRAPH_AUTHORITY_DUNGEONMIND = "dungeonmind"
+_WORLD_GRAPH_AUTHORITY_MOUNTED_MODES = frozenset({WORLD_GRAPH_AUTHORITY_DUNGEONMIND})
+_WORLD_GRAPH_AUTHORITY_RETIRED_MODES = frozenset(
+    {
+        WORLD_GRAPH_AUTHORITY_BUDDY_FILES,
+        WORLD_GRAPH_AUTHORITY_QUIESCED,
+    }
+)
 # PostgreSQL DSN for the DungeonMind-backed World Graph authority adapter.
-# Required only when WORLD_GRAPH_AUTHORITY_ENV=dungeonmind.
 WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV = (
     "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"
 )
 # Cache root leftover from the retired DungeonMind-hydrated read model.
-# Production ``dungeonmind`` reads and exact-run prepare/confirm do not use
-# this cache. The env/function remain so remaining D.2 writers and tests that
-# still name it do not crash; do not introduce new consumers.
+# Mounted product must not consume it; env/function remain for unmounted names.
 WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT"
 
 
@@ -68,13 +74,35 @@ def extract_promote_source_root() -> Path | None:
     return Path(override).expanduser().resolve()
 
 
-def world_graph_authority_mode() -> str:
-    """Current World Graph authority mode (see world_supergraph.storage)."""
-    from graph_memory.world_supergraph.storage import (
-        world_graph_authority_mode as _mode,
-    )
+class WorldGraphAuthorityConfigurationError(RuntimeError):
+    """Mounted World Graph authority selection refused a retired/invalid mode."""
 
-    return _mode()
+    code = "world_graph_authority_configuration_invalid"
+
+
+def world_graph_authority_mode(environ: dict[str, str] | None = None) -> str:
+    """Parse mounted authority mode; unset defaults to DungeonMind.
+
+    ``buddy_files``, ``quiesced``, and unknown values fail closed. Historical
+    tooling that still needs file-store semantics must not use this mounted
+    parser.
+    """
+    source = os.environ if environ is None else environ
+    raw = source.get(WORLD_GRAPH_AUTHORITY_ENV, "").strip().lower()
+    if not raw:
+        return WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    if raw in _WORLD_GRAPH_AUTHORITY_RETIRED_MODES:
+        raise WorldGraphAuthorityConfigurationError(
+            f"retired {WORLD_GRAPH_AUTHORITY_ENV} value {raw!r}; "
+            f"mounted production accepts only "
+            f"{WORLD_GRAPH_AUTHORITY_DUNGEONMIND!r} (or unset)"
+        )
+    if raw not in _WORLD_GRAPH_AUTHORITY_MOUNTED_MODES:
+        raise WorldGraphAuthorityConfigurationError(
+            f"unsupported {WORLD_GRAPH_AUTHORITY_ENV} value {raw!r}; "
+            f"expected {WORLD_GRAPH_AUTHORITY_DUNGEONMIND!r} or unset"
+        )
+    return raw
 
 
 def world_graph_authority_database_url() -> str | None:
@@ -84,7 +112,7 @@ def world_graph_authority_database_url() -> str | None:
 
 
 def world_graph_authority_cache_root() -> Path:
-    """Retired hydration-cache path. Not used by D.1 production reads/writes."""
+    """Retired hydration-cache path. Not used by mounted production reads/writes."""
     override = os.environ.get(WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV, "").strip()
     if override:
         return Path(override).expanduser().resolve()
@@ -94,17 +122,28 @@ def world_graph_authority_cache_root() -> Path:
 
 
 def world_graph_native_production_read(root: Path | None = None) -> bool:
-    """True when a World Graph read must execute in DungeonMind native services.
+    """True when mounted World Graph accessors may serve DungeonMind.
 
-    In ``dungeonmind`` authority mode a production read is ``root is None`` or
-    ``resolved(root) == world_graph_root()``. An explicit different root is a
-    test/tooling override and stays on the file/kernel path. Obsolete
-    ``DUNGEONMIND_WORLD_GRAPH_DIRECT_READ`` values have no effect.
+    Mounted authority is DungeonMind-only. An explicit alternate ``world_root``
+    fails closed rather than selecting a file adapter.
     """
-    from graph_memory.world_supergraph import storage
-
-    if world_graph_authority_mode() != storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND:
+    if world_graph_authority_mode() != WORLD_GRAPH_AUTHORITY_DUNGEONMIND:
         return False
     if root is not None and Path(root).resolve() != world_graph_root().resolve():
         return False
     return True
+
+
+def require_mounted_dungeonmind_world_graph(*, world_root: Path | None = None) -> None:
+    """Fail closed unless this process may use mounted DungeonMind World Graph."""
+    mode = world_graph_authority_mode()
+    if mode != WORLD_GRAPH_AUTHORITY_DUNGEONMIND:
+        raise WorldGraphAuthorityConfigurationError(
+            f"mounted World Graph requires authority mode "
+            f"{WORLD_GRAPH_AUTHORITY_DUNGEONMIND!r}; got {mode!r}"
+        )
+    if world_root is not None and Path(world_root).resolve() != world_graph_root().resolve():
+        raise WorldGraphAuthorityConfigurationError(
+            "mounted World Graph refuses alternate world_root; "
+            "Buddy file-store selection is retired"
+        )
