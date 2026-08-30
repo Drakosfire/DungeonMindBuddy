@@ -36,6 +36,7 @@ MAX_FOCUS_KEYS = 8
 MAX_FOCUS_VALUE_CHARS = 256
 ALLOWED_FOCUS_KEYS = frozenset({"kind", "sessionId", "campaignId"})
 MAX_ROOT_CHARS = 1024
+MAX_SURFACE_CONTEXT_BLOCK_CHARS = 512
 MAX_POLICY_TOOLSETS = 16
 MAX_POLICY_TOOL_NAMES = 64
 MAX_PLUGIN_ACTIVATIONS = 16
@@ -67,6 +68,7 @@ _REQUEST_ALLOWED_KEYS = frozenset(
         "capabilityPolicy",
         "retrievalSessionId",
         "retrievalSession",
+        "surfaceContextBlock",
     }
 )
 _REQUEST_FORBIDDEN_KEYS = frozenset(
@@ -249,6 +251,7 @@ class HermesGraphAgentTurnRequest:
     capability_policy: HermesCapabilityPolicy | None = None
     retrieval_session_id: str | None = None
     retrieval_session: Mapping[str, Any] | None = None
+    surface_context_block: str | None = None
 
 
 def _reject_unknown_keys(payload: Mapping[str, Any], allowed: frozenset[str], *, label: str) -> None:
@@ -654,6 +657,13 @@ def serialize_hermes_graph_agent_turn_request(
             raise ValueError("retrievalSession must be a mapping or null")
         # Bound by wire encoder MAX_WIRE_BYTES; keep as JSON-safe mapping.
         retrieval_session = dict(request.retrieval_session)
+    surface_block = request.surface_context_block
+    if surface_block is not None:
+        surface_block = _require_str(
+            surface_block,
+            label="surfaceContextBlock",
+            max_chars=MAX_SURFACE_CONTEXT_BLOCK_CHARS,
+        )
     return {
         "question": question,
         "worldId": world_id,
@@ -683,6 +693,7 @@ def serialize_hermes_graph_agent_turn_request(
             max_chars=MAX_SESSION_ID_CHARS,
         ),
         "retrievalSession": retrieval_session,
+        "surfaceContextBlock": surface_block,
     }
 
 
@@ -732,6 +743,11 @@ def deserialize_hermes_graph_agent_turn_request(
             max_chars=MAX_SESSION_ID_CHARS,
         ),
         retrieval_session=None if retrieval_session_raw is None else dict(retrieval_session_raw),
+        surface_context_block=_optional_str(
+            payload.get("surfaceContextBlock"),
+            label="surfaceContextBlock",
+            max_chars=MAX_SURFACE_CONTEXT_BLOCK_CHARS,
+        ),
     )
 
 

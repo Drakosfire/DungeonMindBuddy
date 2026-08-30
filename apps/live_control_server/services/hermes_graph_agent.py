@@ -278,6 +278,23 @@ def _scope_block(
     )
 
 
+def _build_ephemeral_system_prompt(
+    policy: HermesCapabilityPolicy,
+    request: HermesGraphAgentTurnRequest,
+    *,
+    retrieval_session_packet: Mapping[str, Any] | None,
+) -> str:
+    scope_part = _scope_block(
+        policy,
+        retrieval_session_id=request.retrieval_session_id,
+        retrieval_session=retrieval_session_packet,
+    )
+    parts = [_GRAPH_SYSTEM_POLICY, scope_part]
+    if request.surface_context_block:
+        parts.append(request.surface_context_block)
+    return "\n\n".join(parts)
+
+
 def _clip_str(value: Any, *, max_chars: int) -> str | None:
     if value is None:
         return None
@@ -997,9 +1014,10 @@ def run_hermes_graph_agent_turn(
                         api_mode="chat_completions",
                         tool_start_callback=collector.on_start,
                         tool_complete_callback=collector.on_complete,
-                        ephemeral_system_prompt=(
-                            f"{_GRAPH_SYSTEM_POLICY}\n\n"
-                            f"{_scope_block(policy, retrieval_session_id=request.retrieval_session_id, retrieval_session=retrieval_session_packet)}"
+                        ephemeral_system_prompt=_build_ephemeral_system_prompt(
+                            policy,
+                            request,
+                            retrieval_session_packet=retrieval_session_packet,
                         ),
                     )
 
