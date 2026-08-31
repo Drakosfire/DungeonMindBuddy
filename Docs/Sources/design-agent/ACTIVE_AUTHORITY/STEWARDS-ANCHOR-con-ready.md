@@ -2,9 +2,9 @@
 
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
 **Line of work:** `CON-READY`  
-**Updated:** 2026-08-29
+**Updated:** 2026-08-31
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main` `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`
+**Re-anchor base:** `main` `ae01ef630e170e9b2a2de6daaa93373f88dc3a91`
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)  
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)  
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)  
