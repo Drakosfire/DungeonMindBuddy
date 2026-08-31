@@ -60,10 +60,11 @@ def _source_class_for(document_class: str) -> str:
 
 
 def _load_model_id() -> str:
-    policy_path = Path(__file__).resolve().parents[3] / "MODEL_POLICY.json"
-    if not policy_path.exists():
+    from src.model_policy import load_buddy_model_policy
+
+    payload = load_buddy_model_policy(strict=True)
+    if not payload:
         return "gpt-5.3-chat-latest"
-    payload = json.loads(policy_path.read_text(encoding="utf-8"))
     actions = payload.get("actions", {})
     models = payload.get("models", {})
     role = actions.get("structured_generation", "gpt-5.3-chat-latest")

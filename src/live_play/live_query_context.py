@@ -62,17 +62,10 @@ def _utc_now_z() -> str:
 
 
 def _load_model_policy(root: Path) -> dict[str, Any]:
-    candidates = [
-        root / "MODEL_POLICY.json",
-        root.parent / "MODEL_POLICY.json",
-    ]
-    for path in candidates:
-        if path.is_file():
-            try:
-                return json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-    return {}
+    del root  # Buddy-owned policy only; root kept for call-site compatibility.
+    from src.model_policy import load_buddy_model_policy
+
+    return load_buddy_model_policy()
 
 
 def _live_query_model(root: Path) -> str:

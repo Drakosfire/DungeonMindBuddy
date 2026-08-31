@@ -115,23 +115,20 @@ def build_document_roster(
 def _resolve_document_planner_model(model: str | None) -> str:
     if model:
         return model
-    policy_candidates = [
-        Path(__file__).resolve().parents[2] / "MODEL_POLICY.json",
-        Path(__file__).resolve().parents[3] / "MODEL_POLICY.json",
-    ]
-    for policy_path in policy_candidates:
-        if policy_path.exists():
-            try:
-                policy = json.loads(policy_path.read_text(encoding="utf-8"))
-                role = policy.get("actions", {}).get(
-                    "document_planning",
-                    policy.get("actions", {}).get("query_planning", "query_planning"),
-                )
-                resolved = policy.get("models", {}).get(role)
-                if resolved:
-                    return str(resolved)
-            except Exception:
-                pass
+    from src.model_policy import load_buddy_model_policy
+
+    policy = load_buddy_model_policy()
+    if policy:
+        try:
+            role = policy.get("actions", {}).get(
+                "document_planning",
+                policy.get("actions", {}).get("query_planning", "query_planning"),
+            )
+            resolved = policy.get("models", {}).get(role)
+            if resolved:
+                return str(resolved)
+        except Exception:
+            pass
     return DEFAULT_MODEL
 
 
