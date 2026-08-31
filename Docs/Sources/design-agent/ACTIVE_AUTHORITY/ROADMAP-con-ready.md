@@ -273,8 +273,13 @@ PLAN-BLANK-SHELL / PR #661 DONE — blank Plan is a real authoring surface state
                  accepted head ffa0b18d6212a6780d6be90f91a25626bf15b464
                  merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
                  review cycles: 4
-BF4A             CURRENT — native Runbook reopen/save
-BF3B             BLOCKED ON BF4A — Decision interaction and visible relevance
+BF4A / PR #660   DONE — native Runbook reopen/save
+                 accepted head d9b34ca87166572af8b482523862722fdd928fbe
+                 merge a3fd6219062d1cd978c394d07e2f80aaa6d203eb
+                 review cycles: 2
+BF3B             CURRENT / IN FLIGHT — Scene-owned Decision interaction
+                 recut branch agent/play-surface-decision-cockpit-recut
+PR #670          CLOSED UNMERGED — exploratory cockpit prototype; 0 review cycles
 BF3C / BF3.x     later — additional At-a-Glance categories / retrieval
 BF4              authoring composition; may run in parallel on disjoint lease
 
@@ -286,7 +291,7 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
 
 | Story | State now | Why |
 |---|---|---|
-| CR-U11 | **Partially true, foundation strong** | durable WorkObject/WorkRevision + BF1 structure exist; PLAN-BLANK-SHELL made blank Plan a real authoring state; BF4A now owns native Runbook reopen/save |
+| CR-U11 | **Partially true, foundation strong** | durable WorkObject/WorkRevision + BF1 structure exist; PLAN-BLANK-SHELL made blank Plan a real authoring state; BF4A proved native Runbook reopen/save |
 | CR-U13 | **Partial / Combat-owned** | exact mechanics/projection seams exist, but durable integrated Combat acceptance is separate |
 | CR-U14 | **False as native end-to-end story** | C2S27 proved fast unplanned combat in the legacy tracker; native global Threat→exact mechanics→Combat flow still needs proof |
 | CR-U15 | **PARTIAL** | BF3A Current Moment is implemented and merged; DF0 merged local Play dogfood gateway. Decision interaction and later cockpit capabilities remain false. |
@@ -318,21 +323,26 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - first Save promotes through existing Plan create contract
    - exact document load/error states retain shell chrome
 
-5. BF4A — CURRENT — native Runbook reopen/save
+5. BF4A — DONE (PR #660, merge a3fd6219062d1cd978c394d07e2f80aaa6d203eb, 2 review cycles)
+   - native Runbook reopen/save from Play
+   - next immutable WorkRevision even when target_relpath is null
 
-6. BF3B — BLOCKED ON BF4A — Decision interaction and visible relevance
-   - current-context Decisions / Options
+6. BF3B — CURRENT / IN FLIGHT — Scene-owned Decision interaction
+   - already-committed Decision-bearing Runbook + READY Run are preconditions
+   - current Scene visibly owns the Decision
    - select / change / clear selection
-   - authored consequence and emphasized / de-emphasized presentation
-   - no auto-navigation
+   - authored consequence and full Decision branch relevance, including default
+   - no auto-navigation; Inspect remains read-only; At a Glance remains the launcher
+   - Create blank Runbook / chooser copy / paste-replace / Beat-Scene navigator are not this slice
+   - closed unmerged PR #670 is exploratory evidence only (0 review cycles)
 
-5. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
+7. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
    - inspect material from other Beats without changing current moment
    - global/on-demand known object finder
    - fast NPC/location/Threat/table opening
    - exact statblock hot path
 
-6. THREAT → COMBAT + COMBAT WORKSPACE — P4 / Combat lane
+8. THREAT → COMBAT + COMBAT WORKSPACE — P4 / Combat lane
    - Add to Combat from prepared or unexpected Threat
    - Combat is one At-a-Glance entry with compact status, not a floating side rail
    - opening Combat uses the same central workspace; Combat remains Combat-owned
@@ -340,11 +350,11 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - durable Combat authority required for CR-U17 overall
    - this Combat workspace is not implemented until P4
 
-7. BF4 — Plan Beat-first authoring composition
+9. BF4 — Plan Beat-first authoring composition
    - may proceed in parallel after BF1 on disjoint leases
    - must not block getting DF0/BF3B back to a real table
 
-8. REAL SESSION DOGFOOD
+10. REAL SESSION DOGFOOD
    - deliberately include an off-script scene change
    - unplanned NPC/Threat
    - exact mechanics lookup

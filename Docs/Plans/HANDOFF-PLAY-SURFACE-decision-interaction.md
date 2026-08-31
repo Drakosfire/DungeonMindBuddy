@@ -26,7 +26,7 @@ pr_body_template: |
 # HANDOFF — Scene-owned Decision interaction dogfood (BF3B recut)
 
 **Created / recut:** 2026-08-30  
-**Status:** READY FOR DISPATCH  
+**Status:** CURRENT / IN FLIGHT  
 **Canonical handoff:** `Docs/Plans/HANDOFF-PLAY-SURFACE-decision-interaction.md`  
 **Workstream:** `PLAY-SURFACE / BF3B`  
 **Owner:** `PLAY-SURFACE`  

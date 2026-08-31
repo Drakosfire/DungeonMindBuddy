@@ -9,6 +9,7 @@ import type { PlayRunProgress, PlayRunRecord, PlayRunReferenceManifestV2 } from 
 import { admitNativeRunbook, overlayRuntimeOnV2Ready } from "../runbook/nativeRunbookProjection";
 import type { RunbookMutationStatus } from "../runbook/RunbookTableDeck";
 import { PlayCurrentMomentCockpit } from "./PlayCurrentMomentCockpit";
+import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN, breachDogfoodManifestV2 } from "./breachDogfoodFixture";
 
 const RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OTHER_RUN_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
@@ -496,5 +497,454 @@ describe("PlayCurrentMomentCockpit", () => {
       "No authored Scenes in this Beat.",
     );
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+});
+
+function breachProgress(overrides: Partial<PlayRunProgress> = {}): PlayRunProgress {
+  return progress({
+    current_beat_id: "beat:hold-breach",
+    current_scene_id: "scene:north-gate",
+    ...overrides,
+  });
+}
+
+function breachRun(overrides: Partial<PlayRunRecord> = {}): PlayRunRecord {
+  const { progress: progressOverride, ...rest } = overrides;
+  return runRecord({
+    ...rest,
+    progress: breachProgress(progressOverride),
+  });
+}
+
+function readyBreachDeck(run: PlayRunRecord = breachRun()) {
+  const admitted = admitNativeRunbook({
+    run: { ...run, run_id: run.run_id },
+    manifest: { ...breachDogfoodManifestV2(run), run_id: run.run_id },
+    committed: {
+      schema_version: "dmb_workspace_committed_revision_v1",
+      document_id: run.playable_artifact_id,
+      kind: "runbook",
+      campaign_id: "longmont-c2",
+      title: "Breach Dogfood Runbook",
+      status: "active",
+      object_revision: run.playable_revision,
+      work_revision_id: "11111111-1111-4111-8111-111111111111",
+      revision_n: run.playable_revision,
+      markdown: BREACH_DOGFOOD_RUNBOOK_MARKDOWN,
+      content_sha256: run.playable_content_sha256,
+      has_divergent_working_copy: false,
+      target_relpath: null,
+    },
+  });
+  if (admitted.status !== "ready") throw new Error(`expected ready, got ${admitted.status}`);
+  if (admitted.grammar !== "v2") throw new Error("expected v2");
+  return admitted;
+}
+
+function BreachHarness({ initialRun = breachRun() }: { initialRun?: PlayRunRecord }) {
+  const [deck, setDeck] = useState(() => readyBreachDeck(initialRun));
+  const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
+  return (
+    <PlayCurrentMomentCockpit
+      deck={deck}
+      mutationStatus={mutationStatus}
+      onMutationStatus={setMutationStatus}
+      onAuthoritativeRun={(run) =>
+        setDeck((current) => overlayRuntimeOnV2Ready(current, run) ?? current)
+      }
+    />
+  );
+}
+
+describe("PlayCurrentMomentCockpit Decision interaction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders the North Gate Decision inside the Scene board, not a rail", () => {
+    render(<BreachHarness />);
+    const board = screen.getByTestId("play-workspace-current");
+    const decision = screen.getByTestId("play-decision");
+    expect(board).toContainElement(decision);
+    expect(screen.getByTestId("play-central-workspace")).toContainElement(decision);
+    expect(screen.getByTestId("play-beat-context")).not.toContainElement(decision);
+    expect(screen.getByTestId("play-at-a-glance")).not.toContainElement(decision);
+    expect(screen.getByTestId("play-at-a-glance")).toHaveTextContent("Around this moment");
+    expect(screen.getByTestId("play-at-a-glance-scenes")).toHaveTextContent("Scenes 2");
+    expect(screen.getByRole("heading", { name: "North Gate" })).toBeInTheDocument();
+    expect(screen.getByTestId("play-decision-prompt")).toHaveTextContent(
+      "What do they do with the surviving brood?",
+    );
+    expect(screen.getByRole("radio", { name: "Follow it" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Seal the breach" })).not.toBeChecked();
+    expect(screen.queryByTestId("play-decision-consequence")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-decision-clear")).not.toBeInTheDocument();
+  });
+
+  it("does not project the North Gate Decision when no Scene is current", () => {
+    render(
+      <BreachHarness
+        initialRun={breachRun({
+          progress: breachProgress({ current_scene_id: null }),
+        })}
+      />,
+    );
+    expect(screen.getByTestId("play-workspace-beat-only")).toBeInTheDocument();
+    expect(screen.queryByTestId("play-decision")).not.toBeInTheDocument();
+  });
+
+  it("does not project the North Gate Decision when another Scene is current", () => {
+    render(
+      <BreachHarness
+        initialRun={breachRun({
+          progress: breachProgress({ current_scene_id: "scene:tunnel-pursuit" }),
+        })}
+      />,
+    );
+    expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel Pursuit");
+    expect(screen.queryByTestId("play-decision")).not.toBeInTheDocument();
+  });
+
+  it("selects Follow it with one CAS and shows both emphasized branch rows after authority", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(
+      breachRun({
+        run_revision: 5,
+        progress: breachProgress({
+          resolved_beat_ids: ["beat:hold-breach"],
+          selections: { "choice:keep": "option:keep", "choice:surviving-brood": "option:follow-brood" },
+          notes_by_element_id: { "scene:north-gate": "keep me" },
+        }),
+      }),
+    );
+    render(
+      <BreachHarness
+        initialRun={breachRun({
+          progress: breachProgress({
+            resolved_beat_ids: ["beat:hold-breach"],
+            selections: { "choice:keep": "option:keep" },
+            notes_by_element_id: { "scene:north-gate": "keep me" },
+          }),
+        })}
+      />,
+    );
+    expect(screen.getByRole("radio", { name: "Follow it" })).not.toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "Follow it" }));
+    await waitFor(() => expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(liveApi.putPlayRunProgress).mock.calls[0]?.[1]).toEqual({
+      expected_run_revision: 4,
+      progress: expect.objectContaining({
+        current_beat_id: "beat:hold-breach",
+        current_scene_id: "scene:north-gate",
+        resolved_beat_ids: ["beat:hold-breach"],
+        selections: { "choice:keep": "option:keep", "choice:surviving-brood": "option:follow-brood" },
+        notes_by_element_id: { "scene:north-gate": "keep me" },
+      }),
+    });
+    expect(await screen.findByRole("radio", { name: "Follow it" })).toBeChecked();
+    expect(screen.getByTestId("play-decision-consequence")).toHaveTextContent(
+      "The party pursues the retreating creatures into the lower tunnels before reinforcements arrive.",
+    );
+    expect(screen.getByTestId("play-decision-relevance")).toHaveTextContent("Tunnel Pursuit — emphasized");
+    expect(screen.getByTestId("play-decision-relevance")).toHaveTextContent("Lower Tunnels — emphasized");
+    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("North Gate");
+    expect(screen.getByRole("heading", { name: "North Gate" })).toBeInTheDocument();
+  });
+
+  it("does not show Follow as selected while the write is in flight", async () => {
+    const user = userEvent.setup();
+    let resolvePut: (run: PlayRunRecord) => void = () => undefined;
+    vi.mocked(liveApi.putPlayRunProgress).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePut = resolve;
+        }),
+    );
+    render(<BreachHarness />);
+    await user.click(screen.getByRole("radio", { name: "Follow it" }));
+    expect(await screen.findByTestId("play-saving")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Follow it" })).not.toBeChecked();
+    expect(screen.queryByTestId("play-decision-consequence")).not.toBeInTheDocument();
+    resolvePut(
+      breachRun({
+        run_revision: 5,
+        progress: breachProgress({
+          selections: { "choice:surviving-brood": "option:follow-brood" },
+        }),
+      }),
+    );
+    expect(await screen.findByRole("radio", { name: "Follow it" })).toBeChecked();
+  });
+
+  it("changes to Seal with one CAS and keeps Lower Tunnels as default", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(
+      breachRun({
+        run_revision: 6,
+        progress: breachProgress({
+          selections: { "choice:surviving-brood": "option:seal-breach" },
+        }),
+      }),
+    );
+    render(
+      <BreachHarness
+        initialRun={breachRun({
+          progress: breachProgress({
+            selections: { "choice:surviving-brood": "option:follow-brood" },
+          }),
+        })}
+      />,
+    );
+    expect(screen.getByRole("radio", { name: "Follow it" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "Seal the breach" }));
+    await waitFor(() => expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(liveApi.putPlayRunProgress).mock.calls[0]?.[1]).toEqual({
+      expected_run_revision: 4,
+      progress: expect.objectContaining({
+        current_beat_id: "beat:hold-breach",
+        current_scene_id: "scene:north-gate",
+        selections: { "choice:surviving-brood": "option:seal-breach" },
+      }),
+    });
+    expect(await screen.findByRole("radio", { name: "Seal the breach" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Follow it" })).not.toBeChecked();
+    expect(screen.getByTestId("play-decision-consequence")).toHaveTextContent(
+      "The immediate breach is contained, but the surviving creatures remain somewhere below.",
+    );
+    expect(screen.getByTestId("play-decision-relevance")).toHaveTextContent("Tunnel Pursuit — de-emphasized");
+    expect(screen.getByTestId("play-decision-relevance")).toHaveTextContent("Lower Tunnels — default");
+    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("North Gate");
+  });
+
+  it("clears only this Decision key and removes consequence", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(
+      breachRun({
+        run_revision: 7,
+        progress: breachProgress({
+          selections: { "choice:keep": "option:keep" },
+        }),
+      }),
+    );
+    render(
+      <BreachHarness
+        initialRun={breachRun({
+          progress: breachProgress({
+            selections: { "choice:keep": "option:keep", "choice:surviving-brood": "option:seal-breach" },
+          }),
+        })}
+      />,
+    );
+    await user.click(screen.getByTestId("play-decision-clear"));
+    await waitFor(() => expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(liveApi.putPlayRunProgress).mock.calls[0]?.[1]).toEqual({
+      expected_run_revision: 4,
+      progress: expect.objectContaining({
+        current_beat_id: "beat:hold-breach",
+        current_scene_id: "scene:north-gate",
+        selections: { "choice:keep": "option:keep" },
+      }),
+    });
+    expect(await screen.findByRole("radio", { name: "Seal the breach" })).not.toBeChecked();
+    expect(screen.queryByTestId("play-decision-consequence")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-decision-relevance")).not.toBeInTheDocument();
+  });
+
+  it("does not spend a second CAS when the selected Option is clicked again", async () => {
+    const user = userEvent.setup();
+    render(
+      <BreachHarness
+        initialRun={breachRun({
+          progress: breachProgress({
+            selections: { "choice:surviving-brood": "option:follow-brood" },
+          }),
+        })}
+      />,
+    );
+    await user.click(screen.getByRole("radio", { name: "Follow it" }));
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps a de-emphasized Tunnel Pursuit Inspectable and Make Current capable", async () => {
+    const user = userEvent.setup();
+    render(
+      <BreachHarness
+        initialRun={breachRun({
+          progress: breachProgress({
+            selections: { "choice:surviving-brood": "option:seal-breach" },
+          }),
+        })}
+      />,
+    );
+    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
+    const inventory = screen.getByTestId("play-scene-inventory").querySelector(
+      '[data-scene-id="scene:tunnel-pursuit"]',
+    );
+    expect(inventory).toHaveTextContent("de-emphasized");
+    const inspect = screen.getByRole("button", { name: "Inspect Tunnel Pursuit" });
+    expect(inspect).toBeEnabled();
+    await user.click(inspect);
+    expect(screen.getByTestId("play-inspect-scene")).toHaveTextContent("Inspecting: Tunnel Pursuit");
+    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("North Gate");
+    expect(screen.getByRole("button", { name: "Make Tunnel Pursuit current" })).toBeEnabled();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("returns from inspection to the authoritative North Gate Decision", async () => {
+    const user = userEvent.setup();
+    render(<BreachHarness />);
+    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
+    await user.click(screen.getByRole("button", { name: "Inspect Tunnel Pursuit" }));
+    await user.click(screen.getByTestId("play-workspace-back"));
+    expect(screen.getByTestId("play-workspace-current")).toContainElement(
+      screen.getByTestId("play-decision"),
+    );
+    expect(screen.getByRole("heading", { name: "North Gate" })).toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("collapses supporting chrome without writing Runtime or hiding the Scene Decision", async () => {
+    const user = userEvent.setup();
+    render(<BreachHarness />);
+    await user.click(screen.getByTestId("play-beat-context-toggle"));
+    await user.click(screen.getByTestId("play-at-a-glance-toggle"));
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "true");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
+    expect(screen.getByTestId("play-workspace-current")).toContainElement(
+      screen.getByTestId("play-decision"),
+    );
+    expect(screen.getByRole("radio", { name: "Follow it" })).toBeEnabled();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("restores selected Option and re-derived relevance from persisted Runtime", () => {
+    render(
+      <BreachHarness
+        initialRun={breachRun({
+          progress: breachProgress({
+            selections: { "choice:surviving-brood": "option:follow-brood" },
+          }),
+        })}
+      />,
+    );
+    expect(screen.getByRole("radio", { name: "Follow it" })).toBeChecked();
+    expect(screen.getByTestId("play-decision-relevance")).toHaveTextContent("Tunnel Pursuit — emphasized");
+    expect(screen.getByTestId("play-decision-relevance")).toHaveTextContent("Lower Tunnels — emphasized");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("exact-rereads a 409 Decision write and does not retry or claim the selection", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockRejectedValue(new LiveApiError("CAS conflict", 409));
+    vi.mocked(liveApi.getPlayRun).mockResolvedValue(breachRun({ run_revision: 9 }));
+    render(<BreachHarness />);
+    await user.click(screen.getByRole("radio", { name: "Follow it" }));
+    expect(await screen.findByTestId("play-cas-conflict")).toBeInTheDocument();
+    expect(screen.queryByTestId("play-progress-rejected")).not.toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(RUN_ID);
+    expect(screen.getByRole("radio", { name: "Follow it" })).not.toBeChecked();
+  });
+
+  it("locks unknown when a 409 reread fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockRejectedValue(new LiveApiError("CAS conflict", 409));
+    vi.mocked(liveApi.getPlayRun).mockRejectedValue(new Error("reread failed"));
+    render(<BreachHarness />);
+    await user.click(screen.getByRole("radio", { name: "Follow it" }));
+    expect(await screen.findByTestId("play-unknown-outcome")).toHaveTextContent(
+      "The exact Run could not be reloaded",
+    );
+    expect(screen.queryByTestId("play-cas-conflict")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-unknown-outcome")).not.toHaveTextContent("Reloaded the exact Run");
+    expect(screen.getByRole("radio", { name: "Follow it" })).toBeDisabled();
+  });
+
+  it("exact-rereads a 422 Decision write as rejection, not conflict", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockRejectedValue(new LiveApiError("invalid option", 422));
+    vi.mocked(liveApi.getPlayRun).mockResolvedValue(breachRun({ run_revision: 4 }));
+    render(<BreachHarness />);
+    await user.click(screen.getByRole("radio", { name: "Follow it" }));
+    expect(await screen.findByTestId("play-progress-rejected")).toHaveTextContent("Reloaded the exact Run");
+    expect(screen.queryByTestId("play-cas-conflict")).not.toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(RUN_ID);
+    expect(screen.getByRole("radio", { name: "Follow it" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Follow it" })).toBeEnabled();
+  });
+
+  it("does not claim reload when a 422 reread fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockRejectedValue(new LiveApiError("invalid option", 422));
+    vi.mocked(liveApi.getPlayRun).mockRejectedValue(new Error("reread failed"));
+    render(<BreachHarness />);
+    await user.click(screen.getByRole("radio", { name: "Follow it" }));
+    expect(await screen.findByTestId("play-unknown-outcome")).not.toHaveTextContent(
+      "Reloaded the exact Run",
+    );
+    expect(screen.queryByTestId("play-progress-rejected")).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Follow it" })).toBeDisabled();
+  });
+
+  it("exact-rereads an unknown Decision outcome and does not blind retry", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockRejectedValue(new Error("network down"));
+    vi.mocked(liveApi.getPlayRun).mockResolvedValue(breachRun());
+    render(<BreachHarness />);
+    await user.click(screen.getByRole("radio", { name: "Follow it" }));
+    expect(await screen.findByTestId("play-unknown-outcome")).toHaveTextContent(
+      "Reloaded the exact Run before further mutation",
+    );
+    expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(RUN_ID);
+    expect(screen.getByRole("radio", { name: "Follow it" })).not.toBeChecked();
+  });
+
+  it("ignores a stale Decision write after the Run identity changes", async () => {
+    const user = userEvent.setup();
+    let resolvePut: (run: PlayRunRecord) => void = () => undefined;
+    vi.mocked(liveApi.putPlayRunProgress).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePut = resolve;
+        }),
+    );
+    const first = readyBreachDeck(breachRun());
+    const second = readyBreachDeck(breachRun({
+      run_id: OTHER_RUN_ID,
+      progress: breachProgress({ current_scene_id: "scene:tunnel-pursuit" }),
+    }));
+    function SwitchHarness() {
+      const [deck, setDeck] = useState(first);
+      const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
+      return (
+        <>
+          <button type="button" onClick={() => setDeck(second)}>Switch run</button>
+          <PlayCurrentMomentCockpit
+            deck={deck}
+            mutationStatus={mutationStatus}
+            onMutationStatus={setMutationStatus}
+            onAuthoritativeRun={(run) =>
+              setDeck((current) => overlayRuntimeOnV2Ready(current, run) ?? current)
+            }
+          />
+        </>
+      );
+    }
+    render(<SwitchHarness />);
+    await user.click(screen.getByRole("radio", { name: "Follow it" }));
+    await user.click(screen.getByRole("button", { name: "Switch run" }));
+    resolvePut(
+      breachRun({
+        run_revision: 5,
+        progress: breachProgress({
+          selections: { "choice:surviving-brood": "option:follow-brood" },
+        }),
+      }),
+    );
+    expect(await screen.findByTestId("play-workspace-current")).toHaveTextContent("Tunnel Pursuit");
+    expect(screen.queryByRole("radio", { name: "Follow it" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-decision-consequence")).not.toBeInTheDocument();
   });
 });
