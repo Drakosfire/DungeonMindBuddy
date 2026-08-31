@@ -27,14 +27,17 @@ pr_body_template: |
 # HANDOFF — SurfaceContext Contract v1, Plan-characterized (A6)
 
 **Created:** 2026-08-29  
-**Status:** **READY FOR DISPATCH after exact-current-main / active-lease recheck**  
+**Updated:** 2026-08-30 — implementation handed back for review  
+**Status:** IMPLEMENTATION CYCLE 2 TIP — Cycle 1 `5061489626` CHANGES REQUESTED-equivalent addressed; evidence in §23.8  
 **Canonical handoff:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-surface-context-v1.md`  
 **Companion decision:** `Docs/Design/DECISION-agent-context-compilation.md`  
 **Surface authority:** `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`  
 **Playable/runtime authority:** `Docs/Design/ARCHITECTURE-playable-material-and-runtime.md`  
 **Design re-anchor:** `2ed2c43cb5914764bf492eb7d0b5372e6ef486da`  
-**Workstream / flow:** `AGENT-INTERACTION / A6`  
+**Dispatch base:** `da4a2c9a3bce80f7a271252e3a5ed105d5ae1dbb`  
 **Implementation branch:** `agent/surface-context-v1`  
+**Worktree:** `/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy-surface-context-v1`  
+**Workstream / flow:** `AGENT-INTERACTION / A6`  
 **PR title:** `AGENT-INTERACTION: establish SurfaceContext v1`  
 **Predecessor:** A5 — ContextAssembler v1 / PR #666  
 **Accepted predecessor head:** `4917abd90fc79d65d84057b27d26309f681090b6`  
@@ -1442,3 +1445,113 @@ A reviewer should be able to answer **yes** to all of these:
 ```
 
 If any answer is no, the slice is not merge-ready.
+
+---
+
+# 23. CODE handback evidence
+
+## 23.1 Dispatch / recheck
+
+```text
+dispatch base / origin/main at dispatch = da4a2c9a3bce80f7a271252e3a5ed105d5ae1dbb
+open PRs at dispatch = none
+open PRs at handback = #669
+PR URL = https://github.com/Drakosfire/DungeonMindBuddy/pull/669
+authoritative tip = origin/agent/surface-context-v1 (GitHub PR head)
+PR-open metadata commit = 253e814da739d836da0ae6e2dec352096b8d64e3
+branch = agent/surface-context-v1
+worktree = /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy-surface-context-v1
+```
+
+## 23.2 Mission preserved
+
+Lease-guarded Plan publication → identity-only wire → APP-STATE resolve → ContextAssembler → AgentRuntime → bounded CURRENT WORK prose. Explicit user question remains the World retrieval seed. Failures omit SurfaceContext enrichment only.
+
+## 23.3 Wire + resolution
+
+```text
+dmb_agent_surface_context_request_v1
+  required when present: schema, surface_id, campaign_id, document_id, session_number, pointers
+  nullable identity fields still require explicit null (no defaults)
+  alias-only `schema` (internal `schema_` rejected on wire)
+  extra=forbid (no label / ambientSummary / title)
+Plan proving path: buildPlanAgentSurfaceContextRequest — non-plan lease → null (absent)
+
+statuses: absent | resolved | surface_only | rejected_scope | rejected_surface | unavailable
+APP-STATE: get_workspace_document(root, document_id) — kind=plan, status=active, campaign match
+Plan pointers: non-empty → rejected_surface (not silently ignored)
+local-plan:* client IDs → document_id null on wire builder
+```
+
+## 23.4 Runtime + model
+
+```text
+AgentContextPacket.surface_context: AgentSurfaceContext | None
+AgentSurfaceContext(surface_id, current_work?: AgentCurrentWorkContext)
+title model-visible ≤240; full block ≤512; JSON-escaped titles
+Hermes: surface_context_block on host request + ephemeral system prompt
+PydanticAI: same render_agent_surface_context(...) appended to instructions
+A5 dmb_agent_context_summary_v1 (14 keys) unchanged
+new span surface_context_resolution + dmb_agent_surface_context_summary_v1 (8 keys)
+```
+
+## 23.5 Verification totals
+
+```text
+Cycle 1 tip (§16): server owning 267 / A5 floor 27 / Vitest 82
+Cycle 2 tip:
+  combined owning + LCS + A5 floor: 298 passed
+  frontend focused Vitest: 84 passed (3 files; +2 Plan fail-closed cases)
+  ruff leased Python paths: clean
+  lockfile/dependency: unchanged
+```
+
+## 23.6 A5 predecessor sync
+
+```text
+Docs/Plans/HANDOFF-AGENT-INTERACTION-context-assembler-v1.md
+  status COMPLETE / MERGED
+  PR #666 / accepted 4917abd… / merge 44f4e04… / 2 cycles
+  Cycle 1 5059919962 CHANGES REQUESTED-equivalent
+  Cycle 2 5059964443 PASS-equivalent
+  active successor A6
+```
+
+## 23.7 Stop conditions / successors still false
+
+```text
+stop conditions encountered: none
+Play current-moment SurfaceContext: not implemented
+Plan body / selection / memory / ranking / token budget: not implemented
+A6 merge SHA / final review-cycle count: not invented
+```
+
+## 23.8 Review Cycle 1 disposition
+
+```text
+review ID = 5061489626
+judgment = CHANGES REQUESTED-equivalent
+exact head reviewed = 916c1e9ab6c69057155828733e5ae1b777613cbb
+```
+
+Blockers addressed in Cycle 2 tip:
+
+1. Wire contract: all v1 fields required when `surface_context` is present; no defaults;
+   `populate_by_name` removed so internal `schema_` cannot validate; wrong/missing schema → 422.
+2. Plan proving path uses `buildPlanAgentSurfaceContextRequest` — foreign leases fail closed to absence.
+3. HTTP owning proofs added in `tests/test_live_control_server.py` for `/api/live/query`.
+4. §4.7-style bounded test-file exception recorded below for assembler coverage.
+
+### §4 bounded lease exception (handback)
+
+```text
+path: tests/test_agent_context_assembler.py
+why: §15.6 requires ContextAssembler surface_context carry/parity characterization;
+     assembler implementation is leased; this existing owning suite is the natural home.
+assertions:
+  - resolved AgentSurfaceContext reaches AgentContextPacket.surface_context
+  - A5 14-key context summary unchanged / privacy preserved
+  - World scope parity with and without SurfaceContext
+  - user question unchanged as retrieval seed
+```
+

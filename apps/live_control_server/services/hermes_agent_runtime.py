@@ -20,6 +20,7 @@ from apps.live_control_server.services.agent_runtime import (
     AgentRuntimeResult,
     AgentRuntimeToolEvent,
 )
+from apps.live_control_server.services.agent_surface_context import render_agent_surface_context
 from apps.live_control_server.services.hermes_graph_agent_contract import (
     HermesGraphAgentTurnRequest,
     HermesGraphAgentTurnResult,
@@ -114,6 +115,9 @@ def map_invocation_to_hermes_request(
     )
     execution_root = invocation.run_options.execution_root
     root = execution_root.resolve() if isinstance(execution_root, Path) else execution_root
+    surface_context_block = render_agent_surface_context(
+        invocation.context_packet.surface_context
+    )
     return HermesGraphAgentTurnRequest(
         question=invocation.message,
         world_id=world_scope.world_id,
@@ -127,6 +131,7 @@ def map_invocation_to_hermes_request(
         capability_policy=default_graph_only_capability_policy(graph_scope),
         retrieval_session_id=None if retrieval is None else retrieval.session_id,
         retrieval_session=None if retrieval is None else retrieval.packet,
+        surface_context_block=surface_context_block,
     )
 
 

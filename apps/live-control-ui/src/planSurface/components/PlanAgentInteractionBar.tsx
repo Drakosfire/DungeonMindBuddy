@@ -36,6 +36,7 @@ import {
   useAskPluginSlotOptional,
   useRegisterAskPluginPresence,
 } from "../../agentInteraction/AskPluginSlot";
+import { buildPlanAgentSurfaceContextRequest } from "../../agentInteraction/agentSurfaceContextRequest";
 import { buildHermesConversationHistory } from "../../agentInteraction/hermesConversationHistory";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { ContextSufficiencyPanel } from "./ContextSufficiencyPanel";
@@ -840,6 +841,12 @@ export function PlanAgentInteractionBar({
       );
       // Outer campaign/session must match the loaded live packet (Plan descriptor).
       // Graph lens campaign + scopeMode live only in worldGraphContext.
+      // Submit-time snapshot from lease-guarded publication only — never
+      // activeSurfaceContext, sessionDescriptor, or client ambient prose.
+      // Foreign (non-plan) leases fail closed to absence on the Plan proving path.
+      const surfaceContext = buildPlanAgentSurfaceContextRequest(
+        agentInteraction.surfaceInteractionPublication,
+      );
       const response = await askCorpus(
         trimmed,
         sessionDescriptor.campaignId,
@@ -855,6 +862,7 @@ export function PlanAgentInteractionBar({
             : null,
           conversationHistory: buildHermesConversationHistory(currentThread.turns),
           hermesSessionPointer: currentThread.hermesSession?.sessionId ?? null,
+          surfaceContext,
         },
       );
       const nextTurn = turnFromResponse(trimmed, response, "hermes");

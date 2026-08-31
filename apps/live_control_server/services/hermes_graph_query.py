@@ -26,6 +26,7 @@ from apps.live_control_server.services.agent_runtime import (
     AgentRuntimeInvocation,
     AgentRuntimeResult,
     AgentRuntimeToolEvent,
+    AgentSurfaceContext,
     descriptor_for_runtime,
 )
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
@@ -265,6 +266,7 @@ def _assemble_graph_turn(
     continuity_session_id: str | None = None,
     thread_id: str | None = None,
     turn_id: str | None = None,
+    surface_context: AgentSurfaceContext | None = None,
 ) -> tuple[AgentContextAssembly, _DispatchedScope]:
     """Neutral assembly + product scope, translating assembler errors."""
     try:
@@ -278,6 +280,7 @@ def _assemble_graph_turn(
             runtime_session_id=continuity_session_id,
             thread_id=thread_id,
             turn_id=turn_id,
+            surface_context=surface_context,
         )
     except AgentContextAssemblyError as exc:
         raise HermesGraphQueryRequestError(
@@ -307,6 +310,7 @@ def build_hermes_graph_turn_request(
     continuity_session_id: str | None = None,
     thread_id: str | None = None,
     turn_id: str | None = None,
+    surface_context: AgentSurfaceContext | None = None,
 ) -> tuple[AgentRuntimeInvocation, _DispatchedScope]:
     """Assemble one DMB AgentRuntime invocation from resolved World Graph context."""
     assembly, scope = _assemble_graph_turn(
@@ -319,6 +323,7 @@ def build_hermes_graph_turn_request(
         continuity_session_id=continuity_session_id,
         thread_id=thread_id,
         turn_id=turn_id,
+        surface_context=surface_context,
     )
     return assembly.invocation, scope
 
@@ -1376,6 +1381,7 @@ def run_hermes_graph_query(
     session_base: Path | None = None,
     hermes_session_pointer: str | None = None,
     trace_builder: AgentTurnTraceBuilder | None = None,
+    surface_context: AgentSurfaceContext | None = None,
 ) -> dict[str, Any]:
     """Execute one authoritative Hermes graph turn and return a product envelope.
 
@@ -1450,6 +1456,7 @@ def run_hermes_graph_query(
                 continuity_session_id=pointer_resolution.continuity_session_id,
                 thread_id=agent_thread_id,
                 turn_id=turn_id,
+                surface_context=surface_context,
             )
             invocation = assembly.invocation
             builder.context_summary = dict(assembly.trace_summary)

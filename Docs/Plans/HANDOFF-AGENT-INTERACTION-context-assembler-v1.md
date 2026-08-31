@@ -26,8 +26,8 @@ pr_body_template: |
 # HANDOFF — ContextAssembler v1 (A5)
 
 **Created:** 2026-08-29
-**Updated:** 2026-08-29 — design released after Agent Context Compilation decision
-**Status:** IMPLEMENTATION HANDED BACK FOR REVIEW — evidence in §23
+**Updated:** 2026-08-30 — COMPLETE / MERGED; successor A6 active
+**Status:** COMPLETE / MERGED
 **Canonical handoff:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-context-assembler-v1.md`
 **Companion decision:** `Docs/Design/DECISION-agent-context-compilation.md`
 **Design base:** `619aa2b0c4be67e1d3931ff50899d126d2dafa13`
@@ -35,6 +35,14 @@ pr_body_template: |
 **Implementation branch:** `agent/context-assembler-v1`
 **Workstream:** `AGENT-INTERACTION / A5`
 **Flow / owner:** `AGENT-INTERACTION`
+**PR:** #666
+**Accepted head:** `4917abd90fc79d65d84057b27d26309f681090b6`
+**Merge:** `44f4e04a5e5b6998fd8e8f2bd4a5427bd491b17d`
+**Formal review cycles:** 2
+**Cycle 1 review:** `5059919962` — CHANGES REQUESTED-equivalent
+**Cycle 2 review:** `5059964443` — PASS-equivalent
+**Active successor:** A6 — SurfaceContext Contract v1 (`Docs/Plans/HANDOFF-AGENT-INTERACTION-surface-context-v1.md`)
+**PydanticAI production:** still false
 **Predecessor:** A4 — Graph Agent Policy Boundary v1
 **Predecessor PR:** #664
 **Accepted predecessor head:** `497dcfb6c21507ee1d0e26d009add0ce044c0ec6`
@@ -60,7 +68,8 @@ A1  Advanced Trace Inspector            MERGED #656
 A2  AgentRuntime Boundary               MERGED #659
 A3  PydanticAI Adapter Experiment       MERGED #663
 A4  Graph Agent Policy Boundary         MERGED #664
-A5  ContextAssembler v1                 THIS SLICE
+A5  ContextAssembler v1                 MERGED #666
+A6  SurfaceContext Contract v1          ACTIVE SUCCESSOR
 ```
 
 A5 was intentionally held while the steward clarified what future Agent context means. That discussion is now captured in:

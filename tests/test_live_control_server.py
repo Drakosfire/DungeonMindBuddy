@@ -1954,3 +1954,187 @@ def test_live_agent_query_context_executes_via_direct_dungeonmind_read(
     assert envelope["status"] == "ready"
     assert envelope["revision_id"] == published.revision_id
     assert envelope["is_head"] is True
+
+
+def test_live_query_http_rejects_malformed_surface_context(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A6: shape-invalid SurfaceContext is request validation, not semantic degrade."""
+    import apps.live_control_server.routes.live as live_routes
+
+    monkeypatch.setattr(
+        live_routes,
+        "process_live_query",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("process_live_query must not run for malformed surface_context")
+        ),
+    )
+    base = {
+        "campaign_id": "longmont-c2",
+        "session": 22,
+        "mode": "live",
+        "query_backend": "hermes",
+        "text": "What does Lysandra know about the swarm?",
+        "world_graph_context": _GRAPH_NESTED,
+    }
+    # Missing required schema on nested surface_context.
+    response = client.post(
+        "/api/live/query",
+        json={
+            **base,
+            "surface_context": {
+                "surface_id": "plan",
+                "campaign_id": "longmont-c2",
+                "document_id": None,
+                "session_number": 22,
+                "pointers": [],
+            },
+        },
+    )
+    assert response.status_code == 422
+
+    # Internal field name must not validate as the versioned schema key.
+    response = client.post(
+        "/api/live/query",
+        json={
+            **base,
+            "surface_context": {
+                "schema_": "dmb_agent_surface_context_request_v1",
+                "surface_id": "plan",
+                "campaign_id": "longmont-c2",
+                "document_id": None,
+                "session_number": 22,
+                "pointers": [],
+            },
+        },
+    )
+    assert response.status_code == 422
+
+    # Required pointers omitted.
+    response = client.post(
+        "/api/live/query",
+        json={
+            **base,
+            "surface_context": {
+                "schema": "dmb_agent_surface_context_request_v1",
+                "surface_id": "plan",
+                "campaign_id": "longmont-c2",
+                "document_id": None,
+                "session_number": 22,
+            },
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_live_query_http_passes_surface_context_to_process_live_query(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A6: /api/live/query owns nested SurfaceContext transport into process_live_query."""
+    import apps.live_control_server.routes.live as live_routes
+
+    captured: dict[str, Any] = {}
+
+    def _capture(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured["surface_context"] = kwargs.get("surface_context")
+        captured["text"] = args[0] if args else kwargs.get("text")
+        return {
+            "schema": "dmb_live_query_response_v1",
+            "answer": "ok",
+            "status": "ok",
+            "mode": "hermes_graph_agent",
+            "classification": {
+                "intent": "hermes_graph_agent",
+                "latency_mode": "hermes_graph_agent",
+                "event_type": "hermes_graph_agent",
+            },
+            "events_written": [],
+            "jobs_queued": [],
+            "next_suggestions": [],
+            "diagnostics": {},
+            "provenance": {"backend": "hermes", "runtime": "process_isolated"},
+            "citations": [],
+            "context_packet": None,
+            "agent_thread_id": "t",
+            "turn_id": "u",
+        }
+
+    monkeypatch.setattr(live_routes, "process_live_query", _capture)
+    question = "What does Lysandra know about the swarm?"
+    surface = {
+        "schema": "dmb_agent_surface_context_request_v1",
+        "surface_id": "plan",
+        "campaign_id": "longmont-c2",
+        "document_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        "session_number": 22,
+        "pointers": [],
+    }
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": question,
+            "world_graph_context": _GRAPH_NESTED,
+            "surface_context": surface,
+        },
+    )
+    assert response.status_code == 200
+    assert captured["text"] == question
+    sc = captured["surface_context"]
+    assert sc is not None
+    assert sc.schema_ == "dmb_agent_surface_context_request_v1"
+    assert sc.surface_id == "plan"
+    assert sc.campaign_id == "longmont-c2"
+    assert sc.document_id == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    assert sc.session_number == 22
+    assert sc.pointers == []
+
+    # Omitted surface_context remains valid and absent.
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": question,
+            "world_graph_context": _GRAPH_NESTED,
+        },
+    )
+    assert response.status_code == 200
+    assert captured["surface_context"] is None
+
+
+def test_live_query_http_rejects_surface_context_on_live_backend(
+    client: TestClient,
+    isolated_session: Path,
+) -> None:
+    """A6: surface_context is Hermes-only at the product path."""
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "live",
+            "text": "What does Lysandra know about the swarm?",
+            "surface_context": {
+                "schema": "dmb_agent_surface_context_request_v1",
+                "surface_id": "plan",
+                "campaign_id": "longmont-c2",
+                "document_id": None,
+                "session_number": 22,
+                "pointers": [],
+            },
+        },
+    )
+    assert response.status_code == 422
+    body = response.json()
+    assert body.get("code") == "surface_context_unsupported"

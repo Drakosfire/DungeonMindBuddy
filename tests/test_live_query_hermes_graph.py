@@ -2816,3 +2816,175 @@ def test_invalid_history_logs_failure_trace_once(tmp_path: Path, caplog) -> None
     assert "turn-invalid" in blob
     assert PRIVACY_SENTINEL not in blob
     assert host.calls == []
+
+
+def test_surface_context_resolution_span_and_query_primacy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services.agent_surface_context import (
+        AgentSurfaceContextRequest,
+        SURFACE_CONTEXT_SUMMARY_SCHEMA,
+        SURFACE_SUMMARY_KEYS,
+    )
+    from apps.live_control_server.services.agent_world_graph_query_context import (
+        AgentWorldGraphQueryContextRequest,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        WorkspaceDocumentRecord,
+    )
+
+    secret_title = "SECRET-PLAN-TITLE-a6-product-path"
+    secret_doc = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    question = "What does Lysandra know about the swarm?"
+    captured_outer_text: list[str] = []
+    captured_invocations: list[AgentRuntimeInvocation] = []
+
+    def fake_resolve(ctx: Any, *, outer_text: str, **kwargs: Any) -> dict[str, Any]:
+        del ctx, kwargs
+        captured_outer_text.append(outer_text)
+        return {
+            **READY_ENVELOPE,
+            "campaign_id": "longmont-c2",
+            "query_text": outer_text,
+        }
+
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        fake_resolve,
+    )
+    monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        live_agent_loop,
+        "load_session",
+        lambda *_a, **_k: ({"campaign_id": "longmont-c2", "session": 27}, {}, [], []),
+    )
+    monkeypatch.setattr(live_agent_loop, "session_dir", lambda: tmp_path)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_surface_context.get_workspace_document",
+        lambda *_a, **_k: WorkspaceDocumentRecord.model_validate(
+            {
+                "document_id": secret_doc,
+                "title": secret_title,
+                "campaign_id": "longmont-c2",
+                "kind": "plan",
+                "status": "active",
+                "revision": 3,
+                "target_session": 27,
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:00:00Z",
+            }
+        ),
+    )
+
+    class _CaptureRuntime:
+        descriptor = HERMES_RUNTIME_DESCRIPTOR
+
+        def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
+            captured_invocations.append(invocation)
+            return _ok_result()
+
+    surface_req = AgentSurfaceContextRequest.model_validate(
+        {
+            "schema": "dmb_agent_surface_context_request_v1",
+            "surface_id": "plan",
+            "campaign_id": "longmont-c2",
+            "document_id": secret_doc,
+            "session_number": 27,
+            "pointers": [],
+        }
+    )
+    world_req = AgentWorldGraphQueryContextRequest.model_validate(
+        {
+            "schema": "dmb_agent_world_graph_query_context_request_v1",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "focus": {"kind": "none"},
+            "admissibility": "gm",
+        }
+    )
+
+    response_with = live_agent_loop.process_live_query(
+        question,
+        base=tmp_path,
+        query_backend="hermes",
+        world_graph_context=world_req,
+        outer_campaign_id="longmont-c2",
+        agent_runtime=_CaptureRuntime(),  # type: ignore[arg-type]
+        surface_context=surface_req,
+    )
+    response_without = live_agent_loop.process_live_query(
+        question,
+        base=tmp_path,
+        query_backend="hermes",
+        world_graph_context=world_req,
+        outer_campaign_id="longmont-c2",
+        agent_runtime=_CaptureRuntime(),  # type: ignore[arg-type]
+        surface_context=None,
+    )
+
+    assert captured_outer_text == [question, question]
+    assert len(captured_invocations) == 2
+    assert captured_invocations[0].message == question
+    assert captured_invocations[1].message == question
+    assert captured_invocations[0].context_packet.surface_context is not None
+    assert captured_invocations[0].context_packet.surface_context.current_work is not None
+    assert (
+        captured_invocations[0].context_packet.surface_context.current_work.title
+        == secret_title
+    )
+    assert captured_invocations[1].context_packet.surface_context is None
+    assert (
+        captured_invocations[0].context_packet.world_scope.revision_id
+        == captured_invocations[1].context_packet.world_scope.revision_id
+    )
+
+    trace = response_with["agent_trace"]
+    surface_span = next(
+        span for span in trace["spans"] if span.get("name") == "surface_context_resolution"
+    )
+    attrs = surface_span["attributes"]
+    assert set(attrs) == SURFACE_SUMMARY_KEYS
+    assert attrs["surface_context_schema"] == SURFACE_CONTEXT_SUMMARY_SCHEMA
+    assert attrs["resolution_status"] == "resolved"
+    blob = json.dumps(trace)
+    assert secret_title not in blob
+    assert secret_doc not in blob
+    assert question not in blob
+    context_span = next(
+        span for span in trace["spans"] if span.get("name") == "context_assembly"
+    )
+    assert context_span["attributes"]["context_schema"] == "dmb_agent_context_summary_v1"
+    assert len(context_span["attributes"]) == 14
+    assert "surface_context" not in context_span["attributes"]
+    assert response_without["agent_trace"]["context_summary"]["context_schema"] == (
+        "dmb_agent_context_summary_v1"
+    )
+
+
+def test_surface_context_unsupported_on_live_backend(tmp_path: Path) -> None:
+    from apps.live_control_server.services.agent_surface_context import (
+        AgentSurfaceContextRequest,
+    )
+    from apps.live_control_server.services.hermes_graph_query import (
+        HermesGraphQueryRequestError,
+    )
+
+    with pytest.raises(HermesGraphQueryRequestError) as exc:
+        live_agent_loop.process_live_query(
+            "q",
+            base=tmp_path,
+            query_backend="live",
+            surface_context=AgentSurfaceContextRequest.model_validate(
+                {
+                    "schema": "dmb_agent_surface_context_request_v1",
+                    "surface_id": "plan",
+                    "campaign_id": "longmont-c2",
+                    "document_id": None,
+                    "session_number": 22,
+                    "pointers": [],
+                }
+            ),
+        )
+    assert exc.value.code == "surface_context_unsupported"

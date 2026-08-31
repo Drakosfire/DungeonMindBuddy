@@ -19,6 +19,7 @@ from pydantic_ai.models import Model
 from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.usage import RequestUsage
 
+from apps.live_control_server.services.agent_surface_context import render_agent_surface_context
 from apps.live_control_server.services.agent_graph_policy import (
     GRAPH_SYSTEM_POLICY,
     resolve_agent_graph_openai_inference,
@@ -217,7 +218,11 @@ def _scope_capability_packet(invocation: AgentRuntimeInvocation) -> str:
 
 def pydantic_ai_agent_instructions(invocation: AgentRuntimeInvocation) -> str:
     """Accepted DMB graph-Agent policy plus a truthful PydanticAI scope packet."""
-    return f"{GRAPH_SYSTEM_POLICY}\n\n{_scope_capability_packet(invocation)}"
+    base = f"{GRAPH_SYSTEM_POLICY}\n\n{_scope_capability_packet(invocation)}"
+    surface_block = render_agent_surface_context(invocation.context_packet.surface_context)
+    if surface_block:
+        return f"{base}\n\n{surface_block}"
+    return base
 
 
 def _a0_provider_label(system: str) -> str:

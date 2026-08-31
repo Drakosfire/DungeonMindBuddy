@@ -1647,6 +1647,51 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
     expect(body).not.toHaveProperty("graph_root");
   });
 
+  it("includes surface_context for Hermes when provided and omits it when absent", async () => {
+    const surfaceContext = {
+      schema: "dmb_agent_surface_context_request_v1" as const,
+      surface_id: "plan",
+      campaign_id: "longmont-c2",
+      document_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      session_number: 27,
+      pointers: [],
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ answer: "ok", classification: {} }),
+    );
+
+    await postLiveQuery("What does Lysandra know about the swarm?", "longmont-c2", 27, "hermes", {
+      surfaceContext,
+    });
+    let body = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body)) as Record<string, unknown>;
+    expect(body.surface_context).toEqual(surfaceContext);
+    expect(JSON.stringify(body)).not.toContain("ambient");
+
+    await postLiveQuery("What does Lysandra know about the swarm?", "longmont-c2", 27, "hermes");
+    body = JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("surface_context");
+  });
+
+  it("never serializes surface_context for Live requests", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ answer: "ok", classification: {} }),
+    );
+
+    await postLiveQuery("Live question?", "longmont-c2", 22, "live", {
+      surfaceContext: {
+        schema: "dmb_agent_surface_context_request_v1",
+        surface_id: "plan",
+        campaign_id: "longmont-c2",
+        document_id: null,
+        session_number: 22,
+        pointers: [],
+      },
+    });
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body)) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("surface_context");
+  });
+
   it("omits conversation_history on first Hermes turn and includes normalized pairs on follow-up", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       mockJsonResponse({ answer: "ok", classification: {} }),

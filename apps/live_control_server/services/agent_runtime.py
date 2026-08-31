@@ -53,9 +53,25 @@ class AgentRetrievalSession:
 
 
 @dataclass(frozen=True, slots=True)
+class AgentCurrentWorkContext:
+    kind: str
+    work_object_id: str
+    title: str
+    object_revision: int
+    target_session: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AgentSurfaceContext:
+    surface_id: str
+    current_work: AgentCurrentWorkContext | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class AgentContextPacket:
     world_scope: AgentWorldScope
     retrieval_session: AgentRetrievalSession | None = None
+    surface_context: AgentSurfaceContext | None = None
 
 
 @dataclass(frozen=True, slots=True)
