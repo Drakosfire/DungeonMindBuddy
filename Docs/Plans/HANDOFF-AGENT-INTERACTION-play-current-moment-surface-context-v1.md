@@ -29,8 +29,8 @@ pr_body_template: |
 # HANDOFF — Play Durable Current-Moment SurfaceContext v1 (A7)
 
 **Created:** 2026-08-30  
-**Updated:** 2026-08-31 — IMPLEMENTATION CYCLE 2 TIP (Cycle 1 `5063079166` CHANGES REQUESTED-equivalent addressed; evidence in §21)  
-**Status:** IMPLEMENTATION CYCLE 2 TIP — Cycle 1 blockers addressed; awaiting formal re-review  
+**Updated:** 2026-08-31 — IMPLEMENTATION CYCLE 3 TIP (Cycle 2 `5068956875` CHANGES REQUESTED-equivalent addressed; evidence in §21.9–21.10)  
+**Status:** IMPLEMENTATION CYCLE 3 TIP — Cycle 2 blocker addressed; awaiting formal re-review  
 **PR:** [#671](https://github.com/Drakosfire/DungeonMindBuddy/pull/671)  
 **Canonical handoff:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-play-current-moment-surface-context-v1.md`  
 **Companion decision:** `Docs/Design/DECISION-agent-context-compilation.md`  
@@ -1362,8 +1362,12 @@ dependency/lockfile changes = none
 ```text
 tests/test_live_query_hermes_graph.py::test_play_surface_context_resolution_span_query_primacy_and_privacy
   literal "What does Lysandra know about the swarm?" unchanged through
-  World projection outer_text → AgentRuntimeInvocation.message
+  World projection outer_text
+    → GraphRetrievalSession / retrieval packet "question"
+    → AgentRuntimeInvocation.message
   with / without / stale Play SurfaceContext
+  world_scope.admissibility / campaign / world / revision / focus unchanged across the three
+  retrieval packet snapshot.admissibility matches world_scope.admissibility
   surface_context_resolution resolved; model_context_char_count in (0,1536]
   Beat/Scene title/body + Run/doc/Beat/Scene IDs + question absent from baseline trace
   A5 14-key context_assembly unchanged
@@ -1393,6 +1397,12 @@ Formal review `5063079166` against `cc307f338018b6261a7fb1eedb5e639726ba4339` �
 2. **Query primacy / privacy** — added Play product-path proof in `tests/test_live_query_hermes_graph.py` (§14.8–14.9).
 3. **A6 PydanticAI baseline restored** — `test_surface_context_block_parity_with_hermes_renderer` again asserts bare instructions retain `"Turn capability policy"` and contain no `"Current DungeonBuddy work"`.
 4. **Atomic handback / state sync** — this §21 plus A6 COMPLETE/MERGED sync; #670 PlaySurfacePage overlap recorded as closed-unmerged lease collision.
+
+## 21.10 Review Cycle 2 disposition
+
+Formal review `5068956875` against `bf3e3b1481bdc3f6e6d21e4d6d455a8709661f82` — one remaining blocker addressed:
+
+1. **Retrieval-session question primacy** — `test_play_surface_context_resolution_span_query_primacy_and_privacy` now asserts `retrieval_session.packet["question"]` remains exactly `"What does Lysandra know about the swarm?"` for valid Play context, absent SurfaceContext, and stale Play context; also asserts `world_scope` admissibility/campaign/world/revision/focus unchanged across those three paths and that packet `snapshot.admissibility` matches. §21.7 updated.
 
 Stop conditions encountered: none.
 Successor claims that remain false: unchanged from §18.

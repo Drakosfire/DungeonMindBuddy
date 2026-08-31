@@ -3158,6 +3158,21 @@ def test_play_surface_context_resolution_span_query_primacy_and_privacy(
     assert captured_outer_text == [question, question, question]
     assert len(captured_invocations) == 3
     assert all(inv.message == question for inv in captured_invocations)
+
+    baseline_scope = captured_invocations[1].context_packet.world_scope
+    for inv in captured_invocations:
+        retrieval = inv.context_packet.retrieval_session
+        assert retrieval is not None
+        assert retrieval.packet["question"] == question
+        assert inv.context_packet.world_scope.admissibility == baseline_scope.admissibility == "gm"
+        assert inv.context_packet.world_scope.campaign_id == baseline_scope.campaign_id
+        assert inv.context_packet.world_scope.world_id == baseline_scope.world_id
+        assert inv.context_packet.world_scope.revision_id == baseline_scope.revision_id
+        assert inv.context_packet.world_scope.focus == baseline_scope.focus
+        snapshot = retrieval.packet.get("snapshot")
+        assert isinstance(snapshot, dict)
+        assert snapshot.get("admissibility") == baseline_scope.admissibility
+
     play_ctx = captured_invocations[0].context_packet.surface_context
     assert play_ctx is not None
     assert play_ctx.current_play is not None
