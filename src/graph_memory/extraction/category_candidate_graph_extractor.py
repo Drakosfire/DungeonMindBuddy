@@ -374,26 +374,19 @@ class CategoryGraphExtractionResult:
     known_entity_mentions: dict[str, Any] | None = None
 
 
-def _policy_paths() -> list[Path]:
-    here = Path(__file__).resolve()
-    return [
-        here.parents[2] / "MODEL_POLICY.json",
-        here.parents[3] / "MODEL_POLICY.json",
-    ]
-
-
 def resolve_category_graph_model(model_id: str | None) -> str:
     if model_id and model_id.strip():
         return model_id.strip()
-    for policy_path in _policy_paths():
-        if policy_path.exists():
-            policy = json.loads(policy_path.read_text(encoding="utf-8"))
-            role = policy.get("actions", {}).get(
-                "graph_memory_category_extraction", "fast_smart_mini"
-            )
-            resolved = policy.get("models", {}).get(role)
-            if isinstance(resolved, str) and resolved.strip():
-                return resolved.strip()
+    from src.model_policy import load_buddy_model_policy
+
+    policy = load_buddy_model_policy()
+    if policy:
+        role = policy.get("actions", {}).get(
+            "graph_memory_category_extraction", "fast_smart_mini"
+        )
+        resolved = policy.get("models", {}).get(role)
+        if isinstance(resolved, str) and resolved.strip():
+            return resolved.strip()
     return "gpt-5.4-mini"
 
 

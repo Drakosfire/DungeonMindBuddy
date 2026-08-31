@@ -7,7 +7,6 @@ policy. Hermes and PydanticAI consume this module; they do not own copies.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 GRAPH_SYSTEM_POLICY = """\
 You are a campaign-prep assistant for DungeonMindBuddy.
@@ -86,9 +85,8 @@ def resolve_agent_graph_openai_inference(
     DungeonBuddy product turns use OpenAI only — never Hermes auto-detect,
     which prefers Anthropic when ``ANTHROPIC_API_KEY`` is ambient in the shell.
     """
-    import json
-
     from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from src.model_policy import load_buddy_model_policy
 
     load_dungeonmindbuddy_dotenv()
     has_openai = bool((os.environ.get("OPENAI_API_KEY") or "").strip())
@@ -96,28 +94,14 @@ def resolve_agent_graph_openai_inference(
         return "hermes_openai_credentials_missing"
 
     model = "gpt-5.4-mini"
-    policy_candidates = [
-        Path(__file__).resolve().parents[4] / "MODEL_POLICY.json",  # monorepo root
-        Path(__file__).resolve().parents[3] / "MODEL_POLICY.json",  # buddy root
-    ]
-    for policy_path in policy_candidates:
-        if not policy_path.is_file():
-            continue
-        try:
-            policy = json.loads(policy_path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        actions = policy.get("actions") if isinstance(policy.get("actions"), dict) else {}
-        models = policy.get("models") if isinstance(policy.get("models"), dict) else {}
-        role = actions.get("hermes_graph_agent") or actions.get(
-            "default_text_generation"
-        )
-        if isinstance(role, str) and role.strip():
-            resolved = models.get(role.strip())
-            if isinstance(resolved, str) and resolved.strip():
-                model = resolved.strip()
-                break
-        break
+    policy = load_buddy_model_policy()
+    actions = policy.get("actions") if isinstance(policy.get("actions"), dict) else {}
+    models = policy.get("models") if isinstance(policy.get("models"), dict) else {}
+    role = actions.get("hermes_graph_agent") or actions.get("default_text_generation")
+    if isinstance(role, str) and role.strip():
+        resolved = models.get(role.strip())
+        if isinstance(resolved, str) and resolved.strip():
+            model = resolved.strip()
 
     override = (os.environ.get("DUNGEONMIND_HERMES_GRAPH_MODEL") or "").strip()
     if override:

@@ -42,24 +42,16 @@ class TurnClassification:
     confidence: str = "high"
 
 
-def _model_policy_paths() -> list[Path]:
-    here = Path(__file__).resolve()
-    return [here.parents[2] / "MODEL_POLICY.json", here.parents[3] / "MODEL_POLICY.json"]
-
-
 def _resolve_classifier_model(model: str | None) -> str:
     if model and str(model).strip():
         return str(model).strip()
     env_model = os.environ.get(_CLASSIFIER_MODEL_ENV, "").strip()
     if env_model:
         return env_model
-    for policy_path in _model_policy_paths():
-        if not policy_path.is_file():
-            continue
-        try:
-            policy = json.loads(policy_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
+    from src.model_policy import load_buddy_model_policy
+
+    policy = load_buddy_model_policy()
+    if policy:
         models = policy.get("models") or {}
         actions = policy.get("actions") or {}
         role = actions.get(_POLICY_ACTION) or actions.get("structured_generation")

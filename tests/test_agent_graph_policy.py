@@ -1,17 +1,16 @@
-"""A4: neutral graph-Agent policy ownership, verbatim move, resolver parity."""
+"""A4/E1B: neutral graph-Agent policy ownership, Buddy-local model authority."""
 
 from __future__ import annotations
 
 import ast
-import json
 from pathlib import Path
 
-from apps.live_control_server.services import agent_graph_policy as policy_mod
 from apps.live_control_server.services import hermes_graph_agent as hermes_mod
 from apps.live_control_server.services.agent_graph_policy import (
     GRAPH_SYSTEM_POLICY,
     resolve_agent_graph_openai_inference,
 )
+from src.model_policy import buddy_model_policy_path, buddy_repo_root, load_buddy_model_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVICES = ROOT / "apps/live_control_server/services"
@@ -91,7 +90,7 @@ def test_resolver_missing_key_and_require_flag(monkeypatch) -> None:
     )
     assert provider == "openai-api"
     assert base_url == "https://api.openai.com/v1"
-    assert isinstance(model, str) and model
+    assert model == "gpt-5.3-codex"
 
 
 def test_resolver_env_override_and_provider(monkeypatch) -> None:
@@ -109,20 +108,33 @@ def test_resolver_env_override_and_provider(monkeypatch) -> None:
     assert base_url == "https://api.openai.com/v1"
 
 
-def test_resolver_model_policy_lookup_compatibility_is_unchanged() -> None:
+def test_resolver_uses_buddy_owned_policy_not_parent_workspace(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.bootstrap_env.load_dungeonmindbuddy_dotenv",
+        lambda: None,
+    )
+    monkeypatch.delenv("DUNGEONMIND_HERMES_GRAPH_MODEL", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-used")
+
     src = (SERVICES / "agent_graph_policy.py").read_text(encoding="utf-8")
     assert 'actions.get("hermes_graph_agent")' in src
     assert "default_text_generation" in src
     assert "DUNGEONMIND_HERMES_GRAPH_MODEL" in src
     assert '"openai-api"' in src
     assert "https://api.openai.com/v1" in src
-    candidates = [
-        Path(policy_mod.__file__).resolve().parents[4] / "MODEL_POLICY.json",
-        Path(policy_mod.__file__).resolve().parents[3] / "MODEL_POLICY.json",
-    ]
-    found = [path for path in candidates if path.is_file()]
-    if not found:
-        return
-    policy = json.loads(found[0].read_text(encoding="utf-8"))
+    assert "load_buddy_model_policy" in src
+    assert "parents[4]" not in src
+
+    policy_path = buddy_model_policy_path()
+    assert policy_path.is_file()
+    assert policy_path.resolve().is_relative_to(buddy_repo_root().resolve())
+    policy = load_buddy_model_policy()
     actions = policy.get("actions") if isinstance(policy.get("actions"), dict) else {}
-    assert "hermes_graph_agent" in actions or "default_text_generation" in actions
+    models = policy.get("models") if isinstance(policy.get("models"), dict) else {}
+    assert "default_text_generation" in actions
+    assert models.get(actions["default_text_generation"]) == "gpt-5.3-codex"
+
+    provider, model, base_url = resolve_agent_graph_openai_inference(require_api_key=True)
+    assert provider == "openai-api"
+    assert model == "gpt-5.3-codex"
+    assert base_url == "https://api.openai.com/v1"
