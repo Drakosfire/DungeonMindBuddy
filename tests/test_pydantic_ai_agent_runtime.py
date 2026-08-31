@@ -667,6 +667,8 @@ def test_surface_context_block_parity_with_hermes_renderer() -> None:
     bare = pydantic_ai_agent_instructions(_invocation())
     assert block not in bare
     assert bare.startswith(GRAPH_SYSTEM_POLICY)
+    assert "Turn capability policy" in bare
+    assert "Current DungeonBuddy work" not in bare
 
 
 def test_play_surface_context_block_parity_with_hermes_renderer() -> None:

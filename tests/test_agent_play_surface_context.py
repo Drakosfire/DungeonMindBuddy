@@ -145,6 +145,65 @@ def test_extract_v2_play_authored_slices_matches_c2s27_shape() -> None:
     assert SECRET_SCENE_BODY in scene.body_text
 
 
+def test_extract_ends_beat_body_at_ordinary_unmarked_root_h2() -> None:
+    """Parity with client slicePlayableBodies: unmarked root H2 must not bleed backward."""
+    markdown = "\n".join(
+        [
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:breach beat_kind=spine -->",
+            "## Hold the Breach",
+            "",
+            "Beat-specific prose",
+            "",
+            "### GM Note",
+            "",
+            "Keep this unmarked H3 inside the Beat.",
+            "",
+            "## Open questions",
+            "",
+            "- Does Tealeaf answer?",
+            "- How much wall falls?",
+            "",
+        ]
+    )
+    slices = extract_v2_play_authored_slices(markdown)
+    beat = slices["beat:breach"]
+    assert beat.title == "Hold the Breach"
+    assert "Beat-specific prose" in beat.body_text
+    assert "Keep this unmarked H3 inside the Beat." in beat.body_text
+    assert "Open questions" not in beat.body_text
+    assert "Does Tealeaf answer" not in beat.body_text
+    assert "open-questions" not in slices
+
+
+def test_extract_ends_scene_body_at_ordinary_unmarked_root_h1() -> None:
+    markdown = "\n".join(
+        [
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:breach beat_kind=spine -->",
+            "## Hold the Breach",
+            "",
+            "Beat intro.",
+            "",
+            "<!-- dmb-playable-element:v2 kind=scene id=scene:north-gate -->",
+            "### North Gate",
+            "",
+            "Scene-specific prose.",
+            "",
+            "# Appendix",
+            "",
+            "Later runbook appendix must not enter Scene body.",
+            "",
+        ]
+    )
+    slices = extract_v2_play_authored_slices(markdown)
+    scene = slices["scene:north-gate"]
+    assert "Scene-specific prose." in scene.body_text
+    assert "Appendix" not in scene.body_text
+    assert "Later runbook appendix" not in scene.body_text
+    beat = slices["beat:breach"]
+    assert "Scene-specific prose." not in beat.body_text
+    assert "Appendix" not in beat.body_text
+
+
 def test_resolved_play_uses_server_metadata_not_client_prose(tmp_path: Path) -> None:
     record = _play_record()
     manifest = _manifest()

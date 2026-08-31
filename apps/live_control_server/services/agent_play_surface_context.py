@@ -57,7 +57,9 @@ _REQUIRED_POINTER_KINDS = ("play_run", "playable_revision", "current_beat")
 _OPTIONAL_POINTER_KIND = "current_scene"
 _ALLOWED_POINTER_KINDS = frozenset({*_REQUIRED_POINTER_KINDS, _OPTIONAL_POINTER_KIND})
 
-_H1_BOUNDARY_RE = re.compile(r"^# [^#]")
+# Ordinary unmarked document-root H1/H2 — same boundary rule as client
+# ``isOrdinaryRootInstructionHeading`` / ``slicePlayableBodies``.
+_ORDINARY_ROOT_HEADING_RE = re.compile(r"^(#{1,2}) (.+)$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,15 +77,19 @@ def _clip(text: str, limit: int) -> str:
     return cleaned[: limit - 1] + "…"
 
 
-def _heading_title(line: str) -> str:
-    match = ATX_HEADING_RE.fullmatch(line)
-    if match is None:
-        return line.strip()
-    return match.group(2).strip()
+def _is_ordinary_root_heading(line: str) -> bool:
+    """True for unmarked document-root H1 or H2 (not H3+)."""
+    return _ORDINARY_ROOT_HEADING_RE.fullmatch(line) is not None
 
 
 def extract_v2_play_authored_slices(markdown: str) -> dict[str, _PlayAuthoredSlice]:
-    """Deterministic v2 Beat/Scene title+body extraction from pinned Runbook Markdown."""
+    """Deterministic v2 Beat/Scene title+body extraction from pinned Runbook Markdown.
+
+    Body ownership mirrors client ``slicePlayableBodies``: each playable Beat/Scene
+    heading owns following lines until the next playable Beat/Scene heading or an
+    ordinary unmarked root H1/H2. Unmarked H3+ stays inside the preceding element;
+    later unmarked H2 sections must not bleed backward into LLM context.
+    """
     if detect_playable_grammar_version(markdown) != 2:
         return {}
     normalized = markdown.replace("\ufeff", "").replace("\r\n", "\n").replace("\r", "\n")
@@ -137,24 +143,25 @@ def extract_v2_play_authored_slices(markdown: str) -> dict[str, _PlayAuthoredSli
                 continue
             pending = (kind, element_id)
             continue
-        if _H1_BOUNDARY_RE.match(line):
-            flush()
-            pending = None
-            continue
         if pending is not None:
             heading = ATX_HEADING_RE.fullmatch(line)
             if heading is None:
                 pending = None
-                continue
-            kind, element_id = pending
-            if len(heading.group(1)) != V2_KIND_HEADING_LEVEL[kind]:
-                pending = None
-                continue
-            active_kind = kind  # type: ignore[assignment]
-            active_id = element_id
-            active_title = heading.group(2).strip()
-            body_lines = []
-            pending = None
+                # Fall through: ordinary-root / body handling may still apply.
+            else:
+                kind, element_id = pending
+                if len(heading.group(1)) != V2_KIND_HEADING_LEVEL[kind]:
+                    pending = None
+                    # Fall through — mismatched heading may be an ordinary root H2.
+                else:
+                    active_kind = kind  # type: ignore[assignment]
+                    active_id = element_id
+                    active_title = heading.group(2).strip()
+                    body_lines = []
+                    pending = None
+                    continue
+        if pending is None and _is_ordinary_root_heading(line):
+            flush()
             continue
         if active_kind is not None:
             body_lines.append(line)

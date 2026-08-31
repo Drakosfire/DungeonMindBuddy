@@ -2963,6 +2963,257 @@ def test_surface_context_resolution_span_and_query_primacy(
     )
 
 
+def test_play_surface_context_resolution_span_query_primacy_and_privacy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A7 §14.8–14.9: Play current-moment primacy + privacy on the Hermes product path."""
+    from apps.live_control_server.services.agent_play_surface_context import (
+        PLAY_MODEL_BLOCK_MAX_CHARS,
+    )
+    from apps.live_control_server.services.agent_surface_context import (
+        AgentSurfaceContextRequest,
+        SURFACE_CONTEXT_SUMMARY_SCHEMA,
+        SURFACE_SUMMARY_KEYS,
+    )
+    from apps.live_control_server.services.agent_world_graph_query_context import (
+        AgentWorldGraphQueryContextRequest,
+    )
+    from apps.live_control_server.services.play_run_registry import (
+        PlayRunProgress,
+        PlayRunRecord,
+    )
+    from apps.live_control_server.services.play_run_reference_manifest import (
+        derive_sealed_manifest,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        WorkspaceCommittedRevision,
+    )
+    from tests.test_play_run_reference_manifest import C2S27_SHAPED_V2_MARKDOWN
+
+    run_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    doc_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    sha256 = "c" * 64
+    secret_beat_title = "Hold the gate"
+    secret_scene_title = "The gate line"
+    secret_beat_body = "Triage at the gate line while the refugee crush builds."
+    question = "What does Lysandra know about the swarm?"
+    captured_outer_text: list[str] = []
+    captured_invocations: list[AgentRuntimeInvocation] = []
+
+    def fake_resolve(ctx: Any, *, outer_text: str, **kwargs: Any) -> dict[str, Any]:
+        del ctx, kwargs
+        captured_outer_text.append(outer_text)
+        return {
+            **READY_ENVELOPE,
+            "campaign_id": "longmont-c2",
+            "query_text": outer_text,
+        }
+
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        fake_resolve,
+    )
+    monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        live_agent_loop,
+        "load_session",
+        lambda *_a, **_k: ({"campaign_id": "longmont-c2", "session": 27}, {}, [], []),
+    )
+    monkeypatch.setattr(live_agent_loop, "session_dir", lambda: tmp_path)
+
+    record = PlayRunRecord.model_validate(
+        {
+            "schema_version": "dmb_play_run_record_v1",
+            "run_id": run_id,
+            "campaign_id": "longmont-c2",
+            "playable_artifact_id": doc_id,
+            "playable_revision": 1,
+            "playable_content_sha256": sha256,
+            "run_revision": 1,
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "progress": PlayRunProgress(
+                current_beat_id="beat:hold-the-gate",
+                current_scene_id="scene:gate-line",
+                resolved_beat_ids=[],
+                selections={},
+                notes_by_element_id={},
+            ),
+            "rebased_from_run_revision": None,
+        }
+    )
+    manifest = derive_sealed_manifest(
+        C2S27_SHAPED_V2_MARKDOWN,
+        run_id=run_id,
+        playable_artifact_id=doc_id,
+        playable_revision=1,
+        playable_content_sha256=sha256,
+        sealed_at="2026-01-01T00:00:00Z",
+    )
+    committed = WorkspaceCommittedRevision(
+        schema_version="dmb_workspace_committed_revision_v1",
+        document_id=doc_id,
+        kind="runbook",
+        campaign_id="longmont-c2",
+        title="Session 27 North Gate Runbook",
+        status="active",
+        object_revision=1,
+        work_revision_id="cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        revision_n=1,
+        markdown=C2S27_SHAPED_V2_MARKDOWN,
+        content_sha256=sha256,
+        has_divergent_working_copy=False,
+        target_relpath="runbooks/session-27.md",
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_play_surface_context.get_play_run",
+        lambda *_a, **_k: record,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_play_surface_context.get_play_run_reference_manifest",
+        lambda *_a, **_k: manifest,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_play_surface_context.get_committed_playable_revision",
+        lambda *_a, **_k: committed,
+    )
+
+    class _CaptureRuntime:
+        descriptor = HERMES_RUNTIME_DESCRIPTOR
+
+        def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
+            captured_invocations.append(invocation)
+            return _ok_result()
+
+    surface_req = AgentSurfaceContextRequest.model_validate(
+        {
+            "schema": "dmb_agent_surface_context_request_v1",
+            "surface_id": "play",
+            "campaign_id": "longmont-c2",
+            "document_id": doc_id,
+            "session_number": None,
+            "pointers": [
+                {"kind": "play_run", "value": run_id},
+                {"kind": "playable_revision", "value": "1"},
+                {"kind": "current_beat", "value": "beat:hold-the-gate"},
+                {"kind": "current_scene", "value": "scene:gate-line"},
+            ],
+        }
+    )
+    stale_scene_req = AgentSurfaceContextRequest.model_validate(
+        {
+            "schema": "dmb_agent_surface_context_request_v1",
+            "surface_id": "play",
+            "campaign_id": "longmont-c2",
+            "document_id": doc_id,
+            "session_number": None,
+            "pointers": [
+                {"kind": "play_run", "value": run_id},
+                {"kind": "playable_revision", "value": "1"},
+                {"kind": "current_beat", "value": "beat:hold-the-gate"},
+                {"kind": "current_scene", "value": "scene:the-crush"},
+            ],
+        }
+    )
+    world_req = AgentWorldGraphQueryContextRequest.model_validate(
+        {
+            "schema": "dmb_agent_world_graph_query_context_request_v1",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "focus": {"kind": "none"},
+            "admissibility": "gm",
+        }
+    )
+
+    response_with = live_agent_loop.process_live_query(
+        question,
+        base=tmp_path,
+        query_backend="hermes",
+        world_graph_context=world_req,
+        outer_campaign_id="longmont-c2",
+        agent_runtime=_CaptureRuntime(),  # type: ignore[arg-type]
+        surface_context=surface_req,
+    )
+    response_without = live_agent_loop.process_live_query(
+        question,
+        base=tmp_path,
+        query_backend="hermes",
+        world_graph_context=world_req,
+        outer_campaign_id="longmont-c2",
+        agent_runtime=_CaptureRuntime(),  # type: ignore[arg-type]
+        surface_context=None,
+    )
+    response_stale = live_agent_loop.process_live_query(
+        question,
+        base=tmp_path,
+        query_backend="hermes",
+        world_graph_context=world_req,
+        outer_campaign_id="longmont-c2",
+        agent_runtime=_CaptureRuntime(),  # type: ignore[arg-type]
+        surface_context=stale_scene_req,
+    )
+
+    assert captured_outer_text == [question, question, question]
+    assert len(captured_invocations) == 3
+    assert all(inv.message == question for inv in captured_invocations)
+    play_ctx = captured_invocations[0].context_packet.surface_context
+    assert play_ctx is not None
+    assert play_ctx.current_play is not None
+    assert play_ctx.current_play.current_beat.title == secret_beat_title
+    assert play_ctx.current_play.current_scene is not None
+    assert play_ctx.current_play.current_scene.title == secret_scene_title
+    assert captured_invocations[1].context_packet.surface_context is None
+    assert captured_invocations[2].context_packet.surface_context is None
+    assert (
+        captured_invocations[0].context_packet.world_scope.revision_id
+        == captured_invocations[1].context_packet.world_scope.revision_id
+        == captured_invocations[2].context_packet.world_scope.revision_id
+    )
+
+    trace = response_with["agent_trace"]
+    surface_span = next(
+        span for span in trace["spans"] if span.get("name") == "surface_context_resolution"
+    )
+    attrs = surface_span["attributes"]
+    assert set(attrs) == SURFACE_SUMMARY_KEYS
+    assert attrs["surface_context_schema"] == SURFACE_CONTEXT_SUMMARY_SCHEMA
+    assert attrs["resolution_status"] == "resolved"
+    assert attrs["model_context_char_count"] > 0
+    assert attrs["model_context_char_count"] <= PLAY_MODEL_BLOCK_MAX_CHARS
+    blob = json.dumps(trace)
+    for secret in (
+        secret_beat_title,
+        secret_scene_title,
+        secret_beat_body,
+        run_id,
+        doc_id,
+        "beat:hold-the-gate",
+        "scene:gate-line",
+        question,
+    ):
+        assert secret not in blob
+    context_span = next(
+        span for span in trace["spans"] if span.get("name") == "context_assembly"
+    )
+    assert context_span["attributes"]["context_schema"] == "dmb_agent_context_summary_v1"
+    assert len(context_span["attributes"]) == 14
+    assert "surface_context" not in context_span["attributes"]
+
+    stale_trace = response_stale["agent_trace"]
+    stale_span = next(
+        span
+        for span in stale_trace["spans"]
+        if span.get("name") == "surface_context_resolution"
+    )
+    assert stale_span["attributes"]["resolution_status"] == "rejected_surface"
+    assert stale_span["attributes"]["model_context_char_count"] == 0
+    assert response_without["agent_trace"]["context_summary"]["context_schema"] == (
+        "dmb_agent_context_summary_v1"
+    )
+
+
 def test_surface_context_unsupported_on_live_backend(tmp_path: Path) -> None:
     from apps.live_control_server.services.agent_surface_context import (
         AgentSurfaceContextRequest,
