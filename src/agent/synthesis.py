@@ -138,16 +138,11 @@ def _resolve_model(model: str | None) -> str:
     if model:
         return model
 
-    policy_candidates = [
-        Path(__file__).resolve().parents[2] / "MODEL_POLICY.json",
-        Path(__file__).resolve().parents[3] / "MODEL_POLICY.json",
-    ]
-    for policy_path in policy_candidates:
-        if policy_path.exists():
-            policy = json.loads(policy_path.read_text(encoding="utf-8"))
-            role = policy.get("actions", {}).get("retrieval_synthesis", "retrieval_synthesis")
-            return policy.get("models", {}).get(role, "gpt-5.3-chat-latest")
-    return "gpt-5.3-chat-latest"
+    from src.model_policy import load_buddy_model_policy
+
+    policy = load_buddy_model_policy(strict=True)
+    role = policy.get("actions", {}).get("retrieval_synthesis", "retrieval_synthesis")
+    return policy.get("models", {}).get(role, "gpt-5.3-chat-latest")
 
 
 def _load_api_key() -> str | None:

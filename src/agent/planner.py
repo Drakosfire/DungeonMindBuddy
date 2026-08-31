@@ -76,34 +76,25 @@ _PLANNER_POLICY_ACTION = "corpus_session_planner"
 _DEFAULT_PLANNER_MODEL = "gpt-5.4-mini"
 
 
-def _model_policy_paths() -> list[Path]:
-    here = Path(__file__).resolve()
-    return [here.parents[2] / "MODEL_POLICY.json", here.parents[3] / "MODEL_POLICY.json"]
-
-
 def _resolve_planner_model(model: str | None) -> str:
     """
     Model id for ``responses.create`` (planner + statblock fallback in this module).
 
-    Order: explicit ``model`` argument, else ``MODEL_POLICY.json`` action
+    Order: explicit ``model`` argument, else Buddy ``MODEL_POLICY.json`` action
     ``corpus_session_planner`` → role → ``models`` entry (e.g. ``fast_smart_mini`` → ``gpt-5.4-mini``),
     else ``_DEFAULT_PLANNER_MODEL``.
     """
     if model and str(model).strip():
         return str(model).strip()
-    for policy_path in _model_policy_paths():
-        if not policy_path.is_file():
-            continue
-        try:
-            policy = json.loads(policy_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
+    from src.model_policy import load_buddy_model_policy
+
+    policy = load_buddy_model_policy()
+    if policy:
         role = policy.get("actions", {}).get(_PLANNER_POLICY_ACTION)
-        if not role:
-            continue
-        mid = policy.get("models", {}).get(str(role))
-        if isinstance(mid, str) and mid.strip():
-            return mid.strip()
+        if role:
+            mid = policy.get("models", {}).get(str(role))
+            if isinstance(mid, str) and mid.strip():
+                return mid.strip()
     return _DEFAULT_PLANNER_MODEL
 
 

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "status": "buddy_owned_transition_policy",
+  "models": {
+    "fast_smart": "gpt-5.3-codex",
+    "fast_smart_mini": "gpt-5.4-mini",
+    "retrieval_synthesis": "gpt-5.3-chat-latest"
+  },
+  "actions": {
+    "default_text_generation": "fast_smart",
+    "structured_generation": "fast_smart",
+    "ruleslawyer_response_synthesis": "retrieval_synthesis"
+  },
+  "notes": {
+    "architecture": "Buddy-owned compatibility mapping preserved during E1B. GenerationEngine becomes reusable inference authority through E2/E3.",
+    "scope": "Only roles/actions required to preserve currently active Buddy runtime and product-tooling model selection. Do not treat this as ecosystem inference authority."
+  }
+}

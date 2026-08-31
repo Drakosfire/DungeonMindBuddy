@@ -131,14 +131,9 @@ If the line mixes prep/research tone with "level up" or power increase without s
 """
 
 
-def _model_policy_paths() -> list[Path]:
-    here = Path(__file__).resolve()
-    return [here.parents[2] / "MODEL_POLICY.json", here.parents[3] / "MODEL_POLICY.json"]
-
-
 def _resolve_intent_classifier_model(model: str | None) -> str:
     """
-    Order: explicit ``model``, env ``NPC_INTENT_CLASSIFIER_MODEL``, then ``MODEL_POLICY.json``
+    Order: explicit ``model``, env ``NPC_INTENT_CLASSIFIER_MODEL``, then Buddy ``MODEL_POLICY.json``
     action ``npc_intent_classifier`` (else ``structured_generation`` role) → ``models`` entry,
     else ``models.cheapest``, else ``gpt-4o-mini``.
     """
@@ -147,13 +142,10 @@ def _resolve_intent_classifier_model(model: str | None) -> str:
     env_model = os.environ.get(_INTENT_CLASSIFIER_MODEL_ENV, "").strip()
     if env_model:
         return env_model
-    for policy_path in _model_policy_paths():
-        if not policy_path.is_file():
-            continue
-        try:
-            policy = json.loads(policy_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
+    from src.model_policy import load_buddy_model_policy
+
+    policy = load_buddy_model_policy()
+    if policy:
         models = policy.get("models") or {}
         actions = policy.get("actions") or {}
         role = actions.get(_INTENT_POLICY_ACTION) or actions.get("structured_generation")

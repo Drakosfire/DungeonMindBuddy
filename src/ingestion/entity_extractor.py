@@ -553,10 +553,11 @@ def _now_utc_iso() -> str:
 
 
 def _load_fast_smart_model_id() -> str:
-    policy_path = Path(__file__).resolve().parents[3] / "MODEL_POLICY.json"
-    if not policy_path.exists():
+    from src.model_policy import load_buddy_model_policy
+
+    payload = load_buddy_model_policy(strict=True)
+    if not payload:
         return "fast_smart"
-    payload = json.loads(policy_path.read_text(encoding="utf-8"))
     actions = payload.get("actions", {})
     models = payload.get("models", {})
     role = actions.get("structured_generation", "fast_smart")

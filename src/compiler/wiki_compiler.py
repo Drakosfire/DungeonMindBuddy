@@ -178,24 +178,15 @@ def _format_facts_for_prompt(projection_entity: dict[str, Any]) -> str:
     return "\n".join(lines) if lines else "(no projected attributes)"
 
 
-def _model_policy_paths() -> list[Path]:
-    """Search order: repo root, monorepo root (DungeonMindBuddy lives under DungeonOverMind)."""
-    base = Path(__file__).resolve()
-    return [
-        base.parents[2] / "MODEL_POLICY.json",
-        base.parents[3] / "MODEL_POLICY.json",
-    ]
-
-
 def _resolve_wiki_model() -> str:
-    """Env override, then MODEL_POLICY actions.wiki_compile (else structured_generation), then models.cheapest."""
+    """Env override, then Buddy MODEL_POLICY actions.wiki_compile (else structured_generation), then models.cheapest."""
     env_model = os.environ.get(WIKI_COMPILE_MODEL_ENV, "").strip()
     if env_model:
         return env_model
-    for policy_path in _model_policy_paths():
-        if not policy_path.exists():
-            continue
-        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    from src.model_policy import load_buddy_model_policy
+
+    policy = load_buddy_model_policy(strict=True)
+    if policy:
         models = policy.get("models") or {}
         actions = policy.get("actions") or {}
         role = (
