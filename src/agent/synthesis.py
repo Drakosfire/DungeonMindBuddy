@@ -140,7 +140,7 @@ def _resolve_model(model: str | None) -> str:
 
     from src.model_policy import load_buddy_model_policy
 
-    policy = load_buddy_model_policy()
+    policy = load_buddy_model_policy(strict=True)
     role = policy.get("actions", {}).get("retrieval_synthesis", "retrieval_synthesis")
     return policy.get("models", {}).get(role, "gpt-5.3-chat-latest")
 

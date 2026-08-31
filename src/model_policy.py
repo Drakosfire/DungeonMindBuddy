@@ -2,6 +2,10 @@
 
 Active runtime and product-tooling code must resolve model policy only from the
 DungeonMindBuddy repository root. Do not search parent/workspace trees.
+
+Missing vs malformed/unreadable files are not the same state. Callers that
+historically fell back only when the file was absent must use ``strict=True``.
+Callers that historically swallowed parse/read failures use the default.
 """
 
 from __future__ import annotations
@@ -24,15 +28,28 @@ def buddy_model_policy_path() -> Path:
     return _BUDDY_ROOT / _POLICY_NAME
 
 
-def load_buddy_model_policy() -> dict[str, Any]:
-    """Load Buddy-root policy JSON, or ``{}`` when absent/unreadable."""
+def load_buddy_model_policy(*, strict: bool = False) -> dict[str, Any]:
+    """Load Buddy-root policy JSON.
+
+    A missing file returns ``{}`` in both modes.
+
+    ``strict=False`` (default): unreadable or malformed files return ``{}``,
+    matching consumers that historically caught parse/read failures.
+
+    ``strict=True``: ``OSError`` / ``UnicodeDecodeError`` / ``JSONDecodeError``
+    propagate, matching consumers that historically called ``json.loads`` on an
+    existing file without a local try/except.
+    """
     path = buddy_model_policy_path()
     if not path.is_file():
         return {}
-    try:
+    if strict:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
+    else:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            return {}
     return payload if isinstance(payload, dict) else {}
 
 

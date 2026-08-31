@@ -379,7 +379,7 @@ def resolve_category_graph_model(model_id: str | None) -> str:
         return model_id.strip()
     from src.model_policy import load_buddy_model_policy
 
-    policy = load_buddy_model_policy()
+    policy = load_buddy_model_policy(strict=True)
     if policy:
         role = policy.get("actions", {}).get(
             "graph_memory_category_extraction", "fast_smart_mini"

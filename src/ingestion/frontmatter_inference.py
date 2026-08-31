@@ -62,7 +62,7 @@ def _source_class_for(document_class: str) -> str:
 def _load_model_id() -> str:
     from src.model_policy import load_buddy_model_policy
 
-    payload = load_buddy_model_policy()
+    payload = load_buddy_model_policy(strict=True)
     if not payload:
         return "gpt-5.3-chat-latest"
     actions = payload.get("actions", {})

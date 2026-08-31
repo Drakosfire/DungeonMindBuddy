@@ -286,7 +286,7 @@ def _now_utc_iso() -> str:
 def _load_model_id() -> str:
     from src.model_policy import load_buddy_model_policy
 
-    payload = load_buddy_model_policy()
+    payload = load_buddy_model_policy(strict=True)
     if not payload:
         return "fast_smart"
     actions = payload.get("actions", {})

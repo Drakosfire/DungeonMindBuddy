@@ -185,7 +185,7 @@ def _resolve_wiki_model() -> str:
         return env_model
     from src.model_policy import load_buddy_model_policy
 
-    policy = load_buddy_model_policy()
+    policy = load_buddy_model_policy(strict=True)
     if policy:
         models = policy.get("models") or {}
         actions = policy.get("actions") or {}
