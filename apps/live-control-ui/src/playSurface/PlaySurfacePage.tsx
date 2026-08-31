@@ -22,6 +22,7 @@ import {
 import { PlayCurrentMomentCockpit } from "./currentMoment/PlayCurrentMomentCockpit";
 import { useOptionalWorldGraphLens } from "../graphLens";
 import { campaignIdFromProductContext } from "./blankRunbook";
+import { buildPlaySurfaceAgentContext } from "./playSurfaceAgentContext";
 import { StartRunPanel } from "./StartRunPanel";
 import {
   admitNativeRunbook,
@@ -147,6 +148,11 @@ function PlaySurfacePublisher({
     () => playPublicationAuthority({ admittedRun, runQuery }),
     [admittedRun, runQuery],
   );
+  const agentContextContribution = useMemo(
+    () => buildPlaySurfaceAgentContext(admittedRun),
+    [admittedRun],
+  );
+
   const publication = useMemo<SurfaceInteractionPublication>(() => ({
     surfaceId: "play",
     label: "Play",
@@ -156,30 +162,26 @@ function PlaySurfacePublisher({
     }),
     canvas: null,
     agentContext: {
-      label: "Play",
-      campaignId: authority.campaignId,
-      documentId: authority.documentId,
-      sessionNumber: null,
+      ...agentContextContribution,
       ambientSummary: authority.ambientSummary,
-      pointers: [],
     },
     tools: [],
     editCommands: [],
     projections: [],
     projectionBindings: [],
-  }), [authority]);
+  }), [authority, agentContextContribution]);
 
   const agentContext = useMemo(
     () => ({
       surfaceId: "play" as const,
-      label: "Play",
-      campaignId: authority.campaignId,
-      documentId: authority.documentId,
-      sessionNumber: null,
+      label: agentContextContribution.label,
+      campaignId: agentContextContribution.campaignId,
+      documentId: agentContextContribution.documentId,
+      sessionNumber: agentContextContribution.sessionNumber,
       ambientSummary: authority.ambientSummary,
       sourceEnvelope: null,
     }),
-    [authority],
+    [agentContextContribution, authority.ambientSummary],
   );
 
   usePublishSurfaceInteraction(publication);

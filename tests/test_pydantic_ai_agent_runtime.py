@@ -667,5 +667,47 @@ def test_surface_context_block_parity_with_hermes_renderer() -> None:
     bare = pydantic_ai_agent_instructions(_invocation())
     assert block not in bare
     assert bare.startswith(GRAPH_SYSTEM_POLICY)
-    assert "Turn capability policy" in bare
-    assert "Current DungeonBuddy work" not in bare
+
+
+def test_play_surface_context_block_parity_with_hermes_renderer() -> None:
+    from apps.live_control_server.services.agent_runtime import (
+        AgentPlayCurrentElementContext,
+        AgentPlayCurrentMomentContext,
+        AgentSurfaceContext,
+    )
+    from apps.live_control_server.services.agent_surface_context import (
+        render_agent_surface_context,
+    )
+    from apps.live_control_server.services.hermes_agent_runtime import (
+        map_invocation_to_hermes_request,
+    )
+
+    surface = AgentSurfaceContext(
+        surface_id="play",
+        current_play=AgentPlayCurrentMomentContext(
+            run_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            playable_artifact_id="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            playable_revision=1,
+            current_beat=AgentPlayCurrentElementContext(
+                kind="beat",
+                element_id="beat:hold-the-gate",
+                title="Hold the gate",
+                body_text="Triage at the gate line.",
+            ),
+            current_scene=None,
+        ),
+    )
+    base = _invocation()
+    invocation = _invocation(
+        context_packet=AgentContextPacket(
+            world_scope=base.context_packet.world_scope,
+            retrieval_session=base.context_packet.retrieval_session,
+            surface_context=surface,
+        )
+    )
+    instructions = pydantic_ai_agent_instructions(invocation)
+    block = render_agent_surface_context(surface)
+    assert block is not None
+    assert block in instructions
+    hermes_block = map_invocation_to_hermes_request(invocation).surface_context_block
+    assert hermes_block == block

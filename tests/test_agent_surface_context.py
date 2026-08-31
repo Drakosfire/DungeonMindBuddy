@@ -166,14 +166,14 @@ def test_non_empty_plan_pointers_reject_surface(tmp_path: Path) -> None:
 
 def test_unsupported_surface_rejects(tmp_path: Path) -> None:
     resolution = resolve_agent_surface_context(
-        _request(surface_id="play"),
+        _request(surface_id="build"),
         root=tmp_path,
         outer_campaign_id="longmont-c2",
         outer_session=27,
     )
     assert resolution.context is None
     assert resolution.trace_summary["resolution_status"] == "rejected_surface"
-    assert resolution.trace_summary["surface_id"] == "play"
+    assert resolution.trace_summary["surface_id"] == "build"
 
 
 def test_unavailable_registry_lookup(tmp_path: Path) -> None:

@@ -152,9 +152,21 @@ def _resolution(
 
 
 def render_agent_surface_context(context: AgentSurfaceContext | None) -> str | None:
-    """Render one bounded CURRENT WORK prose block, or None when absent."""
+    """Render one bounded CURRENT WORK or CURRENT PLAY prose block, or None when absent."""
     if context is None:
         return None
+    if context.surface_id == "plan":
+        return _render_plan_surface_context(context)
+    if context.surface_id == "play":
+        from apps.live_control_server.services.agent_play_surface_context import (
+            render_agent_play_surface_context,
+        )
+
+        return render_agent_play_surface_context(context)
+    return None
+
+
+def _render_plan_surface_context(context: AgentSurfaceContext) -> str | None:
     if context.surface_id != "plan":
         return None
     work = context.current_work
@@ -196,6 +208,16 @@ def resolve_agent_surface_context(
 
     pointer_count = len(request.pointers)
     surface_id = request.surface_id.strip()
+    if surface_id == "play":
+        from apps.live_control_server.services.agent_play_surface_context import (
+            resolve_agent_play_surface_context,
+        )
+
+        return resolve_agent_play_surface_context(
+            request,
+            root=root,
+            outer_campaign_id=outer_campaign_id,
+        )
     if surface_id != "plan":
         return _resolution(
             context=None,
