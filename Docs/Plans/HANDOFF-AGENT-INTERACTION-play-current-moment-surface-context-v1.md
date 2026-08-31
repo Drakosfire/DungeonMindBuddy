@@ -29,8 +29,8 @@ pr_body_template: |
 # HANDOFF — Play Durable Current-Moment SurfaceContext v1 (A7)
 
 **Created:** 2026-08-30  
-**Updated:** 2026-08-31 — IMPLEMENTATION CYCLE 3 TIP (Cycle 2 `5068956875` CHANGES REQUESTED-equivalent addressed; evidence in §21.9–21.10)  
-**Status:** IMPLEMENTATION CYCLE 3 TIP — Cycle 2 blocker addressed; awaiting formal re-review  
+**Updated:** 2026-08-31 — IMPLEMENTATION CYCLE 4 TIP (Cycle 3 `5069887383` CHANGES REQUESTED-equivalent addressed by integrating `main` @ `#672` / `ae01ef63…`; evidence in §21.11)  
+**Status:** IMPLEMENTATION CYCLE 4 TIP — integrated current main; awaiting formal re-review  
 **PR:** [#671](https://github.com/Drakosfire/DungeonMindBuddy/pull/671)  
 **Canonical handoff:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-play-current-moment-surface-context-v1.md`  
 **Companion decision:** `Docs/Design/DECISION-agent-context-compilation.md`  
@@ -1291,7 +1291,13 @@ open PRs at Cycle 2 tip = #671 only
 PR URL = https://github.com/Drakosfire/DungeonMindBuddy/pull/671
 Cycle 1 head = cc307f338018b6261a7fb1eedb5e639726ba4339
 Cycle 1 formal review = 5063079166 — CHANGES REQUESTED-equivalent
-Cycle 2 tip = 8351a656113a303998f6dcb7c1908498d8f82a8c
+Cycle 2 tip (blocker fixes) = 8351a656113a303998f6dcb7c1908498d8f82a8c
+Cycle 2 tip-pin = bf3e3b1481bdc3f6e6d21e4d6d455a8709661f82
+Cycle 2 formal review = 5068956875 — CHANGES REQUESTED-equivalent
+Cycle 3 tip = d7b9b17db527d813f62fcc8b0ad609180b749923
+Cycle 3 formal review = 5069887383 — CHANGES REQUESTED-equivalent (main drift after #672)
+integrated main = ae01ef630e170e9b2a2de6daaa93373f88dc3a91 (#672 merge)
+Cycle 4 merge tip = 631db369e766a4ecab30782813f68f32d3a506b3
 branch = agent/play-current-moment-surface-context-v1
 ```
 
@@ -1335,7 +1341,7 @@ Hermes MAX_SURFACE_CONTEXT_BLOCK_CHARS = 1536
 no run/document/Beat/Scene IDs, revisions, SHA, or null placeholders in model text
 ```
 
-## 21.6 Verification totals (Cycle 2 tip)
+## 21.6 Verification totals (Cycle 4 integrated tip)
 
 ```text
 uv run pytest \
@@ -1348,13 +1354,14 @@ uv run pytest \
   tests/test_live_query_hermes_graph.py \
   tests/test_agent_context_assembler.py \
   tests/test_agent_turn_trace.py \
+  tests/test_agent_graph_policy.py \
   -q
-→ 205 passed (Cycle 2 tip)
+→ 212 passed (Cycle 4 tip after integrating #672 / ae01ef63…)
 
 npm test -- --run src/playSurface/playSurfaceAgentContext.test.ts → 5 passed
 npm run typecheck → clean
 uv run ruff check (leased Python) → clean
-dependency/lockfile changes = none
+dependency/lockfile changes = none (MODEL_POLICY.json / src/model_policy.py arrived via #672 merge only)
 ```
 
 ## 21.7 Query primacy + privacy proofs
@@ -1403,6 +1410,18 @@ Formal review `5063079166` against `cc307f338018b6261a7fb1eedb5e639726ba4339` �
 Formal review `5068956875` against `bf3e3b1481bdc3f6e6d21e4d6d455a8709661f82` — one remaining blocker addressed:
 
 1. **Retrieval-session question primacy** — `test_play_surface_context_resolution_span_query_primacy_and_privacy` now asserts `retrieval_session.packet["question"]` remains exactly `"What does Lysandra know about the swarm?"` for valid Play context, absent SurfaceContext, and stale Play context; also asserts `world_scope` admissibility/campaign/world/revision/focus unchanged across those three paths and that packet `snapshot.admissibility` matches. §21.7 updated.
+
+## 21.11 Review Cycle 3 disposition
+
+Formal review `5069887383` against `d7b9b17db527d813f62fcc8b0ad609180b749923` — Cycle 2 substantive blocker closed; remaining issue was integration drift after `#672` merged to `main` as `ae01ef630e170e9b2a2de6daaa93373f88dc3a91`.
+
+Cycle 4 mechanical response:
+
+1. merged exact current `main` (`ae01ef63…`) into `agent/play-current-moment-surface-context-v1` as `631db369…` (parents: `d7b9b17d…` + `ae01ef63…`);
+2. no A7 redesign; no source conflict on A7 lease paths;
+3. re-ran A7 floor + `tests/test_agent_graph_policy.py` (policy characterization adjacent to #672) → **212 passed**;
+4. re-ran UI Vitest + typecheck + Ruff → clean;
+5. handback §21.1 / §21.6 / this §21.11 updated for the integrated tip.
 
 Stop conditions encountered: none.
 Successor claims that remain false: unchanged from §18.
