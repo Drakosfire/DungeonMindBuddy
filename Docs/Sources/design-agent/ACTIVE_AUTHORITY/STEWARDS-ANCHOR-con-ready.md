@@ -56,8 +56,11 @@ PLAN-BLANK-SHELL / PR #661 DONE — blank Plan is a real authoring surface state
                  accepted head ffa0b18d6212a6780d6be90f91a25626bf15b464
                  merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
                  review cycles: 4
-BF4A             CURRENT — native Runbook reopen/save
-BF3B             BLOCKED ON BF4A
+BF4A / PR #660   DONE — native Runbook reopen/save
+                 accepted head d9b34ca87166572af8b482523862722fdd928fbe
+                 merge a3fd6219062d1cd978c394d07e2f80aaa6d203eb
+                 review cycles: 2
+BF3B             CURRENT — Decision interaction and visible relevance
 ```
 
 Current Play runtime/product state:
@@ -179,11 +182,14 @@ DONE — blank Plan is a real authoring surface state
         merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
         review cycles: 4
         ↓
-BF4A
-CURRENT — native Runbook reopen/save
+BF4A / PR #660
+DONE — native Runbook reopen/save
+        accepted head d9b34ca87166572af8b482523862722fdd928fbe
+        merge a3fd6219062d1cd978c394d07e2f80aaa6d203eb
+        review cycles: 2
         ↓
 BF3B
-AFTER BF4A — Decision interaction and visible relevance
+CURRENT — Decision interaction and visible relevance
         ↓
 BF3C / BF3.x / P3 family
 additional At-a-Glance categories; fast cross-Beat inspect + retrieval
@@ -222,10 +228,12 @@ DF0 does **not** own:
 - Decision selection UI;
 - Combat, Agent Interaction, or CUTOVER.
 
-DF0 is complete at PR #657. PLAN-BLANK-SHELL is complete at PR #661. BF4A is the
-current Play product slice and owns native Runbook reopen/save.
+DF0 is complete at PR #657. PLAN-BLANK-SHELL is complete at PR #661. BF4A is
+DONE at PR #660. BF3B is the current Play product slice and owns authored
+Decision interaction on an already-committed Runbook and READY Run.
 
-BF3B owns Decision interaction after BF4A proves native Runbook authoring is reachable.
+Create blank Runbook, chooser copy, and paste/replace remain predecessor or
+separate product work. They are not BF3B.
 
 ---
 
@@ -255,8 +263,8 @@ A path that forces manual source search, memory reconstruction, JSON surgery, Pl
 - BF3A / PR #655 is DONE (merge `4d82f12ad9c6d679b5dbce83db527eb7dbd27957`, 2 review cycles).
 - DF0 local Play dogfood bootstrap is DONE (PR #657, merge `87a769d05605ff021d28f0b69c5d7ab0b8205440`).
 - PLAN-BLANK-SHELL / PR #661 is DONE (merge `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`, 4 review cycles).
-- BF4A native Runbook authoring is CURRENT and is not DONE.
-- BF3B Decision interaction remains false until BF4A proves native Runbook authoring reachability.
+- BF4A native Runbook authoring is DONE (PR #660, accepted head `d9b34ca87166572af8b482523862722fdd928fbe`, merge `a3fd6219062d1cd978c394d07e2f80aaa6d203eb`, 2 review cycles).
+- BF3B Decision interaction is CURRENT / IN FLIGHT and is not DONE.
 - BF3.x / P3 retrieval remains false.
 - P4 / Combat remains false.
 - global/on-demand retrieval is not proven.

@@ -231,10 +231,27 @@ function structureMembershipKey(element: PlayableStructureElement): string {
   });
 }
 
+function referenceLabel(node: { type?: unknown; attrs?: unknown }): string {
+  const attrs = (node.attrs ?? {}) as Record<string, unknown>;
+  if (node.type === "graphNodeReference") {
+    const label = typeof attrs.label === "string" ? attrs.label.trim() : "";
+    const nodeId = typeof attrs.nodeId === "string" ? attrs.nodeId.trim() : "";
+    return label || nodeId;
+  }
+  if (node.type === "runbookReference") {
+    const label = typeof attrs.label === "string" ? attrs.label.trim() : "";
+    const refId = typeof attrs.refId === "string" ? attrs.refId.trim() : "";
+    return label || refId;
+  }
+  return "";
+}
+
 function collectNodeText(node: unknown): string {
   if (node == null || typeof node !== "object") return "";
-  const record = node as { type?: unknown; text?: unknown; content?: unknown };
+  const record = node as { type?: unknown; text?: unknown; content?: unknown; attrs?: unknown };
   if (record.type === "text" && typeof record.text === "string") return record.text;
+  const fromReference = referenceLabel(record);
+  if (fromReference.length > 0) return fromReference;
   if (!Array.isArray(record.content)) return "";
   return record.content.map(collectNodeText).join("");
 }

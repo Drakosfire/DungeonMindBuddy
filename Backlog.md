@@ -190,6 +190,36 @@ Terminal work leaves this file rather than accumulating under `DONE` / `DROPPED`
 
 # IDEA
 
+## [IDEA] Teach the Play chooser the Runbook → Run relationship
+**Kind:** PRODUCT / COPY  
+**Owner:** Play surface  
+**Captured:** 2026-08-29  
+**Last verified:** 2026-08-29 @ BF3B handoff scope correction  
+**Depends on:** not BF3B. Do not pull this into Decision interaction.
+
+The Play chooser currently titles the page **Choose a Run** and then offers
+**Create blank Runbook** as the first empty-state action, with neighboring
+**Edit Runbook** / **Start exact Run**. A new operator can reasonably think
+those are the same kind of object.
+
+Frozen vocabulary:
+
+```text
+RUNBOOK = durable Playable document / session script (immutable WorkRevisions)
+RUN     = runtime instance of play; pins one exact committed Runbook WorkRevision
+```
+
+Create blank Runbook is predecessor DF0 behavior: it creates the minimum legal
+committed script. It does not create a Run, start play, mutate Runtime, or
+write Plan prep. The missing product work is one explanatory sentence (and
+possibly chooser terminology) that teaches that relationship before asking the
+operator to create either object.
+
+**Surfaces when:** Play chooser, "Choose a Run", Create blank Runbook, Edit
+Runbook, Start exact Run, empty Play, Runbook-vs-Run confusion, onboarding copy.
+
+**Refs:** `Docs/Plans/HANDOFF-PLAY-SURFACE-decision-interaction.md` §0.3.
+
 ## [IDEA] Durable database persistence for GM work across worktrees
 **Kind:** PRODUCT / ARCHITECTURE  
 **Owner:** Buddy persistence (steward sequencing)  

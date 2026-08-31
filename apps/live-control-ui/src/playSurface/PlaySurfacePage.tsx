@@ -20,6 +20,7 @@ import {
   type RunbookMutationStatus,
 } from "./runbook/RunbookTableDeck";
 import { PlayCurrentMomentCockpit } from "./currentMoment/PlayCurrentMomentCockpit";
+import { PlaySurfaceContext } from "./PlaySurfaceContext";
 import { useOptionalWorldGraphLens } from "../graphLens";
 import { campaignIdFromProductContext } from "./blankRunbook";
 import { StartRunPanel } from "./StartRunPanel";
@@ -476,6 +477,9 @@ export function PlaySurfacePage() {
   return (
     <AppChrome activeRoute="play">
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery} />
+      {admittedRun && v2Deck == null ? (
+        <PlaySurfaceContext instanceId={publication.instanceId} onStartNewRun={navigateToChooser} />
+      ) : null}
       {loadStatus === "chooser" ? (
         <PlayChooser continuityWarning={detail} />
       ) : null}
@@ -496,11 +500,6 @@ export function PlaySurfacePage() {
           data-play-campaign-id={publication.campaignId ?? ""}
           data-play-document-id={publication.documentId ?? ""}
         >
-          <div className="play-continuity-actions">
-            <button type="button" data-testid="play-start-new-run" onClick={navigateToChooser}>
-              Start New Run
-            </button>
-          </div>
           <RunbookTableDeck
             key={v1Deck.run.run_id}
             deck={v1Deck}
@@ -531,16 +530,12 @@ export function PlaySurfacePage() {
           data-play-campaign-id={publication.campaignId ?? ""}
           data-play-document-id={publication.documentId ?? ""}
         >
-          <div className="play-continuity-actions">
-            <button type="button" data-testid="play-start-new-run" onClick={navigateToChooser}>
-              Start New Run
-            </button>
-          </div>
           <PlayCurrentMomentCockpit
             key={v2Deck.run.run_id}
             deck={v2Deck}
             mutationStatus={mutationStatus}
             onMutationStatus={setMutationStatus}
+            onStartNewRun={navigateToChooser}
             onAuthoritativeRun={(nextRun) => {
               if (nextRun.run_id !== v2Deck.run.run_id) return;
               const overlaid = overlayRuntimeOnV2Ready(v2Deck, nextRun);

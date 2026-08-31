@@ -152,6 +152,33 @@ describe("slicePlayableBodies", () => {
     expect(slices.get("beat:inside")?.bodyText).not.toContain("Option prose UNIQUE");
   });
 
+  it("keeps graph and corpus reference labels in authored body text", () => {
+    const markdown = [
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:arrive beat_kind=spine -->",
+      "## Arrive Hempholm",
+      "",
+      "A hemp village.",
+      "",
+      "[Hempholm](dmb-node:location:hempholm) · [The Shacks](dmb-node:location:the-shacks)",
+      "",
+      "Skip the hill and start in [The Shacks](dmb-node:location:the-shacks).",
+      "",
+      "Ask [Mara](#dmb-ref:npc:mara-venn).",
+      "",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    const slices = slicePlayableBodies(imported.doc);
+    const body = slices.get("beat:arrive")?.bodyText ?? "";
+    expect(body).toContain("A hemp village.");
+    expect(body).toContain("Hempholm");
+    expect(body).toContain("The Shacks");
+    expect(body).toContain("Skip the hill and start in The Shacks.");
+    expect(body).toContain("Ask Mara.");
+    expect(body).not.toMatch(/(^|\n)\s*\.\.\.\s*(\n|$)/);
+    expect(body).not.toMatch(/start in \./);
+  });
+
   it("ends a Beat body at an ordinary unmarked root H2 so later instructions stay outside that Beat", () => {
     const markdown = [
       "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",

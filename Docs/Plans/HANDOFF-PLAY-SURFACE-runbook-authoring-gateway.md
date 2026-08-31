@@ -22,13 +22,16 @@ pr_body_template: |
 
 **Created:** 2026-08-28  
 **Re-designed / re-anchored:** 2026-08-29  
-**Status:** READY FOR REDISPATCH AFTER REBASE  
+**Status:** DONE  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-SURFACE-runbook-authoring-gateway.md`  
 **Workstream:** `PLAY-SURFACE / BF4A`  
 **Flow / owner:** `PLAY-SURFACE`  
 **Handoff direction:** DESIGN → CODE  
 **Implementation branch / PR:** `agent/play-surface-runbook-authoring-gateway` / PR #660  
-**PR title:** `PLAY-SURFACE: make native Runbooks editable`
+**PR title:** `PLAY-SURFACE: make native Runbooks editable`  
+**Accepted head:** `d9b34ca87166572af8b482523862722fdd928fbe`  
+**Merge:** `a3fd6219062d1cd978c394d07e2f80aaa6d203eb`  
+**Review cycles:** 2
 
 > **Required re-dispatch base:** current `main` at or after
 > `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`, the merge of PLAN-BLANK-SHELL /
@@ -79,8 +82,10 @@ PLAN-BLANK-SHELL / PR #661
   review cycles: 4
 ```
 
-BF3B remains blocked on BF4A. BF3B owns Runtime Decision selection, consequence
-presentation, and relevance changes; it must not be pulled into this PR.
+BF4A is DONE at PR #660 (accepted head `d9b34ca87166572af8b482523862722fdd928fbe`,
+merge `a3fd6219062d1cd978c394d07e2f80aaa6d203eb`, 2 review cycles). BF3B is the
+current successor and owns Runtime Decision selection, consequence presentation,
+and relevance changes on an already-committed Runbook and READY Run.
 
 ---
 
@@ -569,8 +574,9 @@ The implementation PR may update:
 - `Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md`
 
 Record PR #661 as merged at `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`
-with 4 formal review cycles, then mark BF4A current/in flight and BF3B blocked on
-BF4A until merge.
+with 4 formal review cycles. BF4A later merged as PR #660 at
+`a3fd6219062d1cd978c394d07e2f80aaa6d203eb` (accepted head
+`d9b34ca87166572af8b482523862722fdd928fbe`, 2 review cycles).
 
 The old branch-local note
 `Docs/Plans/NOTE-PLAY-SURFACE-authoring-blank-shell-design-correction.md` may be

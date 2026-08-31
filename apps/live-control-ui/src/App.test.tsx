@@ -934,6 +934,10 @@ describe("App inspector integration", () => {
 
     expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
     await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
+    expect(screen.getByTestId("surface-context-host")).toContainElement(
+      screen.getByTestId("play-start-new-run"),
+    );
+    expect(screen.queryByTestId("play-continuity-actions")).not.toBeInTheDocument();
     await userEvent.setup().click(screen.getByTestId("play-start-new-run"));
 
     expect(window.location.search).toBe("?choose=1");

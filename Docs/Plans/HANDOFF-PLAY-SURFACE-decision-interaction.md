@@ -8,30 +8,33 @@ pr_body_template: |
   - Branch / PR: `agent/play-surface-decision-interaction` / `PLAY-SURFACE: make authored Decisions table-usable`
 
   ## Verification pointer
-  - Implementation base: record exact rebased `main`; design re-anchor observed `d4a91d7b727c0eae7dd0e09ba068e250b4819b44`
-  - Changed paths: HANDOFF §8
-  - Verification: HANDOFF §10
+  - Implementation base: `d4a91d7b727c0eae7dd0e09ba068e250b4819b44`
+  - Approved visual target: `Docs/Design/assets/play-surface-gm-cockpit-target.webp`
+  - Changed paths: HANDOFF §9
+  - Verification: HANDOFF §11
 
   The checked-in handoff, cumulative diff, exact-head automated evidence,
-  real browser Decision witness against the already-committed §5 Runbook,
-  and independently rerun evidence are the review contract.
+  screenshots against the approved cockpit target, real browser Decision
+  witness against the already-committed §6 Runbook, and independently rerun
+  evidence are the review contract.
 ---
 
 # HANDOFF — Authored Decision interaction dogfood (BF3B)
 
 **Created:** 2026-08-29  
 **Scope correction:** 2026-08-29  
-**Status:** READY FOR DISPATCH AFTER REBASE  
+**Visual-target correction:** 2026-08-29  
+**Status:** CURRENT / IN FLIGHT  
 **Canonical handoff:** `Docs/Plans/HANDOFF-PLAY-SURFACE-decision-interaction.md`  
 **Workstream:** `PLAY-SURFACE / BF3B`  
 **Owner:** `PLAY-SURFACE`  
 **Suggested branch:** `agent/play-surface-decision-interaction`  
 **PR title:** `PLAY-SURFACE: make authored Decisions table-usable`
 
-> Re-fetch and rebase onto current `main` before implementation. The latest
-> observed `main` while correcting this handoff was
-> `d4a91d7b727c0eae7dd0e09ba068e250b4819b44`; intervening CUTOVER work is a
-> separate lane and must not be absorbed merely because main moved.
+> Rebased onto current `main` `d4a91d7b727c0eae7dd0e09ba068e250b4819b44`.
+> Intervening CUTOVER work remains a separate lane and is not in the BF3B write
+> lease. Do not absorb CUTOVER source merely because that commit is now the
+> integration tip.
 
 Parent authorities:
 
@@ -81,9 +84,6 @@ BF4A / PR #660
 
 ## §0 Scope correction: Runbook creation is not BF3B
 
-The previous handoff blurred witness setup with product scope. Correct that
-before writing code.
-
 ### 0.1 Product vocabulary is authoritative
 
 ```text
@@ -101,10 +101,10 @@ RUN
 
 A Runbook is **not** a Run.
 
-### 0.2 What “Create blank Runbook” already means
+### 0.2 What Create blank Runbook already means
 
 The existing Play chooser action **Create blank Runbook** is predecessor
-behavior. It creates the smallest legal durable Playable session script:
+behavior. It commits the smallest legal durable Playable session script:
 
 ```text
 kind        = runbook
@@ -114,21 +114,11 @@ content     = one empty spine Beat, Untitled Beat
 status      = committed
 ```
 
-It does **not**:
+It does **not** create a Run, start table play, make a Scene current, mutate
+Runtime progress, or write Plan prep notes.
 
-```text
-create a Run
-start a table session
-make a Scene current
-write Runtime progress
-write Plan prep notes
-invent campaign material beyond the minimum legal empty Beat
-```
-
-It exists because Play cannot start from nothing. A Run must pin an exact
-committed Runbook revision, bootstrap is forbidden from seeding fake campaign
-material, and empty APP-STATE therefore needs an explicit way to create the
-future script.
+It exists because a Run must pin an exact committed Runbook revision and local
+bootstrap is forbidden from inventing fake campaign material.
 
 BF3B must not change, rename, explain, or otherwise absorb that chooser action.
 
@@ -138,24 +128,23 @@ There is a legitimate product-language problem on the chooser:
 
 ```text
 page title: Choose a Run
-first empty-state action: Create blank Runbook
+empty-state action: Create blank Runbook
 neighboring actions: Edit Runbook / Start exact Run
 ```
 
-A new operator may not yet understand:
+A new operator may not yet know:
 
 ```text
 Runbook = script
-Run     = one pinned performance/runtime of a script revision
+Run     = one pinned runtime/performance of a script revision
 ```
 
-That missing explanatory sentence belongs to the Play chooser. It has been
-captured separately in `Backlog.md` as an IDEA. It is **not BF3B** and must not
-be implemented in this PR.
+That missing explanatory sentence belongs to the Play chooser and is captured
+separately in `Backlog.md` as an IDEA. It is **not BF3B**.
 
 ### 0.4 BF3B begins later
 
-BF3B begins only after these facts are already true:
+BF3B begins only after:
 
 ```text
 1. a Decision-bearing Runbook WorkRevision is committed;
@@ -164,27 +153,136 @@ BF3B begins only after these facts are already true:
 4. current Beat/Scene are authoritative Runtime state.
 ```
 
-The BF3B implementation does not need to know how that Runbook was initially
-created.
-
-For disposable browser testing, the operator may use the already-shipped
-DF0/BF4A product flow to prepare the §5 Runbook before the witness begins. That
-is **environment preparation**, not BF3B acceptance and not BF3B code scope.
+Disposable witness setup may use already-merged DF0/BF4A behavior to produce
+that state. Setup is not BF3B product scope or BF3B acceptance.
 
 ---
 
-## §1 Mission and merge-ready invariant
+## §1 Visual target is part of the BF3B contract
 
-### 1.1 Mission
+The current implementation is not the visual authority.
+
+The approved directional target is:
+
+`Docs/Design/DESIGN-play-surface-gm-cockpit-target.md`
+
+and its committed visual artifact:
+
+`Docs/Design/assets/play-surface-gm-cockpit-target.webp`
+
+![Approved Play Surface GM cockpit target](../Design/assets/play-surface-gm-cockpit-target.webp)
+
+**Before editing production UI, open and inspect that image.** Do not infer the
+product target from the current `PlayCurrentMomentCockpit` DOM/CSS alone.
+
+The design authority says the image is stronger than a mood board and weaker
+than a pixel-perfect wire contract. It is the hierarchy and interaction anchor.
+The later 2026-08-26 interpretation lock overrides only misleading implications
+that Beat Context and At a Glance must always remain expanded or that Combat
+owns a permanent right-side rail.
+
+### 1.1 Explicit correction to current implementation posture
+
+The current BF3A UI is structurally useful but visually reads as three columns:
+
+```text
+[ Beat Context ] [ Scene/workspace ] [ At a Glance ]
+```
+
+That is **not** the accepted visual destination and must not become the BF3B
+reference merely because it already exists.
+
+Do not preserve three roughly equal vertical columns simply to minimize the
+diff.
+
+BF3B should move the actual Current Moment materially toward the approved
+cockpit hierarchy while adding Decisions:
+
+```text
+supporting Beat context      DOMINANT CURRENT SCENE BOARD      compact launchers
+       subordinate            table interaction focus           subordinate
+```
+
+The center should feel like the thing the GM is running. The side regions are
+supporting context/chrome.
+
+### 1.2 Scene is a board/work surface, not the middle column
+
+When North Gate is current:
+
+- the Scene owns the visual center and most available working width;
+- Scene title/body establish immediate table orientation;
+- the Decision appears **inside that Scene work surface** as a distinct action
+  block, not as another generic rail/card column;
+- Beat Context remains immediately accessible but visually subordinate;
+- At a Glance remains a compact presence-first launcher region;
+- collapsing either supporting region is presentation-only;
+- collapsing both must materially widen the Scene work surface.
+
+The implementation may change Current Moment layout proportions, spacing,
+containers, and responsive CSS inside the BF3B lease to achieve this hierarchy.
+That is not scope creep; visual hierarchy is part of this capability's product
+acceptance.
+
+### 1.3 Decision interaction must look table-usable
+
+Use the target image as interaction/composition guidance, not generic browser
+form defaults.
+
+The Decision should read as one coherent block in the Scene:
+
+```text
+Decision prompt
+short authored framing
+
+[ Follow it ]       [ Seal the breach ]
+
+selected consequence
+what this makes more / less relevant
+```
+
+Exact card count, color, typography, and spacing are not frozen. But:
+
+- Options must be visually tactile and fast to distinguish;
+- selected state must be obvious at a glance;
+- consequence must be visually attached to the selected Option/Decision;
+- relevance changes must be legible without opening another screen;
+- internal IDs are diagnostic, not primary presentation;
+- unselected/default state must not look like a broken or disabled form;
+- this should not resemble an admin radio-button form dropped into a text column.
+
+### 1.4 What the target image does not authorize
+
+Do **not** use BF3B to recreate every detail in the mockup.
+
+Still out of scope:
+
+- global AppChrome redesign;
+- new Play navigation architecture;
+- implementing every At-a-Glance category;
+- permanent Combat rail;
+- exact colors/icons/typography/pixel dimensions;
+- mobile redesign;
+- fictional content from the mockup as campaign truth.
+
+Use the image to establish **hierarchy, density, workspace dominance, and
+Decision interaction posture** for the slice we are actually implementing.
+
+---
+
+## §2 Mission and merge-ready invariant
+
+### 2.1 Mission
 
 > **Given an already-authored, already-committed v2 Runbook and a READY Run
-> pinned to it, make authored Decisions operable in the Scene-centered Current
-> Moment. The GM can select/change/clear one authored Option, see its authored
-> consequence, and see derived Beat/Scene relevance change without navigation.**
+> pinned to it, make authored Decisions operable inside a visually dominant,
+> Scene-centered Current Moment. The GM can select/change/clear one authored
+> Option, see its authored consequence, and see derived Beat/Scene relevance
+> change without navigation.**
 
-### 1.2 Merge-ready invariant
+### 2.2 Merge-ready invariant
 
-Given the exact §5 Runbook and a READY Run with:
+Given the exact §6 Runbook and a READY Run with:
 
 ```text
 Current Beat  = beat:hold-breach
@@ -199,7 +297,7 @@ Play supports:
 Select option:follow-brood
 → exactly one existing progress CAS
 → current Beat/Scene unchanged
-→ Follow it becomes authoritative selection only after server response
+→ selected only after authoritative response
 → authored consequence visible
 → scene:tunnel-pursuit emphasized
 → beat:lower-tunnels emphasized
@@ -207,7 +305,6 @@ Select option:follow-brood
 Change to option:seal-breach
 → exactly one existing progress CAS
 → current Beat/Scene unchanged
-→ Seal the breach becomes authoritative selection
 → authored consequence changes
 → scene:tunnel-pursuit de-emphasized
 → beat:lower-tunnels returns default
@@ -220,20 +317,22 @@ Clear
 → affected relevance returns to derived default
 ```
 
-Hard reload restores the persisted selection and re-derives relevance from the
+Hard reload restores persisted selection and re-derives relevance from the
 Run's exact sealed manifest + pinned Runbook. Relevance itself is never stored.
+
+Visual merge-readiness additionally requires that North Gate reads as the
+primary Scene board, not one of three equal columns, and the Decision interaction
+visibly belongs to that board.
 
 ---
 
-## §2 Atomic capability boundary
+## §3 Atomic capability boundary
 
 ### KEEP — BF3B
 
-- Project authored Decisions into the current Scene workspace.
-- Project authored Option labels/body text.
-- Explicit select Option.
-- Explicit change selected Option.
-- Explicit clear selection.
+- Project authored Decisions into the current Scene work surface.
+- Render authored Option labels/body text.
+- Explicit select/change/clear.
 - Authoritative selected state from `run.progress.selections` only.
 - Selected Option body text as consequence framing.
 - Human-readable final derived relevance for affected Beat/Scene targets.
@@ -244,12 +343,13 @@ Run's exact sealed manifest + pinned Runbook. Relevance itself is never stored.
 - 422 semantic rejection: reread, no retry, not mislabeled as conflict.
 - Reload/resume selection + derived relevance.
 - De-emphasized material remains inspectable and Make Current-capable.
-- Exact-head real browser witness using §5 material.
+- Materially align Current Moment layout with the §1 approved visual hierarchy.
+- Real browser screenshots/witness against the §1 visual target and §6 Runbook.
 
 ### OUT OF SCOPE / REJECT
 
 - Create blank Runbook behavior or chooser copy.
-- Explanation of Runbook vs Run on the chooser — backlog IDEA.
+- Runbook-vs-Run explanation on chooser — backlog IDEA.
 - Plan prep-note behavior.
 - Add Decision / Add Option authoring controls — later BF4 authoring.
 - Runbook paste/replace or starter cleanup UX.
@@ -263,15 +363,16 @@ Run's exact sealed manifest + pinned Runbook. Relevance itself is never stored.
 - New backend endpoint/schema/migration.
 - Runbook grammar/parser changes.
 - WorkObject/WorkRevision changes.
+- Global AppChrome redesign.
 - Combat, World Graph/CUTOVER, Agent/Hermes.
 
 One independently useful capability:
 
-> **Use an already-authored fork at the table.**
+> **Use an already-authored fork at the table, in the intended cockpit.**
 
 ---
 
-## §3 Decision projection contract
+## §4 Decision projection contract
 
 Durable containment remains Beat-first:
 
@@ -299,7 +400,7 @@ when Beat-only:
 Do not project a Decision associated with another Scene merely because it is in
 the same Beat.
 
-For §5:
+For §6:
 
 ```text
 choice:surviving-brood scene=scene:north-gate
@@ -307,26 +408,15 @@ choice:surviving-brood scene=scene:north-gate
 
 so it appears when North Gate is current.
 
-Current Scene remains the central workspace:
+No new full-screen Decision workspace, no Decision side rail, and no durable
+`currentDecisionId`.
 
-```text
-CURRENT SCENE
-North Gate
-<scene prose>
-
-Decisions
-  What do they do with the surviving brood?
-  <choice prose>
-  Follow it
-  Seal the breach
-```
-
-No new full-screen Decision workspace and no side rail are authorized.
-No durable `currentDecisionId`.
+If multiple Decisions are operable, render them in authored order inside the
+current Scene/Beat work surface.
 
 ---
 
-## §4 Option, consequence, and relevance law
+## §5 Option, consequence, and relevance law
 
 Authoritative selected Option:
 
@@ -356,13 +446,12 @@ persisted selected Options
 → emphasized / de-emphasized / default
 ```
 
-Activation wins suppression.
-BF3B writes no relevance field.
+Activation wins suppression. BF3B writes no relevance field.
 
-For each target touched by the selected Option, show its human title and **final
-derived relevance**, not merely raw edge wording.
+For each target touched by the selected Option, show its human title and final
+derived relevance, not merely raw edge wording.
 
-For §5:
+For §6:
 
 ```text
 Follow it
@@ -379,7 +468,7 @@ inspectable, and Make Current-capable when de-emphasized.
 
 ---
 
-## §5 Mandatory dogfood Runbook input
+## §6 Mandatory dogfood Runbook input
 
 This exact Markdown is the BF3B input. It was already proven authorable and
 Play-admissible by BF4A.
@@ -449,34 +538,36 @@ beat:hold-breach [spine]
 beat:lower-tunnels [optional]
 ```
 
-### 5.1 Witness environment preparation is not BF3B
+### 6.1 Witness preparation is not BF3B
 
-A disposable APP-STATE database may begin empty. Before executing the BF3B
-browser witness, prepare the input using already-merged product behavior:
+Before the BF3B browser witness begins, prepare a disposable environment until:
 
 ```text
-obtain/create one committed Runbook containing the exact §5 bytes
-→ Start exact Run from that committed revision
-→ reach READY
-→ Make North Gate current
+committed §6 Runbook exists
+→ exact Run pins that revision
+→ Run is READY
+→ Hold the Breach is current
+→ North Gate is current
+→ no Decision selection exists
 ```
 
-This setup can reuse DF0/BF4A (`Create blank Runbook` → Edit Runbook → Save) if
-needed. Do not count those steps as BF3B evidence and do not modify those paths.
+Already-merged DF0/BF4A behavior may be used to reach that state. Do not count
+those setup interactions as BF3B acceptance and do not modify those product
+paths.
 
-The BF4A paste-residue finding remains authoring UX debt: ordinary paste can
-leave the original blank Beat behind unless the operator removes it. If setup
-uses the blank authoring path, remove the starter Beat manually before saving.
-Do not fix paste/replace semantics in BF3B.
+If setup starts from a blank Runbook, manually remove the original starter Beat
+before pasting the §6 bytes. The BF4A paste-residue finding is later authoring UX
+debt, not BF3B scope.
 
-Do not hardcode disposable WorkObject or Run UUIDs. Stable dogfood identities
-are the semantic IDs in the Markdown above.
+Do not hardcode disposable WorkObject or Run UUIDs. Stable witness identities
+are the semantic IDs above.
 
 ---
 
-## §6 Runtime mutation law
+## §7 Runtime mutation law
 
-Use the existing full-progress CAS already owned by Current Moment:
+Every select/change/clear uses the existing full-progress CAS already owned by
+Current Moment:
 
 ```text
 PUT Play Run progress
@@ -495,7 +586,7 @@ selections = {
 
 Clear removes only `choiceId`.
 
-Preserve:
+Preserve exactly:
 
 ```text
 current_beat_id
@@ -505,93 +596,89 @@ notes_by_element_id
 all other selections
 ```
 
-Client only offers Options belonging to the rendered Choice. Invalid
-cross-Choice Option mutation fails closed/no-op client-side; backend remains
-final authority.
+The UI only offers Options belonging to the rendered Choice. Invalid
+cross-Choice mutation fails closed/no-op client-side; backend remains final
+authority.
 
-Success:
-
-```text
-server returns updated Run
-→ onAuthoritativeRun(updated)
-→ existing v2 overlay/re-admission
-→ selection becomes authoritative
-→ relevance re-derived
-```
-
-Do not locally patch relevance.
+No optimistic selected state. During a write, old authoritative selection stays
+visibly authoritative. On success, use the returned Run and existing overlay to
+re-derive relevance.
 
 Failure posture:
 
 ```text
-409 stale CAS
-→ exact GET Run
-→ reconcile
-→ visible conflict
-→ no retry / merge / replay
+409
+→ exact reread
+→ conflict
+→ no retry / merge / selection replay
 
 422 semantic rejection
-→ exact GET Run
-→ reconcile
+→ exact reread
 → visible rejection distinct from conflict
-→ no retry
+→ no retry / replay
 
 unknown/network outcome
-→ exact GET Run when possible
+→ exact reread
+→ truthful unknown state
 → no blind retry
 ```
 
-Stale async completion after Run switch/unmount must not mutate visible state.
+Stale async completion after Run switch or unmount must not mutate visible
+state.
 
 ---
 
-## §7 Suggested implementation shape
+## §8 Suggested implementation shape
 
 Primary owner remains:
 
-```text
-apps/live-control-ui/src/playSurface/currentMoment/PlayCurrentMomentCockpit.tsx
-```
+`apps/live-control-ui/src/playSurface/currentMoment/PlayCurrentMomentCockpit.tsx`
 
-It already owns the `replaceProgress(next)` CAS used by Make Current. Reuse that
-boundary rather than creating a second write stack.
+Reuse its existing `replaceProgress(next)` CAS boundary rather than creating a
+second mutation stack.
 
 A small pure helper is allowed if useful:
 
-```text
-currentMoment/decisionInteractionModel.ts
-```
+`apps/live-control-ui/src/playSurface/currentMoment/decisionInteractionModel.ts`
 
-Possible responsibilities only:
+Possible pure responsibilities:
 
 - operable Decisions for current Beat/Scene;
 - selected Option lookup;
-- membership validation;
-- consequence projection;
-- touched edge targets;
-- Beat/Scene ID → human title;
+- cross-Choice validation;
+- selected consequence projection;
+- touched target IDs from sealed edges;
+- map target IDs to human titles;
 - final relevance lookup.
 
-No persistence, no workflow engine, no global Play state store.
+The helper owns no persistence or local Runtime truth.
 
-Existing `NativeRunbookReadyV2` should already contain enough truth:
+### 8.1 Visual implementation guidance
 
-```text
-beats[].choices[].options[]
-manifest.edges[]
-relevanceByTargetId
-run.progress.selections
-```
+`playSurface.css` is an expected owning file, not incidental polish.
 
-Only widen projection types after proving one exact missing datum.
+The current three-column shell may be refactored inside Current Moment so long
+as the architectural behaviors remain:
+
+- one central workspace;
+- Beat Context collapsible;
+- At a Glance collapsible;
+- category inspect does not mutate Runtime;
+- Back resolves to authoritative current Scene;
+- supporting rails are not new persistent workspace authorities.
+
+Prefer CSS/layout composition that makes the center visibly dominant on normal
+desktop widths and increasingly dominant when rails collapse.
+
+Do not create a second Play-local global projection host or change AppChrome.
 
 ---
 
-## §8 Write lease
+## §9 Write lease
 
-Re-check actual current main and active leases before editing.
+Re-check actual current `main` and open PR/worktree leases before editing.
 
-Primary production/test lease:
+### 9.1 Primary production lease
 
 ```text
 apps/live-control-ui/src/playSurface/currentMoment/PlayCurrentMomentCockpit.tsx
@@ -599,14 +686,16 @@ apps/live-control-ui/src/playSurface/currentMoment/PlayCurrentMomentCockpit.test
 apps/live-control-ui/src/playSurface/playSurface.css
 ```
 
-Optional new pure sibling:
+Authorized new sibling if useful:
 
 ```text
 apps/live-control-ui/src/playSurface/currentMoment/decisionInteractionModel.ts
 apps/live-control-ui/src/playSurface/currentMoment/decisionInteractionModel.test.ts
 ```
 
-Conditional only if evidence requires:
+### 9.2 Bounded conditional lease
+
+Only if exact evidence requires it:
 
 ```text
 apps/live-control-ui/src/playSurface/currentMoment/currentMomentModel.ts
@@ -616,10 +705,13 @@ apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.test.ts
 apps/live-control-ui/src/App.test.tsx
 ```
 
-Routine state sync may update:
+A tiny test-only §6 Markdown fixture may be added under existing Play Surface
+test ownership to avoid semantic drift. It must not become production seed
+behavior.
+
+### 9.3 State-authority sync leased to implementation PR
 
 ```text
-Docs/Plans/HANDOFF-PLAY-SURFACE-runbook-authoring-gateway.md
 Docs/Plans/HANDOFF-PLAY-SURFACE-decision-interaction.md
 Docs/Roadmaps/ROADMAP-con-ready.md
 Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-con-ready.md
@@ -627,21 +719,21 @@ Docs/Plans/STEWARDS-ANCHOR-con-ready.md
 Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md
 ```
 
-Backward-looking truth must record BF4A/#660 DONE at accepted head
-`d9b34ca87166572af8b482523862722fdd928fbe`, merge
-`a3fd6219062d1cd978c394d07e2f80aaa6d203eb`, 2 review cycles; BF3B remains
-CURRENT/IN FLIGHT until merge.
+Record BF4A DONE and BF3B IN FLIGHT until merge. Re-anchor headers to the actual
+implementation base. Keep canonical/mirror pairs byte-identical.
 
-Explicitly unleased without STOP + approval:
+### 9.4 Explicitly unleased
+
+Do not modify without STOP + operator/reviewer approval:
 
 ```text
-StartRunPanel / blank Runbook creation / chooser copy
-Backlog.md chooser IDEA
-Plan authoring or blank shell
-backend progress schema/routes/services
-Alembic / APP-STATE schema
-WorkObject / WorkRevision
-BF1 marker grammar/parser/serializer
+backend Play progress schemas/routes/services
+Alembic migrations
+application-state schema
+WorkObject / WorkRevision model
+BF1 grammar / marker parser / serializer
+Plan authoring / BF4A authoring paths
+blank Runbook creation / chooser copy
 Combat
 World Graph / CUTOVER
 AgentRuntime / Hermes
@@ -650,167 +742,242 @@ shared AppChrome host semantics
 
 ---
 
-## §9 Automated evidence
+## §10 Automated evidence contract
 
-Use §5 semantic structure in tests. Fixtures may represent the already-authored
-Runbook; tests must not test or modify blank Runbook creation as part of BF3B.
+### 10.1 Derived Decision model
 
-Prove at minimum:
+If a helper is added, prove at minimum:
 
-1. North Gate current projects `choice:surviving-brood`.
-2. Beat-only does not project the Scene-associated Decision.
-3. another Scene does not project North Gate's Decision.
-4. unselected renders both Options and no selected consequence.
-5. Follow performs exactly one progress write.
-6. outgoing progress preserves Beat/Scene/resolved/notes/unrelated selections.
-7. no optimistic selected state before authoritative response.
-8. authoritative Follow renders consequence + Tunnel Pursuit/Lower Tunnels emphasized.
-9. changing to Seal performs exactly one write and changes only this Choice.
-10. Seal consequence renders; Tunnel Pursuit de-emphasized; Lower Tunnels default.
-11. Clear performs exactly one write and removes only this Choice key.
-12. selection mutations never change current Beat/Scene.
-13. de-emphasized Tunnel Pursuit remains Inspectable and Make Current-capable.
-14. already-selected Option spends no second CAS.
-15. 409 rereads and never retries.
-16. 422 rereads, never retries, and is distinct from 409 conflict.
-17. unknown outcome rereads/no blind retry.
-18. invalid cross-Choice Option fails closed.
-19. reload restores selection and re-derives relevance.
-20. stale async completion after Run switch/unmount is ignored.
+1. current Scene gets Beat-level + same-Scene associated Decisions;
+2. other-Scene associated Decision is excluded;
+3. Beat-only gets only unassociated Decisions;
+4. selected Option comes from Runtime;
+5. selected consequence is Option bodyText;
+6. Follow touched targets resolve to human titles + final emphasized state;
+7. Seal resolves Tunnel Pursuit de-emphasized and Lower Tunnels default;
+8. final relevance, not raw edge wording, wins when multiple selections touch a target;
+9. invalid cross-Choice Option fails closed.
 
-Rerun owning regressions:
+### 10.2 Cockpit interaction
+
+Using §6 semantic structure, prove:
+
+1. North Gate current renders the surviving-brood Decision;
+2. unselected renders both Options and no selected consequence;
+3. Follow performs exactly one progress write;
+4. outgoing progress preserves Beat/Scene/resolved/notes/unrelated selections;
+5. no optimistic selected state before response;
+6. authoritative Follow selection + consequence;
+7. Tunnel Pursuit + Lower Tunnels emphasized;
+8. change to Seal performs exactly one write;
+9. Seal consequence appears;
+10. Tunnel Pursuit de-emphasized and Lower Tunnels default;
+11. Clear removes only this choice with exactly one write;
+12. selection mutations never alter current Beat/Scene;
+13. de-emphasized Tunnel Pursuit remains Inspect/Make Current-capable;
+14. already-selected Option spends no CAS;
+15. 409 rereads and does not retry;
+16. 422 rereads, does not retry, and is not a 409 conflict;
+17. unknown outcome rereads and does not blind retry;
+18. stale async completion cannot mutate the next Run/unmounted view.
+
+### 10.3 Visual/layout behavior
+
+Automated layout tests should assert semantics/classes/state, not brittle pixel
+snapshots. Prove where practical:
+
+- Current Scene remains central workspace owner;
+- Decision is rendered inside Current Scene/Beat work surface, not a rail;
+- Beat Context and At a Glance collapse independently;
+- collapse state does not mutate Runtime;
+- both collapsed produces the CSS/layout state intended to reclaim center width;
+- existing At-a-Glance Scenes inspect/back semantics remain green.
+
+The **browser witness/screenshots**, not DOM pixel tests, own qualitative visual
+comparison to the approved target image.
+
+### 10.4 Regression / static
+
+At minimum rerun:
 
 ```text
 PlayCurrentMomentCockpit tests
 nativeRunbookProjection tests
 v2RuntimeProjection tests
 relevant App v2 Current Moment tests
-frontend build/typecheck
 uv run pytest tests/test_play_run_progress.py -q
-```
-
-Static checks:
-
-```text
+frontend build/typecheck
 git diff --check
-all changed paths inside §8
-roadmap/steward mirrors byte-identical
-no backend/schema/grammar diff
-no persisted relevance
-no currentDecisionId
-no automatic navigation after selection
-no StartRunPanel / blank Runbook product changes
+canonical/mirror cmp
 ```
+
+No backend/schema/grammar diff. No relevance persistence. No
+`currentDecisionId`. No automatic navigation after selection.
 
 ---
 
-## §10 Mandatory real browser dogfood witness
+## §11 Mandatory real browser dogfood + visual witness
 
-The BF3B witness begins **after environment preparation**.
+Fixture-only evidence is insufficient.
 
-Precondition recorded before Witness A:
+Run exact implementation head against disposable APP-STATE PostgreSQL.
+
+### 11.1 Pre-witness setup
+
+Prepare the environment until this state exists:
 
 ```text
-Committed Runbook = exact §5 semantic material
-Run pins that exact committed revision
-Run READY
-Current Beat  = Hold the Breach
-Current Scene = North Gate
-selection for choice:surviving-brood = none
+committed §6 Runbook
+READY exact Run
+Current Beat  Hold the Breach
+Current Scene North Gate
+no selected Option
 ```
 
-Record WorkObject UUID, revision/SHA, and Run UUID as evidence, but their
-creation is predecessor setup rather than BF3B capability proof.
+Then begin BF3B evidence.
 
-### Witness A — select Follow it
+### Witness A — unselected Current Scene
 
-1. open the exact READY Run with North Gate current;
-2. Decision prompt is visible inside the Current Scene workspace;
-3. both authored Options are visible;
-4. select **Follow it**;
-5. verify North Gate remains current;
-6. verify Follow is authoritatively selected;
-7. verify its authored consequence is visible;
-8. verify **Tunnel Pursuit — emphasized**;
-9. verify **Lower Tunnels — emphasized**;
-10. hard reload;
-11. verify selection/consequence/relevance return;
-12. verify Current Scene remains North Gate.
+Verify:
 
-### Witness B — change to Seal the breach
+- North Gate is visually the dominant central work surface;
+- Beat Context is subordinate and accessible;
+- At a Glance is compact/supporting;
+- surviving-brood Decision is visibly part of North Gate;
+- Decision prompt/framing and both Options are immediately legible;
+- no Option is falsely selected;
+- the page does **not** read as three equal content columns.
 
-1. select **Seal the breach**;
-2. exactly one visible Option is selected;
-3. North Gate remains current;
-4. Seal consequence is visible;
-5. **Tunnel Pursuit — de-emphasized**;
-6. Lower Tunnels is default/not emphasized;
-7. open At a Glance → Scenes;
-8. Tunnel Pursuit remains present;
-9. Inspect Tunnel Pursuit;
-10. inspection does not move Current Scene;
-11. Make Current remains available;
-12. Back returns to North Gate.
+Capture a screenshot of the complete Play cockpit at a representative desktop
+width and compare it against:
 
-### Witness C — clear
+`Docs/Design/assets/play-surface-gm-cockpit-target.webp`
 
-1. return to North Gate Decision;
-2. Clear selection;
-3. no Option remains selected;
-4. no selected consequence is claimed;
-5. Tunnel Pursuit returns default;
-6. Lower Tunnels remains/defaults default;
-7. hard reload;
-8. cleared state remains cleared;
-9. Current Scene remains North Gate.
+The PR/review packet should state the important hierarchy similarities and any
+intentional differences justified by the design interpretation lock.
 
-At least one exact-head adversarial automated/browser proof must additionally
-cover invalid Option→Choice membership and stale `run_revision` behavior.
+### Witness B — Follow it
+
+Select **Follow it** and verify:
+
+- North Gate remains current;
+- selected state is visually obvious;
+- authored Follow consequence is immediately attached to the Decision;
+- Tunnel Pursuit — emphasized;
+- Lower Tunnels — emphasized;
+- no navigation occurs;
+- hard reload restores selection/consequence/relevance and North Gate.
+
+Capture the Decision/Scene state in a screenshot.
+
+### Witness C — Seal the breach
+
+Select **Seal the breach** and verify:
+
+- one selected Option;
+- North Gate remains current;
+- Seal consequence is immediately legible;
+- Tunnel Pursuit — de-emphasized;
+- Lower Tunnels — default;
+- At a Glance → Scenes still contains Tunnel Pursuit;
+- Inspect does not change current Scene;
+- Make Current remains available;
+- Back returns to North Gate.
+
+Capture the Decision/Scene state in a screenshot.
+
+### Witness D — Clear
+
+Clear selection and verify:
+
+- no Option selected;
+- no selected consequence claimed;
+- affected relevance returns default;
+- hard reload remains cleared;
+- North Gate remains current.
+
+### Witness E — collapse hierarchy
+
+From North Gate:
+
+1. collapse Beat Context;
+2. collapse At a Glance;
+3. verify the central Scene materially expands/reclaims width;
+4. verify Decision remains usable and readable;
+5. verify neither action changes Runtime Beat/Scene/selection.
+
+Capture one screenshot with supporting regions collapsed. This is evidence that
+those regions are chrome around one central workspace rather than three equal
+workspace columns.
 
 ---
 
-## §11 Stop conditions
+## §12 Adversarial evidence
 
-STOP before widening if BF3B appears to require:
+At least automated evidence must cover:
 
-- changing Create blank Runbook;
-- changing chooser terminology/copy;
-- Plan prep-note behavior;
+```text
+invalid Option for Choice
+→ reject/no progress mutation
+→ no retry
+→ authoritative reread when backend rejects
+→ no conflict mislabel
+
+stale run_revision
+→ 409
+→ exact reread
+→ no selection replay
+```
+
+Ordinary browser UI should never expose an invalid cross-Choice combination, so
+manual forging is not required.
+
+---
+
+## §13 Stop conditions
+
+STOP and report before widening if implementation appears to require:
+
 - new backend endpoint/progress field/migration;
-- grammar or Choice/Option membership changes;
+- Choice/Option membership or v2 grammar changes;
 - persisted relevance;
 - `currentDecisionId`;
-- auto-navigation or auto-resolution;
-- Runbook authoring/paste changes;
-- shared AppChrome changes;
-- Combat, World Graph, AgentRuntime changes;
+- automatic navigation/resolution;
+- Runbook creation/chooser copy changes;
+- Plan authoring/paste behavior changes;
+- shared AppChrome host redesign;
+- Combat or World Graph changes;
 - generalized condition/workflow engine;
 - hiding/removing de-emphasized material from explicit navigation.
 
-If §5 exposes a parser/manifest defect, stop and classify whether the material
-or existing BF1 contract is wrong before changing grammar.
+**Do not STOP merely because the existing three-column CSS must change.**
+Current Moment layout/CSS within the leased Play Surface files is intentionally
+available to move BF3B toward the approved visual target.
 
 ---
 
-## §12 PR narrative
+## §14 Review narrative
 
-Keep the implementation story narrow:
+The PR should tell one product story:
 
 ```text
-The Runbook already exists.
+The script already exists.
 The Run already pins it.
-North Gate is already current.
+North Gate is the obvious table workspace.
 
-BF3B adds one missing table interaction:
-Decision → select/change/clear authored Option
-         → authored consequence visible
-         → relevance re-derived
-         → no navigation
-         → reload returns the same Runtime truth
+The GM sees the authored fork inside that Scene.
+Follow it / Seal the breach / Clear mutate only Runtime selection.
+Consequence and future relevance are visible immediately.
+Nothing navigates automatically.
+Reload returns the same truth.
+
+And the Play surface now reads materially more like the approved GM cockpit,
+not three generic columns.
 ```
 
-Do not claim broader Play completion. Chooser language, richer authoring,
-retrieval, additional At-a-Glance categories, notes refinement, Threat→Combat,
-Combat durability, and real-session dogfood remain separate work.
+Formal review is against one exact head SHA at a time. Count each distinct-head
+review judgment as one review cycle.
 
-Formal review is one judgment against one exact head SHA per cycle.
+Do not claim the broader Play Surface is complete. Additional At-a-Glance
+categories, global retrieval, notes refinement, Threat→Combat, Combat durability,
+and real-session dogfood remain subsequent capabilities.
