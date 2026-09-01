@@ -7,10 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.config import repo_root, session_dir, world_graph_root
-from apps.live_control_server.services.agent_runtime import (
-    AgentRuntime,
-    descriptor_for_runtime,
-)
+from apps.live_control_server.services.agent_query import process_agent_query
+from apps.live_control_server.services.agent_runtime import AgentRuntime
 from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphQueryContextRequest,
     render_world_graph_prompt_block,
@@ -18,15 +16,8 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
 )
 from apps.live_control_server.services.agent_surface_context import (
     AgentSurfaceContextRequest,
-    resolve_agent_surface_context,
 )
-from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
 from apps.live_control_server.services.citation_freshness import build_evidence_snapshots
-from apps.live_control_server.services.hermes_graph_query import (
-    normalize_hermes_conversation_history,
-    run_hermes_graph_query,
-    validate_hermes_query_inputs,
-)
 from apps.live_control_server.session_store import (
     append_events_and_jobs,
     load_session,
@@ -35,10 +26,6 @@ from apps.live_control_server.session_store import (
 from src.live_play.classify_live_turn import classify_live_turn
 from src.live_play.live_query_context import run_context_lookup_turn
 from src.live_play.live_turn import LiveTurnResult, handle_live_turn
-from graph_memory.interaction.latest_recap import (
-    is_latest_recap_change_question,
-    resolve_latest_recap_change_context,
-)
 
 LIVE_QUERY_BACKENDS = frozenset({"live", "hermes"})
 
@@ -192,95 +179,27 @@ def process_live_query(
         )
 
     if query_backend == "hermes":
-        descriptor = descriptor_for_runtime(agent_runtime)
-        builder = AgentTurnTraceBuilder(
+        packet, _layout, _events, _jobs = load_session(session_base)
+        return process_agent_query(
+            text,
+            base=session_base,
+            root=repo,
+            graph_root=world_graph_root(),
             agent_thread_id=resolved_agent_thread_id,
             turn_id=resolved_turn_id,
-            runtime=descriptor.trace_runtime,
-            backend=descriptor.trace_backend,
-            mode=descriptor.trace_mode,
+            hermes_session_pointer=hermes_session_pointer,
+            trace_requested=trace_requested,
+            world_graph_context=world_graph_context,  # type: ignore[arg-type]
+            conversation_history=conversation_history,
+            surface_context=surface_context,
+            agent_runtime=agent_runtime,
+            session_base=session_base,
+            live_packet=packet,
+            outer_campaign_id=outer_campaign_id,
+            outer_session=int(packet["session"]),
+            request_manifest_path=request_manifest_path,
+            hermes_session_id=hermes_session_id,
         )
-        try:
-            with builder.phase("session_load"):
-                packet, _layout, _events, _jobs = load_session(session_base)
-            _ = trace_requested  # accepted for API compatibility; unused in this slice
-            campaign_id = outer_campaign_id or str(packet.get("campaign_id") or "")
-            with builder.phase("request_validation"):
-                validate_hermes_query_inputs(
-                    world_graph_context=world_graph_context,
-                    request_manifest_path=request_manifest_path,
-                    hermes_session_id=hermes_session_id,
-                    hermes_session_pointer=hermes_session_pointer,
-                    outer_campaign_id=campaign_id,
-                )
-                assert world_graph_context is not None  # validated above
-                normalized_history = normalize_hermes_conversation_history(
-                    conversation_history
-                )
-            with builder.phase("world_context_resolution"):
-                graph_envelope = resolve_agent_world_graph_query_context(
-                    world_graph_context,
-                    outer_text=text,
-                    outer_campaign_id=campaign_id,
-                    root=world_graph_root(),
-                )
-            if is_latest_recap_change_question(text):
-                with builder.phase("latest_recap_context"):
-                    world_id = str(graph_envelope.get("world_id") or "eldyrwild")
-                    if world_id.startswith("world:"):
-                        world_id = world_id.removeprefix("world:")
-                    graph_revision_id = (
-                        str(graph_envelope.get("revision_id"))
-                        if graph_envelope.get("revision_id")
-                        else None
-                    )
-                    latest_recap_context = resolve_latest_recap_change_context(
-                        root=repo,
-                        world_id=world_id,
-                        campaign_id=campaign_id,
-                        graph_revision_id=graph_revision_id,
-                    )
-                    graph_envelope = {
-                        **graph_envelope,
-                        "latest_recap_change": latest_recap_context.model_dump(
-                            mode="json",
-                            by_alias=True,
-                        ),
-                    }
-            span = builder.start_phase("surface_context_resolution")
-            try:
-                resolution = resolve_agent_surface_context(
-                    surface_context,
-                    root=repo,
-                    outer_campaign_id=campaign_id,
-                    outer_session=int(packet["session"]),
-                )
-            except Exception:
-                builder.complete_phase(span, status="error")
-                raise
-            else:
-                builder.complete_phase(span, attributes=resolution.trace_summary)
-                for code in resolution.warning_codes:
-                    builder.add_warning(code)
-            return run_hermes_graph_query(
-                text=text,
-                packet=packet,
-                graph_envelope=graph_envelope,
-                agent_thread_id=resolved_agent_thread_id,
-                turn_id=resolved_turn_id,
-                root=world_graph_root(),
-                corpus_root=repo,
-                conversation_history=normalized_history,
-                session_base=session_base,
-                hermes_session_pointer=hermes_session_pointer,
-                trace_builder=builder,
-                agent_runtime=agent_runtime,
-                surface_context=resolution.context,
-            )
-        except Exception:
-            if not builder.logged:
-                builder.finalize_and_log(status="error")
-            raise
 
     packet, _layout, _events, _jobs = load_session(session_base)
 

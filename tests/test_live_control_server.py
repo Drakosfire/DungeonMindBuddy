@@ -2138,3 +2138,53 @@ def test_live_query_http_rejects_surface_context_on_live_backend(
     assert response.status_code == 422
     body = response.json()
     assert body.get("code") == "surface_context_unsupported"
+
+
+def test_agent_query_http_route_registered(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A8: POST /api/agent/query is wired through the FastAPI app."""
+    from apps.live_control_server.services.agent_runtime import (
+        HERMES_RUNTIME_DESCRIPTOR,
+        AgentRuntimeInvocation,
+        AgentRuntimeResult,
+    )
+    from tests.test_live_query_hermes_graph import READY_ENVELOPE, _ok_result
+    from tests.test_agent_query import (
+        CAMPAIGN,
+        _agent_request,
+        _install_play_fixtures,
+    )
+
+    _install_play_fixtures(monkeypatch)
+
+    class _CaptureRuntime:
+        descriptor = HERMES_RUNTIME_DESCRIPTOR
+
+        def run(self, _invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
+            return _ok_result()
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_query.resolve_agent_world_graph_query_context",
+        lambda *_a, **kwargs: {
+            **READY_ENVELOPE,
+            "campaign_id": CAMPAIGN,
+            "query_text": kwargs["outer_text"],
+        },
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_query.world_graph_root",
+        lambda: tmp_path,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.hermes_agent_runtime.default_hermes_agent_runtime",
+        lambda: _CaptureRuntime(),
+    )
+
+    response = client.post("/api/agent/query", json=_agent_request())
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer"]
+    assert "session" not in body

@@ -1018,20 +1018,44 @@ def _hermes_session_handle(binding: HermesSessionPointerBinding | None) -> dict[
     }
 
 
-def _continuity_campaign_id(packet: Mapping[str, Any]) -> str:
+def _continuity_campaign_id(
+    packet: Mapping[str, Any] | None,
+    *,
+    product_campaign_id: str | None = None,
+) -> str:
     """Campaign key for Hermes pointer continuity.
 
     Bound to the outer live packet / Plan thread identity — not the nested
     graph-lens campaign — so switching C2 → C1-only within one thread keeps
     the same opaque pointer.
+
+    Agent callers without a live packet supply ``product_campaign_id`` directly.
     """
-    campaign_id = str(packet.get("campaign_id") or "").strip()
+    if packet is not None:
+        campaign_id = str(packet.get("campaign_id") or "").strip()
+        if not campaign_id:
+            raise HermesGraphQueryRequestError(
+                "Live packet is missing campaign_id for Hermes session continuity.",
+                code="hermes_session_pointer_rejected",
+            )
+        return campaign_id
+    campaign_id = str(product_campaign_id or "").strip()
     if not campaign_id:
         raise HermesGraphQueryRequestError(
-            "Live packet is missing campaign_id for Hermes session continuity.",
-            code="hermes_session_pointer_rejected",
+            "product_campaign_id is required when no live packet is supplied.",
+            code="agent_query_product_campaign_required",
         )
     return campaign_id
+
+
+def _resolve_product_session_number(
+    packet: Mapping[str, Any] | None,
+    *,
+    product_session_number: int | None,
+) -> int | None:
+    if packet is not None:
+        return int(packet["session"])
+    return product_session_number
 
 
 def _resolve_pointer_for_turn(
@@ -1094,7 +1118,8 @@ def _scope_from_unavailable_envelope(graph_envelope: Mapping[str, Any]) -> _Disp
 
 def build_hermes_graph_unavailable_response(
     *,
-    packet: Mapping[str, Any],
+    packet: Mapping[str, Any] | None = None,
+    product_session_number: int | None = None,
     graph_envelope: Mapping[str, Any],
     agent_thread_id: str | None,
     turn_id: str | None,
@@ -1124,10 +1149,9 @@ def build_hermes_graph_unavailable_response(
         error_message=UNAVAILABLE_ANSWER,
         runtime_metadata={"process_isolation": "process_exclusive"},
     )
-    return {
+    response: dict[str, Any] = {
         "schema": LIVE_QUERY_SCHEMA,
         "query_id": _new_query_id(),
-        "session": int(packet["session"]),
         "mode": MODE,
         "status": "error",
         "answer": UNAVAILABLE_ANSWER,
@@ -1181,11 +1205,19 @@ def build_hermes_graph_unavailable_response(
         "hermes_session": None,
         "world_graph_context": dict(graph_envelope),
     }
+    session_number = _resolve_product_session_number(
+        packet,
+        product_session_number=product_session_number,
+    )
+    if session_number is not None:
+        response["session"] = session_number
+    return response
 
 
 def build_hermes_graph_product_response(
     *,
-    packet: Mapping[str, Any],
+    packet: Mapping[str, Any] | None = None,
+    product_session_number: int | None = None,
     result: AgentRuntimeResult,
     scope: _DispatchedScope,
     agent_thread_id: str | None,
@@ -1280,7 +1312,6 @@ def build_hermes_graph_product_response(
     response: dict[str, Any] = {
         "schema": LIVE_QUERY_SCHEMA,
         "query_id": _new_query_id(),
-        "session": int(packet["session"]),
         "mode": MODE,
         "status": _top_level_status(state),
         "answer": answer,
@@ -1319,6 +1350,12 @@ def build_hermes_graph_product_response(
         "hermes_session": _hermes_session_handle(pointer_binding),
         "retrieval_session_id": _runtime_retrieval_session_id(result),
     }
+    session_number = _resolve_product_session_number(
+        packet,
+        product_session_number=product_session_number,
+    )
+    if session_number is not None:
+        response["session"] = session_number
     if latest_recap_change is not None:
         response["latest_recap_change"] = dict(latest_recap_change)
     s1_support = acceptance.get("s1_support")
@@ -1370,7 +1407,9 @@ def build_hermes_graph_product_response(
 def run_hermes_graph_query(
     *,
     text: str,
-    packet: Mapping[str, Any],
+    packet: Mapping[str, Any] | None = None,
+    product_campaign_id: str | None = None,
+    product_session_number: int | None = None,
     graph_envelope: Mapping[str, Any],
     agent_thread_id: str | None,
     turn_id: str | None,
@@ -1401,6 +1440,11 @@ def run_hermes_graph_query(
         trace_builder=trace_builder,
         descriptor=descriptor_for_runtime(agent_runtime),
     )
+    if packet is None and not str(product_campaign_id or "").strip():
+        raise HermesGraphQueryRequestError(
+            "product_campaign_id is required when no live packet is supplied.",
+            code="agent_query_product_campaign_required",
+        )
     try:
         with builder.phase("request_validation"):
             normalized_history = normalize_hermes_conversation_history(
@@ -1414,6 +1458,7 @@ def run_hermes_graph_query(
             )
             return build_hermes_graph_unavailable_response(
                 packet=packet,
+                product_session_number=product_session_number,
                 graph_envelope=graph_envelope,
                 agent_thread_id=agent_thread_id,
                 turn_id=turn_id,
@@ -1427,7 +1472,10 @@ def run_hermes_graph_query(
         resolved_corpus_root = (corpus_root or default_repo_root()).resolve()
         context_span_id = builder.start_phase("context_assembly")
         try:
-            continuity_campaign_id = _continuity_campaign_id(packet)
+            continuity_campaign_id = _continuity_campaign_id(
+                packet,
+                product_campaign_id=product_campaign_id,
+            )
             pointer_store = (
                 HermesSessionPointerStore(session_base)
                 if session_base is not None
@@ -1522,6 +1570,7 @@ def run_hermes_graph_query(
 
         return build_hermes_graph_product_response(
                 packet=packet,
+                product_session_number=product_session_number,
                 result=result,
                 scope=scope,
                 agent_thread_id=agent_thread_id,

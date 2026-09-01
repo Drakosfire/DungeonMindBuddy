@@ -30,6 +30,7 @@ from apps.live_control_server.services.hermes_graph_query import (
 )
 from apps.live_control_server.services import hermes_agent_runtime as hermes_agent_runtime_mod
 from apps.live_control_server.services import live_agent_loop
+from apps.live_control_server.services import agent_query as agent_query_mod
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 
@@ -583,7 +584,7 @@ def test_http_hermes_grounded_and_validation(
     )
 
     monkeypatch.setattr(
-        live_agent_loop,
+        agent_query_mod,
         "resolve_agent_world_graph_query_context",
         lambda *args, **kwargs: {
             **READY_ENVELOPE,
@@ -598,6 +599,7 @@ def test_http_hermes_grounded_and_validation(
         "default_hermes_agent_runtime",
         lambda: host,
     )
+    monkeypatch.setattr(agent_query_mod, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     missing = client.post(
@@ -763,7 +765,7 @@ def test_http_host_error_no_fallback(
 ) -> None:
     host = _FakeHost(_error_result("hermes_worker_timeout"))
     monkeypatch.setattr(
-        live_agent_loop,
+        agent_query_mod,
         "resolve_agent_world_graph_query_context",
         lambda *args, **kwargs: {
             **READY_ENVELOPE,
@@ -773,6 +775,7 @@ def test_http_host_error_no_fallback(
         },
     )
     monkeypatch.setattr(hermes_agent_runtime_mod, "default_hermes_agent_runtime", lambda: host)
+    monkeypatch.setattr(agent_query_mod, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
     response = client.post(
         "/api/live/query",
@@ -1059,7 +1062,7 @@ def test_http_world_graph_unavailable_is_typed_not_422(
         raise AssertionError("host must not be called when graph is unavailable")
 
     monkeypatch.setattr(
-        live_agent_loop,
+        agent_query_mod,
         "resolve_agent_world_graph_query_context",
         lambda *args, **kwargs: {
             "schema": "dmb_agent_world_graph_query_context_v1",
@@ -1083,6 +1086,7 @@ def test_http_world_graph_unavailable_is_typed_not_422(
         },
     )
     monkeypatch.setattr(hermes_agent_runtime_mod, "default_hermes_agent_runtime", boom)
+    monkeypatch.setattr(agent_query_mod, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     response = client.post(
@@ -2109,10 +2113,11 @@ def test_invalid_history_fails_before_graph_resolution(
         raise AssertionError("graph resolver must not run for malformed history")
 
     monkeypatch.setattr(
-        live_agent_loop,
+        agent_query_mod,
         "resolve_agent_world_graph_query_context",
         _resolver_must_not_run,
     )
+    monkeypatch.setattr(agent_query_mod, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(
         live_agent_loop,
@@ -2850,10 +2855,11 @@ def test_surface_context_resolution_span_and_query_primacy(
         }
 
     monkeypatch.setattr(
-        live_agent_loop,
+        agent_query_mod,
         "resolve_agent_world_graph_query_context",
         fake_resolve,
     )
+    monkeypatch.setattr(agent_query_mod, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(
         live_agent_loop,
@@ -3011,10 +3017,11 @@ def test_play_surface_context_resolution_span_query_primacy_and_privacy(
         }
 
     monkeypatch.setattr(
-        live_agent_loop,
+        agent_query_mod,
         "resolve_agent_world_graph_query_context",
         fake_resolve,
     )
+    monkeypatch.setattr(agent_query_mod, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(
         live_agent_loop,

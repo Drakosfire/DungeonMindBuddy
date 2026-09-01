@@ -63,6 +63,12 @@ _ORDINARY_ROOT_HEADING_RE = re.compile(r"^(#{1,2}) (.+)$")
 
 
 @dataclass(frozen=True, slots=True)
+class AgentPlayQueryScope:
+    run_id: str
+    campaign_id: str
+
+
+@dataclass(frozen=True, slots=True)
 class _PlayAuthoredSlice:
     kind: Literal["beat", "scene"]
     element_id: str
@@ -223,6 +229,56 @@ def _manifest_scene_beat(manifest: PlayRunReferenceManifestV2, scene_id: str) ->
 
 def _manifest_has_beat(manifest: PlayRunReferenceManifestV2, beat_id: str) -> bool:
     return any(beat.beat_id == beat_id for beat in manifest.beats)
+
+
+def resolve_agent_play_query_scope(
+    request: AgentSurfaceContextRequest,
+    *,
+    root: Path,
+) -> AgentPlayQueryScope:
+    """Derive authoritative Play product scope from identity-only SurfaceContext."""
+    from apps.live_control_server.services.hermes_graph_query import (
+        HermesGraphQueryRequestError,
+    )
+
+    if request.surface_id.strip() != "play":
+        raise HermesGraphQueryRequestError(
+            "Agent query scope requires surface_id play.",
+            code="agent_query_surface_not_supported",
+        )
+
+    run_id: str | None = None
+    for pointer in request.pointers:
+        kind = pointer.kind.strip()
+        if kind != "play_run":
+            continue
+        if run_id is not None:
+            raise HermesGraphQueryRequestError(
+                "Agent query scope requires exactly one play_run pointer.",
+                code="agent_query_play_scope_rejected",
+            )
+        run_id = _parse_run_id(pointer.value)
+
+    if run_id is None:
+        raise HermesGraphQueryRequestError(
+            "Agent query scope requires a canonical play_run pointer.",
+            code="agent_query_play_scope_rejected",
+        )
+
+    try:
+        record = get_play_run(root, run_id)
+    except PlayRunRegistryError as exc:
+        raise HermesGraphQueryRequestError(
+            "Play Run scope is unavailable for Agent query.",
+            code="agent_query_play_scope_unavailable",
+        ) from exc
+    except Exception as exc:
+        raise HermesGraphQueryRequestError(
+            "Play Run scope is unavailable for Agent query.",
+            code="agent_query_play_scope_unavailable",
+        ) from exc
+
+    return AgentPlayQueryScope(run_id=run_id, campaign_id=record.campaign_id)
 
 
 def resolve_agent_play_surface_context(
@@ -547,11 +603,13 @@ def render_agent_play_surface_context(context: AgentSurfaceContext) -> str | Non
 
 
 __all__ = [
+    "AgentPlayQueryScope",
     "PLAY_BEAT_BODY_MAX_CHARS",
     "PLAY_ELEMENT_TITLE_MAX_CHARS",
     "PLAY_MODEL_BLOCK_MAX_CHARS",
     "PLAY_SCENE_BODY_MAX_CHARS",
     "extract_v2_play_authored_slices",
     "render_agent_play_surface_context",
+    "resolve_agent_play_query_scope",
     "resolve_agent_play_surface_context",
 ]
