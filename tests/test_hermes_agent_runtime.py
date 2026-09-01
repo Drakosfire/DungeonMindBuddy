@@ -304,3 +304,58 @@ def test_map_invocation_carries_surface_context_block_without_mutating_question(
     assert request.conversation_history == without.conversation_history
     assert "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" not in (request.surface_context_block or "")
     assert "revision" not in (request.surface_context_block or "").lower()
+
+
+def test_map_invocation_carries_play_surface_context_block_without_mutating_question() -> None:
+    from apps.live_control_server.services.agent_runtime import (
+        AgentPlayCurrentElementContext,
+        AgentPlayCurrentMomentContext,
+        AgentSurfaceContext,
+    )
+    from apps.live_control_server.services.agent_surface_context import (
+        render_agent_surface_context,
+    )
+
+    surface = AgentSurfaceContext(
+        surface_id="play",
+        current_play=AgentPlayCurrentMomentContext(
+            run_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            playable_artifact_id="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            playable_revision=1,
+            current_beat=AgentPlayCurrentElementContext(
+                kind="beat",
+                element_id="beat:hold-the-gate",
+                title="Hold the gate",
+                body_text="Triage at the gate line.",
+            ),
+            current_scene=AgentPlayCurrentElementContext(
+                kind="scene",
+                element_id="scene:gate-line",
+                title="The gate line",
+                body_text="Guards waver while Lysandro works the crowd.",
+            ),
+        ),
+    )
+    base = _invocation()
+    with_surface = _invocation(
+        message="What happens if they collapse the tunnel?",
+        context_packet=AgentContextPacket(
+            world_scope=base.context_packet.world_scope,
+            retrieval_session=base.context_packet.retrieval_session,
+            surface_context=surface,
+        ),
+    )
+    without = map_invocation_to_hermes_request(
+        _invocation(message="What happens if they collapse the tunnel?")
+    )
+    request = map_invocation_to_hermes_request(with_surface)
+    expected = render_agent_surface_context(surface)
+    assert request.surface_context_block == expected
+    assert without.surface_context_block is None
+    assert (
+        request.question
+        == without.question
+        == "What happens if they collapse the tunnel?"
+    )
+    assert "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" not in (request.surface_context_block or "")
+    assert "beat:hold-the-gate" not in (request.surface_context_block or "")

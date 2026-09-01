@@ -62,9 +62,27 @@ class AgentCurrentWorkContext:
 
 
 @dataclass(frozen=True, slots=True)
+class AgentPlayCurrentElementContext:
+    kind: Literal["beat", "scene"]
+    element_id: str
+    title: str
+    body_text: str
+
+
+@dataclass(frozen=True, slots=True)
+class AgentPlayCurrentMomentContext:
+    run_id: str
+    playable_artifact_id: str
+    playable_revision: int
+    current_beat: AgentPlayCurrentElementContext
+    current_scene: AgentPlayCurrentElementContext | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class AgentSurfaceContext:
     surface_id: str
     current_work: AgentCurrentWorkContext | None = None
+    current_play: AgentPlayCurrentMomentContext | None = None
 
 
 @dataclass(frozen=True, slots=True)
