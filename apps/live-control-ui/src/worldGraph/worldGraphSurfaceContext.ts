@@ -3,6 +3,9 @@ import type { WorldGraphProjectionRequest } from "../api/types";
 export const WORLD_ID_BY_CAMPAIGN: Record<string, string> = {
   "longmont-c1": "eldyrwild",
   "longmont-c2": "eldyrwild",
+  // Dogfood (of-conks end-to-end): module world initialized on the local
+  // DungeonMind authority; campaign id == world id by gold-package design.
+  "of-conks-cons": "of-conks-cons",
 };
 
 export function getWorldIdForCampaign(campaignId: string): string | null {

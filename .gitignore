@@ -64,6 +64,13 @@ evals/mirathorn_vertical_slice/output/parity_experiment_*/cell_*/
 # Corpus PDFs (statblocks, handouts) under corpus/ are tracked, e.g.
 # corpus/eldyrwild-markdown/Longmont Campaign/NPCs/*.pdf — do not add a blanket *.pdf here.
 
+# Of Conks & Cons dogfood: third-party copyrighted module bytes stay local-only
+# (source-admission artifact store + boutique packet data fixtures).
+corpus/of-conks-cons-markdown/
+evals/of_conks_end_to_end_dogfood/packet/local/
+# Screenshots that render module-derived prose/stats stay local-only as well.
+evals/of_conks_end_to_end_dogfood/screenshots/*-localonly.png
+
 # Eldyrwild corpus: nested ignores under Docs/Eldyrwild and Campaign Context/.gitignore
 
 # Secrets

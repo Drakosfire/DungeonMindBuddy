@@ -1,0 +1,236 @@
+/* Of Conks & Cons end-to-end dogfood — boutique packet styles.
+   Dogfood-only presentation layer (handoff §7.4); not a product surface. */
+
+:root {
+  --oc-bg: #14171c;
+  --oc-panel: #1d2229;
+  --oc-panel-edge: #2c333d;
+  --oc-ink: #e8e4d8;
+  --oc-muted: #9aa3ad;
+  --oc-accent: #d9a441;
+  --oc-accent-ink: #1a1408;
+  --oc-hit: #3f5d3a;
+  --oc-hit-edge: #6f9f5f;
+  --oc-warn: #8a5a2b;
+}
+
+body.oc-packet {
+  margin: 0;
+  background: var(--oc-bg);
+  color: var(--oc-ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  line-height: 1.45;
+}
+
+.oc-wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.oc-banner {
+  border: 1px solid var(--oc-warn);
+  background: #241c10;
+  color: #e8c98a;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+.oc-header h1 {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
+  letter-spacing: 0.02em;
+}
+
+.oc-header .oc-sub {
+  color: var(--oc-muted);
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+.oc-nav {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+
+.oc-nav a {
+  color: var(--oc-accent);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--oc-accent);
+}
+
+.oc-card {
+  background: var(--oc-panel);
+  border: 1px solid var(--oc-panel-edge);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+
+.oc-card h2 {
+  margin: 0 0 2px;
+  font-size: 1.15rem;
+}
+
+.oc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0 12px;
+  font-size: 0.8rem;
+  color: var(--oc-muted);
+}
+
+.oc-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--oc-panel-edge);
+  background: #232a33;
+  color: var(--oc-ink);
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.oc-pill.oc-dice {
+  border-color: var(--oc-accent);
+  color: var(--oc-accent);
+}
+
+.oc-roll-btn {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--oc-accent);
+  background: var(--oc-accent);
+  color: var(--oc-accent-ink);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.oc-roll-btn:hover {
+  filter: brightness(1.1);
+}
+
+.oc-roll-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.oc-result {
+  margin: 10px 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #26301f;
+  border: 1px solid var(--oc-hit-edge);
+  font-size: 0.95rem;
+  display: none;
+}
+
+.oc-result.oc-visible {
+  display: block;
+}
+
+.oc-result strong {
+  color: #b7e29b;
+}
+
+table.oc-rows {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+table.oc-rows th,
+table.oc-rows td {
+  text-align: left;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--oc-panel-edge);
+}
+
+table.oc-rows th {
+  color: var(--oc-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+tr.oc-selected td {
+  background: var(--oc-hit);
+  color: #eaf5e2;
+  font-weight: 600;
+}
+
+tr.oc-selected td:first-child {
+  border-left: 3px solid var(--oc-hit-edge);
+}
+
+.oc-guidance {
+  border-left: 3px solid var(--oc-accent);
+  padding: 6px 12px;
+  color: var(--oc-muted);
+  font-size: 0.88rem;
+  margin: 18px 0;
+}
+
+.oc-error {
+  border: 1px solid #7d3b3b;
+  background: #2a1717;
+  color: #e0a3a3;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+}
+
+.oc-footer {
+  margin-top: 28px;
+  color: var(--oc-muted);
+  font-size: 0.78rem;
+  border-top: 1px solid var(--oc-panel-edge);
+  padding-top: 12px;
+}
+
+.oc-nodechips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.oc-statgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 18px;
+  font-size: 0.88rem;
+  margin: 8px 0;
+}
+
+.oc-statgrid div span {
+  color: var(--oc-muted);
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.oc-card h3 {
+  margin: 14px 0 4px;
+  font-size: 0.95rem;
+  color: var(--oc-accent);
+}
+
+.oc-card ul {
+  margin: 6px 0;
+  padding-left: 20px;
+  font-size: 0.9rem;
+}
+
+.oc-card li {
+  margin-bottom: 3px;
+}
