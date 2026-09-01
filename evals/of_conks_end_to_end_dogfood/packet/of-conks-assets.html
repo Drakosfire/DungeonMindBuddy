@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Of Conks &amp; Cons — Source art &amp; maps (dogfood)</title>
+  <link rel="stylesheet" href="assets/of-conks-packet.css" />
+  <style>
+    .oc-asset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .oc-asset { background: var(--oc-panel); border: 1px solid var(--oc-panel-edge); border-radius: 10px; padding: 12px 14px; }
+    .oc-asset h2 { margin: 0 0 4px; font-size: 1.05rem; }
+    .oc-asset .oc-meta { margin: 4px 0 10px; }
+    .oc-asset img { width: 100%; border-radius: 6px; border: 1px solid var(--oc-panel-edge); display: block; }
+    .oc-asset .oc-missing { color: var(--oc-muted); font-size: 0.85rem; padding: 24px 0; text-align: center; border: 1px dashed var(--oc-panel-edge); border-radius: 6px; }
+  </style>
+</head>
+<body class="oc-packet">
+  <div class="oc-wrap">
+    <div class="oc-banner">
+      Dogfood asset experiment (handoff §5) — source-relative media resolved through the dev server's
+      traversal-safe repo middleware (<code>safeResolve</code>: no <code>../</code>, no file://, repo-scoped, no-store).
+      Image bytes are local-only licensed module art (gitignored); they never enter World Graph state.
+    </div>
+    <nav class="oc-nav">
+      <a href="/evals/of_conks_end_to_end_dogfood/packet/of-conks-tables.html">Roll tables</a>
+      <a href="/evals/of_conks_end_to_end_dogfood/packet/of-conks-encounters.html">Prepared encounters</a>
+      <a href="/evals/of_conks_end_to_end_dogfood/packet/of-conks-assets.html">Source art &amp; maps</a>
+      <a href="/build?campaign=of-conks-cons">Build surface (of-conks-cons)</a>
+      <a href="/">Command Board</a>
+    </nav>
+    <header class="oc-header">
+      <h1>Source art &amp; maps — Hempholm</h1>
+      <div class="oc-sub">
+        Of Conks &amp; Cons v2.1 · licensed PDF media, mined to gold package · served from
+        <code>packet/local/media/</code> via source-relative URLs
+      </div>
+    </header>
+    <div class="oc-asset-grid" id="oc-assets">
+      <section class="oc-asset">
+        <h2>Hempholm village map (areas 1–5)</h2>
+        <div class="oc-meta"><span class="oc-pill">map-hempholm.jpg</span><span>module p. 6 village map</span></div>
+        <img src="local/media/map-hempholm.jpg" alt="Hempholm village map (areas 1-5)" loading="lazy"
+             onerror="this.outerHTML='<div class=oc-missing>local fixture missing — populate packet/local/media from the licensed gold package</div>'" />
+      </section>
+      <section class="oc-asset">
+        <h2>Figure 1 — The Shacks</h2>
+        <div class="oc-meta"><span class="oc-pill">fig-1-the-shacks.jpg</span><span>village plate, Area 1</span></div>
+        <img src="local/media/fig-1-the-shacks.jpg" alt="Figure 1 — The Shacks village plate" loading="lazy"
+             onerror="this.outerHTML='<div class=oc-missing>local fixture missing — populate packet/local/media from the licensed gold package</div>'" />
+      </section>
+      <section class="oc-asset">
+        <h2>Area 5 — the harvest (Jove garden)</h2>
+        <div class="oc-meta"><span class="oc-pill">art-area-5-harvest.jpg</span><span>pastoral plate, Area 5</span></div>
+        <img src="local/media/art-area-5-harvest.jpg" alt="Area 5 harvest plate — the Jove garden" loading="lazy"
+             onerror="this.outerHTML='<div class=oc-missing>local fixture missing — populate packet/local/media from the licensed gold package</div>'" />
+      </section>
+    </div>
+    <div class="oc-guidance">
+      Experiment answers (handoff §5): an attached source asset is identified by source-artifact-relative path;
+      relative Markdown refs can survive import unrewritten; the browser resolves them against a source-owned
+      asset root; the smallest safe server authority is a traversal-safe, repo-scoped static resolver (here: the
+      existing dev middleware); full Asset-domain identity is NOT needed for the first capability; migration path
+      is a narrowly owned source-asset route later (DungeonMindServer byte storage).
+    </div>
+    <footer class="oc-footer">
+      Provenance: Of Conks &amp; Cons v2.1 illustrated PDF (Christian Eichhorn, licensed) · gold package
+      <code>of-conks-cons-gold-v0</code> media · local-only, not committed.
+    </footer>
+  </div>
+</body>
+</html>

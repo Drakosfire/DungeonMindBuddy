@@ -708,6 +708,19 @@ def main() -> None:
                     cards.nth(idx).screenshot(path=str(SHOTS / f"{shot}.png"))
             page.screenshot(path=str(SHOTS / "58-encounters-full-localonly.png"), full_page=True)
 
+        if step == "asset-station":
+            page.goto(
+                f"{BASE}/evals/of_conks_end_to_end_dogfood/packet/of-conks-assets.html",
+                wait_until="networkidle",
+            )
+            page.wait_for_timeout(2500)
+            imgs = page.locator(".oc-asset img")
+            print("asset-images:", imgs.count())
+            for i in range(imgs.count()):
+                ok = imgs.nth(i).evaluate("el => el.complete && el.naturalWidth > 0")
+                print(f"  img[{i}] loaded:", ok, imgs.nth(i).get_attribute("src"))
+            page.screenshot(path=str(SHOTS / "59-source-assets-localonly.png"), full_page=True)
+
         if step == "start-run-v3":
             # Start a fresh Run from the re-authored Runbook (revision 3, module-world refs).
             page.goto(f"{BASE}/play", wait_until="networkidle")

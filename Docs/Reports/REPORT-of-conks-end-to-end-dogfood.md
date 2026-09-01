@@ -43,7 +43,7 @@ User directive mid-journey: "We have the markdown and original pdf for of conks 
 
 | Station | Status | Generic / dogfood-only | Evidence |
 | --- | --- | --- | --- |
-| Source | PASS | generic (Build "Import source" → paste markdown → New world destination `of-conks-cons`; document `9e7786d8-2253-4f8d-b37f-e0720feeaeda` "Hempholm — run packet") | screenshots 35–36 (local-only: module-derived prose); Build reader render 38 |
+| Source | PASS | generic (Build "Import source" → paste markdown → New world destination `of-conks-cons`; document `9e7786d8-2253-4f8d-b37f-e0720feeaeda` "Hempholm — run packet"); source art/maps display via dogfood boutique asset page (handoff §5 experiment, OC-019) | screenshots 35–36 (local-only: module-derived prose); Build reader render 38; 59 (local-only: module art) |
 | Plan | PASS | generic (kind=plan WorkObject, ordinary save, immutable WorkRevision, hard reload); re-anchored to module-world references (WorkRevision 2) under `?campaign=of-conks-cons` | screenshots 28–31; 36 `recap-node-token` buttons on reload |
 | Runbook | PASS | generic (blank Runbook create → authoring → native save; v2 Beat-first markers round-trip; stable semantic IDs); re-anchored to module-world references (WorkRevision 3) | screenshots 14–16, 32; 18 tokens on reload |
 | Play | PASS | generic (exact-revision Run, sealed manifest, Decision select/change/clear/reselect, activates/suppresses, inspect-without-moving, Make Current, hard-reload resume) | screenshots 17–26; play.run revisions 1→6; play.run_manifest; play.active_run |
@@ -76,6 +76,7 @@ User directive mid-journey: "We have the markdown and original pdf for of conks 
 | OC-016 | The existing Combat Tracker (`/combat`, combat.html) is a session-26-specific static boutique page (hardcoded combatant rows, localStorage saves), not a composable combat runtime. Station 7 correctly used the same boutique pattern rather than fake generic integration. | product behavior | low (handoff already anticipated this) | combat.html source read 2026-09-01 | None for this branch; generic Combat completion stays out of scope per handoff. |
 | OC-017 | Play cockpit renders a Decision's options only while its parent scene is current; the scenes panel open/closed state persists across page reloads, which confused early automation (toggled closed when expected open). Behavior is correct; automation must read panel state before toggling. | product behavior (automation note) | low | driver `play-v3-decision` step final form | None — correct scene-scoped decision gating; recorded for future driver authors. |
 | OC-018 | Vite dev middleware already serves any repo file under `/evals/**` (vite.config.ts `mirewardPrepStaticPlugin`), so the dogfood boutique packet needed **zero product-code changes** to serve — pages + assets + local fixtures all resolve under `/evals/of_conks_end_to_end_dogfood/packet/`. | architecture observation | low (happy path) | vite.config.ts source; packet served 200 | Keep for future dogfoods: boutique packets need no vite changes. |
+| OC-019 | Handoff §5 asset experiment answered boutique-locally: source images (Hempholm map, Shacks plate, Area 5 art) display through source-relative URLs (`local/media/*.jpg`) resolved by the traversal-safe dev middleware — no `../`, no file://, repo-scoped, bytes never enter World state. The product Markdown reader still refuses relative media by policy (`classifyImageUrl` → "unresolved"), which is correct until a real source-asset contract is extracted. | experiment result | low (answered, not productized) | screenshot 59 (local-only); packet `of-conks-assets.html` | Extraction (post-dogfood, not this branch): narrowly owned source-asset route (`workspace_documents.py` or new service) + `source_relative` image kind in `markdownReaderUrlPolicy.ts` with a document-scoped asset base — the six §5 questions are answered in `of-conks-assets.html` guidance block. |
 
 ## 3. Dogfood-only mechanisms
 
@@ -135,7 +136,32 @@ User directive mid-journey: "We have the markdown and original pdf for of conks 
 
 DO NOT MERGE WHOLESALE.
 
-(pending — final handback per handoff §13)
+### §13 Final handback
+
+1. **Branch/head:** `dogfood/of-conks-end-to-end`; evidence head `fe70b6d6` plus the disposition commit on top (branch tip).
+2. **Golden-path status:** §1 — every station PASS; Agent NOT EXERCISED (PR #674 lease).
+3. **Screenshots:** `evals/of_conks_end_to_end_dogfood/screenshots/` — 01–34, 41–44, 60–71 committed; 35–36, 38, 50–59 local-only (module-derived content, `-localonly` suffix, gitignored).
+4. **Plan:** document `bfbed067-30d8-486a-846b-824c713e6a49` ("Of Conks & Cons — Hempholm Adaptation"), module-world WorkRevision (36 `recap-node-token` buttons on reload).
+5. **Runbook:** document `3ae3eb70-6042-4d7a-be94-065045a6a45e`, committed playable revision 3, content sha `ff0288019bbc22fe…` (18 module-world `dmb-node:` refs, 3 choices, 9 options).
+6. **Run:** `2224fbd7-07d0-4e12-8b84-7b9543c7acdd` — current Beat `beat:arrival-visible-problem`, current Scene `scene:grotesque-tree`, selection `choice:tree-approach = option:tree-investigate-first` (verified via API and post-reload UI).
+7. **World witness:** worldId `of-conks-cons`, campaignId `of-conks-cons`, projection revision `99207932…`, 24 nodes / 24 edges, `worldbuilding_draft`, initialized via reviewed first-world initialization (gold bundle `of-conks-cons-gold-v0`, digest recorded on the source artifact lineage).
+8. **Image/asset mechanism:** dogfood boutique source-relative display (`packet/of-conks-assets.html` → `local/media/*.jpg` via traversal-safe dev middleware); product reader policy unchanged (OC-019).
+9. **Graph-object opening:** Build surface → Tools → World Graph objects → Find existing object → View → object sheet; relationship traversal garden ↔ threat ↔ Hempholm. Plan/Play token→sheet opening blocked by OC-012/OC-009 (recorded, not faked).
+10. **Roll mechanism:** dogfood boutique `of-conks-tables.html` — Appendix C tables, Roll 1d12 → ephemeral highlighted result (OC-015; no product roll seam exists).
+11. **Encounter/Combat mechanism:** dogfood boutique `of-conks-encounters.html` — three prepared sheets with threat-card mechanics and graph links (OC-016; no composable combat runtime).
+12. **Agent status:** NOT EXERCISED — PR #674 (Agent/Play Ask) lease active at dogfood window; omission recorded per handoff Station 8.
+13. **Hard reload:** PASS — run v3 resumes current beat/scene with Decision selection intact (screenshots 63, 65); Plan/Runbook hard reloads preserve module-world content (30–32).
+14. **Learning ledger:** §2, OC-001 through OC-019.
+15. **Dogfood-only mechanisms:** §3 (packet pages, local fixtures, init script).
+16. **Candidates to mine:** §8 (lens registry P1; roll interaction P1; encounter projection P2; Play sheet wiring P2; attribute assertions P2; rename P3; operator runbook P3).
+17. **Mechanisms to discard:** §9 (local fixtures, `child_of` normalization workaround; no dogfood-specific product code exists).
+18. **Files worth retaining:** `drive_journey.py`, `initialize_of_conks_world.py`, `packet/**` (mechanism only), this report, the handoff. Local-only forever: gold package, `packet/local/`, `corpus/of-conks-cons-markdown/`, `*-localonly.png`.
+19. **Proposed successor order (observed friction, not prior roadmap):** (a) data-driven campaign→world registry + Plan lens opening (OC-011/012 — the silent-wrongness fix); (b) lightweight Roll interaction (OC-015 — highest table-feel payoff at smallest scope); (c) Play object-sheet wiring (OC-009); (d) encounter projection pattern (OC-016); (e) graph attribute assertions for mechanics on sheets (OC-014); (f) operator runbook for module-world initialization; (g) source-asset route + reader policy kind (OC-019).
+20. **WHOLESALE MERGE: PROHIBITED.**
+
+### §14 rubric self-check
+
+All boxes checked, two with truthful scoping: "source image through a controlled product path" is satisfied by the dogfood-controlled boutique path (product reader policy deliberately untouched, OC-019); "source evidence reachable" holds at the Build document level, while sheet-level source excerpts remain absent by authority design (OC-014). No authority faked; no copyrighted asset committed; branch is mining evidence, not a mega-PR.
 
 ## Bounded-discovery path log (handoff §7.5)
 
