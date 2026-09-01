@@ -9,8 +9,13 @@ import {
   type ReactNode,
 } from "react";
 
-import { getSourceBundle } from "../api/liveApi";
+import { getSourceBundle, getWorldGraphCampaigns } from "../api/liveApi";
 import type { IngestionSourceBundle } from "../api/types";
+import {
+  getCampaignRegistry,
+  getWorldIdForCampaign,
+  setCampaignRegistry,
+} from "../worldGraph/worldGraphSurfaceContext";
 import {
   buildFocusOptionsFromBundles,
   isFocusValidationBlocking,
@@ -66,6 +71,11 @@ interface PlanGraphLensProviderProps {
   /** Injectable for tests; defaults to live `getSourceBundle`. */
   loadBundle?: typeof getSourceBundle;
   /**
+   * Injectable for tests; defaults to the live authority registry read.
+   * When `null`, the registry fetch is skipped (seeded fallback stays).
+   */
+  loadCampaignRegistry?: typeof getWorldGraphCampaigns | null;
+  /**
    * Test override: skip network and use these options immediately.
    * When set (including `[]`), bundle loading is skipped.
    */
@@ -73,7 +83,27 @@ interface PlanGraphLensProviderProps {
 }
 
 function sortCampaignIds(ids: readonly ReviewCampaignId[]): ReviewCampaignId[] {
-  return REVIEW_CAMPAIGN_IDS.filter((id) => ids.includes(id));
+  const registryOrder = getCampaignRegistry().map((entry) => entry.campaignId);
+  const known = registryOrder.filter((id) => ids.includes(id));
+  // Admitted via the shipped fallback map but not (yet) in the registry.
+  const rest = ids.filter((id) => !registryOrder.includes(id));
+  return [...known, ...rest];
+}
+
+/**
+ * One world per projection: adding a campaign from another world switches the
+ * selection to that world; adding within the same world unions campaigns.
+ */
+function sameWorldSelection(
+  current: readonly ReviewCampaignId[],
+  added: ReviewCampaignId,
+): ReviewCampaignId[] {
+  const addedWorld = getWorldIdForCampaign(added);
+  const currentWorld = current.length > 0 ? getWorldIdForCampaign(current[0]) : null;
+  if (current.length > 0 && currentWorld && addedWorld && currentWorld !== addedWorld) {
+    return [added];
+  }
+  return [...current.filter((id) => id !== added), added];
 }
 
 /** Exact focus + selected-campaign identity for atomic validation binding. */
@@ -117,6 +147,7 @@ export function PlanGraphLensProvider({
   planCampaignId,
   children,
   loadBundle = getSourceBundle,
+  loadCampaignRegistry = getWorldGraphCampaigns,
   focusOptions: focusOptionsOverride,
 }: PlanGraphLensProviderProps) {
   const [lens, setLens] = useState<PlanGraphLens>(() =>
@@ -125,6 +156,7 @@ export function PlanGraphLensProvider({
       typeof window !== "undefined" ? window.location.search : "",
     ),
   );
+  const [registryReady, setRegistryReady] = useState(false);
   const [focusOptions, setFocusOptions] = useState<PlanGraphLoadFocusOption[]>(
     () => focusOptionsOverride ?? [],
   );
@@ -191,11 +223,16 @@ export function PlanGraphLensProvider({
   const setSelectedCampaignIds = useCallback(
     (ids: ReviewCampaignId[]) => {
       unverifiedOverrideKeyRef.current = null;
+      // One world per projection: keep only campaigns sharing the first id's world.
+      const worldId = ids.length > 0 ? getWorldIdForCampaign(ids[0]) : null;
+      const sameWorld = worldId
+        ? ids.filter((id) => getWorldIdForCampaign(id) === worldId)
+        : ids;
       setLens((previous) => {
         const next: PlanGraphLens = {
-          selectedCampaignIds: sortCampaignIds(ids),
+          selectedCampaignIds: sortCampaignIds(sameWorld),
           focus:
-            previous.focus && ids.includes(previous.focus.campaignId)
+            previous.focus && sameWorld.includes(previous.focus.campaignId)
               ? previous.focus
               : null,
         };
@@ -209,13 +246,10 @@ export function PlanGraphLensProvider({
   const toggleCampaign = useCallback((campaignId: ReviewCampaignId) => {
     unverifiedOverrideKeyRef.current = null;
     setLens((previous) => {
-      const selected = new Set(previous.selectedCampaignIds);
-      if (selected.has(campaignId)) {
-        selected.delete(campaignId);
-      } else {
-        selected.add(campaignId);
-      }
-      const selectedCampaignIds = sortCampaignIds([...selected]);
+      const nextIds = previous.selectedCampaignIds.includes(campaignId)
+        ? previous.selectedCampaignIds.filter((id) => id !== campaignId)
+        : sameWorldSelection(previous.selectedCampaignIds, campaignId);
+      const selectedCampaignIds = sortCampaignIds(nextIds);
       const next: PlanGraphLens = {
         selectedCampaignIds,
         focus:
@@ -272,6 +306,44 @@ export function PlanGraphLensProvider({
     unverifiedOverrideKeyRef.current = currentValidationKey;
     bindValidation("valid", currentValidationKey);
   }, [bindValidation, currentValidationKey, lens.focus]);
+
+  // Fetch the authority campaign registry once; the seeded fallback stays on failure.
+  useEffect(() => {
+    if (loadCampaignRegistry === null) {
+      setRegistryReady(true);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const entries = await loadCampaignRegistry();
+        if (!cancelled) setCampaignRegistry(entries);
+      } catch {
+        // Authority unavailable: shipped fallback registry remains in effect.
+      } finally {
+        if (!cancelled) setRegistryReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadCampaignRegistry]);
+
+  // Once the registry is live, re-resolve the lens from the URL so campaigns
+  // outside the shipped default set (e.g. a module world) are admitted. The URL
+  // is kept in sync with user toggles, so this never overrides a live choice.
+  useEffect(() => {
+    if (!registryReady) return;
+    setLens((previous) => {
+      const reresolved = resolvePlanGraphLens(
+        planCampaignId,
+        typeof window !== "undefined" ? window.location.search : "",
+      );
+      return planGraphLensValidationKey(reresolved) === planGraphLensValidationKey(previous)
+        ? previous
+        : reresolved;
+    });
+  }, [registryReady, planCampaignId]);
 
   // Load grounded focus options for the selected campaigns.
   useEffect(() => {

@@ -1124,6 +1124,24 @@ export async function getSourceBundle(
   return apiFetch<IngestionSourceBundle>(`/api/live/source-bundle?${query.toString()}`);
 }
 
+export interface WorldGraphCampaignRegistryEntryWire {
+  campaignId: string;
+  worldId: string;
+}
+
+interface WorldGraphCampaignRegistryResponse {
+  schema: string;
+  campaigns: WorldGraphCampaignRegistryEntryWire[];
+}
+
+/** Authority-served campaign→world registry for the graph lens. */
+export async function getWorldGraphCampaigns(): Promise<WorldGraphCampaignRegistryEntryWire[]> {
+  const response = await apiFetch<WorldGraphCampaignRegistryResponse>(
+    "/api/live/world-graph/campaigns",
+  );
+  return Array.isArray(response.campaigns) ? response.campaigns : [];
+}
+
 export async function getArtifact(
   target: Pick<ProjectionTarget, "target_type" | "target_id">,
 ): Promise<ArtifactReadResponse> {

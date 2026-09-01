@@ -34,7 +34,6 @@ export {
   buildWorldGraphRecapProjectionRequest,
   getWorldIdForCampaign,
   admitBuildDocumentScope,
-  WORLD_ID_BY_CAMPAIGN,
 } from "../../worldGraph/worldGraphSurfaceContext";
 
 function buildProjectionFocus(context: PlanWorldGraphContext): WorldGraphProjectionFocus {

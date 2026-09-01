@@ -115,6 +115,10 @@ from dungeonmind.infrastructure.postgres import (
     PostgresDatabase,
     PostgresRepositoryBundle,
 )
+from dungeonmind.infrastructure.postgres.database import (
+    SCHEMA as _DND_SCHEMA,
+)
+from psycopg import sql
 
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
@@ -563,6 +567,52 @@ def direct_services_from_config(world_id: str) -> DirectWorldGraphReadServices:
         raise _map_direct_error(exc) from exc
 
 
+def list_authority_campaigns() -> list[dict[str, str]]:
+    """Read-only campaign→world registry from the DungeonMind authority.
+
+    Powers the frontend graph lens: any campaign/world the authority knows is
+    selectable without shipping a hardcoded campaign constant in the UI.
+    """
+    from apps.live_control_server import config
+
+    database_url = config.world_graph_authority_database_url()
+    if not database_url:
+        raise DirectWorldGraphReadError(
+            "DungeonMind authority database URL is not configured "
+            f"({config.WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV})",
+            code="authority_unavailable",
+            status_code=503,
+        )
+    database = PostgresDatabase(database_url)
+    try:
+        with database.connect() as conn:
+            rows = conn.execute(
+                sql.SQL(
+                    "SELECT world_id, campaign_id FROM {}.campaigns ORDER BY campaign_id"
+                ).format(sql.Identifier(_DND_SCHEMA)),
+            ).fetchall()
+    except PersistenceUnavailableError as exc:
+        raise DirectWorldGraphReadError(
+            "DungeonMind authority is unavailable.",
+            code="authority_unavailable",
+            status_code=503,
+            diagnostics=[{"reason": "provider_unavailable", "what": "campaign registry"}],
+            cause=exc,
+        ) from exc
+    except Exception as exc:
+        raise DirectWorldGraphReadError(
+            "DungeonMind campaign registry read failed.",
+            code="authority_integrity",
+            status_code=500,
+            diagnostics=[{"reason": "campaign_registry_read_failed"}],
+            cause=exc,
+        ) from exc
+    return [
+        {"worldId": str(row["world_id"]), "campaignId": str(row["campaign_id"])}
+        for row in rows
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Request mapping (Buddy wire → DungeonMind v2 contract)
 # ---------------------------------------------------------------------------
@@ -912,11 +962,17 @@ def _snapshot_view(
     snapshot: Any,
     *,
     focus: WorldGraphProjectionFocus,
+    request_campaign_id: str | None = None,
 ) -> WorldGraphProjectionSnapshot:
-    """Snapshot identity is DungeonMind's; focus/campaign echo the request."""
+    """Snapshot identity is DungeonMind's; focus/campaign echo the request.
+
+    World-scope kernel snapshots carry no campaign (the scope is cross-campaign),
+    so the wire echoes the request's campaign anchor; campaign-scope snapshots
+    already carry the kernel's campaign id, which wins when present.
+    """
     return WorldGraphProjectionSnapshot(
         world_id=snapshot.world_id,
-        campaign_id=snapshot.campaign_id or "",
+        campaign_id=snapshot.campaign_id or request_campaign_id or "",
         revision_id=snapshot.revision_id,
         head_revision_id=snapshot.head_revision_id,
         is_head=snapshot.is_head,
@@ -1286,7 +1342,11 @@ def _adapt_projection_result(
     artifact_views = _source_artifact_views(services, artifact_campaigns.keys())
     return WorldGraphProjection(
         schema="dmb_world_graph_projection_v1",
-        snapshot=_snapshot_view(result.snapshot, focus=request.focus),
+        snapshot=_snapshot_view(
+            result.snapshot,
+            focus=request.focus,
+            request_campaign_id=request.campaign_id,
+        ),
         summary=WorldGraphProjectionSummary(
             node_count=len(node_views),
             relationship_count=len(rel_views),

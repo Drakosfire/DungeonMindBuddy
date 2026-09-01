@@ -9,6 +9,7 @@ import {
   insertMarkdownReference,
   referenceFromGraphNode,
   type GraphNodeChipRuntimeValue,
+  type GraphReferenceProjectionState,
   type GraphReferenceSearchItem,
 } from "../../graphReference";
 import { defaultMarkdownDocumentAdapter } from "../../tiptap/MarkdownDocumentAdapter";
@@ -41,13 +42,14 @@ import {
   type PlanAuthoringShellState,
 } from "../planBlankAuthoringState";
 import { usePlanBlankAuthoring } from "../usePlanBlankAuthoring";
-import type { GraphProjectionNodeView } from "../../api/types";
+import type { GraphProjectionNodeView, WorldGraphProjection } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import { extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
 import { useProjection } from "../projection/projectionContext";
 import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
+import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
 import { formatReviewCampaignLabel } from "../sessionCampaignContext";
 import { glanceOnlyForGraphReference } from "../../graphReference/openGraphReferencePolicy";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
@@ -93,6 +95,101 @@ function nodeScopeLabel(node: GraphProjectionNodeView): string {
   const scope = node.campaign_scope?.trim();
   if (!scope) return "World";
   return formatReviewCampaignLabel(scope);
+}
+
+/**
+ * World Graph objects tool panel.
+ *
+ * Edit-toolbox panels are published through a signature dedup that cannot see
+ * ReactNode content changes: the first published panel element is kept as-is.
+ * This component therefore reads the shared lens projection from context at
+ * render time instead of trusting projection props captured at publish time.
+ * The fallback props serve hosts without the lens projection provider (tests).
+ */
+function PlanGraphReferenceSearchTool({
+  fallbackItems,
+  fallbackProjection,
+  fallbackState,
+  fallbackError,
+  insertDisabled,
+  onInsert,
+}: {
+  fallbackItems: readonly GraphReferenceSearchItem[];
+  fallbackProjection: WorldGraphProjection | null;
+  fallbackState: GraphReferenceProjectionState;
+  fallbackError: string | null;
+  insertDisabled: boolean;
+  onInsert: (item: GraphReferenceSearchItem) => void;
+}) {
+  const shared = useOptionalWorldGraphLensProjection();
+  const { openGraphReference } = useProjection();
+  const projection = shared?.projection ?? fallbackProjection;
+  const projectionState = shared?.projectionState ?? fallbackState;
+  const projectionError = shared?.projectionError ?? fallbackError;
+
+  const items = useMemo<GraphReferenceSearchItem[]>(() => {
+    if (!shared) return [...fallbackItems];
+    return (projection?.nodes ?? []).map((node) => {
+      const nodeView = adaptWorldGraphNodeForPlanCard(node);
+      return {
+        nodeId: nodeView.node_id,
+        label: nodeView.label,
+        kind: nodeView.kind,
+        role: nodeView.role,
+        summary: nodeView.summary ?? null,
+        aliases: nodeView.aliases ?? [],
+        scopeLabel: nodeScopeLabel(nodeView),
+        reference: referenceFromGraphNode(nodeView),
+        nodeView,
+      };
+    });
+  }, [shared, projection, fallbackItems]);
+
+  const handleView = useCallback(
+    (item: GraphReferenceSearchItem) => {
+      const graphScope = extractExactGraphReferenceScope(projection);
+      if (!graphScope) {
+        openGraphReference({
+          resolution: {
+            kind: "error",
+            locator: `dmb-node:${item.nodeId}`,
+            reference: item.reference,
+            projectionState,
+            message:
+              "World Graph projection snapshot lacks exact world, campaign, or revision scope; graph search open blocked.",
+          },
+          projectionState,
+        });
+        return;
+      }
+
+      openGraphReference({
+        resolution: {
+          kind: "resolved_graph",
+          locator: `dmb-node:${item.nodeId}`,
+          reference: item.reference,
+          graphObject: buildGraphObjectCardFromNodeView(item.nodeView),
+          graphNodeId: item.nodeId,
+          graphScope,
+          projectionState,
+          message: `Resolved graph node ${item.label}.`,
+        },
+        projectionState,
+      });
+    },
+    [openGraphReference, projection, projectionState],
+  );
+
+  return (
+    <GraphReferenceSearch
+      items={items}
+      projectionState={projectionState}
+      projectionError={projectionError}
+      insertDisabled={insertDisabled}
+      onInsert={onInsert}
+      onView={handleView}
+    />
+  );
 }
 
 export function PlanSurfaceCanvas(props: PlanSurfaceCanvasProps) {
@@ -259,59 +356,24 @@ function PlanDurableSurfaceCanvas({
     [projectionNodes],
   );
 
-  const handleViewGraphReference = useCallback(
-    (item: GraphReferenceSearchItem) => {
-      const graphScope = extractExactGraphReferenceScope(projection);
-      if (!graphScope) {
-        openGraphReference({
-          resolution: {
-            kind: "error",
-            locator: `dmb-node:${item.nodeId}`,
-            reference: item.reference,
-            projectionState,
-            message:
-              "World Graph projection snapshot lacks exact world, campaign, or revision scope; graph search open blocked.",
-          },
-          projectionState,
-        });
-        return;
-      }
-
-      openGraphReference({
-        resolution: {
-          kind: "resolved_graph",
-          locator: `dmb-node:${item.nodeId}`,
-          reference: item.reference,
-          graphObject: buildGraphObjectCardFromNodeView(item.nodeView),
-          graphNodeId: item.nodeId,
-          graphScope,
-          projectionState,
-          message: `Resolved graph node ${item.label}.`,
-        },
-        projectionState,
-      });
-    },
-    [openGraphReference, projection, projectionState],
-  );
-
   const graphRefSearchPanel = useMemo(
     () => (
-      <GraphReferenceSearch
-        items={graphReferenceSearchItems}
-        projectionState={projectionState}
-        projectionError={projectionError}
+      <PlanGraphReferenceSearchTool
+        fallbackItems={graphReferenceSearchItems}
+        fallbackProjection={projection}
+        fallbackState={projectionState}
+        fallbackError={projectionError}
         insertDisabled={!editor || isLocked || !editorInteractive}
         onInsert={(item) => insertRunbookReference(item.reference)}
-        onView={handleViewGraphReference}
       />
     ),
     [
       editor,
       editorInteractive,
       graphReferenceSearchItems,
-      handleViewGraphReference,
       insertRunbookReference,
       isLocked,
+      projection,
       projectionError,
       projectionState,
     ],

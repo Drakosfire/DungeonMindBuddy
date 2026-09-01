@@ -1,6 +1,6 @@
 """Dogfood-only Playwright driver for the Of Conks & Cons end-to-end journey.
 
-Evidence capture utility: drives the real UI at 127.0.0.1:5190 (Vite) backed by
+Evidence capture utility: drives the real UI at 127.0.0.1:5173 (Vite) backed by
 the lane API at 127.0.0.1:8020. Not a product change; safe to delete.
 """
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-BASE = "http://127.0.0.1:5190"
+BASE = "http://127.0.0.1:5173"
 SHOTS = Path(__file__).parent / "screenshots"
 SHOTS.mkdir(exist_ok=True)
 

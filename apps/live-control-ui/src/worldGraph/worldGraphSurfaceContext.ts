@@ -8,15 +8,83 @@ export const WORLD_ID_BY_CAMPAIGN: Record<string, string> = {
   "of-conks-cons": "of-conks-cons",
 };
 
+/**
+ * Campaign→world registry. Seeded from the shipped constant so the UI works
+ * before/offline; replaced by the authority read (`GET world-graph/campaigns`)
+ * once the lens provider fetches it. Module-level so pure resolvers
+ * (`resolvePlanGraphLens`, `classifyBuildDocumentScope`) stay synchronous.
+ */
+export interface WorldGraphCampaignRegistryEntry {
+  campaignId: string;
+  worldId: string;
+}
+
+const DEFAULT_CAMPAIGN_REGISTRY: readonly WorldGraphCampaignRegistryEntry[] = [
+  { campaignId: "longmont-c1", worldId: "eldyrwild" },
+  { campaignId: "longmont-c2", worldId: "eldyrwild" },
+];
+
+let campaignRegistry: readonly WorldGraphCampaignRegistryEntry[] = DEFAULT_CAMPAIGN_REGISTRY;
+const registryListeners = new Set<() => void>();
+
+function sameRegistry(
+  a: readonly WorldGraphCampaignRegistryEntry[],
+  b: readonly WorldGraphCampaignRegistryEntry[],
+): boolean {
+  return (
+    a.length === b.length
+    && a.every((entry, index) => (
+      entry.campaignId === b[index]?.campaignId && entry.worldId === b[index]?.worldId
+    ))
+  );
+}
+
+export function getCampaignRegistry(): readonly WorldGraphCampaignRegistryEntry[] {
+  return campaignRegistry;
+}
+
+/** Replace the registry from the authority read; invalid entries are dropped. */
+export function setCampaignRegistry(
+  entries: readonly WorldGraphCampaignRegistryEntry[],
+): void {
+  const seen = new Set<string>();
+  const cleaned: WorldGraphCampaignRegistryEntry[] = [];
+  for (const entry of entries) {
+    const campaignId = typeof entry?.campaignId === "string" ? entry.campaignId.trim() : "";
+    const worldId = typeof entry?.worldId === "string" ? entry.worldId.trim() : "";
+    if (!campaignId || !worldId || seen.has(campaignId)) continue;
+    seen.add(campaignId);
+    cleaned.push({ campaignId, worldId });
+  }
+  if (cleaned.length === 0 || sameRegistry(cleaned, campaignRegistry)) return;
+  campaignRegistry = cleaned;
+  for (const listener of registryListeners) listener();
+}
+
+export function subscribeCampaignRegistry(listener: () => void): () => void {
+  registryListeners.add(listener);
+  return () => {
+    registryListeners.delete(listener);
+  };
+}
+
 export function getWorldIdForCampaign(campaignId: string): string | null {
-  return WORLD_ID_BY_CAMPAIGN[campaignId] ?? null;
+  const fromRegistry = campaignRegistry.find(
+    (entry) => entry.campaignId === campaignId,
+  )?.worldId;
+  return fromRegistry ?? WORLD_ID_BY_CAMPAIGN[campaignId] ?? null;
 }
 
 export function getCampaignIdsForWorld(worldId: string): readonly string[] {
-  return Object.entries(WORLD_ID_BY_CAMPAIGN)
-    .filter(([, mappedWorldId]) => mappedWorldId === worldId)
-    .map(([campaignId]) => campaignId)
-    .sort();
+  const ids = new Set<string>(
+    campaignRegistry
+      .filter((entry) => entry.worldId === worldId)
+      .map((entry) => entry.campaignId),
+  );
+  for (const [campaignId, mappedWorldId] of Object.entries(WORLD_ID_BY_CAMPAIGN)) {
+    if (mappedWorldId === worldId) ids.add(campaignId);
+  }
+  return [...ids].sort();
 }
 
 export type BuildDocumentScopeClassification =

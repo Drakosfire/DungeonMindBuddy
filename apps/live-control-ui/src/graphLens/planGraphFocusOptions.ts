@@ -1,6 +1,6 @@
 import type { IngestionSourceBundle } from "../api/types";
+import { getCampaignRegistry } from "../worldGraph/worldGraphSurfaceContext";
 import {
-  REVIEW_CAMPAIGN_IDS,
   formatReviewCampaignLabel,
   type PlanGraphLensFocus,
   type ReviewCampaignId,
@@ -65,8 +65,12 @@ export function buildFocusOptionsFromBundles(
   bundlesByCampaign: ReadonlyMap<ReviewCampaignId, IngestionSourceBundle>,
 ): PlanGraphLoadFocusOption[] {
   const options: PlanGraphLoadFocusOption[] = [];
-  for (const campaignId of REVIEW_CAMPAIGN_IDS) {
-    if (!selectedCampaignIds.includes(campaignId)) continue;
+  const registryOrder = getCampaignRegistry().map((entry) => entry.campaignId);
+  const orderedSelection = [
+    ...registryOrder.filter((id) => selectedCampaignIds.includes(id)),
+    ...selectedCampaignIds.filter((id) => !registryOrder.includes(id)),
+  ];
+  for (const campaignId of orderedSelection) {
     const bundle = bundlesByCampaign.get(campaignId);
     if (!bundle) continue;
     for (const sessionNumber of sessionNumbersFromBundle(bundle)) {

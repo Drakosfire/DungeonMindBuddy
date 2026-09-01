@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 
 import type { PlanGraphProjectionState } from "../planSurface/reference/graphAwareReferenceResolver";
+import { useCampaignRegistry } from "../worldGraph/useCampaignRegistry";
 import { useOptionalPlanGraphLens } from "./WorldGraphLensContext";
 import "./graphLens.css";
 import {
@@ -10,8 +11,8 @@ import {
   type PlanGraphLoadFocusOption,
 } from "./planGraphFocusOptions";
 import {
-  REVIEW_CAMPAIGN_IDS,
   formatReviewCampaignLabel,
+  isReviewCampaignId,
   type DerivedPlanGraphApiLens,
   type PlanGraphLens,
   type PlanGraphLensFocus,
@@ -94,6 +95,14 @@ function shortCampaignLabel(campaignId: ReviewCampaignId): string {
   return formatReviewCampaignLabel(campaignId).replace(/^Longmont /, "");
 }
 
+function formatWorldLabel(worldId: string): string {
+  return worldId
+    .split("-")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 /**
  * World Graph load/lens control for Plan Board (primary) and optional test harnesses.
  * Campaign/focus changes go through PlanGraphLensContext (URL + projection reload).
@@ -108,6 +117,24 @@ export function PlanGraphLoadPanel({
 }: PlanGraphLoadPanelProps) {
   const fromContext = useOptionalPlanGraphLens();
   const controls = lensControls ?? fromContext;
+  const campaignRegistry = useCampaignRegistry();
+
+  const worldGroups = useMemo(() => {
+    const groups = new Map<string, { campaignId: string; label: string }[]>();
+    for (const entry of campaignRegistry) {
+      const list = groups.get(entry.worldId) ?? [];
+      list.push({
+        campaignId: entry.campaignId,
+        label: formatReviewCampaignLabel(entry.campaignId),
+      });
+      groups.set(entry.worldId, list);
+    }
+    return [...groups.entries()].map(([worldId, campaigns]) => ({
+      worldId,
+      label: formatWorldLabel(worldId),
+      campaigns,
+    }));
+  }, [campaignRegistry]);
 
   const statusLine = useMemo(() => {
     if (!controls) {
@@ -177,7 +204,7 @@ export function PlanGraphLoadPanel({
     const [campaignId, sessionRaw] = value.split(":");
     const sessionNumber = Number.parseInt(sessionRaw ?? "", 10);
     if (
-      !REVIEW_CAMPAIGN_IDS.includes(campaignId as ReviewCampaignId)
+      !isReviewCampaignId(campaignId)
       || !Number.isFinite(sessionNumber)
     ) {
       setFocus(null);
@@ -212,21 +239,26 @@ export function PlanGraphLoadPanel({
         {statusLine}
       </p>
       <p className="plan-graph-load-panel__label">Graph campaigns</p>
-      <div className="plan-graph-load-panel__campaigns">
-        {REVIEW_CAMPAIGN_IDS.map((campaignId) => {
-          const checked = lens.selectedCampaignIds.includes(campaignId);
-          return (
-            <label key={campaignId} className="plan-graph-load-panel__campaign">
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => toggleCampaign(campaignId)}
-              />
-              <span>{formatReviewCampaignLabel(campaignId)}</span>
-            </label>
-          );
-        })}
-      </div>
+      {worldGroups.map((world) => (
+        <div key={world.worldId} className="plan-graph-load-panel__world">
+          <p className="plan-graph-load-panel__world-label">{world.label}</p>
+          <div className="plan-graph-load-panel__campaigns">
+            {world.campaigns.map((campaign) => {
+              const checked = lens.selectedCampaignIds.includes(campaign.campaignId);
+              return (
+                <label key={campaign.campaignId} className="plan-graph-load-panel__campaign">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleCampaign(campaign.campaignId)}
+                  />
+                  <span>{campaign.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
       <label className="plan-graph-load-panel__focus">
         <span>Focus session</span>
         <select

@@ -1,7 +1,5 @@
-import {
-  REVIEW_CAMPAIGN_IDS,
-  formatReviewCampaignLabel,
-} from "./sessionCampaignContext";
+import { useCampaignRegistry } from "../worldGraph/useCampaignRegistry";
+import { formatReviewCampaignLabel } from "./sessionCampaignContext";
 
 interface ReviewCampaignPickerProps {
   selectedCampaignId: string;
@@ -16,6 +14,8 @@ export function ReviewCampaignPicker({
   label = "Campaign",
   className = "graph-preview-run-picker plan-review-campaign-picker",
 }: ReviewCampaignPickerProps) {
+  const campaignRegistry = useCampaignRegistry();
+  const known = campaignRegistry.some((entry) => entry.campaignId === selectedCampaignId);
   return (
     <label className={className}>
       <span>{label}</span>
@@ -24,9 +24,14 @@ export function ReviewCampaignPicker({
         onChange={(event) => onSelect(event.target.value)}
         aria-label={label}
       >
-        {REVIEW_CAMPAIGN_IDS.map((campaignId) => (
-          <option key={campaignId} value={campaignId}>
-            {formatReviewCampaignLabel(campaignId)}
+        {!known && selectedCampaignId ? (
+          <option value={selectedCampaignId}>
+            {formatReviewCampaignLabel(selectedCampaignId)}
+          </option>
+        ) : null}
+        {campaignRegistry.map((entry) => (
+          <option key={entry.campaignId} value={entry.campaignId}>
+            {formatReviewCampaignLabel(entry.campaignId)}
           </option>
         ))}
       </select>

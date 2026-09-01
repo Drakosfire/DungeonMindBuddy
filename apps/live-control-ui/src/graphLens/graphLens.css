@@ -18,6 +18,19 @@
   color: var(--fg-mute, #9aa3b5);
 }
 
+.plan-graph-load-panel__world + .plan-graph-load-panel__world {
+  margin-top: 0.4rem;
+}
+
+.plan-graph-load-panel__world-label {
+  margin: 0 0 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-mute, #9aa3b5);
+}
+
 .plan-graph-load-panel__campaigns {
   display: flex;
   flex-wrap: wrap;

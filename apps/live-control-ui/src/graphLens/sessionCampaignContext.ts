@@ -1,21 +1,33 @@
 /** Campaign selection for graph review surfaces. */
 
 import type { RecapArtifactRecord } from "../api/types";
+import { getWorldIdForCampaign } from "../worldGraph/worldGraphSurfaceContext";
 
+/**
+ * Default lens set (Longmont union) and offline fallback. The authority-served
+ * campaign registry widens what is *selectable*; this constant keeps the
+ * *default* union and pre-fetch behavior unchanged.
+ */
 export const REVIEW_CAMPAIGN_IDS = ["longmont-c1", "longmont-c2"] as const;
 
-export type ReviewCampaignId = (typeof REVIEW_CAMPAIGN_IDS)[number];
+/** Registry-admitted campaign id. Widened from the shipped union to string. */
+export type ReviewCampaignId = string;
 
 export function formatReviewCampaignLabel(campaignId: string): string {
   const match = campaignId.match(/^longmont-c(\d+)$/i);
   if (match) {
     return `Longmont C${match[1]}`;
   }
+  const words = campaignId.split("-").filter(Boolean);
+  if (words.length > 1) {
+    return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+  }
   return campaignId;
 }
 
+/** Admitted if the authority registry (or shipped fallback map) knows the campaign. */
 export function isReviewCampaignId(value: string | null | undefined): value is ReviewCampaignId {
-  return value != null && (REVIEW_CAMPAIGN_IDS as readonly string[]).includes(value);
+  return value != null && getWorldIdForCampaign(value) != null;
 }
 
 export function requestedCampaignFromLocation(
@@ -88,8 +100,14 @@ export function resolvePlanGraphScopeMode(
 function uniqueReviewCampaignIds(ids: readonly string[]): ReviewCampaignId[] {
   const seen = new Set<ReviewCampaignId>();
   const out: ReviewCampaignId[] = [];
+  let worldId: string | null = null;
   for (const id of ids) {
     if (!isReviewCampaignId(id) || seen.has(id)) continue;
+    const idWorldId = getWorldIdForCampaign(id);
+    if (worldId === null) worldId = idWorldId;
+    // The projection API serves one world per request; a cross-world union
+    // would silently drop the other world's campaigns, so refuse to build it.
+    if (idWorldId !== worldId) continue;
     seen.add(id);
     out.push(id);
   }
@@ -161,8 +179,16 @@ export function resolvePlanGraphLens(
   const bareCampaignSelectsSingle = surfacePath === "/build";
 
   let selectedCampaignIds: ReviewCampaignId[];
+  const singleOutsideDefaultSet =
+    singleCampaign != null
+    && isReviewCampaignId(singleCampaign)
+    && !(REVIEW_CAMPAIGN_IDS as readonly string[]).includes(singleCampaign);
   if (fromCampaigns) {
     selectedCampaignIds = fromCampaigns;
+  } else if (singleOutsideDefaultSet && singleCampaign != null) {
+    // Registry campaign outside the default Longmont set anchors its own
+    // world — never fan out to the Longmont union.
+    selectedCampaignIds = [singleCampaign];
   } else if (isReviewCampaignId(singleCampaign) && scopeMode === "campaign") {
     selectedCampaignIds = [singleCampaign];
   } else if (isReviewCampaignId(singleCampaign) && scopeMode === "world") {
