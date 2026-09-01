@@ -107,6 +107,8 @@ export interface AgentInteractionScope {
   sessionNumber: number | null;
   surfaceId?: AgentInteractionSurfaceId;
   documentId?: string | null;
+  /** Play Run id — scopes thread storage per admitted Run instance. */
+  surfaceInstanceId?: string | null;
 }
 
 export interface AgentInteractionActions {

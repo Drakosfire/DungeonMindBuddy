@@ -64,15 +64,17 @@ describe("AgentInteractionChrome", () => {
     );
     expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent(/Ask DungeonBuddy · Build/i);
     expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent(
-      /Build worldbuilding document · Open Plan to enable Ask/i,
+      /Build worldbuilding document · Ask unavailable here/i,
     );
 
     await user.click(screen.getByTestId("agent-interaction-open"));
-    expect(screen.getByTestId("agent-interaction-ask-empty")).toHaveTextContent(/Open Plan to ask/i);
+    expect(screen.getByText(/Ask is unavailable for the current surface/i)).toBeInTheDocument();
+    expect(screen.getByTestId("agent-interaction-ask-empty")).toHaveTextContent(
+      /No surface has registered an Ask plugin/i,
+    );
     expect(screen.getByTestId("agent-interaction-current-surface")).toHaveTextContent(
       /Current surface: Build/i,
     );
-    expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
   });
 
   it("labels the bar with published Ingest surface identity", () => {

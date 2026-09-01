@@ -78,7 +78,8 @@ function sameScope(left: AgentInteractionScope | null, right: AgentInteractionSc
       left.campaignId === right.campaignId &&
       left.sessionNumber === right.sessionNumber &&
       (left.surfaceId ?? "plan") === (right.surfaceId ?? "plan") &&
-      (left.documentId ?? null) === (right.documentId ?? null),
+      (left.documentId ?? null) === (right.documentId ?? null) &&
+      (left.surfaceInstanceId ?? null) === (right.surfaceInstanceId ?? null),
   );
 }
 
@@ -1000,17 +1001,28 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       nextScope.campaignId,
       nextScope.surfaceId ?? "plan",
       nextScope.documentId,
+      nextScope.surfaceInstanceId,
     ));
   }, [scope]);
 
   const rehydrateScope = useCallback((nextScope: AgentInteractionScope) => {
     if (sameScope(scope, nextScope)) return;
     const surfaceId = nextScope.surfaceId ?? "plan";
-    const storedThread = loadAgentThread(nextScope.campaignId, surfaceId, nextScope.documentId);
+    const storedThread = loadAgentThread(
+      nextScope.campaignId,
+      surfaceId,
+      nextScope.documentId,
+      nextScope.surfaceInstanceId,
+    );
     setScope(nextScope);
     setActiveThread(storedThread);
     setSelectedSource(null);
-    setThreadSummaries(listAgentThreads(nextScope.campaignId, surfaceId, nextScope.documentId));
+    setThreadSummaries(listAgentThreads(
+      nextScope.campaignId,
+      surfaceId,
+      nextScope.documentId,
+      nextScope.surfaceInstanceId,
+    ));
   }, [scope]);
 
   const updateThread = useCallback((thread: AgentInteractionThread) => {
@@ -1021,6 +1033,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       sessionNumber: thread.session ?? null,
       surfaceId: thread.surfaceId,
       documentId: thread.documentId,
+      surfaceInstanceId: thread.surfaceInstanceId,
     });
     return thread;
   }, [refreshSummaries]);
@@ -1035,6 +1048,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       backend,
       title,
       scope.documentId,
+      scope.surfaceInstanceId,
     );
     return updateThread(nextThread);
   }, [activeThread, scope, updateThread]);
@@ -1048,8 +1062,15 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       "hermes",
       title,
       scope.documentId,
+      scope.surfaceInstanceId,
     );
-    setActiveAgentThread(scope.campaignId, scope.surfaceId ?? "plan", nextThread.threadId, scope.documentId);
+    setActiveAgentThread(
+      scope.campaignId,
+      scope.surfaceId ?? "plan",
+      nextThread.threadId,
+      scope.documentId,
+      scope.surfaceInstanceId,
+    );
     setSelectedSource(null);
     return updateThread(nextThread);
   }, [scope, updateThread]);
@@ -1058,7 +1079,13 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     if (!scope) return null;
     const nextThread = loadAgentThreadById(scope.campaignId, threadId);
     if (!nextThread) return null;
-    setActiveAgentThread(scope.campaignId, scope.surfaceId ?? "plan", threadId, scope.documentId);
+    setActiveAgentThread(
+      scope.campaignId,
+      scope.surfaceId ?? "plan",
+      threadId,
+      scope.documentId,
+      scope.surfaceInstanceId,
+    );
     setSelectedSource(null);
     setActiveThread(nextThread);
     refreshSummaries(scope);
@@ -1070,7 +1097,12 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     const doomed = loadAgentThreadById(scope.campaignId, threadId);
     if (!doomed) return;
     deleteStoredAgentThread(doomed);
-    const nextThread = loadAgentThread(scope.campaignId, scope.surfaceId ?? "plan", scope.documentId);
+    const nextThread = loadAgentThread(
+      scope.campaignId,
+      scope.surfaceId ?? "plan",
+      scope.documentId,
+      scope.surfaceInstanceId,
+    );
     setActiveThread(nextThread);
     setSelectedSource(null);
     refreshSummaries(scope);

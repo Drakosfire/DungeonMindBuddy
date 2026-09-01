@@ -36,7 +36,11 @@ function scopedStorageSuffix(
   campaignId: string,
   surfaceId: string,
   documentId?: string | null,
+  surfaceInstanceId?: string | null,
 ): string {
+  if (surfaceInstanceId) {
+    return `${campaignId}:${surfaceId}:instance:${surfaceInstanceId}`;
+  }
   return documentId
     ? `${campaignId}:${surfaceId}:${documentId}`
     : `${campaignId}:${surfaceId}`;
@@ -46,8 +50,9 @@ export function activeThreadStorageKey(
   campaignId: string,
   surfaceId = "plan",
   documentId?: string | null,
+  surfaceInstanceId?: string | null,
 ): string {
-  return `${AGENT_ACTIVE_THREAD_STORAGE_PREFIX}:${scopedStorageSuffix(campaignId, surfaceId, documentId)}`;
+  return `${AGENT_ACTIVE_THREAD_STORAGE_PREFIX}:${scopedStorageSuffix(campaignId, surfaceId, documentId, surfaceInstanceId)}`;
 }
 
 export function threadStorageKey(campaignId: string, threadId: string): string {
@@ -58,8 +63,9 @@ export function threadIndexStorageKey(
   campaignId: string,
   surfaceId = "plan",
   documentId?: string | null,
+  surfaceInstanceId?: string | null,
 ): string {
-  return `${AGENT_THREAD_INDEX_STORAGE_PREFIX}:${scopedStorageSuffix(campaignId, surfaceId, documentId)}`;
+  return `${AGENT_THREAD_INDEX_STORAGE_PREFIX}:${scopedStorageSuffix(campaignId, surfaceId, documentId, surfaceInstanceId)}`;
 }
 
 function newId(prefix: string): string {
@@ -89,6 +95,7 @@ export function createAgentInteractionThread(
   backend: LiveQueryBackend = "hermes",
   title = "New prep thread",
   documentId?: string | null,
+  surfaceInstanceId?: string | null,
 ): AgentInteractionThread {
   const now = new Date().toISOString();
   const resolvedBackend: LiveQueryBackend = surfaceId === "plan" ? "hermes" : backend;
@@ -100,6 +107,7 @@ export function createAgentInteractionThread(
     campaignId,
     session,
     documentId: documentId ?? null,
+    surfaceInstanceId: surfaceInstanceId ?? null,
     surfaceId,
     activeBackend: resolvedBackend,
     hermesSession: null,
@@ -112,12 +120,14 @@ function emptyThreadIndex(
   campaignId: string,
   surfaceId = "plan",
   documentId?: string | null,
+  surfaceInstanceId?: string | null,
 ): AgentInteractionThreadIndex {
   return {
     schema: "agent_interaction_thread_index_v2",
     campaignId,
     surfaceId,
     documentId: documentId ?? null,
+    surfaceInstanceId: surfaceInstanceId ?? null,
     activeThreadId: null,
     threads: [],
   };
@@ -893,11 +903,14 @@ export function loadAgentThread(
   campaignId: string,
   surfaceId = "plan",
   documentId?: string | null,
+  surfaceInstanceId?: string | null,
 ): AgentInteractionThread | null {
   try {
-    const index = loadAgentThreadIndex(campaignId, surfaceId, documentId);
+    const index = loadAgentThreadIndex(campaignId, surfaceId, documentId, surfaceInstanceId);
     const activeThreadId =
-      index.activeThreadId ?? localStorage.getItem(activeThreadStorageKey(campaignId, surfaceId, documentId));
+      index.activeThreadId ?? localStorage.getItem(
+        activeThreadStorageKey(campaignId, surfaceId, documentId, surfaceInstanceId),
+      );
     if (!activeThreadId) return null;
     const raw = localStorage.getItem(threadStorageKey(campaignId, activeThreadId));
     if (!raw) return null;
@@ -937,8 +950,9 @@ export function loadAgentThreadIndex(
   campaignId: string,
   surfaceId = "plan",
   documentId?: string | null,
+  surfaceInstanceId?: string | null,
 ): AgentInteractionThreadIndex {
-  const key = threadIndexStorageKey(campaignId, surfaceId, documentId);
+  const key = threadIndexStorageKey(campaignId, surfaceId, documentId, surfaceInstanceId);
   try {
     const raw = localStorage.getItem(key);
     if (raw) {
@@ -948,6 +962,7 @@ export function loadAgentThreadIndex(
         && parsed.campaignId === campaignId
         && parsed.surfaceId === surfaceId
         && (parsed.documentId ?? null) === (documentId ?? null)
+        && (parsed.surfaceInstanceId ?? null) === (surfaceInstanceId ?? null)
         && Array.isArray(parsed.threads)
       ) {
         return {
@@ -956,21 +971,23 @@ export function loadAgentThreadIndex(
           threads: parsed.threads.filter((summary) => Boolean(summary.threadId && summary.title)),
         };
       }
-      return emptyThreadIndex(campaignId, surfaceId, documentId);
+      return emptyThreadIndex(campaignId, surfaceId, documentId, surfaceInstanceId);
     }
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey(campaignId, surfaceId, documentId));
-    if (!activeThreadId) return emptyThreadIndex(campaignId, surfaceId, documentId);
+    const activeThreadId = localStorage.getItem(
+      activeThreadStorageKey(campaignId, surfaceId, documentId, surfaceInstanceId),
+    );
+    if (!activeThreadId) return emptyThreadIndex(campaignId, surfaceId, documentId, surfaceInstanceId);
     const activeThread = loadAgentThreadById(campaignId, activeThreadId);
-    if (!activeThread) return emptyThreadIndex(campaignId, surfaceId, documentId);
+    if (!activeThread) return emptyThreadIndex(campaignId, surfaceId, documentId, surfaceInstanceId);
     const migrated = {
-      ...emptyThreadIndex(campaignId, surfaceId, documentId),
+      ...emptyThreadIndex(campaignId, surfaceId, documentId, surfaceInstanceId),
       activeThreadId: activeThread.threadId,
       threads: [summarizeThread(activeThread)],
     };
     persistAgentThreadIndex(migrated);
     return migrated;
   } catch {
-    return emptyThreadIndex(campaignId, surfaceId, documentId);
+    return emptyThreadIndex(campaignId, surfaceId, documentId, surfaceInstanceId);
   }
 }
 
@@ -990,13 +1007,23 @@ export function persistAgentThreadIndex(index: AgentInteractionThreadIndex): voi
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
   };
   localStorage.setItem(
-    threadIndexStorageKey(index.campaignId, index.surfaceId, index.documentId),
+    threadIndexStorageKey(
+      index.campaignId,
+      index.surfaceId,
+      index.documentId,
+      index.surfaceInstanceId,
+    ),
     JSON.stringify(bounded),
   );
 }
 
 export function upsertThreadInIndex(thread: AgentInteractionThread): void {
-  const index = loadAgentThreadIndex(thread.campaignId, thread.surfaceId, thread.documentId);
+  const index = loadAgentThreadIndex(
+    thread.campaignId,
+    thread.surfaceId,
+    thread.documentId,
+    thread.surfaceInstanceId,
+  );
   const summary = summarizeThread(thread);
   const threads = [summary, ...index.threads.filter((item) => item.threadId !== thread.threadId)];
   persistAgentThreadIndex({ ...index, activeThreadId: thread.threadId, threads });
@@ -1006,8 +1033,9 @@ export function listAgentThreads(
   campaignId: string,
   surfaceId = "plan",
   documentId?: string | null,
+  surfaceInstanceId?: string | null,
 ): AgentInteractionThreadSummary[] {
-  return loadAgentThreadIndex(campaignId, surfaceId, documentId).threads;
+  return loadAgentThreadIndex(campaignId, surfaceId, documentId, surfaceInstanceId).threads;
 }
 
 export function setActiveAgentThread(
@@ -1015,11 +1043,20 @@ export function setActiveAgentThread(
   surfaceId: string,
   threadId: string | null,
   documentId?: string | null,
+  surfaceInstanceId?: string | null,
 ): void {
-  const index = loadAgentThreadIndex(campaignId, surfaceId, documentId);
+  const index = loadAgentThreadIndex(campaignId, surfaceId, documentId, surfaceInstanceId);
   persistAgentThreadIndex({ ...index, activeThreadId: threadId });
-  if (threadId) localStorage.setItem(activeThreadStorageKey(campaignId, surfaceId, documentId), threadId);
-  else localStorage.removeItem(activeThreadStorageKey(campaignId, surfaceId, documentId));
+  if (threadId) {
+    localStorage.setItem(
+      activeThreadStorageKey(campaignId, surfaceId, documentId, surfaceInstanceId),
+      threadId,
+    );
+  } else {
+    localStorage.removeItem(
+      activeThreadStorageKey(campaignId, surfaceId, documentId, surfaceInstanceId),
+    );
+  }
 }
 
 export function renameAgentThread(thread: AgentInteractionThread, title: string): AgentInteractionThread {
@@ -1031,11 +1068,22 @@ export function renameAgentThread(thread: AgentInteractionThread, title: string)
 
 export function deleteAgentThread(thread: AgentInteractionThread): void {
   localStorage.removeItem(threadStorageKey(thread.campaignId, thread.threadId));
-  const index = loadAgentThreadIndex(thread.campaignId, thread.surfaceId, thread.documentId);
+  const index = loadAgentThreadIndex(
+    thread.campaignId,
+    thread.surfaceId,
+    thread.documentId,
+    thread.surfaceInstanceId,
+  );
   const remaining = index.threads.filter((item) => item.threadId !== thread.threadId);
   const nextActive = index.activeThreadId === thread.threadId ? remaining[0]?.threadId ?? null : index.activeThreadId;
   persistAgentThreadIndex({ ...index, activeThreadId: nextActive, threads: remaining });
-  setActiveAgentThread(thread.campaignId, thread.surfaceId, nextActive, thread.documentId);
+  setActiveAgentThread(
+    thread.campaignId,
+    thread.surfaceId,
+    nextActive,
+    thread.documentId,
+    thread.surfaceInstanceId,
+  );
 }
 
 export function persistAgentThread(thread: AgentInteractionThread): void {
@@ -1060,7 +1108,15 @@ export function persistAgentThread(thread: AgentInteractionThread): void {
       }];
     }),
   };
-  localStorage.setItem(activeThreadStorageKey(thread.campaignId, thread.surfaceId, thread.documentId), thread.threadId);
+  localStorage.setItem(
+    activeThreadStorageKey(
+      thread.campaignId,
+      thread.surfaceId,
+      thread.documentId,
+      thread.surfaceInstanceId,
+    ),
+    thread.threadId,
+  );
   localStorage.setItem(threadStorageKey(thread.campaignId, thread.threadId), JSON.stringify(bounded));
   upsertThreadInIndex(bounded);
 }

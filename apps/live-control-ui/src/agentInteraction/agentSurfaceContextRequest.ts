@@ -114,3 +114,16 @@ export function buildPlanAgentSurfaceContextRequest(
   }
   return request;
 }
+
+/**
+ * Play proving-path builder: fail closed to absence when the active lease is not Play.
+ */
+export function buildPlayAgentSurfaceContextRequest(
+  publication: SurfaceInteractionPublication | null | undefined,
+): AgentSurfaceContextRequestV1 | null {
+  const request = buildAgentSurfaceContextRequest(publication);
+  if (request == null || request.surface_id !== "play") {
+    return null;
+  }
+  return request;
+}

@@ -669,6 +669,8 @@ export interface AgentInteractionThread {
   campaignId: string;
   session?: number | null;
   documentId?: string | null;
+  /** Run-scoped Play instance (run_id); omitted for Plan document-scoped threads. */
+  surfaceInstanceId?: string | null;
   surfaceId: "plan" | "play" | "build" | string;
   activeBackend: LiveQueryBackend;
   hermesSession?: HermesSessionHandle | null;
@@ -695,6 +697,7 @@ export interface AgentInteractionThreadIndex {
   campaignId: string;
   surfaceId: string;
   documentId?: string | null;
+  surfaceInstanceId?: string | null;
   activeThreadId: string | null;
   threads: AgentInteractionThreadSummary[];
 }
@@ -821,6 +824,16 @@ export interface LiveQueryOptions {
   conversationHistory?: unknown;
   /** Hermes-only; omit on live backend. Identity-only Plan/Surface snapshot. */
   surfaceContext?: AgentSurfaceContextRequestV1 | null;
+}
+
+/** A8 shared Agent query (`POST /api/agent/query`) — no top-level campaign/session. */
+export interface AgentQueryOptions {
+  agentThreadId?: string | null;
+  hermesSessionPointer?: string | null;
+  traceRequested?: boolean | null;
+  worldGraphContext: AgentWorldGraphQueryContextRequest;
+  conversationHistory?: unknown;
+  surfaceContext: AgentSurfaceContextRequestV1;
 }
 
 export interface AgentInteractionTurnMeta {

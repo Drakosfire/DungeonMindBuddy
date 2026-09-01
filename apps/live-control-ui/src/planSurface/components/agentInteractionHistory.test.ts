@@ -12,6 +12,7 @@ import {
   buildEvidenceSnapshots,
   createAgentInteractionThread,
   deleteAgentThread,
+  loadAgentThread,
   loadAgentThreadById,
   loadAgentThreadIndex,
   normalizePlanAgentBackend,
@@ -136,6 +137,7 @@ describe("agentInteractionHistory", () => {
       campaignId: "longmont-c2",
       surfaceId: "plan",
       documentId: null,
+      surfaceInstanceId: null,
       activeThreadId: null,
       threads: [],
     });
@@ -1186,5 +1188,55 @@ describe("agentInteractionHistory", () => {
     expect(reloaded?.turns[0].trace?.usage.input_tokens).toBe(10);
     expect(reloaded?.turns[0].trace?.cost?.usd).toBe(0.000055);
     expect(JSON.stringify(reloaded)).not.toContain("SENTINEL_REQUEST_BODY");
+  });
+
+  it("keeps Plan localStorage keys byte-stable when surfaceInstanceId is absent", () => {
+    const docId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    expect(activeThreadStorageKey("longmont-c2", "plan", docId)).toBe(
+      "agent-interaction-active-thread-v2:longmont-c2:plan:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    );
+    expect(activeThreadStorageKey("longmont-c2", "plan", docId, null)).toBe(
+      "agent-interaction-active-thread-v2:longmont-c2:plan:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    );
+    expect(activeThreadStorageKey("longmont-c2", "plan", docId, undefined)).toBe(
+      "agent-interaction-active-thread-v2:longmont-c2:plan:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    );
+    expect(threadIndexStorageKey("longmont-c2", "plan", docId)).toBe(
+      "agent-interaction-thread-index-v2:longmont-c2:plan:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    );
+    expect(threadIndexStorageKey("longmont-c2", "plan", null)).toBe(
+      "agent-interaction-thread-index-v2:longmont-c2:plan",
+    );
+  });
+
+  it("scopes Play threads per Run instance when surfaceInstanceId is set", () => {
+    const docId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const runA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const runB = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+    const threadA = {
+      ...createAgentInteractionThread("longmont-c2", null, "play", "hermes", "Run A", docId, runA),
+      threadId: "thread-run-a",
+    };
+    const threadB = {
+      ...createAgentInteractionThread("longmont-c2", null, "play", "hermes", "Run B", docId, runB),
+      threadId: "thread-run-b",
+    };
+
+    persistAgentThread(threadA);
+    persistAgentThread(threadB);
+
+    expect(activeThreadStorageKey("longmont-c2", "play", docId, runA)).toBe(
+      "agent-interaction-active-thread-v2:longmont-c2:play:instance:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    );
+    expect(activeThreadStorageKey("longmont-c2", "play", docId, runB)).toBe(
+      "agent-interaction-active-thread-v2:longmont-c2:play:instance:cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    );
+    expect(activeThreadStorageKey("longmont-c2", "play", docId, runA)).not.toBe(
+      activeThreadStorageKey("longmont-c2", "play", docId, runB),
+    );
+
+    expect(loadAgentThread("longmont-c2", "play", docId, runA)?.threadId).toBe("thread-run-a");
+    expect(loadAgentThread("longmont-c2", "play", docId, runB)?.threadId).toBe("thread-run-b");
   });
 });

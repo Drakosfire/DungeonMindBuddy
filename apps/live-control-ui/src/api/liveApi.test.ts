@@ -26,6 +26,7 @@ import {
   putPlayActiveRun,
   putPlayRunReferenceManifest,
   postLiveQuery,
+  postAgentQuery,
   postThreatQueryHydration,
   postWorldGraphProjection,
   postWorldGraphSourceAnchorRead,
@@ -1730,6 +1731,72 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
 
     const body = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body)) as Record<string, unknown>;
     expect(body).not.toHaveProperty("conversation_history");
+  });
+});
+
+describe("liveApi postAgentQuery", () => {
+  afterEach(() => {
+    clearProjectionRequestCache();
+    vi.restoreAllMocks();
+  });
+
+  it("posts dmb_agent_query_request_v1 without top-level campaign/session fields", async () => {
+    const worldGraphContext = {
+      schema: "dmb_agent_world_graph_query_context_request_v1" as const,
+      world_id: "eldyrwild",
+      campaign_id: "longmont-c2",
+      scope_mode: "campaign" as const,
+      focus: { kind: "none" as const, session_id: null },
+      admissibility: "gm" as const,
+      revision_pin: null,
+    };
+    const surfaceContext = {
+      schema: "dmb_agent_surface_context_request_v1" as const,
+      surface_id: "play",
+      campaign_id: "longmont-c2",
+      document_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      session_number: null,
+      pointers: [{ kind: "play_run", value: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }],
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ answer: "ok", classification: {} }),
+    );
+
+    await postAgentQuery("What is at the gate?", {
+      agentThreadId: "thread-play-1",
+      traceRequested: true,
+      hermesSessionPointer: "hptr-play",
+      worldGraphContext,
+      surfaceContext,
+      conversationHistory: [
+        { role: "user", content: "prior" },
+        { role: "assistant", content: "answer" },
+      ],
+    });
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/agent/query");
+    expect(init?.method).toBe("POST");
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    expect(body).toEqual({
+      schema: "dmb_agent_query_request_v1",
+      text: "What is at the gate?",
+      agent_thread_id: "thread-play-1",
+      trace_requested: true,
+      hermes_session_pointer: "hptr-play",
+      world_graph_context: worldGraphContext,
+      surface_context: surfaceContext,
+      conversation_history: [
+        { role: "user", content: "prior" },
+        { role: "assistant", content: "answer" },
+      ],
+    });
+    expect(body).not.toHaveProperty("campaign_id");
+    expect(body).not.toHaveProperty("session");
+    expect(body).not.toHaveProperty("mode");
+    expect(body).not.toHaveProperty("query_backend");
+    expect(body).not.toHaveProperty("manifest_path");
+    expect(body).not.toHaveProperty("hermes_session_id");
   });
 });
 

@@ -14,6 +14,7 @@ import type {
   LiveQueryResponse,
   LiveQueryBackend,
   LiveQueryOptions,
+  AgentQueryOptions,
   LiveSurfaceResponse,
   AddGeneratedStatblockCombatRequest,
   AddGeneratedStatblockCombatResponse,
@@ -1233,6 +1234,29 @@ export async function postLiveQuery(
   };
 
   return apiFetch<LiveQueryResponse>("/api/live/query", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function postAgentQuery(
+  text: string,
+  options: AgentQueryOptions,
+): Promise<LiveQueryResponse> {
+  const normalizedHistory = normalizeHermesOutboundConversationHistory(
+    options.conversationHistory,
+  );
+  const body: Record<string, unknown> = {
+    schema: "dmb_agent_query_request_v1",
+    text,
+    agent_thread_id: options.agentThreadId ?? null,
+    trace_requested: options.traceRequested ?? null,
+    hermes_session_pointer: options.hermesSessionPointer ?? null,
+    world_graph_context: options.worldGraphContext,
+    surface_context: options.surfaceContext,
+    ...(normalizedHistory.length > 0 ? { conversation_history: normalizedHistory } : {}),
+  };
+  return apiFetch<LiveQueryResponse>("/api/agent/query", {
     method: "POST",
     body: JSON.stringify(body),
   });

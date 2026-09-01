@@ -23,6 +23,7 @@ import { PlayCurrentMomentCockpit } from "./currentMoment/PlayCurrentMomentCockp
 import { useOptionalWorldGraphLens } from "../graphLens";
 import { campaignIdFromProductContext } from "./blankRunbook";
 import { buildPlaySurfaceAgentContext } from "./playSurfaceAgentContext";
+import { PlayAgentInteractionPlugin } from "./PlayAgentInteractionPlugin";
 import { StartRunPanel } from "./StartRunPanel";
 import {
   admitNativeRunbook,
@@ -478,6 +479,7 @@ export function PlaySurfacePage() {
   return (
     <AppChrome activeRoute="play">
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery} />
+      {admittedRun ? <PlayAgentInteractionPlugin run={admittedRun} /> : null}
       {loadStatus === "chooser" ? (
         <PlayChooser continuityWarning={detail} />
       ) : null}

@@ -43,7 +43,7 @@ export function AgentInteractionChrome() {
                 <div>
                   <strong>Ask DungeonBuddy</strong>
                   <p className="plan-agent-muted">
-                    Graph-grounded ask is available on Plan when campaign context is loaded.
+                    Ask is unavailable for the current surface.
                   </p>
                 </div>
                 <button
@@ -59,9 +59,8 @@ export function AgentInteractionChrome() {
                 data-testid="agent-interaction-ask-empty"
               >
                 <p className="plan-agent-muted">
-                  Open <a href="/plan">Plan</a> to ask across the admitted graph. This bar stays with
-                  you on Ingest and Build so continuity is shared — Ask itself requires Plan graph
-                  context for now.
+                  No surface has registered an Ask plugin yet. Open a surface that supports Ask
+                  (Plan or Play with a loaded Run) to start a graph-grounded thread.
                 </p>
                 {surfaceLabel ? (
                   <p className="plan-agent-muted" data-testid="agent-interaction-current-surface">
@@ -89,10 +88,10 @@ export function AgentInteractionChrome() {
               {askPluginPresent
                 ? surfaceSubtitle ?? "Graph-grounded ask ready"
                 : surfaceSubtitle
-                  ? `${surfaceSubtitle} · Open Plan to enable Ask`
+                  ? `${surfaceSubtitle} · Ask unavailable here`
                   : surfaceLabel
-                    ? `${surfaceLabel} · Open Plan to enable graph-grounded ask`
-                    : "Open Plan to enable graph-grounded ask"}
+                    ? `${surfaceLabel} · Ask unavailable here`
+                    : "Ask unavailable for this surface"}
             </span>
           </div>
           <button
