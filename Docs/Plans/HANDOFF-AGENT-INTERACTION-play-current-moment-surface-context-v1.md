@@ -29,9 +29,17 @@ pr_body_template: |
 # HANDOFF — Play Durable Current-Moment SurfaceContext v1 (A7)
 
 **Created:** 2026-08-30  
-**Updated:** 2026-08-31 — IMPLEMENTATION CYCLE 4 TIP (Cycle 3 `5069887383` CHANGES REQUESTED-equivalent addressed by integrating `main` @ `#672` / `ae01ef63…`; evidence in §21.11)  
-**Status:** IMPLEMENTATION CYCLE 4 TIP — integrated current main; awaiting formal re-review  
-**PR:** [#671](https://github.com/Drakosfire/DungeonMindBuddy/pull/671)  
+**Updated:** 2026-08-31 — COMPLETE / MERGED (#671)
+**Status:** COMPLETE / MERGED
+**PR:** [#671](https://github.com/Drakosfire/DungeonMindBuddy/pull/671)
+**Accepted head:** `7f015f3e6ab7a39605565849803e25088a510d4c`
+**Merge:** `bd1a7572f4d955a90f5ff5addbc8e49f14b5f3c9`
+**Formal review cycles:** 4
+**Cycle 1:** `5063079166` — CHANGES REQUESTED-equivalent
+**Cycle 2:** `5068956875` — CHANGES REQUESTED-equivalent
+**Cycle 3:** `5069887383` — CHANGES REQUESTED-equivalent
+**Cycle 4:** `5070720084` — PASS-equivalent
+**Active successor:** A8 Shared Agent Invocation / Play Ask v1 (`Docs/Plans/HANDOFF-AGENT-INTERACTION-shared-invocation-play-ask-v1.md`)
 **Canonical handoff:** `Docs/Plans/HANDOFF-AGENT-INTERACTION-play-current-moment-surface-context-v1.md`  
 **Companion decision:** `Docs/Design/DECISION-agent-context-compilation.md`  
 **Surface authority:** `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`  

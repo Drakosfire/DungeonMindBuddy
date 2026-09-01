@@ -2,7 +2,7 @@
 document_id: dmb-handoff-agent-interaction-shared-invocation-play-ask-v1
 title: Shared Agent Invocation / Play Ask v1 (A8)
 document_class: implementation_handoff
-status: design_complete_dispatch_blocked
+status: implementation_tip_code_to_review
 version: 1.0
 created_at: "2026-08-31"
 updated_at: "2026-08-31"
@@ -27,7 +27,7 @@ companion_target:
 # HANDOFF — Shared Agent Invocation / Play Ask v1 (A8)
 
 **Created:** 2026-08-31  
-**Status:** **DESIGN COMPLETE — NOT DISPATCHABLE UNTIL PR #671 MERGES AND THIS HANDOFF IS RE-ANCHORED ON EXACT POST-A7 `main`**  
+**Status:** **IMPLEMENTATION TIP — CODE → REVIEW** — dispatch base `bd1a7572f4d955a90f5ff5addbc8e49f14b5f3c9`  
 **Design branch:** `agent/shared-agent-invocation-play-ask-v1-design`  
 **Design parent:** `7f015f3e6ab7a39605565849803e25088a510d4c` — A7 PASS-equivalent head  
 **Predecessor:** A7 / PR #671 / formal Cycle 4 review `5070720084` PASS-equivalent  
@@ -1246,6 +1246,22 @@ MODEL_POLICY.json
 
 Before implementation dispatch, a steward must perform all of the following.
 
+### 22.0 Release recheck record (2026-08-31)
+
+```text
+PR #671 state = MERGED
+A7 accepted head = 7f015f3e6ab7a39605565849803e25088a510d4c
+A7 final formal review = 5070720084 PASS-equivalent
+A7 merge SHA = bd1a7572f4d955a90f5ff5addbc8e49f14b5f3c9
+current main = bd1a7572f4d955a90f5ff5addbc8e49f14b5f3c9
+open PRs = #673 PLAY-SURFACE Scene Decisions (no §21 path overlap with A8 lease)
+design commit recreated on main = 59a0c6150b48787b41798c38ae5874d8faa18bb6
+implementation branch = agent/shared-agent-invocation-play-ask-v1
+§21 write lease = ACTIVE
+```
+
+Lease collision note: #673 touches `PlayCurrentMomentCockpit*` / `playSurface.css` / decision model — not `PlaySurfacePage.tsx` or Agent Interaction paths in §21.
+
 ### 22.1 Re-anchor
 
 Record:
@@ -1527,3 +1543,66 @@ Do not preselect the successor before re-anchoring on merged A8 and dogfood evid
 ## 30. Design rationale in one sentence
 
 > **A8 turns the already-shared Agent chrome and already-truthful Play context into one real Play conversation, while removing the last false product assumption that every Agent turn must pretend to be a live-session query.**
+
+---
+
+## 31. CODE → REVIEW handback evidence
+
+**Dispatch base:** `bd1a7572f4d955a90f5ff5addbc8e49f14b5f3c9` (A7 merge / post-#671 `main`)  
+**Implementation branch:** `agent/shared-agent-invocation-play-ask-v1`  
+**Design commit on main:** `59a0c6150b48787b41798c38ae5874d8faa18bb6`
+
+### 31.1 Release gate
+
+```text
+PR #671 MERGED
+A7 accepted head = 7f015f3e6ab7a39605565849803e25088a510d4c
+A7 merge = bd1a7572f4d955a90f5ff5addbc8e49f14b5f3c9
+A7 formal review cycles = 4; Cycle 4 PASS-equivalent 5070720084
+open parallel PR at dispatch = #673 PLAY-SURFACE (no §21 path overlap)
+§21 write lease ACTIVE
+```
+
+### 31.2 Mission delivered
+
+```text
+POST /api/agent/query
+  → server derives product campaign from durable play_run APP-STATE
+  → shared process_agent_query(...)
+  → A7 SurfaceContext enrichment (fail-closed)
+  → AgentRuntime.run once
+  → product response with no fake session
+Play Ask plugin mounts on READY Run into existing AgentInteractionChrome
+surfaceInstanceId = run_id keeps Plan localStorage keys byte-stable
+```
+
+### 31.3 Verification totals
+
+```text
+Server floor (pytest): 321 passed
+  tests/test_agent_query.py
+  tests/test_agent_play_surface_context.py
+  tests/test_agent_surface_context.py
+  tests/test_agent_context_assembler.py
+  tests/test_agent_runtime.py
+  tests/test_hermes_agent_runtime.py
+  tests/test_pydantic_ai_agent_runtime.py
+  tests/test_hermes_graph_agent.py
+  tests/test_hermes_graph_agent_host.py
+  tests/test_live_query_hermes_graph.py
+  tests/test_live_control_server.py
+  tests/test_agent_graph_policy.py
+
+Client (vitest): 117 passed
+  PlayAgentInteractionPlugin, playAgentQueryContext, playSurfaceAgentContext,
+  liveApi, agentInteractionHistory, AgentInteractionChrome
+
+UI typecheck: clean
+Ruff (A8 server paths): clean
+```
+
+### 31.4 A7 backward sync
+
+Recorded in `HANDOFF-AGENT-INTERACTION-play-current-moment-surface-context-v1.md`:
+COMPLETE / MERGED, PR #671, accepted head `7f015f3e…`, merge `bd1a7572…`, 4 review cycles, active successor A8.
+
