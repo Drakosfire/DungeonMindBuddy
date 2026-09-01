@@ -2,9 +2,9 @@
 
 ## Status
 
-**VISUAL WITNESS PASS / AUTHORITY RE-ANCHOR PASS**
+**VISUAL WITNESS PASS / AUTHORITY RE-ANCHOR PASS / PRODUCTION BUILD PASS**
 
-Cycle 1 on PR #673 accepted the product direction at `4e8e43d1ebeb38b397e18983b3e0f3a969c7b311` and blocked on missing exact-head screenshots plus CON-READY headers still advertising `770f79…`. Cycle 2 does not change Play product code. It records the mandatory §11 witnesses against that UI and re-anchors steward/roadmap headers to the actual implementation base.
+Cycle 1 on PR #673 accepted the product direction at `4e8e43d1ebeb38b397e18983b3e0f3a969c7b311` and blocked on missing exact-head screenshots plus CON-READY headers still advertising `770f79…`. Cycle 2 recorded the mandatory §11 witnesses against that UI and re-anchored steward/roadmap headers to the actual implementation base. Cycle 3 records the required frontend production build (`tsc -b && vite build`); typecheck is not a substitute. No product code changed after Cycle 1.
 
 Reviewer question: **What does my eye identify first: North Gate or the Decision?**
 
@@ -141,6 +141,28 @@ git diff --check                      clean
 STEWARDS / ROADMAP mirrors            byte-identical
 ```
 
+Typecheck is `tsc -b` only. This repository defines the production frontend build separately as `tsc -b && vite build`.
+
+## Frontend production build (Cycle 3)
+
+Recorded 2026-08-31 against product/UI code `4e8e43d1ebeb38b397e18983b3e0f3a969c7b311` (Cycle 2 evidence head `ff9e615f41bfce1fee86cc4d8e8374e7c85b2fd8`). No GitHub Actions run was available on that head; this is the local exact-head substitute.
+
+```text
+cwd: apps/live-control-ui
+command: npm run build
+script: tsc -b && vite build
+result: passed (exit 0)
+
+vite v6.4.2 building for production...
+✓ 629 modules transformed.
+dist/index.html                     0.41 kB │ gzip:   0.29 kB
+dist/assets/index-Bpghdzfn.css    227.51 kB │ gzip:  37.58 kB
+dist/assets/index-D16DRG25.js   1,843.14 kB │ gzip: 499.96 kB
+✓ built in 20.05s
+```
+
+`dist/` is gitignored and was not committed. The Rollup chunk-size warning is informational; the build succeeded.
+
 ## Authority cleanup
 
 Steward and roadmap headers now advertise the actual implementation base:
@@ -154,4 +176,6 @@ Updated / Re-anchored: 2026-08-31
 
 ## Formal review cycles for #673
 
-Cycle 1 complete at `4e8e43d1ebeb38b397e18983b3e0f3a969c7b311` (REQUEST-CHANGES-equivalent, review `5071047112`). Cycle 2 is this evidence/state-authority head.
+- Cycle 1 complete at `4e8e43d1ebeb38b397e18983b3e0f3a969c7b311` (REQUEST-CHANGES-equivalent, review `5071047112`).
+- Cycle 2 complete at `ff9e615f41bfce1fee86cc4d8e8374e7c85b2fd8` (REQUEST-CHANGES-equivalent, review `5071669250`).
+- Cycle 3 is this production-build evidence head. No product redesign.
