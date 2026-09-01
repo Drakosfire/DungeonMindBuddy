@@ -4,6 +4,7 @@ import { LiveApiError, getPlayRun, putPlayRunProgress } from "../../api/liveApi"
 import type { PlayRunProgress, PlayRunRecord } from "../../api/types";
 import {
   canonicalizePlayRunProgress,
+  type NativeRunbookChoiceV2,
   type NativeRunbookReadyV2,
   type NativeRunbookSceneV2,
 } from "../runbook/nativeRunbookProjection";
@@ -13,6 +14,13 @@ import {
   sceneInCurrentBeat,
   type PlayWorkspace,
 } from "./currentMomentModel";
+import {
+  choiceBranchRelevance,
+  operableDecisions,
+  planClearSelection,
+  planSelectOption,
+  selectedOptionForChoice,
+} from "./decisionInteractionModel";
 
 export interface PlayCurrentMomentCockpitProps {
   deck: NativeRunbookReadyV2;
@@ -27,6 +35,101 @@ function relevanceLabel(relevance: NativeRunbookSceneV2["relevance"]): string | 
   return null;
 }
 
+function DecisionBlock({
+  deck,
+  decisions,
+  saving,
+  mutationsOpen,
+  onSelect,
+  onClear,
+}: {
+  deck: NativeRunbookReadyV2;
+  decisions: NativeRunbookChoiceV2[];
+  saving: boolean;
+  mutationsOpen: boolean;
+  onSelect: (choice: NativeRunbookChoiceV2, optionId: string) => void;
+  onClear: (choice: NativeRunbookChoiceV2) => void;
+}) {
+  if (decisions.length === 0) return null;
+  const selections = deck.run.progress.selections;
+  const locked = saving || !mutationsOpen;
+  return (
+    <div className="play-decisions" data-testid="play-decisions">
+      {decisions.map((choice) => {
+        const selected = selectedOptionForChoice(choice, selections);
+        const branch = selected == null ? [] : choiceBranchRelevance(deck, choice);
+        const groupId = `play-decision-${choice.id}`;
+        return (
+          <section
+            key={choice.id}
+            className={`play-decision${selected ? " is-resolved" : ""}`}
+            data-testid="play-decision"
+            data-choice-id={choice.id}
+          >
+            <header className="play-decision-header">
+              <p className="play-decision-kicker">Decision</p>
+              <h3 id={groupId} data-testid="play-decision-prompt">
+                {choice.title}
+              </h3>
+              {choice.bodyText ? <p className="play-decision-framing">{choice.bodyText}</p> : null}
+            </header>
+            <div className="play-decision-options" role="radiogroup" aria-labelledby={groupId}>
+              {choice.options.map((option) => {
+                const isSelected = selected?.id === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="radio"
+                    className={`play-decision-option${isSelected ? " is-selected" : ""}`}
+                    name={groupId}
+                    value={option.id}
+                    aria-checked={isSelected}
+                    disabled={locked}
+                    onClick={() => onSelect(choice, option.id)}
+                  >
+                    {option.title}
+                  </button>
+                );
+              })}
+            </div>
+            {selected ? (
+              <div className="play-decision-result">
+                {selected.bodyText ? (
+                  <p className="play-decision-consequence" data-testid="play-decision-consequence">
+                    {selected.bodyText}
+                  </p>
+                ) : null}
+                {branch.length > 0 ? (
+                  <ul className="play-decision-relevance" data-testid="play-decision-relevance">
+                    {branch.map((row) => (
+                      <li key={row.targetId} data-target-id={row.targetId} data-relevance={row.relevance}>
+                        {row.title} — {row.relevance}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {mutationsOpen ? (
+                  <button
+                    type="button"
+                    className="play-decision-clear"
+                    data-testid="play-decision-clear"
+                    disabled={saving}
+                    aria-label={`Clear selection for ${choice.title}`}
+                    onClick={() => onClear(choice)}
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 export function PlayCurrentMomentCockpit({
   deck,
   mutationStatus,
@@ -38,6 +141,8 @@ export function PlayCurrentMomentCockpit({
   const [workspace, setWorkspace] = useState<PlayWorkspace>({ kind: "current" });
   const [beatCollapsed, setBeatCollapsed] = useState(false);
   const [glanceCollapsed, setGlanceCollapsed] = useState(false);
+  const [progressRejection, setProgressRejection] = useState<string | null>(null);
+  const [exactRereadSucceeded, setExactRereadSucceeded] = useState(false);
   const mountedRef = useRef(true);
   const liveRunIdRef = useRef(run.run_id);
   const requestSerialRef = useRef(0);
@@ -51,6 +156,8 @@ export function PlayCurrentMomentCockpit({
     setWorkspace({ kind: "current" });
     setBeatCollapsed(false);
     setGlanceCollapsed(false);
+    setProgressRejection(null);
+    setExactRereadSucceeded(false);
     inFlightRef.current = false;
     return () => {
       mountedRef.current = false;
@@ -72,6 +179,8 @@ export function PlayCurrentMomentCockpit({
     const serial = requestSerialRef.current + 1;
     requestSerialRef.current = serial;
     inFlightRef.current = true;
+    setProgressRejection(null);
+    setExactRereadSucceeded(false);
     onMutationStatus("saving");
     try {
       const updated = await putPlayRunProgress(boundRunId, {
@@ -99,7 +208,23 @@ export function PlayCurrentMomentCockpit({
         return;
       }
       if (reconciled) onAuthoritativeRun(reconciled);
-      onMutationStatus(status === 409 ? "conflict" : "unknown");
+      setExactRereadSucceeded(reconciled != null);
+      if (status === 409) {
+        onMutationStatus(reconciled ? "conflict" : "unknown");
+        return;
+      }
+      if (status === 422) {
+        if (reconciled) {
+          onMutationStatus("idle");
+          setProgressRejection(
+            "The Run rejected that change. Reloaded the exact Run. The write was not retried or treated as a conflict.",
+          );
+        } else {
+          onMutationStatus("unknown");
+        }
+        return;
+      }
+      onMutationStatus("unknown");
     } finally {
       if (requestSerialRef.current === serial) {
         inFlightRef.current = false;
@@ -113,6 +238,24 @@ export function PlayCurrentMomentCockpit({
       ...run.progress,
       current_beat_id: scene.beatId,
       current_scene_id: scene.id,
+    });
+  };
+
+  const selectOption = (choice: NativeRunbookChoiceV2, optionId: string) => {
+    const planned = planSelectOption(run.progress.selections, choice, optionId);
+    if (planned.kind !== "write") return;
+    void replaceProgress({
+      ...run.progress,
+      selections: planned.selections,
+    });
+  };
+
+  const clearSelection = (choice: NativeRunbookChoiceV2) => {
+    const planned = planClearSelection(run.progress.selections, choice);
+    if (planned.kind !== "write") return;
+    void replaceProgress({
+      ...run.progress,
+      selections: planned.selections,
     });
   };
 
@@ -141,6 +284,9 @@ export function PlayCurrentMomentCockpit({
   const workspaceKind = workspace.kind === "scene-inspect" && inspectedScene == null
     ? "current"
     : workspace.kind;
+  const decisions = currentBeat
+    ? operableDecisions(currentBeat, currentScene?.id ?? null)
+    : [];
 
   return (
     <section
@@ -164,7 +310,14 @@ export function PlayCurrentMomentCockpit({
       ) : null}
       {mutationStatus === "unknown" ? (
         <p className="play-banner" role="alert" data-testid="play-unknown-outcome">
-          The progress write did not return a known result. Reloaded the exact Run before further mutation.
+          {exactRereadSucceeded
+            ? "The progress write did not return a known result. Reloaded the exact Run before further mutation."
+            : "The progress write did not return a known result. The exact Run could not be reloaded."}
+        </p>
+      ) : null}
+      {progressRejection ? (
+        <p className="play-banner" role="alert" data-testid="play-progress-rejected">
+          {progressRejection}
         </p>
       ) : null}
       {saving ? (
@@ -234,10 +387,22 @@ export function PlayCurrentMomentCockpit({
           data-workspace={workspaceKind}
         >
           {workspaceKind === "current" && currentBeat && currentScene ? (
-            <article data-testid="play-workspace-current" aria-labelledby="play-workspace-heading">
+            <article
+              className="play-scene-board"
+              data-testid="play-workspace-current"
+              aria-labelledby="play-workspace-heading"
+            >
               <p className="play-kicker">Current Scene</p>
               <h2 id="play-workspace-heading">{currentScene.title}</h2>
-              {currentScene.bodyText ? <p className="play-body">{currentScene.bodyText}</p> : null}
+              {currentScene.bodyText ? <p className="play-body play-scene-board-body">{currentScene.bodyText}</p> : null}
+              <DecisionBlock
+                deck={deck}
+                decisions={decisions}
+                saving={saving}
+                mutationsOpen={mutationsOpen}
+                onSelect={selectOption}
+                onClear={clearSelection}
+              />
             </article>
           ) : null}
 
@@ -270,6 +435,14 @@ export function PlayCurrentMomentCockpit({
                   ))}
                 </ul>
               )}
+              <DecisionBlock
+                deck={deck}
+                decisions={decisions}
+                saving={saving}
+                mutationsOpen={mutationsOpen}
+                onSelect={selectOption}
+                onClear={clearSelection}
+              />
             </article>
           ) : null}
 
@@ -382,6 +555,7 @@ export function PlayCurrentMomentCockpit({
           </button>
           {glanceCollapsed ? null : (
             <div id="play-at-a-glance-body" className="play-rail-body">
+              <p className="play-glance-caption">Around this moment</p>
               <button
                 type="button"
                 className="play-glance-category"
