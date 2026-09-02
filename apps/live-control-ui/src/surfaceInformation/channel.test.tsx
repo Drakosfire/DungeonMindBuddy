@@ -210,6 +210,39 @@ describe("createSurfaceInformationChannel", () => {
     expect(channel.getSnapshot().generation).toBe(2);
   });
 
+  it("rejects a reconstructed lookalike of the current ticket", () => {
+    const channel = createSurfaceInformationChannel<string>(descriptor());
+    const listener = vi.fn();
+    channel.subscribe(listener);
+    const ticket = channel.beginObservation({ publishLoading: false });
+    expect(ticket).not.toBeNull();
+
+    const TicketCtor = Object.getPrototypeOf(ticket).constructor as new (
+      ...args: unknown[]
+    ) => object;
+    const reconstructed = new TicketCtor(
+      ...(Object.values(ticket as object) as unknown[]),
+    );
+    const cloned = Object.create(
+      Object.getPrototypeOf(ticket),
+      Object.getOwnPropertyDescriptors(ticket as object),
+    ) as typeof ticket;
+
+    const before = channel.getSnapshot();
+    listener.mockClear();
+    expect(channel.commit(reconstructed as typeof ticket, ready("forged-ctor"))).toBe(
+      false,
+    );
+    expect(channel.commit(cloned, ready("forged-clone"))).toBe(false);
+    expect(channel.getSnapshot()).toBe(before);
+    expect(listener).not.toHaveBeenCalled();
+    expect(channel.commit(ticket!, ready("real"))).toBe(true);
+    expect(channel.getSnapshot().generation).toBe(before.generation + 1);
+    if (channel.getSnapshot().state.status === "ready") {
+      expect(channel.getSnapshot().state.value).toBe("real");
+    }
+  });
+
   it("rejects a foreign channel ticket", () => {
     const a = createSurfaceInformationChannel<string>(descriptor({ channelId: "a" }));
     const b = createSurfaceInformationChannel<string>(descriptor({ channelId: "b" }));

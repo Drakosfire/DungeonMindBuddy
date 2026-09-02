@@ -30,10 +30,7 @@ const AUTHORITIES: ReadonlySet<SurfaceInformationAuthority> = new Set([
 ]);
 
 class ObservationTicket {
-  constructor(
-    readonly channelToken: symbol,
-    readonly seq: number,
-  ) {
+  constructor() {
     Object.freeze(this);
   }
 }
@@ -169,7 +166,6 @@ export function createSurfaceInformationChannel<T>(
 ): SurfaceInformationChannel<T> {
   assertDescriptor(descriptor);
   const frozenDescriptor = freezeDescriptor(descriptor);
-  const channelToken = Symbol(frozenDescriptor.channelId);
 
   let generation = 0;
   let snapshot: SurfaceInformationSnapshot<T> = Object.freeze({
@@ -177,7 +173,6 @@ export function createSurfaceInformationChannel<T>(
     state: freezeState<T>({ status: "loading", diagnostics: [] }),
   });
   let currentTicket: ObservationTicket | null = null;
-  let nextSeq = 1;
   let disposed = false;
   const listeners = new Set<() => void>();
 
@@ -215,8 +210,7 @@ export function createSurfaceInformationChannel<T>(
     publishLoading?: boolean;
   }): SurfaceInformationObservationTicket | null => {
     if (disposed) return null;
-    const ticket = new ObservationTicket(channelToken, nextSeq);
-    nextSeq += 1;
+    const ticket = new ObservationTicket();
     currentTicket = ticket;
     if (options?.publishLoading !== false) {
       acceptVisible({ status: "loading", diagnostics: [] });
@@ -231,9 +225,8 @@ export function createSurfaceInformationChannel<T>(
     if (disposed) return false;
     if (!isObservationTicket(ticket)) return false;
     if (currentTicket === null) return false;
-    if (ticket.channelToken !== channelToken || ticket.seq !== currentTicket.seq) {
-      return false;
-    }
+    // Exact issued-object identity. Field copies and reconstructed tickets are not current.
+    if (ticket !== currentTicket) return false;
     if ((state as SurfaceInformationState<T>).status === "loading") return false;
     currentTicket = null;
     acceptVisible(state);

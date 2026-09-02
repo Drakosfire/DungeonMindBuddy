@@ -118,7 +118,7 @@ Factory: `createSurfaceInformationChannel(descriptor)`.
 | Equivalent data | Still a new observation. No deep equality, JSON signature, ReactNode, revision, or value dedupe |
 | `dispose` | Invalidates the current ticket, clears listeners, `beginObservation` returns null, `commit` returns false. Repeated dispose is safe |
 
-Tickets are opaque, channel-specific, and cannot be constructed by consumers.
+Tickets are opaque, channel-specific, and cannot be constructed by consumers. `commit` accepts only the exact object returned by `beginObservation`; reconstructed, copied, or field-equivalent tickets are rejected.
 
 The channel verifies descriptor lifetime, ticket ordering, generation ordering, snapshot referential semantics, subscriber notification, and dispose. It does **not** verify domain correctness of generic `T`.
 
