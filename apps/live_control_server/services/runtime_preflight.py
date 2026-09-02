@@ -19,7 +19,6 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_reads import 
     DirectWorldGraphReadError,
     WorldHeadSummary,
     _load_direct_authority_binding,
-    list_authority_campaigns,
     list_world_heads,
 )
 from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresRepositoryBundle
@@ -29,7 +28,7 @@ from apps.live_control_server.services.graph_ingest_run_registry import (
     discover_graph_ingest_runs,
     inspect_graph_ingest_registry_roots,
 )
-from scripts.bootstrap_local_play import inspect_readiness, redact_secrets
+from scripts.bootstrap_local_play import inspect_readiness
 
 RuntimePreflightStatus = Literal[
     "READY",
@@ -116,15 +115,7 @@ def format_runtime_preflight_report(report: RuntimePreflightReport) -> str:
             else:
                 lines.append(f"  {key}: {rendered}")
         lines.append("")
-    rendered = "\n".join(lines).rstrip() + "\n"
-    dsn_values = [
-        str(check.details.get("database_url_redacted", ""))
-        for check in report.checks
-        if check.details.get("database_url_redacted")
-    ]
-    for dsn in dsn_values:
-        rendered = redact_secrets(rendered, dsn)
-    return rendered
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def _format_detail_value(value: PreflightDetailValue) -> str:
@@ -160,6 +151,19 @@ def _check_app_state(repo_root: Path, *, load_env: bool) -> RuntimePreflightChec
             required=True,
             status="NOT_CONFIGURED",
             summary=f"{APPLICATION_STATE_DSN_ENV} is not configured",
+            details=details,
+        )
+    if readiness.isolation == "rejected" or readiness.play_readiness == "BLOCKED":
+        details["isolation"] = readiness.isolation
+        summary = readiness.notes[0] if readiness.notes else (
+            "Application-state DSN failed isolation guard"
+        )
+        return RuntimePreflightCheck(
+            id="app_state",
+            label="Buddy application state",
+            required=True,
+            status="NOT_READY",
+            summary=summary,
             details=details,
         )
     if readiness.play_readiness == "UNAVAILABLE" or readiness.database_reachable is False:
@@ -324,39 +328,15 @@ def _format_world_line(world: WorldHeadSummary) -> str:
 
 
 def _check_campaign_registry() -> RuntimePreflightCheck:
-    try:
-        campaigns = list_authority_campaigns()
-    except DirectWorldGraphReadError as exc:
-        status: RuntimePreflightStatus = (
-            "UNAVAILABLE" if exc.code == "authority_unavailable" else "NOT_READY"
-        )
-        return RuntimePreflightCheck(
-            id="campaign_registry",
-            label="Campaign registry",
-            required=False,
-            status=status,
-            summary=str(exc),
-            details={},
-        )
-
-    details: dict[str, PreflightDetailValue] = {"campaign_count": len(campaigns)}
-    if campaigns:
-        details["campaigns"] = [
-            f"{item['campaignId']}→{item['worldId']}" for item in campaigns
-        ]
-    status = "EMPTY" if not campaigns else "READY"
-    summary = (
-        "No campaign bindings discovered"
-        if not campaigns
-        else f"Discovered {len(campaigns)} campaign binding(s)"
-    )
     return RuntimePreflightCheck(
         id="campaign_registry",
         label="Campaign registry",
         required=False,
-        status=status,
-        summary=summary,
-        details=details,
+        status="NOT_CONFIGURED",
+        summary=(
+            "No read-only campaign registry enumeration contract is mounted at SI-1"
+        ),
+        details={"reason": "dungeonmind_campaign_enumeration_unavailable"},
     )
 
 
@@ -407,13 +387,18 @@ def _check_ingest_registry(repo_root: Path) -> RuntimePreflightCheck:
 
     details["discovered_runs"] = len(runs)
     existing_roots = [root for root in roots if root.exists]
-    if not existing_roots and not any(root.env_override for root in roots):
+    if not existing_roots:
+        details["reason"] = (
+            "configured ingest root does not exist"
+            if any(root.env_override for root in roots)
+            else "default ingest root does not exist"
+        )
         return RuntimePreflightCheck(
             id="ingest_registry",
             label="Ingest registry",
             required=True,
-            status="EMPTY",
-            summary="No ingest roots exist yet; 0 runs discovered",
+            status="NOT_READY",
+            summary="Graph-ingest root is missing or unreadable",
             details=details,
         )
     if not runs:

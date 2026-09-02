@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -53,10 +54,16 @@ def test_postgres_preflight_read_only_with_application_state(
 
     import psycopg
 
+    ingest_root = tmp_path / "out/graph_memory/runs"
+    ingest_root.mkdir(parents=True)
+
+    counters = (
+        "SELECT count(*) FROM dungeonmind.world_graph_heads",
+        "SELECT count(*) FROM dungeonmind.existing_world_adoptions",
+        "SELECT count(*) FROM dungeonmind.reviewed_world_initializations",
+    )
     with psycopg.connect(cutover_test_dsn) as conn:
-        before_worlds = conn.execute(
-            "SELECT count(*) FROM dungeonmind.world_graph_heads"
-        ).fetchone()[0]
+        before = {query: conn.execute(query).fetchone()[0] for query in counters}
 
     report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
     assert report.status in {"READY", "NOT READY"}
@@ -65,10 +72,8 @@ def test_postgres_preflight_read_only_with_application_state(
     assert world.status in {"READY", "EMPTY", "INTEGRITY_ERROR", "NOT_READY", "UNAVAILABLE"}
 
     with psycopg.connect(cutover_test_dsn) as conn:
-        after_worlds = conn.execute(
-            "SELECT count(*) FROM dungeonmind.world_graph_heads"
-        ).fetchone()[0]
-    assert after_worlds == before_worlds
+        after = {query: conn.execute(query).fetchone()[0] for query in counters}
+    assert after == before
 
 
 def test_require_world_missing_on_fresh_database(
@@ -86,16 +91,23 @@ def test_require_world_missing_on_fresh_database(
         world_dsn=cutover_test_dsn,
     )
 
-    report = run_runtime_preflight(
-        repo_root=tmp_path,
-        require_world="eldyrwild",
-        load_env=False,
-    )
+    ingest_root = tmp_path / "out/graph_memory/runs"
+    ingest_root.mkdir(parents=True)
+
+    with patch(
+        "apps.live_control_server.services.runtime_preflight.list_world_heads",
+        return_value=[],
+    ):
+        report = run_runtime_preflight(
+            repo_root=tmp_path,
+            require_world="eldyrwild",
+            load_env=False,
+        )
+
     world = next(check for check in report.checks if check.id == "dungeonmind_world")
-    if world.status == "READY" and "eldyrwild" in str(world.details.get("worlds", "")):
-        pytest.skip("eldyrwild already present in configured test database")
     assert report.status == "NOT READY"
     assert world.status == "NOT_READY"
+    assert world.details.get("required_world") == "eldyrwild"
 
 
 def test_cutover_dsn_fixture_guard() -> None:

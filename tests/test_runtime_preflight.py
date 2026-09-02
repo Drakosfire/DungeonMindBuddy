@@ -9,6 +9,9 @@ from apps.live_control_server.config import (
     WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV,
     WORLD_GRAPH_AUTHORITY_ENV,
 )
+from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+    WorldHeadSummary,
+)
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestRegistryRootStatus,
 )
@@ -85,7 +88,7 @@ def test_dungeonmind_not_configured_when_dsn_unset(
     assert report.status == "NOT READY"
 
 
-def test_ingest_empty_when_default_root_missing(
+def test_ingest_not_ready_when_default_root_missing(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -94,8 +97,25 @@ def test_ingest_empty_when_default_root_missing(
 
     report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
     ingest = next(check for check in report.checks if check.id == "ingest_registry")
+    assert ingest.status == "NOT_READY"
+    assert report.status == "NOT READY"
+    assert "missing" in ingest.summary.lower()
+
+
+def test_ingest_empty_when_root_exists_with_zero_runs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    ingest_root = tmp_path / "out/graph_memory/runs"
+    ingest_root.mkdir(parents=True)
+
+    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
+    monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
+
+    report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
+    ingest = next(check for check in report.checks if check.id == "ingest_registry")
     assert ingest.status == "EMPTY"
-    assert "0 runs" in ingest.summary or "0 runs discovered" in ingest.summary
+    assert "0 runs" in ingest.summary
 
 
 def test_ingest_not_ready_when_env_root_missing(
@@ -125,7 +145,7 @@ def test_ingest_not_ready_when_env_root_missing(
     assert report.status == "NOT READY"
 
 
-def test_format_report_redacts_secret_bearing_dsn(
+def test_format_report_preserves_redacted_dsn_host(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     secret = "password-should-not-leak"
@@ -142,3 +162,172 @@ def test_format_report_redacts_secret_bearing_dsn(
         RuntimePreflightReport(status="READY", checks=(check,))
     )
     assert secret not in rendered
+    assert "localhost:5432/app" in rendered
+    assert "<redacted-dsn>" not in rendered
+
+
+def test_app_state_isolation_rejection_surfaces_explicit_reason(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    world_dsn = (
+        "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dungeonmind"
+    )
+    monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, world_dsn)
+    monkeypatch.setenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, world_dsn)
+    monkeypatch.setenv(WORLD_GRAPH_AUTHORITY_ENV, "dungeonmind")
+
+    report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
+    app_state = next(check for check in report.checks if check.id == "app_state")
+    assert app_state.status == "NOT_READY"
+    assert app_state.details.get("isolation") == "rejected"
+    assert "dungeonmind" in app_state.summary.lower()
+    assert report.status == "NOT READY"
+
+
+def test_campaign_registry_not_configured_without_contract(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
+    monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
+
+    report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
+    campaign = next(check for check in report.checks if check.id == "campaign_registry")
+    assert campaign.status == "NOT_CONFIGURED"
+    assert campaign.required is False
+
+
+def test_require_world_missing_reports_not_ready(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
+    monkeypatch.setenv(WORLD_GRAPH_AUTHORITY_ENV, "dungeonmind")
+    monkeypatch.setenv(
+        WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV,
+        "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dungeonmind",
+    )
+
+    class FakeBinding:
+        genesis = "existing_world_adoption"
+
+    with (
+        patch(
+            "apps.live_control_server.services.runtime_preflight.list_world_heads",
+            return_value=[
+                WorldHeadSummary(world_id="otherworld", head_revision_id="rev-1")
+            ],
+        ),
+        patch(
+            "apps.live_control_server.services.runtime_preflight._load_direct_authority_binding",
+            return_value=FakeBinding(),
+        ),
+    ):
+        report = run_runtime_preflight(
+            repo_root=tmp_path,
+            require_world="eldyrwild",
+            load_env=False,
+        )
+
+    world = next(check for check in report.checks if check.id == "dungeonmind_world")
+    assert world.status == "NOT_READY"
+    assert world.details.get("required_world") == "eldyrwild"
+    assert report.status == "NOT READY"
+
+
+def test_cli_exit_code_ready(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from scripts.preflight_surface_runtime import main
+
+    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
+    monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
+
+    with patch(
+        "scripts.preflight_surface_runtime.run_runtime_preflight",
+        return_value=RuntimePreflightReport(status="READY", checks=()),
+    ):
+        assert main(["--no-dotenv"]) == 0
+
+
+def test_cli_exit_code_not_ready_on_required_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from scripts.preflight_surface_runtime import main
+
+    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
+    monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
+
+    with patch(
+        "scripts.preflight_surface_runtime.run_runtime_preflight",
+        return_value=RuntimePreflightReport(
+            status="NOT READY",
+            checks=(
+                RuntimePreflightCheck(
+                    id="ingest_registry",
+                    label="Ingest registry",
+                    required=True,
+                    status="NOT_READY",
+                    summary="missing root",
+                ),
+            ),
+        ),
+    ):
+        assert main(["--no-dotenv"]) == 1
+
+
+def test_list_world_heads_uses_repository_ports(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+
+    class FakeHead:
+        def __init__(self, world_id: str, head_revision_id: str) -> None:
+            self.world_id = world_id
+            self.head_revision_id = head_revision_id
+
+    class FakeWorldGraph:
+        def list_heads(self) -> list[FakeHead]:
+            return [FakeHead("alpha", "head-a")]
+
+        def get_head(self, world_id: str) -> FakeHead | None:
+            if world_id == "alpha":
+                return FakeHead("alpha", "head-a")
+            if world_id == "beta":
+                return None
+            return None
+
+    class FakeAdoptions:
+        def list_world_ids(self) -> list[str]:
+            return ["beta"]
+
+    class FakeInit:
+        def list_world_ids(self) -> list[str]:
+            return []
+
+    class FakeBundle:
+        world_graph = FakeWorldGraph()
+        existing_world_adoptions = FakeAdoptions()
+        reviewed_world_initializations = FakeInit()
+
+    monkeypatch.setattr(
+        world_graph_reads,
+        "PostgresRepositoryBundle",
+        lambda _database: FakeBundle(),
+    )
+    monkeypatch.setattr(
+        world_graph_reads,
+        "PostgresDatabase",
+        lambda _url: object(),
+    )
+
+    summaries = world_graph_reads.list_world_heads(
+        database_url="postgresql://u:p@127.0.0.1:5432/dungeonmind"
+    )
+    assert [(item.world_id, item.head_revision_id) for item in summaries] == [
+        ("alpha", "head-a"),
+        ("beta", None),
+    ]

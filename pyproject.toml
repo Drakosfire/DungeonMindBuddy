@@ -32,7 +32,7 @@ dependencies = [
     # compatibility: named #645 first-world OTHER interpretation).
     # The postgres extra carries the in-process PostgreSQL adapter dependencies
     # used by the DungeonMind-backed World Graph authority (cutover).
-    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@5ca5d688612349034f8ca490d465af166d883e6e",
+    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@ef39120f759c22bee0276fcac160c5ec157e02e4",
     "psycopg[binary]>=3.2",
     "alembic>=1.16",
 ]

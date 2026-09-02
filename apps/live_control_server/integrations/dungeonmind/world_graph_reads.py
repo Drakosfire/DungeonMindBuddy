@@ -115,8 +115,6 @@ from dungeonmind.infrastructure.postgres import (
     PostgresDatabase,
     PostgresRepositoryBundle,
 )
-from dungeonmind.infrastructure.postgres.database import SCHEMA as _DND_SCHEMA
-from psycopg import sql
 
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
@@ -574,7 +572,7 @@ class WorldHeadSummary:
 
 
 def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummary]:
-    """List current world graph heads from the DungeonMind authority database."""
+    """List authority worlds via DungeonMind repository enumeration ports."""
     from apps.live_control_server import config as buddy_config
 
     url = database_url or buddy_config.world_graph_authority_database_url()
@@ -585,15 +583,32 @@ def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummar
             code="authority_unavailable",
             status_code=503,
         )
-    database = PostgresDatabase(url)
     try:
-        with database.connect() as conn:
-            rows = conn.execute(
-                sql.SQL(
-                    "SELECT world_id, head_revision_id "
-                    "FROM {}.world_graph_heads ORDER BY world_id"
-                ).format(sql.Identifier(_DND_SCHEMA)),
-            ).fetchall()
+        bundle = PostgresRepositoryBundle(PostgresDatabase(url))
+        world_ids: set[str] = set()
+        for head in bundle.world_graph.list_heads():
+            world_ids.add(head.world_id)
+        for world_id in bundle.existing_world_adoptions.list_world_ids():
+            world_ids.add(world_id)
+        init_repo = getattr(bundle, "reviewed_world_initializations", None)
+        if init_repo is not None:
+            for world_id in init_repo.list_world_ids():
+                world_ids.add(world_id)
+
+        summaries: list[WorldHeadSummary] = []
+        for world_id in sorted(world_ids):
+            head = bundle.world_graph.get_head(world_id)
+            summaries.append(
+                WorldHeadSummary(
+                    world_id=world_id,
+                    head_revision_id=(
+                        head.head_revision_id if head is not None else None
+                    ),
+                )
+            )
+        return summaries
+    except DirectWorldGraphReadError:
+        raise
     except PersistenceUnavailableError as exc:
         raise DirectWorldGraphReadError(
             "DungeonMind authority is unavailable.",
@@ -610,59 +625,6 @@ def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummar
             diagnostics=[{"reason": "world_head_read_failed"}],
             cause=exc,
         ) from exc
-    return [
-        WorldHeadSummary(
-            world_id=str(row["world_id"]),
-            head_revision_id=(
-                str(row["head_revision_id"]).strip()
-                if row.get("head_revision_id")
-                else None
-            ),
-        )
-        for row in rows
-    ]
-
-
-def list_authority_campaigns() -> list[dict[str, str]]:
-    """Read-only campaign→world registry from the DungeonMind authority."""
-    from apps.live_control_server import config as buddy_config
-
-    database_url = buddy_config.world_graph_authority_database_url()
-    if not database_url:
-        raise DirectWorldGraphReadError(
-            "DungeonMind authority database URL is not configured "
-            f"({buddy_config.WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV})",
-            code="authority_unavailable",
-            status_code=503,
-        )
-    database = PostgresDatabase(database_url)
-    try:
-        with database.connect() as conn:
-            rows = conn.execute(
-                sql.SQL(
-                    "SELECT world_id, campaign_id FROM {}.campaigns ORDER BY campaign_id"
-                ).format(sql.Identifier(_DND_SCHEMA)),
-            ).fetchall()
-    except PersistenceUnavailableError as exc:
-        raise DirectWorldGraphReadError(
-            "DungeonMind authority is unavailable.",
-            code="authority_unavailable",
-            status_code=503,
-            diagnostics=[{"reason": "provider_unavailable", "what": "campaign registry"}],
-            cause=exc,
-        ) from exc
-    except Exception as exc:
-        raise DirectWorldGraphReadError(
-            "DungeonMind campaign registry read failed.",
-            code="authority_integrity",
-            status_code=500,
-            diagnostics=[{"reason": "campaign_registry_read_failed"}],
-            cause=exc,
-        ) from exc
-    return [
-        {"worldId": str(row["world_id"]), "campaignId": str(row["campaign_id"])}
-        for row in rows
-    ]
 
 
 # ---------------------------------------------------------------------------
