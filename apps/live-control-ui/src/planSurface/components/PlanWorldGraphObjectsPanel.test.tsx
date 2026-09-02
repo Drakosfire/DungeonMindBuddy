@@ -8,7 +8,10 @@ import { createSurfaceInformationChannel } from "../../surfaceInformation";
 import { worldGraphLensInformationDescriptor } from "../../graphLens/worldGraphLensSurfaceInformation";
 import type { GraphReferenceSearchItem } from "../../graphReference/types";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
-import { insertPlanGraphReferenceIfLive } from "./PlanSurfaceCanvas";
+import {
+  insertPlanGraphReferenceIfLive,
+  useCommittedPlanGraphInsertGate,
+} from "./PlanSurfaceCanvas";
 import { PlanWorldGraphObjectsPanel } from "./PlanWorldGraphObjectsPanel";
 
 const openGraphReference = vi.fn();
@@ -541,5 +544,57 @@ describe("insertPlanGraphReferenceIfLive", () => {
     gate.editor = null;
     retained(reference);
     expect(insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("useCommittedPlanGraphInsertGate", () => {
+  const editor = { id: "committed-editor" } as never;
+
+  function Probe({
+    isLocked,
+    onDuringRenderLiveEnabled,
+    liveEnabledRef,
+  }: {
+    isLocked: boolean;
+    onDuringRenderLiveEnabled: (enabled: boolean) => void;
+    liveEnabledRef: { current: () => boolean };
+  }) {
+    const gate = useCommittedPlanGraphInsertGate({
+      editor,
+      isLocked,
+      editorInteractive: true,
+    });
+    liveEnabledRef.current = gate.isInsertCurrentlyEnabled;
+    onDuringRenderLiveEnabled(gate.isInsertCurrentlyEnabled());
+    return <div data-testid="insert-enabled">{String(gate.insertEnabled)}</div>;
+  }
+
+  it("does not leak an uncommitted unlock into retained insert callbacks", () => {
+    const duringRenderLiveEnabled: boolean[] = [];
+    const liveEnabledRef = { current: () => false };
+    const view = render(
+      <Probe
+        isLocked
+        liveEnabledRef={liveEnabledRef}
+        onDuringRenderLiveEnabled={(enabled) => duringRenderLiveEnabled.push(enabled)}
+      />,
+    );
+
+    expect(screen.getByTestId("insert-enabled")).toHaveTextContent("false");
+    expect(liveEnabledRef.current()).toBe(false);
+
+    duringRenderLiveEnabled.length = 0;
+    view.rerender(
+      <Probe
+        isLocked={false}
+        liveEnabledRef={liveEnabledRef}
+        onDuringRenderLiveEnabled={(enabled) => duringRenderLiveEnabled.push(enabled)}
+      />,
+    );
+
+    expect(duringRenderLiveEnabled.length).toBeGreaterThan(0);
+    expect(duringRenderLiveEnabled.every((enabled) => enabled === false)).toBe(true);
+    expect(screen.getByTestId("insert-enabled")).toHaveTextContent("true");
+    expect(liveEnabledRef.current()).toBe(true);
   });
 });

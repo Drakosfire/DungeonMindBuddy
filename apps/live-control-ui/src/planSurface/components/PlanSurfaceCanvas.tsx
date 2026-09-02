@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Content, Editor } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
@@ -61,26 +61,62 @@ export function canSavePlanningDocument(document: {
   return document.targetRelpath != null && document.targetRelpath !== TBD_PLAN_PATH;
 }
 
-export function isPlanGraphInsertEditorLive(input: {
+export interface PlanGraphInsertEditorGate {
   editor: Editor | null;
   isLocked: boolean;
   editorInteractive: boolean;
-}): boolean {
+}
+
+export function isPlanGraphInsertEditorLive(input: PlanGraphInsertEditorGate): boolean {
   return Boolean(input.editor) && !input.isLocked && input.editorInteractive;
 }
 
 export function insertPlanGraphReferenceIfLive(input: {
-  getGate: () => {
-    editor: Editor | null;
-    isLocked: boolean;
-    editorInteractive: boolean;
-  };
+  getGate: () => PlanGraphInsertEditorGate;
   reference: RunbookReferenceAttrs;
   insert: (editor: Editor, reference: RunbookReferenceAttrs) => void;
 }): void {
   const gate = input.getGate();
   if (!isPlanGraphInsertEditorLive(gate) || gate.editor == null) return;
   input.insert(gate.editor, input.reference);
+}
+
+const CLOSED_PLAN_GRAPH_INSERT_GATE: PlanGraphInsertEditorGate = {
+  editor: null,
+  isLocked: true,
+  editorInteractive: false,
+};
+
+/**
+ * Visible insertEnabled follows the current render. Retained Insert callbacks
+ * read the last committed gate so a speculative unlock cannot leak into the
+ * still-locked committed UI.
+ */
+export function useCommittedPlanGraphInsertGate(input: PlanGraphInsertEditorGate): {
+  insertEnabled: boolean;
+  isInsertCurrentlyEnabled: () => boolean;
+  getCommittedGate: () => PlanGraphInsertEditorGate;
+} {
+  const gateRef = useRef<PlanGraphInsertEditorGate>(CLOSED_PLAN_GRAPH_INSERT_GATE);
+
+  useLayoutEffect(() => {
+    gateRef.current = {
+      editor: input.editor,
+      isLocked: input.isLocked,
+      editorInteractive: input.editorInteractive,
+    };
+  }, [input.editor, input.editorInteractive, input.isLocked]);
+
+  const insertEnabled = isPlanGraphInsertEditorLive(input);
+
+  const isInsertCurrentlyEnabled = useCallback(
+    () => isPlanGraphInsertEditorLive(gateRef.current),
+    [],
+  );
+
+  const getCommittedGate = useCallback(() => gateRef.current, []);
+
+  return { insertEnabled, isInsertCurrentlyEnabled, getCommittedGate };
 }
 
 function authoringIdentityLabel(document: PlanDocumentDescriptor): string {
@@ -242,29 +278,25 @@ function PlanDurableSurfaceCanvas({
 
   const planPasteExtensions = useMemo(() => [SemanticMarkdownPaste], []);
 
-  const graphInsertGateRef = useRef({
+  const {
+    insertEnabled: insertGraphReferenceEnabled,
+    isInsertCurrentlyEnabled,
+    getCommittedGate,
+  } = useCommittedPlanGraphInsertGate({
     editor,
     isLocked,
     editorInteractive,
   });
-  graphInsertGateRef.current = { editor, isLocked, editorInteractive };
-
-  const insertGraphReferenceEnabled = isPlanGraphInsertEditorLive(graphInsertGateRef.current);
-
-  const isInsertCurrentlyEnabled = useCallback(
-    () => isPlanGraphInsertEditorLive(graphInsertGateRef.current),
-    [],
-  );
 
   const handleInsertGraphReference = useCallback(
     (reference: RunbookReferenceAttrs) => {
       insertPlanGraphReferenceIfLive({
-        getGate: () => graphInsertGateRef.current,
+        getGate: getCommittedGate,
         reference,
         insert: insertMarkdownReference,
       });
     },
-    [],
+    [getCommittedGate],
   );
 
   const worldGraphObjectsPanel = useMemo(
