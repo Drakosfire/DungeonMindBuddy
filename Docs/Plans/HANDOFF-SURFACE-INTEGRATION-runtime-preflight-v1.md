@@ -23,7 +23,7 @@ rerun evidence are the review contract. This body is transport metadata.
 # HANDOFF — Canonical assembled-runtime preflight v1
 
 **Created:** 2026-09-01
-**Status:** ACTIVE — first SURFACE-INTEGRATION implementation slice
+**Status:** COMPLETE — merged PR #675 @ `c77260b044873f3ccfb5b77e7fce643539ca9abf`
 **Canonical handoff path:** `Docs/Plans/HANDOFF-SURFACE-INTEGRATION-runtime-preflight-v1.md`
 **Conversation/workstream:** `SURFACE-INTEGRATION / SI-1`
 **Flow / owner:** `SURFACE-INTEGRATION`
@@ -31,6 +31,16 @@ rerun evidence are the review contract. This body is transport metadata.
 **Base revision:** `24f7c25b49fdab8271b0d84d36e4a609b9832d69`
 **Evidence branch:** `dogfood/of-conks-end-to-end` at `b40d893f58f4aeeb0de605b7b13a3b18389a0908`
 **PR title:** `SURFACE-INTEGRATION: prove assembled runtime readiness`
+
+**Completion record (SI-2 predecessor sync, 2026-09-02):**
+
+```text
+PR #675 merged
+merge SHA            c77260b044873f3ccfb5b77e7fce643539ca9abf
+final implementation e71b637a3d09da439d069a7eafeb2f4be8dc31a2
+formal review cycles 6
+successor            SI-2 Surface Information Contract v1
+```
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). This slice consumes the failed Of Conks end-to-end demo as architecture evidence. It does not continue feature development on the dogfood branch.
 
