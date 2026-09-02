@@ -39,8 +39,8 @@ Allowed during the freeze: SURFACE-INTEGRATION implementation/design, fixes requ
 | Slice | Capability | Status |
 |---|---|---|
 | SI-1 | Canonical assembled-runtime preflight | **DONE** — PR #675 merged @ `c77260b044873f3ccfb5b77e7fce643539ca9abf` (final implementation head `e71b637a3d09da439d069a7eafeb2f4be8dc31a2`, six review cycles) |
-| **SI-2** | Surface Information Contract v1 | **CURRENT** |
-| SI-3 | Graph lens reference implementation (Plan/Build rich panel) | Planned |
+| SI-2 | Surface Information Contract v1 | **DONE** — PR #676 merged @ `cd6b20ffe151dc43dc21cb71ed77208389059566` (final implementation head `1ced8ea147f8119a424e9f44787cb7246ddb969d`, two review cycles) |
+| **SI-3** | Plan graph information reference implementation | **CURRENT** — Plan is the production Surface Information adoption; Build is an unchanged compatibility/regression witness. Build Surface Information migration belongs to SI-5 unless a later re-anchor splits it differently. |
 | SI-4 | Ingest information-provider disposition | Planned |
 | SI-5 | Cross-surface adoption (Plan / Build / Play / Ingest / Agent / Combat-facing projections) | Planned |
 | SI-6 | Clean-start assembled-product witness (canonical runtime → browser journey → restart/reload) | Planned — **acceptance gate** |
@@ -54,7 +54,7 @@ Do not pre-mark successors `DONE`.
 
 Existing CON-READY user stories remain valid. Feature dispatch is frozen until SI-6 proves the assembled runtime and information-delivery contract.
 
-SI-1 created the runtime truth layer and is complete. SI-2 establishes the Surface Information Contract. Neither slice repairs OC-020 in product Surfaces; SI-3 is the first product adoption.
+SI-1 created the runtime truth layer and is complete. SI-2 established the Surface Information Contract and is complete. SI-3 is the first product adoption: Plan Edit → World Graph objects consumes the contract reactively. Build remains a regression witness, not a second provider migration.
 
 ---
 
@@ -74,6 +74,6 @@ uv run python scripts/preflight_surface_runtime.py --require-world <world_id>
 
 ## Stewardship
 
-Implementation handoff: [`../Plans/HANDOFF-SURFACE-INTEGRATION-surface-information-contract-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-surface-information-contract-v1.md)
+Implementation handoff: [`../Plans/HANDOFF-SURFACE-INTEGRATION-plan-graph-information-reference.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-plan-graph-information-reference.md)
 
-Predecessor (SI-1, complete): [`../Plans/HANDOFF-SURFACE-INTEGRATION-runtime-preflight-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-runtime-preflight-v1.md)
+Predecessor (SI-2, complete): [`../Plans/HANDOFF-SURFACE-INTEGRATION-surface-information-contract-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-surface-information-contract-v1.md)

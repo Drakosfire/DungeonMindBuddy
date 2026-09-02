@@ -5,11 +5,8 @@ import { EditorContent } from "@tiptap/react";
 import type { AppChromeToolsGeneration } from "../../chrome/AppChrome";
 import {
   GraphNodeChipRuntimeProvider,
-  GraphReferenceSearch,
   insertMarkdownReference,
-  referenceFromGraphNode,
   type GraphNodeChipRuntimeValue,
-  type GraphReferenceSearchItem,
 } from "../../graphReference";
 import { defaultMarkdownDocumentAdapter } from "../../tiptap/MarkdownDocumentAdapter";
 import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
@@ -42,13 +39,12 @@ import {
 } from "../planBlankAuthoringState";
 import { usePlanBlankAuthoring } from "../usePlanBlankAuthoring";
 import type { GraphProjectionNodeView } from "../../api/types";
-import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import { extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
 import { useProjection } from "../projection/projectionContext";
 import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
-import { formatReviewCampaignLabel } from "../sessionCampaignContext";
+import { PlanWorldGraphObjectsPanel } from "./PlanWorldGraphObjectsPanel";
 import { glanceOnlyForGraphReference } from "../../graphReference/openGraphReferencePolicy";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import "../../tiptap/prepMarkdownThemes.css";
@@ -87,12 +83,6 @@ interface PlanSurfaceCanvasProps {
     retainedCreateId: string | null;
     error: string | null;
   }) => void;
-}
-
-function nodeScopeLabel(node: GraphProjectionNodeView): string {
-  const scope = node.campaign_scope?.trim();
-  if (!scope) return "World";
-  return formatReviewCampaignLabel(scope);
 }
 
 export function PlanSurfaceCanvas(props: PlanSurfaceCanvasProps) {
@@ -148,7 +138,6 @@ function PlanDurableSurfaceCanvas({
     resolvePlanReference,
     projection,
     projectionState,
-    projectionError,
   } = usePlanGraphReferenceResolver();
   const editorShellRef = useRef<HTMLDivElement | null>(null);
 
@@ -238,83 +227,24 @@ function PlanDurableSurfaceCanvas({
     [editor],
   );
 
-  const projectionNodes = useMemo(
-    () => projection?.nodes.map((node) => adaptWorldGraphNodeForPlanCard(node)) ?? [],
-    [projection],
-  );
+  const insertGraphReferenceEnabled = Boolean(editor) && !isLocked && editorInteractive;
 
-  const graphReferenceSearchItems = useMemo<GraphReferenceSearchItem[]>(
-    () =>
-      projectionNodes.map((node) => ({
-        nodeId: node.node_id,
-        label: node.label,
-        kind: node.kind,
-        role: node.role,
-        summary: node.summary ?? null,
-        aliases: node.aliases ?? [],
-        scopeLabel: nodeScopeLabel(node),
-        reference: referenceFromGraphNode(node),
-        nodeView: node,
-      })),
-    [projectionNodes],
-  );
-
-  const handleViewGraphReference = useCallback(
-    (item: GraphReferenceSearchItem) => {
-      const graphScope = extractExactGraphReferenceScope(projection);
-      if (!graphScope) {
-        openGraphReference({
-          resolution: {
-            kind: "error",
-            locator: `dmb-node:${item.nodeId}`,
-            reference: item.reference,
-            projectionState,
-            message:
-              "World Graph projection snapshot lacks exact world, campaign, or revision scope; graph search open blocked.",
-          },
-          projectionState,
-        });
-        return;
-      }
-
-      openGraphReference({
-        resolution: {
-          kind: "resolved_graph",
-          locator: `dmb-node:${item.nodeId}`,
-          reference: item.reference,
-          graphObject: buildGraphObjectCardFromNodeView(item.nodeView),
-          graphNodeId: item.nodeId,
-          graphScope,
-          projectionState,
-          message: `Resolved graph node ${item.label}.`,
-        },
-        projectionState,
-      });
+  const handleInsertGraphReference = useCallback(
+    (reference: RunbookReferenceAttrs) => {
+      if (!editor || isLocked || !editorInteractive) return;
+      insertRunbookReference(reference);
     },
-    [openGraphReference, projection, projectionState],
+    [editor, editorInteractive, insertRunbookReference, isLocked],
   );
 
-  const graphRefSearchPanel = useMemo(
+  const worldGraphObjectsPanel = useMemo(
     () => (
-      <GraphReferenceSearch
-        items={graphReferenceSearchItems}
-        projectionState={projectionState}
-        projectionError={projectionError}
-        insertDisabled={!editor || isLocked || !editorInteractive}
-        onInsert={(item) => insertRunbookReference(item.reference)}
-        onView={handleViewGraphReference}
+      <PlanWorldGraphObjectsPanel
+        insertEnabled={insertGraphReferenceEnabled}
+        onInsertReference={handleInsertGraphReference}
       />
     ),
-    [
-      editor,
-      editorInteractive,
-      graphReferenceSearchItems,
-      handleViewGraphReference,
-      insertRunbookReference,
-      isLocked,
-      projectionError,
-      projectionState,
-    ],
+    [handleInsertGraphReference, insertGraphReferenceEnabled],
   );
 
   const copyMarkdown = useCallback(async () => {
@@ -401,7 +331,7 @@ function PlanDurableSurfaceCanvas({
         title: "World Graph objects",
         defaultOpen: true,
         actions: [],
-        panel: graphRefSearchPanel,
+        panel: worldGraphObjectsPanel,
       },
       {
         id: "plan-insert-blocks",
@@ -476,12 +406,12 @@ function PlanDurableSurfaceCanvas({
     copyMarkdown,
     editor,
     editorInteractive,
-    graphRefSearchPanel,
     insertCallout,
     insertDecisionConsequence,
     isLocked,
     removeActiveBlock,
     toggleLock,
+    worldGraphObjectsPanel,
   ]);
 
   useEffect(() => {

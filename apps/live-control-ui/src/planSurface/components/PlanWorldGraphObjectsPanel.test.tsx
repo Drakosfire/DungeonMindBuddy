@@ -1,0 +1,274 @@
+import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+
+import type { WorldGraphProjection } from "../../api/types";
+import { WorldGraphLensInformationChannelProvider } from "../../graphLens/useWorldGraphLensProjection";
+import { createSurfaceInformationChannel } from "../../surfaceInformation";
+import { worldGraphLensInformationDescriptor } from "../../graphLens/worldGraphLensSurfaceInformation";
+import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
+import { PlanWorldGraphObjectsPanel } from "./PlanWorldGraphObjectsPanel";
+
+const openGraphReference = vi.fn();
+
+vi.mock("../../agentInteraction/AgentInteractionProvider", () => ({
+  useOptionalAgentInteraction: () => ({ openGraphReference }),
+}));
+
+const request = {
+  schema: "dmb_world_graph_projection_request_v1" as const,
+  worldId: "eldyrwild",
+  campaignId: "longmont-c2",
+  scopeMode: "campaign" as const,
+  focus: { kind: "none" as const, sessionId: null },
+  admissibility: "gm" as const,
+};
+
+const glowkindleNode = {
+  nodeId: "npc:glowkindle",
+  label: "Glowkindle",
+  kind: "npc",
+  role: "merchant",
+  aliases: ["Glow"],
+  sourceDomains: ["recap"],
+  evidenceBadges: [],
+  adjacency: [],
+  suggestedExpansions: [],
+  anchoredToFocusSession: true,
+  summary: "A friendly merchant.",
+  campaignScope: "longmont-c2",
+  evidenceRefIds: [],
+  sourceArtifactIds: [],
+};
+
+function projection(
+  overrides: Partial<WorldGraphProjection> = {},
+  snapshotOverrides: Partial<WorldGraphProjection["snapshot"]> = {},
+): WorldGraphProjection {
+  return {
+    schema: "dmb_world_graph_projection_v1",
+    snapshot: {
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      revisionId: "rev:abc",
+      headRevisionId: "rev:abc",
+      isHead: true,
+      focus: { kind: "none", sessionId: null },
+      admissibility: "gm",
+      scopeMode: "campaign",
+      ...snapshotOverrides,
+    },
+    summary: {
+      nodeCount: 0,
+      relationshipCount: 0,
+      attributeCount: 0,
+      evidenceCount: 0,
+      sourceArtifactCount: 0,
+      projectionTruncated: false,
+    },
+    nodes: [],
+    relationships: [],
+    attributes: [],
+    evidence: [],
+    sourceArtifacts: [],
+    diagnostics: [],
+    ...overrides,
+  };
+}
+
+const observed = {
+  revision: { kind: "exact" as const, value: "rev:abc" },
+  provenance: [{ kind: "world_graph_revision" as const, id: "rev:abc" }],
+  inspectionTargets: [
+    { kind: "world" as const, id: "eldyrwild" },
+    { kind: "campaign" as const, id: "longmont-c2" },
+    { kind: "world_graph_revision" as const, id: "rev:abc" },
+  ],
+  diagnostics: [] as const,
+};
+
+function renderPanel(
+  channel: ReturnType<typeof createSurfaceInformationChannel<WorldGraphProjection>> | null,
+  onInsertReference = vi.fn(),
+  insertEnabled = true,
+) {
+  return render(
+    <WorldGraphLensInformationChannelProvider channel={channel}>
+      <PlanWorldGraphObjectsPanel
+        insertEnabled={insertEnabled}
+        onInsertReference={onInsertReference}
+      />
+    </WorldGraphLensInformationChannelProvider>,
+  );
+}
+
+describe("PlanWorldGraphObjectsPanel", () => {
+  it("reports no exact channel without implying an empty projection", () => {
+    renderPanel(null);
+    expect(screen.getByTestId("plan-world-graph-objects-panel")).toHaveAttribute(
+      "data-status",
+      "no-request",
+    );
+    expect(screen.getByText(/No active World Graph lens request/)).toBeInTheDocument();
+    expect(screen.queryByText("No nodes in the current projection.")).not.toBeInTheDocument();
+  });
+
+  it("maps LOADING, READY, EMPTY, UNAVAILABLE, and INTEGRITY_ERROR without using the channel as props", async () => {
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(request),
+    );
+    renderPanel(channel);
+    expect(screen.getByText("Loading World Graph projection…")).toBeInTheDocument();
+
+    const readyTicket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(readyTicket!, {
+        status: "ready",
+        value: projection({ nodes: [glowkindleNode] }),
+        ...observed,
+      });
+    });
+    expect(screen.getByText("Glowkindle")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-world-graph-objects-panel")).toHaveAttribute(
+      "data-status",
+      "ready",
+    );
+
+    let emptyTicket: ReturnType<typeof channel.beginObservation> = null;
+    act(() => {
+      emptyTicket = channel.beginObservation();
+    });
+    act(() => {
+      channel.commit(emptyTicket!, { status: "empty", ...observed });
+    });
+    expect(screen.getByText("No nodes in the current projection.")).toBeInTheDocument();
+    expect(screen.queryByText("World Graph unavailable for this session.")).not.toBeInTheDocument();
+
+    let unavailableTicket: ReturnType<typeof channel.beginObservation> = null;
+    act(() => {
+      unavailableTicket = channel.beginObservation();
+    });
+    act(() => {
+      channel.commit(unavailableTicket!, {
+        status: "unavailable",
+        reason: "authority down",
+        diagnostics: [],
+      });
+    });
+    expect(screen.getByText("World Graph unavailable for this session.")).toBeInTheDocument();
+    expect(screen.queryByText("Glowkindle")).not.toBeInTheDocument();
+
+    let integrityTicket: ReturnType<typeof channel.beginObservation> = null;
+    act(() => {
+      integrityTicket = channel.beginObservation();
+    });
+    act(() => {
+      channel.commit(integrityTicket!, {
+        status: "integrity_error",
+        reason: "campaign mismatch",
+        diagnostics: [],
+      });
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/campaign mismatch/);
+    expect(screen.queryByText("No nodes in the current projection.")).not.toBeInTheDocument();
+  });
+
+  it("Views the exact selected node and scope from the displayed READY snapshot", async () => {
+    openGraphReference.mockReset();
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(request),
+    );
+    const user = userEvent.setup();
+    renderPanel(channel);
+    const ticket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(ticket!, {
+        status: "ready",
+        value: projection({ nodes: [glowkindleNode] }),
+        ...observed,
+      });
+    });
+    await user.click(screen.getByRole("button", { name: "View" }));
+    expect(openGraphReference).toHaveBeenCalledTimes(1);
+    const args = openGraphReference.mock.calls[0][0];
+    expect(args.resolution.kind).toBe("resolved_graph");
+    expect(args.resolution.graphNodeId).toBe("npc:glowkindle");
+    expect(args.resolution.graphScope).toEqual({
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      scopeMode: "campaign",
+      revisionId: "rev:abc",
+    });
+  });
+
+  it("inserts the exact graph-native reference when READY and insert is enabled", async () => {
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(request),
+    );
+    const onInsertReference = vi.fn();
+    const user = userEvent.setup();
+    renderPanel(channel, onInsertReference, true);
+    const ticket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(ticket!, {
+        status: "ready",
+        value: projection({ nodes: [glowkindleNode] }),
+        ...observed,
+      });
+    });
+    await user.click(screen.getByRole("button", { name: "Insert chip" }));
+    expect(onInsertReference).toHaveBeenCalledWith(
+      expect.objectContaining({
+        refType: "graph-node",
+        refId: "npc:glowkindle",
+        label: "Glowkindle",
+      } satisfies Partial<RunbookReferenceAttrs>),
+    );
+  });
+
+  it("fails closed on insert for STALE information", async () => {
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(request),
+    );
+    const onInsertReference = vi.fn();
+    const user = userEvent.setup();
+    renderPanel(channel, onInsertReference, true);
+    const ticket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(ticket!, {
+        status: "stale",
+        value: projection({ nodes: [glowkindleNode] }),
+        reason: "refreshing",
+        ...observed,
+      });
+    });
+    expect(screen.getByText(/World Graph information is stale/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Insert chip" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Insert chip" }));
+    expect(onInsertReference).not.toHaveBeenCalled();
+  });
+
+  it("keeps the connected panel mounted across a same-channel refresh", () => {
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(request),
+    );
+    renderPanel(channel);
+    const panel = screen.getByTestId("plan-world-graph-objects-panel");
+    const readyTicket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(readyTicket!, {
+        status: "ready",
+        value: projection({ nodes: [glowkindleNode] }),
+        ...observed,
+      });
+    });
+    expect(screen.getByTestId("plan-world-graph-objects-panel")).toBe(panel);
+    act(() => {
+    act(() => {
+      channel.beginObservation();
+    });
+    });
+    expect(screen.getByTestId("plan-world-graph-objects-panel")).toBe(panel);
+    expect(screen.getByText("Loading World Graph projection…")).toBeInTheDocument();
+  });
+});

@@ -7,10 +7,15 @@ import type { WorldGraphProjection } from "../api/types";
 import {
   WorldGraphLensProvider,
   WorldGraphLensProjectionProvider,
+  useOptionalWorldGraphLensInformationChannel,
+  useWorldGraphLens,
   useWorldGraphLensProjection,
 } from "./index";
 
-function headProjection(overrides: Partial<WorldGraphProjection["snapshot"]> = {}): WorldGraphProjection {
+function headProjection(
+  snapshotOverrides: Partial<WorldGraphProjection["snapshot"]> = {},
+  projectionOverrides: Partial<WorldGraphProjection> = {},
+): WorldGraphProjection {
   return {
     schema: "dmb_world_graph_projection_v1",
     snapshot: {
@@ -22,7 +27,7 @@ function headProjection(overrides: Partial<WorldGraphProjection["snapshot"]> = {
       focus: { kind: "none", sessionId: null },
       admissibility: "gm",
       scopeMode: "campaign",
-      ...overrides,
+      ...snapshotOverrides,
     },
     summary: {
       nodeCount: 0,
@@ -38,6 +43,7 @@ function headProjection(overrides: Partial<WorldGraphProjection["snapshot"]> = {
     evidence: [],
     sourceArtifacts: [],
     diagnostics: [],
+    ...projectionOverrides,
   };
 }
 
@@ -56,6 +62,7 @@ function wrapper({ children }: { children: ReactNode }) {
 describe("WorldGraphLensProjectionProvider", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    window.history.pushState({}, "", "/plan");
     vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({
       schema: "dmb_ingestion_source_bundle_v1",
       campaigns: {},
@@ -154,5 +161,186 @@ describe("WorldGraphLensProjectionProvider", () => {
     });
     await waitFor(() => expect(result.current.projectionState).toBe("ready"));
     expect(result.current.projection?.snapshot.revisionId).toBe("rev-2");
+  });
+
+  const glowkindle = {
+    nodeId: "npc:glowkindle",
+    label: "Glowkindle",
+    kind: "npc",
+    role: "merchant",
+    aliases: ["Glow"],
+    sourceDomains: ["recap"],
+    evidenceBadges: [],
+    adjacency: [],
+    suggestedExpansions: [],
+    anchoredToFocusSession: true,
+    summary: "A friendly merchant.",
+    campaignScope: "longmont-c2",
+    evidenceRefIds: [],
+    sourceArtifactIds: [],
+  };
+
+  function useProjectionAndChannel() {
+    const lens = useWorldGraphLens();
+    return {
+      projection: useWorldGraphLensProjection(),
+      channel: useOptionalWorldGraphLensInformationChannel(),
+      setSelectedCampaignIds: lens.setSelectedCampaignIds,
+    };
+  }
+
+  it("publishes one Surface Information channel per exact request and disposes it on replacement", async () => {
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) =>
+      headProjection({
+        campaignId: request.campaignId,
+        worldId: "eldyrwild",
+        revisionId: `rev-${request.campaignId}`,
+        headRevisionId: `rev-${request.campaignId}`,
+      }),
+    );
+
+    const { result } = renderHook(() => useProjectionAndChannel(), { wrapper });
+
+    await waitFor(() => expect(result.current.channel).not.toBeNull());
+    const first = result.current.channel!;
+    expect(first.descriptor.authority).toBe("dungeonmind");
+    expect(first.descriptor.providerId).toBe("world_graph_lens_projection");
+    expect(first.descriptor.subject).toEqual({ kind: "world", id: "eldyrwild" });
+    expect(first.descriptor.scope).toEqual(
+      expect.arrayContaining([
+        { kind: "campaign", id: "longmont-c2" },
+        { kind: "scope_mode", id: "campaign" },
+        { kind: "admissibility", id: "gm" },
+      ]),
+    );
+    expect(JSON.stringify(first.descriptor)).not.toMatch(/rev-/);
+
+    const staleTicket = first.beginObservation({ publishLoading: false });
+    act(() => {
+      result.current.setSelectedCampaignIds(["longmont-c1"]);
+    });
+    await waitFor(() => expect(result.current.channel).not.toBe(first));
+    expect(result.current.channel).not.toBeNull();
+    expect(result.current.channel!.descriptor.scope).toEqual(
+      expect.arrayContaining([{ kind: "campaign", id: "longmont-c1" }]),
+    );
+    expect(
+      first.commit(staleTicket!, {
+        status: "ready",
+        value: headProjection({}, { nodes: [glowkindle] }),
+        revision: { kind: "exact", value: "rev-late" },
+        provenance: [],
+        inspectionTargets: [],
+        diagnostics: [],
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a late same-scope response on the Surface Information channel", async () => {
+    let resolveA!: (value: WorldGraphProjection) => void;
+    let resolveB!: (value: WorldGraphProjection) => void;
+    const deferredA = new Promise<WorldGraphProjection>((resolve) => {
+      resolveA = resolve;
+    });
+    const deferredB = new Promise<WorldGraphProjection>((resolve) => {
+      resolveB = resolve;
+    });
+    vi.spyOn(liveApi, "postWorldGraphProjection")
+      .mockReturnValueOnce(deferredA)
+      .mockReturnValueOnce(deferredB);
+
+    let refreshToken = "r0";
+    const { result, rerender } = renderHook(() => useProjectionAndChannel(), {
+      wrapper: ({ children }: { children: ReactNode }) =>
+        createElement(
+          WorldGraphLensProvider,
+          { planCampaignId: "longmont-c2" },
+          createElement(
+            WorldGraphLensProjectionProvider,
+            {
+              defaultCampaignId: "longmont-c2",
+              revisionRefreshToken: refreshToken,
+            },
+            children,
+          ),
+        ),
+    });
+
+    await waitFor(() => expect(result.current.channel).not.toBeNull());
+    const channel = result.current.channel!;
+    const descriptor = channel.descriptor;
+
+    refreshToken = "r1";
+    rerender();
+    expect(result.current.channel).toBe(channel);
+
+    await act(async () => {
+      const campaignId = result.current.projection.request?.campaignId ?? "longmont-c2";
+      resolveB(
+        headProjection(
+          { campaignId, revisionId: "rev-B", headRevisionId: "rev-B" },
+          { nodes: [glowkindle] },
+        ),
+      );
+    });
+    await waitFor(() => expect(channel.getSnapshot().state.status).toBe("ready"));
+    const accepted = channel.getSnapshot();
+    if (accepted.state.status === "ready") {
+      expect(accepted.state.revision).toEqual({ kind: "exact", value: "rev-B" });
+    }
+
+    await act(async () => {
+      const campaignId = result.current.projection.request?.campaignId ?? "longmont-c2";
+      resolveA(
+        headProjection(
+          { campaignId, revisionId: "rev-A", headRevisionId: "rev-A" },
+          { nodes: [glowkindle] },
+        ),
+      );
+    });
+    expect(result.current.channel).toBe(channel);
+    expect(channel.descriptor).toBe(descriptor);
+    expect(channel.getSnapshot()).toBe(accepted);
+    expect(channel.getSnapshot().generation).toBe(accepted.generation);
+  });
+
+  it("treats an equivalent verified refresh as a new observation generation", async () => {
+    const payload = headProjection(
+      { revisionId: "rev-same", headRevisionId: "rev-same" },
+      { nodes: [glowkindle] },
+    );
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(payload);
+
+    let refreshToken = "r0";
+    const { result, rerender } = renderHook(() => useProjectionAndChannel(), {
+      wrapper: ({ children }: { children: ReactNode }) =>
+        createElement(
+          WorldGraphLensProvider,
+          { planCampaignId: "longmont-c2" },
+          createElement(
+            WorldGraphLensProjectionProvider,
+            {
+              defaultCampaignId: "longmont-c2",
+              revisionRefreshToken: refreshToken,
+            },
+            children,
+          ),
+        ),
+    });
+
+    await waitFor(() => expect(result.current.channel?.getSnapshot().state.status).toBe("ready"));
+    const channel = result.current.channel!;
+    const first = channel.getSnapshot();
+    refreshToken = "r1";
+    rerender();
+    await waitFor(() => expect(channel.getSnapshot().generation).toBeGreaterThan(first.generation));
+    expect(result.current.channel).toBe(channel);
+  });
+
+  it("does not introduce a second World Graph request path", async () => {
+    const spy = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(headProjection());
+    const { result } = renderHook(() => useProjectionAndChannel(), { wrapper });
+    await waitFor(() => expect(result.current.projection.projectionState).toBe("ready"));
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

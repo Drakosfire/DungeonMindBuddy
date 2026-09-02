@@ -11,6 +11,10 @@ import {
 import { LiveApiError, postWorldGraphProjection } from "../api/liveApi";
 import type { WorldGraphProjection, WorldGraphProjectionRequest } from "../api/types";
 import type { GraphReferenceProjectionState } from "../graphReference/types";
+import {
+  createSurfaceInformationChannel,
+  type SurfaceInformationChannel,
+} from "../surfaceInformation";
 import { worldGraphProjectionRequestKey } from "../worldGraph/worldGraphProjectionRequestKey";
 import { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
 import { isFocusValidationBlocking } from "./planGraphFocusOptions";
@@ -20,6 +24,10 @@ import {
   buildWorldGraphLensProjectionRequest,
   getWorldGraphContextFromLens,
 } from "./worldGraphContextFromLens";
+import {
+  mapWorldGraphLensObservation,
+  worldGraphLensInformationDescriptor,
+} from "./worldGraphLensSurfaceInformation";
 
 export { WORLD_GRAPH_REVISION_COMMITTED_EVENT };
 
@@ -51,6 +59,23 @@ type StoredProjectionLoad = {
 };
 
 const WorldGraphLensProjectionContext = createContext<WorldGraphLensProjectionValue | null>(null);
+const WorldGraphLensInformationChannelContext = createContext<
+  SurfaceInformationChannel<WorldGraphProjection> | null
+>(null);
+
+export function WorldGraphLensInformationChannelProvider({
+  channel,
+  children,
+}: {
+  channel: SurfaceInformationChannel<WorldGraphProjection> | null;
+  children: ReactNode;
+}) {
+  return createElement(WorldGraphLensInformationChannelContext.Provider, { value: channel }, children);
+}
+
+export function useOptionalWorldGraphLensInformationChannel(): SurfaceInformationChannel<WorldGraphProjection> | null {
+  return useContext(WorldGraphLensInformationChannelContext);
+}
 
 let projectionLoadGeneration = 0;
 
@@ -146,6 +171,24 @@ export function WorldGraphLensProjectionProvider({
     [desiredRequest],
   );
 
+  const [informationChannel, setInformationChannel] = useState<
+    SurfaceInformationChannel<WorldGraphProjection> | null
+  >(null);
+
+  useEffect(() => {
+    if (!desiredRequest || !desiredRequestKey) {
+      setInformationChannel(null);
+      return;
+    }
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(desiredRequest),
+    );
+    setInformationChannel(channel);
+    return () => {
+      channel.dispose();
+    };
+  }, [desiredRequest, desiredRequestKey]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onRevisionCommitted = () => {
@@ -164,7 +207,7 @@ export function WorldGraphLensProjectionProvider({
 
     async function loadProjection() {
       if (focusValidationPending) {
-        // Desired key still published; stored bytes become incoherent → loading.
+        informationChannel?.beginObservation();
         return;
       }
 
@@ -173,9 +216,15 @@ export function WorldGraphLensProjectionProvider({
         return;
       }
 
+      if (!informationChannel) {
+        return;
+      }
+
       const loadRequest = desiredRequest;
       const loadRequestKey = desiredRequestKey;
       const loadRefreshKey = projectionRefreshKey;
+      const loadChannel = informationChannel;
+      const ticket = loadChannel?.beginObservation() ?? null;
       const startMark = markProjectionLoadStart();
       const focusSessionId =
         context.focus.kind === "session" ? context.focus.sessionId : null;
@@ -187,8 +236,20 @@ export function WorldGraphLensProjectionProvider({
           focusSessionId,
         });
 
+      const commitObservation = (
+        response: WorldGraphProjection | null,
+        error?: unknown,
+      ): void => {
+        if (!loadChannel || !ticket) return;
+        loadChannel.commit(
+          ticket,
+          mapWorldGraphLensObservation({ request: loadRequest, response, error }),
+        );
+      };
+
       try {
         const response = await postWorldGraphProjection(loadRequest);
+        commitObservation(response);
         if (cancelled) return;
         const mismatch = verifyWorldGraphProjectionResponse({
           request: loadRequest,
@@ -220,6 +281,7 @@ export function WorldGraphLensProjectionProvider({
           lastProjectionLoadOutcome: "ready",
         });
       } catch (error) {
+        commitObservation(null, error);
         if (cancelled) return;
         if (isWorldGraphUnavailable(error)) {
           setStored({
@@ -257,6 +319,7 @@ export function WorldGraphLensProjectionProvider({
     desiredRequest,
     desiredRequestKey,
     focusValidationPending,
+    informationChannel,
     projectionRefreshKey,
   ]);
 
@@ -315,7 +378,11 @@ export function WorldGraphLensProjectionProvider({
   return createElement(
     WorldGraphLensProjectionContext.Provider,
     { value },
-    children,
+    createElement(
+      WorldGraphLensInformationChannelContext.Provider,
+      { value: informationChannel },
+      children,
+    ),
   );
 }
 
