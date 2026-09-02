@@ -166,6 +166,23 @@ def test_ingest_not_ready_when_env_root_missing(
     assert report.status == "NOT READY"
 
 
+def test_ingest_not_ready_when_env_root_escapes_repo(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
+    monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
+    monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", "../outside")
+
+    report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
+    ingest = next(check for check in report.checks if check.id == "ingest_registry")
+    assert ingest.status == "NOT_READY"
+    assert report.status == "NOT READY"
+    assert "unsafe" in ingest.summary.lower() or "unsafe" in str(
+        ingest.details.get("reason", "")
+    ).lower()
+
+
 def test_format_report_preserves_redacted_dsn_host(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

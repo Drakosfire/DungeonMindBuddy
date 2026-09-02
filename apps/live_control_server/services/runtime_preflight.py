@@ -123,11 +123,17 @@ def _format_detail_value(value: PreflightDetailValue) -> str:
     if isinstance(value, list):
         if not value:
             return "0"
-        if isinstance(value[0], dict):
-            return "\n".join(
-                ", ".join(f"{k}={v}" for k, v in item.items()) for item in value
-            )
-        return ", ".join(str(item) for item in value)
+        formatted: list[str] = []
+        dict_rows = False
+        for item in value:
+            if isinstance(item, dict):
+                dict_rows = True
+                formatted.append(
+                    ", ".join(f"{k}={v}" for k, v in item.items())
+                )
+            else:
+                formatted.append(str(item))
+        return "\n".join(formatted) if dict_rows else ", ".join(formatted)
     return str(value)
 
 
@@ -352,7 +358,18 @@ def _check_campaign_registry() -> RuntimePreflightCheck:
 
 
 def _check_ingest_registry(repo_root: Path) -> RuntimePreflightCheck:
-    roots = inspect_graph_ingest_registry_roots(repo_root)
+    try:
+        roots = inspect_graph_ingest_registry_roots(repo_root)
+    except GraphIngestRunRegistryError as exc:
+        return RuntimePreflightCheck(
+            id="ingest_registry",
+            label="Ingest registry",
+            required=True,
+            status="NOT_READY",
+            summary="Configured graph-ingest root is unsafe or invalid",
+            details={"reason": str(exc)},
+        )
+
     root_lines = [
         f"{root.configured_path} exists={root.exists} readable={root.readable}"
         for root in roots
@@ -385,7 +402,18 @@ def _check_ingest_registry(repo_root: Path) -> RuntimePreflightCheck:
 
     existing_roots = [root for root in roots if root.exists]
     if existing_roots:
-        health = inspect_graph_ingest_registry_health(repo_root)
+        try:
+            health = inspect_graph_ingest_registry_health(repo_root)
+        except GraphIngestRunRegistryError as exc:
+            details["reason"] = str(exc)
+            return RuntimePreflightCheck(
+                id="ingest_registry",
+                label="Ingest registry",
+                required=True,
+                status="NOT_READY",
+                summary="Graph-ingest registry health inspection failed",
+                details=details,
+            )
         details["manifest_files_found"] = health.manifest_files_found
         details["valid_manifests"] = health.valid_manifests
         details["invalid_manifests"] = health.invalid_manifests

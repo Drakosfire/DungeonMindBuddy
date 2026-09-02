@@ -252,6 +252,13 @@ Buddy behavior:     list_world_heads → discovers worlds/heads on configured DS
   repository → failed PostgreSQL connect without mocking `list_world_heads`.
 - `pyproject.toml` / `uv.lock` are explicitly in §4 write lease for #50 pin.
 
+### Review Cycle 5 repair targets
+
+- Pyright list-union narrowing in `_format_detail_value` is a merge-floor defect
+  for this PR-created file; fix it rather than classifying it as baseline debt.
+- Unsafe ingest-root configuration (`..` / repo-escape) must become typed
+  ingest `NOT_READY`, not an uncaught `GraphIngestRunRegistryError`.
+
 ---
 
 # §3 Observable paths and adversarial sequences
@@ -945,6 +952,17 @@ Record:
     the gap — now surfaced by `inspect_graph_ingest_registry_health()`.
 14. **SI-2:** Not implemented; remains named successor.
 15. **Feature freeze:** Unchanged.
+
+## §9 Review Cycle 5 repair (this commit)
+
+1. **Review cycle / head:** Cycle 5 repair; SHA recorded by this commit.
+2. **Pyright:** `_format_detail_value` no longer indexes a `list[str] | list[dict]` union;
+   `uv run --with pyright pyright` on the PR-created service files is clean.
+3. **Unsafe ingest root:** `inspect_graph_ingest_registry_roots()` failures are caught
+   before discovery; `DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT=../outside` reports ingest
+   `NOT_READY` (`test_ingest_not_ready_when_env_root_escapes_repo`).
+4. **Verification floor:** pytest 19 passed, 3 skipped; ruff clean; pyright 0 errors;
+   `git diff --check` clean.
 
 ---
 
