@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — Surface Information Contract v1
 
 **Created:** 2026-09-02
-**Status:** ACTIVE — SURFACE-INTEGRATION SI-2
+**Status:** COMPLETE — merged PR #676 @ `cd6b20ffe151dc43dc21cb71ed77208389059566`
 **Canonical handoff path:** `Docs/Plans/HANDOFF-SURFACE-INTEGRATION-surface-information-contract-v1.md`
 **Conversation/workstream:** `SURFACE-INTEGRATION / SI-2`
 **Flow / owner:** `SURFACE-INTEGRATION`
@@ -31,6 +31,16 @@ pr_body_template: |
 **Base revision:** `c77260b044873f3ccfb5b77e7fce643539ca9abf`
 **Predecessor:** PR #675 / SI-1 merged at `c77260b044873f3ccfb5b77e7fce643539ca9abf`; final implementation head `e71b637a3d09da439d069a7eafeb2f4be8dc31a2`; six formal review cycles
 **PR title:** `SURFACE-INTEGRATION: establish surface information contract v1`
+
+**Completion record (SI-3 predecessor sync, 2026-09-02):**
+
+```text
+PR #676 merged
+merge SHA            cd6b20ffe151dc43dc21cb71ed77208389059566
+final implementation 1ced8ea147f8119a424e9f44787cb7246ddb969d
+formal review cycles 2
+successor            SI-3 Plan graph information reference implementation
+```
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md).
 > Parent program: [`ROADMAP-surface-integration.md`](../Roadmaps/ROADMAP-surface-integration.md).

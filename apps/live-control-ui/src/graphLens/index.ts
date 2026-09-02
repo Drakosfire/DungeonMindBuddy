@@ -69,7 +69,9 @@ export { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGra
 
 export {
   WORLD_GRAPH_REVISION_COMMITTED_EVENT,
+  WorldGraphLensInformationChannelProvider,
   WorldGraphLensProjectionProvider,
+  useOptionalWorldGraphLensInformationChannel,
   useOptionalWorldGraphLensProjection,
   useWorldGraphLensProjection,
   type WorldGraphLensProjectionValue,

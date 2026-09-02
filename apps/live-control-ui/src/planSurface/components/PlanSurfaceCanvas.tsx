@@ -1,15 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Content, Editor } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
 import type { AppChromeToolsGeneration } from "../../chrome/AppChrome";
 import {
   GraphNodeChipRuntimeProvider,
-  GraphReferenceSearch,
   insertMarkdownReference,
-  referenceFromGraphNode,
   type GraphNodeChipRuntimeValue,
-  type GraphReferenceSearchItem,
 } from "../../graphReference";
 import { defaultMarkdownDocumentAdapter } from "../../tiptap/MarkdownDocumentAdapter";
 import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
@@ -42,13 +39,12 @@ import {
 } from "../planBlankAuthoringState";
 import { usePlanBlankAuthoring } from "../usePlanBlankAuthoring";
 import type { GraphProjectionNodeView } from "../../api/types";
-import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import { extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
 import { useProjection } from "../projection/projectionContext";
 import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
-import { formatReviewCampaignLabel } from "../sessionCampaignContext";
+import { PlanWorldGraphObjectsPanel } from "./PlanWorldGraphObjectsPanel";
 import { glanceOnlyForGraphReference } from "../../graphReference/openGraphReferencePolicy";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import "../../tiptap/prepMarkdownThemes.css";
@@ -63,6 +59,68 @@ export function canSavePlanningDocument(document: {
 }): boolean {
   if (document.kind === "runbook") return true;
   return document.targetRelpath != null && document.targetRelpath !== TBD_PLAN_PATH;
+}
+
+export interface PlanGraphInsertEditorGate {
+  editor: Editor | null;
+  isLocked: boolean;
+  editorInteractive: boolean;
+}
+
+export function isPlanGraphInsertEditorLive(input: PlanGraphInsertEditorGate): boolean {
+  return Boolean(input.editor) && !input.isLocked && input.editorInteractive;
+}
+
+export function insertPlanGraphReferenceIfLive(input: {
+  getGate: () => PlanGraphInsertEditorGate;
+  reference: RunbookReferenceAttrs;
+  insert: (editor: Editor, reference: RunbookReferenceAttrs) => void;
+}): void {
+  const gate = input.getGate();
+  if (!isPlanGraphInsertEditorLive(gate) || gate.editor == null) return;
+  input.insert(gate.editor, input.reference);
+}
+
+const CLOSED_PLAN_GRAPH_INSERT_GATE: PlanGraphInsertEditorGate = {
+  editor: null,
+  isLocked: true,
+  editorInteractive: false,
+};
+
+/**
+ * Visible insertEnabled follows the current render. Retained Insert callbacks
+ * read the last committed gate so a speculative unlock cannot leak into the
+ * still-locked committed UI. Unmount cleanup closes the gate so AppChrome-retained
+ * editorTools cannot insert through a removed editor.
+ */
+export function useCommittedPlanGraphInsertGate(input: PlanGraphInsertEditorGate): {
+  insertEnabled: boolean;
+  isInsertCurrentlyEnabled: () => boolean;
+  getCommittedGate: () => PlanGraphInsertEditorGate;
+} {
+  const gateRef = useRef<PlanGraphInsertEditorGate>(CLOSED_PLAN_GRAPH_INSERT_GATE);
+
+  useLayoutEffect(() => {
+    gateRef.current = {
+      editor: input.editor,
+      isLocked: input.isLocked,
+      editorInteractive: input.editorInteractive,
+    };
+    return () => {
+      gateRef.current = CLOSED_PLAN_GRAPH_INSERT_GATE;
+    };
+  }, [input.editor, input.editorInteractive, input.isLocked]);
+
+  const insertEnabled = isPlanGraphInsertEditorLive(input);
+
+  const isInsertCurrentlyEnabled = useCallback(
+    () => isPlanGraphInsertEditorLive(gateRef.current),
+    [],
+  );
+
+  const getCommittedGate = useCallback(() => gateRef.current, []);
+
+  return { insertEnabled, isInsertCurrentlyEnabled, getCommittedGate };
 }
 
 function authoringIdentityLabel(document: PlanDocumentDescriptor): string {
@@ -87,12 +145,6 @@ interface PlanSurfaceCanvasProps {
     retainedCreateId: string | null;
     error: string | null;
   }) => void;
-}
-
-function nodeScopeLabel(node: GraphProjectionNodeView): string {
-  const scope = node.campaign_scope?.trim();
-  if (!scope) return "World";
-  return formatReviewCampaignLabel(scope);
 }
 
 export function PlanSurfaceCanvas(props: PlanSurfaceCanvasProps) {
@@ -148,7 +200,6 @@ function PlanDurableSurfaceCanvas({
     resolvePlanReference,
     projection,
     projectionState,
-    projectionError,
   } = usePlanGraphReferenceResolver();
   const editorShellRef = useRef<HTMLDivElement | null>(null);
 
@@ -231,90 +282,36 @@ function PlanDurableSurfaceCanvas({
 
   const planPasteExtensions = useMemo(() => [SemanticMarkdownPaste], []);
 
-  const insertRunbookReference = useCallback(
-    (attrs: RunbookReferenceAttrs) => {
-      insertMarkdownReference(editor, attrs);
-    },
-    [editor],
-  );
+  const {
+    insertEnabled: insertGraphReferenceEnabled,
+    isInsertCurrentlyEnabled,
+    getCommittedGate,
+  } = useCommittedPlanGraphInsertGate({
+    editor,
+    isLocked,
+    editorInteractive,
+  });
 
-  const projectionNodes = useMemo(
-    () => projection?.nodes.map((node) => adaptWorldGraphNodeForPlanCard(node)) ?? [],
-    [projection],
-  );
-
-  const graphReferenceSearchItems = useMemo<GraphReferenceSearchItem[]>(
-    () =>
-      projectionNodes.map((node) => ({
-        nodeId: node.node_id,
-        label: node.label,
-        kind: node.kind,
-        role: node.role,
-        summary: node.summary ?? null,
-        aliases: node.aliases ?? [],
-        scopeLabel: nodeScopeLabel(node),
-        reference: referenceFromGraphNode(node),
-        nodeView: node,
-      })),
-    [projectionNodes],
-  );
-
-  const handleViewGraphReference = useCallback(
-    (item: GraphReferenceSearchItem) => {
-      const graphScope = extractExactGraphReferenceScope(projection);
-      if (!graphScope) {
-        openGraphReference({
-          resolution: {
-            kind: "error",
-            locator: `dmb-node:${item.nodeId}`,
-            reference: item.reference,
-            projectionState,
-            message:
-              "World Graph projection snapshot lacks exact world, campaign, or revision scope; graph search open blocked.",
-          },
-          projectionState,
-        });
-        return;
-      }
-
-      openGraphReference({
-        resolution: {
-          kind: "resolved_graph",
-          locator: `dmb-node:${item.nodeId}`,
-          reference: item.reference,
-          graphObject: buildGraphObjectCardFromNodeView(item.nodeView),
-          graphNodeId: item.nodeId,
-          graphScope,
-          projectionState,
-          message: `Resolved graph node ${item.label}.`,
-        },
-        projectionState,
+  const handleInsertGraphReference = useCallback(
+    (reference: RunbookReferenceAttrs) => {
+      insertPlanGraphReferenceIfLive({
+        getGate: getCommittedGate,
+        reference,
+        insert: insertMarkdownReference,
       });
     },
-    [openGraphReference, projection, projectionState],
+    [getCommittedGate],
   );
 
-  const graphRefSearchPanel = useMemo(
+  const worldGraphObjectsPanel = useMemo(
     () => (
-      <GraphReferenceSearch
-        items={graphReferenceSearchItems}
-        projectionState={projectionState}
-        projectionError={projectionError}
-        insertDisabled={!editor || isLocked || !editorInteractive}
-        onInsert={(item) => insertRunbookReference(item.reference)}
-        onView={handleViewGraphReference}
+      <PlanWorldGraphObjectsPanel
+        insertEnabled={insertGraphReferenceEnabled}
+        isInsertCurrentlyEnabled={isInsertCurrentlyEnabled}
+        onInsertReference={handleInsertGraphReference}
       />
     ),
-    [
-      editor,
-      editorInteractive,
-      graphReferenceSearchItems,
-      handleViewGraphReference,
-      insertRunbookReference,
-      isLocked,
-      projectionError,
-      projectionState,
-    ],
+    [handleInsertGraphReference, insertGraphReferenceEnabled, isInsertCurrentlyEnabled],
   );
 
   const copyMarkdown = useCallback(async () => {
@@ -401,7 +398,7 @@ function PlanDurableSurfaceCanvas({
         title: "World Graph objects",
         defaultOpen: true,
         actions: [],
-        panel: graphRefSearchPanel,
+        panel: worldGraphObjectsPanel,
       },
       {
         id: "plan-insert-blocks",
@@ -476,12 +473,12 @@ function PlanDurableSurfaceCanvas({
     copyMarkdown,
     editor,
     editorInteractive,
-    graphRefSearchPanel,
     insertCallout,
     insertDecisionConsequence,
     isLocked,
     removeActiveBlock,
     toggleLock,
+    worldGraphObjectsPanel,
   ]);
 
   useEffect(() => {
