@@ -23,6 +23,11 @@ import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectio
 
 export interface PlanWorldGraphObjectsPanelProps {
   insertEnabled: boolean;
+  /**
+   * Live Plan editor gate. When provided, Insert re-reads this at invocation
+   * instead of the render-captured {@link insertEnabled} boolean.
+   */
+  isInsertCurrentlyEnabled?: () => boolean;
   onInsertReference: (reference: RunbookReferenceAttrs) => void;
 }
 
@@ -159,10 +164,10 @@ function viewFromLiveChannel(
 function insertFromLiveChannel(
   channel: SurfaceInformationChannel<WorldGraphProjection>,
   item: GraphReferenceSearchItem,
-  insertEnabled: boolean,
+  isInsertCurrentlyEnabled: () => boolean,
   onInsertReference: (reference: RunbookReferenceAttrs) => void,
 ): void {
-  if (!insertEnabled) return;
+  if (!isInsertCurrentlyEnabled()) return;
   const state = liveWorldGraphState(channel);
   if (state.status !== "ready") return;
   const selected = state.value.nodes.find((node) => node.nodeId === item.nodeId);
@@ -173,6 +178,7 @@ function insertFromLiveChannel(
 function PlanWorldGraphObjectsChannelPanel({
   channel,
   insertEnabled,
+  isInsertCurrentlyEnabled,
   onInsertReference,
 }: PlanWorldGraphObjectsPanelProps & {
   channel: SurfaceInformationChannel<WorldGraphProjection>;
@@ -194,9 +200,14 @@ function PlanWorldGraphObjectsChannelPanel({
 
   const handleInsert = useCallback(
     (item: GraphReferenceSearchItem) => {
-      insertFromLiveChannel(channel, item, insertEnabled, onInsertReference);
+      insertFromLiveChannel(
+        channel,
+        item,
+        isInsertCurrentlyEnabled ?? (() => insertEnabled),
+        onInsertReference,
+      );
     },
-    [channel, insertEnabled, onInsertReference],
+    [channel, insertEnabled, isInsertCurrentlyEnabled, onInsertReference],
   );
 
   return (
@@ -225,6 +236,7 @@ function PlanWorldGraphObjectsChannelPanel({
 
 export function PlanWorldGraphObjectsPanel({
   insertEnabled,
+  isInsertCurrentlyEnabled,
   onInsertReference,
 }: PlanWorldGraphObjectsPanelProps) {
   const channel = useOptionalWorldGraphLensInformationChannel();
@@ -245,6 +257,7 @@ export function PlanWorldGraphObjectsPanel({
     <PlanWorldGraphObjectsChannelPanel
       channel={channel}
       insertEnabled={insertEnabled}
+      isInsertCurrentlyEnabled={isInsertCurrentlyEnabled}
       onInsertReference={onInsertReference}
     />
   );

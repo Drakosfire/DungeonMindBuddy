@@ -8,6 +8,7 @@ import { createSurfaceInformationChannel } from "../../surfaceInformation";
 import { worldGraphLensInformationDescriptor } from "../../graphLens/worldGraphLensSurfaceInformation";
 import type { GraphReferenceSearchItem } from "../../graphReference/types";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
+import { insertPlanGraphReferenceIfLive } from "./PlanSurfaceCanvas";
 import { PlanWorldGraphObjectsPanel } from "./PlanWorldGraphObjectsPanel";
 
 const openGraphReference = vi.fn();
@@ -110,11 +111,13 @@ function renderPanel(
   channel: ReturnType<typeof createSurfaceInformationChannel<WorldGraphProjection>> | null,
   onInsertReference = vi.fn(),
   insertEnabled = true,
+  isInsertCurrentlyEnabled?: () => boolean,
 ) {
   return render(
     <WorldGraphLensInformationChannelProvider channel={channel}>
       <PlanWorldGraphObjectsPanel
         insertEnabled={insertEnabled}
+        isInsertCurrentlyEnabled={isInsertCurrentlyEnabled}
         onInsertReference={onInsertReference}
       />
     </WorldGraphLensInformationChannelProvider>,
@@ -455,5 +458,88 @@ describe("PlanWorldGraphObjectsPanel", () => {
     });
     retainedInsert!(retainedItem!);
     expect(onInsertReference).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when a retained Insert callback runs after the live Plan editor gate closes", () => {
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(request),
+    );
+    const onInsertReference = vi.fn();
+    const editorGate = { enabled: true };
+    renderPanel(channel, onInsertReference, true, () => editorGate.enabled);
+    const ticket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(ticket!, {
+        status: "ready",
+        value: projection({ nodes: [glowkindleNode] }),
+        ...observed,
+      });
+    });
+    const retainedInsert = retainedSearch.onInsert!;
+    const retainedItem = retainedSearch.items[0]!;
+    editorGate.enabled = false;
+    retainedInsert(retainedItem);
+    expect(onInsertReference).not.toHaveBeenCalled();
+  });
+});
+
+describe("insertPlanGraphReferenceIfLive", () => {
+  const reference = {
+    kind: "ref" as const,
+    refType: "graph-node",
+    refId: "npc:glowkindle",
+    label: "Glowkindle",
+  } satisfies RunbookReferenceAttrs;
+
+  it("inserts through the current editor when the live gate is open", () => {
+    const editor = { id: "live-editor" } as never;
+    const insert = vi.fn();
+    const gate = {
+      editor,
+      isLocked: false,
+      editorInteractive: true,
+    };
+    const retained = (next: typeof reference) =>
+      insertPlanGraphReferenceIfLive({
+        getGate: () => gate,
+        reference: next,
+        insert,
+      });
+    retained(reference);
+    expect(insert).toHaveBeenCalledWith(editor, reference);
+  });
+
+  it("does not insert when a retained callback runs after lock or a lost editor", () => {
+    const unlockedEditor = { id: "unlocked-editor" } as never;
+    const insert = vi.fn();
+    const gate = {
+      editor: unlockedEditor as { id: string } | null,
+      isLocked: false,
+      editorInteractive: true,
+    };
+    const retained = (next: typeof reference) =>
+      insertPlanGraphReferenceIfLive({
+        getGate: () => ({
+          editor: gate.editor as never,
+          isLocked: gate.isLocked,
+          editorInteractive: gate.editorInteractive,
+        }),
+        reference: next,
+        insert,
+      });
+
+    gate.isLocked = true;
+    retained(reference);
+    expect(insert).not.toHaveBeenCalled();
+
+    gate.isLocked = false;
+    gate.editorInteractive = false;
+    retained(reference);
+    expect(insert).not.toHaveBeenCalled();
+
+    gate.editorInteractive = true;
+    gate.editor = null;
+    retained(reference);
+    expect(insert).not.toHaveBeenCalled();
   });
 });

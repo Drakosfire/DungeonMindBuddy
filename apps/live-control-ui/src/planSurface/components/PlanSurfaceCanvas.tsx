@@ -61,6 +61,28 @@ export function canSavePlanningDocument(document: {
   return document.targetRelpath != null && document.targetRelpath !== TBD_PLAN_PATH;
 }
 
+export function isPlanGraphInsertEditorLive(input: {
+  editor: Editor | null;
+  isLocked: boolean;
+  editorInteractive: boolean;
+}): boolean {
+  return Boolean(input.editor) && !input.isLocked && input.editorInteractive;
+}
+
+export function insertPlanGraphReferenceIfLive(input: {
+  getGate: () => {
+    editor: Editor | null;
+    isLocked: boolean;
+    editorInteractive: boolean;
+  };
+  reference: RunbookReferenceAttrs;
+  insert: (editor: Editor, reference: RunbookReferenceAttrs) => void;
+}): void {
+  const gate = input.getGate();
+  if (!isPlanGraphInsertEditorLive(gate) || gate.editor == null) return;
+  input.insert(gate.editor, input.reference);
+}
+
 function authoringIdentityLabel(document: PlanDocumentDescriptor): string {
   const title = document.title.trim() || "Untitled";
   if (document.kind === "runbook") return `Editing Runbook · ${title}`;
@@ -220,31 +242,40 @@ function PlanDurableSurfaceCanvas({
 
   const planPasteExtensions = useMemo(() => [SemanticMarkdownPaste], []);
 
-  const insertRunbookReference = useCallback(
-    (attrs: RunbookReferenceAttrs) => {
-      insertMarkdownReference(editor, attrs);
-    },
-    [editor],
-  );
+  const graphInsertGateRef = useRef({
+    editor,
+    isLocked,
+    editorInteractive,
+  });
+  graphInsertGateRef.current = { editor, isLocked, editorInteractive };
 
-  const insertGraphReferenceEnabled = Boolean(editor) && !isLocked && editorInteractive;
+  const insertGraphReferenceEnabled = isPlanGraphInsertEditorLive(graphInsertGateRef.current);
+
+  const isInsertCurrentlyEnabled = useCallback(
+    () => isPlanGraphInsertEditorLive(graphInsertGateRef.current),
+    [],
+  );
 
   const handleInsertGraphReference = useCallback(
     (reference: RunbookReferenceAttrs) => {
-      if (!editor || isLocked || !editorInteractive) return;
-      insertRunbookReference(reference);
+      insertPlanGraphReferenceIfLive({
+        getGate: () => graphInsertGateRef.current,
+        reference,
+        insert: insertMarkdownReference,
+      });
     },
-    [editor, editorInteractive, insertRunbookReference, isLocked],
+    [],
   );
 
   const worldGraphObjectsPanel = useMemo(
     () => (
       <PlanWorldGraphObjectsPanel
         insertEnabled={insertGraphReferenceEnabled}
+        isInsertCurrentlyEnabled={isInsertCurrentlyEnabled}
         onInsertReference={handleInsertGraphReference}
       />
     ),
-    [handleInsertGraphReference, insertGraphReferenceEnabled],
+    [handleInsertGraphReference, insertGraphReferenceEnabled, isInsertCurrentlyEnabled],
   );
 
   const copyMarkdown = useCallback(async () => {
