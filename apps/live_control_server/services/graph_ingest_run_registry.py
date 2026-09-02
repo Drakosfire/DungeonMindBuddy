@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -94,6 +95,48 @@ class GraphIngestLatestRunResponse(BaseModel):
     )
     version: str = "0.1"
     run: GraphIngestRunSummary | None = None
+
+
+@dataclass(frozen=True)
+class GraphIngestRegistryRootStatus:
+    configured_path: str
+    resolved_path: str
+    exists: bool
+    readable: bool
+    env_override: bool
+
+
+def inspect_graph_ingest_registry_roots(
+    root: Path | None = None,
+    *,
+    include_eval_roots: bool = False,
+) -> list[GraphIngestRegistryRootStatus]:
+    """Read-only status for configured graph-ingest discovery roots."""
+    repo = (root or repo_root()).resolve()
+    env_root = os.environ.get(GRAPH_INGEST_RUNS_ENV, "").strip()
+    values: list[str] = [env_root] if env_root else list(DEFAULT_GRAPH_INGEST_RUN_ROOTS)
+    if include_eval_roots:
+        values.extend(EVAL_GRAPH_INGEST_RUN_ROOTS)
+    statuses: list[GraphIngestRegistryRootStatus] = []
+    for value in values:
+        search_root = _resolve_repo_contained_path(Path(value), repo, must_exist=False)
+        exists = search_root.exists()
+        readable = False
+        if exists:
+            try:
+                readable = os.access(search_root, os.R_OK)
+            except OSError:
+                readable = False
+        statuses.append(
+            GraphIngestRegistryRootStatus(
+                configured_path=value,
+                resolved_path=search_root.as_posix(),
+                exists=exists,
+                readable=readable,
+                env_override=bool(env_root and value == env_root),
+            )
+        )
+    return statuses
 
 
 def discover_graph_ingest_runs(
