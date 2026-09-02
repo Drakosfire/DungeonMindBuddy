@@ -237,6 +237,12 @@ Until the DungeonMind enumeration slice merges, `--require-world` integration
 witnesses against a live PostgreSQL DSN report `NOT_CONFIGURED` on
 `dungeonmind_world` rather than `NOT_READY` for a missing world.
 
+### Review Cycle 3 merge gate
+
+- Buddy PR #675 merge is blocked until DungeonMind PR #50 merges.
+- After #50 merges: re-pin `dungeonmind` to the accepted SHA, then rerun populated, fresh, and unavailable witnesses.
+- Binding-stage `authority_unavailable` maps to `UNAVAILABLE`, not `INTEGRITY_ERROR` (fixed in this commit).
+
 ---
 
 # §3 Observable paths and adversarial sequences

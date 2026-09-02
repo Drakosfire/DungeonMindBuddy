@@ -272,6 +272,19 @@ def _check_dungeonmind_world(*, require_world: str | None) -> RuntimePreflightCh
             binding = _load_direct_authority_binding(bundle, world.world_id)
             details[f"{world.world_id}_genesis"] = binding.genesis
         except DirectWorldGraphReadError as exc:
+            if exc.code == "authority_unavailable":
+                return RuntimePreflightCheck(
+                    id="dungeonmind_world",
+                    label="DungeonMind World Graph",
+                    required=True,
+                    status="UNAVAILABLE",
+                    summary=str(exc),
+                    details={
+                        **details,
+                        "failed_world": world.world_id,
+                        "failure_stage": "authority_binding",
+                    },
+                )
             integrity_errors.append(f"{world.world_id}: {exc}")
 
     if integrity_errors:

@@ -243,6 +243,44 @@ def test_genesis_receipt_without_head_reports_integrity_error(
     assert world.details.get("required_world") is None
 
 
+def test_binding_authority_unavailable_is_not_integrity_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
+    monkeypatch.setenv(WORLD_GRAPH_AUTHORITY_ENV, "dungeonmind")
+    monkeypatch.setenv(
+        WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV,
+        "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dungeonmind",
+    )
+
+    unavailable_exc = DirectWorldGraphReadError(
+        "DungeonMind authority database is unavailable",
+        code="authority_unavailable",
+        status_code=503,
+    )
+
+    with (
+        patch(
+            "apps.live_control_server.services.runtime_preflight.list_world_heads",
+            return_value=[
+                WorldHeadSummary(world_id="eldyrwild", head_revision_id="rev-1"),
+            ],
+        ),
+        patch(
+            "apps.live_control_server.services.runtime_preflight._load_direct_authority_binding",
+            side_effect=unavailable_exc,
+        ),
+    ):
+        report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
+
+    world = next(check for check in report.checks if check.id == "dungeonmind_world")
+    assert world.status == "UNAVAILABLE"
+    assert world.details.get("failure_stage") == "authority_binding"
+    assert "integrity_errors" not in world.details
+    assert report.status == "NOT READY"
+
+
 def test_require_world_missing_reports_not_ready(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
