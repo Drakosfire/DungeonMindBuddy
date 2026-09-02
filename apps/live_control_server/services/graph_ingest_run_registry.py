@@ -106,6 +106,23 @@ class GraphIngestRegistryRootStatus:
     env_override: bool
 
 
+@dataclass(frozen=True)
+class GraphIngestManifestHealthIssue:
+    manifest_path: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class GraphIngestRegistryHealth:
+    manifest_files_found: int
+    valid_manifests: int
+    invalid_manifests: int
+    issues: tuple[GraphIngestManifestHealthIssue, ...]
+
+
+MAX_REGISTRY_HEALTH_ISSUES = 10
+
+
 def inspect_graph_ingest_registry_roots(
     root: Path | None = None,
     *,
@@ -137,6 +154,42 @@ def inspect_graph_ingest_registry_roots(
             )
         )
     return statuses
+
+
+def inspect_graph_ingest_registry_health(
+    root: Path | None = None,
+    *,
+    include_eval_roots: bool = False,
+    max_issues: int = MAX_REGISTRY_HEALTH_ISSUES,
+) -> GraphIngestRegistryHealth:
+    """Read-only registry health: distinguish corrupt manifests from empty roots."""
+    repo = (root or repo_root()).resolve()
+    manifest_files_found = 0
+    valid_manifests = 0
+    invalid_manifests = 0
+    issues: list[GraphIngestManifestHealthIssue] = []
+
+    for search_root in _graph_ingest_search_roots(
+        repo, include_eval_roots=include_eval_roots
+    ):
+        if not search_root.exists():
+            continue
+        for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
+            manifest_files_found += 1
+            issue = _manifest_health_issue(repo, manifest_path)
+            if issue is None:
+                valid_manifests += 1
+                continue
+            invalid_manifests += 1
+            if len(issues) < max_issues:
+                issues.append(issue)
+
+    return GraphIngestRegistryHealth(
+        manifest_files_found=manifest_files_found,
+        valid_manifests=valid_manifests,
+        invalid_manifests=invalid_manifests,
+        issues=tuple(issues),
+    )
 
 
 def discover_graph_ingest_runs(
@@ -322,6 +375,59 @@ def _graph_ingest_search_roots(
         _resolve_repo_contained_path(Path(value), repo, must_exist=False)
         for value in values
     ]
+
+
+def _manifest_health_issue(
+    repo: Path,
+    manifest_path: Path,
+) -> GraphIngestManifestHealthIssue | None:
+    try:
+        safe_manifest_path = _resolve_repo_contained_path(manifest_path, repo)
+        rel_path = _repo_relative(safe_manifest_path, repo)
+        payload = json.loads(safe_manifest_path.read_text(encoding="utf-8"))
+        manifest = GraphIngestRunManifest.model_validate(payload)
+        validation = validate_graph_ingest_run_manifest(payload)
+        if validation["errors"]:
+            return GraphIngestManifestHealthIssue(
+                manifest_path=rel_path,
+                reason="manifest_validation_failed",
+            )
+        _preview_union_store_path(repo, manifest)
+        return None
+    except json.JSONDecodeError:
+        rel_path = _manifest_health_rel_path(repo, manifest_path)
+        return GraphIngestManifestHealthIssue(
+            manifest_path=rel_path,
+            reason="json_decode_error",
+        )
+    except ValidationError:
+        rel_path = _manifest_health_rel_path(repo, manifest_path)
+        return GraphIngestManifestHealthIssue(
+            manifest_path=rel_path,
+            reason="schema_validation_error",
+        )
+    except GraphIngestRunRegistryError:
+        rel_path = _manifest_health_rel_path(repo, manifest_path)
+        return GraphIngestManifestHealthIssue(
+            manifest_path=rel_path,
+            reason="unsafe_manifest_path",
+        )
+    except (OSError, ValueError):
+        rel_path = _manifest_health_rel_path(repo, manifest_path)
+        return GraphIngestManifestHealthIssue(
+            manifest_path=rel_path,
+            reason="manifest_unreadable",
+        )
+
+
+def _manifest_health_rel_path(repo: Path, manifest_path: Path) -> str:
+    try:
+        return _repo_relative(
+            _resolve_repo_contained_path(manifest_path, repo, must_exist=False),
+            repo,
+        )
+    except (GraphIngestRunRegistryError, OSError, ValueError):
+        return manifest_path.as_posix()
 
 
 def _summarize_manifest(

@@ -244,6 +244,14 @@ Buddy behavior:     list_world_heads → discovers worlds/heads on configured DS
 - Binding-stage `authority_unavailable` maps to `UNAVAILABLE`, not
   `INTEGRITY_ERROR` (fixed in prior commit).
 
+### Review Cycle 4 repair targets
+
+- Malformed ingest manifests must not false-green as `EMPTY`; preflight scans
+  registry health read-only via `inspect_graph_ingest_registry_health()`.
+- Unavailable-DB integration witness must traverse Buddy → DungeonMind
+  repository → failed PostgreSQL connect without mocking `list_world_heads`.
+- `pyproject.toml` / `uv.lock` are explicitly in §4 write lease for #50 pin.
+
 ---
 
 # §3 Observable paths and adversarial sequences
@@ -495,6 +503,8 @@ The implementation agent must perform bounded discovery before finalizing this l
 | Create             | `tests/integration/test_runtime_preflight_postgres.py` or nearest existing PostgreSQL integration suite   | Exact DB/world/head witness                                                                                |
 | Modify if required | `apps/live_control_server/config.py`                                                                      | Consume/expose existing configuration through one stable read seam only; do not change authority semantics |
 | Modify if required | existing Ingest registry discovery module                                                                 | Only to expose current read-only status in a reusable way; no persistence redesign                         |
+| Modify             | `pyproject.toml`                                                                                          | Pin accepted DungeonMind #50 merge SHA (`c8368d65…`) for enumeration contract consumption                  |
+| Modify             | `uv.lock`                                                                                                 | Lockfile for accepted DungeonMind #50 dependency pin                                                       |
 
 ### Bounded discovery exception
 
@@ -906,6 +916,35 @@ Record:
 13. whether any current runtime assumption was discovered to be undocumented;
 14. named successor SI-2 remains false;
 15. whether the feature freeze still stands unchanged.
+
+## §9 Review Cycle 4 handback (repair)
+
+1. **Review cycle / head:** Cycle 4 repair; head recorded at commit push (post-`d7245aa6`).
+2. **§1 invariant:** Satisfied when configured foundations are reachable; corrupt ingest manifests
+   and unreachable authority DB no longer false-green.
+3. **Canonical command:** `uv run python scripts/preflight_surface_runtime.py`
+4. **Status vocabulary:** `READY | EMPTY | NOT_CONFIGURED | UNAVAILABLE | INTEGRITY_ERROR | NOT_READY`
+   overall `READY | NOT READY`.
+5. **Checks:** required — app_state, dungeonmind_world, ingest_registry; informational —
+   campaign_registry, source_roots.
+6. **Populated dev witness:** `.env` loaded → APP-STATE READY; DungeonMind READY with 2 worlds
+   (`eldyrwild`, `of-conks-cons`) and genesis bindings; ingest NOT_READY (missing default root);
+   overall NOT READY (correct OC-024 distinction).
+7. **Adversarial witnesses:** `test_require_world_missing_on_fresh_database` (truncated migrated
+   DB, no mock) → NOT_READY + `required_world=eldyrwild`; `test_dungeonmind_unavailable_dsn`
+   (port 59999, no mock) → UNAVAILABLE through full repository stack.
+8. **Read-only proof:** `test_postgres_preflight_read_only_with_application_state` runs preflight
+   twice; DungeonMind counter snapshot unchanged.
+9. **Redaction:** `test_redact_dsn_hides_password`, `test_format_report_preserves_redacted_dsn_host`.
+10. **Changed paths vs §4:** `runtime_preflight.py`, `graph_ingest_run_registry.py`,
+    `test_runtime_preflight.py`, `test_runtime_preflight_postgres.py`, HANDOFF (§4 lease + §9);
+    `pyproject.toml`/`uv.lock` unchanged this cycle (already pinned #50 at `d7245aa6`).
+11. **#674:** Parked; no leased paths touched.
+12. **Verification floor:** `uv run pytest tests/test_runtime_preflight.py tests/integration/test_runtime_preflight_postgres.py -q` → 18 passed, 3 skipped; `uv run ruff check` → clean; `git diff --check` → clean; `uv run --with pyright pyright` on touched service files → 1 pre-existing error in `runtime_preflight.py:128` (`PreflightDetailValue` list narrowing).
+13. **Undocumented assumption:** None new; ingest discovery silently dropping bad manifests was
+    the gap — now surfaced by `inspect_graph_ingest_registry_health()`.
+14. **SI-2:** Not implemented; remains named successor.
+15. **Feature freeze:** Unchanged.
 
 ---
 

@@ -2,16 +2,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from apps.live_control_server.config import (
     WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV,
     WORLD_GRAPH_AUTHORITY_ENV,
-)
-from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
-    DirectWorldGraphReadError,
 )
 from apps.live_control_server.services.runtime_preflight import run_runtime_preflight
 from application_state.config import APPLICATION_STATE_DSN_ENV
@@ -138,13 +134,7 @@ def test_dungeonmind_unavailable_dsn(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Unreachable authority DSN maps to UNAVAILABLE on dungeonmind_world.
-
-    Pre-enumeration DungeonMind pins fail before connect (NOT_CONFIGURED) or
-    during list_heads (INTEGRITY_ERROR). Patch list_world_heads so this witness
-    exercises runtime_preflight's authority_unavailable → UNAVAILABLE mapping
-    while the env still carries an invalid host/port DSN.
-    """
+    """Unreachable authority DSN maps to UNAVAILABLE through the full repository stack."""
     _configure_env(
         monkeypatch,
         app_state_dsn=application_state_dsn,
@@ -154,16 +144,7 @@ def test_dungeonmind_unavailable_dsn(
     ingest_root = tmp_path / "out/graph_memory/runs"
     ingest_root.mkdir(parents=True)
 
-    unavailable = DirectWorldGraphReadError(
-        "DungeonMind authority is unavailable.",
-        code="authority_unavailable",
-        status_code=503,
-    )
-    with patch(
-        "apps.live_control_server.services.runtime_preflight.list_world_heads",
-        side_effect=unavailable,
-    ):
-        report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
+    report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
 
     world = next(check for check in report.checks if check.id == "dungeonmind_world")
     assert report.status == "NOT READY"

@@ -26,6 +26,7 @@ from apps.live_control_server.services.graph_ingest_run_registry import (
     GRAPH_INGEST_RUNS_ENV,
     GraphIngestRunRegistryError,
     discover_graph_ingest_runs,
+    inspect_graph_ingest_registry_health,
     inspect_graph_ingest_registry_roots,
 )
 from scripts.bootstrap_local_play import inspect_readiness
@@ -382,6 +383,28 @@ def _check_ingest_registry(repo_root: Path) -> RuntimePreflightCheck:
             details=details,
         )
 
+    existing_roots = [root for root in roots if root.exists]
+    if existing_roots:
+        health = inspect_graph_ingest_registry_health(repo_root)
+        details["manifest_files_found"] = health.manifest_files_found
+        details["valid_manifests"] = health.valid_manifests
+        details["invalid_manifests"] = health.invalid_manifests
+        if health.invalid_manifests > 0:
+            details["manifest_issues"] = [
+                f"{issue.manifest_path}: {issue.reason}" for issue in health.issues
+            ]
+            if health.invalid_manifests > len(health.issues):
+                details["manifest_issues_truncated"] = True
+            details["reason"] = "registry contains invalid graph-ingest manifest(s)"
+            return RuntimePreflightCheck(
+                id="ingest_registry",
+                label="Ingest registry",
+                required=True,
+                status="NOT_READY",
+                summary="Graph-ingest registry contains invalid manifest(s)",
+                details=details,
+            )
+
     try:
         runs = discover_graph_ingest_runs(repo_root)
     except GraphIngestRunRegistryError as exc:
@@ -396,7 +419,6 @@ def _check_ingest_registry(repo_root: Path) -> RuntimePreflightCheck:
         )
 
     details["discovered_runs"] = len(runs)
-    existing_roots = [root for root in roots if root.exists]
     if not existing_roots:
         details["reason"] = (
             "configured ingest root does not exist"
