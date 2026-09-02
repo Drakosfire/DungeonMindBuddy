@@ -90,7 +90,8 @@ const CLOSED_PLAN_GRAPH_INSERT_GATE: PlanGraphInsertEditorGate = {
 /**
  * Visible insertEnabled follows the current render. Retained Insert callbacks
  * read the last committed gate so a speculative unlock cannot leak into the
- * still-locked committed UI.
+ * still-locked committed UI. Unmount cleanup closes the gate so AppChrome-retained
+ * editorTools cannot insert through a removed editor.
  */
 export function useCommittedPlanGraphInsertGate(input: PlanGraphInsertEditorGate): {
   insertEnabled: boolean;
@@ -104,6 +105,9 @@ export function useCommittedPlanGraphInsertGate(input: PlanGraphInsertEditorGate
       editor: input.editor,
       isLocked: input.isLocked,
       editorInteractive: input.editorInteractive,
+    };
+    return () => {
+      gateRef.current = CLOSED_PLAN_GRAPH_INSERT_GATE;
     };
   }, [input.editor, input.editorInteractive, input.isLocked]);
 

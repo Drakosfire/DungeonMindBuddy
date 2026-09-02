@@ -11,6 +11,7 @@ import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookRefer
 import {
   insertPlanGraphReferenceIfLive,
   useCommittedPlanGraphInsertGate,
+  type PlanGraphInsertEditorGate,
 } from "./PlanSurfaceCanvas";
 import { PlanWorldGraphObjectsPanel } from "./PlanWorldGraphObjectsPanel";
 
@@ -596,5 +597,60 @@ describe("useCommittedPlanGraphInsertGate", () => {
     expect(duringRenderLiveEnabled.every((enabled) => enabled === false)).toBe(true);
     expect(screen.getByTestId("insert-enabled")).toHaveTextContent("true");
     expect(liveEnabledRef.current()).toBe(true);
+  });
+
+  it("closes the committed gate on unmount so a retained Insert callback fails closed", () => {
+    const reference = {
+      kind: "ref" as const,
+      refType: "graph-node",
+      refId: "npc:glowkindle",
+      label: "Glowkindle",
+    } satisfies RunbookReferenceAttrs;
+    const liveEnabledRef = { current: () => false };
+    const getGateRef = {
+      current: (): PlanGraphInsertEditorGate => ({
+        editor: null,
+        isLocked: true,
+        editorInteractive: false,
+      }),
+    };
+    const insert = vi.fn();
+
+    function UnmountProbe() {
+      const gate = useCommittedPlanGraphInsertGate({
+        editor,
+        isLocked: false,
+        editorInteractive: true,
+      });
+      liveEnabledRef.current = gate.isInsertCurrentlyEnabled;
+      getGateRef.current = gate.getCommittedGate;
+      return <div data-testid="insert-enabled">{String(gate.insertEnabled)}</div>;
+    }
+
+    const view = render(<UnmountProbe />);
+    expect(screen.getByTestId("insert-enabled")).toHaveTextContent("true");
+    expect(liveEnabledRef.current()).toBe(true);
+    insertPlanGraphReferenceIfLive({
+      getGate: getGateRef.current,
+      reference,
+      insert,
+    });
+    expect(insert).toHaveBeenCalledWith(editor, reference);
+    insert.mockClear();
+
+    view.unmount();
+
+    expect(liveEnabledRef.current()).toBe(false);
+    expect(getGateRef.current()).toEqual({
+      editor: null,
+      isLocked: true,
+      editorInteractive: false,
+    });
+    insertPlanGraphReferenceIfLive({
+      getGate: getGateRef.current,
+      reference,
+      insert,
+    });
+    expect(insert).not.toHaveBeenCalled();
   });
 });
