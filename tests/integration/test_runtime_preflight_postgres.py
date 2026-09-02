@@ -10,9 +10,17 @@ from apps.live_control_server.config import (
     WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV,
     WORLD_GRAPH_AUTHORITY_ENV,
 )
+from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+    DirectWorldGraphReadError,
+)
 from apps.live_control_server.services.runtime_preflight import run_runtime_preflight
 from application_state.config import APPLICATION_STATE_DSN_ENV
-from tests._cutover_d3a_blocker_safe_fixtures import TEST_DSN_ENV, require_test_dsn
+from tests._cutover_d3a_blocker_safe_fixtures import (
+    TEST_DSN_ENV,
+    ensure_migrated,
+    require_test_dsn,
+    truncate_dungeonmind,
+)
 
 
 @pytest.fixture
@@ -37,6 +45,18 @@ def _configure_env(
         monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
 
 
+def _snapshot_dungeonmind_counters(dsn: str) -> dict[str, int]:
+    import psycopg
+
+    counters = (
+        "SELECT count(*) FROM dungeonmind.world_graph_heads",
+        "SELECT count(*) FROM dungeonmind.existing_world_adoptions",
+        "SELECT count(*) FROM dungeonmind.reviewed_world_initializations",
+    )
+    with psycopg.connect(dsn) as conn:
+        return {query: conn.execute(query).fetchone()[0] for query in counters}
+
+
 def test_postgres_preflight_read_only_with_application_state(
     application_state_dsn: str,
     cutover_test_dsn: str | None,
@@ -52,28 +72,27 @@ def test_postgres_preflight_read_only_with_application_state(
         world_dsn=cutover_test_dsn,
     )
 
-    import psycopg
-
     ingest_root = tmp_path / "out/graph_memory/runs"
     ingest_root.mkdir(parents=True)
 
-    counters = (
-        "SELECT count(*) FROM dungeonmind.world_graph_heads",
-        "SELECT count(*) FROM dungeonmind.existing_world_adoptions",
-        "SELECT count(*) FROM dungeonmind.reviewed_world_initializations",
-    )
-    with psycopg.connect(cutover_test_dsn) as conn:
-        before = {query: conn.execute(query).fetchone()[0] for query in counters}
+    before = _snapshot_dungeonmind_counters(cutover_test_dsn)
 
-    report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
-    assert report.status in {"READY", "NOT READY"}
+    for _ in range(2):
+        report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
+        assert report.status in {"READY", "NOT READY"}
 
-    world = next(check for check in report.checks if check.id == "dungeonmind_world")
-    assert world.status in {"READY", "EMPTY", "INTEGRITY_ERROR", "NOT_READY", "UNAVAILABLE"}
+        world = next(check for check in report.checks if check.id == "dungeonmind_world")
+        assert world.status in {
+            "READY",
+            "EMPTY",
+            "INTEGRITY_ERROR",
+            "NOT_READY",
+            "NOT_CONFIGURED",
+            "UNAVAILABLE",
+        }
 
-    with psycopg.connect(cutover_test_dsn) as conn:
-        after = {query: conn.execute(query).fetchone()[0] for query in counters}
-    assert after == before
+        after = _snapshot_dungeonmind_counters(cutover_test_dsn)
+        assert after == before
 
 
 def test_require_world_missing_on_fresh_database(
@@ -82,6 +101,13 @@ def test_require_world_missing_on_fresh_database(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    """Fresh migrated DB + --require-world without mocking list_world_heads.
+
+    With the pre-enumeration DungeonMind pin, world discovery raises
+    ``enumeration_unavailable`` → ``NOT_CONFIGURED``. After the enumeration PR
+    merges and Buddy re-pins, the same witness should report ``NOT_READY`` with
+    ``required_world=eldyrwild`` on an empty database.
+    """
     if not cutover_test_dsn:
         pytest.skip(f"{TEST_DSN_ENV} not set")
 
@@ -94,20 +120,63 @@ def test_require_world_missing_on_fresh_database(
     ingest_root = tmp_path / "out/graph_memory/runs"
     ingest_root.mkdir(parents=True)
 
-    with patch(
-        "apps.live_control_server.services.runtime_preflight.list_world_heads",
-        return_value=[],
-    ):
-        report = run_runtime_preflight(
-            repo_root=tmp_path,
-            require_world="eldyrwild",
-            load_env=False,
-        )
+    ensure_migrated(cutover_test_dsn)
+    truncate_dungeonmind(cutover_test_dsn)
+
+    report = run_runtime_preflight(
+        repo_root=tmp_path,
+        require_world="eldyrwild",
+        load_env=False,
+    )
 
     world = next(check for check in report.checks if check.id == "dungeonmind_world")
     assert report.status == "NOT READY"
-    assert world.status == "NOT_READY"
-    assert world.details.get("required_world") == "eldyrwild"
+    if world.status == "NOT_CONFIGURED":
+        assert "enumeration" in world.summary.lower()
+    elif world.status == "NOT_READY":
+        assert world.details.get("required_world") == "eldyrwild"
+    else:
+        pytest.fail(
+            f"expected NOT_CONFIGURED (pre-enumeration pin) or NOT_READY "
+            f"(post-enumeration pin), got {world.status!r}: {world.summary}"
+        )
+
+
+def test_dungeonmind_unavailable_dsn(
+    application_state_dsn: str,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Unreachable authority DSN maps to UNAVAILABLE on dungeonmind_world.
+
+    Pre-enumeration DungeonMind pins fail before connect (NOT_CONFIGURED) or
+    during list_heads (INTEGRITY_ERROR). Patch list_world_heads so this witness
+    exercises runtime_preflight's authority_unavailable → UNAVAILABLE mapping
+    while the env still carries an invalid host/port DSN.
+    """
+    _configure_env(
+        monkeypatch,
+        app_state_dsn=application_state_dsn,
+        world_dsn="postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:59999/dungeonmind",
+    )
+
+    ingest_root = tmp_path / "out/graph_memory/runs"
+    ingest_root.mkdir(parents=True)
+
+    unavailable = DirectWorldGraphReadError(
+        "DungeonMind authority is unavailable.",
+        code="authority_unavailable",
+        status_code=503,
+    )
+    with patch(
+        "apps.live_control_server.services.runtime_preflight.list_world_heads",
+        side_effect=unavailable,
+    ):
+        report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
+
+    world = next(check for check in report.checks if check.id == "dungeonmind_world")
+    assert report.status == "NOT READY"
+    assert world.status == "UNAVAILABLE"
 
 
 def test_cutover_dsn_fixture_guard() -> None:

@@ -571,6 +571,18 @@ class WorldHeadSummary:
     head_revision_id: str | None
 
 
+def _enumeration_ports_available(bundle: PostgresRepositoryBundle) -> bool:
+    """True when the pinned DungeonMind revision exposes read-only enumeration ports."""
+    if not callable(getattr(bundle.world_graph, "list_heads", None)):
+        return False
+    if not callable(getattr(bundle.existing_world_adoptions, "list_world_ids", None)):
+        return False
+    init_repo = getattr(bundle, "reviewed_world_initializations", None)
+    if init_repo is not None and not callable(getattr(init_repo, "list_world_ids", None)):
+        return False
+    return True
+
+
 def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummary]:
     """List authority worlds via DungeonMind repository enumeration ports."""
     from apps.live_control_server import config as buddy_config
@@ -585,6 +597,15 @@ def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummar
         )
     try:
         bundle = PostgresRepositoryBundle(PostgresDatabase(url))
+        if not _enumeration_ports_available(bundle):
+            raise DirectWorldGraphReadError(
+                "DungeonMind authority enumeration ports are unavailable in the "
+                "pinned library revision; merge the DungeonMind enumeration PR "
+                "(feature/authority-read-enumeration-v1) first, then re-pin Buddy.",
+                code="enumeration_unavailable",
+                status_code=503,
+                diagnostics=[{"reason": "enumeration_ports_missing"}],
+            )
         world_ids: set[str] = set()
         for head in bundle.world_graph.list_heads():
             world_ids.add(head.world_id)

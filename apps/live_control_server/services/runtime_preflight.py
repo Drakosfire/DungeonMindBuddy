@@ -247,6 +247,8 @@ def _check_dungeonmind_world(*, require_world: str | None) -> RuntimePreflightCh
             status = "UNAVAILABLE"
         elif exc.code == "authority_integrity":
             status = "INTEGRITY_ERROR"
+        elif exc.code == "enumeration_unavailable":
+            status = "NOT_CONFIGURED"
         else:
             status = "NOT_READY"
         return RuntimePreflightCheck(
@@ -266,16 +268,11 @@ def _check_dungeonmind_world(*, require_world: str | None) -> RuntimePreflightCh
     integrity_errors: list[str] = []
     bundle = PostgresRepositoryBundle(PostgresDatabase(database_url))
     for world in worlds:
-        if not world.head_revision_id:
-            continue
         try:
             binding = _load_direct_authority_binding(bundle, world.world_id)
             details[f"{world.world_id}_genesis"] = binding.genesis
         except DirectWorldGraphReadError as exc:
-            if exc.code == "authority_integrity":
-                integrity_errors.append(f"{world.world_id}: {exc}")
-            else:
-                integrity_errors.append(f"{world.world_id}: {exc}")
+            integrity_errors.append(f"{world.world_id}: {exc}")
 
     if integrity_errors:
         details["integrity_errors"] = integrity_errors

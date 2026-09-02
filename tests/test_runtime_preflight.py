@@ -10,6 +10,7 @@ from apps.live_control_server.config import (
     WORLD_GRAPH_AUTHORITY_ENV,
 )
 from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+    DirectWorldGraphReadError,
     WorldHeadSummary,
 )
 from apps.live_control_server.services.graph_ingest_run_registry import (
@@ -196,6 +197,50 @@ def test_campaign_registry_not_configured_without_contract(
     campaign = next(check for check in report.checks if check.id == "campaign_registry")
     assert campaign.status == "NOT_CONFIGURED"
     assert campaign.required is False
+
+
+def test_genesis_receipt_without_head_reports_integrity_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
+    monkeypatch.setenv(WORLD_GRAPH_AUTHORITY_ENV, "dungeonmind")
+    monkeypatch.setenv(
+        WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV,
+        "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dungeonmind",
+    )
+
+    integrity_exc = DirectWorldGraphReadError(
+        "DungeonMind existing-world adoption receipt exists for world 'orphan' "
+        "but no published head is present.",
+        code="authority_integrity",
+        status_code=500,
+        diagnostics=[{"reason": "genesis_receipt_without_head", "world_id": "orphan"}],
+    )
+
+    with (
+        patch(
+            "apps.live_control_server.services.runtime_preflight.list_world_heads",
+            return_value=[
+                WorldHeadSummary(world_id="orphan", head_revision_id=None),
+            ],
+        ),
+        patch(
+            "apps.live_control_server.services.runtime_preflight._load_direct_authority_binding",
+            side_effect=integrity_exc,
+        ),
+    ):
+        report = run_runtime_preflight(
+            repo_root=tmp_path,
+            require_world="orphan",
+            load_env=False,
+        )
+
+    world = next(check for check in report.checks if check.id == "dungeonmind_world")
+    assert world.status == "INTEGRITY_ERROR"
+    assert "integrity_errors" in world.details
+    assert report.status == "NOT READY"
+    assert world.details.get("required_world") is None
 
 
 def test_require_world_missing_reports_not_ready(

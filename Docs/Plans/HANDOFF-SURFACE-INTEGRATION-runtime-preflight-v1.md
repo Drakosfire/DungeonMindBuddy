@@ -221,6 +221,22 @@ SI-1 does not consolidate these authorities.
 
 It makes their presence and configured identity observable.
 
+### DungeonMind enumeration dependency (Review Cycle 2 split)
+
+SI-1 world enumeration in Buddy depends on read-only authority enumeration ports
+(`list_heads`, `list_world_ids`) landing in DungeonMind first:
+
+```text
+DungeonMind PR: feature/authority-read-enumeration-v1 @ ef39120
+Buddy pin:      reverted to pre-enumeration main (5ca5d68) until that PR merges
+Buddy behavior: list_world_heads → enumeration_unavailable → NOT_CONFIGURED
+Post-merge:     re-pin Buddy to the accepted enumeration revision
+```
+
+Until the DungeonMind enumeration slice merges, `--require-world` integration
+witnesses against a live PostgreSQL DSN report `NOT_CONFIGURED` on
+`dungeonmind_world` rather than `NOT_READY` for a missing world.
+
 ---
 
 # §3 Observable paths and adversarial sequences
@@ -690,7 +706,7 @@ This typed report is deliberately **not** the future Surface Information Contrac
 | Preflight is read-only                                | DB/filesystem/runtime         | integration/adversarial         | Snapshot durable counts/heads before and after repeated preflight; unchanged        |
 | Mounted World authority is identified correctly       | DungeonMind integration       | PostgreSQL integration          | Real adopted world → exact current head returned                                    |
 | No Buddy-file fallback                                | config/integration            | adversarial                     | `out/` absent while valid DungeonMind DB exists → World check READY                 |
-| Wrong/fresh DB is obvious                             | DungeonMind integration       | integration                     | Fresh valid DB + `--require-world eldyrwild` → NOT READY                            |
+| Wrong/fresh DB is obvious                             | DungeonMind integration       | integration                     | Fresh valid DB + `--require-world eldyrwild` → NOT READY (or NOT_CONFIGURED while enumeration pin is split) |
 | DB unavailable is truthful                            | dependency boundary           | failure injection               | unreachable DSN → UNAVAILABLE                                                       |
 | Integrity failures stay fail-closed                   | DungeonMind binder/repository | integration or accepted fixture | contradictory genesis/head → INTEGRITY_ERROR                                        |
 | APP-STATE read readiness is real                      | APP-STATE owning repository   | integration                     | valid empty DB may report READY/EMPTY without creating rows                         |
@@ -734,10 +750,17 @@ Then run one adversarial witness using a fresh/empty or intentionally wrong desi
 
 ```text
 --require-world eldyrwild
-→ NOT READY
-→ missing required world clearly identified
+→ NOT READY (NOT_CONFIGURED on dungeonmind_world while Buddy awaits DungeonMind enumeration PR merge)
+→ missing required world clearly identified once enumeration pin is restored
 → no fallback to repository graph_data or out/
 ```
+
+**Split dependency note:** PostgreSQL integration for `--require-world` uses
+`truncate_dungeonmind` on the cutover test DSN without mocking
+`list_world_heads`. With the pre-enumeration Buddy pin, expect
+`enumeration_unavailable` → `NOT_CONFIGURED`. Re-run after re-pinning to the
+merged enumeration revision to witness `NOT_READY` / `required_world=eldyrwild`
+on an empty migrated database.
 
 This is mandatory.
 
