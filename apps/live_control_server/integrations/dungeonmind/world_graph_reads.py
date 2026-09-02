@@ -563,6 +563,91 @@ def direct_services_from_config(world_id: str) -> DirectWorldGraphReadServices:
         raise _map_direct_error(exc) from exc
 
 
+@dataclass(frozen=True)
+class WorldHeadSummary:
+    """Read-only world/head observation from the mounted authority database."""
+
+    world_id: str
+    head_revision_id: str | None
+
+
+def _enumeration_ports_available(bundle: PostgresRepositoryBundle) -> bool:
+    """True when the pinned DungeonMind revision exposes read-only enumeration ports."""
+    if not callable(getattr(bundle.world_graph, "list_heads", None)):
+        return False
+    if not callable(getattr(bundle.existing_world_adoptions, "list_world_ids", None)):
+        return False
+    init_repo = getattr(bundle, "reviewed_world_initializations", None)
+    if init_repo is not None and not callable(getattr(init_repo, "list_world_ids", None)):
+        return False
+    return True
+
+
+def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummary]:
+    """List authority worlds via DungeonMind repository enumeration ports."""
+    from apps.live_control_server import config as buddy_config
+
+    url = database_url or buddy_config.world_graph_authority_database_url()
+    if not url:
+        raise DirectWorldGraphReadError(
+            "DungeonMind authority database URL is not configured "
+            f"({buddy_config.WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV})",
+            code="authority_unavailable",
+            status_code=503,
+        )
+    try:
+        bundle = PostgresRepositoryBundle(PostgresDatabase(url))
+        if not _enumeration_ports_available(bundle):
+            raise DirectWorldGraphReadError(
+                "DungeonMind authority enumeration ports are unavailable in the "
+                "pinned library revision; merge the DungeonMind enumeration PR "
+                "(feature/authority-read-enumeration-v1) first, then re-pin Buddy.",
+                code="enumeration_unavailable",
+                status_code=503,
+                diagnostics=[{"reason": "enumeration_ports_missing"}],
+            )
+        world_ids: set[str] = set()
+        for head in bundle.world_graph.list_heads():
+            world_ids.add(head.world_id)
+        for world_id in bundle.existing_world_adoptions.list_world_ids():
+            world_ids.add(world_id)
+        init_repo = getattr(bundle, "reviewed_world_initializations", None)
+        if init_repo is not None:
+            for world_id in init_repo.list_world_ids():
+                world_ids.add(world_id)
+
+        summaries: list[WorldHeadSummary] = []
+        for world_id in sorted(world_ids):
+            head = bundle.world_graph.get_head(world_id)
+            summaries.append(
+                WorldHeadSummary(
+                    world_id=world_id,
+                    head_revision_id=(
+                        head.head_revision_id if head is not None else None
+                    ),
+                )
+            )
+        return summaries
+    except DirectWorldGraphReadError:
+        raise
+    except PersistenceUnavailableError as exc:
+        raise DirectWorldGraphReadError(
+            "DungeonMind authority is unavailable.",
+            code="authority_unavailable",
+            status_code=503,
+            diagnostics=[{"reason": "provider_unavailable", "what": "world heads"}],
+            cause=exc,
+        ) from exc
+    except Exception as exc:
+        raise DirectWorldGraphReadError(
+            "DungeonMind world head read failed.",
+            code="authority_integrity",
+            status_code=500,
+            diagnostics=[{"reason": "world_head_read_failed"}],
+            cause=exc,
+        ) from exc
+
+
 # ---------------------------------------------------------------------------
 # Request mapping (Buddy wire → DungeonMind v2 contract)
 # ---------------------------------------------------------------------------
