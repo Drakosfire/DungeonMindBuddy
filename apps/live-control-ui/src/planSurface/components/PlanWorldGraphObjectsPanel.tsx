@@ -8,6 +8,7 @@ import { extractExactGraphReferenceScope } from "../../graphReference/resolveGra
 import type {
   GraphReferenceProjectionState,
   GraphReferenceSearchItem,
+  OpenGraphReferenceArgs,
 } from "../../graphReference/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import { useOptionalWorldGraphLensInformationChannel } from "../../graphLens/useWorldGraphLensProjection";
@@ -106,6 +107,69 @@ function graphSearchState(
   };
 }
 
+function liveWorldGraphState(
+  channel: SurfaceInformationChannel<WorldGraphProjection>,
+): SurfaceInformationState<WorldGraphProjection> {
+  return channel.getSnapshot().state;
+}
+
+function viewFromLiveChannel(
+  channel: SurfaceInformationChannel<WorldGraphProjection>,
+  item: GraphReferenceSearchItem,
+  openGraphReference: ((args: OpenGraphReferenceArgs) => void) | undefined,
+): void {
+  const state = liveWorldGraphState(channel);
+  if (state.status !== "ready" && state.status !== "stale") return;
+  const projection = state.value;
+  const selected = projection.nodes.find((node) => node.nodeId === item.nodeId);
+  if (!selected) return;
+  const nodeView = adaptWorldGraphNodeForPlanCard(selected);
+  const reference = referenceFromGraphNode(nodeView);
+  const graphScope = extractExactGraphReferenceScope(projection);
+  if (!openGraphReference) return;
+  if (!graphScope) {
+    openGraphReference({
+      resolution: {
+        kind: "error",
+        locator: `dmb-node:${item.nodeId}`,
+        reference,
+        projectionState: "error",
+        message:
+          "World Graph projection snapshot lacks exact world, campaign, or revision scope; graph search open blocked.",
+      },
+      projectionState: "error",
+    });
+    return;
+  }
+  openGraphReference({
+    resolution: {
+      kind: "resolved_graph",
+      locator: `dmb-node:${item.nodeId}`,
+      reference,
+      graphObject: buildGraphObjectCardFromNodeView(nodeView),
+      graphNodeId: item.nodeId,
+      graphScope,
+      projectionState: "ready",
+      message: `Resolved graph node ${nodeView.label}.`,
+    },
+    projectionState: "ready",
+  });
+}
+
+function insertFromLiveChannel(
+  channel: SurfaceInformationChannel<WorldGraphProjection>,
+  item: GraphReferenceSearchItem,
+  insertEnabled: boolean,
+  onInsertReference: (reference: RunbookReferenceAttrs) => void,
+): void {
+  if (!insertEnabled) return;
+  const state = liveWorldGraphState(channel);
+  if (state.status !== "ready") return;
+  const selected = state.value.nodes.find((node) => node.nodeId === item.nodeId);
+  if (!selected) return;
+  onInsertReference(referenceFromGraphNode(adaptWorldGraphNodeForPlanCard(selected)));
+}
+
 function PlanWorldGraphObjectsChannelPanel({
   channel,
   insertEnabled,
@@ -123,53 +187,16 @@ function PlanWorldGraphObjectsChannelPanel({
 
   const handleView = useCallback(
     (item: GraphReferenceSearchItem) => {
-      const state = snapshot.state;
-      if (state.status !== "ready" && state.status !== "stale") return;
-      const projection = state.value;
-      const graphScope = extractExactGraphReferenceScope(projection);
-      const openGraphReference = interaction?.openGraphReference;
-      if (!openGraphReference) return;
-      if (!graphScope) {
-        openGraphReference({
-          resolution: {
-            kind: "error",
-            locator: `dmb-node:${item.nodeId}`,
-            reference: item.reference,
-            projectionState: "error",
-            message:
-              "World Graph projection snapshot lacks exact world, campaign, or revision scope; graph search open blocked.",
-          },
-          projectionState: "error",
-        });
-        return;
-      }
-      const selected = projection.nodes.find((node) => node.nodeId === item.nodeId);
-      if (!selected) return;
-      openGraphReference({
-        resolution: {
-          kind: "resolved_graph",
-          locator: `dmb-node:${item.nodeId}`,
-          reference: item.reference,
-          graphObject: buildGraphObjectCardFromNodeView(item.nodeView),
-          graphNodeId: item.nodeId,
-          graphScope,
-          projectionState: "ready",
-          message: `Resolved graph node ${item.label}.`,
-        },
-        projectionState: "ready",
-      });
+      viewFromLiveChannel(channel, item, interaction?.openGraphReference);
     },
-    [interaction, snapshot.state],
+    [channel, interaction],
   );
 
   const handleInsert = useCallback(
     (item: GraphReferenceSearchItem) => {
-      if (snapshot.state.status === "stale") return;
-      if (snapshot.state.status !== "ready") return;
-      if (!insertEnabled) return;
-      onInsertReference(item.reference);
+      insertFromLiveChannel(channel, item, insertEnabled, onInsertReference);
     },
-    [insertEnabled, onInsertReference, snapshot.state.status],
+    [channel, insertEnabled, onInsertReference],
   );
 
   return (

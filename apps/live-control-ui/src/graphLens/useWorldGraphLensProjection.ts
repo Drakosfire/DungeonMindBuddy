@@ -139,6 +139,14 @@ function formatProjectionLoadError(error: unknown): string {
   return error instanceof Error ? error.message : "Projection unavailable.";
 }
 
+function channelMatchesDesiredRequest(
+  channel: SurfaceInformationChannel<WorldGraphProjection> | null,
+  request: WorldGraphProjectionRequest | null,
+): channel is SurfaceInformationChannel<WorldGraphProjection> {
+  if (!channel || !request) return false;
+  return channel.descriptor.channelId === worldGraphLensInformationDescriptor(request).channelId;
+}
+
 export function WorldGraphLensProjectionProvider({
   defaultCampaignId,
   revisionRefreshToken,
@@ -207,7 +215,9 @@ export function WorldGraphLensProjectionProvider({
 
     async function loadProjection() {
       if (focusValidationPending) {
-        informationChannel?.beginObservation();
+        if (channelMatchesDesiredRequest(informationChannel, desiredRequest)) {
+          informationChannel.beginObservation();
+        }
         return;
       }
 
@@ -216,7 +226,7 @@ export function WorldGraphLensProjectionProvider({
         return;
       }
 
-      if (!informationChannel) {
+      if (!channelMatchesDesiredRequest(informationChannel, desiredRequest)) {
         return;
       }
 
@@ -224,7 +234,10 @@ export function WorldGraphLensProjectionProvider({
       const loadRequestKey = desiredRequestKey;
       const loadRefreshKey = projectionRefreshKey;
       const loadChannel = informationChannel;
-      const ticket = loadChannel?.beginObservation() ?? null;
+      const ticket = loadChannel.beginObservation();
+      if (!ticket) {
+        return;
+      }
       const startMark = markProjectionLoadStart();
       const focusSessionId =
         context.focus.kind === "session" ? context.focus.sessionId : null;
@@ -240,7 +253,6 @@ export function WorldGraphLensProjectionProvider({
         response: WorldGraphProjection | null,
         error?: unknown,
       ): void => {
-        if (!loadChannel || !ticket) return;
         loadChannel.commit(
           ticket,
           mapWorldGraphLensObservation({ request: loadRequest, response, error }),

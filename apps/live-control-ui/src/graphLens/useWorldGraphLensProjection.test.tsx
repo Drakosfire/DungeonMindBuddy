@@ -190,7 +190,7 @@ describe("WorldGraphLensProjectionProvider", () => {
   }
 
   it("publishes one Surface Information channel per exact request and disposes it on replacement", async () => {
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) =>
+    const spy = vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) =>
       headProjection({
         campaignId: request.campaignId,
         worldId: "eldyrwild",
@@ -214,6 +214,12 @@ describe("WorldGraphLensProjectionProvider", () => {
       ]),
     );
     expect(JSON.stringify(first.descriptor)).not.toMatch(/rev-/);
+    await waitFor(() => {
+      const status = first.getSnapshot().state.status;
+      expect(status === "empty" || status === "ready").toBe(true);
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]?.[0].campaignId).toBe("longmont-c2");
 
     const staleTicket = first.beginObservation({ publishLoading: false });
     act(() => {
@@ -224,6 +230,12 @@ describe("WorldGraphLensProjectionProvider", () => {
     expect(result.current.channel!.descriptor.scope).toEqual(
       expect.arrayContaining([{ kind: "campaign", id: "longmont-c1" }]),
     );
+    await waitFor(() => {
+      const status = result.current.channel?.getSnapshot().state.status;
+      expect(status === "empty" || status === "ready").toBe(true);
+    });
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy.mock.calls[1]?.[0].campaignId).toBe("longmont-c1");
     expect(
       first.commit(staleTicket!, {
         status: "ready",
@@ -234,6 +246,56 @@ describe("WorldGraphLensProjectionProvider", () => {
         diagnostics: [],
       }),
     ).toBe(false);
+  });
+
+  it("does not fetch World Graph on a disposed channel during descriptor replacement", async () => {
+    let resolveFirst!: (value: WorldGraphProjection) => void;
+    const firstDeferred = new Promise<WorldGraphProjection>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const spy = vi.spyOn(liveApi, "postWorldGraphProjection")
+      .mockReturnValueOnce(firstDeferred)
+      .mockImplementation(async (request) =>
+        headProjection({
+          campaignId: request.campaignId,
+          worldId: "eldyrwild",
+          revisionId: `rev-${request.campaignId}`,
+          headRevisionId: `rev-${request.campaignId}`,
+        }),
+      );
+
+    const { result } = renderHook(() => useProjectionAndChannel(), { wrapper });
+    await waitFor(() => expect(result.current.channel).not.toBeNull());
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]?.[0].campaignId).toBe("longmont-c2");
+    const first = result.current.channel!;
+
+    act(() => {
+      result.current.setSelectedCampaignIds(["longmont-c1"]);
+    });
+    await waitFor(() => expect(result.current.channel).not.toBe(first));
+    await waitFor(() => {
+      const status = result.current.channel?.getSnapshot().state.status;
+      expect(status === "empty" || status === "ready").toBe(true);
+    });
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy.mock.calls[1]?.[0].campaignId).toBe("longmont-c1");
+
+    await act(async () => {
+      resolveFirst(
+        headProjection({
+          campaignId: "longmont-c2",
+          revisionId: "rev-late-c2",
+          headRevisionId: "rev-late-c2",
+        }),
+      );
+    });
+    expect(spy).toHaveBeenCalledTimes(2);
+    const live = result.current.channel!.getSnapshot();
+    expect(live.state.status === "empty" || live.state.status === "ready").toBe(true);
+    if (live.state.status === "empty" || live.state.status === "ready") {
+      expect(live.state.revision).toEqual({ kind: "exact", value: "rev-longmont-c1" });
+    }
   });
 
   it("rejects a late same-scope response on the Surface Information channel", async () => {

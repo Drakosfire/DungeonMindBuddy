@@ -1,19 +1,38 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type ComponentProps } from "vitest";
 
 import type { WorldGraphProjection } from "../../api/types";
 import { WorldGraphLensInformationChannelProvider } from "../../graphLens/useWorldGraphLensProjection";
 import { createSurfaceInformationChannel } from "../../surfaceInformation";
 import { worldGraphLensInformationDescriptor } from "../../graphLens/worldGraphLensSurfaceInformation";
+import type { GraphReferenceSearchItem } from "../../graphReference/types";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import { PlanWorldGraphObjectsPanel } from "./PlanWorldGraphObjectsPanel";
 
 const openGraphReference = vi.fn();
+const retainedSearch = vi.hoisted(() => ({
+  onView: undefined as ((item: GraphReferenceSearchItem) => void) | undefined,
+  onInsert: undefined as ((item: GraphReferenceSearchItem) => void) | undefined,
+  items: [] as readonly GraphReferenceSearchItem[],
+}));
 
 vi.mock("../../agentInteraction/AgentInteractionProvider", () => ({
   useOptionalAgentInteraction: () => ({ openGraphReference }),
 }));
+
+vi.mock("../../graphReference/GraphReferenceSearch", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../graphReference/GraphReferenceSearch")>();
+  return {
+    ...actual,
+    GraphReferenceSearch: (props: ComponentProps<typeof actual.GraphReferenceSearch>) => {
+      retainedSearch.onView = props.onView;
+      retainedSearch.onInsert = props.onInsert;
+      retainedSearch.items = props.items;
+      return actual.GraphReferenceSearch(props);
+    },
+  };
+});
 
 const request = {
   schema: "dmb_world_graph_projection_request_v1" as const,
@@ -270,5 +289,171 @@ describe("PlanWorldGraphObjectsPanel", () => {
     });
     expect(screen.getByTestId("plan-world-graph-objects-panel")).toBe(panel);
     expect(screen.getByText("Loading World Graph projection…")).toBeInTheDocument();
+  });
+
+  it("fails closed when a retained View callback runs after the live observation leaves READY/STALE", () => {
+    openGraphReference.mockReset();
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(request),
+    );
+    renderPanel(channel);
+    const ticket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(ticket!, {
+        status: "ready",
+        value: projection({ nodes: [glowkindleNode] }),
+        ...observed,
+      });
+    });
+    const retainedView = retainedSearch.onView;
+    const retainedItem = retainedSearch.items[0];
+    expect(retainedView).toEqual(expect.any(Function));
+    expect(retainedItem?.nodeId).toBe("npc:glowkindle");
+
+    act(() => {
+      channel.beginObservation();
+    });
+    retainedView!(retainedItem!);
+    expect(openGraphReference).not.toHaveBeenCalled();
+
+    let unavailableTicket: ReturnType<typeof channel.beginObservation> = null;
+    act(() => {
+      unavailableTicket = channel.beginObservation();
+    });
+    act(() => {
+      channel.commit(unavailableTicket!, {
+        status: "unavailable",
+        reason: "authority down",
+        diagnostics: [],
+      });
+    });
+    retainedView!(retainedItem!);
+    expect(openGraphReference).not.toHaveBeenCalled();
+
+    let integrityTicket: ReturnType<typeof channel.beginObservation> = null;
+    act(() => {
+      integrityTicket = channel.beginObservation();
+    });
+    act(() => {
+      channel.commit(integrityTicket!, {
+        status: "integrity_error",
+        reason: "campaign mismatch",
+        diagnostics: [],
+      });
+    });
+    retainedView!(retainedItem!);
+    expect(openGraphReference).not.toHaveBeenCalled();
+  });
+
+  it("Views against the current observation, not the snapshot captured when the handler was rendered", () => {
+    openGraphReference.mockReset();
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(request),
+    );
+    renderPanel(channel);
+    const firstTicket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(firstTicket!, {
+        status: "ready",
+        value: projection({ nodes: [glowkindleNode] }),
+        ...observed,
+      });
+    });
+    const retainedView = retainedSearch.onView!;
+    const retainedItem = retainedSearch.items[0]!;
+
+    const laterObserved = {
+      revision: { kind: "exact" as const, value: "rev:later" },
+      provenance: [{ kind: "world_graph_revision" as const, id: "rev:later" }],
+      inspectionTargets: [
+        { kind: "world" as const, id: "eldyrwild" },
+        { kind: "campaign" as const, id: "longmont-c2" },
+        { kind: "world_graph_revision" as const, id: "rev:later" },
+      ],
+      diagnostics: [] as const,
+    };
+    const laterTicket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(laterTicket!, {
+        status: "ready",
+        value: projection({ nodes: [glowkindleNode] }, { revisionId: "rev:later", headRevisionId: "rev:later" }),
+        ...laterObserved,
+      });
+    });
+    retainedView(retainedItem);
+    expect(openGraphReference).toHaveBeenCalledTimes(1);
+    expect(openGraphReference.mock.calls[0][0].resolution.graphScope.revisionId).toBe("rev:later");
+  });
+
+  it("fails closed when a retained callback's node is absent from the current READY observation", () => {
+    openGraphReference.mockReset();
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(request),
+    );
+    const onInsertReference = vi.fn();
+    renderPanel(channel, onInsertReference, true);
+    const ticket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(ticket!, {
+        status: "ready",
+        value: projection({ nodes: [glowkindleNode] }),
+        ...observed,
+      });
+    });
+    const retainedView = retainedSearch.onView!;
+    const retainedInsert = retainedSearch.onInsert!;
+    const retainedItem = retainedSearch.items[0]!;
+
+    const replacementTicket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(replacementTicket!, {
+        status: "ready",
+        value: projection({
+          nodes: [{ ...glowkindleNode, nodeId: "npc:other", label: "Other" }],
+        }),
+        ...observed,
+      });
+    });
+    retainedView(retainedItem);
+    retainedInsert(retainedItem);
+    expect(openGraphReference).not.toHaveBeenCalled();
+    expect(onInsertReference).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when a retained Insert callback runs after the live observation leaves READY", () => {
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(request),
+    );
+    const onInsertReference = vi.fn();
+    renderPanel(channel, onInsertReference, true);
+    const ticket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(ticket!, {
+        status: "ready",
+        value: projection({ nodes: [glowkindleNode] }),
+        ...observed,
+      });
+    });
+    const retainedInsert = retainedSearch.onInsert;
+    const retainedItem = retainedSearch.items[0];
+    expect(retainedInsert).toEqual(expect.any(Function));
+
+    act(() => {
+      channel.beginObservation();
+    });
+    retainedInsert!(retainedItem!);
+    expect(onInsertReference).not.toHaveBeenCalled();
+
+    const staleTicket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(staleTicket!, {
+        status: "stale",
+        value: projection({ nodes: [glowkindleNode] }),
+        reason: "refreshing",
+        ...observed,
+      });
+    });
+    retainedInsert!(retainedItem!);
+    expect(onInsertReference).not.toHaveBeenCalled();
   });
 });
