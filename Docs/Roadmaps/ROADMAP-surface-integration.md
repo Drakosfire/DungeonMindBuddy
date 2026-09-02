@@ -1,8 +1,8 @@
 # SURFACE-INTEGRATION — Blocking Program Roadmap
 
-**Status:** ACTIVE BLOCKING CHILD PROGRAM  
-**Parent:** [`ROADMAP-con-ready.md`](ROADMAP-con-ready.md)  
-**Re-anchored:** 2026-09-01  
+**Status:** ACTIVE BLOCKING CHILD PROGRAM
+**Parent:** [`ROADMAP-con-ready.md`](ROADMAP-con-ready.md)
+**Re-anchored:** 2026-09-02
 **Repository:** `Drakosfire/DungeonMindBuddy`
 
 ---
@@ -38,8 +38,8 @@ Allowed during the freeze: SURFACE-INTEGRATION implementation/design, fixes requ
 
 | Slice | Capability | Status |
 |---|---|---|
-| **SI-1** | Canonical assembled-runtime preflight | **CURRENT** |
-| SI-2 | Surface Information Contract v1 | Planned |
+| SI-1 | Canonical assembled-runtime preflight | **DONE** — PR #675 merged @ `c77260b044873f3ccfb5b77e7fce643539ca9abf` (final implementation head `e71b637a3d09da439d069a7eafeb2f4be8dc31a2`, six review cycles) |
+| **SI-2** | Surface Information Contract v1 | **CURRENT** |
 | SI-3 | Graph lens reference implementation (Plan/Build rich panel) | Planned |
 | SI-4 | Ingest information-provider disposition | Planned |
 | SI-5 | Cross-surface adoption (Plan / Build / Play / Ingest / Agent / Combat-facing projections) | Planned |
@@ -54,7 +54,7 @@ Do not pre-mark successors `DONE`.
 
 Existing CON-READY user stories remain valid. Feature dispatch is frozen until SI-6 proves the assembled runtime and information-delivery contract.
 
-SI-1 creates the runtime truth layer. It does **not** implement the Surface Information Contract or repair OC-020.
+SI-1 created the runtime truth layer and is complete. SI-2 establishes the Surface Information Contract. Neither slice repairs OC-020 in product Surfaces; SI-3 is the first product adoption.
 
 ---
 
@@ -74,4 +74,6 @@ uv run python scripts/preflight_surface_runtime.py --require-world <world_id>
 
 ## Stewardship
 
-Implementation handoff: [`../Plans/HANDOFF-SURFACE-INTEGRATION-runtime-preflight-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-runtime-preflight-v1.md)
+Implementation handoff: [`../Plans/HANDOFF-SURFACE-INTEGRATION-surface-information-contract-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-surface-information-contract-v1.md)
+
+Predecessor (SI-1, complete): [`../Plans/HANDOFF-SURFACE-INTEGRATION-runtime-preflight-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-runtime-preflight-v1.md)

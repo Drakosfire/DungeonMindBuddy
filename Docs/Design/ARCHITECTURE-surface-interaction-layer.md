@@ -3,9 +3,9 @@ document_id: dmb-architecture-surface-interaction-layer
 title: Surface Interaction Layer — Architecture Authority
 document_class: architecture_authority
 status: active
-version: 1.1
+version: 1.2
 created_at: "2026-08-01"
-updated_at: "2026-08-26"
+updated_at: "2026-09-02"
 supersedes_as_ui_shell_authority:
   - partial claims in ARCHITECTURE-plan-surface-toolbox.md (bars/projection hosts)
 companion_authorities:
@@ -15,6 +15,7 @@ companion_authorities:
   application_state: ARCHITECTURE-application-state-layer.md
   play_runtime: ARCHITECTURE-playable-material-and-runtime.md
   execution: PLAN-surface-interaction-hoist-build-first.md
+  surface_information: CONTRACT-surface-information-v1.md
 companion_targets:
   agent_source_graph_magic: DESIGN-magic-moment-contextual-source-to-world-graph.md
 ---
@@ -189,6 +190,20 @@ Rules:
 - Surface context is pointer/identity oriented; do not copy World/source bodies into the provider.
 - Characterize before moving: a first consumer does not become shared API owner.
 - A surface may publish requested World scope/admissibility; DungeonMind still authorizes the actual World operation.
+
+## Companion boundary — Surface Information
+
+Surface Interaction publication remains the **structural** contract: tools, edit commands, projection registrations, agent-context contribution, canvas/work identity, and chrome capability publication.
+
+Surface Information is a **separate** runtime contract for changing observations. One channel observes one information projection from one authority. A connected renderer subscribes to that channel.
+
+The important rule is:
+
+> Changing information does not require republishing structural AppChrome configuration or a new ReactNode.
+
+Do not fold observation status, authority revision, or generation into `SurfaceInteractionPublication` identity. Do not treat AppChrome publication signatures as the reactivity mechanism for graph/APP-STATE/combat/source observations.
+
+Semantic authority: [`CONTRACT-surface-information-v1.md`](CONTRACT-surface-information-v1.md). First product adoption is SI-3 (Plan/Build graph lens), not this architecture document.
 
 ## Current mapping — re-anchored 2026-08-26
 
