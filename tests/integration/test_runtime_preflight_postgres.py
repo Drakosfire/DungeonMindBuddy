@@ -103,10 +103,8 @@ def test_require_world_missing_on_fresh_database(
 ) -> None:
     """Fresh migrated DB + --require-world without mocking list_world_heads.
 
-    With the pre-enumeration DungeonMind pin, world discovery raises
-    ``enumeration_unavailable`` → ``NOT_CONFIGURED``. After the enumeration PR
-    merges and Buddy re-pins, the same witness should report ``NOT_READY`` with
-    ``required_world=eldyrwild`` on an empty database.
+    With the post-#50 enumeration pin, world discovery succeeds on an empty
+    database and reports ``NOT_READY`` with ``required_world=eldyrwild``.
     """
     if not cutover_test_dsn:
         pytest.skip(f"{TEST_DSN_ENV} not set")
@@ -131,15 +129,8 @@ def test_require_world_missing_on_fresh_database(
 
     world = next(check for check in report.checks if check.id == "dungeonmind_world")
     assert report.status == "NOT READY"
-    if world.status == "NOT_CONFIGURED":
-        assert "enumeration" in world.summary.lower()
-    elif world.status == "NOT_READY":
-        assert world.details.get("required_world") == "eldyrwild"
-    else:
-        pytest.fail(
-            f"expected NOT_CONFIGURED (pre-enumeration pin) or NOT_READY "
-            f"(post-enumeration pin), got {world.status!r}: {world.summary}"
-        )
+    assert world.status == "NOT_READY"
+    assert world.details.get("required_world") == "eldyrwild"
 
 
 def test_dungeonmind_unavailable_dsn(
