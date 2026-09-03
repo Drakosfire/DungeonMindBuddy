@@ -936,7 +936,7 @@ Record:
 
 ## §9 Review Cycle 4 handback (repair)
 
-1. **Review cycle / head:** Cycle 4 repair @ `132e870a4a47c21bd2d7c9b9bcb1f2ee74065ee5`.
+1. **Review cycle / head:** Cycle 4 repair; head recorded at commit push (post-`d7245aa6`).
 2. **§1 invariant:** Satisfied when configured foundations are reachable; corrupt ingest manifests
    and unreachable authority DB no longer false-green.
 3. **Canonical command:** `uv run python scripts/preflight_surface_runtime.py`

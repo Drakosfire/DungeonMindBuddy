@@ -1,0 +1,71 @@
+{
+  "provenance": {
+    "module": "Of Conks & Cons v2.1",
+    "author": "Christian Eichhorn",
+    "source_heading": "Appendix C: Tables (printed page 19)",
+    "gold_package": "of-conks-cons-gold-v0",
+    "authority": "SOURCE (module) — rows are source material; rolled results are ephemeral Play interaction"
+  },
+  "tables": [
+    {
+      "id": "table:hempholm-male-names",
+      "title": "Male Villager Names",
+      "dice": "1d12",
+      "source_heading": "Appendix C: Tables — Male Villager Names (p. 19)",
+      "rows": [
+        { "roll": 1, "name": "Ryan Burke" },
+        { "roll": 2, "name": "Adam Campbell" },
+        { "roll": 3, "name": "Logan Hunt" },
+        { "roll": 4, "name": "Hans Hertner" },
+        { "roll": 5, "name": "Thorwald Dohna" },
+        { "roll": 6, "name": "Artur Seyler" },
+        { "roll": 7, "name": "Ansgar Wachs" },
+        { "roll": 8, "name": "Roduulf" },
+        { "roll": 9, "name": "Cannabaudes" },
+        { "roll": 10, "name": "Bilimer" },
+        { "roll": 11, "name": "Ebbo" },
+        { "roll": 12, "name": "Haldemarus" }
+      ]
+    },
+    {
+      "id": "table:hempholm-female-names",
+      "title": "Female Villager Names",
+      "dice": "1d12",
+      "source_heading": "Appendix C: Tables — Female Villager Names (p. 19)",
+      "rows": [
+        { "roll": 1, "name": "Edda Ehrhardt" },
+        { "roll": 2, "name": "Wilhelmine Lindwurm" },
+        { "roll": 3, "name": "Bianka Eugster" },
+        { "roll": 4, "name": "Frida Schor" },
+        { "roll": 5, "name": "Riciberga" },
+        { "roll": 6, "name": "Brenhilda" },
+        { "roll": 7, "name": "Avina" },
+        { "roll": 8, "name": "Aregund" },
+        { "roll": 9, "name": "Richildis" },
+        { "roll": 10, "name": "Hana Baker" },
+        { "roll": 11, "name": "Mariam Murray" },
+        { "roll": 12, "name": "Nicole Bates" }
+      ]
+    },
+    {
+      "id": "table:hempholm-nicknames",
+      "title": "Nicknames",
+      "dice": "1d12",
+      "source_heading": "Appendix C: Tables — Nicknames (p. 19)",
+      "rows": [
+        { "roll": 1, "name": "Honest Jon" },
+        { "roll": 2, "name": "Smart Alec" },
+        { "roll": 3, "name": "Old Torsten" },
+        { "roll": 4, "name": "Kord Nine-Finger" },
+        { "roll": 5, "name": "Toothless Janny" },
+        { "roll": 6, "name": "Pie Karen" },
+        { "roll": 7, "name": "Mean Karen" },
+        { "roll": 8, "name": "Stutterer" },
+        { "roll": 9, "name": "Lying Ted" },
+        { "roll": 10, "name": "Greenface" },
+        { "roll": 11, "name": "Tenderfoot" },
+        { "roll": 12, "name": "One-eared Jim" }
+      ]
+    }
+  ]
+}

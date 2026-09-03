@@ -437,13 +437,12 @@ def _summarize_manifest(
     registry_root: Path,
     include_eval_roots: bool = False,
 ) -> GraphIngestRunSummary | None:
+    if _manifest_health_issue(repo, manifest_path) is not None:
+        return None
     try:
         safe_manifest_path = _resolve_repo_contained_path(manifest_path, repo)
         payload = json.loads(safe_manifest_path.read_text(encoding="utf-8"))
         manifest = GraphIngestRunManifest.model_validate(payload)
-        validation = validate_graph_ingest_run_manifest(payload)
-        if validation["errors"]:
-            return None
         preview_path = _preview_union_store_path(repo, manifest)
     except (OSError, json.JSONDecodeError, ValidationError, ValueError):
         return None

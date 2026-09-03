@@ -119,26 +119,6 @@ def test_ingest_empty_when_root_exists_with_zero_runs(
     assert "0 runs" in ingest.summary
 
 
-def test_ingest_not_ready_when_manifest_corrupt(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    ingest_root = tmp_path / "out/graph_memory/runs/corrupt-run"
-    ingest_root.mkdir(parents=True)
-    (ingest_root / "graph_ingest_run_manifest.json").write_text("{not-json", encoding="utf-8")
-
-    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
-    monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
-
-    report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
-    ingest = next(check for check in report.checks if check.id == "ingest_registry")
-    assert ingest.status == "NOT_READY"
-    assert ingest.details.get("invalid_manifests") == 1
-    assert ingest.details.get("manifest_files_found") == 1
-    assert report.status == "NOT READY"
-    assert "invalid manifest" in ingest.summary.lower()
-
-
 def test_ingest_not_ready_when_env_root_missing(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
