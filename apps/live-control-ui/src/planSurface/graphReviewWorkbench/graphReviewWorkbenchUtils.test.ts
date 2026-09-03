@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type {
+  ExtractionRunRecord,
   GoldReviewSessionSummary,
   GraphIngestRunSummary,
 } from "../../api/types";
@@ -10,11 +11,35 @@ import {
   formatCompactAppliedLoadLabel,
   goldSessionToLane,
   graphIngestRunToLane,
-  hasCatalogReviewableRun,
   pickDefaultCatalogSession,
   pickDefaultWorkbenchRun,
   pickDefaultWorkbenchSession,
+  toCatalogRun,
+  type GraphReviewCatalogRun,
 } from "./graphReviewWorkbenchUtils";
+
+function extractionRun(
+  overrides: Partial<ExtractionRunRecord> = {},
+): ExtractionRunRecord {
+  return {
+    schema_version: "dmb_extraction_run_v1",
+    version: "1.0",
+    run_id: "er_run_a",
+    source_artifact_id: "sa_1",
+    source_domain: "recap",
+    status: "reviewable",
+    campaign_id: "longmont-c2",
+    session_id: "session-23",
+    ...overrides,
+  };
+}
+
+function catalogRun(
+  overrides: Partial<ExtractionRunRecord> = {},
+  compatibilityManifestPath: string | null = null,
+): GraphReviewCatalogRun {
+  return toCatalogRun(extractionRun(overrides), compatibilityManifestPath);
+}
 
 function run(
   overrides: Partial<GraphIngestRunSummary> = {},
@@ -117,21 +142,11 @@ describe("graphReviewWorkbenchUtils", () => {
     ).toBe("session-22");
   });
 
-  it("picks preview-union-ready runs before falling back to the first run", () => {
-    const missing = run({
-      manifest_path: "missing.json",
-      preview_union_available: false,
-    });
-    const ready = run({
-      manifest_path: "ready.json",
-      preview_union_available: true,
-    });
-    expect(pickDefaultWorkbenchRun([missing, ready])?.manifest_path).toBe(
-      "ready.json",
-    );
-    expect(pickDefaultWorkbenchRun([missing])?.manifest_path).toBe(
-      "missing.json",
-    );
+  it("picks reviewable catalog runs as the UI default and does not invent identity", () => {
+    const draft = catalogRun({ status: "draft", run_id: "er_draft" });
+    const reviewable = catalogRun({ status: "reviewable", run_id: "er_ready" });
+    expect(pickDefaultWorkbenchRun([draft, reviewable])?.run.run_id).toBe("er_ready");
+    expect(pickDefaultWorkbenchRun([draft])).toBeNull();
     expect(pickDefaultWorkbenchRun([])).toBeNull();
   });
 
@@ -154,12 +169,18 @@ describe("graphReviewWorkbenchUtils", () => {
     expect(lane.previewUnionPath).toBeUndefined();
   });
 
-  it("merges run-only sessions without gold metadata", () => {
+  it("builds the product catalog from APP-STATE recap runs only", () => {
     const catalog = buildGraphReviewCatalog([
-      run({
+      extractionRun({
         campaign_id: "longmont-c1",
         session_id: "session-2",
-        run_label: "C1S2 run",
+        run_id: "er_c1s2",
+      }),
+      extractionRun({
+        source_domain: "worldbuilding",
+        campaign_id: "longmont-c1",
+        session_id: null,
+        run_id: "er_world",
       }),
     ]);
     expect(catalog).toHaveLength(1);
@@ -171,49 +192,91 @@ describe("graphReviewWorkbenchUtils", () => {
       hasReviewableRun: true,
       goldFixtureId: null,
     });
+    expect(catalog[0].availableRuns.map((entry) => entry.run.run_id)).toEqual(["er_c1s2"]);
     expect(catalogSessionLabel(catalog[0])).toBe("Session 2");
   });
 
   it("formats compact applied load labels without run pipeline metadata", () => {
     const catalog = buildGraphReviewCatalog([
-      run({
+      extractionRun({
         campaign_id: "longmont-c1",
         session_id: "session-1",
-        run_label: "longmont-c1 session 1 normalized recap · category_decomposed · gpt-5.4-mini",
+        run_id: "er_s1",
       }),
     ]);
     expect(formatCompactAppliedLoadLabel(catalog[0])).toBe("Session 1 · longmont-c1");
   });
 
-  it("overlays gold metadata when runs and gold sessions share a key", () => {
+  it("W5: gold available_runs cannot inject a product run; exact run_id may only enrich locator", () => {
+    const canonical = extractionRun({
+      run_id: "er_canonical",
+      campaign_id: "longmont-c1",
+      session_id: "session-1",
+    });
     const catalog = buildGraphReviewCatalog(
-      [
-        run({
-          campaign_id: "longmont-c1",
-          session_id: "session-1",
-          run_label: "Live run",
-        }),
-      ],
+      [canonical],
       [
         session({
           campaign_id: "longmont-c1",
           session_id: "session-1",
           session_number: 1,
           gold_fixture_id: "gold-1",
-          available_runs: [],
+          available_runs: [
+            run({
+              run_id: "er_canonical",
+              manifest_path: "gold/er_canonical/manifest.json",
+              campaign_id: "longmont-c1",
+              session_id: "session-1",
+            }),
+            run({
+              run_id: "er_gold_only",
+              manifest_path: "gold/only/manifest.json",
+              campaign_id: "longmont-c1",
+              session_id: "session-1",
+            }),
+          ],
         }),
       ],
     );
     expect(catalog).toHaveLength(1);
-    expect(catalog[0]).toMatchObject({
-      hasGold: true,
-      hasReviewableRun: true,
-      goldFixtureId: "gold-1",
-    });
     expect(catalog[0].availableRuns).toHaveLength(1);
+    expect(catalog[0].availableRuns[0]?.run.run_id).toBe("er_canonical");
+    expect(catalog[0].availableRuns[0]?.run.status).toBe("reviewable");
+    expect(catalog[0].availableRuns[0]?.compatibilityManifestPath).toBe(
+      "gold/er_canonical/manifest.json",
+    );
   });
 
-  it("includes gold-only sessions without preview-ready runs", () => {
+  it("W3: conflicting same-id legacy run cannot override DB fields", () => {
+    const catalog = buildGraphReviewCatalog(
+      [
+        extractionRun({
+          run_id: "er_same",
+          status: "reviewable",
+          campaign_id: "longmont-c2",
+          session_id: "session-23",
+        }),
+      ],
+      [
+        session({
+          available_runs: [
+            run({
+              run_id: "er_same",
+              status: "failed",
+              campaign_id: "other-campaign",
+              session_id: "session-99",
+              manifest_path: "legacy/er_same.json",
+            }),
+          ],
+        }),
+      ],
+    );
+    expect(catalog[0].availableRuns[0]?.run.status).toBe("reviewable");
+    expect(catalog[0].availableRuns[0]?.run.campaign_id).toBe("longmont-c2");
+    expect(catalog[0].availableRuns[0]?.compatibilityManifestPath).toBeNull();
+  });
+
+  it("W4: gold/manifest-only runs are absent from the product catalog", () => {
     const catalog = buildGraphReviewCatalog(
       [],
       [
@@ -221,32 +284,25 @@ describe("graphReviewWorkbenchUtils", () => {
           campaign_id: "longmont-c2",
           session_id: "session-99",
           session_number: 99,
-          available_runs: [run({ preview_union_available: false })],
+          available_runs: [run({ run_id: "er_file_only", preview_union_available: true })],
         }),
       ],
     );
-    expect(catalog).toHaveLength(1);
-    expect(catalog[0].hasGold).toBe(true);
-    expect(hasCatalogReviewableRun(catalog[0])).toBe(false);
+    expect(catalog).toHaveLength(0);
   });
 
-  it("picks default catalog sessions with reviewable runs first", () => {
-    const catalog = buildGraphReviewCatalog(
-      [
-        run({ session_id: "session-2", campaign_id: "longmont-c1" }),
-        run({
-          session_id: "session-21",
-          campaign_id: "longmont-c2",
-          preview_union_available: false,
-        }),
-      ],
-      [session({ session_id: "session-23", campaign_id: "longmont-c2" })],
-    );
+  it("picks default catalog sessions with inspectable runs first", () => {
+    const catalog = buildGraphReviewCatalog([
+      extractionRun({ session_id: "session-2", campaign_id: "longmont-c1", run_id: "er_s2" }),
+      extractionRun({
+        session_id: "session-21",
+        campaign_id: "longmont-c2",
+        run_id: "er_s21",
+        status: "draft",
+      }),
+    ]);
     expect(
       pickDefaultCatalogSession(catalog, "session-2", "session-21")?.sessionId,
-    ).toBe("session-2");
-    expect(
-      pickDefaultCatalogSession(catalog, null, "session-21")?.sessionId,
     ).toBe("session-2");
   });
 });

@@ -6,6 +6,13 @@ import * as extractPromoteApi from "../../api/extractPromoteApi";
 import * as liveApi from "../../api/liveApi";
 import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
 import type { PlanContextDescriptor } from "../types";
+import { createSurfaceInformationChannel } from "../../surfaceInformation";
+import type { ExtractionRunCatalogResponse } from "../../ingestSurface/ingestRunCatalogApi";
+import type { ExtractionRunRecord } from "../../api/types";
+import {
+  INGEST_RUN_CATALOG_DESCRIPTOR,
+  mapIngestRunCatalogObservation,
+} from "../../ingestSurface/ingestRunCatalogSurfaceInformation";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
 
 const context: PlanContextDescriptor = {
@@ -88,12 +95,23 @@ const reviewPackage = {
     + "prepare/confirm until an approved authority-elevation contract lands.",
 };
 
+function readyCatalogChannel(runs: ExtractionRunRecord[] = []) {
+  const channel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
+    INGEST_RUN_CATALOG_DESCRIPTOR,
+  );
+  const ticket = channel.beginObservation();
+  if (ticket) {
+    channel.commit(
+      ticket,
+      mapIngestRunCatalogObservation({
+        response: { schema_version: "dmb_extraction_run_catalog_v1", runs },
+      }),
+    );
+  }
+  return channel;
+}
+
 function mockCatalogApis() {
-  vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
-    schema_version: "dmb_graph_ingest_run_registry_v1",
-    version: "0.1",
-    runs: [],
-  });
   vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
     schema_version: "dmb_graph_gold_review_sessions_v1",
     version: "0.1",
@@ -116,10 +134,14 @@ function mockExactRunReviewPackage(
 
 // The app projection host owns projection state; mounting the workbench
 // requires the provider exactly as production composition does.
-function renderModule() {
+function renderModule(runs: ExtractionRunRecord[] = []) {
   return render(
     <AgentInteractionProvider>
-      <GraphReviewWorkbenchModule context={context} />
+      <GraphReviewWorkbenchModule
+        context={context}
+        catalogChannel={readyCatalogChannel(runs)}
+        onCatalogRefresh={() => undefined}
+      />
     </AgentInteractionProvider>,
   );
 }
@@ -509,37 +531,16 @@ describe("GraphReviewGenericRun", () => {
   });
 
   it("Load recap clears exact-run mode and removes handoff query params", async () => {
-    const sessionRun = {
-      manifest_path: "artifacts/run-a/manifest.json",
-      run_dir: "artifacts/run-a",
+    const recapRun: ExtractionRunRecord = {
+      schema_version: "dmb_extraction_run_v1",
+      version: "1.0",
+      run_id: "er_run_a",
+      source_artifact_id: "sa_1",
+      source_domain: "recap",
+      status: "reviewable",
       campaign_id: "longmont-c2",
       session_id: "session-23",
-      status: "preview_union_store_ready",
-      updated_at: null,
-      created_at: null,
-      preview_union_store_path: "artifacts/run-a/preview-union.json",
-      preview_union_store_valid: true,
-      node_count: 2,
-      edge_count: 1,
-      evidence_ref_count: 1,
-      next_actions: [],
-      run_id: "run-a",
-      run_label: "Run A",
-      generated_at: null,
-      model_id: null,
-      model_provider: null,
-      extraction_profile: "baseline",
-      extraction_mode: null,
-      vocabulary_mode: "node",
-      runner_options_summary: {},
-      diagnostics_summary: {},
-      preview_union_available: true,
     };
-    vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
-      schema_version: "dmb_graph_ingest_run_registry_v1",
-      version: "0.1",
-      runs: [sessionRun],
-    });
     vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
       schema_version: "dmb_graph_gold_review_sessions_v1",
       version: "0.1",
@@ -552,7 +553,7 @@ describe("GraphReviewGenericRun", () => {
           gold_manifest_path: "m23",
           gold_graph_path: "g23",
           gold_counts: { nodes: 2, edges: 1, evidence_refs: 1, beats: 0 },
-          available_runs: [sessionRun],
+          available_runs: [],
         },
       ],
     });
@@ -625,7 +626,7 @@ describe("GraphReviewGenericRun", () => {
       gold_fixture_relpath: "gold/session-23.json",
     });
 
-    renderModule();
+    renderModule([recapRun]);
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument();
     });

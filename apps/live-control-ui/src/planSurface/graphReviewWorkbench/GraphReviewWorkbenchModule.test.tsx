@@ -9,9 +9,18 @@ import type {
   WorldGraphProjection,
 } from "../../api/types";
 import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
+import { ToolHost } from "../../surfaceInteraction/toolHost/ToolHost";
+import { SurfaceContextProvider } from "../../surfaceInteraction/contextHost";
 import type { PlanContextDescriptor } from "../types";
 import { LegacyProjectionHostAdapter } from "../projection/LegacyProjectionHostAdapter";
 import { GraphReviewLiveStateProvider, useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
+import { createSurfaceInformationChannel } from "../../surfaceInformation";
+import type { ExtractionRunCatalogResponse } from "../../ingestSurface/ingestRunCatalogApi";
+import {
+  INGEST_RUN_CATALOG_DESCRIPTOR,
+  mapIngestRunCatalogObservation,
+} from "../../ingestSurface/ingestRunCatalogSurfaceInformation";
+import type { ExtractionRunRecord } from "../../api/types";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
 import {
   catalogRunBindingKey,
@@ -29,11 +38,51 @@ const context: PlanContextDescriptor = {
   headerLabel: "Ingest",
 };
 
-function renderWorkbench() {
+function canonicalRun(overrides: Partial<ExtractionRunRecord> = {}): ExtractionRunRecord {
+  return {
+    schema_version: "dmb_extraction_run_v1",
+    version: "1.0",
+    run_id: "er_run_a",
+    source_artifact_id: "sa_1",
+    source_domain: "recap",
+    status: "reviewable",
+    campaign_id: "longmont-c2",
+    session_id: "session-23",
+    ...overrides,
+  };
+}
+
+function readyCatalogChannel(runs: ExtractionRunRecord[] = [canonicalRun()]) {
+  const channel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
+    INGEST_RUN_CATALOG_DESCRIPTOR,
+  );
+  const ticket = channel.beginObservation();
+  if (ticket) {
+    channel.commit(
+      ticket,
+      mapIngestRunCatalogObservation({
+        response: { schema_version: "dmb_extraction_run_catalog_v1", runs },
+      }),
+    );
+  }
+  return channel;
+}
+
+function renderWorkbench(
+  runs?: ExtractionRunRecord[],
+  moduleContext: PlanContextDescriptor = context,
+) {
   return render(
     <AgentInteractionProvider>
-      <GraphReviewWorkbenchModule context={context} />
-      <LegacyProjectionHostAdapter />
+      <SurfaceContextProvider>
+        <GraphReviewWorkbenchModule
+          context={moduleContext}
+          catalogChannel={readyCatalogChannel(runs)}
+          onCatalogRefresh={() => undefined}
+        />
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
+      </SurfaceContextProvider>
     </AgentInteractionProvider>,
   );
 }
@@ -61,7 +110,7 @@ const sessionWithRun = {
       edge_count: 1,
       evidence_ref_count: 1,
       next_actions: [],
-      run_id: "run-a",
+      run_id: "er_run_a",
       run_label: "Run A",
       generated_at: null,
       model_id: null,
@@ -77,11 +126,6 @@ const sessionWithRun = {
 };
 
 function mockWorkbenchApis() {
-  vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
-    schema_version: "dmb_graph_ingest_run_registry_v1",
-    version: "0.1",
-    runs: sessionWithRun.available_runs,
-  });
   vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
     schema_version: "dmb_graph_gold_review_sessions_v1",
     version: "0.1",
@@ -217,7 +261,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(
       screen.getByText(/Load an ingested session to review extracted objects/i),
     ).toBeInTheDocument();
-    expect(screen.queryByTestId("graph-projection-reader")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-union-preview-retired")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument(),
@@ -241,17 +285,51 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.getByRole("button", { name: "Author Node" })).toBeInTheDocument();
   });
 
-  it("auto-loads when a session query param is present", async () => {
-    window.history.replaceState({}, "", "/ingest?session=session-23");
+  it("does not auto-load a same-session default when the URL has no exact run_id", async () => {
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-23");
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
     );
+    expect(
+      screen.getByText(/Load an ingested session to review extracted objects/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-union-preview-retired")).not.toBeInTheDocument();
+  });
 
-    expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
+  it("W9: vanished explicit run_id stays missing instead of falling back to latest", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_vanished",
+    );
+    renderWorkbench([canonicalRun({ run_id: "er_other" })]);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-selected-run-missing")).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/er_vanished/)).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-union-preview-retired")).not.toBeInTheDocument();
+    expect(window.location.search).toContain("run=er_vanished");
+  });
+
+  it("W17: gold catalog failure does not empty a healthy APP-STATE catalog", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(liveApi, "getGoldReviewSessions").mockRejectedValue(new Error("gold down"));
+    window.history.replaceState({}, "", "/ingest");
+    renderWorkbench();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Load recap" }));
+    await user.click(screen.getByRole("button", { name: "Load" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-union-preview-retired")).toBeInTheDocument(),
+    );
     expect(screen.getByText("Session 23 · longmont-c2")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
   });
 
   it("loads prose after choosing a session in the load dialog", async () => {
@@ -267,12 +345,12 @@ describe("GraphReviewWorkbenchModule", () => {
     await user.click(screen.getByRole("button", { name: "Load" }));
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(screen.getByTestId("graph-review-union-preview-retired")).toBeInTheDocument(),
     );
     expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
     expect(window.location.search).toContain("session=session-23");
     expect(window.location.search).toContain("campaign=longmont-c2");
-    expect(window.location.search).toContain("run=artifacts%2Frun-a%2Fmanifest.json");
+    expect(window.location.search).toContain("run=er_run_a");
   });
 
   it("keeps the loaded graph after a remount that simulates browser refresh", async () => {
@@ -286,7 +364,7 @@ describe("GraphReviewWorkbenchModule", () => {
     await user.click(screen.getByRole("button", { name: "Load recap" }));
     await user.click(screen.getByRole("button", { name: "Load" }));
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(screen.getByTestId("graph-review-union-preview-retired")).toBeInTheDocument(),
     );
 
     const restoredUrl = `${window.location.pathname}${window.location.search}`;
@@ -295,19 +373,19 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(screen.getByTestId("graph-review-union-preview-retired")).toBeInTheDocument(),
     );
     expect(screen.getByText("Session 23 · longmont-c2")).toBeInTheDocument();
-    expect(window.location.search).toContain("run=artifacts%2Frun-a%2Fmanifest.json");
+    expect(window.location.search).toContain("run=er_run_a");
   });
 
   it("opens toolbox with Ingest Recap and Diagnostics tools", async () => {
     const user = userEvent.setup();
-    window.history.replaceState({}, "", "/ingest?session=session-23");
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-23&run=er_run_a");
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(screen.getByTestId("graph-review-union-preview-retired")).toBeInTheDocument(),
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
@@ -319,72 +397,57 @@ describe("GraphReviewWorkbenchModule", () => {
 
   it("opens diagnostics content from the toolbox", async () => {
     const user = userEvent.setup();
-    window.history.replaceState({}, "", "/ingest?session=session-23");
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-23&run=er_run_a");
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(screen.getByTestId("graph-review-union-preview-retired")).toBeInTheDocument(),
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: "Diagnostics" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Gold-vs-live smoke alarms" }),
+      await screen.findByLabelText("Diagnostics projection"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Select a live run with a projection to inspect diagnostics/i),
     ).toBeInTheDocument();
   });
 
-  it("author node drawer enables relationship staging from projected pills", async () => {
+  it("author node stays inspect-empty while union preview is retired", async () => {
     const user = userEvent.setup();
-    window.history.replaceState({}, "", "/ingest?session=session-23");
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-23&run=er_run_a");
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(screen.getByTestId("graph-review-union-preview-retired")).toBeInTheDocument(),
     );
 
     await user.click(screen.getByRole("button", { name: "Author Node" }));
 
-    await screen.findByTestId("graph-review-author-draft-workspace");
-
-    const reader = screen.getByLabelText("Authoring recap");
-    const aldenPill = await waitFor(() => {
-      const pill = within(reader)
-        .getAllByRole("button", { name: /Alden/ })
-        .find((button) => button.classList.contains("recap-node-token"));
-      expect(pill).toBeTruthy();
-      return pill as HTMLButtonElement;
-    });
-    fireEvent.click(aldenPill);
-    fireEvent.click(screen.getByRole("tab", { name: "Relationships" }));
-    expect(screen.getByLabelText("Source object")).toHaveValue("existing_node:alden");
-
-    const beraPill = within(reader)
-      .getAllByRole("button", { name: /Bera/ })
-      .find((button) => button.classList.contains("recap-node-token")) as HTMLButtonElement;
-    fireEvent.click(beraPill);
-    expect(screen.getByLabelText("Target object")).toHaveValue("existing_node:bera");
-    expect(
-      screen.getByRole("button", { name: "Stage relationship" }),
-    ).toBeEnabled();
+    expect(await screen.findByTestId("graph-review-author-node-empty")).toBeInTheDocument();
+    expect(screen.getByText(/UnionSupergraph store preview/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-author-draft-workspace")).not.toBeInTheDocument();
   });
 
   it("opens Author Node from legacy author-draft tool query", async () => {
     window.history.replaceState(
       {},
       "",
-      "/ingest?session=session-23&tool=graph-review-author-draft",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_run_a&tool=graph-review-author-draft",
     );
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-review-author-draft-workspace")).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: "Author Node" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      ),
     );
     expect(window.location.search).not.toContain("tool=graph-review-author-draft");
-    expect(screen.getByRole("button", { name: "Author Node" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    expect(screen.getByTestId("graph-review-author-node-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-author-draft-workspace")).not.toBeInTheDocument();
   });
 
   it("preserves tool query param when applying a new session from the load dialog", async () => {
@@ -392,14 +455,9 @@ describe("GraphReviewWorkbenchModule", () => {
     window.history.replaceState(
       {},
       "",
-      "/ingest?session=session-23&tool=graph-review-diagnostics",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_run_a&tool=graph-review-diagnostics",
     );
 
-    vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
-      schema_version: "dmb_graph_ingest_run_registry_v1",
-      version: "0.1",
-      runs: sessionWithRun.available_runs,
-    });
     vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
       schema_version: "dmb_graph_gold_review_sessions_v1",
       version: "0.1",
@@ -414,10 +472,13 @@ describe("GraphReviewWorkbenchModule", () => {
       ],
     });
 
-    renderWorkbench();
+    renderWorkbench([
+      canonicalRun(),
+      canonicalRun({ session_id: "session-22", run_id: "er_run_b" }),
+    ]);
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(screen.getByTestId("graph-review-union-preview-retired")).toBeInTheDocument(),
     );
 
     await user.click(screen.getByRole("button", { name: "Load recap" }));
@@ -431,17 +492,10 @@ describe("GraphReviewWorkbenchModule", () => {
   });
 
   it("loads a run-only session without calling gold compare", async () => {
-    const user = userEvent.setup();
-    const runOnlySession = {
-      ...sessionWithRun.available_runs[0],
+    const runOnly = canonicalRun({
       campaign_id: "longmont-c1",
       session_id: "session-2",
-      run_label: "C1S2 run",
-    };
-    vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
-      schema_version: "dmb_graph_ingest_run_registry_v1",
-      version: "0.1",
-      runs: [runOnlySession],
+      run_id: "er_c1s2",
     });
     vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
       schema_version: "dmb_graph_gold_review_sessions_v1",
@@ -450,18 +504,19 @@ describe("GraphReviewWorkbenchModule", () => {
     });
     const compareSpy = vi.spyOn(liveApi, "getGoldReviewCompare");
 
-    window.history.replaceState({}, "", "/ingest?session=session-2&campaign=longmont-c1");
-    render(
-      <AgentInteractionProvider>
-        <GraphReviewWorkbenchModule
-          context={{ ...context, campaignId: "longmont-c1", ingestSession: 2 }}
-        />
-        <LegacyProjectionHostAdapter />
-      </AgentInteractionProvider>,
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?session=session-2&campaign=longmont-c1&run=er_c1s2",
     );
+    renderWorkbench([runOnly], {
+      ...context,
+      campaignId: "longmont-c1",
+      ingestSession: 2,
+    });
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+      expect(screen.getByTestId("graph-review-union-preview-retired")).toBeInTheDocument(),
     );
     expect(screen.getByText("Session 2 · longmont-c1")).toBeInTheDocument();
     expect(compareSpy).not.toHaveBeenCalled();
