@@ -11,6 +11,7 @@ from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateIntegrityError,
     ApplicationStateNotFoundError,
+    ApplicationStateValidationError,
 )
 from application_state.ingest.service import (
     create_extraction_run,
@@ -20,8 +21,12 @@ from application_state.ingest.service import (
     supersede_extraction_run,
     update_extraction_run,
 )
-from application_state.unit_of_work import unit_of_work
-from graph_memory.ingestion.extraction_run import ExtractionRun, ExtractionRunStatus
+from graph_memory.ingestion.extraction_run import (
+    ExtractionRun,
+    ExtractionRunComponentKind,
+    ExtractionRunComponentRef,
+    ExtractionRunStatus,
+)
 
 
 def _run(*, run_id: str | None = None, **overrides) -> ExtractionRun:
@@ -41,9 +46,81 @@ def _run(*, run_id: str | None = None, **overrides) -> ExtractionRun:
     return ExtractionRun.model_validate(payload)
 
 
+def _review_components() -> dict[str, ExtractionRunComponentRef]:
+    return {
+        "source_artifact": ExtractionRunComponentRef(
+            kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
+            uri="repo://source.md",
+            sha256="a" * 64,
+        ),
+        "source_span_index": ExtractionRunComponentRef(
+            kind=ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
+            uri="repo://spans.json",
+            sha256="b" * 64,
+        ),
+        "candidate_graph": ExtractionRunComponentRef(
+            kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+            uri="repo://graph.json",
+            sha256="c" * 64,
+        ),
+    }
+
+
+def _model_valid_terminal_run(status: ExtractionRunStatus) -> ExtractionRun:
+    extras: dict = {"status": status}
+    if status == ExtractionRunStatus.PROMOTED:
+        extras["components"] = _review_components()
+    if status == ExtractionRunStatus.SUPERSEDED:
+        extras["superseded_by_run_id"] = "er_other"
+    return _run(**extras)
+
+
 def test_alembic_head_is_ingest_0005(application_state_dsn: str) -> None:
     current, head = _current_and_head(application_state_dsn)
     assert current == head == "20260902_0005"
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        ExtractionRunStatus.PROMOTED,
+        ExtractionRunStatus.REJECTED,
+        ExtractionRunStatus.FAILED,
+        ExtractionRunStatus.SUPERSEDED,
+    ],
+)
+def test_create_rejects_terminal_status(
+    application_state_dsn: str, status: ExtractionRunStatus
+) -> None:
+    with pytest.raises(
+        ApplicationStateValidationError,
+        match="cannot create an extraction run directly in a terminal status",
+    ):
+        create_extraction_run(_model_valid_terminal_run(status))
+    assert list_extraction_runs() == []
+
+
+def test_supersede_rejects_terminal_successor(application_state_dsn: str) -> None:
+    created = create_extraction_run(_run())
+    successor = _run(
+        run_id="er_terminal_successor",
+        status=ExtractionRunStatus.FAILED,
+        supersedes_run_id=created.run_id,
+    )
+    with pytest.raises(
+        ApplicationStateValidationError,
+        match="cannot create an extraction run directly in a terminal status",
+    ):
+        supersede_extraction_run(
+            created.run_id,
+            expected_revision=created.revision,
+            successor=successor,
+        )
+    loaded = get_extraction_run(created.run_id)
+    assert loaded.status == ExtractionRunStatus.DRAFT
+    assert loaded.superseded_by_run_id is None
+    with pytest.raises(ApplicationStateNotFoundError):
+        get_extraction_run("er_terminal_successor")
 
 
 def test_create_list_get_independent_of_worktree_files(
@@ -238,10 +315,6 @@ def test_missing_component_bytes_do_not_hide_catalog_row(
     )
     from application_state.ingest.repository import insert_run
     from application_state.unit_of_work import unit_of_work
-    from graph_memory.ingestion.extraction_run import (
-        ExtractionRunComponentKind,
-        ExtractionRunComponentRef,
-    )
 
     components = {
         "source_artifact": ExtractionRunComponentRef(

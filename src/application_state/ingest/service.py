@@ -170,6 +170,10 @@ def list_extraction_runs(
 
 
 def create_extraction_run(run: ExtractionRun) -> ExtractionRun:
+    if run.status in TERMINAL_EXTRACTION_RUN_STATUSES:
+        raise ApplicationStateValidationError(
+            "cannot create an extraction run directly in a terminal status"
+        )
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
@@ -256,6 +260,10 @@ def supersede_extraction_run(
     if successor.supersedes_run_id != canonical:
         raise ApplicationStateValidationError(
             "successor.supersedes_run_id must equal the predecessor run_id"
+        )
+    if successor.status in TERMINAL_EXTRACTION_RUN_STATUSES:
+        raise ApplicationStateValidationError(
+            "cannot create an extraction run directly in a terminal status"
         )
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
