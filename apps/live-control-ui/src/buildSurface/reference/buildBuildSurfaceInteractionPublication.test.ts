@@ -7,6 +7,7 @@ import {
   BUILD_FIND_EXISTING_TOOL_ID,
   BUILD_REFERENCE_CONTEXT_BINDING_ID,
   BUILD_REFERENCE_SEARCH_PROJECTION_ID,
+  BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
 } from "./buildReferenceIds";
 import {
   buildBuildSurfaceInteractionPublication,
@@ -17,7 +18,7 @@ import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "../buildDocumentCommands";
 const DOC_ID = "11111111-1111-4111-8111-111111111111";
 
 const sampleContext: BuildReferenceContextBinding = {
-  schema: "dmb_build_reference_context_v1",
+  schema: "dmb_build_reference_context_v2",
   documentId: DOC_ID,
   documentCampaignId: "longmont-c1",
   lens: {
@@ -31,16 +32,10 @@ const sampleContext: BuildReferenceContextBinding = {
     scopeMode: "campaign",
     focus: { kind: "none", sessionId: null },
   },
-  items: [],
-  projectionState: "ready",
-  projectionError: null,
-  requestedRevisionId: null,
-  loadedRevisionId: "rev-head",
-  loadedIsHead: true,
   selectCampaign: () => undefined,
   viewExact: () => undefined,
   insertChip: () => undefined,
-  insertDisabled: false,
+  editorInsertDisabled: false,
 };
 
 describe("buildBuildSurfaceInteractionPublication", () => {
@@ -49,6 +44,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       documentId: null,
       acceptedDocument: null,
       referenceContext: null,
+      worldGraphChannel: null,
     });
 
     expect(publication.tools).toEqual([]);
@@ -65,6 +61,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       documentId: DOC_ID,
       acceptedDocument: null,
       referenceContext: sampleContext,
+      worldGraphChannel: null,
     });
 
     expect(publication.tools).toEqual([]);
@@ -77,6 +74,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       documentId: DOC_ID,
       acceptedDocument: { documentId: "other-doc", campaignId: "longmont-c1" },
       referenceContext: sampleContext,
+      worldGraphChannel: null,
     });
 
     expect(publication.tools).toEqual([]);
@@ -89,6 +87,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       documentId: DOC_ID,
       acceptedDocument: { documentId: DOC_ID, campaignId: "longmont-c1" },
       referenceContext: null,
+      worldGraphChannel: null,
     });
 
     expect(publication.tools).toEqual([]);
@@ -102,6 +101,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       documentId: DOC_ID,
       acceptedDocument: { documentId: DOC_ID, campaignId: "longmont-c1" },
       referenceContext: sampleContext,
+      worldGraphChannel: null,
       documentSave: { saveDisabled: false, save },
     });
 
@@ -141,7 +141,10 @@ describe("buildBuildSurfaceInteractionPublication", () => {
         id: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
         kind: "tool",
         preferredSize: "wide",
-        bindingIds: [BUILD_REFERENCE_CONTEXT_BINDING_ID],
+        bindingIds: [
+          BUILD_REFERENCE_CONTEXT_BINDING_ID,
+          BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
+        ],
       },
       {
         id: GRAPH_REFERENCE_PROJECTION_ID,
@@ -152,8 +155,16 @@ describe("buildBuildSurfaceInteractionPublication", () => {
     ]);
     expect(publication.projectionBindings.map((entry) => entry.id)).toEqual([
       BUILD_REFERENCE_CONTEXT_BINDING_ID,
+      BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
       GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
     ]);
+    const contextBinding = publication.projectionBindings.find(
+      (entry) => entry.id === BUILD_REFERENCE_CONTEXT_BINDING_ID,
+    );
+    expect(contextBinding?.value).toEqual(sampleContext);
+    expect(JSON.stringify(contextBinding?.value)).not.toMatch(
+      /projectionState|loadedRevisionId|loadedIsHead|"items"/,
+    );
     expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
   });
 
@@ -164,16 +175,12 @@ describe("buildBuildSurfaceInteractionPublication", () => {
         status: "invalid",
         reason: "Campaign-scoped document (longmont-c1) does not admit campaign lens longmont-c2.",
       },
-      projectionState: "error",
-      projectionError:
-        "Campaign-scoped document (longmont-c1) does not admit campaign lens longmont-c2.",
-      loadedRevisionId: null,
-      loadedIsHead: false,
     };
     const publication = buildBuildSurfaceInteractionPublication({
       documentId: DOC_ID,
       acceptedDocument: { documentId: DOC_ID, campaignId: "longmont-c1" },
       referenceContext: invalidContext,
+      worldGraphChannel: null,
     });
 
     expect(publication.tools[0]?.availability).toEqual({
@@ -199,15 +206,12 @@ describe("buildBuildSurfaceInteractionPublication", () => {
         focus: { kind: "none", sessionId: null },
         reason: "World-scoped document requires an explicit campaign selection.",
       },
-      projectionState: "unavailable",
-      projectionError: "World-scoped document requires an explicit campaign selection.",
-      loadedRevisionId: null,
-      loadedIsHead: false,
     };
     const publication = buildBuildSurfaceInteractionPublication({
       documentId: DOC_ID,
       acceptedDocument: { documentId: DOC_ID, campaignId: "eldyrwild" },
       referenceContext: selectionContext,
+      worldGraphChannel: null,
     });
 
     expect(publication.tools[0]?.availability).toEqual({ status: "enabled" });

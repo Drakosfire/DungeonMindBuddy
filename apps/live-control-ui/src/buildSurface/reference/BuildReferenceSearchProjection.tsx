@@ -1,9 +1,22 @@
+import { useSyncExternalStore, type ReactNode } from "react";
+
+import type { WorldGraphProjection } from "../../api/types";
 import { GraphReferenceSearch } from "../../graphReference/GraphReferenceSearch";
+import type { GraphReferenceSearchItem } from "../../graphReference/types";
+import type { SurfaceInformationChannel, SurfaceInformationSnapshot } from "../../surfaceInformation";
 import { admitBuildObjectInsert } from "../../worldGraph/worldGraphSurfaceContext";
 import type { BuildReferenceContextBinding } from "./buildBuildSurfaceInteractionPublication";
-import { BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./buildReferenceIds";
+import {
+  BUILD_REFERENCE_CONTEXT_BINDING_ID,
+  BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
+} from "./buildReferenceIds";
 import type { BuildGraphLensResolution } from "./resolveBuildGraphLens";
-import type { GraphReferenceSearchItem } from "../../graphReference/types";
+import {
+  BUILD_WORLD_GRAPH_FALLBACK_SNAPSHOT,
+  observedIsHead,
+  observedRevisionId,
+  searchItemsFromWorldGraphState,
+} from "./buildWorldGraphSurfaceInformation";
 
 export interface BuildReferenceSearchProjectionProps {
   bindings: Readonly<Record<string, unknown>>;
@@ -13,15 +26,26 @@ function isBuildReferenceContextBinding(value: unknown): value is BuildReference
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<BuildReferenceContextBinding>;
   return (
-    candidate.schema === "dmb_build_reference_context_v1"
+    candidate.schema === "dmb_build_reference_context_v2"
     && typeof candidate.documentId === "string"
     && typeof candidate.documentCampaignId === "string"
     && candidate.lens != null
-    && typeof candidate.loadedIsHead === "boolean"
     && typeof candidate.selectCampaign === "function"
     && typeof candidate.viewExact === "function"
     && typeof candidate.insertChip === "function"
-    && typeof candidate.insertDisabled === "boolean"
+    && typeof candidate.editorInsertDisabled === "boolean"
+  );
+}
+
+function isWorldGraphChannel(
+  value: unknown,
+): value is SurfaceInformationChannel<WorldGraphProjection> {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<SurfaceInformationChannel<WorldGraphProjection>>;
+  return (
+    typeof candidate.subscribe === "function"
+    && typeof candidate.getSnapshot === "function"
+    && candidate.descriptor != null
   );
 }
 
@@ -37,7 +61,30 @@ export function readBuildReferenceContextBinding(
   }
   if (!isBuildReferenceContextBinding(value)) {
     throw new Error(
-      "Malformed Build reference context binding: expected schema dmb_build_reference_context_v1.",
+      "Malformed Build reference context binding: expected schema dmb_build_reference_context_v2.",
+    );
+  }
+  return value;
+}
+
+export function readBuildWorldGraphInformationChannelBinding(
+  bindings: Readonly<Record<string, unknown>>,
+): SurfaceInformationChannel<WorldGraphProjection> | null {
+  if (
+    !Object.prototype.hasOwnProperty.call(
+      bindings,
+      BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
+    )
+  ) {
+    throw new Error(
+      `Missing required projection binding: ${BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID}`,
+    );
+  }
+  const value = bindings[BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID];
+  if (value === null || value === undefined) return null;
+  if (!isWorldGraphChannel(value)) {
+    throw new Error(
+      "Malformed Build World Graph information-channel binding: expected a Surface Information channel or null.",
     );
   }
   return value;
@@ -82,9 +129,36 @@ function insertDeniedReasonForDocument(
   return admission.ok ? null : admission.reason;
 }
 
+function StatusShell({
+  children,
+  alert,
+}: {
+  children: ReactNode;
+  alert?: boolean;
+}) {
+  return (
+    <p
+      className={
+        alert
+          ? "build-reference-search-projection__status build-reference-search-projection__status--error"
+          : "build-reference-search-projection__status"
+      }
+      role={alert ? "alert" : "status"}
+    >
+      {children}
+    </p>
+  );
+}
+
 export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearchProjectionProps) {
   const context = readBuildReferenceContextBinding(bindings);
+  const channel = readBuildWorldGraphInformationChannelBinding(bindings);
   const { lens } = context;
+  const snapshot = useSyncExternalStore(
+    channel?.subscribe ?? BUILD_WORLD_GRAPH_FALLBACK_SNAPSHOT_SUBSCRIBE,
+    channel?.getSnapshot ?? getFallbackSnapshot,
+    channel?.getSnapshot ?? getFallbackSnapshot,
+  ) as SurfaceInformationSnapshot<WorldGraphProjection>;
 
   if (lens.status === "invalid") {
     return (
@@ -93,9 +167,7 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
         aria-label="World Graph search"
         data-testid="build-reference-search-projection"
       >
-        <p className="build-reference-search-projection__status" role="alert">
-          {lens.reason}
-        </p>
+        <StatusShell alert>{lens.reason}</StatusShell>
       </section>
     );
   }
@@ -107,23 +179,31 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
         aria-label="World Graph search"
         data-testid="build-reference-search-projection"
       >
-        <p className="build-reference-search-projection__status" role="status">
+        <StatusShell>
           {lens.reason} Select a campaign in the World Graph lens in the site navigation.
-        </p>
+        </StatusShell>
       </section>
     );
   }
 
   const campaignLabel = lensCampaignLabel(lens);
   const revisionMode = lensRevisionMode(lens);
+  const state = snapshot.state;
+  const loadedRevisionId = observedRevisionId(state);
+  const loadedIsHead = observedIsHead(state, revisionMode);
+  const requestedRevisionId =
+    lens.status === "ready" && lens.revision.kind === "pinned"
+      ? lens.revision.revisionId
+      : null;
   const revisionSummary = formatRevisionSummary({
-    requestedRevisionId: context.requestedRevisionId,
-    loadedRevisionId: context.loadedRevisionId,
+    requestedRevisionId,
+    loadedRevisionId,
     revisionMode,
-    loadedIsHead: context.loadedIsHead,
+    loadedIsHead,
   });
+  const waitingForChannel = channel == null;
 
-  if (context.projectionState === "loading") {
+  if (waitingForChannel || state.status === "loading") {
     return (
       <section
         className="build-reference-search-projection"
@@ -133,14 +213,16 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
         <p className="build-reference-search-projection__lens" data-testid="build-reference-lens-summary">
           {campaignLabel} · {revisionMode === "pinned" ? "pinned" : "head"} · loading
         </p>
-        <p className="build-reference-search-projection__status" role="status">
-          Loading World Graph projection…
-        </p>
+        <StatusShell>
+          {waitingForChannel
+            ? "Waiting for exact World Graph information…"
+            : "Loading World Graph projection…"}
+        </StatusShell>
       </section>
     );
   }
 
-  if (context.projectionState === "error") {
+  if (state.status === "unavailable") {
     return (
       <section
         className="build-reference-search-projection"
@@ -150,12 +232,48 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
         <p className="build-reference-search-projection__lens" data-testid="build-reference-lens-summary">
           {campaignLabel} · {revisionSummary}
         </p>
-        <p className="build-reference-search-projection__status build-reference-search-projection__status--error" role="alert">
-          {context.projectionError ?? "Could not load World Graph projection."}
-        </p>
+        <StatusShell>World Graph is unavailable. {state.reason}</StatusShell>
       </section>
     );
   }
+
+  if (state.status === "integrity_error") {
+    return (
+      <section
+        className="build-reference-search-projection"
+        aria-label="World Graph search"
+        data-testid="build-reference-search-projection"
+      >
+        <p className="build-reference-search-projection__lens" data-testid="build-reference-lens-summary">
+          {campaignLabel} · {revisionSummary}
+        </p>
+        <StatusShell alert>{state.reason}</StatusShell>
+      </section>
+    );
+  }
+
+  if (state.status === "stale") {
+    return (
+      <section
+        className="build-reference-search-projection"
+        aria-label="World Graph search"
+        data-testid="build-reference-search-projection"
+      >
+        <p className="build-reference-search-projection__lens" data-testid="build-reference-lens-summary">
+          {campaignLabel} · {revisionSummary}
+        </p>
+        <StatusShell alert>
+          World Graph observation is stale. {state.reason} Insert is disabled.
+        </StatusShell>
+      </section>
+    );
+  }
+
+  const items = searchItemsFromWorldGraphState(state);
+  const insertDisabled =
+    context.editorInsertDisabled || (state.status !== "ready" && state.status !== "empty");
+  // EMPTY is a successful zero-result observation. Insert buttons cannot appear
+  // without items, so do not reuse the editor-lock banner for emptiness.
 
   return (
     <section
@@ -166,17 +284,28 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
       <p className="build-reference-search-projection__lens" data-testid="build-reference-lens-summary">
         {campaignLabel} · {revisionSummary}
       </p>
+      {state.status === "empty" ? (
+        <StatusShell>World Graph projection is empty for this exact request.</StatusShell>
+      ) : null}
       <GraphReferenceSearch
-        items={context.items}
-        projectionState={context.projectionState}
-        projectionError={context.projectionError}
-        insertDisabled={context.insertDisabled}
+        items={items}
+        projectionState="ready"
+        projectionError={null}
+        insertDisabled={insertDisabled}
         insertDeniedReason={(item) =>
           insertDeniedReasonForDocument(context.documentCampaignId, item)
         }
         onInsert={(item) => context.insertChip(item.nodeId)}
-        onView={context.viewExact}
+        onView={(item) => context.viewExact(item.nodeId)}
       />
     </section>
   );
+}
+
+function getFallbackSnapshot(): SurfaceInformationSnapshot<WorldGraphProjection> {
+  return BUILD_WORLD_GRAPH_FALLBACK_SNAPSHOT;
+}
+
+function BUILD_WORLD_GRAPH_FALLBACK_SNAPSHOT_SUBSCRIBE(): () => void {
+  return () => undefined;
 }

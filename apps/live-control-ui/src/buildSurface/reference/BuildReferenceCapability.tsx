@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 
+import type { Editor } from "@tiptap/core";
 import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
@@ -10,19 +19,22 @@ import { glanceOnlyForGraphReference } from "../../graphReference/openGraphRefer
 import {
   GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
 } from "../../graphReference/projectionBindings";
+import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphNode";
 import { resolveGraphReference, extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
 import type {
   ExactGraphReferenceScope,
   GraphNodeChipRuntimeValue,
   GraphReferenceProjectionState,
   GraphReferenceResolution,
-  GraphReferenceSearchItem,
 } from "../../graphReference/types";
-import type { GraphProjectionNodeView } from "../../api/types";
+import type { GraphProjectionNodeView, WorldGraphProjection } from "../../api/types";
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
 import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
 import { useOptionalWorldGraphLens } from "../../graphLens/WorldGraphLensContext";
-import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
+import {
+  useOptionalWorldGraphLensInformationChannel,
+  useOptionalWorldGraphLensProjection,
+} from "../../graphLens/useWorldGraphLensProjection";
 import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "../../chrome/appChromeConfig";
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { insertMarkdownReference } from "../../graphReference/insertMarkdownReference";
@@ -38,11 +50,21 @@ import {
 import {
   BUILD_REFERENCE_CONTEXT_BINDING_ID,
   BUILD_REFERENCE_SEARCH_PROJECTION_ID,
+  BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
 } from "./buildReferenceIds";
 import { BuildReferenceObjectProjection } from "./BuildReferenceObjectProjection";
 import { BuildReferenceSearchProjection } from "./BuildReferenceSearchProjection";
 import { resolveBuildFindGraphLens } from "./resolveBuildGraphLens";
 import { useBuildWorldGraphProjection } from "./useBuildWorldGraphProjection";
+import {
+  BUILD_WORLD_GRAPH_FALLBACK_SNAPSHOT,
+  searchItemsFromWorldGraphState,
+} from "./buildWorldGraphSurfaceInformation";
+import type {
+  SurfaceInformationChannel,
+  SurfaceInformationSnapshot,
+  SurfaceInformationState,
+} from "../../surfaceInformation";
 
 const EMPTY_PUBLICATION_PHASES: ReadonlySet<WorkspaceDocumentAuthoringPhase> = new Set([
   "unloaded",
@@ -63,6 +85,24 @@ export const buildViewExactTestSeam = {
     this.lastGraphScope = null;
   },
 };
+
+type BuildEditorGate = {
+  editor: Editor | null;
+  documentId: string | null;
+  documentCampaignId: string | null;
+  editorInteractive: boolean;
+};
+
+const CLOSED_BUILD_EDITOR_GATE: BuildEditorGate = {
+  editor: null,
+  documentId: null,
+  documentCampaignId: null,
+  editorInteractive: false,
+};
+
+function isBuildEditorLive(gate: BuildEditorGate): boolean {
+  return Boolean(gate.editor && gate.documentId && gate.editorInteractive);
+}
 
 function subscribeToLocationSearch(onStoreChange: () => void): () => void {
   if (typeof window === "undefined") {
@@ -88,10 +128,53 @@ function readBuildGraphLensParams(search: string): {
   };
 }
 
+function graphReferenceStateFromInformation(
+  state: SurfaceInformationState<WorldGraphProjection>,
+): GraphReferenceProjectionState {
+  if (state.status === "loading") return "loading";
+  if (state.status === "unavailable") return "unavailable";
+  if (state.status === "integrity_error" || state.status === "stale") return "error";
+  return "ready";
+}
+
+function liveWorldGraphState(
+  channel: SurfaceInformationChannel<WorldGraphProjection> | null,
+): SurfaceInformationState<WorldGraphProjection> | null {
+  return channel?.getSnapshot().state ?? null;
+}
+
+type RelationshipObservationLease = {
+  channel: SurfaceInformationChannel<WorldGraphProjection>;
+  generation: number;
+};
+
+const relationshipObservationByResolution = new WeakMap<
+  GraphReferenceResolution,
+  RelationshipObservationLease
+>();
+
+function currentObservationLease(
+  channel: SurfaceInformationChannel<WorldGraphProjection> | null,
+): RelationshipObservationLease | null {
+  if (!channel) return null;
+  return { channel, generation: channel.getSnapshot().generation };
+}
+
+function observationLeaseMatches(
+  started: RelationshipObservationLease | null,
+  live: RelationshipObservationLease | null,
+): boolean {
+  return Boolean(
+    started
+    && live
+    && started.channel === live.channel
+    && started.generation === live.generation,
+  );
+}
+
 async function resolveBuildRelationshipTarget(input: {
   relationship: GraphObjectRelationshipViewModel;
-  projection: ReturnType<typeof useBuildWorldGraphProjection>["projection"];
-  projectionState: GraphReferenceProjectionState;
+  channel: SurfaceInformationChannel<WorldGraphProjection> | null;
 }): Promise<GraphReferenceResolution> {
   const label = String(input.relationship.label || "").trim() || "Related object";
   const targetId = String(input.relationship.targetId || "").trim() || null;
@@ -100,58 +183,80 @@ async function resolveBuildRelationshipTarget(input: {
   const reference = targetKind && targetId
     ? { kind: "ref" as const, refType: targetKind, refId: targetId, label }
     : null;
-
-  if (input.projectionState === "loading") {
+  const information = liveWorldGraphState(input.channel);
+  if (!information) {
     return {
       kind: "unresolved",
       locator,
       reference,
-      projectionState: input.projectionState,
+      projectionState: "unavailable",
+      message: "World Graph information channel is not current; relationship resolution unavailable.",
+    };
+  }
+  const projectionState = graphReferenceStateFromInformation(information);
+  const projection = information.status === "ready" ? information.value : null;
+
+  if (projectionState === "loading") {
+    return {
+      kind: "unresolved",
+      locator,
+      reference,
+      projectionState,
       message: "World Graph projection is loading; relationship resolution deferred.",
     };
   }
 
-  if (input.projectionState === "error") {
+  if (projectionState === "error") {
     return {
       kind: "error",
       locator,
       reference,
-      projectionState: input.projectionState,
+      projectionState,
       message: "World Graph projection failed; relationship resolution unavailable.",
     };
   }
 
-  if (input.projectionState === "ready" && !input.projection) {
+  if (information.status === "empty") {
+    return {
+      kind: "unresolved",
+      locator,
+      reference,
+      projectionState: "ready",
+      message: `Could not resolve related object "${label}" from the loaded World Graph projection.`,
+    };
+  }
+
+  if (projectionState === "ready" && !projection) {
     return {
       kind: "error",
       locator,
       reference,
-      projectionState: input.projectionState,
+      projectionState,
       message:
         "World Graph projection marked ready but no projection was supplied; relationship resolution unavailable.",
     };
   }
 
-  if (input.projectionState === "unavailable") {
+  if (projectionState === "unavailable") {
     return {
       kind: "unresolved",
       locator,
       reference,
-      projectionState: input.projectionState,
+      projectionState,
       message: "World Graph is unavailable; relationship resolution unavailable.",
     };
   }
 
-  if (targetId && input.projection) {
-    const exactNode = input.projection.nodes.find((node) => node.nodeId === targetId) ?? null;
+  if (targetId && projection) {
+    const exactNode = projection.nodes.find((node) => node.nodeId === targetId) ?? null;
     if (exactNode) {
-      const graphScope = extractExactGraphReferenceScope(input.projection);
+      const graphScope = extractExactGraphReferenceScope(projection);
       if (!graphScope) {
         return {
           kind: "error",
           locator,
           reference,
-          projectionState: input.projectionState,
+          projectionState,
           message:
             "World Graph projection is missing an exact scope; relationship resolution unavailable.",
         };
@@ -164,7 +269,7 @@ async function resolveBuildRelationshipTarget(input: {
         graphNodeId: exactNode.nodeId,
         graphObject: buildGraphObjectCardFromNodeView(nodeView),
         graphScope,
-        projectionState: input.projectionState,
+        projectionState,
         message: `Resolved graph node ${exactNode.label}.`,
       };
     }
@@ -173,18 +278,18 @@ async function resolveBuildRelationshipTarget(input: {
       kind: "unresolved",
       locator,
       reference,
-      projectionState: input.projectionState,
+      projectionState,
       message: `Could not resolve related object "${label}" from the loaded World Graph projection.`,
     };
   }
 
-  if (input.projection) {
+  if (projection) {
     return resolveGraphReference({
       locator: label,
       label,
       refType: targetKind,
-      projection: input.projection,
-      projectionState: input.projectionState,
+      projection,
+      projectionState,
     });
   }
 
@@ -192,9 +297,55 @@ async function resolveBuildRelationshipTarget(input: {
     kind: "unresolved",
     locator,
     reference,
-    projectionState: input.projectionState,
+    projectionState,
     message: `Could not resolve related object "${label}" from graph memory.`,
   };
+}
+
+function fallbackSubscribe(): () => void {
+  return () => undefined;
+}
+
+function getFallbackSnapshot(): SurfaceInformationSnapshot<WorldGraphProjection> {
+  return BUILD_WORLD_GRAPH_FALLBACK_SNAPSHOT;
+}
+
+function BuildWorldGraphChipRuntime({
+  channel,
+  onSelectNode,
+  children,
+}: {
+  channel: SurfaceInformationChannel<WorldGraphProjection> | null;
+  onSelectNode: (nodeId: string) => void;
+  children: ReactNode;
+}) {
+  const snapshot = useSyncExternalStore(
+    channel?.subscribe ?? fallbackSubscribe,
+    channel?.getSnapshot ?? getFallbackSnapshot,
+    channel?.getSnapshot ?? getFallbackSnapshot,
+  ) as SurfaceInformationSnapshot<WorldGraphProjection>;
+  const chipRuntime = useMemo<GraphNodeChipRuntimeValue>(() => {
+    const items = searchItemsFromWorldGraphState(snapshot.state);
+    const nodeViews: Record<string, GraphProjectionNodeView> = {};
+    for (const item of items) {
+      nodeViews[item.nodeId] = item.nodeView;
+    }
+    const projection =
+      snapshot.state.status === "ready" || snapshot.state.status === "stale"
+        ? snapshot.state.value
+        : null;
+    return {
+      nodeViews,
+      activeNodeId: null,
+      onSelectNode,
+      exactGraphScope: projection ? extractExactGraphReferenceScope(projection) : null,
+    };
+  }, [onSelectNode, snapshot]);
+  return (
+    <GraphNodeChipRuntimeProvider value={chipRuntime}>
+      {children}
+    </GraphNodeChipRuntimeProvider>
+  );
 }
 
 export interface BuildReferenceCapabilityProps {
@@ -221,6 +372,7 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
   );
   const sharedGraphLens = useOptionalWorldGraphLens();
   const sharedProjection = useOptionalWorldGraphLensProjection();
+  const sharedChannel = useOptionalWorldGraphLensInformationChannel();
   const sharedLensIdentityKey = useMemo(() => {
     if (!sharedGraphLens) return "";
     const { selectedCampaignIds, focus } = sharedGraphLens.lens;
@@ -261,10 +413,8 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
       requestedRevisionId: lensParams.requestedRevisionId,
       sharedLens: sharedGraphLens?.lens ?? null,
       sharedRequest: sharedProjection?.request ?? null,
-      // Match the app provider default so world-union anchors do not drift.
       defaultCampaignId: WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID,
     });
-    // sharedGraphLens / sharedProjection.request churn on validation ticks; keys are enough.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional shared identity keys
   }, [
     acceptedDocument,
@@ -282,24 +432,40 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     [acceptedDocument?.campaignId, acceptedDocument?.documentId],
   );
 
-  // Reuse shared app projection iff exact request identity matches; else secondary exact load.
-  const projection = useBuildWorldGraphProjection({
+  const graphInformation = useBuildWorldGraphProjection({
     lens,
     documentIdentity,
     sharedProjection,
+    sharedChannel,
   });
 
-  /** Live load key — updated every render so retained callbacks fail closed across lens transitions. */
-  const liveLoadKeyRef = useRef(projection.loadKey);
-  liveLoadKeyRef.current = projection.loadKey;
-  /** Authorized only while coherent state is ready for the current load key. */
-  const authorizedLoadKeyRef = useRef<string | null>(null);
-  authorizedLoadKeyRef.current =
-    projection.state === "ready" ? projection.loadKey : null;
-  const projectionGenerationRef = useRef(projection.generation);
-  projectionGenerationRef.current = projection.generation;
-  const relationshipResolveGenerationRef = useRef<number | null>(null);
-  const relationshipResolveLoadKeyRef = useRef<string | null>(null);
+  const editorGateRef = useRef<BuildEditorGate>(CLOSED_BUILD_EDITOR_GATE);
+  const liveChannelRef = useRef<SurfaceInformationChannel<WorldGraphProjection> | null>(null);
+
+  useLayoutEffect(() => {
+    editorGateRef.current = {
+      editor: session?.editor ?? null,
+      documentId: acceptedDocument?.documentId ?? null,
+      documentCampaignId: acceptedDocument?.campaignId ?? null,
+      editorInteractive: session ? isEditorInteractive(session.phase) : false,
+    };
+    return () => {
+      editorGateRef.current = CLOSED_BUILD_EDITOR_GATE;
+    };
+  }, [
+    acceptedDocument?.campaignId,
+    acceptedDocument?.documentId,
+    session,
+    session?.editor,
+    session?.phase,
+  ]);
+
+  useLayoutEffect(() => {
+    liveChannelRef.current = graphInformation.channel;
+    return () => {
+      liveChannelRef.current = null;
+    };
+  }, [graphInformation.channel]);
 
   const selectCampaign = useCallback((campaignId: string) => {
     if (typeof window === "undefined") return;
@@ -312,142 +478,90 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
   }, []);
 
   const viewExact = useCallback(
-    (item: GraphReferenceSearchItem) => {
-      const authorizedKey = authorizedLoadKeyRef.current;
-      const liveKey = liveLoadKeyRef.current;
-      if (!authorizedKey || authorizedKey !== liveKey) return;
-      if (projection.state !== "ready") return;
-      if (projection.loadKey !== liveKey) return;
-      const canonical = projection.items.find((entry) => entry.nodeId === item.nodeId);
-      if (!canonical) return;
-      const graphScope = extractExactGraphReferenceScope(projection.projection);
+    (nodeId: string) => {
+      const channel = liveChannelRef.current;
+      if (!channel) return;
+      const state = channel.getSnapshot().state;
+      if (state.status !== "ready") return;
+      const trimmedNodeId = nodeId.trim();
+      if (!trimmedNodeId) return;
+      const exactNode = state.value.nodes.find((node) => node.nodeId === trimmedNodeId);
+      if (!exactNode) return;
+      const graphScope = extractExactGraphReferenceScope(state.value);
       if (!graphScope) return;
+      const nodeView = adaptWorldGraphNodeView(exactNode);
 
       if (import.meta.env.VITEST) {
-        buildViewExactTestSeam.lastGraphNodeId = canonical.nodeId;
+        buildViewExactTestSeam.lastGraphNodeId = exactNode.nodeId;
         buildViewExactTestSeam.lastGraphScope = graphScope;
       }
 
       const resolution: GraphReferenceResolution = {
         kind: "resolved_graph",
-        locator: `dmb-node:${canonical.nodeId}`,
-        reference: canonical.reference,
-        graphNodeId: canonical.nodeId,
-        graphObject: buildGraphObjectCardFromNodeView(canonical.nodeView),
+        locator: `dmb-node:${exactNode.nodeId}`,
+        reference: referenceFromGraphNode(nodeView),
+        graphNodeId: exactNode.nodeId,
+        graphObject: buildGraphObjectCardFromNodeView(nodeView),
         graphScope,
-        projectionState: projection.state,
-        message: `Resolved graph node ${canonical.label}.`,
+        projectionState: "ready",
+        message: `Resolved graph node ${nodeView.label}.`,
       };
 
       openGraphReference({
         resolution,
-        projectionState: projection.state,
+        projectionState: "ready",
         glanceOnly: glanceOnlyForGraphReference(resolution),
       });
     },
-    [openGraphReference, projection.items, projection.loadKey, projection.projection, projection.state],
+    [openGraphReference],
   );
 
-  const openGraphNodeFromChip = useCallback(
-    (nodeId: string) => {
-      const item = projection.items.find((entry) => entry.nodeId === nodeId);
-      if (!item) return;
-      viewExact(item);
-    },
-    [projection.items, viewExact],
-  );
+  const insertChip = useCallback((nodeId: string) => {
+    const gate = editorGateRef.current;
+    if (!isBuildEditorLive(gate) || gate.editor == null) return;
+    const channel = liveChannelRef.current;
+    if (!channel) return;
+    const state = channel.getSnapshot().state;
+    if (state.status !== "ready") return;
+    const trimmedNodeId = nodeId.trim();
+    if (!trimmedNodeId) return;
+    const exactNode = state.value.nodes.find((node) => node.nodeId === trimmedNodeId);
+    if (!exactNode) return;
+    const nodeView = adaptWorldGraphNodeView(exactNode);
+    const admission = admitBuildObjectInsert({
+      documentCampaignId: gate.documentCampaignId ?? undefined,
+      objectCampaignScope: nodeView.campaign_scope,
+    });
+    if (!admission.ok) return;
+    insertMarkdownReference(gate.editor, referenceFromGraphNode(nodeView));
+  }, []);
 
-  const insertChip = useCallback(
-    (nodeId: string) => {
-      if (!session) return;
-      if (!isEditorInteractive(session.phase)) return;
-      if (lens.status !== "ready") return;
-      const authorizedKey = authorizedLoadKeyRef.current;
-      const liveKey = liveLoadKeyRef.current;
-      if (!authorizedKey || authorizedKey !== liveKey) return;
-      if (projection.state !== "ready") return;
-      if (projection.loadKey !== liveKey) return;
-      const trimmedNodeId = nodeId.trim();
-      if (!trimmedNodeId) return;
-      const canonical = projection.items.find((entry) => entry.nodeId === trimmedNodeId);
-      if (!canonical) return;
-      const admission = admitBuildObjectInsert({
-        documentCampaignId: acceptedDocument?.campaignId,
-        objectCampaignScope: canonical.nodeView.campaign_scope,
-      });
-      if (!admission.ok) return;
-      insertMarkdownReference(session.editor, canonical.reference);
-    },
-    [
-      acceptedDocument?.campaignId,
-      lens.status,
-      projection.items,
-      projection.loadKey,
-      projection.state,
-      session,
-    ],
-  );
-
-  const insertDisabled =
+  const editorInsertDisabled =
     !session?.editor
     || !isEditorInteractive(session.phase)
     || lens.status !== "ready";
 
-  const chipRuntime = useMemo<GraphNodeChipRuntimeValue>(() => {
-    const nodeViews: Record<string, GraphProjectionNodeView> = {};
-    for (const item of projection.items) {
-      nodeViews[item.nodeId] = item.nodeView;
-    }
-    return {
-      nodeViews,
-      activeNodeId: null,
-      onSelectNode: openGraphNodeFromChip,
-      exactGraphScope: extractExactGraphReferenceScope(projection.projection),
-    };
-  }, [openGraphNodeFromChip, projection.items, projection.projection]);
-
   const referenceContext = useMemo<BuildReferenceContextBinding | null>(() => {
     if (!acceptedDocument) return null;
     return {
-      schema: "dmb_build_reference_context_v1",
+      schema: "dmb_build_reference_context_v2",
       documentId: acceptedDocument.documentId,
       documentCampaignId: acceptedDocument.campaignId,
       lens,
-      projectionState: projection.state,
-      projectionError: projection.error,
-      requestedRevisionId: projection.requestedRevisionId,
-      loadedRevisionId: projection.loadedRevisionId,
-      loadedIsHead: projection.loadedIsHead,
-      items: projection.items,
       selectCampaign,
       viewExact,
       insertChip,
-      insertDisabled,
+      editorInsertDisabled,
     };
   }, [
     acceptedDocument,
+    editorInsertDisabled,
     insertChip,
-    insertDisabled,
     lens,
-    projection.error,
-    projection.items,
-    projection.loadedIsHead,
-    projection.loadedRevisionId,
-    projection.requestedRevisionId,
-    projection.state,
     selectCampaign,
     viewExact,
   ]);
 
-  /**
-   * Build-local Save live lease. Effect cleanup marks the capability inactive;
-   * the next effect setup restores liveness (StrictMode rehearsal cleanup must
-   * not permanently kill Save). liveDocumentIdRef is committed only in the
-   * effect so document replacement is event-safe — never mutated during render.
-   * Retained document-A invokes no-op when unmounted or when the live document
-   * no longer matches the bound identity (Canvas mountedRef alone is checked
-   * only after prepare/commit begins).
-   */
   const saveMountedRef = useRef(false);
   const liveDocumentIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -491,14 +605,25 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
         documentId,
         acceptedDocument,
         referenceContext,
+        worldGraphChannel: graphInformation.channel,
         documentSave,
       }),
-    [acceptedDocument, documentId, documentSave, referenceContext],
+    [acceptedDocument, documentId, documentSave, graphInformation.channel, referenceContext],
   );
 
   usePublishSurfaceInteraction(publication);
 
   const catalogActive = Boolean(referenceContext && publication.tools.length > 0);
+
+  const channelSnapshot = useSyncExternalStore(
+    graphInformation.channel?.subscribe ?? fallbackSubscribe,
+    graphInformation.channel?.getSnapshot ?? getFallbackSnapshot,
+    graphInformation.channel?.getSnapshot ?? getFallbackSnapshot,
+  ) as SurfaceInformationSnapshot<WorldGraphProjection>;
+  const observationGeneration = graphInformation.channel ? channelSnapshot.generation : null;
+  const resolverState = graphInformation.channel
+    ? graphReferenceStateFromInformation(channelSnapshot.state)
+    : "unavailable";
 
   useEffect(() => {
     if (!catalogActive) return undefined;
@@ -509,7 +634,10 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
         surfaceId: "build",
         kind: "tool",
         preferredSize: "wide",
-        requiredBindingIds: [BUILD_REFERENCE_CONTEXT_BINDING_ID],
+        requiredBindingIds: [
+          BUILD_REFERENCE_CONTEXT_BINDING_ID,
+          BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
+        ],
         render: ({ bindings }) => <BuildReferenceSearchProjection bindings={bindings} />,
       }),
       registerProjectionCatalog({
@@ -538,32 +666,27 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     if (!catalogActive) return undefined;
 
     return registerGraphReferenceBinding({
-      resolverState: projection.state,
+      resolverState,
       resolveRelationship: async (relationship) => {
-        relationshipResolveGenerationRef.current = projectionGenerationRef.current;
-        relationshipResolveLoadKeyRef.current = liveLoadKeyRef.current;
-        return resolveBuildRelationshipTarget({
+        const started = currentObservationLease(liveChannelRef.current);
+        const resolution = await resolveBuildRelationshipTarget({
           relationship,
-          projection: projection.projection,
-          projectionState: projection.state,
+          channel: started?.channel ?? null,
         });
+        if (started) {
+          relationshipObservationByResolution.set(resolution, started);
+        }
+        return resolution;
       },
       openResolvedReference: (resolution, state) => {
-        const resolveKey = relationshipResolveLoadKeyRef.current;
-        relationshipResolveLoadKeyRef.current = null;
-        if (
-          relationshipResolveGenerationRef.current !== projectionGenerationRef.current
-          || !resolveKey
-          || resolveKey !== liveLoadKeyRef.current
-          || authorizedLoadKeyRef.current !== liveLoadKeyRef.current
-        ) {
-          relationshipResolveGenerationRef.current = null;
-          return;
-        }
-        relationshipResolveGenerationRef.current = null;
+        const live = currentObservationLease(liveChannelRef.current);
+        const started = relationshipObservationByResolution.get(resolution) ?? null;
+        if (!observationLeaseMatches(started, live) || !live) return;
+        const current = live.channel.getSnapshot().state;
+        if (current.status !== "ready") return;
         openGraphReference({
           resolution,
-          projectionState: state ?? projection.state,
+          projectionState: state ?? graphReferenceStateFromInformation(current),
           glanceOnly: glanceOnlyForGraphReference(resolution),
         });
       },
@@ -571,16 +694,20 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     });
   }, [
     catalogActive,
+    graphInformation.channel,
+    observationGeneration,
     openGraphReference,
     openTool,
-    projection.projection,
-    projection.state,
     registerGraphReferenceBinding,
+    resolverState,
   ]);
 
   return (
-    <GraphNodeChipRuntimeProvider value={chipRuntime}>
+    <BuildWorldGraphChipRuntime
+      channel={graphInformation.channel}
+      onSelectNode={viewExact}
+    >
       {children ?? null}
-    </GraphNodeChipRuntimeProvider>
+    </BuildWorldGraphChipRuntime>
   );
 }

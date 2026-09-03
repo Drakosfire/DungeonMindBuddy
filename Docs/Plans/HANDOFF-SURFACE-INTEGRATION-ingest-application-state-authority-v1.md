@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — Ingest Application-State Authority v1
 
 **Created:** 2026-09-02
-**Status:** ACTIVE — SURFACE-INTEGRATION SI-4
+**Status:** COMPLETE — merged PR #679 @ `010634f8ea48ed396024c79db90f41d6ba92f249`
 **Canonical handoff path:** `Docs/Plans/HANDOFF-SURFACE-INTEGRATION-ingest-application-state-authority-v1.md`
 **Conversation/workstream:** `SURFACE-INTEGRATION / SI-4`
 **Flow / owner:** `SURFACE-INTEGRATION`
@@ -31,6 +31,16 @@ pr_body_template: |
 **Base revision:** `29932a8ecb74b4bcbf12633f5167470a7f05fb81`
 **Predecessor:** PR #677 / SI-3 merged at `29932a8ecb74b4bcbf12633f5167470a7f05fb81`; final implementation head `345ee6957dadaa1d9052d60b70396534d7590ac8`; five formal review cycles
 **PR title:** `SURFACE-INTEGRATION: move Ingest run authority to application state`
+
+**Completion record (SI-5A predecessor sync, 2026-09-02):**
+
+```text
+PR #679 merged
+merge SHA            010634f8ea48ed396024c79db90f41d6ba92f249
+final implementation 55414e141f6508049c56c82bfb37bce7d9f3ba51
+formal review cycles 2
+successor            SI-5A Build World Graph Surface Information adoption
+```
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md).
 > Parent program: [`ROADMAP-surface-integration.md`](../Roadmaps/ROADMAP-surface-integration.md).
@@ -107,7 +117,7 @@ No automatic migration on FastAPI boot. No permanent file fallback. No dual-writ
 | Parent authority | `ROADMAP-surface-integration.md`; `ARCHITECTURE-application-state-layer.md`; SI-1 OC-024 evidence |
 | Base revision | `29932a8ecb74b4bcbf12633f5167470a7f05fb81` |
 | Predecessor | SI-3 / PR #677 merged; final implementation `345ee6957dadaa1d9052d60b70396534d7590ac8`; five review cycles |
-| Named successor | **SI-5 — Cross-surface adoption** |
+| Named successor | **SI-5A — Build World Graph Surface Information adoption** |
 | Branch | `agent/surface-integration-ingest-app-state-authority-v1` |
 | Parallel lane | PR #674 remains OPEN / PARKED and read-only |
 | Feature freeze | Unchanged through SI-6 |
