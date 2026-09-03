@@ -6,7 +6,10 @@ from uuid import uuid4
 
 import pytest
 
-from application_state.errors import ApplicationStateConflictError
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateIntegrityError,
+)
 from application_state.ingest.import_legacy import (
     LEGACY_EXTRACTION_RUN_REGISTRY_REL,
     ExtractionRunRegistryDocument,
@@ -94,3 +97,31 @@ def test_dry_run_does_not_write(tmp_path: Path, application_state_dsn: str) -> N
     report = import_extraction_runs_from_registry(tmp_path, dry_run=True)
     assert report.imported == 1
     assert list_extraction_runs() == []
+
+
+def test_import_rejects_unknown_registry_schema_with_zero_mutation(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    run = _run(run_id="er_wrong_schema")
+    path = tmp_path / LEGACY_EXTRACTION_RUN_REGISTRY_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": "dmb_extraction_run_registry_v99",
+        "records": [run.model_dump(mode="json")],
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(ApplicationStateIntegrityError, match="malformed extraction run registry"):
+        import_extraction_runs_from_registry(tmp_path)
+    assert list_extraction_runs() == []
+
+
+def test_import_preserves_historical_terminal_status(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    run = _run(run_id="er_hist_failed", status=ExtractionRunStatus.FAILED, revision=4)
+    _write_registry(tmp_path, [run])
+    report = import_extraction_runs_from_registry(tmp_path)
+    assert report.imported == 1
+    loaded = get_extraction_run("er_hist_failed")
+    assert loaded.status == ExtractionRunStatus.FAILED
+    assert loaded.revision == 4

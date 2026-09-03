@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -25,7 +26,9 @@ LEGACY_EXTRACTION_RUN_REGISTRY_SCHEMA = "dmb_extraction_run_registry_v1"
 
 
 class ExtractionRunRegistryDocument(BaseModel):
-    schema_version: str = LEGACY_EXTRACTION_RUN_REGISTRY_SCHEMA
+    schema_version: Literal["dmb_extraction_run_registry_v1"] = (
+        LEGACY_EXTRACTION_RUN_REGISTRY_SCHEMA
+    )
     records: list[ExtractionRun] = Field(default_factory=list)
 
 
