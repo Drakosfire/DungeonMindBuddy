@@ -9,13 +9,35 @@ import {
   prepareGraphObjectAuthoringWrite,
 } from "../../api/liveApi";
 import type {
-  GraphIngestRunSummary,
+  ExtractionRunRecord,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import { GraphReviewAuthorNodePanel } from "./GraphReviewAuthorNodePanel";
 import { GraphReviewAuthorDraftWorkspace } from "./GraphReviewAuthorDraftWorkspace";
 import { renderGraphReviewLiveHarness } from "./graphReviewLiveStateTestHarness";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
+import { toCatalogRun, type GraphReviewCatalogRun } from "./graphReviewWorkbenchUtils";
+
+function canonicalRun(overrides: Partial<ExtractionRunRecord> = {}): ExtractionRunRecord {
+  return {
+    schema_version: "dmb_extraction_run_v1",
+    version: "1.0",
+    run_id: "run-a",
+    source_artifact_id: "sa_1",
+    source_domain: "recap",
+    status: "reviewable",
+    campaign_id: "longmont-c2",
+    session_id: "session-23",
+    ...overrides,
+  };
+}
+
+function catalogRun(
+  overrides: Partial<ExtractionRunRecord> = {},
+  compatibilityManifestPath: string | null = "artifacts/run-a/manifest.json",
+): GraphReviewCatalogRun {
+  return toCatalogRun(canonicalRun(overrides), compatibilityManifestPath);
+}
 
 function AuthorModeProbe() {
   const { authorDraft } = useGraphReviewLiveState();
@@ -64,32 +86,7 @@ vi.mock("../../api/liveApi", async () => {
   };
 });
 
-const baseRun: GraphIngestRunSummary = {
-  manifest_path: "artifacts/run-a/manifest.json",
-  run_dir: "artifacts/run-a",
-  campaign_id: "longmont-c2",
-  session_id: "session-23",
-  status: "succeeded",
-  updated_at: null,
-  created_at: null,
-  preview_union_store_path: "artifacts/run-a/preview-union.json",
-  preview_union_store_valid: true,
-  node_count: 2,
-  edge_count: 1,
-  evidence_ref_count: 3,
-  next_actions: [],
-  run_id: "run-a",
-  run_label: "Run A",
-  generated_at: null,
-  model_id: null,
-  model_provider: null,
-  extraction_profile: "baseline",
-  extraction_mode: null,
-  vocabulary_mode: "node",
-  runner_options_summary: {},
-  diagnostics_summary: {},
-  preview_union_available: true,
-};
+const baseRun = catalogRun();
 
 const projectionWithMentions: UnionSupergraphProjectionResponse = {
   campaign_id: "longmont-c2",
