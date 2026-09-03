@@ -7,7 +7,7 @@ import { getUnionSupergraphProjection, postWorldGraphProjection } from "../../ap
 import type {
   ExtractPromoteConfirmReceipt,
   ExtractPromotePrepareResponse,
-  GraphIngestRunSummary,
+  ExtractionRunRecord,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
@@ -21,6 +21,7 @@ import {
 } from "./GraphReviewLiveStateContext";
 import { catalogRunBindingKey } from "./graphReviewCommittedAuthority";
 import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
+import { toCatalogRun, type GraphReviewCatalogRun } from "./graphReviewWorkbenchUtils";
 
 vi.mock("../../api/liveApi", async () => {
   const actual =
@@ -92,35 +93,34 @@ const projection: UnionSupergraphProjectionResponse = {
   mentions: [],
 };
 
-function baseRun(overrides: Partial<GraphIngestRunSummary> = {}): GraphIngestRunSummary {
+function canonicalRun(overrides: Partial<ExtractionRunRecord> = {}): ExtractionRunRecord {
   return {
-    manifest_path: "artifacts/run-a/manifest.json",
-    run_dir: "artifacts/run-a",
+    schema_version: "dmb_extraction_run_v1",
+    version: "1.0",
+    run_id: "graph-ingest:longmont-c2:session-25:run-a",
+    source_artifact_id: "sa_1",
+    source_domain: "recap",
+    status: "reviewable",
     campaign_id: "longmont-c2",
     session_id: "session-25",
-    status: "preview_union_store_ready",
-    updated_at: null,
-    created_at: null,
-    preview_union_store_path: "artifacts/run-a/preview-union.json",
-    preview_union_store_valid: true,
-    node_count: 2,
-    edge_count: 1,
-    evidence_ref_count: 3,
-    next_actions: [],
-    run_id: "graph-ingest:longmont-c2:session-25:run-a",
-    run_label: "Run A",
-    generated_at: null,
-    model_id: null,
-    model_provider: null,
-    extraction_profile: "baseline",
-    extraction_mode: null,
-    vocabulary_mode: "node",
-    runner_options_summary: {},
-    diagnostics_summary: { candidate_graph_valid: true },
-    preview_union_available: true,
-    promotable: true,
-    promotable_reason: null,
     ...overrides,
+  };
+}
+
+function baseRun(
+  overrides: Partial<ExtractionRunRecord> = {},
+  catalogOverrides: Partial<GraphReviewCatalogRun> = {},
+): GraphReviewCatalogRun {
+  const runId = overrides.run_id ?? "graph-ingest:longmont-c2:session-25:run-a";
+  const compatibilityManifestPath =
+    runId === "run-b"
+      ? "artifacts/run-b/manifest.json"
+      : runId === "run-a"
+        ? "artifacts/run-a/manifest.json"
+        : "artifacts/run-a/manifest.json";
+  return {
+    ...toCatalogRun(canonicalRun({ ...overrides, run_id: runId }), compatibilityManifestPath),
+    ...catalogOverrides,
   };
 }
 
@@ -203,7 +203,7 @@ function confirmReceipt(
   };
 }
 
-function renderWithLiveRun(liveRun: GraphIngestRunSummary, children: ReactNode) {
+function renderWithLiveRun(liveRun: GraphReviewCatalogRun, children: ReactNode) {
   const config = createIngestSurfaceConfig(planContext);
   return render(
     <AgentInteractionProjectionTestHost config={config}>
@@ -859,7 +859,7 @@ describe("GraphReviewSessionToolbar", () => {
 
   it("disables Review & merge when the server marks the run non-promotable", async () => {
     renderWithLiveRun(
-      baseRun({
+      baseRun({}, {
         promotable: false,
         promotable_reason: "candidate graph is not valid",
       }),
