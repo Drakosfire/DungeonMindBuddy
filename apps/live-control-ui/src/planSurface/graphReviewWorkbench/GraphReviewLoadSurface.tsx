@@ -1,10 +1,9 @@
 import { useEffect } from "react";
 
-import type { GraphIngestRunSummary } from "../../api/types";
 import { GraphReviewLanePicker } from "./GraphReviewLanePicker";
 import { GraphReviewLoadLaneSummary } from "./GraphReviewLoadLaneSummary";
 import {
-  hasCatalogReviewableRun,
+  type GraphReviewCatalogRun,
   type GraphReviewCatalogSession,
 } from "./graphReviewWorkbenchUtils";
 
@@ -13,14 +12,14 @@ interface GraphReviewLoadSurfaceProps {
   sessions: GraphReviewCatalogSession[];
   draftCampaignId: string;
   draftSessionId: string;
-  draftManifestPath: string | null;
+  draftRunId: string | null;
   draftSession: GraphReviewCatalogSession | null;
-  draftLiveRun: GraphIngestRunSummary | null;
+  draftLiveRun: GraphReviewCatalogRun | null;
   onClose: () => void;
   onLoad: () => void;
   onCampaignSelect: (campaignId: string) => void;
   onSessionSelect: (sessionId: string) => void;
-  onManifestSelect: (manifestPath: string | null) => void;
+  onRunSelect: (runId: string | null) => void;
 }
 
 export function GraphReviewLoadSurface({
@@ -28,14 +27,14 @@ export function GraphReviewLoadSurface({
   sessions,
   draftCampaignId,
   draftSessionId,
-  draftManifestPath,
+  draftRunId,
   draftSession,
   draftLiveRun,
   onClose,
   onLoad,
   onCampaignSelect,
   onSessionSelect,
-  onManifestSelect,
+  onRunSelect,
 }: GraphReviewLoadSurfaceProps) {
   useEffect(() => {
     if (!open) return;
@@ -48,10 +47,7 @@ export function GraphReviewLoadSurface({
 
   if (!open) return null;
 
-  const canLoad =
-    Boolean(draftSession) &&
-    hasCatalogReviewableRun(draftSession!) &&
-    Boolean(draftLiveRun?.preview_union_available);
+  const canLoad = Boolean(draftSession && draftLiveRun);
 
   return (
     <div
@@ -81,10 +77,10 @@ export function GraphReviewLoadSurface({
           sessions={sessions}
           selectedCampaignId={draftCampaignId}
           selectedSessionId={draftSessionId}
-          selectedManifestPath={draftManifestPath}
+          selectedRunId={draftRunId}
           onCampaignSelect={onCampaignSelect}
           onSessionSelect={onSessionSelect}
-          onManifestSelect={onManifestSelect}
+          onRunSelect={onRunSelect}
         />
 
         <GraphReviewLoadLaneSummary session={draftSession} liveRun={draftLiveRun} />

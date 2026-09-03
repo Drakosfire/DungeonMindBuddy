@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 
-import type { GraphIngestRunSummary, GraphReviewLane } from "../../api/types";
-import { unknownIfBlank, yesNo } from "./graphReviewWorkbenchUtils";
+import type { GraphReviewLane } from "../../api/types";
+import { unknownIfBlank } from "./graphReviewWorkbenchUtils";
+import type { GraphReviewCatalogRun } from "./graphReviewWorkbenchUtils";
 
 interface GraphReviewLaneCardsProps {
   goldLane: GraphReviewLane | null;
   liveLane: GraphReviewLane | null;
-  liveRun: GraphIngestRunSummary | null;
+  liveRun: GraphReviewCatalogRun | null;
 }
 
 function formatRecord(value: Record<string, unknown> | undefined): string {
@@ -39,6 +40,9 @@ function LaneDetails({
 }
 
 export function GraphReviewLaneCards({ goldLane, liveLane, liveRun }: GraphReviewLaneCardsProps) {
+  const revision = liveRun
+    ? (liveRun.run as { revision?: number }).revision
+    : null;
   return (
     <section className="graph-review-lane-grid" aria-label="Graph review lanes">
       <article className="graph-review-lane-card">
@@ -73,7 +77,7 @@ export function GraphReviewLaneCards({ goldLane, liveLane, liveRun }: GraphRevie
       <article className="graph-review-lane-card">
         <header className="graph-review-lane-card-header">
           <div>
-            <p className="plan-surface-kicker">Live / Graph-ingest</p>
+            <p className="plan-surface-kicker">Live / ExtractionRun</p>
             <h3>{liveLane?.label ?? "Live lane"}</h3>
           </div>
           <span>{liveLane?.status ?? "unknown"}</span>
@@ -81,33 +85,28 @@ export function GraphReviewLaneCards({ goldLane, liveLane, liveRun }: GraphRevie
         {liveLane && liveRun ? (
           <>
             <LaneDetails summary="Advanced run details">
-              <Field label="Nodes" value={liveLane.counts.nodes} />
-              <Field label="Edges" value={liveLane.counts.edges} />
-              <Field label="Evidence refs" value={liveLane.counts.evidenceRefs} />
-              <Field label="Role" value={liveLane.role} />
-              <Field label="Source kind" value={liveLane.sourceKind} />
-              <Field label="Run label" value={unknownIfBlank(liveRun.run_label)} />
-              <Field label="Run id" value={liveLane.metadata.runId} />
-              <Field label="Raw status" value={liveRun.status} />
-              <Field label="Manifest path" value={liveLane.manifestPath} />
-              <Field label="Run dir" value={liveLane.artifactPath} />
-              <Field label="Preview union path" value={liveLane.previewUnionPath} />
-              <Field label="Preview union available" value={yesNo(liveRun.preview_union_available)} />
-              <Field label="Model id" value={liveLane.metadata.modelId} />
-              <Field label="Model provider" value={unknownIfBlank(liveRun.model_provider)} />
-              <Field label="Extraction profile" value={liveLane.metadata.extractionProfile} />
-              <Field label="Extraction mode" value={liveLane.metadata.extractionMode} />
-              <Field label="Vocabulary mode" value={liveLane.metadata.vocabularyMode} />
-              <Field label="Generated at" value={liveRun.generated_at} />
-              <Field label="Updated at" value={liveRun.updated_at} />
-              <Field label="Created at" value={liveRun.created_at} />
-              <Field label="Next actions" value={liveRun.next_actions.length ? liveRun.next_actions.join(", ") : "Unknown"} />
-              <Field label="Runner options" value={formatRecord(liveRun.runner_options_summary)} />
-              <Field label="Diagnostics" value={formatRecord(liveRun.diagnostics_summary)} />
+              <Field label="Run id" value={liveRun.run.run_id} />
+              <Field label="Status" value={liveRun.run.status} />
+              <Field label="Revision" value={revision} />
+              <Field label="Source domain" value={liveRun.run.source_domain} />
+              <Field label="Source artifact" value={liveRun.run.source_artifact_id} />
+              <Field label="Campaign" value={liveRun.run.campaign_id} />
+              <Field label="Session" value={liveRun.run.session_id} />
+              <Field label="Profile" value={unknownIfBlank(liveRun.run.profile_id)} />
+              <Field
+                label="Compatibility locator"
+                value={liveRun.compatibilityManifestPath ?? "Unavailable"}
+              />
+              <Field label="Updated at" value={liveRun.run.updated_at} />
+              <Field label="Created at" value={liveRun.run.created_at} />
+              <Field
+                label="Diagnostics"
+                value={formatRecord(liveRun.run.diagnostics as Record<string, unknown> | undefined)}
+              />
             </LaneDetails>
           </>
         ) : (
-          <p className="graph-review-note">No live graph-ingest runs available for this session yet.</p>
+          <p className="graph-review-note">No canonical ExtractionRun selected for this session yet.</p>
         )}
       </article>
     </section>

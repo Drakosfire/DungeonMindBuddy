@@ -1,6 +1,5 @@
-import type { GraphIngestRunSummary } from "../../api/types";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
-import { GraphGoldReviewRunPicker } from "../graphGoldReview/GraphGoldReviewRunPicker";
+import { GraphReviewRunPicker } from "./GraphReviewRunPicker";
 import {
   catalogSessionLabel,
   catalogSessionsForReviewCampaign,
@@ -12,10 +11,10 @@ interface GraphReviewLanePickerProps {
   sessions: GraphReviewCatalogSession[];
   selectedCampaignId: string;
   selectedSessionId: string;
-  selectedManifestPath: string | null;
+  selectedRunId: string | null;
   onCampaignSelect: (campaignId: string) => void;
   onSessionSelect: (sessionId: string) => void;
-  onManifestSelect: (manifestPath: string | null) => void;
+  onRunSelect: (runId: string | null) => void;
 }
 
 function reviewableSessionLabel(
@@ -30,10 +29,10 @@ export function GraphReviewLanePicker({
   sessions,
   selectedCampaignId,
   selectedSessionId,
-  selectedManifestPath,
+  selectedRunId,
   onCampaignSelect,
   onSessionSelect,
-  onManifestSelect,
+  onRunSelect,
 }: GraphReviewLanePickerProps) {
   const campaignSessions = catalogSessionsForReviewCampaign(
     sessions,
@@ -80,7 +79,7 @@ export function GraphReviewLanePicker({
               title={
                 reviewable
                   ? undefined
-                  : "This session has no reviewable projection."
+                  : "This session has no inspectable ExtractionRun."
               }
             >
               {catalogSessionLabel(session)}
@@ -91,19 +90,16 @@ export function GraphReviewLanePicker({
       </div>
       {!selectedHasProjection ? (
         <p className="graph-review-unavailable-state" role="status">
-          This session has no reviewable projection. This source does not have a
-          loaded recap/projection yet.
+          This session has no inspectable ExtractionRun yet.
           {reviewableLabel
-            ? ` Choose ${reviewableLabel} to review available graph projections.`
-            : " No available graph projections were found for this campaign."}
+            ? ` Choose ${reviewableLabel} to review available runs.`
+            : " No canonical recap runs were found for this campaign."}
         </p>
       ) : null}
-      <GraphGoldReviewRunPicker
-        runs={(selectedSession?.availableRuns ?? []).filter(
-          (run: GraphIngestRunSummary) => run.preview_union_available,
-        )}
-        selectedManifestPath={selectedManifestPath}
-        onSelect={onManifestSelect}
+      <GraphReviewRunPicker
+        runs={selectedSession?.availableRuns ?? []}
+        selectedRunId={selectedRunId}
+        onSelect={onRunSelect}
       />
     </section>
   );

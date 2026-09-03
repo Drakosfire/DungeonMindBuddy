@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { render, type RenderResult } from "@testing-library/react";
 
 import type { GraphIngestRunSummary } from "../../api/types";
+import type { GraphReviewCatalogRun } from "./graphReviewWorkbenchUtils";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 import type { PlanContextDescriptor } from "../types";
 import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
@@ -18,7 +19,7 @@ const defaultContext: PlanContextDescriptor = {
 export interface RenderGraphReviewLiveHarnessOptions {
   campaignId?: string;
   sessionId?: string;
-  liveRun?: GraphIngestRunSummary | null;
+  liveRun?: GraphIngestRunSummary | GraphReviewCatalogRun | null;
   hasGold?: boolean;
   committedBinding?: GraphReviewCommittedBinding | null;
   context?: PlanContextDescriptor;
@@ -40,7 +41,7 @@ export function renderGraphReviewLiveHarness({
       <GraphReviewLiveStateProvider
         campaignId={campaignId}
         sessionId={sessionId}
-        liveRun={liveRun}
+        liveRun={(liveRun as unknown as GraphReviewCatalogRun | null | undefined) ?? null}
         committedBinding={committedBinding}
         hasGold={hasGold}
         compare={null}

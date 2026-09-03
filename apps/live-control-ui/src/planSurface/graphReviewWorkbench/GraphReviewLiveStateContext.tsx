@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react";
 
-import type { GoldReviewCompareResponse, GraphIngestRunSummary } from "../../api/types";
+import type { GoldReviewCompareResponse } from "../../api/types";
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
 import type { GraphReviewCommittedBinding } from "./graphReviewCommittedAuthority";
 import {
@@ -8,11 +8,12 @@ import {
   type GraphReviewLiveReviewState,
   type UseGraphReviewLiveReviewStateOptions,
 } from "./graphReviewLiveReviewState";
+import type { GraphReviewCatalogRun } from "./graphReviewWorkbenchUtils";
 
 export interface GraphReviewLiveStateContextValue extends GraphReviewLiveReviewState {
   campaignId: string;
   sessionId: string;
-  liveRun: GraphIngestRunSummary | null;
+  liveRun: GraphReviewCatalogRun | null;
   hasGold: boolean;
   compare: GoldReviewCompareResponse | null;
   compareStatus: "idle" | "loading" | "ready" | "error";
