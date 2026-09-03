@@ -19,8 +19,15 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _ingest_application_state(application_state_dsn: str) -> str:
+    return application_state_dsn
+
+
 @pytest.fixture
-def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def client(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str
+) -> TestClient:
     monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path)
     monkeypatch.setattr(
         "apps.live_control_server.services.workspace_document_registry.repo_root",

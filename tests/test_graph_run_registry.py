@@ -32,6 +32,24 @@ from graph_memory.ingestion.extraction_run import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _ingest_application_state(application_state_dsn: str) -> str:
+    return application_state_dsn
+
+
+def _corrupt_ingest_run(dsn: str, run_id: str, **fields: object) -> None:
+    import psycopg
+
+    assignments = ", ".join(f"{key} = %s" for key in fields)
+    values = list(fields.values()) + [run_id]
+    with psycopg.connect(dsn) as conn:
+        conn.execute(
+            f"UPDATE ingest.run SET {assignments} WHERE run_id = %s",
+            values,
+        )
+        conn.commit()
+
+
 def _write_committed_markdown(root: Path, record, markdown: str) -> str:
     content = markdown.rstrip("\n") + "\n"
     target = root / record.target_relpath
@@ -424,14 +442,17 @@ def test_reviewable_happy_path_and_terminal_protection(tmp_path: Path) -> None:
         )
 
 
-def test_get_reviewable_extraction_run_rejects_duplicate_run_ids(tmp_path: Path) -> None:
-    """Targeted loader must refuse duplicate run IDs, like the full registry loader."""
+def test_get_reviewable_extraction_run_ignores_duplicate_file_records(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    """File-registry duplicates are not mounted authority after the APP-STATE cutover."""
     from datetime import UTC, datetime
 
-    from apps.live_control_server.services.graph_run_registry import (
+    from application_state.ingest.import_legacy import (
         ExtractionRunRegistryDocument,
-        extraction_runs_path,
+        LEGACY_EXTRACTION_RUN_REGISTRY_REL,
     )
+    from application_state.ingest.service import create_extraction_run as db_create
     from graph_memory.ingestion.extraction_run import ExtractionRun
 
     record, _digest = _committed_worldbuilding(tmp_path)
@@ -454,31 +475,28 @@ def test_get_reviewable_extraction_run_rejects_duplicate_run_ids(tmp_path: Path)
         updated_at=now,
         components=components,
     )
-    second = first.model_copy(deep=True)
-    path = extraction_runs_path(tmp_path)
+    db_create(first)
+    path = tmp_path / LEGACY_EXTRACTION_RUN_REGISTRY_REL
     path.parent.mkdir(parents=True, exist_ok=True)
-    document = ExtractionRunRegistryDocument(records=[first, second])
+    document = ExtractionRunRegistryDocument(records=[first, first.model_copy(deep=True)])
     path.write_text(
         json.dumps(document.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-
-    with pytest.raises(GraphRunRegistryError, match="duplicate extraction run id"):
-        get_reviewable_extraction_run(tmp_path, duplicate_id)
-    with pytest.raises(GraphRunRegistryError, match="duplicate extraction run id"):
-        get_extraction_run(tmp_path, duplicate_id)
+    loaded = get_reviewable_extraction_run(tmp_path, duplicate_id)
+    assert loaded.run_id == duplicate_id
+    catalog = get_extraction_run(tmp_path, duplicate_id)
+    assert catalog.run_id == duplicate_id
 
 
 def test_get_reviewable_extraction_run_rejects_incoming_nonreciprocal_lineage(
-    tmp_path: Path,
+    tmp_path: Path, application_state_dsn: str
 ) -> None:
     """Inbound supersession pointers must join the connected lineage set."""
     from datetime import UTC, datetime
 
-    from apps.live_control_server.services.graph_run_registry import (
-        ExtractionRunRegistryDocument,
-        extraction_runs_path,
-    )
+    from application_state.ingest import repository as ingest_repo
+    from application_state.unit_of_work import unit_of_work
     from graph_memory.ingestion.extraction_run import ExtractionRun
 
     record, _digest = _committed_worldbuilding(tmp_path)
@@ -500,7 +518,6 @@ def test_get_reviewable_extraction_run_rejects_incoming_nonreciprocal_lineage(
         updated_at=now,
         components=components,
     )
-    # Sibling points at A, but A does not reciprocate — canonical lineage rejects this.
     sibling = ExtractionRun(
         run_id="er_sibling_points_at_selected",
         source_artifact_id=artifact.source_artifact_id,
@@ -513,13 +530,9 @@ def test_get_reviewable_extraction_run_rejects_incoming_nonreciprocal_lineage(
         components=components,
         superseded_by_run_id=selected.run_id,
     )
-    path = extraction_runs_path(tmp_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    document = ExtractionRunRegistryDocument(records=[selected, sibling])
-    path.write_text(
-        json.dumps(document.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    with unit_of_work(application_state_dsn) as conn:
+        ingest_repo.insert_run(conn, selected)
+        ingest_repo.insert_run(conn, sibling)
 
     with pytest.raises(GraphRunRegistryError, match="lineage|non-reciprocal|supersession"):
         get_reviewable_extraction_run(tmp_path, selected.run_id)
@@ -564,24 +577,23 @@ def test_stale_revision_and_supersession(tmp_path: Path) -> None:
     assert successor.status == ExtractionRunStatus.DRAFT
 
 
-def test_malformed_registry_fails_closed_on_load(tmp_path: Path) -> None:
+def test_malformed_registry_fails_closed_on_load(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
     record, _digest = _committed_worldbuilding(tmp_path)
     artifact = create_source_artifact_from_workspace_document(
         tmp_path,
         document_id=record.document_id,
         expected_revision=record.revision,
     )
-    create_extraction_run(
+    run = create_extraction_run(
         tmp_path,
         source_artifact_id=artifact.source_artifact_id,
         source_domain="worldbuilding",
     )
-    runs_path = tmp_path / "out/registries/extraction_runs.json"
-    payload = json.loads(runs_path.read_text(encoding="utf-8"))
-    payload["records"][0]["session_id"] = "session-1"
-    runs_path.write_text(json.dumps(payload), encoding="utf-8")
-    with pytest.raises(GraphRunRegistryError, match="malformed"):
-        get_extraction_run(tmp_path, payload["records"][0]["run_id"])
+    _corrupt_ingest_run(application_state_dsn, run.run_id, session_id="session-1")
+    with pytest.raises(GraphRunRegistryError, match="malformed|cannot be interpreted|worldbuilding"):
+        get_extraction_run(tmp_path, run.run_id)
 
 
 def _advance_to_reviewable(tmp_path: Path, run, components):
@@ -680,29 +692,24 @@ def test_supersede_save_failure_leaves_predecessor_unchanged(
         expected_revision=run.revision,
     )
 
-    def boom_write_json(_path: Path, _data: object) -> None:
-        raise OSError("simulated registry save failure")
+    def boom_insert(_conn, _run):
+        raise OSError("simulated ingest persist failure"        )
 
     monkeypatch.setattr(
-        "apps.live_control_server.services.graph_run_registry.write_json",
-        boom_write_json,
+        "application_state.ingest.service.repo.insert_run",
+        boom_insert,
     )
-    with pytest.raises(OSError, match="simulated registry save failure"):
+    with pytest.raises(OSError, match="simulated ingest persist failure"):
         supersede_extraction_run(
             tmp_path,
             prepared.run_id,
             expected_revision=prepared.revision,
         )
-
-    monkeypatch.undo()
     predecessor = get_extraction_run(tmp_path, prepared.run_id)
     assert predecessor.status == ExtractionRunStatus.PREPARED
     assert predecessor.superseded_by_run_id is None
     assert predecessor.revision == prepared.revision
-    runs_path = tmp_path / "out/registries/extraction_runs.json"
-    payload = json.loads(runs_path.read_text(encoding="utf-8"))
-    assert len(payload["records"]) == 1
-    assert payload["records"][0]["run_id"] == prepared.run_id
+    assert not (tmp_path / "out/registries/extraction_runs.json").exists()
 
 
 def test_promoted_run_integrity_checked_on_load(tmp_path: Path) -> None:
@@ -730,8 +737,14 @@ def test_promoted_run_integrity_checked_on_load(tmp_path: Path) -> None:
 
     graph_path = tmp_path / components["candidate_graph"].uri.removeprefix("repo://")
     graph_path.write_text(json.dumps({"nodes": [{"id": "tampered"}]}), encoding="utf-8")
+    catalog = get_extraction_run(tmp_path, promoted.run_id)
+    assert catalog.status == ExtractionRunStatus.PROMOTED
+    from apps.live_control_server.services.graph_run_registry import (
+        assert_run_reviewable_evidence,
+    )
+
     with pytest.raises(GraphRunRegistryError, match="integrity|digest mismatch"):
-        get_extraction_run(tmp_path, promoted.run_id)
+        assert_run_reviewable_evidence(tmp_path, catalog)
 
 
 def test_whitespace_contaminated_component_uri_is_rejected(tmp_path: Path) -> None:
@@ -932,7 +945,9 @@ def test_source_artifact_snapshot_waits_across_commit_barrier(
     assert artifact.content_sha256 != prior_digest
 
 
-def test_one_sided_supersession_fails_closed_on_load(tmp_path: Path) -> None:
+def test_one_sided_supersession_fails_closed_on_load(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
     record, _digest = _committed_worldbuilding(tmp_path)
     artifact = create_source_artifact_from_workspace_document(
         tmp_path,
@@ -955,16 +970,12 @@ def test_one_sided_supersession_fails_closed_on_load(tmp_path: Path) -> None:
         prepared.run_id,
         expected_revision=prepared.revision,
     )
-    runs_path = tmp_path / "out/registries/extraction_runs.json"
-    payload = json.loads(runs_path.read_text(encoding="utf-8"))
-    for row in payload["records"]:
-        if row["run_id"] == prepared.run_id:
-            row["superseded_by_run_id"] = None
-            row["status"] = "prepared"
-        if row["run_id"] == successor.run_id:
-            # Keep successor pointer so lineage is one-sided.
-            pass
-    runs_path.write_text(json.dumps(payload), encoding="utf-8")
+    _corrupt_ingest_run(
+        application_state_dsn,
+        prepared.run_id,
+        superseded_by_run_id=None,
+        status="prepared",
+    )
     with pytest.raises(GraphRunRegistryError, match="lineage|non-reciprocal|missing"):
         get_extraction_run(tmp_path, successor.run_id)
 
@@ -1060,7 +1071,7 @@ def test_source_artifact_snapshot_blocks_concurrent_discard(
 
 
 def test_reciprocal_lineage_with_unrelated_artifacts_fails_closed_on_load(
-    tmp_path: Path,
+    tmp_path: Path, application_state_dsn: str
 ) -> None:
     record, _digest = _committed_worldbuilding(tmp_path)
     artifact = create_source_artifact_from_workspace_document(
@@ -1084,18 +1095,17 @@ def test_reciprocal_lineage_with_unrelated_artifacts_fails_closed_on_load(
         prepared.run_id,
         expected_revision=prepared.revision,
     )
-    runs_path = tmp_path / "out/registries/extraction_runs.json"
-    payload = json.loads(runs_path.read_text(encoding="utf-8"))
-    for row in payload["records"]:
-        if row["run_id"] == successor.run_id:
-            row["source_artifact_id"] = "artifact:unrelated"
-    runs_path.write_text(json.dumps(payload), encoding="utf-8")
+    _corrupt_ingest_run(
+        application_state_dsn,
+        successor.run_id,
+        source_artifact_id="artifact:unrelated",
+    )
     with pytest.raises(GraphRunRegistryError, match="lineage|source_artifact_id"):
         get_extraction_run(tmp_path, prepared.run_id)
 
 
 def test_reciprocal_lineage_with_non_superseded_predecessor_fails_closed_on_load(
-    tmp_path: Path,
+    tmp_path: Path, application_state_dsn: str
 ) -> None:
     record, _digest = _committed_worldbuilding(tmp_path)
     artifact = create_source_artifact_from_workspace_document(
@@ -1119,11 +1129,6 @@ def test_reciprocal_lineage_with_non_superseded_predecessor_fails_closed_on_load
         prepared.run_id,
         expected_revision=prepared.revision,
     )
-    runs_path = tmp_path / "out/registries/extraction_runs.json"
-    payload = json.loads(runs_path.read_text(encoding="utf-8"))
-    for row in payload["records"]:
-        if row["run_id"] == prepared.run_id:
-            row["status"] = "prepared"
-    runs_path.write_text(json.dumps(payload), encoding="utf-8")
+    _corrupt_ingest_run(application_state_dsn, prepared.run_id, status="prepared")
     with pytest.raises(GraphRunRegistryError, match="lineage|must be superseded"):
         get_extraction_run(tmp_path, successor.run_id)

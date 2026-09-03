@@ -18,12 +18,259 @@ from apps.live_control_server.services.promotable_ingest_run import (
     is_under_world_store,
     resolve_promotable_ingest_run,
 )
-from tests.test_live_extract_promote_api import (
-    CAMPAIGN_ID,
-    SESSION_ID,
-    _candidate_graph_payload,
-    _write_promotable_run,
+from graph_memory.candidate_graph_preview import (
+    CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+    CANDIDATE_GRAPH_PREVIEW_VERSION,
 )
+from graph_memory.ingestion.graph_ingest_run import GRAPH_INGEST_RUN_MANIFEST_SCHEMA
+
+CAMPAIGN_ID = "longmont-c2"
+SESSION_ID = "session-22"
+RUN_ID = "graph-ingest:longmont-c2:session-22:fixture-promote"
+
+
+def _semantic() -> dict:
+    return {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private",
+    }
+
+
+def _evidence(suffix: str) -> dict:
+    return {
+        "source_ref_id": f"ref:{suffix}",
+        "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+        "source_anchor_id": f"anchor:{suffix}",
+        "label": "span",
+        "evidence_role": "source_evidence",
+        "can_open_source": True,
+        "can_highlight_span": True,
+        "source_span_ref_id": f"session-22:recap:paragraph:{suffix}",
+        "anchor_quotes": ["quote"],
+    }
+
+
+def _candidate_graph_payload(
+    *,
+    campaign_id: str = CAMPAIGN_ID,
+    session_id: str = SESSION_ID,
+) -> dict:
+    return {
+        "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        "version": CANDIDATE_GRAPH_PREVIEW_VERSION,
+        "preview_id": "preview:http-promote-vial",
+        "session_id": session_id,
+        "campaign_id": campaign_id,
+        "source_artifact_ids": ["artifact:recap:longmont-c2:session-22"],
+        "status": "preview",
+        "nodes": [
+            {
+                "node_id": "obj_session22_vial",
+                "label": "vial",
+                "node_type": "item",
+                "description": "Puddle sample vial",
+                "importance": "medium",
+                "semantic_state": _semantic(),
+                "evidence_refs": [_evidence("006")],
+                "proposed_action": "create",
+                "confidence": "medium",
+                "warnings": [],
+            },
+            {
+                "node_id": "mystery_puddles",
+                "label": "Magic puddles",
+                "node_type": "mystery",
+                "description": "Delayed reflections",
+                "importance": "medium",
+                "semantic_state": _semantic(),
+                "evidence_refs": [_evidence("007")],
+                "proposed_action": "create",
+                "confidence": "medium",
+                "warnings": [],
+            },
+        ],
+        "edges": [
+            {
+                "edge_id": "e33",
+                "from_node_id": "obj_session22_vial",
+                "to_node_id": "mystery_puddles",
+                "relationship_type": "linked_to",
+                "label": "linked to",
+                "semantic_state": _semantic(),
+                "evidence_refs": [_evidence("007")],
+                "proposed_action": "create",
+                "confidence": "medium",
+                "warnings": [],
+            }
+        ],
+        "beats": [],
+        "proposed_writes": [],
+        "ignored_items": [],
+        "deferred_items": [],
+        "diagnostics": {
+            "preview_only": True,
+            "extraction_performed": False,
+            "llm_used": False,
+            "runtime_connected": False,
+            "plan_connected": False,
+            "agent_interaction_connected": False,
+            "corpus_scanned": False,
+            "corpus_mutated": False,
+            "facts_promoted": False,
+            "canon_promoted": False,
+            "unresolved_evidence_refs": 0,
+            "missing_evidence_objects": 0,
+            "warning_count": 0,
+        },
+    }
+
+
+def _write_promotable_run(
+    repo: Path,
+    *,
+    run_id: str = RUN_ID,
+    campaign_id: str = CAMPAIGN_ID,
+    session_id: str = SESSION_ID,
+    status: str = "preview_union_store_ready",
+    candidate_graph_valid: bool = True,
+    preview_union_store_valid: bool = True,
+    digest_override: str | None = None,
+    omit_candidate: bool = False,
+    omit_preview: bool = False,
+    omit_source_artifact_id: bool = False,
+    extraction_profile: str | None = "category_v1",
+    runs_rel: str = "out/graph_memory/runs",
+    candidate_campaign_id: str | None = None,
+    candidate_session_id: str | None = None,
+    registry_context: dict | None = None,
+    registry_filename: str = "registry_context_graph.json",
+) -> tuple[str, str, Path]:
+    run_dir = repo / Path(runs_rel) / campaign_id / session_id / "fixture-promote"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    source = run_dir / "normalized_recap_source.md"
+    source.write_text("session 22 promote fixture\n", encoding="utf-8")
+    digest_hex = hashlib.sha256(source.read_bytes()).hexdigest()
+    digest = digest_override or f"sha256:{digest_hex}"
+    candidate = run_dir / "candidate_graph.json"
+    if not omit_candidate:
+        candidate.write_text(
+            json.dumps(
+                _candidate_graph_payload(
+                    campaign_id=candidate_campaign_id or campaign_id,
+                    session_id=candidate_session_id or session_id,
+                ),
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    preview = run_dir / "preview_union_supergraph.json"
+    if not omit_preview:
+        preview.write_text("{}\n", encoding="utf-8")
+
+    def rel(path: Path) -> str:
+        return path.relative_to(repo).as_posix()
+
+    artifacts: dict = {
+        "normalized_recap": {
+            "kind": "normalized_recap",
+            "uri": rel(source),
+            "sha256": digest,
+            "exists": True,
+            "preview_only": True,
+        },
+    }
+    if not omit_preview:
+        artifacts["preview_union_store"] = {
+            "kind": "preview_union_store",
+            "uri": rel(preview),
+            "exists": True,
+            "preview_only": True,
+        }
+    if not omit_candidate:
+        artifacts["candidate_graph"] = {
+            "kind": "candidate_graph",
+            "uri": rel(candidate),
+            "exists": True,
+            "preview_only": True,
+            "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        }
+    if registry_context is not None:
+        registry_path = run_dir / registry_filename
+        registry_path.write_text(
+            json.dumps(registry_context, indent=2) + "\n", encoding="utf-8"
+        )
+        artifacts["registry_context_graph"] = {
+            "kind": "registry_context_graph",
+            "uri": rel(registry_path),
+            "exists": True,
+            "preview_only": True,
+            "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        }
+
+    source_block: dict = {
+        "source_domain": "recap",
+        "normalized_recap_path": rel(source),
+        "normalized_recap_sha256": digest,
+        "source_label": "fixture promote recap",
+    }
+    if not omit_source_artifact_id:
+        source_block["source_artifact_id"] = "artifact:recap:longmont-c2:session-22"
+
+    diagnostics: dict = {
+        "preview_only": True,
+        "candidate_extraction": False,
+        "preview_import": True,
+        "canon_promotion": False,
+        "approved_memory_write": False,
+        "corpus_mutation": False,
+        "production_retrieval": False,
+        "agent_interaction_connected": False,
+        "runtime_projection_connected": False,
+    }
+    if extraction_profile:
+        diagnostics["extraction_profile"] = extraction_profile
+
+    manifest: dict = {
+        "schema": GRAPH_INGEST_RUN_MANIFEST_SCHEMA,
+        "version": "0.1",
+        "run_id": run_id,
+        "campaign_id": campaign_id,
+        "session_id": session_id,
+        "status": status,
+        "created_at": "2026-07-17T00:00:00Z",
+        "updated_at": "2026-07-17T00:00:00Z",
+        "source": source_block,
+        "artifacts": artifacts,
+        "health": {
+            "candidate_graph_valid": candidate_graph_valid,
+            "preview_union_store_valid": preview_union_store_valid,
+            "node_count": 2,
+            "edge_count": 1,
+            "evidence_ref_count": 2,
+            "resolvable_evidence_ref_count": 2,
+            "openable_evidence_ref_count": 2,
+            "highlightable_evidence_ref_count": 2,
+        },
+        "diagnostics": diagnostics,
+        "steps": [],
+        "warnings": [],
+        "errors": [],
+        "next_actions": ["open_projection_preview"],
+    }
+    if extraction_profile:
+        manifest["extraction_profile"] = extraction_profile
+    manifest_path = run_dir / "graph_ingest_run_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return run_id, digest, source
+
+
+@pytest.fixture(autouse=True)
+def _ingest_application_state(application_state_dsn: str) -> str:
+    return application_state_dsn
 
 def test_resolve_promotable_ingest_run_happy(tmp_path: Path, monkeypatch) -> None:
     repo = tmp_path / "repo"

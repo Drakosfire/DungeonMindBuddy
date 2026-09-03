@@ -36,6 +36,11 @@ from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _ingest_application_state(application_state_dsn: str) -> str:
+    return application_state_dsn
+
+
 def _normalized_from_artifact(root: Path, source_artifact_id: str) -> NormalizedExtractionSource:
     from apps.live_control_server.services.source_artifact_registry import (
         load_registered_source_artifact_text,

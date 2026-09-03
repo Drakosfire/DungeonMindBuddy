@@ -19,7 +19,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-
 import apps.live_control_server.config as live_config
 import apps.live_control_server.services.extract_promote as promote_svc
 import apps.live_control_server.services.promotable_ingest_run as promotable_mod
@@ -67,6 +66,11 @@ PREPARE_URL = "/api/live/graph-authoring/prepare"
 COMMIT_URL = "/api/live/graph-authoring/commit"
 REVIEWED_OBJECT_ID = "d2c4-reviewed-object"
 EXISTING_NODE_ID = "obj_session22_vial"
+
+
+@pytest.fixture(autouse=True)
+def _ingest_application_state(application_state_dsn: str) -> str:
+    return application_state_dsn
 
 
 def _visibility() -> dict[str, object]:

@@ -23,10 +23,18 @@ SWITCHED_CONTENT_NODE_TOKENS = (
     "tests/application_state/",
 )
 
+# SI-4: production extraction persists ExtractionRun via APP-STATE PostgreSQL.
+INGEST_NODE_TOKENS = (
+    "tests/test_worldbuilding_profile_pipeline.py",
+)
+
 
 def needs_disposable_application_state(nodeid: str) -> bool:
     normalized = nodeid.replace("\\", "/")
-    return any(token in normalized for token in SWITCHED_CONTENT_NODE_TOKENS)
+    return any(
+        token in normalized
+        for token in SWITCHED_CONTENT_NODE_TOKENS + INGEST_NODE_TOKENS
+    )
 
 
 @pytest.fixture(autouse=True)

@@ -37,6 +37,49 @@ from apps.live_control_server.models.world_graph_mutation_context import (
 )
 
 
+def _patch_extraction_run(run_id: str, **updates: object) -> None:
+    """Test-only mutation of a persisted ExtractionRun row."""
+    from application_state.config import load_runtime_dsn
+    from application_state.ingest import repository as ingest_repo
+    from application_state.unit_of_work import unit_of_work
+
+    dsn = load_runtime_dsn()
+    with unit_of_work(dsn) as conn:
+        run = ingest_repo.lock_run(conn, run_id)
+        if run is None:
+            raise AssertionError(f"extraction run not found for patch: {run_id}")
+        updated = run.model_copy(update={**updates, "revision": run.revision + 1})
+        persisted = ingest_repo.cas_update_run(
+            conn, updated, expected_revision=run.revision
+        )
+        if persisted is None:
+            raise AssertionError(f"extraction run patch CAS failed: {run_id}")
+
+
+def _reseal_extraction_component_digest(run_id: str, *, kind: str, digest: str) -> None:
+    """Test-only reseal of an immutable component digest on the APP-STATE row."""
+    from application_state.config import load_runtime_dsn
+    from application_state.ingest import repository as ingest_repo
+    from application_state.unit_of_work import unit_of_work
+
+    dsn = load_runtime_dsn()
+    with unit_of_work(dsn) as conn:
+        run = ingest_repo.lock_run(conn, run_id)
+        if run is None:
+            raise AssertionError(f"extraction run not found for reseal: {run_id}")
+        component = run.components[kind].model_copy(update={"sha256": digest})
+        components = dict(run.components)
+        components[kind] = component
+        updated = run.model_copy(
+            update={"components": components, "revision": run.revision + 1}
+        )
+        persisted = ingest_repo.cas_update_run(
+            conn, updated, expected_revision=run.revision
+        )
+        if persisted is None:
+            raise AssertionError(f"extraction run reseal CAS failed: {run_id}")
+
+
 CAMPAIGN_ID = "longmont-c2"
 SESSION_ID = "session-22"
 GLASS_ORCHARD_WORLD_ID = "the-glass-orchard"
@@ -991,13 +1034,11 @@ def _write_bld08_reviewable_run(
 ) -> tuple[str, Path]:
     """Adapt the canonical run fixture to the checked-in BLD-08 profile."""
     from apps.live_control_server.services.graph_run_registry import (
-        extraction_runs_path,
         get_extraction_run,
     )
     from apps.live_control_server.services.promotable_ingest_run import (
         _resolve_extraction_component_path,
     )
-    from src.live_play.live_store import load_json, write_json
     from src.graph_memory.extraction.worldbuilding_extraction_profile import (
         DEFAULT_SEMANTIC_STATE,
     )
@@ -1023,16 +1064,10 @@ def _write_bld08_reviewable_run(
         edge["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
     candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
     digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
-
-
-    registry_path = extraction_runs_path(repo)
-    registry = load_json(registry_path)
-    for record in registry["records"]:
-        if record["run_id"] == resolved_id:
-            record["profile_id"] = profile_id
-            record["components"]["candidate_graph"]["sha256"] = digest
-            break
-    write_json(registry_path, registry)
+    _reseal_extraction_component_digest(
+        resolved_id, kind="candidate_graph", digest=digest
+    )
+    _patch_extraction_run(resolved_id, profile_id=profile_id)
     return resolved_id, source
 
 
@@ -1053,19 +1088,7 @@ def _mutate_extraction_candidate(repo, run_id: str, mutator) -> None:
     # Digest must match the component seal or reviewable evidence fails before
     # our span checks. Re-seal the component digest on the registry record.
     digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
-    from apps.live_control_server.services.graph_run_registry import (
-        extraction_runs_path,
-    )
-    from src.live_play.live_store import load_json, write_json
-
-
-    path = extraction_runs_path(repo)
-    document = load_json(path)
-    for record in document["records"]:
-        if record["run_id"] == run_id:
-            record["components"]["candidate_graph"]["sha256"] = digest
-            break
-    write_json(path, document)
+    _reseal_extraction_component_digest(run_id, kind="candidate_graph", digest=digest)
 
 
 def _preview_node(

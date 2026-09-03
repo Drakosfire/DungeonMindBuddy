@@ -14,6 +14,11 @@ from types import SimpleNamespace
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _ingest_application_state(application_state_dsn: str) -> str:
+    return application_state_dsn
+
+
 import apps.live_control_server.config as storage
 
 
@@ -1360,7 +1365,6 @@ def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkey
         WorldbuildingWritePlanPrepareRequest,
     )
     from apps.live_control_server.services.graph_run_registry import (
-        extraction_runs_path,
         get_extraction_run,
     )
     from apps.live_control_server.services.promotable_ingest_run import (
@@ -1370,8 +1374,10 @@ def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkey
         confirm_worldbuilding,
         prepare_worldbuilding,
     )
-    from src.live_play.live_store import load_json, write_json
-    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+    from tests._cutover_d3a_blocker_safe_fixtures import (
+        _reseal_extraction_component_digest,
+        _write_bld08_reviewable_run,
+    )
 
 
     parent = "rev:d-a"
@@ -1409,13 +1415,7 @@ def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkey
     candidate["nodes"][0]["aliases"] = ["Witness Alias"]
     candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
     digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
-    registry_path = extraction_runs_path(repo)
-    registry = load_json(registry_path)
-    for record in registry["records"]:
-        if record["run_id"] == run_id:
-            record["components"]["candidate_graph"]["sha256"] = digest
-            break
-    write_json(registry_path, registry)
+    _reseal_extraction_component_digest(run_id, kind="candidate_graph", digest=digest)
 
 
     plan = prepare_worldbuilding(

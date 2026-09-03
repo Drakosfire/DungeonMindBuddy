@@ -17,6 +17,11 @@ FIXTURE_DIR = ROOT / "tests/fixtures/graph_memory/category_preview_runner"
 CANDIDATE_FIXTURE = FIXTURE_DIR / "candidate_graph_fixture.json"
 
 
+@pytest.fixture(autouse=True)
+def _ingest_application_state(application_state_dsn: str) -> str:
+    return application_state_dsn
+
+
 @pytest.fixture
 def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, Path, Path]:
     for name in ("live_packet.json", "surface_layout.json", "current_state.json"):
@@ -70,6 +75,63 @@ def _prepare_normalized(client: TestClient) -> None:
     assert apply.status_code == 200
 
 
+def _stamp_fixture_candidate(
+    client: TestClient,
+    corpus: Path,
+    candidate: Path,
+) -> None:
+    """Give a manual candidate the exact identity packaging now requires."""
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+    )
+    from src.graph_memory.extraction.graph_ingest_packaging import (
+        _with_candidate_graph_identity,
+    )
+
+    status = client.post(
+        "/api/live/recap-ingest",
+        json={"operation": "inspect_status", "campaign_id": "longmont-c2", "session": 22},
+    )
+    assert status.status_code == 200
+    rel = status.json().get("paths", {}).get("normalized_recap")
+    assert rel, status.json()
+    recap = Path(str(rel))
+    if not recap.is_absolute():
+        recap = corpus / recap
+    artifact = create_recap_source_artifact(
+        ROOT,
+        campaign_id="longmont-c2",
+        session_id="session-22",
+        recap_path=recap,
+    )
+    graph = _with_candidate_graph_identity(
+        json.loads(candidate.read_text(encoding="utf-8")),
+        campaign_id="longmont-c2",
+        session_id="session-22",
+        source_artifact_id=artifact.source_artifact_id,
+    )
+    candidate.write_text(
+        json.dumps(graph, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _patch_retired_union_materialize(monkeypatch: pytest.MonkeyPatch) -> None:
+    """D.3B retired UnionSupergraph materialization; keep the recap producer path."""
+    import apps.live_control_server.routes.recap_ingest as recap_routes
+    from apps.live_control_server.services.recap_graph_preview_ingest import (
+        build_recap_graph_preview_bundle,
+    )
+
+    def _build_only(**kwargs):  # noqa: ANN003
+        kwargs.pop("manifest_path", None)
+        return build_recap_graph_preview_bundle(**kwargs)
+
+    monkeypatch.setattr(
+        recap_routes, "materialize_recap_preview_supergraph", _build_only
+    )
+
+
 def test_recap_ingest_build_graph_preview_bundle_from_normalized_recap(client_env: tuple[TestClient, Path, Path]) -> None:
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
@@ -107,9 +169,13 @@ def test_recap_ingest_materialize_preview_supergraph_blocks_without_candidate_gr
     assert graph["preview_union_store_path"] is None
 
 
-def test_recap_ingest_materialize_preview_supergraph_with_candidate_graph_path(client_env: tuple[TestClient, Path, Path]) -> None:
-    client, _corpus, candidate = client_env
+def test_recap_ingest_materialize_preview_supergraph_with_candidate_graph_path(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, corpus, candidate = client_env
     _prepare_normalized(client)
+    _stamp_fixture_candidate(client, corpus, candidate)
+    _patch_retired_union_materialize(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
@@ -121,13 +187,16 @@ def test_recap_ingest_materialize_preview_supergraph_with_candidate_graph_path(c
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     body = response.json()
     graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "preview_union_store_ready"
-    assert graph["can_open_union_graph"] is True
-    assert (ROOT / graph["preview_union_store_path"]).is_file()
-    assert "preview_union_store_ready" in body["states"]
+    assert graph["status"] == "candidate_validation_ready"
+    assert (ROOT / graph["manifest_path"]).is_file()
+    assert "graph_candidate_ready" in body["states"]
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+
+    run = get_extraction_run(ROOT, graph["extraction_run_id"])
+    assert run.source_artifact_id == graph["source_artifact_id"]
 
 
 def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[TestClient, Path, Path]) -> None:
@@ -208,6 +277,10 @@ def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch) -> None:
             or ""
         ).strip()
         graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref)
+        if options.campaign_id:
+            graph["campaign_id"] = options.campaign_id
+        if options.session_id:
+            graph["session_id"] = options.session_id
         return CategoryGraphExtractionResult(
             candidate_graph=graph,
             envelope={"candidate_graph": graph},
@@ -252,7 +325,7 @@ def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     graph = response.json()["ingest_report"]["graph_preview"]
     assert graph["status"] == "candidate_validation_ready"
     assert graph["extraction_mode"] == "category_decomposed"
@@ -486,6 +559,7 @@ def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
+    _patch_retired_union_materialize(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
@@ -498,16 +572,15 @@ def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     graph = response.json()["ingest_report"]["graph_preview"]
-    assert graph["status"] == "preview_union_store_ready"
-    assert graph["can_open_union_graph"] is True
+    assert graph["status"] == "candidate_validation_ready"
     assert graph["extraction_mode"] == "category_decomposed"
     assert graph["candidate_graph_path"] is not None
-    assert (ROOT / graph["preview_union_store_path"]).is_file()
-    assert isinstance(graph.get("extracted_nodes"), list)
-    assert len(graph["extracted_nodes"]) >= 1
-    assert {"node_id", "kind", "label"} <= set(graph["extracted_nodes"][0].keys())
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+
+    run = get_extraction_run(ROOT, graph["extraction_run_id"])
+    assert run.source_artifact_id == graph["source_artifact_id"]
 
 
 def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
@@ -592,6 +665,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
 ) -> None:
     client, _corpus, _candidate = client_env
     _patch_fake_category_extract(monkeypatch)
+    _patch_retired_union_materialize(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
@@ -607,15 +681,14 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     body = response.json()
     assert body["status"] == "ready_for_planning_activation"
-    assert "preview_union_store_ready" in body["states"]
+    assert "graph_candidate_ready" in body["states"]
     graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "preview_union_store_ready"
+    assert graph["status"] == "candidate_validation_ready"
     assert graph["extraction_mode"] == "category_decomposed"
     assert graph["model_id"] == "gpt-5.4-mini"
-    assert graph["can_open_union_graph"] is True
     assert "legacy_breadcrumb_skipped" in " ".join(body["warnings"])
 
 
@@ -625,6 +698,7 @@ def test_generate_recap_memory_reuses_preview_graph_without_force(
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
+    _patch_retired_union_materialize(monkeypatch)
 
     payload = {
         "operation": "generate_recap_memory",
@@ -636,13 +710,13 @@ def test_generate_recap_memory_reuses_preview_graph_without_force(
         "graph_model_id": "gpt-5.4-mini",
     }
     first = client.post("/api/live/recap-ingest", json=payload)
-    assert first.status_code == 200
+    assert first.status_code == 200, first.text
     first_graph = first.json()["ingest_report"]["graph_preview"]
-    assert first_graph["status"] == "preview_union_store_ready"
+    assert first_graph["status"] == "candidate_validation_ready"
     first_manifest = first_graph["manifest_path"]
 
     second = client.post("/api/live/recap-ingest", json=payload)
-    assert second.status_code == 200
+    assert second.status_code == 200, second.text
     second_graph = second.json()["ingest_report"]["graph_preview"]
     assert second_graph["manifest_path"] == first_manifest
 
@@ -653,6 +727,7 @@ def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
+    _patch_retired_union_materialize(monkeypatch)
 
     payload = {
         "operation": "generate_recap_memory",
@@ -664,13 +739,13 @@ def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
         "graph_model_id": "gpt-5.4-mini",
     }
     first = client.post("/api/live/recap-ingest", json=payload)
-    assert first.status_code == 200
+    assert first.status_code == 200, first.text
     first_manifest = first.json()["ingest_report"]["graph_preview"]["manifest_path"]
 
     forced = client.post("/api/live/recap-ingest", json={**payload, "force_graph_run": True})
-    assert forced.status_code == 200
+    assert forced.status_code == 200, forced.text
     forced_graph = forced.json()["ingest_report"]["graph_preview"]
-    assert forced_graph["status"] == "preview_union_store_ready"
+    assert forced_graph["status"] == "candidate_validation_ready"
     assert forced_graph["manifest_path"] != first_manifest
 
 
@@ -679,6 +754,7 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
 ) -> None:
     client, corpus, _candidate = client_env
     _patch_fake_category_extract(monkeypatch)
+    _patch_retired_union_materialize(monkeypatch)
     staged = corpus / "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
     staged.write_text(
         "Session 22 Recap\n\nBonogo scouts the Mireward road and regroups at dusk.",
@@ -699,16 +775,15 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     body = response.json()
     assert body["status"] == "ready_for_planning_activation"
     assert "staged_raw_notes_conflict" in body["states"]
-    assert "preview_union_store_ready" in body["states"]
+    assert "graph_candidate_ready" in body["states"]
     assert body["ingest_report"]["staged_raw_notes_reused_existing"] is True
     assert "Different pasted text" not in staged.read_text(encoding="utf-8")
     graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "preview_union_store_ready"
-    assert graph["can_open_union_graph"] is True
+    assert graph["status"] == "candidate_validation_ready"
 
 
 def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_success(
@@ -748,7 +823,7 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
 
 
 def test_real_recap_manifest_adapts_to_extraction_run(
-    client_env: tuple[TestClient, Path, Path],
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Regression: real recap preview producer manifest adapts to ExtractionRun."""
     from graph_memory.ingestion.graph_ingest_run import (
@@ -756,8 +831,10 @@ def test_real_recap_manifest_adapts_to_extraction_run(
         adapt_recap_manifest_to_extraction_run,
     )
 
-    client, _corpus, candidate = client_env
+    client, corpus, candidate = client_env
     _prepare_normalized(client)
+    _stamp_fixture_candidate(client, corpus, candidate)
+    _patch_retired_union_materialize(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
@@ -768,7 +845,7 @@ def test_real_recap_manifest_adapts_to_extraction_run(
             "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     graph = response.json()["ingest_report"]["graph_preview"]
     manifest_path = ROOT / graph["manifest_path"]
     assert manifest_path.is_file()

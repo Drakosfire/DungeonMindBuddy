@@ -210,15 +210,15 @@ def _exercise_full_play_chain(root: Path) -> dict:
     }
 
 
-def test_alembic_head_remains_0004(application_state_dsn: str) -> None:
+def test_alembic_head_is_0005_after_ingest_cutover(application_state_dsn: str) -> None:
     from alembic.script import ScriptDirectory
 
-    from application_state.cli import _current_and_head
+    from application_state.cli import _current_and_head, alembic_config
 
     current, head = _current_and_head(application_state_dsn)
     script_heads = ScriptDirectory.from_config(alembic_config()).get_heads()
-    assert current == head == "20260825_0004"
-    assert script_heads == ["20260825_0004"]
+    assert current == head == "20260902_0005"
+    assert script_heads == ["20260902_0005"]
 
 
 def test_full_play_chain_with_play_dir_absent(
@@ -363,6 +363,16 @@ def test_predecessor_import_then_as5_head_reads_same_db_without_files(
     assert count_play_rows(application_state_dsn) == (0, 0)
     assert count_active_run_rows(application_state_dsn) == 0
 
+    from alembic import command
+
+    from application_state.cli import _current_and_head, alembic_config
+
+    # Historical AS4 importer asserts Alembic head 0004. The disposable DB is
+    # already at 0005; downgrade only the additive ingest schema for this bridge.
+    command.downgrade(alembic_config(), "20260825_0004")
+    current, _head = _current_and_head(application_state_dsn)
+    assert current == "20260825_0004"
+
     repo = Path(__file__).resolve().parents[2]
     worktree = Path(tempfile.gettempdir()) / f"as5-pred-{os.getpid()}"
     added = False
@@ -389,6 +399,9 @@ def test_predecessor_import_then_as5_head_reads_same_db_without_files(
                 ["git", "worktree", "remove", "--force", str(worktree)],
                 cwd=repo,
             )
+        command.upgrade(alembic_config(), "head")
+        current, head = _current_and_head(application_state_dsn)
+        assert current == head == "20260902_0005"
 
     payload = json.loads(output.strip().splitlines()[-1])
     assert payload == {

@@ -9,6 +9,12 @@ from typing import Literal
 from urllib.parse import urlparse
 
 from application_state.config import APPLICATION_STATE_DSN_ENV
+from application_state.errors import (
+    ApplicationStateIntegrityError,
+    ApplicationStateMigrationError,
+    ApplicationStateUnavailableError,
+)
+from application_state.ingest.service import inspect_ingest_authority
 from apps.live_control_server import config
 from apps.live_control_server.config import (
     EXTRACT_PROMOTE_SOURCE_ROOT_ENV,
@@ -24,10 +30,6 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_reads import 
 from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresRepositoryBundle
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GRAPH_INGEST_RUNS_ENV,
-    GraphIngestRunRegistryError,
-    discover_graph_ingest_runs,
-    inspect_graph_ingest_registry_health,
-    inspect_graph_ingest_registry_roots,
 )
 from scripts.bootstrap_local_play import inspect_readiness
 
@@ -358,124 +360,63 @@ def _check_campaign_registry() -> RuntimePreflightCheck:
 
 
 def _check_ingest_registry(repo_root: Path) -> RuntimePreflightCheck:
+    del repo_root
+    details: dict[str, PreflightDetailValue] = {}
     try:
-        roots = inspect_graph_ingest_registry_roots(repo_root)
-    except GraphIngestRunRegistryError as exc:
+        snapshot = inspect_ingest_authority()
+    except ApplicationStateUnavailableError as exc:
         return RuntimePreflightCheck(
             id="ingest_registry",
-            label="Ingest registry",
+            label="Ingest authority",
+            required=True,
+            status="UNAVAILABLE",
+            summary="Application-state Ingest authority is unavailable",
+            details={"reason": str(exc)},
+        )
+    except ApplicationStateMigrationError as exc:
+        return RuntimePreflightCheck(
+            id="ingest_registry",
+            label="Ingest authority",
             required=True,
             status="NOT_READY",
-            summary="Configured graph-ingest root is unsafe or invalid",
+            summary="Application-state Ingest schema is behind Alembic head",
+            details={"reason": str(exc)},
+        )
+    except ApplicationStateIntegrityError as exc:
+        return RuntimePreflightCheck(
+            id="ingest_registry",
+            label="Ingest authority",
+            required=True,
+            status="INTEGRITY_ERROR",
+            summary="Persisted Ingest run(s) failed ExtractionRun integrity checks",
+            details={"reason": str(exc)},
+        )
+    except Exception as exc:
+        return RuntimePreflightCheck(
+            id="ingest_registry",
+            label="Ingest authority",
+            required=True,
+            status="NOT_READY",
+            summary="Ingest authority inspection failed",
             details={"reason": str(exc)},
         )
 
-    root_lines = [
-        f"{root.configured_path} exists={root.exists} readable={root.readable}"
-        for root in roots
-    ]
-    details: dict[str, PreflightDetailValue] = {"roots": root_lines}
-
-    missing_env_roots = [root for root in roots if root.env_override and not root.exists]
-    if missing_env_roots:
-        details["reason"] = "configured ingest root does not exist"
+    details["run_count"] = snapshot.run_count
+    if snapshot.run_count == 0:
         return RuntimePreflightCheck(
             id="ingest_registry",
-            label="Ingest registry",
-            required=True,
-            status="NOT_READY",
-            summary="Configured graph-ingest root is missing",
-            details=details,
-        )
-
-    unreadable_roots = [root for root in roots if root.exists and not root.readable]
-    if unreadable_roots:
-        details["reason"] = "ingest root exists but is not readable"
-        return RuntimePreflightCheck(
-            id="ingest_registry",
-            label="Ingest registry",
-            required=True,
-            status="NOT_READY",
-            summary="Graph-ingest root is unreadable",
-            details=details,
-        )
-
-    existing_roots = [root for root in roots if root.exists]
-    if existing_roots:
-        try:
-            health = inspect_graph_ingest_registry_health(repo_root)
-        except GraphIngestRunRegistryError as exc:
-            details["reason"] = str(exc)
-            return RuntimePreflightCheck(
-                id="ingest_registry",
-                label="Ingest registry",
-                required=True,
-                status="NOT_READY",
-                summary="Graph-ingest registry health inspection failed",
-                details=details,
-            )
-        details["manifest_files_found"] = health.manifest_files_found
-        details["valid_manifests"] = health.valid_manifests
-        details["invalid_manifests"] = health.invalid_manifests
-        if health.invalid_manifests > 0:
-            details["manifest_issues"] = [
-                f"{issue.manifest_path}: {issue.reason}" for issue in health.issues
-            ]
-            if health.invalid_manifests > len(health.issues):
-                details["manifest_issues_truncated"] = True
-            details["reason"] = "registry contains invalid graph-ingest manifest(s)"
-            return RuntimePreflightCheck(
-                id="ingest_registry",
-                label="Ingest registry",
-                required=True,
-                status="NOT_READY",
-                summary="Graph-ingest registry contains invalid manifest(s)",
-                details=details,
-            )
-
-    try:
-        runs = discover_graph_ingest_runs(repo_root)
-    except GraphIngestRunRegistryError as exc:
-        details["reason"] = str(exc)
-        return RuntimePreflightCheck(
-            id="ingest_registry",
-            label="Ingest registry",
-            required=True,
-            status="NOT_READY",
-            summary="Graph-ingest discovery failed",
-            details=details,
-        )
-
-    details["discovered_runs"] = len(runs)
-    if not existing_roots:
-        details["reason"] = (
-            "configured ingest root does not exist"
-            if any(root.env_override for root in roots)
-            else "default ingest root does not exist"
-        )
-        return RuntimePreflightCheck(
-            id="ingest_registry",
-            label="Ingest registry",
-            required=True,
-            status="NOT_READY",
-            summary="Graph-ingest root is missing or unreadable",
-            details=details,
-        )
-    if not runs:
-        return RuntimePreflightCheck(
-            id="ingest_registry",
-            label="Ingest registry",
+            label="Ingest authority",
             required=True,
             status="EMPTY",
-            summary="Ingest roots are valid; 0 runs discovered",
+            summary="Ingest application-state schema is current; 0 runs",
             details=details,
         )
     return RuntimePreflightCheck(
         id="ingest_registry",
-        label="Ingest registry",
+        label="Ingest authority",
         required=True,
         status="READY",
-        summary=f"Discovered {len(runs)} ingest run(s)",
+        summary=f"Ingest application-state catalog has {snapshot.run_count} run(s)",
         details=details,
     )
 
