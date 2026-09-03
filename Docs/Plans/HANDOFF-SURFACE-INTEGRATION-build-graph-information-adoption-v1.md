@@ -23,7 +23,16 @@ pr_body_template: |
 # HANDOFF — Build World Graph Surface Information Adoption v1
 
 **Created:** 2026-09-02
-**Status:** ACTIVE — SURFACE-INTEGRATION SI-5A
+**Status:** COMPLETE — SURFACE-INTEGRATION SI-5A
+
+**Completion record:**
+```text
+PR #680 merged
+merge SHA            a543af46f21d31d6ad83a88c3b2911ca4e0e4016
+final implementation 4ccbe0fad1f5c9c60c3ced6173d842a77b162289
+formal review cycles 3
+successor            SI-5B Ingest APP-STATE Run Information adoption
+```
 **Canonical handoff path:** `Docs/Plans/HANDOFF-SURFACE-INTEGRATION-build-graph-information-adoption-v1.md`
 **Conversation/workstream:** `SURFACE-INTEGRATION / SI-5A`
 **Flow / owner:** `SURFACE-INTEGRATION`

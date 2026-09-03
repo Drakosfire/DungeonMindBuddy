@@ -42,8 +42,8 @@ Allowed during the freeze: SURFACE-INTEGRATION implementation/design, fixes requ
 | SI-2 | Surface Information Contract v1 | **DONE** — PR #676 merged @ `cd6b20ffe151dc43dc21cb71ed77208389059566` (final implementation head `1ced8ea147f8119a424e9f44787cb7246ddb969d`, two review cycles) |
 | SI-3 | Plan graph information reference implementation | **DONE** — PR #677 merged @ `29932a8ecb74b4bcbf12633f5167470a7f05fb81` (final implementation head `345ee6957dadaa1d9052d60b70396534d7590ac8`, five review cycles) |
 | SI-4 | Ingest application-state authority | **DONE** — PR #679 merged @ `010634f8ea48ed396024c79db90f41d6ba92f249` (final implementation head `55414e141f6508049c56c82bfb37bce7d9f3ba51`, two review cycles) |
-| **SI-5A** | Build World Graph Surface Information adoption | **CURRENT** — Build Find-existing-object consumes `SurfaceInformationChannel<WorldGraphProjection>` (shared exact request or one Build-owned secondary). Structural Surface Interaction no longer carries graph observations. |
-| SI-5B | Ingest application-state Surface Information adoption | Planned — catalog API + Surface Information over APP-STATE runs; `manifestPath` stops being product identity |
+| SI-5A | Build World Graph Surface Information adoption | **DONE** — PR #680 merged @ `a543af46f21d31d6ad83a88c3b2911ca4e0e4016` (final implementation head `4ccbe0fad1f5c9c60c3ced6173d842a77b162289`, three review cycles) |
+| **SI-5B** | Ingest application-state Surface Information adoption | **CURRENT** — catalog API + Surface Information over APP-STATE runs; `manifestPath` stops being product identity |
 | SI-5 remainder | Play / Combat-facing adoption and Agent disposition | Planned — before SI-6; PR #674 remains parked/read-only until that slice |
 | SI-6 | Clean-start assembled-product witness (canonical runtime → browser journey → restart/reload) | Planned — **acceptance gate** |
 | SI-7 | Thaw + re-sequence paused feature roadmaps | Planned |
@@ -56,7 +56,7 @@ Do not pre-mark successors `DONE`.
 
 Existing CON-READY user stories remain valid. Feature dispatch is frozen until SI-6 proves the assembled runtime and information-delivery contract.
 
-SI-1 created the runtime truth layer and is complete. SI-2 established the Surface Information Contract and is complete. SI-3 proved Plan Edit → World Graph objects consumes that contract reactively. SI-4 moved canonical Ingest run authority into the existing application-state PostgreSQL database. SI-5A moves Build Find-existing-object onto that same information contract. SI-5B then gives `/ingest` a Surface Information provider over APP-STATE runs. Play/Combat-facing adoption and Agent/#674 disposition follow before SI-6.
+SI-1 created the runtime truth layer and is complete. SI-2 established the Surface Information Contract and is complete. SI-3 proved Plan Edit → World Graph objects consumes that contract reactively. SI-4 moved canonical Ingest run authority into the existing application-state PostgreSQL database. SI-5A moved Build Find-existing-object onto that same information contract. SI-5B gives `/ingest` a Surface Information provider over APP-STATE runs. Play/Combat-facing adoption and Agent/#674 disposition follow before SI-6.
 
 ---
 
@@ -76,6 +76,6 @@ uv run python scripts/preflight_surface_runtime.py --require-world <world_id>
 
 ## Stewardship
 
-Implementation handoff: [`../Plans/HANDOFF-SURFACE-INTEGRATION-build-graph-information-adoption-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-build-graph-information-adoption-v1.md)
+Implementation handoff: [`../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-run-information-adoption-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-run-information-adoption-v1.md)
 
-Predecessor (SI-4, complete): [`../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-application-state-authority-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-application-state-authority-v1.md)
+Predecessor (SI-5A, complete): [`../Plans/HANDOFF-SURFACE-INTEGRATION-build-graph-information-adoption-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-build-graph-information-adoption-v1.md)
