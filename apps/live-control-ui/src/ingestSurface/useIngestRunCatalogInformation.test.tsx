@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -135,5 +136,20 @@ describe("useIngestRunCatalogInformation", () => {
     );
     const { result } = renderHook(() => useIngestRunCatalogInformation());
     await waitFor(() => expect(result.current.channel.getSnapshot().state.status).toBe("unavailable"));
+  });
+
+  it("StrictMode remount still settles the catalog (does not dispose a useState singleton dead)", async () => {
+    getCatalog.mockResolvedValue(catalog(["er_strict"]));
+    const { result } = renderHook(() => useIngestRunCatalogInformation(), {
+      wrapper: StrictMode,
+    });
+    await waitFor(() => {
+      expect(result.current.channel.getSnapshot().state.status).toBe("ready");
+    });
+    const state = result.current.channel.getSnapshot().state;
+    expect(state.status).toBe("ready");
+    if (state.status === "ready") {
+      expect(state.value.runs.map((run) => run.run_id)).toEqual(["er_strict"]);
+    }
   });
 });

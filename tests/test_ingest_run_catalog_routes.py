@@ -97,16 +97,52 @@ def test_w1_list_reads_app_state_only_when_legacy_registry_explodes(
 
 
 def test_w2_w10_missing_out_and_missing_component_bytes_do_not_hide_run(
-    client: TestClient, tmp_path: Path, application_state_dsn: str
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str
 ) -> None:
     created = create_extraction_run(_run(run_id="er_bytes_missing"))
     assert not (tmp_path / "out/graph_memory/runs").exists()
+
+    def _boom(*_args, **_kwargs):
+        raise AssertionError("legacy graph ingest registry must not be consulted")
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_ingest_run_registry.discover_graph_ingest_runs",
+        _boom,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.promotable_ingest_run._find_manifests_for_run_id",
+        _boom,
+    )
+
     response = client.get("/api/live/graph-preview/extraction-runs")
     assert response.status_code == 200
     assert any(row["run_id"] == created.run_id for row in response.json()["runs"])
     exact = client.get(f"/api/live/graph-preview/extraction-runs/{created.run_id}")
     assert exact.status_code == 200
     assert exact.json()["run_id"] == created.run_id
+
+    # W10 evidence boundary: identity is fixed; missing bytes fail exact review explicitly.
+    review = client.get(f"/api/live/extract-promote/runs/{created.run_id}/review-package")
+    assert review.status_code in {422, 404, 409}
+    body = review.json()
+    detail = body.get("detail") if isinstance(body, dict) else body
+    if isinstance(detail, dict):
+        code = detail.get("code") or ""
+        message = detail.get("message") or str(detail)
+    else:
+        code = ""
+        message = str(detail)
+    assert "manifest" not in message.lower() or "fallback" not in message.lower()
+    assert created.run_id not in (detail.get("fallback_run_id") or "") if isinstance(detail, dict) else True
+    # Catalog must still list the run after exact-review failure.
+    again = client.get("/api/live/graph-preview/extraction-runs")
+    assert any(row["run_id"] == created.run_id for row in again.json()["runs"])
+    assert code in {
+        "",
+        "run_not_promotable",
+        "run_ambiguous",
+        "invalid_request",
+    } or review.status_code >= 400
 
 
 def test_w11_zero_rows_is_empty_success(

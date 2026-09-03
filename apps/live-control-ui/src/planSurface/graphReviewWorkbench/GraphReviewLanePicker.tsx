@@ -17,7 +17,7 @@ interface GraphReviewLanePickerProps {
   onRunSelect: (runId: string | null) => void;
 }
 
-function reviewableSessionLabel(
+function exactReviewSessionLabel(
   sessions: GraphReviewCatalogSession[],
 ): string | null {
   const reviewable = sessions.find(hasCatalogReviewableRun);
@@ -41,10 +41,11 @@ export function GraphReviewLanePicker({
   const selectedSession = campaignSessions.find(
     (session) => session.sessionId === selectedSessionId,
   );
-  const reviewableLabel = reviewableSessionLabel(campaignSessions);
-  const selectedHasProjection = selectedSession
+  const exactReviewLabel = exactReviewSessionLabel(campaignSessions);
+  const selectedHasExactReview = selectedSession
     ? hasCatalogReviewableRun(selectedSession)
     : false;
+  const selectedHasRuns = Boolean(selectedSession?.availableRuns.length);
 
   return (
     <section
@@ -62,37 +63,53 @@ export function GraphReviewLanePicker({
       >
         {campaignSessions.map((session) => {
           const active = session.sessionId === selectedSessionId;
-          const reviewable = hasCatalogReviewableRun(session);
+          const hasRuns = session.availableRuns.length > 0;
+          const exactReviewable = hasCatalogReviewableRun(session);
           return (
             <button
               key={session.sessionId}
               type="button"
               role="tab"
               aria-selected={active}
-              aria-disabled={!reviewable}
+              aria-disabled={!hasRuns}
               className={
                 active
                   ? "graph-gold-review-pill active"
                   : "graph-gold-review-pill"
               }
-              onClick={() => reviewable && onSessionSelect(session.sessionId)}
+              onClick={() => hasRuns && onSessionSelect(session.sessionId)}
               title={
-                reviewable
-                  ? undefined
-                  : "This session has no inspectable ExtractionRun."
+                !hasRuns
+                  ? "This session has no canonical ExtractionRuns."
+                  : exactReviewable
+                    ? undefined
+                    : "Visible history only — no REVIEWABLE exact-review candidate."
               }
             >
               {catalogSessionLabel(session)}
-              {!reviewable ? " · unavailable" : ""}
+              {!hasRuns
+                ? " · unavailable"
+                : !exactReviewable
+                  ? " · history"
+                  : ""}
             </button>
           );
         })}
       </div>
-      {!selectedHasProjection ? (
+      {selectedHasRuns && !selectedHasExactReview ? (
         <p className="graph-review-unavailable-state" role="status">
-          This session has no inspectable ExtractionRun yet.
-          {reviewableLabel
-            ? ` Choose ${reviewableLabel} to review available runs.`
+          This session has catalog-visible runs but no REVIEWABLE exact-review
+          candidate.
+          {exactReviewLabel
+            ? ` Choose ${exactReviewLabel} for exact review.`
+            : " Promoted/terminal runs remain visible history only."}
+        </p>
+      ) : null}
+      {!selectedHasRuns ? (
+        <p className="graph-review-unavailable-state" role="status">
+          This session has no canonical ExtractionRun yet.
+          {exactReviewLabel
+            ? ` Choose ${exactReviewLabel} to review available runs.`
             : " No canonical recap runs were found for this campaign."}
         </p>
       ) : null}

@@ -62,6 +62,8 @@ import {
   catalogSessionsForReviewCampaign,
   type GraphReviewCatalogSession,
   formatCompactAppliedLoadLabel,
+  isCatalogRunExactReviewable,
+  isCatalogRunPromotedHistory,
   pickDefaultCatalogSession,
   pickDefaultWorkbenchRun,
 } from "./graphReviewWorkbenchUtils";
@@ -174,11 +176,15 @@ export function GraphReviewWorkbenchModule({
     catalogChannel.getSnapshot,
   );
   const catalogState = catalogSnapshot.state;
-  const catalogReady =
+  const catalogSettled =
     catalogState.status === "ready"
     || catalogState.status === "empty"
     || catalogState.status === "unavailable"
     || catalogState.status === "integrity_error";
+  const [catalogEverSettled, setCatalogEverSettled] = useState(false);
+  useEffect(() => {
+    if (catalogSettled) setCatalogEverSettled(true);
+  }, [catalogSettled]);
   const canonicalRuns =
     catalogState.status === "ready" ? catalogState.value.runs : [];
   const sessionsError =
@@ -187,17 +193,15 @@ export function GraphReviewWorkbenchModule({
       : null;
   const [goldSessions, setGoldSessions] = useState<GoldReviewSessionSummary[]>([]);
 
+  // W14: structural Ingest surface stays mounted across catalog observation
+  // transitions (including READY → LOADING → READY). Do not unbind on LOADING.
   useEffect(() => {
-    if (!catalogReady && !exactHandoff) {
-      return publishProjectionSurface(null);
-    }
     return publishProjectionSurface(projectionPublicationRef.current);
-  }, [catalogReady, exactHandoff, projectionInstanceKey, publishProjectionSurface]);
+  }, [projectionInstanceKey, publishProjectionSurface]);
 
   useEffect(() => {
-    if (!catalogReady && !exactHandoff) return;
     updateProjectionSurfaceConfig(projectionPublication);
-  }, [catalogReady, exactHandoff, projectionPublication, updateProjectionSurfaceConfig]);
+  }, [projectionPublication, updateProjectionSurfaceConfig]);
 
   const catalogSessions = useMemo(
     () => buildGraphReviewCatalog(canonicalRuns, goldSessions),
@@ -265,8 +269,12 @@ export function GraphReviewWorkbenchModule({
       ) ?? null
     );
   }, [appliedSelection, appliedSession]);
+  // Explicit run_id missing when the catalog has settled — including when the
+  // whole session vanished (appliedSession null), not only when a sibling run remains.
   const selectedRunMissing =
-    Boolean(appliedSelection?.runId) && Boolean(appliedSession) && !appliedLiveRun;
+    catalogSettled
+    && Boolean(appliedSelection?.runId)
+    && !appliedLiveRun;
 
   const draftCampaignSessions = useMemo(
     () => catalogSessionsForReviewCampaign(catalogSessions, draftCampaignId),
@@ -314,7 +322,7 @@ export function GraphReviewWorkbenchModule({
   );
 
   useEffect(() => {
-    if (!catalogReady) return;
+    if (!catalogSettled) return;
     const persistedHint = resolvePersistedAppliedSelection();
     setAppliedSelection((current) => {
       const hint = persistedHint ?? current;
@@ -339,7 +347,7 @@ export function GraphReviewWorkbenchModule({
       if (restored?.runId) persistAppliedSelection(restored);
     }
   }, [
-    catalogReady,
+    catalogSettled,
     catalogSessions,
     context.campaignId,
     fallbackSessionId,
@@ -507,6 +515,102 @@ export function GraphReviewWorkbenchModule({
     };
   }, [exactHandoff, exactHandoffErrors]);
 
+  // Ordinary catalog Load of a canonical run_id: REVIEWABLE → exact review package;
+  // PROMOTED → visible history, explicitly not exact-reviewable (stop/rebrief recorded).
+  useEffect(() => {
+    if (exactHandoff) return;
+    if (!appliedLiveRun) {
+      setExactRun(null);
+      setExactLineage(null);
+      setExactRunStatus("idle");
+      setExactRunError(null);
+      setExactReview(null);
+      setExactReviewStatus("idle");
+      setExactReviewError(null);
+      setExactPrepared(null);
+      setExactPrepareError(null);
+      return;
+    }
+    const run = appliedLiveRun.run;
+    let cancelled = false;
+    setExactRun(run);
+    setExactLineage(null);
+    setExactRunStatus("ready");
+    setExactRunError(null);
+    setExactPrepared(null);
+    setExactPrepareError(null);
+
+    if (!isCatalogRunExactReviewable(run)) {
+      setExactReview(null);
+      setExactReviewStatus("idle");
+      setExactReviewError(
+        isCatalogRunPromotedHistory(run)
+          ? "Promoted runs are visible terminal history and are not exact-reviewable through the current resolver. A separate inspection seam is required (SI-5B stop/rebrief)."
+          : `Run status ${run.status} is not exact-reviewable through the current resolver.`,
+      );
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setExactReviewStatus("loading");
+    setExactReviewError(null);
+    setExactReview(null);
+    void (async () => {
+      try {
+        const packageResponse = await getExactRunReviewPackage(run.run_id);
+        if (cancelled) return;
+        const packageCampaign = (packageResponse.campaignId ?? "").trim();
+        const runCampaign = (run.campaign_id ?? "").trim();
+        const packageSession = (packageResponse.sessionId ?? "").trim();
+        const runSession = (run.session_id ?? "").trim();
+        if (
+          packageResponse.runId !== run.run_id ||
+          packageResponse.sourceArtifactId !== run.source_artifact_id ||
+          packageResponse.sourceDomain !== run.source_domain ||
+          packageCampaign !== runCampaign ||
+          packageSession !== runSession
+        ) {
+          setExactReview(null);
+          setExactReviewStatus("error");
+          setExactReviewError(
+            "exact-run review package identity does not match the loaded ExtractionRun",
+          );
+          return;
+        }
+        setExactReview(packageResponse);
+        setExactReviewStatus("ready");
+      } catch (error) {
+        if (cancelled) return;
+        if (error instanceof ExtractPromoteApiError) {
+          console.error("[graph-review] catalog-selected review-package failed", {
+            runId: run.run_id,
+            status: error.status,
+            code: error.code,
+            message: error.message,
+            diagnostics: error.body?.diagnostics ?? null,
+            body: error.body,
+          });
+        } else {
+          console.error("[graph-review] catalog-selected review-package failed", {
+            runId: run.run_id,
+            error,
+          });
+        }
+        setExactReview(null);
+        setExactReviewStatus("error");
+        setExactReviewError(
+          error instanceof ExtractPromoteApiError || error instanceof Error
+            ? error.message
+            : "Failed to load exact-run source evidence.",
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedLiveRun, exactHandoff]);
+
   useEffect(() => {
     let cancelled = false;
     setManualBedsStatus("loading");
@@ -589,9 +693,9 @@ export function GraphReviewWorkbenchModule({
   }, [appliedLiveRun, appliedSession]);
 
   useEffect(() => {
-    if (!catalogReady) return;
+    if (!catalogSettled) return;
     void loadCompare();
-  }, [loadCompare, catalogReady]);
+  }, [loadCompare, catalogSettled]);
 
   const loadBlockedByConfirm = catalogConfirmInFlight || exactConfirmInFlight;
 
@@ -676,7 +780,7 @@ export function GraphReviewWorkbenchModule({
         : null
     );
   const exactRunSummary =
-    exactHandoff && exactRun
+    exactRun
       ? {
           extractionRunId: exactRun.run_id,
           sourceDomain: exactRun.source_domain,
@@ -693,11 +797,12 @@ export function GraphReviewWorkbenchModule({
       : null;
 
   const onPrepareExactRun = useCallback(async () => {
-    if (!exactHandoff || !exactRunPromotable || exactPreparing || exactConfirmInFlight) return;
+    const runId = exactHandoff?.extractionRunId ?? exactRun?.run_id;
+    if (!runId || !exactRunPromotable || exactPreparing || exactConfirmInFlight) return;
     setExactPreparing(true);
     setExactPrepareError(null);
     try {
-      const response = await prepareExtractPromote({ runId: exactHandoff.extractionRunId });
+      const response = await prepareExtractPromote({ runId });
       setExactPrepared(response);
     } catch (error) {
       setExactPrepared(null);
@@ -710,7 +815,7 @@ export function GraphReviewWorkbenchModule({
           diagnosticTail ? `${error.message} (${diagnosticTail})` : error.message,
         );
         console.error("[graph-review] exact-run prepare failed", {
-          runId: exactHandoff.extractionRunId,
+          runId,
           status: error.status,
           code: error.code,
           message: error.message,
@@ -726,10 +831,15 @@ export function GraphReviewWorkbenchModule({
     } finally {
       setExactPreparing(false);
     }
-  }, [exactConfirmInFlight, exactHandoff, exactPreparing, exactRunPromotable]);
+  }, [exactConfirmInFlight, exactHandoff?.extractionRunId, exactPreparing, exactRun?.run_id, exactRunPromotable]);
 
   const hasAppliedLoad = Boolean(appliedSelection && appliedSession && appliedLiveRun);
-  const hasExactRunLoad = Boolean(exactHandoff && exactRunStatus === "ready" && exactRun);
+  // Catalog-selected REVIEWABLE/PROMOTED runs use the exact-run branch (package or truthful unreviewable).
+  const hasExactRunLoad = Boolean(
+    exactRunStatus === "ready"
+    && exactRun
+    && (exactHandoff || (hasAppliedLoad && appliedLiveRun)),
+  );
   const hasCatalogSessions = catalogSessions.length > 0 || Boolean(sessionsError);
   // Keep live-state (and the Tools drawer) mounted even before a session is loaded so
   // Ingest Recap remains reachable from the empty /ingest landing state.
@@ -799,7 +909,7 @@ export function GraphReviewWorkbenchModule({
     reviewSessionId,
   ]);
 
-  if (!catalogReady && !exactHandoff) {
+  if (!catalogEverSettled && !exactHandoff && catalogState.status === "loading") {
     return (
       <div className="graph-review-workbench-root">
         <GraphReviewWorkbenchHeader loaded={false} sessionLabel={null} onOpenLoad={() => undefined} />
@@ -985,8 +1095,20 @@ function GraphReviewExactRunBranch(props: {
       {props.exactReview ? <GraphReviewExactRunProjection review={props.exactReview} /> : null}
       {!props.exactRunReviewable ? (
         <p data-testid="graph-review-exact-run-unreviewable">
-          Run status is <code>{props.exactRun.status}</code> and is not reviewable for
-          promotion.
+          {isCatalogRunPromotedHistory(props.exactRun)
+            ? (
+              <>
+                Run status is <code>promoted</code>: visible terminal history only. Exact
+                review is unavailable through the current resolver (SI-5B stop/rebrief —
+                requires a separate inspection seam).
+              </>
+            )
+            : (
+              <>
+                Run status is <code>{props.exactRun.status}</code> and is not reviewable for
+                promotion.
+              </>
+            )}
         </p>
       ) : props.exactRunFirstWorldEligible && props.exactReview ? (
         props.exactReviewStatus === "error" ? null : (

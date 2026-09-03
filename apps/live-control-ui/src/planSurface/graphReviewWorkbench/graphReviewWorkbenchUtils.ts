@@ -56,19 +56,33 @@ export interface GraphReviewCatalogSession {
   goldCounts: Record<string, number>;
 }
 
-const INSPECTABLE_STATUSES = new Set(["reviewable", "promoted"]);
+/** Statuses that may use the existing exact-review / promote resolver seam. */
+const EXACT_REVIEWABLE_STATUSES = new Set(["reviewable"]);
 const DEFAULT_PROMOTABLE_STATUSES = new Set(["reviewable"]);
 
 export function catalogRunStatus(run: ExtractionRunRecord): string {
   return (run.status ?? "").trim().toLowerCase();
 }
 
+/**
+ * Exact-reviewable through the mounted `getExactRunReviewPackage` seam.
+ * PROMOTED is catalog-visible history only — not exact-reviewable here.
+ */
+export function isCatalogRunExactReviewable(run: ExtractionRunRecord): boolean {
+  return EXACT_REVIEWABLE_STATUSES.has(catalogRunStatus(run));
+}
+
+/** @deprecated Prefer isCatalogRunExactReviewable — name kept for call-site clarity. */
 export function isCatalogRunInspectable(run: ExtractionRunRecord): boolean {
-  return INSPECTABLE_STATUSES.has(catalogRunStatus(run));
+  return isCatalogRunExactReviewable(run);
 }
 
 export function isCatalogRunDefaultCandidate(run: ExtractionRunRecord): boolean {
   return DEFAULT_PROMOTABLE_STATUSES.has(catalogRunStatus(run));
+}
+
+export function isCatalogRunPromotedHistory(run: ExtractionRunRecord): boolean {
+  return catalogRunStatus(run) === "promoted";
 }
 
 export function isRecapCatalogRun(run: ExtractionRunRecord): boolean {
@@ -119,24 +133,29 @@ function goldCompatibilityLocator(
   const sessionId = run.session_id?.trim() ?? "";
   const runId = run.run_id.trim();
   if (!campaignId || !sessionId || !runId) return null;
+  const locators = new Set<string>();
   for (const goldSession of goldSessions) {
     if (goldSession.campaign_id !== campaignId || goldSession.session_id !== sessionId) {
       continue;
     }
-    const match = goldSession.available_runs.find((legacy) => {
+    for (const legacy of goldSession.available_runs) {
       const legacyRunId = (legacy.run_id ?? "").trim();
       const legacyCampaign = (legacy.campaign_id ?? "").trim();
       const legacySession = (legacy.session_id ?? "").trim();
-      return (
-        legacyRunId === runId
-        && legacyCampaign === campaignId
-        && legacySession === sessionId
-      );
-    });
-    const locator = match?.manifest_path?.trim() ?? "";
-    if (locator) return locator;
+      if (
+        legacyRunId !== runId
+        || legacyCampaign !== campaignId
+        || legacySession !== sessionId
+      ) {
+        continue;
+      }
+      const locator = (legacy.manifest_path ?? "").trim();
+      if (locator) locators.add(locator);
+    }
   }
-  return null;
+  // Exactly one admissible locator. Zero or conflicting/multiple → compare unavailable.
+  if (locators.size !== 1) return null;
+  return [...locators][0] ?? null;
 }
 
 export function buildGraphReviewCatalog(

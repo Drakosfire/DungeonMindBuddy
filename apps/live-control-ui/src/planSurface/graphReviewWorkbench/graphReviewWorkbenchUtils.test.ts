@@ -11,6 +11,8 @@ import {
   formatCompactAppliedLoadLabel,
   goldSessionToLane,
   graphIngestRunToLane,
+  isCatalogRunExactReviewable,
+  isCatalogRunPromotedHistory,
   pickDefaultCatalogSession,
   pickDefaultWorkbenchRun,
   pickDefaultWorkbenchSession,
@@ -205,6 +207,50 @@ describe("graphReviewWorkbenchUtils", () => {
       }),
     ]);
     expect(formatCompactAppliedLoadLabel(catalog[0])).toBe("Session 1 · longmont-c1");
+  });
+
+  it("returns null compatibilityManifestPath when multiple gold locators match the same run_id", () => {
+    const catalog = buildGraphReviewCatalog(
+      [
+        extractionRun({
+          run_id: "er_ambiguous",
+          campaign_id: "longmont-c1",
+          session_id: "session-1",
+        }),
+      ],
+      [
+        session({
+          campaign_id: "longmont-c1",
+          session_id: "session-1",
+          session_number: 1,
+          available_runs: [
+            run({
+              run_id: "er_ambiguous",
+              manifest_path: "gold/a/manifest.json",
+              campaign_id: "longmont-c1",
+              session_id: "session-1",
+            }),
+            run({
+              run_id: "er_ambiguous",
+              manifest_path: "gold/b/manifest.json",
+              campaign_id: "longmont-c1",
+              session_id: "session-1",
+            }),
+          ],
+        }),
+      ],
+    );
+    expect(catalog).toHaveLength(1);
+    expect(catalog[0].availableRuns[0]?.compatibilityManifestPath).toBeNull();
+  });
+
+  it("classifies reviewable vs promoted catalog run statuses", () => {
+    const reviewable = extractionRun({ status: "reviewable" });
+    const promoted = extractionRun({ status: "promoted" });
+    expect(isCatalogRunExactReviewable(reviewable)).toBe(true);
+    expect(isCatalogRunExactReviewable(promoted)).toBe(false);
+    expect(isCatalogRunPromotedHistory(promoted)).toBe(true);
+    expect(isCatalogRunPromotedHistory(reviewable)).toBe(false);
   });
 
   it("W5: gold available_runs cannot inject a product run; exact run_id may only enrich locator", () => {
