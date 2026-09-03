@@ -13,9 +13,6 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_reads import 
     DirectWorldGraphReadError,
     WorldHeadSummary,
 )
-from apps.live_control_server.services.graph_ingest_run_registry import (
-    GraphIngestRegistryRootStatus,
-)
 from apps.live_control_server.services.runtime_preflight import (
     RuntimePreflightCheck,
     RuntimePreflightReport,
@@ -89,7 +86,7 @@ def test_dungeonmind_not_configured_when_dsn_unset(
     assert report.status == "NOT READY"
 
 
-def test_ingest_not_ready_when_default_root_missing(
+def test_ingest_unavailable_when_app_state_dsn_unset(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -98,89 +95,50 @@ def test_ingest_not_ready_when_default_root_missing(
 
     report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
     ingest = next(check for check in report.checks if check.id == "ingest_registry")
-    assert ingest.status == "NOT_READY"
+    assert ingest.status == "UNAVAILABLE"
     assert report.status == "NOT READY"
-    assert "missing" in ingest.summary.lower()
 
 
-def test_ingest_empty_when_root_exists_with_zero_runs(
+def test_ingest_empty_when_schema_current_and_zero_runs(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    application_state_dsn: str,
 ) -> None:
-    ingest_root = tmp_path / "out/graph_memory/runs"
-    ingest_root.mkdir(parents=True)
-
-    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
     monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
 
     report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
     ingest = next(check for check in report.checks if check.id == "ingest_registry")
     assert ingest.status == "EMPTY"
+    assert ingest.details.get("run_count") == 0
     assert "0 runs" in ingest.summary
 
 
-def test_ingest_not_ready_when_manifest_corrupt(
+def test_ingest_integrity_when_persisted_row_malformed(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    application_state_dsn: str,
 ) -> None:
-    ingest_root = tmp_path / "out/graph_memory/runs/corrupt-run"
-    ingest_root.mkdir(parents=True)
-    (ingest_root / "graph_ingest_run_manifest.json").write_text("{not-json", encoding="utf-8")
+    import psycopg
 
-    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
     monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
-
-    report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
-    ingest = next(check for check in report.checks if check.id == "ingest_registry")
-    assert ingest.status == "NOT_READY"
-    assert ingest.details.get("invalid_manifests") == 1
-    assert ingest.details.get("manifest_files_found") == 1
-    assert report.status == "NOT READY"
-    assert "invalid manifest" in ingest.summary.lower()
-
-
-def test_ingest_not_ready_when_env_root_missing(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
-    monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
-    monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", "missing/ingest/root")
-
-    with patch(
-        "apps.live_control_server.services.runtime_preflight.inspect_graph_ingest_registry_roots",
-        return_value=[
-            GraphIngestRegistryRootStatus(
-                configured_path="missing/ingest/root",
-                resolved_path=str(tmp_path / "missing/ingest/root"),
-                exists=False,
-                readable=False,
-                env_override=True,
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            """
+            INSERT INTO ingest.run (
+                run_id, schema_version, record_version, source_artifact_id,
+                source_domain, status, revision, components, diagnostics, lineage
+            ) VALUES (
+                'er_preflight_bad', 'not-a-schema', '1.0', 'sa_world_1',
+                'worldbuilding', 'draft', 1, '{}'::jsonb, '{}'::jsonb, '{}'::jsonb
             )
-        ],
-    ):
-        report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
-
-    ingest = next(check for check in report.checks if check.id == "ingest_registry")
-    assert ingest.status == "NOT_READY"
-    assert report.status == "NOT READY"
-
-
-def test_ingest_not_ready_when_env_root_escapes_repo(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
-    monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
-    monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", "../outside")
+            """
+        )
+        conn.commit()
 
     report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
     ingest = next(check for check in report.checks if check.id == "ingest_registry")
-    assert ingest.status == "NOT_READY"
+    assert ingest.status == "INTEGRITY_ERROR"
     assert report.status == "NOT READY"
-    assert "unsafe" in ingest.summary.lower() or "unsafe" in str(
-        ingest.details.get("reason", "")
-    ).lower()
 
 
 def test_format_report_preserves_redacted_dsn_host(
