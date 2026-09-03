@@ -1,60 +1,50 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { LiveApiError, postWorldGraphProjection } from "../../api/liveApi";
-import type {
-  WorldGraphProjection,
-  WorldGraphProjectionRequest,
-} from "../../api/types";
-import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphNode";
-import type {
-  GraphReferenceProjectionState,
-  GraphReferenceSearchItem,
-} from "../../graphReference/types";
+import { postWorldGraphProjection } from "../../api/liveApi";
+import type { WorldGraphProjection, WorldGraphProjectionRequest } from "../../api/types";
 import type { WorldGraphLensProjectionValue } from "../../graphLens/useWorldGraphLensProjection";
-import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
-import { buildBuildWorldGraphProjectionRequest } from "../../worldGraph/worldGraphSurfaceContext";
+import {
+  mapWorldGraphLensObservation,
+  worldGraphLensInformationDescriptor,
+} from "../../graphLens/worldGraphLensSurfaceInformation";
+import {
+  createSurfaceInformationChannel,
+  type SurfaceInformationChannel,
+} from "../../surfaceInformation";
 import { worldGraphProjectionRequestKey } from "../../worldGraph/worldGraphProjectionRequestKey";
-import { verifyWorldGraphProjectionResponse } from "../../worldGraph/verifyWorldGraphProjectionResponse";
+import { buildBuildWorldGraphProjectionRequest } from "../../worldGraph/worldGraphSurfaceContext";
+import {
+  buildWorldGraphInformationDescriptor,
+} from "./buildWorldGraphSurfaceInformation";
 import type { BuildGraphLensResolution } from "./resolveBuildGraphLens";
 
 export { verifyWorldGraphProjectionResponse } from "../../worldGraph/verifyWorldGraphProjectionResponse";
+export { formatProjectionSearchScopeLabel } from "./buildWorldGraphSurfaceInformation";
 
 export interface UseBuildWorldGraphProjectionInput {
   lens: BuildGraphLensResolution;
   documentIdentity: { documentId: string; campaignId: string };
-  /** App-level shared projection — reused only when exact request keys match. */
+  /** App-level shared desired request identity — reused only when exact keys match. */
   sharedProjection?: WorldGraphLensProjectionValue | null;
+  /** App-level shared Surface Information channel for the currently installed lens request. */
+  sharedChannel?: SurfaceInformationChannel<WorldGraphProjection> | null;
 }
 
-export interface UseBuildWorldGraphProjectionResult {
-  projection: WorldGraphProjection | null;
-  state: GraphReferenceProjectionState;
-  error: string | null;
-  requestedRevisionId: string | null;
-  loadedRevisionId: string | null;
-  revisionMode: "head" | "pinned";
-  /** True only when a head request was verified against snapshot.isHead. */
-  loadedIsHead: boolean;
-  generation: number;
-  /** Current lens/document load key — use for synchronous auth (not generation alone). */
-  loadKey: string;
-  items: readonly GraphReferenceSearchItem[];
-  /** Exact request for the current Build Find lens (null when lens cannot form a request). */
+export type BuildWorldGraphInformationSource =
+  | "none"
+  | "shared_pending"
+  | "shared"
+  | "secondary";
+
+export interface UseBuildWorldGraphInformationResult {
   request: WorldGraphProjectionRequest | null;
   requestKey: string | null;
-  /** True when bytes came from the shared app projection (no secondary POST). */
-  reusedSharedProjection: boolean;
-}
-
-type StoredProjectionLoad = {
   loadKey: string;
-  projection: WorldGraphProjection | null;
-  state: GraphReferenceProjectionState;
-  error: string | null;
-  loadedRevisionId: string | null;
-  loadedIsHead: boolean;
-  reusedSharedProjection: boolean;
-};
+  revisionMode: "head" | "pinned";
+  requestedRevisionId: string | null;
+  channel: SurfaceInformationChannel<WorldGraphProjection> | null;
+  source: BuildWorldGraphInformationSource;
+}
 
 function resolveRevisionFields(lens: BuildGraphLensResolution): {
   revisionMode: "head" | "pinned";
@@ -68,57 +58,6 @@ function resolveRevisionFields(lens: BuildGraphLensResolution): {
   }
   return { revisionMode: "head", requestedRevisionId: null };
 }
-
-/**
- * Display label for object campaign tenancy.
- * `campaign_scope: null` means world-universal — never collapse to the projection anchor.
- */
-export function formatProjectionSearchScopeLabel(
-  campaignScope: string | null | undefined,
-): string {
-  const trimmed = campaignScope?.trim();
-  return trimmed || "World";
-}
-
-function adaptProjectionSearchItems(
-  projection: WorldGraphProjection,
-): GraphReferenceSearchItem[] {
-  return projection.nodes.map((node) => {
-    const nodeView = adaptWorldGraphNodeView(node);
-    return {
-      nodeId: nodeView.node_id,
-      label: nodeView.label,
-      kind: nodeView.kind,
-      role: nodeView.role,
-      summary: nodeView.summary ?? null,
-      aliases: nodeView.aliases ?? [],
-      scopeLabel: formatProjectionSearchScopeLabel(nodeView.campaign_scope),
-      reference: referenceFromGraphNode(nodeView),
-      nodeView,
-    };
-  });
-}
-
-function formatProjectionLoadError(error: unknown): string {
-  if (error instanceof LiveApiError) {
-    return error.code ? `${error.message} (${error.code})` : error.message;
-  }
-  return error instanceof Error ? error.message : "Failed to load World Graph projection.";
-}
-
-function pendingLoadForKey(loadKey: string): StoredProjectionLoad {
-  return {
-    loadKey,
-    projection: null,
-    state: "loading",
-    error: null,
-    loadedRevisionId: null,
-    loadedIsHead: false,
-    reusedSharedProjection: false,
-  };
-}
-
-const EMPTY_SEARCH_ITEMS: readonly GraphReferenceSearchItem[] = [];
 
 export function buildBuildWorldGraphRequestFromLens(
   lens: Extract<BuildGraphLensResolution, { status: "ready" }>,
@@ -186,17 +125,36 @@ export function buildBuildGraphProjectionLoadKey(input: {
   ]);
 }
 
+function sharedChannelMatchesRequest(
+  channel: SurfaceInformationChannel<WorldGraphProjection> | null,
+  request: WorldGraphProjectionRequest | null,
+): channel is SurfaceInformationChannel<WorldGraphProjection> {
+  if (!channel || !request) return false;
+  return channel.descriptor.channelId === worldGraphLensInformationDescriptor(request).channelId;
+}
+
+function secondaryChannelMatchesRequest(
+  channel: SurfaceInformationChannel<WorldGraphProjection> | null,
+  request: WorldGraphProjectionRequest | null,
+): channel is SurfaceInformationChannel<WorldGraphProjection> {
+  if (!channel || !request) return false;
+  return channel.descriptor.channelId === buildWorldGraphInformationDescriptor(request).channelId;
+}
+
+/**
+ * Build exact World Graph request ownership: reuse the app Surface Information
+ * channel when request keys match, otherwise own one secondary exact channel.
+ */
 export function useBuildWorldGraphProjection(
   input: UseBuildWorldGraphProjectionInput,
-): UseBuildWorldGraphProjectionResult {
-  const { lens, documentIdentity, sharedProjection = null } = input;
+): UseBuildWorldGraphInformationResult {
+  const {
+    lens,
+    documentIdentity,
+    sharedProjection = null,
+    sharedChannel = null,
+  } = input;
   const revisionFields = useMemo(() => resolveRevisionFields(lens), [lens]);
-
-  const [stored, setStored] = useState<StoredProjectionLoad>(() =>
-    pendingLoadForKey("__init__"),
-  );
-  const [generation, setGeneration] = useState(0);
-  const requestGenerationRef = useRef(0);
 
   const loadKey = useMemo(
     () => buildBuildGraphProjectionLoadKey({ documentIdentity, lens }),
@@ -228,274 +186,98 @@ export function useBuildWorldGraphProjection(
     [request],
   );
 
-  const sharedMatches =
+  const desiredKeysMatch =
     Boolean(requestKey)
     && sharedProjection?.requestKey != null
     && sharedProjection.requestKey === requestKey;
 
-  const sharedState = sharedProjection?.projectionState ?? null;
-  const sharedProjectionRef = sharedProjection?.projection ?? null;
-  const sharedError = sharedProjection?.projectionError ?? null;
+  const ownsSecondary = Boolean(request && requestKey && !desiredKeysMatch);
 
-  // Depend on loadKey + shared exact-match signals (not lens object identity).
+  const [secondaryChannel, setSecondaryChannel] = useState<
+    SurfaceInformationChannel<WorldGraphProjection> | null
+  >(null);
+
   useEffect(() => {
-    const currentGeneration = ++requestGenerationRef.current;
-    setGeneration(currentGeneration);
-    const isCurrent = () => currentGeneration === requestGenerationRef.current;
-
-    if (lens.status === "selection_required") {
-      setStored({
-        loadKey,
-        projection: null,
-        state: "unavailable",
-        error: lens.reason,
-        loadedRevisionId: null,
-        loadedIsHead: false,
-        reusedSharedProjection: false,
-      });
-      return () => {
-        requestGenerationRef.current += 1;
-      };
+    if (!ownsSecondary || !request || !requestKey) {
+      setSecondaryChannel(null);
+      return;
     }
+    const ownedRequest = request;
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      buildWorldGraphInformationDescriptor(ownedRequest),
+    );
+    setSecondaryChannel(channel);
+    return () => {
+      channel.dispose();
+      setSecondaryChannel(null);
+    };
+    // requestKey is exact-request identity; `request` is recovered from that render.
+  }, [ownsSecondary, requestKey]);
 
-    if (lens.status === "invalid") {
-      setStored({
-        loadKey,
-        projection: null,
-        state: "error",
-        error: lens.reason,
-        loadedRevisionId: null,
-        loadedIsHead: false,
-        reusedSharedProjection: false,
-      });
-      return () => {
-        requestGenerationRef.current += 1;
-      };
+  useEffect(() => {
+    if (!ownsSecondary || !request || !secondaryChannelMatchesRequest(secondaryChannel, request)) {
+      return;
     }
-
-    if (!request) {
-      setStored({
-        loadKey,
-        projection: null,
-        state: "error",
-        error: `Unknown campaign mapping for ${lens.campaignId}.`,
-        loadedRevisionId: null,
-        loadedIsHead: false,
-        reusedSharedProjection: false,
-      });
-      return () => {
-        requestGenerationRef.current += 1;
-      };
+    const loadRequest = request;
+    const loadChannel = secondaryChannel;
+    const ticket = loadChannel.beginObservation();
+    if (!ticket) {
+      return;
     }
-
-    const revisionPin =
-      lens.revision.kind === "pinned" ? lens.revision.revisionId : null;
-    const revisionKind = lens.revision.kind === "pinned" ? "pinned" : "head";
-
-    // Exact match: wait on / adopt the shared provider — no duplicate POST.
-    if (sharedMatches && sharedProjection) {
-      if (sharedState === "loading") {
-        setStored(pendingLoadForKey(loadKey));
-        return () => {
-          requestGenerationRef.current += 1;
-        };
-      }
-
-      if (sharedState === "ready" && sharedProjectionRef) {
-        const mismatch = verifyWorldGraphProjectionResponse({
-          request,
-          response: sharedProjectionRef,
-          revisionKind,
-          pinnedRevisionId: revisionPin,
-        });
-        if (mismatch) {
-          setStored({
-            loadKey,
-            projection: null,
-            state: "error",
-            error: mismatch,
-            loadedRevisionId: null,
-            loadedIsHead: false,
-            reusedSharedProjection: false,
-          });
-          return () => {
-            requestGenerationRef.current += 1;
-          };
-        }
-        setStored({
-          loadKey,
-          projection: sharedProjectionRef,
-          state: "ready",
-          error: null,
-          loadedRevisionId: sharedProjectionRef.snapshot.revisionId,
-          loadedIsHead: revisionKind === "head"
-            ? sharedProjectionRef.snapshot.isHead === true
-            : false,
-          reusedSharedProjection: true,
-        });
-        return () => {
-          requestGenerationRef.current += 1;
-        };
-      }
-
-      if (sharedState === "unavailable") {
-        setStored({
-          loadKey,
-          projection: null,
-          state: "unavailable",
-          error: null,
-          loadedRevisionId: null,
-          loadedIsHead: false,
-          reusedSharedProjection: true,
-        });
-        return () => {
-          requestGenerationRef.current += 1;
-        };
-      }
-
-      if (sharedState === "error") {
-        setStored({
-          loadKey,
-          projection: null,
-          state: "error",
-          error: sharedError ?? "Shared World Graph projection failed.",
-          loadedRevisionId: null,
-          loadedIsHead: false,
-          reusedSharedProjection: true,
-        });
-        return () => {
-          requestGenerationRef.current += 1;
-        };
-      }
-    }
-
-    // Secondary exact load — pinned revision or lens that differs from shared nav.
-    setStored(pendingLoadForKey(loadKey));
-
+    let cancelled = false;
     void (async () => {
       try {
-        const response = await postWorldGraphProjection(request);
-        if (!isCurrent()) return;
-
-        const mismatch = verifyWorldGraphProjectionResponse({
-          request,
-          response,
-          revisionKind,
-          pinnedRevisionId: revisionPin,
-        });
-        if (mismatch) {
-          setStored({
-            loadKey,
-            projection: null,
-            state: "error",
-            error: mismatch,
-            loadedRevisionId: null,
-            loadedIsHead: false,
-            reusedSharedProjection: false,
-          });
-          return;
-        }
-
-        setStored({
-          loadKey,
-          projection: response,
-          state: "ready",
-          error: null,
-          loadedRevisionId: response.snapshot.revisionId,
-          loadedIsHead: revisionKind === "head" ? response.snapshot.isHead === true : false,
-          reusedSharedProjection: false,
-        });
-      } catch (loadError) {
-        if (!isCurrent()) return;
-        setStored({
-          loadKey,
-          projection: null,
-          state: "error",
-          error: formatProjectionLoadError(loadError),
-          loadedRevisionId: null,
-          loadedIsHead: false,
-          reusedSharedProjection: false,
-        });
+        const response = await postWorldGraphProjection(loadRequest);
+        if (cancelled) return;
+        loadChannel.commit(
+          ticket,
+          mapWorldGraphLensObservation({ request: loadRequest, response }),
+        );
+      } catch (error) {
+        if (cancelled) return;
+        loadChannel.commit(
+          ticket,
+          mapWorldGraphLensObservation({ request: loadRequest, response: null, error }),
+        );
       }
     })();
-
     return () => {
-      requestGenerationRef.current += 1;
+      cancelled = true;
     };
-    // loadKey encodes document + lens; shared* gates exact-match reuse.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid lens-identity loops
-  }, [
-    loadKey,
-    requestKey,
-    sharedMatches,
-    sharedState,
-    sharedProjectionRef,
-    sharedError,
-  ]);
+  }, [ownsSecondary, requestKey, secondaryChannel]);
 
-  // Fail closed across the transition render: never expose lens B with projection A.
-  const coherent =
-    stored.loadKey === loadKey
-      ? stored
-      : lens.status === "selection_required"
-        ? {
-            loadKey,
-            projection: null,
-            state: "unavailable" as const,
-            error: lens.reason,
-            loadedRevisionId: null,
-            loadedIsHead: false,
-            reusedSharedProjection: false,
-          }
-        : lens.status === "invalid"
-          ? {
-              loadKey,
-              projection: null,
-              state: "error" as const,
-              error: lens.reason,
-              loadedRevisionId: null,
-              loadedIsHead: false,
-              reusedSharedProjection: false,
-            }
-          : pendingLoadForKey(loadKey);
+  const matchingSharedChannel = desiredKeysMatch && sharedChannelMatchesRequest(sharedChannel, request)
+    ? sharedChannel
+    : null;
+  const matchingSecondaryChannel =
+    ownsSecondary && secondaryChannelMatchesRequest(secondaryChannel, request)
+      ? secondaryChannel
+      : null;
 
-  const items = useMemo(() => {
-    if (coherent.state !== "ready" || !coherent.projection || lens.status !== "ready") {
-      return EMPTY_SEARCH_ITEMS;
+  let source: BuildWorldGraphInformationSource = "none";
+  let channel: SurfaceInformationChannel<WorldGraphProjection> | null = null;
+  if (lens.status === "ready" && request && requestKey) {
+    if (desiredKeysMatch) {
+      if (matchingSharedChannel) {
+        source = "shared";
+        channel = matchingSharedChannel;
+      } else {
+        source = "shared_pending";
+        channel = null;
+      }
+    } else {
+      source = "secondary";
+      channel = matchingSecondaryChannel;
     }
-    return adaptProjectionSearchItems(coherent.projection);
-  }, [coherent.projection, coherent.state, lens]);
+  }
 
-  return useMemo(
-    () => ({
-      projection: coherent.projection,
-      state: coherent.state,
-      error: coherent.error,
-      requestedRevisionId: revisionFields.requestedRevisionId,
-      loadedRevisionId: coherent.loadedRevisionId,
-      revisionMode: revisionFields.revisionMode,
-      loadedIsHead: coherent.loadedIsHead,
-      generation,
-      loadKey,
-      items,
-      request,
-      requestKey,
-      reusedSharedProjection: coherent.reusedSharedProjection,
-    }),
-    [
-      coherent.error,
-      coherent.loadedIsHead,
-      coherent.loadedRevisionId,
-      coherent.projection,
-      coherent.reusedSharedProjection,
-      coherent.state,
-      generation,
-      items,
-      loadKey,
-      request,
-      requestKey,
-      revisionFields.requestedRevisionId,
-      revisionFields.revisionMode,
-    ],
-  );
+  return {
+    request,
+    requestKey,
+    loadKey,
+    revisionMode: revisionFields.revisionMode,
+    requestedRevisionId: revisionFields.requestedRevisionId,
+    channel,
+    source,
+  };
 }

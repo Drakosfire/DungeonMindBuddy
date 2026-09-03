@@ -1,21 +1,22 @@
 import { GRAPH_REFERENCE_RESOLUTION_BINDING_ID } from "../../graphReference/projectionBindings";
 import type {
-  GraphReferenceProjectionState,
   GraphReferenceResolution,
-  GraphReferenceSearchItem,
 } from "../../graphReference/types";
+import type { WorldGraphProjection } from "../../api/types";
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
 import type {
   SurfaceInteractionEditCommandContribution,
   SurfaceInteractionPublication,
 } from "../../surfaceInteraction/types";
+import type { SurfaceInformationChannel } from "../../surfaceInformation";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "../buildDocumentCommands";
 import { BUILD_SURFACE_LABEL } from "../buildSurfaceConfig";
 import {
   BUILD_FIND_EXISTING_TOOL_ID,
   BUILD_REFERENCE_CONTEXT_BINDING_ID,
   BUILD_REFERENCE_SEARCH_PROJECTION_ID,
+  BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
 } from "./buildReferenceIds";
 import type { BuildGraphLensResolution } from "./resolveBuildGraphLens";
 
@@ -36,28 +37,21 @@ const EMPTY_GRAPH_REFERENCE_RESOLUTION: GraphReferenceResolution = {
 };
 
 export interface BuildReferenceContextBinding {
-  schema: "dmb_build_reference_context_v1";
+  schema: "dmb_build_reference_context_v2";
   documentId: string;
   documentCampaignId: string;
   lens: BuildGraphLensResolution;
-  projectionState: GraphReferenceProjectionState;
-  projectionError: string | null;
-  requestedRevisionId: string | null;
-  loadedRevisionId: string | null;
-  /** True only when a head request verified snapshot.isHead. */
-  loadedIsHead: boolean;
-  items: readonly GraphReferenceSearchItem[];
   selectCampaign: (campaignId: string) => void;
-  viewExact: (item: GraphReferenceSearchItem) => void;
+  viewExact: (nodeId: string) => void;
   /**
    * Insert a graph-node chip into the Build markdown canvas.
-   * Pass a node id only; the capability resolves the canonical projection item,
-   * verifies the live load key, and applies object-level campaign admission
-   * before inserting.
+   * Pass a node id only; the capability resolves the current READY observation,
+   * verifies the committed live editor gate, and applies object-level campaign
+   * admission before inserting.
    */
   insertChip: (nodeId: string) => void;
-  /** Global editor-lock disable only; View stays available. Per-object tenancy is separate. */
-  insertDisabled: boolean;
+  /** Editor/document capability only; not graph observation state. */
+  editorInsertDisabled: boolean;
 }
 
 export interface BuildDocumentSavePublication {
@@ -70,6 +64,7 @@ export interface BuildSurfaceInteractionPublicationInput {
   documentId: string | null;
   acceptedDocument: { documentId: string; campaignId: string } | null;
   referenceContext: BuildReferenceContextBinding | null;
+  worldGraphChannel: SurfaceInformationChannel<WorldGraphProjection> | null;
   documentSave?: BuildDocumentSavePublication | null;
 }
 
@@ -130,7 +125,7 @@ function buildDocumentSaveCommand(
 export function buildBuildSurfaceInteractionPublication(
   input: BuildSurfaceInteractionPublicationInput,
 ): SurfaceInteractionPublication {
-  const { documentId, acceptedDocument, referenceContext, documentSave = null } = input;
+  const { documentId, acceptedDocument, referenceContext, worldGraphChannel, documentSave = null } = input;
 
   if (!isAcceptedDocument(documentId, acceptedDocument) || referenceContext == null) {
     return buildEmptyInventoryPublication(documentId);
@@ -182,7 +177,10 @@ export function buildBuildSurfaceInteractionPublication(
         id: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
         kind: "tool",
         preferredSize: "wide",
-        bindingIds: [BUILD_REFERENCE_CONTEXT_BINDING_ID],
+        bindingIds: [
+          BUILD_REFERENCE_CONTEXT_BINDING_ID,
+          BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
+        ],
       },
       {
         id: GRAPH_REFERENCE_PROJECTION_ID,
@@ -193,6 +191,10 @@ export function buildBuildSurfaceInteractionPublication(
     ],
     projectionBindings: [
       { id: BUILD_REFERENCE_CONTEXT_BINDING_ID, value: referenceContext },
+      {
+        id: BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
+        value: worldGraphChannel,
+      },
       {
         id: GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
         value: EMPTY_GRAPH_REFERENCE_RESOLUTION,

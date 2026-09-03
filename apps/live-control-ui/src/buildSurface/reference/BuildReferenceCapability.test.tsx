@@ -4,8 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentInteractionProvider, useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
 import * as liveApi from "../../api/liveApi";
-import type { GraphProjectionNodeView } from "../../api/types";
+import type { GraphProjectionNodeView, WorldGraphProjection } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import * as insertMarkdown from "../../graphReference/insertMarkdownReference";
 import {
   GRAPH_REFERENCE_BINDING_ID,
   GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
@@ -18,11 +19,21 @@ import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphN
 import { useGraphNodeChipRuntime } from "../../graphReference/GraphNodeChipRuntime";
 import { MarkdownCanvasSessionProvider } from "../../markdownCanvas/MarkdownCanvasSession";
 import { LegacyProjectionHostAdapter } from "../../planSurface/projection/LegacyProjectionHostAdapter";
+import type { SurfaceInteractionPublication } from "../../surfaceInteraction/types";
+import type { SurfaceInformationChannel } from "../../surfaceInformation";
 import { ToolHost } from "../../surfaceInteraction/toolHost/ToolHost";
 import { BUILD_MARKDOWN_CANVAS } from "../buildMarkdownCanvasAdapter";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID, BUILD_SAVE_CONFLICTS_WITH } from "../buildDocumentCommands";
 import type { BuildReferenceContextBinding } from "./buildBuildSurfaceInteractionPublication";
-import { BUILD_FIND_EXISTING_TOOL_ID, BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./buildReferenceIds";
+import {
+  observedRevisionId,
+  searchItemsFromWorldGraphState,
+} from "./buildWorldGraphSurfaceInformation";
+import {
+  BUILD_FIND_EXISTING_TOOL_ID,
+  BUILD_REFERENCE_CONTEXT_BINDING_ID,
+  BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
+} from "./buildReferenceIds";
 import { BuildReferenceCapability } from "./BuildReferenceCapability";
 import { BuildReferenceObjectProjection } from "./BuildReferenceObjectProjection";
 
@@ -63,6 +74,40 @@ function ReferenceContextProbe({
   );
   onContext((binding?.value as BuildReferenceContextBinding | undefined) ?? null);
   return null;
+}
+
+function ChannelBindingProbe({
+  onChannel,
+}: {
+  onChannel: (channel: SurfaceInformationChannel<WorldGraphProjection> | null) => void;
+}) {
+  const { surfaceInteractionPublication } = useAgentInteraction();
+  const binding = surfaceInteractionPublication?.projectionBindings.find(
+    (entry) => entry.id === BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
+  );
+  onChannel(
+    (binding?.value as SurfaceInformationChannel<WorldGraphProjection> | null | undefined) ?? null,
+  );
+  return null;
+}
+
+function channelStatus(channel: SurfaceInformationChannel<WorldGraphProjection> | null) {
+  return channel?.getSnapshot().state.status ?? null;
+}
+
+function channelItems(channel: SurfaceInformationChannel<WorldGraphProjection> | null) {
+  const state = channel?.getSnapshot().state;
+  return state ? searchItemsFromWorldGraphState(state) : [];
+}
+
+function channelRevision(channel: SurfaceInformationChannel<WorldGraphProjection> | null) {
+  const state = channel?.getSnapshot().state;
+  return state ? observedRevisionId(state) : null;
+}
+
+function requestedRevisionId(context: BuildReferenceContextBinding | null) {
+  if (!context || context.lens.status === "invalid") return null;
+  return context.lens.revision.kind === "pinned" ? context.lens.revision.revisionId : null;
 }
 
 vi.mock("../../api/liveApi", async (importOriginal) => {
@@ -283,7 +328,7 @@ describe("BuildReferenceCapability", () => {
 
     await waitFor(() => expect(latestContext).not.toBeNull());
     expect(typeof latestContext!.insertChip).toBe("function");
-    expect(latestContext!.insertDisabled).toBe(true);
+    expect(latestContext!.editorInsertDisabled).toBe(true);
     latestContext!.selectCampaign("longmont-c1");
 
     await waitFor(() => {
@@ -299,6 +344,7 @@ describe("BuildReferenceCapability", () => {
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());
 
     let latestContext: BuildReferenceContextBinding | null = null;
+    let liveChannel: SurfaceInformationChannel<WorldGraphProjection> | null = null;
 
     function ActiveGraphReferenceProbe() {
       const { activeGraphReference } = useAgentInteraction();
@@ -319,42 +365,20 @@ describe("BuildReferenceCapability", () => {
         >
           <BuildReferenceCapability documentId={DOC_ID} />
           <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ChannelBindingProbe onChannel={(channel) => { liveChannel = channel; }} />
           <ActiveGraphReferenceProbe />
         </MarkdownCanvasSessionProvider>
       </AgentInteractionProvider>,
     );
 
-    await waitFor(() => expect(latestContext?.items.length).toBe(2));
+    await waitFor(() => expect(channelItems(liveChannel).length).toBe(2));
 
-    const first = searchItemFromApiNode(glowkindleNode);
-    const second = searchItemFromApiNode(innNode);
-
-    latestContext!.viewExact({
-      nodeId: first.nodeId,
-      label: first.label,
-      kind: "npc",
-      role: "merchant",
-      summary: "A friendly merchant.",
-      aliases: ["Glow"],
-      scopeLabel: "longmont-c1",
-      reference: referenceFromGraphNode(first.nodeView),
-      nodeView: first.nodeView,
-    });
+    latestContext!.viewExact("npc-glowkindle");
     await waitFor(() => {
       expect(document.querySelector('[data-testid="active-graph-node-id"]')).toHaveTextContent("npc-glowkindle");
     });
 
-    latestContext!.viewExact({
-      nodeId: second.nodeId,
-      label: second.label,
-      kind: "location",
-      role: "location",
-      summary: "Meeting place.",
-      aliases: ["The Inn"],
-      scopeLabel: "longmont-c1",
-      reference: referenceFromGraphNode(second.nodeView),
-      nodeView: second.nodeView,
-    });
+    latestContext!.viewExact("location-inn");
     await waitFor(() => {
       expect(document.querySelector('[data-testid="active-graph-node-id"]')).toHaveTextContent("location-inn");
     });
@@ -430,6 +454,7 @@ describe("BuildReferenceCapability", () => {
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());
 
     let latestContext: BuildReferenceContextBinding | null = null;
+    let liveChannel: SurfaceInformationChannel<WorldGraphProjection> | null = null;
 
     function ActiveGraphReferenceProbe() {
       const { activeGraphReference } = useAgentInteraction();
@@ -450,29 +475,15 @@ describe("BuildReferenceCapability", () => {
         >
           <BuildReferenceCapability documentId={DOC_ID} />
           <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ChannelBindingProbe onChannel={(channel) => { liveChannel = channel; }} />
           <ActiveGraphReferenceProbe />
         </MarkdownCanvasSessionProvider>
       </AgentInteractionProvider>,
     );
 
-    await waitFor(() => expect(latestContext?.projectionState).toBe("ready"));
+    await waitFor(() => expect(channelStatus(liveChannel)).toBe("ready"));
 
-    const stale = searchItemFromApiNode({
-      ...glowkindleNode,
-      nodeId: "npc-stale-from-prior-lens",
-      label: "Stale",
-    });
-    latestContext!.viewExact({
-      nodeId: stale.nodeId,
-      label: stale.label,
-      kind: "npc",
-      role: "merchant",
-      summary: null,
-      aliases: [],
-      scopeLabel: "longmont-c1",
-      reference: referenceFromGraphNode(stale.nodeView),
-      nodeView: stale.nodeView,
-    });
+    latestContext!.viewExact("npc-stale-from-prior-lens");
 
     expect(document.querySelector('[data-testid="active-graph-node-id"]')).toHaveTextContent("none");
   });
@@ -496,6 +507,7 @@ describe("BuildReferenceCapability", () => {
       });
 
     let latestContext: BuildReferenceContextBinding | null = null;
+    let liveChannel: SurfaceInformationChannel<WorldGraphProjection> | null = null;
 
     function ActiveProbe() {
       const { active, activeGraphReference } = useAgentInteraction();
@@ -516,24 +528,14 @@ describe("BuildReferenceCapability", () => {
         >
           <BuildReferenceCapability documentId={DOC_ID} />
           <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ChannelBindingProbe onChannel={(channel) => { liveChannel = channel; }} />
           <ActiveProbe />
         </MarkdownCanvasSessionProvider>
       </AgentInteractionProvider>,
     );
 
-    await waitFor(() => expect(latestContext?.items.length).toBe(2));
-    const first = searchItemFromApiNode(glowkindleNode);
-    latestContext!.viewExact({
-      nodeId: first.nodeId,
-      label: first.label,
-      kind: "npc",
-      role: "merchant",
-      summary: "A friendly merchant.",
-      aliases: ["Glow"],
-      scopeLabel: "longmont-c1",
-      reference: referenceFromGraphNode(first.nodeView),
-      nodeView: first.nodeView,
-    });
+    await waitFor(() => expect(channelItems(liveChannel).length).toBe(2));
+    latestContext!.viewExact("npc-glowkindle");
     await waitFor(() => {
       expect(screen.getByTestId("active-probe")).toHaveTextContent("content|npc-glowkindle");
     });
@@ -547,7 +549,7 @@ describe("BuildReferenceCapability", () => {
       expect(latestContext?.lens.status).toBe("ready");
       expect(latestContext?.lens.status === "ready" && latestContext.lens.campaignId).toBe("longmont-c2");
     });
-    await waitFor(() => expect(latestContext?.projectionState).toBe("ready"));
+    await waitFor(() => expect(channelStatus(liveChannel)).toBe("ready"));
     // Replacement binding must not resurrect the prior object under the new lens.
     expect(screen.getByTestId("active-probe")).toHaveTextContent("none|none");
   });
@@ -613,6 +615,7 @@ describe("BuildReferenceCapability", () => {
       .mockImplementationOnce(() => pinnedDeferred);
 
     let latestContext: BuildReferenceContextBinding | null = null;
+    let liveChannel: SurfaceInformationChannel<WorldGraphProjection> | null = null;
 
     function ActiveGraphReferenceProbe() {
       const { activeGraphReference } = useAgentInteraction();
@@ -633,20 +636,20 @@ describe("BuildReferenceCapability", () => {
         >
           <BuildReferenceCapability documentId={DOC_ID} />
           <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ChannelBindingProbe onChannel={(channel) => { liveChannel = channel; }} />
           <ActiveGraphReferenceProbe />
         </MarkdownCanvasSessionProvider>
       </AgentInteractionProvider>,
     );
 
-    await waitFor(() => expect(latestContext?.projectionState).toBe("ready"));
+    await waitFor(() => expect(channelStatus(liveChannel)).toBe("ready"));
     const headViewExact = latestContext!.viewExact;
     const headLoadKey = JSON.stringify([
       latestContext!.documentId,
-      latestContext!.requestedRevisionId,
-      latestContext!.loadedRevisionId,
-      latestContext!.projectionState,
+      requestedRevisionId(latestContext),
+      channelRevision(liveChannel),
+      channelStatus(liveChannel),
     ]);
-    const first = searchItemFromApiNode(glowkindleNode);
     expect(postSpy).toHaveBeenCalledTimes(1);
 
     window.history.replaceState(
@@ -657,26 +660,17 @@ describe("BuildReferenceCapability", () => {
     window.dispatchEvent(new PopStateEvent("popstate"));
 
     await waitFor(() => {
-      expect(latestContext?.requestedRevisionId).toBe("head");
-      expect(latestContext?.projectionState).toBe("loading");
-      expect(latestContext?.items).toEqual([]);
+      expect(requestedRevisionId(latestContext)).toBe("head");
+      expect(
+        channelStatus(liveChannel) === "loading" || channelItems(liveChannel).length === 0,
+      ).toBe(true);
     });
     expect(postSpy).toHaveBeenCalledTimes(2);
     expect(postSpy.mock.calls[1]?.[0]).toEqual(
       expect.objectContaining({ revisionPin: "head" }),
     );
 
-    headViewExact({
-      nodeId: first.nodeId,
-      label: first.label,
-      kind: "npc",
-      role: "merchant",
-      summary: "A friendly merchant.",
-      aliases: ["Glow"],
-      scopeLabel: "longmont-c1",
-      reference: referenceFromGraphNode(first.nodeView),
-      nodeView: first.nodeView,
-    });
+    headViewExact("npc-glowkindle");
     expect(document.querySelector('[data-testid="active-graph-node-id"]')).toHaveTextContent("none");
 
     await act(async () => {
@@ -692,13 +686,13 @@ describe("BuildReferenceCapability", () => {
       await pinnedDeferred;
     });
 
-    await waitFor(() => expect(latestContext?.projectionState).toBe("ready"));
-    expect(latestContext?.loadedRevisionId).toBe("head");
+    await waitFor(() => expect(channelStatus(liveChannel)).toBe("ready"));
+    expect(channelRevision(liveChannel)).toBe("head");
     expect(JSON.stringify([
       latestContext!.documentId,
-      latestContext!.requestedRevisionId,
-      latestContext!.loadedRevisionId,
-      latestContext!.projectionState,
+      requestedRevisionId(latestContext),
+      channelRevision(liveChannel),
+      channelStatus(liveChannel),
     ])).not.toBe(headLoadKey);
     expect(document.querySelector('[data-testid="active-graph-node-id"]')).toHaveTextContent("none");
   });
@@ -712,6 +706,7 @@ describe("BuildReferenceCapability", () => {
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());
 
     let latestContext: BuildReferenceContextBinding | null = null;
+    let liveChannel: SurfaceInformationChannel<WorldGraphProjection> | null = null;
     let latestBinding: GraphReferenceProjectionBinding | null = null;
     let lastSeenBinding: GraphReferenceProjectionBinding | null = null;
     let openResolvedReferenceCalls = 0;
@@ -763,6 +758,7 @@ describe("BuildReferenceCapability", () => {
         >
           <BuildReferenceCapability documentId={documentId} />
           <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ChannelBindingProbe onChannel={(channel) => { liveChannel = channel; }} />
         </MarkdownCanvasSessionProvider>
       );
     }
@@ -774,11 +770,10 @@ describe("BuildReferenceCapability", () => {
       </AgentInteractionProvider>,
     );
 
-    await waitFor(() => expect(latestContext?.items.length).toBe(2));
+    await waitFor(() => expect(channelItems(liveChannel).length).toBe(2));
     await waitFor(() => expect(latestBinding).not.toBeNull());
-    const glowItem = latestContext!.items.find((item) => item.nodeId === "npc-glowkindle");
-    expect(glowItem).toBeTruthy();
-    latestContext!.viewExact(glowItem!);
+    expect(channelItems(liveChannel).find((item) => item.nodeId === "npc-glowkindle")).toBeTruthy();
+    latestContext!.viewExact("npc-glowkindle");
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
@@ -858,6 +853,7 @@ describe("BuildReferenceCapability", () => {
       });
 
     let latestContext: BuildReferenceContextBinding | null = null;
+    let liveChannel: SurfaceInformationChannel<WorldGraphProjection> | null = null;
     let latestBinding: GraphReferenceProjectionBinding | null = null;
     let lastSeenBinding: GraphReferenceProjectionBinding | null = null;
     let openResolvedReferenceCalls = 0;
@@ -906,16 +902,16 @@ describe("BuildReferenceCapability", () => {
         >
           <BuildReferenceCapability documentId={DOC_ID} />
           <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ChannelBindingProbe onChannel={(channel) => { liveChannel = channel; }} />
         </MarkdownCanvasSessionProvider>
         <Probes />
       </AgentInteractionProvider>,
     );
 
-    await waitFor(() => expect(latestContext?.items.length).toBe(2));
+    await waitFor(() => expect(channelItems(liveChannel).length).toBe(2));
     await waitFor(() => expect(latestBinding).not.toBeNull());
-    const glowItem = latestContext!.items.find((item) => item.nodeId === "npc-glowkindle");
-    expect(glowItem).toBeTruthy();
-    latestContext!.viewExact(glowItem!);
+    expect(channelItems(liveChannel).find((item) => item.nodeId === "npc-glowkindle")).toBeTruthy();
+    latestContext!.viewExact("npc-glowkindle");
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
@@ -1025,5 +1021,95 @@ describe("BuildReferenceCapability", () => {
 
     expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
+  it("does not republish Surface Interaction when graph channel commits LOADING → READY", async () => {
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      snapshotFixture(DOC_ID, "longmont-c1"),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());
+
+    let publication: SurfaceInteractionPublication | null = null;
+    let liveChannel: SurfaceInformationChannel<WorldGraphProjection> | null = null;
+
+    function PublicationIdentityProbe() {
+      const { surfaceInteractionPublication } = useAgentInteraction();
+      publication = surfaceInteractionPublication;
+      return null;
+    }
+
+    render(
+      <AgentInteractionProvider>
+        <MarkdownCanvasSessionProvider
+          documentId={DOC_ID}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={DOC_ID} />
+          <PublicationIdentityProbe />
+          <ChannelBindingProbe onChannel={(channel) => { liveChannel = channel; }} />
+        </MarkdownCanvasSessionProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(publication?.tools.some((tool) => tool.id === BUILD_FIND_EXISTING_TOOL_ID)).toBe(true);
+    });
+
+    await waitFor(() => expect(liveChannel).not.toBeNull());
+
+    if (channelStatus(liveChannel) === "loading") {
+      const duringLoad = publication;
+      expect(duringLoad).not.toBeNull();
+      await waitFor(() => expect(channelStatus(liveChannel)).toBe("ready"));
+      expect(publication).toBe(duringLoad);
+    } else {
+      const atReady = publication;
+      expect(atReady).not.toBeNull();
+      await waitFor(() => expect(channelItems(liveChannel).length).toBe(2));
+      expect(publication).toBe(atReady);
+    }
+  });
+
+  it("retained Insert no-ops after capability unmount (witness M)", async () => {
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      snapshotFixture(DOC_ID, "longmont-c1"),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());
+
+    const insertSpy = vi.spyOn(insertMarkdown, "insertMarkdownReference");
+
+    let latestContext: BuildReferenceContextBinding | null = null;
+    let liveChannel: SurfaceInformationChannel<WorldGraphProjection> | null = null;
+
+    const { unmount } = render(
+      <AgentInteractionProvider>
+        <MarkdownCanvasSessionProvider
+          documentId={DOC_ID}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={DOC_ID} />
+          <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ChannelBindingProbe onChannel={(channel) => { liveChannel = channel; }} />
+        </MarkdownCanvasSessionProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => expect(channelStatus(liveChannel)).toBe("ready"));
+    expect(latestContext).not.toBeNull();
+    const retainedInsertChip = latestContext!.insertChip;
+    const callsBeforeUnmount = insertSpy.mock.calls.length;
+
+    unmount();
+
+    retainedInsertChip("npc-glowkindle");
+
+    expect(insertSpy.mock.calls.length).toBe(callsBeforeUnmount);
+    insertSpy.mockRestore();
   });
 });
