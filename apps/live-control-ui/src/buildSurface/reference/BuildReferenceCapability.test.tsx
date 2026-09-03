@@ -15,6 +15,7 @@ import type {
   GraphReferenceProjectionBinding,
   GraphReferenceResolution,
 } from "../../graphReference/types";
+import { mapWorldGraphLensObservation } from "../../graphLens/worldGraphLensSurfaceInformation";
 import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphNode";
 import { useGraphNodeChipRuntime } from "../../graphReference/GraphNodeChipRuntime";
 import { MarkdownCanvasSessionProvider } from "../../markdownCanvas/MarkdownCanvasSession";
@@ -966,6 +967,156 @@ describe("BuildReferenceCapability", () => {
     });
 
     expect(openResolvedReferenceCalls).toBe(0);
+    expect(screen.queryByTestId("active-graph-node-id")?.textContent).not.toBe("location-inn");
+  });
+
+  it("rejects delayed relationship completion after same-channel observation refresh (A → B)", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      snapshotFixture(DOC_ID, "longmont-c1"),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());
+
+    let latestContext: BuildReferenceContextBinding | null = null;
+    let liveChannel: SurfaceInformationChannel<WorldGraphProjection> | null = null;
+    let latestBinding: GraphReferenceProjectionBinding | null = null;
+    let lastSeenBinding: GraphReferenceProjectionBinding | null = null;
+    let openResolvedReferenceCalls = 0;
+    let retainedResolution: Extract<GraphReferenceResolution, { kind: "resolved_graph" }> | null = null;
+
+    function Probes() {
+      const { graphReferenceBinding, activeGraphReference } = useAgentInteraction();
+      latestBinding = graphReferenceBinding;
+      if (graphReferenceBinding) {
+        lastSeenBinding = graphReferenceBinding;
+      }
+      if (activeGraphReference?.kind === "resolved_graph") {
+        retainedResolution = activeGraphReference;
+      }
+      const resolution = retainedResolution;
+      const bindingForCard = graphReferenceBinding ?? lastSeenBinding;
+      if (!resolution || !bindingForCard) {
+        return (
+          <p data-testid="active-graph-node-id">
+            {activeGraphReference?.kind === "resolved_graph" ? activeGraphReference.graphNodeId : "none"}
+          </p>
+        );
+      }
+      return (
+        <>
+          <p data-testid="active-graph-node-id">
+            {activeGraphReference?.kind === "resolved_graph" ? activeGraphReference.graphNodeId : "none"}
+          </p>
+          <BuildReferenceObjectProjection
+            bindings={{
+              [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolution,
+              [GRAPH_REFERENCE_BINDING_ID]: bindingForCard,
+            }}
+          />
+        </>
+      );
+    }
+
+    render(
+      <AgentInteractionProvider>
+        <MarkdownCanvasSessionProvider
+          documentId={DOC_ID}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={DOC_ID} />
+          <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ChannelBindingProbe onChannel={(channel) => { liveChannel = channel; }} />
+        </MarkdownCanvasSessionProvider>
+        <Probes />
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => expect(channelItems(liveChannel).length).toBe(2));
+    await waitFor(() => expect(latestBinding).not.toBeNull());
+    const channelAtStart = liveChannel;
+    const generationAtStart = liveChannel!.getSnapshot().generation;
+    latestContext!.viewExact("npc-glowkindle");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+      expect(screen.getByTestId("active-graph-node-id")).toHaveTextContent("npc-glowkindle");
+    });
+
+    const bindingAtStart = latestBinding!;
+    let resolveDeferred!: (value: GraphReferenceResolution) => void;
+    const deferred = new Promise<GraphReferenceResolution>((resolve) => {
+      resolveDeferred = resolve;
+    });
+    const originalOpen = bindingAtStart.openResolvedReference.bind(bindingAtStart);
+    bindingAtStart.resolveRelationship = vi.fn(async () => deferred);
+    bindingAtStart.openResolvedReference = ((resolution, state) => {
+      openResolvedReferenceCalls += 1;
+      originalOpen(resolution, state);
+    }) as GraphReferenceProjectionBinding["openResolvedReference"];
+
+    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
+    await waitFor(() => expect(bindingAtStart.resolveRelationship).toHaveBeenCalledTimes(1));
+
+    const refreshedProjection = {
+      ...graphProjectionFixture(),
+      snapshot: {
+        ...graphProjectionFixture().snapshot,
+        revisionId: "rev-2",
+        headRevisionId: "rev-2",
+      },
+    };
+    const refreshRequest = {
+      schema: "dmb_world_graph_projection_request_v1" as const,
+      worldId: "eldyrwild",
+      campaignId: "longmont-c1",
+      scopeMode: "campaign" as const,
+      focus: { kind: "none" as const, sessionId: null },
+      admissibility: "gm" as const,
+      revisionPin: null,
+    };
+    act(() => {
+      const ticket = liveChannel!.beginObservation();
+      expect(ticket).not.toBeNull();
+      liveChannel!.commit(
+        ticket!,
+        mapWorldGraphLensObservation({ request: refreshRequest, response: refreshedProjection }),
+      );
+    });
+
+    expect(liveChannel).toBe(channelAtStart);
+    expect(liveChannel!.getSnapshot().generation).toBeGreaterThan(generationAtStart);
+    expect(channelRevision(liveChannel)).toBe("rev-2");
+    await waitFor(() => {
+      expect(latestBinding).not.toBeNull();
+      expect(latestBinding).not.toBe(bindingAtStart);
+    });
+
+    const innView = searchItemFromApiNode(innNode).nodeView;
+    const staleResolution: GraphReferenceResolution = {
+      kind: "resolved_graph",
+      locator: "dmb-node:location-inn",
+      reference: referenceFromGraphNode(innView),
+      graphNodeId: "location-inn",
+      graphObject: buildGraphObjectCardFromNodeView(innView),
+      graphScope: graphScopeFromProjectionFixture(),
+      projectionState: "ready",
+      message: "Resolved graph node Inn.",
+    };
+
+    await act(async () => {
+      resolveDeferred(staleResolution);
+      await deferred;
+    });
+
+    expect(openResolvedReferenceCalls).toBe(0);
+    expect(screen.queryByTestId("active-graph-node-id")?.textContent).not.toBe("location-inn");
+
+    act(() => {
+      latestBinding!.openResolvedReference(staleResolution, "ready");
+    });
     expect(screen.queryByTestId("active-graph-node-id")?.textContent).not.toBe("location-inn");
   });
 

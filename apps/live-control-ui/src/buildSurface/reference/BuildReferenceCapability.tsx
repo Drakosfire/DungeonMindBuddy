@@ -143,6 +143,35 @@ function liveWorldGraphState(
   return channel?.getSnapshot().state ?? null;
 }
 
+type RelationshipObservationLease = {
+  channel: SurfaceInformationChannel<WorldGraphProjection>;
+  generation: number;
+};
+
+const relationshipObservationByResolution = new WeakMap<
+  GraphReferenceResolution,
+  RelationshipObservationLease
+>();
+
+function currentObservationLease(
+  channel: SurfaceInformationChannel<WorldGraphProjection> | null,
+): RelationshipObservationLease | null {
+  if (!channel) return null;
+  return { channel, generation: channel.getSnapshot().generation };
+}
+
+function observationLeaseMatches(
+  started: RelationshipObservationLease | null,
+  live: RelationshipObservationLease | null,
+): boolean {
+  return Boolean(
+    started
+    && live
+    && started.channel === live.channel
+    && started.generation === live.generation,
+  );
+}
+
 async function resolveBuildRelationshipTarget(input: {
   relationship: GraphObjectRelationshipViewModel;
   channel: SurfaceInformationChannel<WorldGraphProjection> | null;
@@ -586,6 +615,16 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
 
   const catalogActive = Boolean(referenceContext && publication.tools.length > 0);
 
+  const channelSnapshot = useSyncExternalStore(
+    graphInformation.channel?.subscribe ?? fallbackSubscribe,
+    graphInformation.channel?.getSnapshot ?? getFallbackSnapshot,
+    graphInformation.channel?.getSnapshot ?? getFallbackSnapshot,
+  ) as SurfaceInformationSnapshot<WorldGraphProjection>;
+  const observationGeneration = graphInformation.channel ? channelSnapshot.generation : null;
+  const resolverState = graphInformation.channel
+    ? graphReferenceStateFromInformation(channelSnapshot.state)
+    : "unavailable";
+
   useEffect(() => {
     if (!catalogActive) return undefined;
 
@@ -627,16 +666,23 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     if (!catalogActive) return undefined;
 
     return registerGraphReferenceBinding({
-      resolverState: graphInformation.channel ? "ready" : "unavailable",
-      resolveRelationship: async (relationship) =>
-        resolveBuildRelationshipTarget({
+      resolverState,
+      resolveRelationship: async (relationship) => {
+        const started = currentObservationLease(liveChannelRef.current);
+        const resolution = await resolveBuildRelationshipTarget({
           relationship,
-          channel: liveChannelRef.current,
-        }),
+          channel: started?.channel ?? null,
+        });
+        if (started) {
+          relationshipObservationByResolution.set(resolution, started);
+        }
+        return resolution;
+      },
       openResolvedReference: (resolution, state) => {
-        const channel = liveChannelRef.current;
-        if (!channel) return;
-        const current = channel.getSnapshot().state;
+        const live = currentObservationLease(liveChannelRef.current);
+        const started = relationshipObservationByResolution.get(resolution) ?? null;
+        if (!observationLeaseMatches(started, live) || !live) return;
+        const current = live.channel.getSnapshot().state;
         if (current.status !== "ready") return;
         openGraphReference({
           resolution,
@@ -649,9 +695,11 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
   }, [
     catalogActive,
     graphInformation.channel,
+    observationGeneration,
     openGraphReference,
     openTool,
     registerGraphReferenceBinding,
+    resolverState,
   ]);
 
   return (
