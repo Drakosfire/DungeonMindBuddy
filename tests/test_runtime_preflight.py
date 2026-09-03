@@ -99,6 +99,53 @@ def test_ingest_unavailable_when_app_state_dsn_unset(
     assert report.status == "NOT READY"
 
 
+def test_ingest_unavailable_when_configured_app_state_dsn_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
+    monkeypatch.setenv(
+        APPLICATION_STATE_DSN_ENV,
+        "postgresql://buddy:secret@127.0.0.1:1/dungeonbuddy_application_state"
+        "?connect_timeout=2",
+    )
+
+    report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
+    ingest = next(check for check in report.checks if check.id == "ingest_registry")
+    assert ingest.status == "UNAVAILABLE"
+    assert report.status == "NOT READY"
+
+
+def test_ingest_not_ready_when_ingest_schema_behind(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+    from alembic import command
+
+    from application_state.cli import _current_and_head, alembic_config
+
+    monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
+    try:
+        command.downgrade(alembic_config(), "20260825_0004")
+        current, head = _current_and_head(application_state_dsn)
+        assert current == "20260825_0004"
+        assert current != head
+        with psycopg.connect(application_state_dsn) as conn:
+            ingest_schema = conn.execute(
+                "SELECT 1 FROM information_schema.schemata WHERE schema_name = 'ingest'"
+            ).fetchone()
+        assert ingest_schema is None
+        report = run_runtime_preflight(repo_root=tmp_path, load_env=False)
+        ingest = next(check for check in report.checks if check.id == "ingest_registry")
+        assert ingest.status == "NOT_READY"
+        assert report.status == "NOT READY"
+        assert "behind" in ingest.summary.lower()
+    finally:
+        command.upgrade(alembic_config(), "head")
+
+
 def test_ingest_empty_when_schema_current_and_zero_runs(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
