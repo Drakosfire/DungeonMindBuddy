@@ -1,0 +1,106 @@
+{
+  "provenance": {
+    "module": "Of Conks & Cons v2.1",
+    "author": "Christian Eichhorn",
+    "gold_package": "of-conks-cons-gold-v0",
+    "threat_cards": ["threats/grotesque-tree.md", "threats/caretakers.md", "threats/guardian.md"],
+    "authority": "SOURCE (module) mechanics projected boutique-local; caretakers bind to MM twig blight by reference"
+  },
+  "encounters": [
+    {
+      "id": "encounter:grotesque-tree-garden",
+      "title": "The Grotesque Tree (Jove garden)",
+      "area": "Area 5 — the Jove home garden",
+      "source_heading": "Appendix A / Grotesque Tree; site tactics Area 5",
+      "summary": "The grotesque tree that erupted from the planted conk dominates the Jove garden and threatens the family home. It attacks anything that comes close and hurls rocks at anything that hurts it from afar.",
+      "combatants": [
+        {
+          "name": "Grotesque Tree",
+          "quantity": 1,
+          "ac": "11 (natural armor)",
+          "hp": "39 (6d8+12)",
+          "cr": "1 (200 XP)",
+          "key_actions": "Branch +5 (reach 60 ft., 1d4+3) · Rock +1 (30/120 ft., 1d6+1) · Snare (DC 13 Dex/Str, grapple + suspend 20 ft.) · Sling (DC 13 Dex, 3d6, throw 60 ft.)"
+        }
+      ],
+      "mechanics_notes": [
+        "Huge plant, unaligned · STR 17 (+3) DEX 9 (−1) CON 15 (+2) INT 7 (−2) WIS 10 (+0) CHA 10 (+0)",
+        "Damage immunities piercing · resistances bludgeoning · vulnerabilities fire",
+        "Condition immunities charmed · blindsight 600 ft. (blind beyond), passive Perception 10",
+        "Snare: grapples up to two targets; at start of its turn pulls a grappled target 10 ft. closer to its stem"
+      ],
+      "tactics": [
+        "Attacks anyone within 30 feet",
+        "Retaliates against ranged attackers",
+        "Targets nearest creature",
+        "Ceases hostilities once no longer under imminent threat"
+      ],
+      "graph_nodes": ["threat:grotesque-tree", "location:grotesque-tree-site", "location:jove-home", "location:hempholm"]
+    },
+    {
+      "id": "encounter:caretaker-rampage",
+      "title": "Rampage of the Caretakers",
+      "area": "Hempholm surface streets (after the tree dies)",
+      "source_heading": "Rampage Of the Caretakers",
+      "summary": "Hours after the surface tree dies, the caretakers — root-beetle plant minions from below — swarm the village, attacking villagers and structures before returning underground.",
+      "combatants": [
+        {
+          "name": "Caretakers (bind: twig blight, MM 32)",
+          "quantity": 20,
+          "ac": "per MM twig blight",
+          "hp": "per MM twig blight",
+          "cr": "per MM twig blight",
+          "key_actions": "Mechanics bind to the existing twig blight statblock (MM 32) by reference — not reproduced here"
+        }
+      ],
+      "mechanics_notes": [
+        "Mechanics binding: twig blight (MM 32) — referenced, not copied; no new statblock is invented",
+        "Roam in groups of 5 (20 total)"
+      ],
+      "tactics": [
+        "Strike hours after the surface tree dies (during celebration or firefighting)",
+        "Attack villagers and structures",
+        "Return underground after a few hours, or flee once 15 are dead",
+        "Afraid of fire; avoid it",
+        "Treasure: each corpse yields 1 gp of quality root-wood to someone with woodcarver's or carpenter's tools"
+      ],
+      "graph_nodes": ["threat:caretakers", "location:root-corridors", "location:hempholm"]
+    },
+    {
+      "id": "encounter:guardian-marrow",
+      "title": "The Guardian of the Marrow",
+      "area": "The Marrow — deepest root chamber",
+      "source_heading": "Appendix A / Guardian; the Marrow",
+      "summary": "In the plant-metal structure beneath Hempholm, the guardian — a large root construct — stands watch over the Marrow with two caretakers.",
+      "combatants": [
+        {
+          "name": "Guardian",
+          "quantity": 1,
+          "ac": "11 (natural armor)",
+          "hp": "39 (6d6+18)",
+          "cr": "1 (200 XP)",
+          "key_actions": "Multiattack (2 melee) · Iron Spike +4 (1d6+2, pin: DC 7 Dex or speed 0; DC 10 Str to remove) · Adamantine Helix Barrage (Recharge 5–6): 15 ft. radius, DC 13 Dex, 1d10 piercing, AC −1 until long rest"
+        },
+        {
+          "name": "Caretakers (bind: twig blight, MM 32)",
+          "quantity": 2,
+          "ac": "per MM twig blight",
+          "hp": "per MM twig blight",
+          "cr": "per MM twig blight",
+          "key_actions": "Mechanics bind to the existing twig blight statblock (MM 32) by reference — not reproduced here"
+        }
+      ],
+      "mechanics_notes": [
+        "Guardian: Large plant, unaligned · STR 15 (+2) DEX 12 (+1) CON 17 (+3) INT 10 (+0) WIS 15 (+2) CHA 10 (+0)",
+        "Saving throws Str +4, Con +5 · skills Perception +4",
+        "Vulnerabilities fire · resistances piercing · condition immunities charmed",
+        "Darkvision 60 ft., passive Perception 14 · Limited Iron Spikes: four spikes, regrow after a long rest"
+      ],
+      "tactics": [
+        "The guardian defends the Marrow with 2 caretakers at its side",
+        "Helix Barrage trades defense for offense — each use lowers its AC by 1 until a long rest"
+      ],
+      "graph_nodes": ["threat:guardian", "threat:caretakers", "location:the-marrow", "location:root-corridors"]
+    }
+  ]
+}
