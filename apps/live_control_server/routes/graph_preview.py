@@ -166,6 +166,23 @@ def get_graph_ingest_runs(
     return GraphIngestRunsResponse(runs=runs).model_dump(mode="json")
 
 
+@router.get("/extraction-runs")
+def get_extraction_runs_catalog() -> dict[str, Any]:
+    """Canonical APP-STATE ExtractionRun catalog. File registry is not consulted."""
+    from apps.live_control_server.services.ingest_run_catalog import (
+        IngestRunCatalogError,
+        list_canonical_extraction_runs,
+    )
+
+    try:
+        return list_canonical_extraction_runs()
+    except IngestRunCatalogError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
+
+
 @router.get("/extraction-runs/{run_id}")
 def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
     """Exact ExtractionRun reload. Source-domain neutral; never substitutes latest.
