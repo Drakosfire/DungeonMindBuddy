@@ -1,15 +1,15 @@
 # STEWARD'S ANCHOR — CON-READY
 
-**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
-**Line of work:** `CON-READY`  
-**Updated:** 2026-09-04  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main` `51c690d834436b068dfaa1b10022a47bbf3a4d21` (DFC-2a handoff; DFC-1 PR #684 ACCEPTED)  
-**Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)  
-**Current forcing function:** DOGFOOD-CONTINUITY DFC-2a — [`HANDOFF-DOGFOOD-CONTINUITY-plan-exact-adoption-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-plan-exact-adoption-v1.md)  
-**Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)  
-**Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)  
-**Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)  
+**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT
+**Line of work:** `CON-READY`
+**Updated:** 2026-09-04
+**Repository:** `Drakosfire/DungeonMindBuddy`
+**Re-anchor base:** `main` `51c690d834436b068dfaa1b10022a47bbf3a4d21` (DFC-2a handoff; DFC-1 PR #684 ACCEPTED)
+**Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
+**Current forcing function:** DOGFOOD-CONTINUITY DFC-2a — [`HANDOFF-DOGFOOD-CONTINUITY-plan-exact-adoption-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-plan-exact-adoption-v1.md)
+**Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
+**Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
+**Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
 **Approved target:** [`../Design/DESIGN-play-surface-gm-cockpit-target.md`](../Design/DESIGN-play-surface-gm-cockpit-target.md)
 
 ---

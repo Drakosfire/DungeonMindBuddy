@@ -1,10 +1,10 @@
 # REPORT — DOGFOOD-CONTINUITY DFC-2a exact historical Plan adoption
 
-**Created:** 2026-09-04  
-**Capability:** explicit exact-ID Plan adoption into APP-STATE (preview default; `--apply` required)  
-**Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-plan-exact-adoption-v1.md`  
-**Branch:** `agent/dogfood-continuity-plan-exact-adoption-v1`  
-**Runtime worktree:** `DungeonMindBuddy-dogfood-continuity-plan-exact-adoption`  
+**Created:** 2026-09-04
+**Capability:** explicit exact-ID Plan adoption into APP-STATE (preview default; `--apply` required)
+**Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-plan-exact-adoption-v1.md`
+**Branch:** `agent/dogfood-continuity-plan-exact-adoption-v1`
+**Runtime worktree:** `DungeonMindBuddy-dogfood-continuity-plan-exact-adoption`
 **Historical root (one-time operator input):** `primary-checkout` (`DungeonMindBuddy`)
 
 This report is the sanitized W8/W9 steward witness. Absolute home paths are omitted; DSN password is omitted.
