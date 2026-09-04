@@ -530,7 +530,7 @@ describe("GraphReviewGenericRun", () => {
     expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
   });
 
-  it("Load recap clears exact-run mode and removes handoff query params", async () => {
+  it("Load recap clears exact-run handoff and keeps catalog exact review for REVIEWABLE", async () => {
     const recapRun: ExtractionRunRecord = {
       schema_version: "dmb_extraction_run_v1",
       version: "1.0",
@@ -564,7 +564,27 @@ describe("GraphReviewGenericRun", () => {
     });
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(exactRun);
     vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue(buildContext);
-    mockExactRunReviewPackage();
+    vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockImplementation(
+      async (runId: string) => {
+        if (runId === recapRun.run_id) {
+          return {
+            schema: "dmb_extract_promote_exact_run_review_v1",
+            runId: recapRun.run_id,
+            sourceDomain: "recap",
+            sourceArtifactId: recapRun.source_artifact_id,
+            sourceRevisionId: "sha256:recap",
+            campaignId: "longmont-c2",
+            sessionId: "session-23",
+            sourceProse: "# Recap\n\nCatalog-loaded prose.\n",
+            assertions: [],
+            diagnostics: [],
+            promotable: true,
+            promotableReason: null,
+          };
+        }
+        return reviewPackage;
+      },
+    );
     vi.spyOn(liveApi, "getGoldReviewCompare").mockResolvedValue({
       schema_version: "dmb_graph_gold_review_compare_v1",
       version: "0.1",
@@ -628,18 +648,24 @@ describe("GraphReviewGenericRun", () => {
 
     renderModule([recapRun]);
     await waitFor(() => {
-      expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument();
+      expect(screen.getByTestId("graph-review-exact-run-banner")).toBeInTheDocument();
     });
 
     await userEvent.click(screen.getByRole("button", { name: "Load recap" }));
     await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
     await waitFor(() => {
-      expect(screen.queryByTestId("graph-review-exact-run-panel")).not.toBeInTheDocument();
+      expect(window.location.search).not.toContain("extractionRunId=");
     });
-    expect(window.location.search).not.toContain("extractionRunId=");
     expect(window.location.search).not.toContain("sourceArtifactId=");
     expect(window.location.search).not.toContain("documentId=");
-    expect(screen.queryByTestId("graph-review-exact-run-banner")).not.toBeInTheDocument();
+    expect(window.location.search).toContain("run=er_run_a");
+    // SI-5B: catalog Load of a REVIEWABLE run keeps exact review (panel + banner),
+    // but Build handoff query identity is gone.
+    expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent("er_run_a");
+    expect(screen.getByTestId("graph-review-exact-run-banner")).not.toHaveTextContent(
+      "extraction-run-wb-1",
+    );
   });
 });
