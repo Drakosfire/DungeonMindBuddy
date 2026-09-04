@@ -71,14 +71,21 @@ WORKSPACE_NON_AUTHORITATIVE_METADATA_KEYS: tuple[str, ...] = (
 )
 
 # Durable fields the current Plan/Runbook APP-STATE seam exposes and that
-# CURRENT_EXACT must compare. content_status is registry-era and selects the
-# committed-vs-draft proof path rather than a WorkObject column.
+# CURRENT_EXACT must compare. content_status is registry-era for Plan/Runbook
+# (draft-vs-committed is proven structurally via WorkingCopy/WorkRevision), so
+# it is omitted there. Build's current authority is the workspace registry and
+# exposes content_status directly, so Build compares it.
 WORKSPACE_CURRENT_COMPARABLE_KEYS: tuple[str, ...] = (
     "campaign_id",
     "title",
     "target_session",
     "status",
 )
+WORKSPACE_CURRENT_COMPARABLE_KEYS_BY_DOMAIN: dict[str, tuple[str, ...]] = {
+    "plan": WORKSPACE_CURRENT_COMPARABLE_KEYS,
+    "runbook": WORKSPACE_CURRENT_COMPARABLE_KEYS,
+    "build": (*WORKSPACE_CURRENT_COMPARABLE_KEYS, "content_status"),
+}
 
 Domain = Literal["plan", "build", "ingest", "runbook", "play_run"]
 IdentityKind = Literal["document_id", "run_id"]
@@ -239,15 +246,23 @@ def _durable_metadata_fingerprint(meta: dict[str, Any]) -> tuple[tuple[str, Any]
     return tuple(items)
 
 
+def _current_comparable_keys(domain: Domain) -> tuple[str, ...]:
+    return WORKSPACE_CURRENT_COMPARABLE_KEYS_BY_DOMAIN.get(
+        domain, WORKSPACE_CURRENT_COMPARABLE_KEYS
+    )
+
+
 def _current_workspace_metadata_mismatches(
     historical: dict[str, Any] | None,
     present: dict[str, Any],
+    *,
+    domain: Domain,
 ) -> list[str]:
     """Return admitted durable keys that disagree with current product authority."""
     if not historical:
         return []
     mismatches: list[str] = []
-    for key in WORKSPACE_CURRENT_COMPARABLE_KEYS:
+    for key in _current_comparable_keys(domain):
         if key not in historical:
             continue
         hist_val = historical[key]
@@ -266,13 +281,16 @@ def _apply_current_metadata_exactness(
     view: CurrentAuthorityView,
     reasons: list[str],
     *,
+    domain: Domain,
     durable_metadata: dict[str, Any] | None,
     present: dict[str, Any] | None,
 ) -> tuple[Classification, CurrentAuthorityView, list[str]]:
     """CURRENT_EXACT must honor available durable WorkObject metadata."""
     if classification != "CURRENT_EXACT" or not present:
         return classification, view, reasons
-    mismatches = _current_workspace_metadata_mismatches(durable_metadata, present)
+    mismatches = _current_workspace_metadata_mismatches(
+        durable_metadata, present, domain=domain
+    )
     if not mismatches:
         return classification, view, reasons
     return (
@@ -1669,6 +1687,7 @@ def reconcile(
                 classification,
                 current_view,
                 more,
+                domain=domain,
                 durable_metadata=durable_metadata,
                 present=present,
             )

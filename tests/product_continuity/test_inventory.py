@@ -284,6 +284,108 @@ def test_current_authority_campaign_mismatch_is_conflict(tmp_path: Path) -> None
     assert any("campaign_id" in reason for reason in item.reason)
 
 
+def _build_registry_fixture(
+    tmp_path: Path,
+    *,
+    build_id: str,
+    content_status: str,
+    campaign_id: str = "longmont-c2",
+    body: str = "# build bytes\n",
+) -> tuple[Path, str]:
+    from application_state.content.types import sha256_utf8
+
+    hist = tmp_path / "hist"
+    target = hist / "out/workspace/worldbuilding" / f"{build_id}.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(body, encoding="utf-8")
+    _write_json(
+        hist / "out/registries/workspace_documents.json",
+        {
+            "schema_version": "dmb_workspace_document_registry_v1",
+            "records": [
+                {
+                    "schema_version": "dmb_workspace_document_record_v1",
+                    "document_id": build_id,
+                    "title": "Build Continuity",
+                    "campaign_id": campaign_id,
+                    "kind": "worldbuilding_source",
+                    "target_relpath": f"out/workspace/worldbuilding/{build_id}.md",
+                    "status": "active",
+                    "content_status": content_status,
+                    "revision": 1,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                }
+            ],
+        },
+    )
+    return hist, sha256_utf8(body)
+
+
+def test_current_build_content_status_mismatch_is_conflict(tmp_path: Path) -> None:
+    """Build CURRENT_EXACT must compare registry content_status."""
+    build_id = "17171717-1717-4171-8171-171717171717"
+    hist, digest = _build_registry_fixture(
+        tmp_path, build_id=build_id, content_status="committed"
+    )
+    items = reconcile(
+        scan_historical_root(hist, root_label="hist"),
+        CurrentAuthoritySnapshot(
+            readable=True,
+            detail=None,
+            schema_head_status="at_head",
+            builds={
+                build_id: {
+                    "revision": 1,
+                    "campaign_id": "longmont-c2",
+                    "title": "Build Continuity",
+                    "status": "active",
+                    "content_status": "draft",
+                    "target_session": None,
+                    "content_sha256": digest,
+                    "target_relpath": f"out/workspace/worldbuilding/{build_id}.md",
+                }
+            },
+        ),
+    )
+    item = next(i for i in items if i.identity == build_id)
+    assert item.classification == "CONFLICT"
+    assert item.classification != "CURRENT_EXACT"
+    assert any("content_status" in reason for reason in item.reason)
+
+
+def test_current_build_matching_content_status_is_current_exact(tmp_path: Path) -> None:
+    """Equivalent Build content_status + digest remains CURRENT_EXACT."""
+    build_id = "18181818-1818-4181-8181-181818181818"
+    hist, digest = _build_registry_fixture(
+        tmp_path, build_id=build_id, content_status="committed"
+    )
+    items = reconcile(
+        scan_historical_root(hist, root_label="hist"),
+        CurrentAuthoritySnapshot(
+            readable=True,
+            detail=None,
+            schema_head_status="at_head",
+            builds={
+                build_id: {
+                    "revision": 1,
+                    "campaign_id": "longmont-c2",
+                    "title": "Build Continuity",
+                    "status": "active",
+                    "content_status": "committed",
+                    "target_session": None,
+                    "content_sha256": digest,
+                    "target_relpath": f"out/workspace/worldbuilding/{build_id}.md",
+                }
+            },
+        ),
+    )
+    item = next(i for i in items if i.identity == build_id)
+    assert item.classification == "CURRENT_EXACT"
+    assert item.classification != "CONFLICT"
+
+
+
 def test_w8_incomplete_manifest_needs_adapter_without_invented_ids(tmp_path: Path) -> None:
     root = tmp_path / "hist"
     manifest_dir = root / "out/graph_memory/runs/run-x"
