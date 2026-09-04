@@ -2,10 +2,14 @@
 
 **Created:** 2026-09-04  
 **RC1 repair:** 2026-09-04 (after formal review `5108972325` on PR #682 @ `a5f3d816…`)  
+**RC2 acceptance:** 2026-09-04 (formal review `5109075232` on PR #682 @ `9349cb4b64d8a4849c4f379277ddb15df1fdc81a`)  
 **Buddy tip under witness:** `5e192966ae2086267569a7dbc5397852b7735550`  
 **#681 merge ancestor:** `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb`  
+**PR #682 merge:** `86296a4021816862b1ee82cbf7478b2882493963`  
+**Accepted witness head:** `9349cb4b64d8a4849c4f379277ddb15df1fdc81a`  
+**Formal review cycles:** 2  
 **Stewardship handoff:** `Docs/Plans/HANDOFF-STEWARDSHIP-finish-surface-integration.md`  
-**Judgment:** **PENDING STEWARD RE-REVIEW** — RC1 P1/P2 witness gaps closed in this revision; freeze remains until ACCEPT.
+**Judgment:** **ACCEPTED** — steward re-review on RC2; SURFACE-INTEGRATION feature freeze lifted. DFC-1 is not claimed done here.
 
 ---
 
@@ -155,8 +159,17 @@ Prior EMPTY-chooser observation remains historically true for the pre-seeded env
 
 ## 6. Acceptance
 
-**SI-6 is not self-ACCEPTED in this revision.**  
+**SI-6: ACCEPTED** — steward judgment recorded after RC2 on PR #682.
 
-RC1 required Play resume, Build Find-existing, Plan reactivity/fail-closed, and two-run accounting. Those clauses are now documented with assembled evidence above.  
+| Item | Value |
+|---|---|
+| PR | #682 merged |
+| Merge SHA | `86296a4021816862b1ee82cbf7478b2882493963` |
+| Accepted witness head | `9349cb4b64d8a4849c4f379277ddb15df1fdc81a` |
+| Formal review cycles | 2 (RC1 `5108972325`; RC2 `5109075232`) |
+| SI-6 judgment | **ACCEPTED** |
+| SURFACE-INTEGRATION | **CLOSED** |
 
-Feature freeze **remains in force** until the steward re-reviews PR #682 and records ACCEPT. Do not treat this report revision as thaw or SURFACE-INTEGRATION CLOSED.
+SURFACE-INTEGRATION’s blocking purpose — prove an assembled Buddy runtime can report and use its real authorities without silent file/latest reconstruction — is satisfied.
+
+The temporary SURFACE-INTEGRATION feature freeze is **lifted**. SI-7 re-sequencing points CON-READY to **DOGFOOD-CONTINUITY DFC-1** (Of Conks and Cons continuity forcing function) before resuming BF3B/BF3C/Combat. DFC-1 completion is not recorded in this report.

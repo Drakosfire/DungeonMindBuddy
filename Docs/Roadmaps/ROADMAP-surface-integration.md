@@ -1,26 +1,26 @@
 # SURFACE-INTEGRATION — Blocking Program Roadmap
 
-**Status:** ACTIVE BLOCKING CHILD PROGRAM — SI-6 witness repair in progress (RC1)
-**Parent:** [`ROADMAP-con-ready.md`](ROADMAP-con-ready.md)
-**Re-anchored:** 2026-09-04
-**Repository:** `Drakosfire/DungeonMindBuddy`
+**Status:** CLOSED — SI-6 accepted; blocking program complete  
+**Parent:** [`ROADMAP-con-ready.md`](ROADMAP-con-ready.md)  
+**Re-anchored:** 2026-09-04  
+**Repository:** `Drakosfire/DungeonMindBuddy`  
 **SI-6 report:** [`../Reports/REPORT-surface-integration-si6-clean-start.md`](../Reports/REPORT-surface-integration-si6-clean-start.md)
 
 ---
 
 ## Purpose
 
-SURFACE-INTEGRATION establishes that an assembled DungeonBuddy runtime can truthfully report which authorities it is connected to and whether those foundations are usable before product Surfaces, Agents, or operators reason about application state.
+SURFACE-INTEGRATION established that an assembled DungeonBuddy runtime can truthfully report which authorities it is connected to and whether those foundations are usable before product Surfaces, Agents, or operators reason about application state.
 
-CON-READY remains the GM-visible acceptance authority. SURFACE-INTEGRATION is its active blocking child program.
+CON-READY remains the GM-visible acceptance authority. SURFACE-INTEGRATION is a **closed** blocking child program.
 
-Finish-only dispositions stand (Play/Combat: no new SI channels; #674 CLOSE/SUPERSEDE). SI-6 ACCEPT is **not** final until RC1 witness gaps on PR #682 are closed. Do not reopen Surface Information adoption as a migration quota.
+The program closed after finish-only stewardship: Play/Combat required **no new SI channels**; PR #674 received disposition **CLOSE/SUPERSEDE**; SI-6 clean-start witness **ACCEPTED** (PR #682). Do not reopen Surface Information adoption as a migration quota.
 
 ---
 
 ## Feature freeze
 
-**Still in force until SI-6 acceptance is re-earned against the full witness clauses.** Do not thaw for Play Ask, BF3C, Combat redesign, or other parked work. RC1 on PR #682 requested Play resume, Build Find-existing, Plan reactivity/fail-closed, and report accounting before ACCEPT.
+**Lifted by SI-6 acceptance.** CON-READY again owns next product sequence (SI-7 re-sequencing completed by pointing at DOGFOOD-CONTINUITY / DFC-1). Prior freeze list remains historical context; do not auto-resume the oldest parked branch without CON-READY selection.
 
 ---
 
@@ -35,22 +35,16 @@ Finish-only dispositions stand (Play/Combat: no new SI channels; #674 CLOSE/SUPE
 | SI-5A | Build World Graph Surface Information adoption | **DONE** — PR #680 merged @ `a543af46f21d31d6ad83a88c3b2911ca4e0e4016` (final implementation head `4ccbe0fad1f5c9c60c3ced6173d842a77b162289`, three review cycles) |
 | SI-5B | Ingest application-state Surface Information adoption | **DONE** — PR #681 merged @ `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb` (final implementation head `d0e9aaa80a78f71ad6bfd2195002eb5de67f098f`, three review cycles) |
 | **SI-5 remainder** | Finish-only Play / Combat-facing disposition and Agent/#674 disposition | **DONE** — no SI-5C/D code; #674 CLOSED/SUPERSEDED |
-| SI-6 | Clean-start assembled-product witness (canonical runtime → browser journey → restart/reload) | **IN PROGRESS** — PR #682 RC1 witness repair; freeze remains |
-| SI-7 | Thaw + re-sequence paused feature roadmaps | Planned — only after SI-6 ACCEPT |
+| SI-6 | Clean-start assembled-product witness | **DONE / ACCEPTED** — PR #682 merged @ `86296a4021816862b1ee82cbf7478b2882493963`; accepted witness head `9349cb4b64d8a4849c4f379277ddb15df1fdc81a`; formal review cycles **2** (final ACCEPT `5109075232`) |
+| SI-7 | Thaw + re-sequence paused feature roadmaps | **DONE** — freeze lifted; next forcing function is DOGFOOD-CONTINUITY DFC-1 (historical material inventory), not automatic resume of oldest parked BF3B branch |
 
-Do not pre-mark successors `DONE`.
+Do not pre-mark unrelated successors `DONE`.
 
 ---
 
 ## Relationship to CON-READY
 
-Existing CON-READY user stories remain valid. Feature dispatch is frozen until SI-6 proves the assembled runtime and information-delivery contract.
-
-SI-1 created the runtime truth layer. SI-2 established the Surface Information Contract. SI-3 proved Plan Edit → World Graph objects consumes that contract reactively. SI-4 moved canonical Ingest run authority into the existing application-state PostgreSQL database. SI-5A moved Build Find-existing-object onto the same truthful World information pattern. SI-5B moved normal `/ingest` run existence and selection onto canonical APP-STATE `ingest.run` plus Surface Information.
-
-The remaining SI-5 work is intentionally narrower than the wording “adopt Play/Combat/Agent.” The steward must first characterize whether the SI-6 journey still contains a false authority, structural-reactivity, stale-fallback, or ambiguous-identity path. A truthful existing path may be closed by explicit disposition with **no new channel or implementation PR**. PR #674 must receive a fresh explicit disposition against current `main`; it must not be casually rebased/merged simply because it remains open.
-
-SI-6 should run at the earliest truthful opportunity. Witness-discovered blockers get the smallest repair slice possible, followed by an immediate witness rerun.
+Existing CON-READY user stories remain valid. The temporary SURFACE-INTEGRATION feature freeze is lifted. Continuity of accumulated dogfood material is now the active CON-READY forcing function via [`HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md).
 
 ---
 
@@ -70,9 +64,9 @@ uv run python scripts/preflight_surface_runtime.py --require-world <world_id>
 
 ## Stewardship
 
-Current finish-only steward mission: **ACTIVE** — SI-6 RC1 witness repair on PR #682; see [`../Reports/REPORT-surface-integration-si6-clean-start.md`](../Reports/REPORT-surface-integration-si6-clean-start.md)
+Finish-only steward mission: **COMPLETE** — see [`../Reports/REPORT-surface-integration-si6-clean-start.md`](../Reports/REPORT-surface-integration-si6-clean-start.md)
 
-Active stewardship handoff: [`../Plans/HANDOFF-STEWARDSHIP-finish-surface-integration.md`](../Plans/HANDOFF-STEWARDSHIP-finish-surface-integration.md)
+Closed stewardship handoff: [`../Plans/HANDOFF-STEWARDSHIP-finish-surface-integration.md`](../Plans/HANDOFF-STEWARDSHIP-finish-surface-integration.md)
 
 Completed predecessor (SI-5B): [`../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-run-information-adoption-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-run-information-adoption-v1.md)
 
