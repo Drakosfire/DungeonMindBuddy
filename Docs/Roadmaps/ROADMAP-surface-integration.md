@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE BLOCKING CHILD PROGRAM
 **Parent:** [`ROADMAP-con-ready.md`](ROADMAP-con-ready.md)
-**Re-anchored:** 2026-09-02
+**Re-anchored:** 2026-09-03
 **Repository:** `Drakosfire/DungeonMindBuddy`
 
 ---
@@ -12,6 +12,8 @@
 SURFACE-INTEGRATION establishes that an assembled DungeonBuddy runtime can truthfully report which authorities it is connected to and whether those foundations are usable before product Surfaces, Agents, or operators reason about application state.
 
 CON-READY remains the GM-visible acceptance authority. SURFACE-INTEGRATION is its active blocking child program.
+
+The program is now in **finish-only closure**: characterize and correct only the remaining false authority/information paths required by SI-6, explicitly dispose parked Agent PR #674, run the clean-start assembled witness, then close the blocking program. Do not expand Surface Information adoption merely for uniformity.
 
 ---
 
@@ -43,10 +45,10 @@ Allowed during the freeze: SURFACE-INTEGRATION implementation/design, fixes requ
 | SI-3 | Plan graph information reference implementation | **DONE** — PR #677 merged @ `29932a8ecb74b4bcbf12633f5167470a7f05fb81` (final implementation head `345ee6957dadaa1d9052d60b70396534d7590ac8`, five review cycles) |
 | SI-4 | Ingest application-state authority | **DONE** — PR #679 merged @ `010634f8ea48ed396024c79db90f41d6ba92f249` (final implementation head `55414e141f6508049c56c82bfb37bce7d9f3ba51`, two review cycles) |
 | SI-5A | Build World Graph Surface Information adoption | **DONE** — PR #680 merged @ `a543af46f21d31d6ad83a88c3b2911ca4e0e4016` (final implementation head `4ccbe0fad1f5c9c60c3ced6173d842a77b162289`, three review cycles) |
-| **SI-5B** | Ingest application-state Surface Information adoption | **CURRENT** — catalog API + Surface Information over APP-STATE runs; `manifestPath` stops being product identity |
-| SI-5 remainder | Play / Combat-facing adoption and Agent disposition | Planned — before SI-6; PR #674 remains parked/read-only until that slice |
+| SI-5B | Ingest application-state Surface Information adoption | **DONE** — PR #681 merged @ `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb` (final implementation head `d0e9aaa80a78f71ad6bfd2195002eb5de67f098f`, three review cycles) |
+| **SI-5 remainder** | Finish-only Play / Combat-facing disposition and Agent/#674 disposition | **CURRENT STEWARDSHIP MISSION** — add code only for an observed SI-6-blocking falsehood; no adoption quota |
 | SI-6 | Clean-start assembled-product witness (canonical runtime → browser journey → restart/reload) | Planned — **acceptance gate** |
-| SI-7 | Thaw + re-sequence paused feature roadmaps | Planned |
+| SI-7 | Thaw + re-sequence paused feature roadmaps | Planned — state sync/re-sequencing after SI-6, not a feature slice |
 
 Do not pre-mark successors `DONE`.
 
@@ -56,7 +58,11 @@ Do not pre-mark successors `DONE`.
 
 Existing CON-READY user stories remain valid. Feature dispatch is frozen until SI-6 proves the assembled runtime and information-delivery contract.
 
-SI-1 created the runtime truth layer and is complete. SI-2 established the Surface Information Contract and is complete. SI-3 proved Plan Edit → World Graph objects consumes that contract reactively. SI-4 moved canonical Ingest run authority into the existing application-state PostgreSQL database. SI-5A moved Build Find-existing-object onto that same information contract. SI-5B gives `/ingest` a Surface Information provider over APP-STATE runs. Play/Combat-facing adoption and Agent/#674 disposition follow before SI-6.
+SI-1 created the runtime truth layer. SI-2 established the Surface Information Contract. SI-3 proved Plan Edit → World Graph objects consumes that contract reactively. SI-4 moved canonical Ingest run authority into the existing application-state PostgreSQL database. SI-5A moved Build Find-existing-object onto the same truthful World information pattern. SI-5B moved normal `/ingest` run existence and selection onto canonical APP-STATE `ingest.run` plus Surface Information.
+
+The remaining SI-5 work is intentionally narrower than the wording “adopt Play/Combat/Agent.” The steward must first characterize whether the SI-6 journey still contains a false authority, structural-reactivity, stale-fallback, or ambiguous-identity path. A truthful existing path may be closed by explicit disposition with **no new channel or implementation PR**. PR #674 must receive a fresh explicit disposition against current `main`; it must not be casually rebased/merged simply because it remains open.
+
+SI-6 should run at the earliest truthful opportunity. Witness-discovered blockers get the smallest repair slice possible, followed by an immediate witness rerun.
 
 ---
 
@@ -76,6 +82,8 @@ uv run python scripts/preflight_surface_runtime.py --require-world <world_id>
 
 ## Stewardship
 
-Implementation handoff: [`../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-run-information-adoption-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-run-information-adoption-v1.md)
+Current finish-only steward mission: [`../Plans/HANDOFF-STEWARDSHIP-finish-surface-integration.md`](../Plans/HANDOFF-STEWARDSHIP-finish-surface-integration.md)
 
-Predecessor (SI-5A, complete): [`../Plans/HANDOFF-SURFACE-INTEGRATION-build-graph-information-adoption-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-build-graph-information-adoption-v1.md)
+Completed predecessor (SI-5B): [`../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-run-information-adoption-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-run-information-adoption-v1.md)
+
+Completed SI-5A reference: [`../Plans/HANDOFF-SURFACE-INTEGRATION-build-graph-information-adoption-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-build-graph-information-adoption-v1.md)
