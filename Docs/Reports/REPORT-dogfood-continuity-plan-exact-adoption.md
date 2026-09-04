@@ -11,7 +11,7 @@ This report is the sanitized W8/W9 steward witness. Absolute home paths are omit
 
 DFC-2a itself is **not** marked complete here. Acceptance remains steward review.
 
-Review Cycle 1 at `8224500c700972a937777ebb18a4a832809c6d60` rejected blank-shell adoption and an unpinned importer TOCTOU. Review Cycle 2 at `2b22f33469924de882f5d9cc7e43eac9667855a6` accepted that repair and requested two remaining P1s: bind the pin to the classified DFC-1 observation, and stop inventing empty historical content during `CURRENT_EXACT` no-op verification. Review Cycle 3 at `0f744c9ebb5bb4fd5ec37fa0c66b15edc15b44c2` closed those P1s and requested a post-commit product-verification exception boundary. Cycle 3 live W8/W9 remains on code head `04dcc272910cd9f5589e8a9e585991f037ac4df5`. Cycle 4 code head is `c9207c9abd92522fbcd41f3fd7afab8e31770470`.
+Review Cycle 1 at `8224500c700972a937777ebb18a4a832809c6d60` rejected blank-shell adoption and an unpinned importer TOCTOU. Review Cycle 2 at `2b22f33469924de882f5d9cc7e43eac9667855a6` accepted that repair and requested two remaining P1s: bind the pin to the classified DFC-1 observation, and stop inventing empty historical content during `CURRENT_EXACT` no-op verification. Review Cycle 3 at `0f744c9ebb5bb4fd5ec37fa0c66b15edc15b44c2` closed those P1s and requested a post-commit product-verification exception boundary. Review Cycle 4 at `730a1b6342751fc74c009477a55c0f88e68f8c65` closed that boundary for `_verify_product_seam()` and requested the rest of the post-commit observation phase plus secret-safe exception detail. Cycle 3 live W8/W9 remains on code head `04dcc272910cd9f5589e8a9e585991f037ac4df5`. Cycle 5 code head is `d4cf3832dcecdab065600870472c7d669f88c1bd`.
 
 ---
 
@@ -153,6 +153,26 @@ detail = adoption committed; product verification failed
 The adopted row is not rolled back or deleted. Owning witness `test_post_commit_product_seam_failure_keeps_committed_state`: importer succeeds, product-seam list/snapshot then raises `ApplicationStateUnavailableError`, report matches the required committed-failed result, `snapshot_plan` still returns the imported markdown, and a follow-up apply is `CURRENT_EXACT` / `noop` from that current state.
 
 Leftover local APP-STATE was not written. Cycle 3 isolated W8/W9 is unchanged as the live product-surface witness.
+
+---
+
+## Cycle 5 post-commit observation phase and secret-safe detail
+
+Code head: `d4cf3832dcecdab065600870472c7d669f88c1bd`.
+
+Once the importer commits, `applied=true` is set before both product-seam verification and `historical_root_digest()`. Either observation raising still returns:
+
+```text
+applied = true
+product_verification = failed
+detail = adoption committed; product verification failed
+```
+
+The adopted row is not rolled back. Owning witness `test_post_commit_historical_root_probe_keeps_committed_state` injects an `OSError` from the historical-root probe after commit; `snapshot_plan` still has the imported markdown and replay is `CURRENT_EXACT` / `noop`.
+
+Exception text is passed through `sanitize_operator_detail()` before it is stored or printed. URI userinfo passwords become `***`. Owning witness `test_post_commit_exception_detail_omits_dsn_secret` raises a product-seam error containing a fake DSN/password; neither the report fields nor CLI stdout contain the secret.
+
+Leftover local APP-STATE was not written.
 
 ---
 
