@@ -43,6 +43,7 @@ from live_play.live_store import load_json
 from product_continuity.inventory import (
     AuthorityCoordinates,
     Classification,
+    HistoricalObservation,
     InventoryReport,
     LedgerItem,
     run_inventory,
@@ -250,6 +251,82 @@ def _ledger_by_identity(inventory: InventoryReport) -> dict[str, LedgerItem]:
     return {item.identity: item for item in inventory.items}
 
 
+def _observation_for_historical_root(
+    item: LedgerItem, historical_root: Path
+) -> HistoricalObservation | None:
+    """The registry observation from this root that earned classification.
+
+    The same identity may also have an ``orphan_bytes`` observation. Only the
+    workspace registry observation carries admitted record metadata + digest.
+    """
+    label = historical_root.name
+    ok = [
+        obs
+        for obs in item.historical_observations
+        if obs.parse_status == "ok"
+        and obs.root_label == label
+        and obs.source_kind == "workspace_documents_registry"
+    ]
+    if len(ok) == 1:
+        return ok[0]
+    return None
+
+
+def _raw_confined_file_digest(
+    historical_root: Path, record: WorkspaceDocumentRecord
+) -> tuple[str | None, str | None]:
+    """SHA-256 of live UTF-8 bytes, matching DFC-1 ``_file_sha256``."""
+    path, error = confined_target_path(historical_root, record.target_relpath)
+    if error:
+        return None, error
+    assert path is not None
+    if not path.is_file():
+        return None, MISSING_TARGET_BYTES_REASON
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return None, MISSING_TARGET_BYTES_REASON
+    return sha256_utf8(raw), None
+
+
+def _pin_mismatches_classified_observation(
+    *,
+    record: WorkspaceDocumentRecord,
+    raw_digest: str,
+    item: LedgerItem,
+    historical_root: Path,
+) -> str | None:
+    """Return an error if live pin evidence is not the classified observation."""
+    observation = _observation_for_historical_root(item, historical_root)
+    if observation is None:
+        return (
+            "classified LedgerItem has no unique historical observation for this root"
+        )
+    if not observation.content_sha256:
+        return "classified observation has no admitted content digest to bind the pin"
+    if raw_digest != observation.content_sha256:
+        return (
+            "live historical bytes digest does not match the classified "
+            "RECOVERABLE_EXACT observation"
+        )
+    if (
+        observation.claimed_revision is not None
+        and record.revision != observation.claimed_revision
+    ):
+        return (
+            "live WorkspaceDocumentRecord revision does not match classified observation"
+        )
+    meta = observation.durable_metadata or {}
+    for key in ("campaign_id", "title", "target_session", "status", "content_status"):
+        if key not in meta:
+            continue
+        if getattr(record, key) != meta[key]:
+            return (
+                f"live WorkspaceDocumentRecord {key} does not match classified observation"
+            )
+    return None
+
+
 def classify_selected_plans(
     inventory: InventoryReport,
     document_ids: list[str],
@@ -321,6 +398,37 @@ def classify_selected_plans(
                         domain=item.domain,
                         title=item.title,
                         reason=[error or MISSING_TARGET_BYTES_REASON],
+                    )
+                )
+                continue
+            raw_digest, digest_error = _raw_confined_file_digest(historical_root, record)
+            if digest_error or raw_digest is None:
+                dispositions.append(
+                    PlanAdoptionDisposition(
+                        document_id=document_id,
+                        classification=item.classification,
+                        action="block",
+                        domain=item.domain,
+                        title=item.title,
+                        reason=[digest_error or MISSING_TARGET_BYTES_REASON],
+                    )
+                )
+                continue
+            mismatch = _pin_mismatches_classified_observation(
+                record=record,
+                raw_digest=raw_digest,
+                item=item,
+                historical_root=historical_root,
+            )
+            if mismatch:
+                dispositions.append(
+                    PlanAdoptionDisposition(
+                        document_id=document_id,
+                        classification=item.classification,
+                        action="block",
+                        domain=item.domain,
+                        title=item.title,
+                        reason=[mismatch],
                     )
                 )
                 continue
@@ -409,11 +517,19 @@ def preview_plan_adoption(
 def _pin_selected_adoptions(
     historical_root: Path,
     dispositions: list[PlanAdoptionDisposition],
+    inventory: InventoryReport,
 ) -> tuple[list[PinnedPlanEvidence] | None, str | None]:
     pins: list[PinnedPlanEvidence] = []
+    by_id = _ledger_by_identity(inventory)
     for row in dispositions:
         if row.action != "adopt":
             continue
+        item = by_id.get(row.document_id)
+        if item is None:
+            return None, (
+                f"blocked: {row.document_id} disappeared from the classified ledger "
+                "before pin creation"
+            )
         record = load_historical_plan_record(historical_root, row.document_id)
         if record is None or record.target_relpath is None:
             return None, (
@@ -425,6 +541,20 @@ def _pin_selected_adoptions(
                 f"blocked: {row.document_id} lost admitted historical target bytes "
                 "immediately before import"
             )
+        raw_digest, digest_error = _raw_confined_file_digest(historical_root, record)
+        if digest_error or raw_digest is None:
+            return None, (
+                f"blocked: {row.document_id} lost admitted historical target bytes "
+                "immediately before import"
+            )
+        mismatch = _pin_mismatches_classified_observation(
+            record=record,
+            raw_digest=raw_digest,
+            item=item,
+            historical_root=historical_root,
+        )
+        if mismatch:
+            return None, f"blocked: {row.document_id}: {mismatch}"
         pins.append(
             PinnedPlanEvidence(
                 record=record,
@@ -509,27 +639,40 @@ def _expected_snapshot_fields(
 def _verify_product_seam(
     *,
     current_repo_root: Path,
-    historical_root: Path,
     dispositions: list[PlanAdoptionDisposition],
     pins: list[PinnedPlanEvidence],
 ) -> tuple[ProductVerification, str | None]:
     pins_by_id = {pin.record.document_id: pin for pin in pins}
     failures: list[str] = []
     for row in dispositions:
-        if row.action not in {"adopt", "noop"}:
+        if row.action == "noop":
+            snapshot = get_workspace_document_snapshot(current_repo_root, row.document_id)
+            if snapshot.record.document_id != row.document_id:
+                failures.append(f"{row.document_id}: identity mismatch after no-op")
+                continue
+            list_status = (
+                snapshot.record.status
+                if snapshot.record.status in {"active", "discarded"}
+                else "active"
+            )
+            listed_ids = {
+                record.document_id
+                for record in list_workspace_documents(
+                    current_repo_root, kind="plan", status=list_status
+                )
+            }
+            if row.document_id not in listed_ids:
+                failures.append(
+                    f"{row.document_id}: absent from Plan product list (status={list_status})"
+                )
+            continue
+        if row.action != "adopt":
             continue
         pin = pins_by_id.get(row.document_id)
-        if pin is not None:
-            expected = _expected_snapshot_fields(pin.record, markdown=pin.markdown)
-        else:
-            historical = load_historical_plan_record(historical_root, row.document_id)
-            if historical is None:
-                failures.append(f"{row.document_id}: historical record missing at verify")
-                continue
-            markdown, error = read_admitted_plan_bytes(historical_root, historical)
-            if error or markdown is None:
-                markdown = ""
-            expected = _expected_snapshot_fields(historical, markdown=markdown)
+        if pin is None:
+            failures.append(f"{row.document_id}: adopted identity has no pinned evidence")
+            continue
+        expected = _expected_snapshot_fields(pin.record, markdown=pin.markdown)
         list_status = expected["status"] if expected["status"] in {"active", "discarded"} else "active"
         listed_for_status = {
             record.document_id: record
@@ -543,10 +686,6 @@ def _verify_product_seam(
             )
             continue
         snapshot = get_workspace_document_snapshot(current_repo_root, row.document_id)
-        if row.classification == "CURRENT_CONTAINS_HISTORY":
-            if snapshot.record.document_id != expected["document_id"]:
-                failures.append(f"{row.document_id}: identity mismatch after no-op")
-            continue
         checks = (
             ("document_id", snapshot.record.document_id, expected["document_id"]),
             ("revision", snapshot.record.revision, expected["revision"]),
@@ -604,7 +743,9 @@ def apply_plan_adoption(
         base.detail = "blocked: entire requested set performs zero writes"
         return base
 
-    pins, pin_error = _pin_selected_adoptions(historical_root, dispositions)
+    pins, pin_error = _pin_selected_adoptions(
+        historical_root, dispositions, inventory=inventory
+    )
     if pins is None:
         after = historical_root_digest(historical_root)
         base.blocked = True
@@ -658,7 +799,6 @@ def apply_plan_adoption(
     else:
         verification, verify_detail = _verify_product_seam(
             current_repo_root=current_repo_root,
-            historical_root=historical_root,
             dispositions=dispositions,
             pins=pins,
         )

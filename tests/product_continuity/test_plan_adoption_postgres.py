@@ -594,3 +594,80 @@ def test_importer_consumes_pinned_snapshot_not_live_root(
     snapshot = get_workspace_document_snapshot(current, doc_id)
     assert snapshot.markdown == original
     assert snapshot.markdown != "# live bytes B after pin\n"
+
+
+def test_w5_bytes_and_metadata_change_before_pin_blocks_zero_writes(
+    application_state_dsn: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "26262626-2626-4262-8262-262626262626"
+    original = "# classified bytes A\n"
+    _historical_plan(hist, document_id=doc_id, body=original, title="Original Title")
+    original_pin = plan_adoption_mod._pin_selected_adoptions
+
+    def mutate_then_pin(historical_root: Path, dispositions: list[object], inventory: object):
+        target = historical_root / "out/workspace/plan" / f"{doc_id}.md"
+        target.write_text("# mutated bytes B\n", encoding="utf-8")
+        registry = historical_root / "out/registries/workspace_documents.json"
+        payload = json.loads(registry.read_text(encoding="utf-8"))
+        for rec in payload["records"]:
+            if rec["document_id"] == doc_id:
+                rec["title"] = "Mutated Title"
+                rec["revision"] = 99
+        registry.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        return original_pin(historical_root, dispositions, inventory)
+
+    monkeypatch.setattr(plan_adoption_mod, "_pin_selected_adoptions", mutate_then_pin)
+    report = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert report.blocked is True
+    assert report.applied is False
+    assert report.importer_imported == 0
+    assert list_plans() == []
+    assert "does not match the classified" in (report.detail or "")
+
+
+def test_current_exact_missing_historical_bytes_verifies_without_inventing_empty(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "27272727-2727-4272-8272-272727272727"
+    body = "# already current non-empty\n"
+    record = _historical_plan(
+        hist,
+        document_id=doc_id,
+        body=body,
+        title="Current Plan",
+        revision=2,
+    )
+    first = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert first.blocked is False
+    assert first.importer_imported == 1
+    assert first.product_verification == "passed"
+    (hist / record.target_relpath).unlink()
+    second = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert second.blocked is False
+    assert second.applied is True
+    assert second.dispositions[0].classification == "CURRENT_EXACT"
+    assert second.dispositions[0].action == "noop"
+    assert second.importer_imported == 0
+    assert second.product_verification == "passed"
+    snapshot = get_workspace_document_snapshot(current, doc_id)
+    assert snapshot.markdown == body
+    assert snapshot.content_sha256 == sha256_utf8(body)
+    assert snapshot.content_sha256 != sha256_utf8("")
