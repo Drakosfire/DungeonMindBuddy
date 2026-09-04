@@ -147,6 +147,93 @@ def test_w3_w4_plan_history_and_recoverable(
     assert rev1.revision_n == 1
 
 
+def test_revision_only_history_without_bytes_is_contains_history(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    """RC2: claimed revision must be proven even when historical target bytes are absent."""
+    created = create_plan(title="Revision Only Continuity", campaign_id="longmont-c2")
+    doc_id = str(created.work_object_id)
+    rev1_md = "# revision one retained\n"
+    commit_plan(doc_id, rev1_md)
+    commit_plan(doc_id, "# revision two head\n", expected_revision=created.object_revision + 1)
+
+    hist = tmp_path / "hist"
+    hist.mkdir()
+    # Registry claims revision 1 but deliberately omits target bytes.
+    _write_json(
+        hist / "out/registries/workspace_documents.json",
+        {
+            "schema_version": "dmb_workspace_document_registry_v1",
+            "records": [
+                {
+                    "schema_version": "dmb_workspace_document_record_v1",
+                    "document_id": doc_id,
+                    "title": "Revision Only Continuity",
+                    "campaign_id": "longmont-c2",
+                    "kind": "plan",
+                    "target_relpath": f"out/workspace/plan/{doc_id}.md",
+                    "status": "active",
+                    "content_status": "committed",
+                    "revision": 1,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                }
+            ],
+        },
+    )
+    assert not (hist / f"out/workspace/plan/{doc_id}.md").exists()
+
+    current = tmp_path / "current"
+    current.mkdir()
+    report = run_inventory(
+        current_repo_root=current, historical_roots=[("hist", hist)]
+    )
+    item = next(i for i in report.items if i.identity == doc_id)
+    assert item.classification == "CURRENT_CONTAINS_HISTORY"
+    assert item.classification != "CURRENT_EXACT"
+    assert item.current_authority.matching_revision == 1
+
+
+def test_revision_only_missing_history_is_conflict(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    created = create_plan(title="Missing Historical Rev", campaign_id="longmont-c2")
+    doc_id = str(created.work_object_id)
+    # Only revision 1 exists in APP-STATE; historical claims revision 2 without bytes.
+    commit_plan(doc_id, "# only rev1\n")
+    hist = tmp_path / "hist"
+    hist.mkdir()
+    _write_json(
+        hist / "out/registries/workspace_documents.json",
+        {
+            "schema_version": "dmb_workspace_document_registry_v1",
+            "records": [
+                {
+                    "schema_version": "dmb_workspace_document_record_v1",
+                    "document_id": doc_id,
+                    "title": "Missing Historical Rev",
+                    "campaign_id": "longmont-c2",
+                    "kind": "plan",
+                    "target_relpath": f"out/workspace/plan/{doc_id}.md",
+                    "status": "active",
+                    "content_status": "committed",
+                    "revision": 2,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                }
+            ],
+        },
+    )
+    current = tmp_path / "current"
+    current.mkdir()
+    report = run_inventory(
+        current_repo_root=current, historical_roots=[("hist", hist)]
+    )
+    item = next(i for i in report.items if i.identity == doc_id)
+    assert item.classification == "CONFLICT"
+    assert item.classification != "CURRENT_EXACT"
+
+
 def test_w6_w9_w11_ingest_and_play_inventory(
     application_state_dsn: str, tmp_path: Path
 ) -> None:
