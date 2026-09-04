@@ -4,11 +4,20 @@ Re-observes current product authority via the accepted DFC-1 inventory, then
 optionally drives the existing exact Plan importer. Never synthesizes identity,
 never mutates the historical root, and never writes unless every selected ID is
 safe.
+
+DFC-1 classification is predecessor evidence and is not changed here. DFC-2a's
+content-recovery gate is stricter: a selected ``RECOVERABLE_EXACT`` Plan is
+eligible to import only when admitted historical target bytes exist under the
+explicit root. Missing/empty bytes block the requested set rather than creating
+blank WorkObjects.
 """
 
 from __future__ import annotations
 
 import hashlib
+import shutil
+import tempfile
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -45,6 +54,14 @@ NOOP_CLASSIFICATIONS: frozenset[Classification] = frozenset(
     {"CURRENT_EXACT", "CURRENT_CONTAINS_HISTORY"}
 )
 SAFE_CLASSIFICATIONS = ADOPT_CLASSIFICATIONS | NOOP_CLASSIFICATIONS
+
+MISSING_TARGET_BYTES_REASON = (
+    "RECOVERABLE_EXACT but admitted historical target bytes are absent/empty; "
+    "later archive/adapter recovery required"
+)
+ESCAPING_TARGET_REASON = (
+    "target_relpath escapes the explicitly supplied historical root"
+)
 
 AdoptionAction = Literal["adopt", "noop", "block"]
 AdoptionMode = Literal["preview", "apply"]
@@ -90,6 +107,16 @@ class PlanAdoptionReport(BaseModel):
     detail: str | None = None
 
 
+@dataclass(frozen=True)
+class PinnedPlanEvidence:
+    """Exact record + target bytes classified safe immediately before commit."""
+
+    record: WorkspaceDocumentRecord
+    target_relpath: str
+    markdown: str
+    content_sha256: str
+
+
 def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
@@ -116,6 +143,44 @@ def normalize_document_ids(raw_ids: list[str]) -> list[str]:
     return normalized
 
 
+def confined_target_path(
+    historical_root: Path, target_relpath: str | None
+) -> tuple[Path | None, str | None]:
+    """Resolve ``target_relpath`` inside ``historical_root``.
+
+    Absolute locators and ``..`` / symlink escapes are rejected. A missing
+    locator is also an error: DFC-2a will not invent a path.
+    """
+    if target_relpath is None or str(target_relpath).strip() == "":
+        return None, "historical target_relpath is missing"
+    raw = str(target_relpath)
+    if Path(raw).is_absolute():
+        return None, ESCAPING_TARGET_REASON
+    root = historical_root.resolve()
+    candidate = (root / raw).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None, ESCAPING_TARGET_REASON
+    return candidate, None
+
+
+def read_admitted_plan_bytes(
+    historical_root: Path, record: WorkspaceDocumentRecord
+) -> tuple[str | None, str | None]:
+    """Return (normalized markdown, error). Empty/missing/escaping bytes fail."""
+    path, error = confined_target_path(historical_root, record.target_relpath)
+    if error:
+        return None, error
+    assert path is not None
+    if not path.is_file():
+        return None, MISSING_TARGET_BYTES_REASON
+    markdown = normalize_markdown(path.read_text(encoding="utf-8"))
+    if markdown == "":
+        return None, MISSING_TARGET_BYTES_REASON
+    return markdown, None
+
+
 def historical_root_digest(root: Path) -> str:
     """Digest Plan evidence under the historical root (registry + Plan bytes).
 
@@ -133,20 +198,22 @@ def historical_root_digest(root: Path) -> str:
             for record in document.records:
                 if not record.target_relpath:
                     continue
-                target = (root / record.target_relpath).resolve()
-                try:
-                    target.relative_to(root)
-                except ValueError:
+                target, error = confined_target_path(root, record.target_relpath)
+                if error or target is None or not target.is_file():
                     continue
-                if target.is_file():
-                    candidates.add(target)
+                candidates.add(target)
         except Exception:
             pass
     plan_dir = root / "out/workspace/plan"
     if plan_dir.is_dir():
         for path in plan_dir.rglob("*"):
             if path.is_file():
-                candidates.add(path.resolve())
+                resolved = path.resolve()
+                try:
+                    resolved.relative_to(root)
+                except ValueError:
+                    continue
+                candidates.add(resolved)
     digest = hashlib.sha256()
     for path in sorted(candidates, key=lambda item: item.relative_to(root).as_posix()):
         relative = path.relative_to(root).as_posix()
@@ -244,6 +311,19 @@ def classify_selected_plans(
                     )
                 )
                 continue
+            markdown, error = read_admitted_plan_bytes(historical_root, record)
+            if error or markdown is None:
+                dispositions.append(
+                    PlanAdoptionDisposition(
+                        document_id=document_id,
+                        classification=item.classification,
+                        action="block",
+                        domain=item.domain,
+                        title=item.title,
+                        reason=[error or MISSING_TARGET_BYTES_REASON],
+                    )
+                )
+                continue
             dispositions.append(
                 PlanAdoptionDisposition(
                     document_id=document_id,
@@ -326,14 +406,94 @@ def preview_plan_adoption(
     )
 
 
+def _pin_selected_adoptions(
+    historical_root: Path,
+    dispositions: list[PlanAdoptionDisposition],
+) -> tuple[list[PinnedPlanEvidence] | None, str | None]:
+    pins: list[PinnedPlanEvidence] = []
+    for row in dispositions:
+        if row.action != "adopt":
+            continue
+        record = load_historical_plan_record(historical_root, row.document_id)
+        if record is None or record.target_relpath is None:
+            return None, (
+                f"blocked: {row.document_id} became unresolvable immediately before import"
+            )
+        markdown, error = read_admitted_plan_bytes(historical_root, record)
+        if error or markdown is None:
+            return None, (
+                f"blocked: {row.document_id} lost admitted historical target bytes "
+                "immediately before import"
+            )
+        pins.append(
+            PinnedPlanEvidence(
+                record=record,
+                target_relpath=record.target_relpath,
+                markdown=markdown,
+                content_sha256=sha256_utf8(markdown),
+            )
+        )
+    return pins, None
+
+
+def _revalidate_pinned_evidence(
+    historical_root: Path, pins: list[PinnedPlanEvidence]
+) -> str | None:
+    """Fail closed if live historical evidence no longer matches the pin.
+
+    Tests wrap this function to mutate/delete the live target after preflight
+    and prove zero product writes.
+    """
+    for pin in pins:
+        live_record = load_historical_plan_record(
+            historical_root, pin.record.document_id
+        )
+        if live_record is None or live_record != pin.record:
+            return (
+                f"{pin.record.document_id}: historical WorkspaceDocumentRecord "
+                "changed after preflight"
+            )
+        markdown, error = read_admitted_plan_bytes(historical_root, pin.record)
+        if error or markdown is None:
+            return (
+                f"{pin.record.document_id}: pinned evidence no longer matches live "
+                f"historical bytes ({error})"
+            )
+        if markdown != pin.markdown or sha256_utf8(markdown) != pin.content_sha256:
+            return (
+                f"{pin.record.document_id}: historical target bytes changed after preflight"
+            )
+    return None
+
+
+def _materialize_pinned_importer_root(pins: list[PinnedPlanEvidence]) -> Path:
+    """Write pinned bytes under a throwaway root the existing importer can read.
+
+    The live historical root is never this directory. The importer therefore
+    cannot independently re-read bytes B after preflight classified bytes A.
+    """
+    snapshot = Path(tempfile.mkdtemp(prefix="dmb-dfc2a-pin-"))
+    try:
+        for pin in pins:
+            dest, error = confined_target_path(snapshot, pin.target_relpath)
+            if error or dest is None:
+                raise PlanAdoptionError(
+                    f"{pin.record.document_id}: pinned target_relpath is not "
+                    f"confined in the importer snapshot ({error})"
+                )
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(pin.markdown, encoding="utf-8")
+    except Exception:
+        shutil.rmtree(snapshot, ignore_errors=True)
+        raise
+    return snapshot
+
+
 def _expected_snapshot_fields(
-    record: WorkspaceDocumentRecord, historical_root: Path
+    record: WorkspaceDocumentRecord,
+    *,
+    markdown: str,
 ) -> dict[str, Any]:
-    markdown = ""
-    if record.target_relpath:
-        target = historical_root / record.target_relpath
-        if target.is_file():
-            markdown = normalize_markdown(target.read_text(encoding="utf-8"))
     return {
         "document_id": record.document_id,
         "revision": record.revision,
@@ -351,16 +511,25 @@ def _verify_product_seam(
     current_repo_root: Path,
     historical_root: Path,
     dispositions: list[PlanAdoptionDisposition],
+    pins: list[PinnedPlanEvidence],
 ) -> tuple[ProductVerification, str | None]:
+    pins_by_id = {pin.record.document_id: pin for pin in pins}
     failures: list[str] = []
     for row in dispositions:
         if row.action not in {"adopt", "noop"}:
             continue
-        historical = load_historical_plan_record(historical_root, row.document_id)
-        if historical is None:
-            failures.append(f"{row.document_id}: historical record missing at verify")
-            continue
-        expected = _expected_snapshot_fields(historical, historical_root)
+        pin = pins_by_id.get(row.document_id)
+        if pin is not None:
+            expected = _expected_snapshot_fields(pin.record, markdown=pin.markdown)
+        else:
+            historical = load_historical_plan_record(historical_root, row.document_id)
+            if historical is None:
+                failures.append(f"{row.document_id}: historical record missing at verify")
+                continue
+            markdown, error = read_admitted_plan_bytes(historical_root, historical)
+            if error or markdown is None:
+                markdown = ""
+            expected = _expected_snapshot_fields(historical, markdown=markdown)
         list_status = expected["status"] if expected["status"] in {"active", "discarded"} else "active"
         listed_for_status = {
             record.document_id: record
@@ -435,47 +604,64 @@ def apply_plan_adoption(
         base.detail = "blocked: entire requested set performs zero writes"
         return base
 
-    write_ids = [row.document_id for row in dispositions if row.action == "adopt"]
-    records: list[WorkspaceDocumentRecord] = []
-    for document_id in write_ids:
-        record = load_historical_plan_record(historical_root, document_id)
-        if record is None:
-            after = historical_root_digest(historical_root)
-            base.blocked = True
-            base.historical_root_digest_after = after
-            base.historical_root_unchanged = before == after
-            base.product_verification = "skipped"
-            base.detail = (
-                f"blocked: {document_id} became unresolvable immediately before import"
-            )
-            return base
-        records.append(record)
+    pins, pin_error = _pin_selected_adoptions(historical_root, dispositions)
+    if pins is None:
+        after = historical_root_digest(historical_root)
+        base.blocked = True
+        base.historical_root_digest_after = after
+        base.historical_root_unchanged = before == after
+        base.product_verification = "skipped"
+        base.detail = pin_error
+        return base
 
-    if records:
+    mismatch = _revalidate_pinned_evidence(historical_root, pins)
+    if mismatch:
+        after = historical_root_digest(historical_root)
+        base.blocked = True
+        base.historical_root_digest_after = after
+        base.historical_root_unchanged = before == after
+        base.product_verification = "skipped"
+        base.detail = f"blocked: {mismatch}"
+        return base
+
+    if pins:
+        snapshot_root = _materialize_pinned_importer_root(pins)
         try:
-            importer_report = import_plans_from_registry(historical_root, records)
-        except (
-            ApplicationStateConflictError,
-            ApplicationStateIntegrityError,
-            ApplicationStateUnavailableError,
-        ) as exc:
-            after = historical_root_digest(historical_root)
-            base.blocked = True
-            base.historical_root_digest_after = after
-            base.historical_root_unchanged = before == after
-            base.product_verification = "skipped"
-            base.detail = f"importer fail-closed; transaction rolled back: {exc}"
-            return base
+            try:
+                importer_report = import_plans_from_registry(
+                    snapshot_root, [pin.record for pin in pins]
+                )
+            except (
+                ApplicationStateConflictError,
+                ApplicationStateIntegrityError,
+                ApplicationStateUnavailableError,
+            ) as exc:
+                after = historical_root_digest(historical_root)
+                base.blocked = True
+                base.historical_root_digest_after = after
+                base.historical_root_unchanged = before == after
+                base.product_verification = "skipped"
+                base.detail = f"importer fail-closed; transaction rolled back: {exc}"
+                return base
+        finally:
+            shutil.rmtree(snapshot_root, ignore_errors=True)
         base.importer_imported = importer_report.imported
         base.importer_noop = importer_report.noop
         base.importer_skipped_empty = importer_report.skipped_empty
 
     base.applied = True
-    verification, verify_detail = _verify_product_seam(
-        current_repo_root=current_repo_root,
-        historical_root=historical_root,
-        dispositions=dispositions,
-    )
+    if base.importer_skipped_empty:
+        verification, verify_detail = (
+            "failed",
+            "importer skipped_empty is not successful historical-content recovery",
+        )
+    else:
+        verification, verify_detail = _verify_product_seam(
+            current_repo_root=current_repo_root,
+            historical_root=historical_root,
+            dispositions=dispositions,
+            pins=pins,
+        )
     after = historical_root_digest(historical_root)
     base.product_verification = verification
     base.product_verification_detail = verify_detail

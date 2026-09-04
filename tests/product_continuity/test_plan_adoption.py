@@ -8,11 +8,15 @@ from pathlib import Path
 import pytest
 
 from product_continuity.plan_adoption import (
+    ESCAPING_TARGET_REASON,
+    MISSING_TARGET_BYTES_REASON,
     PlanAdoptionInputError,
     classify_selected_plans,
+    confined_target_path,
     historical_root_digest,
     normalize_document_ids,
     preview_plan_adoption,
+    read_admitted_plan_bytes,
     run_plan_adoption,
 )
 from product_continuity.inventory import run_inventory
@@ -265,3 +269,50 @@ def test_missing_historical_root_is_input_error(tmp_path: Path) -> None:
             historical_root=tmp_path / "nope",
             document_ids=["ffffffff-ffff-4fff-8fff-ffffffffffff"],
         )
+
+
+def test_confined_target_rejects_absolute_and_parent_escape(tmp_path: Path) -> None:
+    root = tmp_path / "hist"
+    root.mkdir()
+    outside = tmp_path / "outside.md"
+    outside.write_text("# secret\n", encoding="utf-8")
+    path, error = confined_target_path(root, str(outside))
+    assert path is None
+    assert error == ESCAPING_TARGET_REASON
+    path, error = confined_target_path(root, "../outside.md")
+    assert path is None
+    assert error == ESCAPING_TARGET_REASON
+    path, error = confined_target_path(root, None)
+    assert path is None
+    assert error == "historical target_relpath is missing"
+    inside = root / "out/workspace/plan/ok.md"
+    inside.parent.mkdir(parents=True, exist_ok=True)
+    inside.write_text("# ok\n", encoding="utf-8")
+    path, error = confined_target_path(root, "out/workspace/plan/ok.md")
+    assert error is None
+    assert path == inside.resolve()
+
+
+def test_read_admitted_plan_bytes_rejects_missing_and_empty(tmp_path: Path) -> None:
+    from apps.live_control_server.services.workspace_document_registry import (
+        WorkspaceDocumentRecord,
+    )
+
+    root = tmp_path / "hist"
+    doc_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    record = WorkspaceDocumentRecord.model_validate(
+        _plan_record(doc_id, relpath=f"out/workspace/plan/{doc_id}.md")
+    )
+    markdown, error = read_admitted_plan_bytes(root, record)
+    assert markdown is None
+    assert error == MISSING_TARGET_BYTES_REASON
+    target = root / record.target_relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("", encoding="utf-8")
+    markdown, error = read_admitted_plan_bytes(root, record)
+    assert markdown is None
+    assert error == MISSING_TARGET_BYTES_REASON
+    target.write_text("# recovered\n", encoding="utf-8")
+    markdown, error = read_admitted_plan_bytes(root, record)
+    assert error is None
+    assert markdown == "# recovered\n"

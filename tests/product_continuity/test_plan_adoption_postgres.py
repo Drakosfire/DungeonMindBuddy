@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from application_state.content.import_plans import import_plans_from_registry
 from application_state.content.service import commit_plan, create_plan, list_plans
 from application_state.content.types import sha256_utf8
@@ -13,7 +15,10 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
     list_workspace_documents,
 )
+from product_continuity import plan_adoption as plan_adoption_mod
 from product_continuity.plan_adoption import (
+    ESCAPING_TARGET_REASON,
+    MISSING_TARGET_BYTES_REASON,
     apply_plan_adoption,
     historical_root_digest,
     preview_plan_adoption,
@@ -36,11 +41,15 @@ def _historical_plan(
     revision: int = 3,
     content_status: str = "committed",
     status: str = "active",
+    relpath: str | None = None,
+    write_bytes: bool = True,
 ) -> WorkspaceDocumentRecord:
-    relpath = f"out/workspace/plan/{document_id}.md"
-    target = root / relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(body, encoding="utf-8")
+    if relpath is None:
+        relpath = f"out/workspace/plan/{document_id}.md"
+    if write_bytes:
+        target = root / relpath
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(body, encoding="utf-8")
     record = {
         "schema_version": "dmb_workspace_document_record_v1",
         "document_id": document_id,
@@ -364,3 +373,224 @@ def test_discarded_plan_verifies_on_discarded_list_not_default_active(
     snapshot = get_workspace_document_snapshot(current, doc_id)
     assert snapshot.record.status == "discarded"
     assert snapshot.record.document_id == doc_id
+
+
+def test_missing_target_bytes_blocks_recoverable_sibling(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    recoverable = "16161616-1616-4161-8161-161616161616"
+    empty = "17171717-1717-4171-8171-171717171717"
+    _historical_plan(hist, document_id=recoverable, body="# keep out\n")
+    _historical_plan(
+        hist,
+        document_id=empty,
+        body="",
+        title="Draft without bytes",
+        content_status="draft",
+        write_bytes=False,
+    )
+    before = historical_root_digest(hist)
+    report = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[recoverable, empty],
+    )
+    assert report.blocked is True
+    assert report.applied is False
+    assert report.importer_imported == 0
+    assert report.importer_skipped_empty == 0
+    assert list_plans() == []
+    assert historical_root_digest(hist) == before
+    by_id = {row.document_id: row for row in report.dispositions}
+    assert by_id[recoverable].classification == "RECOVERABLE_EXACT"
+    assert by_id[recoverable].action == "adopt"
+    assert by_id[empty].classification == "RECOVERABLE_EXACT"
+    assert by_id[empty].action == "block"
+    assert MISSING_TARGET_BYTES_REASON in by_id[empty].reason
+
+
+def test_empty_target_file_blocks(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "18181818-1818-4181-8181-181818181818"
+    _historical_plan(
+        hist,
+        document_id=doc_id,
+        body="",
+        content_status="draft",
+        write_bytes=True,
+    )
+    report = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert report.blocked is True
+    assert report.applied is False
+    assert list_plans() == []
+    assert report.dispositions[0].classification == "RECOVERABLE_EXACT"
+    assert report.dispositions[0].action == "block"
+
+
+def test_absolute_target_relpath_blocks_entire_set(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    recoverable = "19191919-1919-4191-8191-191919191919"
+    escaped = "20202020-2020-4202-8202-202020202020"
+    _historical_plan(hist, document_id=recoverable, body="# stay\n")
+    outside = tmp_path / "outside.md"
+    outside.write_text("# escaped bytes\n", encoding="utf-8")
+    _historical_plan(
+        hist,
+        document_id=escaped,
+        body="# unused\n",
+        relpath=str(outside),
+        write_bytes=False,
+    )
+    report = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[recoverable, escaped],
+    )
+    assert report.blocked is True
+    assert report.applied is False
+    assert list_plans() == []
+    by_id = {row.document_id: row for row in report.dispositions}
+    assert by_id[escaped].action == "block"
+    assert ESCAPING_TARGET_REASON in by_id[escaped].reason[0]
+
+
+def test_parent_escape_target_relpath_blocks_entire_set(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    recoverable = "21212121-2121-4121-8121-212121212121"
+    escaped = "22222222-2222-4222-8222-222222222222"
+    _historical_plan(hist, document_id=recoverable, body="# stay\n")
+    outside = tmp_path / "outside.md"
+    outside.write_text("# parent escape\n", encoding="utf-8")
+    _historical_plan(
+        hist,
+        document_id=escaped,
+        body="# unused\n",
+        relpath="../outside.md",
+        write_bytes=False,
+    )
+    report = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[recoverable, escaped],
+    )
+    assert report.blocked is True
+    assert report.applied is False
+    assert list_plans() == []
+    by_id = {row.document_id: row for row in report.dispositions}
+    assert by_id[escaped].action == "block"
+    assert ESCAPING_TARGET_REASON in by_id[escaped].reason[0]
+
+
+def test_w5_historical_bytes_change_after_preflight_blocks_zero_writes(
+    application_state_dsn: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "23232323-2323-4232-8232-232323232323"
+    original = "# classified bytes A\n"
+    _historical_plan(hist, document_id=doc_id, body=original)
+    original_revalidate = plan_adoption_mod._revalidate_pinned_evidence
+
+    def mutate_then_revalidate(historical_root: Path, pins: list[object]):
+        target = historical_root / "out/workspace/plan" / f"{doc_id}.md"
+        target.write_text("# mutated bytes B\n", encoding="utf-8")
+        return original_revalidate(historical_root, pins)
+
+    monkeypatch.setattr(
+        plan_adoption_mod, "_revalidate_pinned_evidence", mutate_then_revalidate
+    )
+    report = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert report.blocked is True
+    assert report.applied is False
+    assert report.importer_imported == 0
+    assert list_plans() == []
+    listed = list_workspace_documents(current, kind="plan")
+    assert listed == []
+
+
+def test_w5_historical_bytes_deleted_after_preflight_blocks_zero_writes(
+    application_state_dsn: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "24242424-2424-4242-8242-242424242424"
+    _historical_plan(hist, document_id=doc_id, body="# classified bytes A\n")
+    original_revalidate = plan_adoption_mod._revalidate_pinned_evidence
+
+    def delete_then_revalidate(historical_root: Path, pins: list[object]):
+        target = historical_root / "out/workspace/plan" / f"{doc_id}.md"
+        target.unlink()
+        return original_revalidate(historical_root, pins)
+
+    monkeypatch.setattr(
+        plan_adoption_mod, "_revalidate_pinned_evidence", delete_then_revalidate
+    )
+    report = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert report.blocked is True
+    assert report.applied is False
+    assert list_plans() == []
+
+
+def test_importer_consumes_pinned_snapshot_not_live_root(
+    application_state_dsn: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "25252525-2525-4252-8252-252525252525"
+    original = "# classified bytes A\n"
+    _historical_plan(hist, document_id=doc_id, body=original)
+    captured: dict[str, str] = {}
+    real_import = import_plans_from_registry
+
+    def spy(root: Path, records: list[object]):
+        relpath = getattr(records[0], "target_relpath")
+        captured["root"] = str(Path(root).resolve())
+        captured["hist"] = str(hist.resolve())
+        captured["bytes"] = (Path(root) / relpath).read_text(encoding="utf-8")
+        live = hist / relpath
+        live.write_text("# live bytes B after pin\n", encoding="utf-8")
+        return real_import(root, records)
+
+    monkeypatch.setattr(plan_adoption_mod, "import_plans_from_registry", spy)
+    report = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert report.blocked is False
+    assert report.applied is True
+    assert captured["root"] != captured["hist"]
+    assert captured["bytes"] == original
+    snapshot = get_workspace_document_snapshot(current, doc_id)
+    assert snapshot.markdown == original
+    assert snapshot.markdown != "# live bytes B after pin\n"
