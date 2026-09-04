@@ -720,7 +720,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(publishCalls.some((call) => call !== null)).toBe(true);
   });
 
-  it("selectedRunMissing when the whole session vanished from the settled catalog", async () => {
+  it("selectedRunMissing when the whole session vanished from the READY catalog", async () => {
     window.history.replaceState(
       {},
       "",

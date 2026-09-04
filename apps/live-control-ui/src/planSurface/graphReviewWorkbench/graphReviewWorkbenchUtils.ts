@@ -85,6 +85,24 @@ export function isCatalogRunPromotedHistory(run: ExtractionRunRecord): boolean {
   return catalogRunStatus(run) === "promoted";
 }
 
+/**
+ * Explicit selected run_id is missing only after an authoritative catalog
+ * observation (READY/EMPTY). UNAVAILABLE/INTEGRITY do not establish absence.
+ */
+export function isSelectedCatalogRunMissing(input: {
+  catalogStatus: string;
+  selectedRunId: string | null | undefined;
+  appliedLiveRunPresent: boolean;
+}): boolean {
+  const authoritative =
+    input.catalogStatus === "ready" || input.catalogStatus === "empty";
+  return (
+    authoritative
+    && Boolean((input.selectedRunId ?? "").trim())
+    && !input.appliedLiveRunPresent
+  );
+}
+
 export function isRecapCatalogRun(run: ExtractionRunRecord): boolean {
   return (
     run.source_domain === "recap"

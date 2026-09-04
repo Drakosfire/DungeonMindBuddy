@@ -64,6 +64,7 @@ import {
   formatCompactAppliedLoadLabel,
   isCatalogRunExactReviewable,
   isCatalogRunPromotedHistory,
+  isSelectedCatalogRunMissing,
   pickDefaultCatalogSession,
   pickDefaultWorkbenchRun,
 } from "./graphReviewWorkbenchUtils";
@@ -269,12 +270,14 @@ export function GraphReviewWorkbenchModule({
       ) ?? null
     );
   }, [appliedSelection, appliedSession]);
-  // Explicit run_id missing when the catalog has settled — including when the
-  // whole session vanished (appliedSession null), not only when a sibling run remains.
-  const selectedRunMissing =
-    catalogSettled
-    && Boolean(appliedSelection?.runId)
-    && !appliedLiveRun;
+  // Explicit run_id missing only after an authoritative catalog observation
+  // (READY/EMPTY). UNAVAILABLE/INTEGRITY mean rows were not established — do not
+  // claim the selected run vanished from the canonical catalog.
+  const selectedRunMissing = isSelectedCatalogRunMissing({
+    catalogStatus: catalogState.status,
+    selectedRunId: appliedSelection?.runId,
+    appliedLiveRunPresent: Boolean(appliedLiveRun),
+  });
 
   const draftCampaignSessions = useMemo(
     () => catalogSessionsForReviewCampaign(catalogSessions, draftCampaignId),
@@ -960,7 +963,11 @@ export function GraphReviewWorkbenchModule({
             exactRun={exactRunSummary}
           />
 
-          {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
+          {sessionsError ? (
+            <p className="graph-review-error" data-testid="graph-review-catalog-error">
+              {sessionsError}
+            </p>
+          ) : null}
           {catalogState.status === "empty" ? (
             <p className="plan-projection-empty">No canonical ExtractionRuns are stored yet.</p>
           ) : null}

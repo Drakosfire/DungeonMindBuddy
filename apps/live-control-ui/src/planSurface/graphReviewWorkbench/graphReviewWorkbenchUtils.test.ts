@@ -13,6 +13,7 @@ import {
   graphIngestRunToLane,
   isCatalogRunExactReviewable,
   isCatalogRunPromotedHistory,
+  isSelectedCatalogRunMissing,
   pickDefaultCatalogSession,
   pickDefaultWorkbenchRun,
   pickDefaultWorkbenchSession,
@@ -251,6 +252,51 @@ describe("graphReviewWorkbenchUtils", () => {
     expect(isCatalogRunExactReviewable(promoted)).toBe(false);
     expect(isCatalogRunPromotedHistory(promoted)).toBe(true);
     expect(isCatalogRunPromotedHistory(reviewable)).toBe(false);
+  });
+
+  it("selected-run missing only after READY/EMPTY authoritative catalog", () => {
+    expect(
+      isSelectedCatalogRunMissing({
+        catalogStatus: "ready",
+        selectedRunId: "er_gone",
+        appliedLiveRunPresent: false,
+      }),
+    ).toBe(true);
+    expect(
+      isSelectedCatalogRunMissing({
+        catalogStatus: "empty",
+        selectedRunId: "er_gone",
+        appliedLiveRunPresent: false,
+      }),
+    ).toBe(true);
+    expect(
+      isSelectedCatalogRunMissing({
+        catalogStatus: "unavailable",
+        selectedRunId: "er_gone",
+        appliedLiveRunPresent: false,
+      }),
+    ).toBe(false);
+    expect(
+      isSelectedCatalogRunMissing({
+        catalogStatus: "integrity_error",
+        selectedRunId: "er_gone",
+        appliedLiveRunPresent: false,
+      }),
+    ).toBe(false);
+    expect(
+      isSelectedCatalogRunMissing({
+        catalogStatus: "loading",
+        selectedRunId: "er_gone",
+        appliedLiveRunPresent: false,
+      }),
+    ).toBe(false);
+    expect(
+      isSelectedCatalogRunMissing({
+        catalogStatus: "ready",
+        selectedRunId: "er_gone",
+        appliedLiveRunPresent: true,
+      }),
+    ).toBe(false);
   });
 
   it("W5: gold available_runs cannot inject a product run; exact run_id may only enrich locator", () => {
