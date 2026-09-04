@@ -747,3 +747,135 @@ def test_post_commit_product_seam_failure_keeps_committed_state(
     assert list_plans()[0].object_revision == objects[0].object_revision
     snapshot = get_workspace_document_snapshot(current, doc_id)
     assert snapshot.markdown == body
+
+
+def test_post_commit_historical_root_probe_keeps_committed_state(
+    application_state_dsn: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "29292929-2929-4292-8292-292929292929"
+    body = "# committed then digest probe failed\n"
+    _historical_plan(hist, document_id=doc_id, body=body, title="Durable After Digest Fail")
+    raise_on_digest = {"on": False}
+    original_digest = plan_adoption_mod.historical_root_digest
+    original_import = plan_adoption_mod.import_plans_from_registry
+
+    def digest_maybe_raise(root: Path) -> str:
+        if raise_on_digest["on"]:
+            raise OSError("historical root unreadable after commit")
+        return original_digest(root)
+
+    def import_then_arm(*args, **kwargs):
+        result = original_import(*args, **kwargs)
+        raise_on_digest["on"] = True
+        return result
+
+    monkeypatch.setattr(plan_adoption_mod, "historical_root_digest", digest_maybe_raise)
+    monkeypatch.setattr(plan_adoption_mod, "import_plans_from_registry", import_then_arm)
+
+    report = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert report.blocked is False
+    assert report.applied is True
+    assert report.importer_imported == 1
+    assert report.product_verification == "failed"
+    assert report.detail == "adoption committed; product verification failed"
+    assert "rolled back" not in (report.detail or "").lower()
+    objects = list_plans()
+    assert len(objects) == 1
+    assert str(objects[0].work_object_id) == doc_id
+    durable = snapshot_plan(doc_id)
+    assert durable.markdown == body
+    assert durable.content_sha256 == sha256_utf8(body)
+
+    raise_on_digest["on"] = False
+    replay = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert replay.blocked is False
+    assert replay.applied is True
+    assert replay.dispositions[0].classification == "CURRENT_EXACT"
+    assert replay.dispositions[0].action == "noop"
+    assert replay.importer_imported == 0
+    assert replay.product_verification == "passed"
+    assert len(list_plans()) == 1
+    assert list_plans()[0].object_revision == objects[0].object_revision
+    snapshot = get_workspace_document_snapshot(current, doc_id)
+    assert snapshot.markdown == body
+
+
+def test_post_commit_exception_detail_omits_dsn_secret(
+    application_state_dsn: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib.util
+    from contextlib import redirect_stdout
+    from io import StringIO
+
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "30303030-3030-4303-8303-303030303030"
+    body = "# committed; secret must not leak\n"
+    _historical_plan(hist, document_id=doc_id, body=body, title="Secret Leak Guard")
+    secret = "hunter2-not-for-logs"
+    fake_dsn = (
+        f"postgresql://buddy:{secret}@127.0.0.1:54329/dungeonbuddy_application_state"
+    )
+    raise_on_seam = {"on": False}
+    original_snapshot = plan_adoption_mod.get_workspace_document_snapshot
+    original_import = plan_adoption_mod.import_plans_from_registry
+
+    def exploding_snapshot(*args, **kwargs):
+        if raise_on_seam["on"]:
+            raise ApplicationStateUnavailableError(
+                f"APP-STATE unavailable using {fake_dsn}"
+            )
+        return original_snapshot(*args, **kwargs)
+
+    def import_then_arm(*args, **kwargs):
+        result = original_import(*args, **kwargs)
+        raise_on_seam["on"] = True
+        return result
+
+    monkeypatch.setattr(
+        plan_adoption_mod, "get_workspace_document_snapshot", exploding_snapshot
+    )
+    monkeypatch.setattr(plan_adoption_mod, "import_plans_from_registry", import_then_arm)
+
+    report = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert report.applied is True
+    assert report.product_verification == "failed"
+    assert report.detail == "adoption committed; product verification failed"
+    blob = "\n".join(
+        part
+        for part in (report.detail, report.product_verification_detail)
+        if part
+    )
+    assert secret not in blob
+    assert fake_dsn not in blob
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "adopt_historical_plans.py"
+    spec = importlib.util.spec_from_file_location(
+        "adopt_historical_plans_cli_secret", script
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    buf = StringIO()
+    with redirect_stdout(buf):
+        module._print_report(report)
+    printed = buf.getvalue()
+    assert secret not in printed
+    assert fake_dsn not in printed
+    assert snapshot_plan(doc_id).markdown == body

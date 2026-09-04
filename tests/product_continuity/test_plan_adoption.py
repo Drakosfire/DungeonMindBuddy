@@ -18,6 +18,7 @@ from product_continuity.plan_adoption import (
     preview_plan_adoption,
     read_admitted_plan_bytes,
     run_plan_adoption,
+    sanitize_operator_detail,
 )
 from product_continuity.inventory import run_inventory
 
@@ -85,6 +86,18 @@ def _write_plan_root(
             },
         )
     return relpath
+
+
+def test_sanitize_operator_detail_redacts_dsn_password() -> None:
+    secret = "hunter2-not-for-logs"
+    raw = (
+        "APP-STATE unavailable using "
+        f"postgresql://buddy:{secret}@127.0.0.1:54329/dungeonbuddy_application_state"
+    )
+    out = sanitize_operator_detail(raw)
+    assert secret not in out
+    assert f"postgresql://buddy:{secret}@" not in out
+    assert "***" in out
 
 
 def test_normalize_rejects_non_uuid_and_duplicates() -> None:

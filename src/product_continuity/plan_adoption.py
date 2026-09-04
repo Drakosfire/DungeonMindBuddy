@@ -15,6 +15,7 @@ blank WorkObjects.
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -62,6 +63,12 @@ MISSING_TARGET_BYTES_REASON = (
 )
 ESCAPING_TARGET_REASON = (
     "target_relpath escapes the explicitly supplied historical root"
+)
+_URI_USERINFO_SECRET = re.compile(
+    r"(?i)([a-z][a-z0-9+.-]*://[^/\s:@]+):([^@\s]+)@"
+)
+_SECRET_ASSIGNMENT = re.compile(
+    r"(?i)\b(password|passwd|pwd|secret|api[_-]?key|token)\s*[:=]\s*\S+"
 )
 
 AdoptionAction = Literal["adopt", "noop", "block"]
@@ -120,6 +127,22 @@ class PinnedPlanEvidence:
 
 def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def sanitize_operator_detail(text: str) -> str:
+    """Redact credentials and URI userinfo from operator-visible detail.
+
+    Post-commit exception text must never echo a DSN password or similar secret.
+    """
+    try:
+        redacted = _URI_USERINFO_SECRET.sub(r"\1:***@", text)
+        return _SECRET_ASSIGNMENT.sub(lambda match: f"{match.group(1)}=***", redacted)
+    except Exception:
+        return "post-commit observation failed; exception detail omitted"
+
+
+def _sanitized_post_commit_exception(prefix: str, exc: BaseException) -> str:
+    return sanitize_operator_detail(f"{prefix}: {type(exc).__name__}: {exc}")
 
 
 def normalize_document_id(raw: str) -> str:
@@ -791,6 +814,10 @@ def apply_plan_adoption(
         base.importer_skipped_empty = importer_report.skipped_empty
 
     base.applied = True
+    verification: ProductVerification = "failed"
+    verify_detail: str | None = None
+    after: str | None = None
+    unchanged: bool | None = None
     try:
         if base.importer_skipped_empty:
             verification, verify_detail = (
@@ -803,14 +830,17 @@ def apply_plan_adoption(
                 dispositions=dispositions,
                 pins=pins,
             )
+        after = historical_root_digest(historical_root)
+        unchanged = before == after
     except Exception as exc:
         verification = "failed"
-        verify_detail = f"product seam raised after commit: {exc}"
-    after = historical_root_digest(historical_root)
+        verify_detail = _sanitized_post_commit_exception(
+            "post-commit observation failed", exc
+        )
     base.product_verification = verification
     base.product_verification_detail = verify_detail
     base.historical_root_digest_after = after
-    base.historical_root_unchanged = before == after
+    base.historical_root_unchanged = unchanged
     if verification == "failed":
         base.detail = "adoption committed; product verification failed"
     else:

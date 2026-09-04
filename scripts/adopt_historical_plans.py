@@ -22,6 +22,7 @@ from product_continuity.plan_adoption import (  # noqa: E402
     PlanAdoptionInputError,
     PlanAdoptionReport,
     run_plan_adoption,
+    sanitize_operator_detail,
 )
 
 
@@ -96,9 +97,12 @@ def _print_report(report: PlanAdoptionReport) -> None:
         for reason in row.reason:
             print(f"    {reason}")
     if report.product_verification_detail:
-        print(f"  product verification detail: {report.product_verification_detail}")
+        print(
+            "  product verification detail: "
+            f"{sanitize_operator_detail(report.product_verification_detail)}"
+        )
     if report.detail:
-        print(f"  detail: {report.detail}")
+        print(f"  detail: {sanitize_operator_detail(report.detail)}")
 
 
 def main(argv: list[str] | None = None) -> int:
