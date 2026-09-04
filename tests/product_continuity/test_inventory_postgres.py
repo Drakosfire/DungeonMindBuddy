@@ -233,3 +233,72 @@ def test_w6_w9_w11_ingest_and_play_inventory(
     assert present_item.classification == "CURRENT_EXACT"
     assert absent_item.classification == "RECOVERABLE_EXACT"
     assert play_item.classification == "NEEDS_ADAPTER"
+
+
+def test_w6_same_run_id_payload_conflict(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    present = ExtractionRun.model_validate(
+        {
+            "run_id": "er_conflict_exact",
+            "source_artifact_id": "sa_current",
+            "source_domain": "worldbuilding",
+            "status": ExtractionRunStatus.DRAFT,
+            "revision": 1,
+            "campaign_id": "eldyrwild",
+            "session_id": None,
+            "created_at": "2026-09-02T18:00:00Z",
+            "updated_at": "2026-09-02T18:00:00Z",
+        }
+    )
+    create_extraction_run(present)
+    disagreeing = {
+        "schema_version": "dmb_extraction_run_v1",
+        "version": "1.0",
+        "run_id": "er_conflict_exact",
+        "source_artifact_id": "sa_historical_other",
+        "source_domain": "worldbuilding",
+        "status": "draft",
+        "revision": 1,
+        "campaign_id": "eldyrwild",
+        "session_id": None,
+        "components": {},
+        "lineage": {},
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+    }
+    hist = tmp_path / "hist"
+    _write_json(
+        hist / "out/registries/extraction_runs.json",
+        {
+            "schema_version": "dmb_extraction_run_registry_v1",
+            "records": [disagreeing],
+        },
+    )
+    current = tmp_path / "current"
+    current.mkdir()
+    report = run_inventory(
+        current_repo_root=current, historical_roots=[("hist", hist)]
+    )
+    item = next(i for i in report.items if i.identity == "er_conflict_exact")
+    assert item.classification == "CONFLICT"
+
+
+def test_plan_orphan_digest_disagrees_with_current_is_conflict(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    created = create_plan(title="Digest Conflict", campaign_id="longmont-c2")
+    doc_id = str(created.work_object_id)
+    commit_plan(doc_id, "# current head bytes\n")
+    hist = tmp_path / "hist"
+    target = hist / "out/workspace/plan" / f"{doc_id}.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("# different historical orphan bytes\n", encoding="utf-8")
+    current = tmp_path / "current"
+    current.mkdir()
+    report = run_inventory(
+        current_repo_root=current, historical_roots=[("hist", hist)]
+    )
+    item = next(i for i in report.items if i.identity == doc_id)
+    assert item.classification == "CONFLICT"
+    assert item.classification != "CURRENT_EXACT"

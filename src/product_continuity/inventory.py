@@ -23,9 +23,12 @@ from application_state.content.service import (
     exact_committed_revision,
     list_plans,
     list_runbooks,
+    snapshot_plan,
+    snapshot_runbook,
 )
 from application_state.content.types import sha256_utf8
 from application_state.errors import (
+    ApplicationStateIntegrityError,
     ApplicationStateMigrationError,
     ApplicationStateNotFoundError,
     ApplicationStateUnavailableError,
@@ -151,6 +154,7 @@ class _PendingObs:
     campaign_id: str | None = None
     session_id: str | None = None
     title: str | None = None
+    content_status: str | None = None
     observation: HistoricalObservation | None = None
     # For ingest adapted runs: durable payload fingerprint of adapted ExtractionRun
     adapted_fingerprint: str | None = None
@@ -165,6 +169,8 @@ class CurrentAuthoritySnapshot:
     plans: dict[str, Any] = field(default_factory=dict)
     runbooks: dict[str, Any] = field(default_factory=dict)
     builds: dict[str, Any] = field(default_factory=dict)
+    builds_readable: bool = True
+    builds_detail: str | None = None
     ingest: dict[str, Any] = field(default_factory=dict)
     play_runs: dict[str, Any] = field(default_factory=dict)
 
@@ -237,15 +243,18 @@ def sanitize_authority_coordinates(
 
 def observe_current_authority(current_repo_root: Path) -> CurrentAuthoritySnapshot:
     """Observe current product seams. Never writes."""
+    builds, builds_readable, builds_detail = _load_current_builds(current_repo_root)
+
     try:
         load_runtime_dsn()
     except ApplicationStateUnavailableError as exc:
-        builds = _load_current_builds(current_repo_root)
         return CurrentAuthoritySnapshot(
             readable=False,
             detail=str(exc),
             schema_head_status="unavailable",
             builds=builds,
+            builds_readable=builds_readable,
+            builds_detail=builds_detail,
         )
 
     try:
@@ -288,7 +297,6 @@ def observe_current_authority(current_repo_root: Path) -> CurrentAuthoritySnapsh
                 "playable_content_sha256": agg.run.playable_content_sha256,
                 "run_revision": agg.run.run_revision,
             }
-        builds = _load_current_builds(current_repo_root)
         return CurrentAuthoritySnapshot(
             readable=True,
             detail=None,
@@ -296,44 +304,72 @@ def observe_current_authority(current_repo_root: Path) -> CurrentAuthoritySnapsh
             plans=plans,
             runbooks=runbooks,
             builds=builds,
+            builds_readable=builds_readable,
+            builds_detail=builds_detail,
             ingest=ingest,
             play_runs=play_runs,
         )
     except ApplicationStateMigrationError as exc:
-        builds = _load_current_builds(current_repo_root)
         return CurrentAuthoritySnapshot(
             readable=False,
             detail=str(exc),
             schema_head_status="behind_head",
             builds=builds,
+            builds_readable=builds_readable,
+            builds_detail=builds_detail,
         )
     except ApplicationStateUnavailableError as exc:
-        builds = _load_current_builds(current_repo_root)
         return CurrentAuthoritySnapshot(
             readable=False,
             detail=str(exc),
             schema_head_status="unavailable",
             builds=builds,
+            builds_readable=builds_readable,
+            builds_detail=builds_detail,
+        )
+    except ApplicationStateIntegrityError as exc:
+        return CurrentAuthoritySnapshot(
+            readable=False,
+            detail=str(exc),
+            schema_head_status="integrity_error",
+            builds=builds,
+            builds_readable=builds_readable,
+            builds_detail=builds_detail,
         )
 
 
-def _load_current_builds(current_repo_root: Path) -> dict[str, Any]:
-    """Build worldbuilding_source remains file-registry authority."""
-    out: dict[str, Any] = {}
+def _load_current_builds(
+    current_repo_root: Path,
+) -> tuple[dict[str, Any], bool, str | None]:
+    """Build worldbuilding_source remains file-registry authority.
+
+    Returns (builds, readable, detail). A missing registry file is an
+    authoritatively empty registry. A present but unreadable/malformed
+    registry is not readable and must not collapse to empty.
+    """
+    path = workspace_documents_path(current_repo_root)
+    if not path.is_file():
+        return {}, True, None
+
     try:
         records = list_workspace_documents(
             current_repo_root, kind="worldbuilding_source", status=None
         )
-    except Exception:
-        # Fall back to raw registry parse for inventory resilience.
-        path = workspace_documents_path(current_repo_root)
-        if not path.is_file():
-            return out
+    except Exception as product_exc:
         try:
             doc = WorkspaceDocumentRegistryDocument.model_validate(load_json(path))
-        except Exception:
-            return out
+        except Exception as parse_exc:
+            return (
+                {},
+                False,
+                (
+                    "current Build workspace registry is unreadable: "
+                    f"product_seam={product_exc}; parse={parse_exc}"
+                ),
+            )
         records = [r for r in doc.records if r.kind == "worldbuilding_source"]
+
+    out: dict[str, Any] = {}
     for record in records:
         digest = None
         if record.target_relpath:
@@ -346,9 +382,9 @@ def _load_current_builds(current_repo_root: Path) -> dict[str, Any]:
             "title": record.title,
             "content_sha256": digest,
             "target_relpath": record.target_relpath,
+            "content_status": record.content_status,
         }
-    return out
-
+    return out, True, None
 
 def _scan_workspace_registry(root: Path, root_label: str) -> list[_PendingObs]:
     pending: list[_PendingObs] = []
@@ -398,6 +434,7 @@ def _scan_workspace_registry(root: Path, root_label: str) -> list[_PendingObs]:
                 identity=record.document_id,
                 campaign_id=record.campaign_id,
                 title=record.title,
+                content_status=record.content_status,
                 observation=HistoricalObservation(
                     source_kind="workspace_documents_registry",
                     root_label=root_label,
@@ -696,12 +733,54 @@ def _merge_group(pendings: list[_PendingObs]) -> tuple[list[HistoricalObservatio
     return observations, reasons, conflict
 
 
+def _sufficient_plan_runbook_recoverable(
+    *,
+    has_registry_record: bool,
+    claimed_revision: int | None,
+    content_sha256: str | None,
+    content_status: str | None,
+) -> bool:
+    """True when evidence is enough to design idempotent exact Plan/Runbook adoption."""
+    if not has_registry_record or claimed_revision is None:
+        return False
+    if content_sha256:
+        return True
+    # Non-committed drafts may legitimately lack target bytes.
+    return bool(content_status) and content_status != "committed"
+
+
+def _sufficient_build_recoverable(
+    *,
+    has_registry_record: bool,
+    content_sha256: str | None,
+) -> bool:
+    """Build recovery needs registry metadata plus recoverable bytes."""
+    return has_registry_record and bool(content_sha256)
+
+
+def _probe_plan_runbook_head_digest(
+    *, domain: Domain, identity: str
+) -> tuple[str | None, str | None]:
+    """Return (digest, failure_kind) where failure_kind is unavailable|missing|None."""
+    try:
+        snap = snapshot_plan(identity) if domain == "plan" else snapshot_runbook(identity)
+        return snap.content_sha256, None
+    except ApplicationStateNotFoundError:
+        return None, "missing"
+    except ApplicationStateIntegrityError:
+        return None, "unavailable"
+    except Exception:
+        return None, "unavailable"
+
+
 def _classify_plan_or_runbook(
     *,
     domain: Domain,
     identity: str,
     claimed_revision: int | None,
     content_sha256: str | None,
+    content_status: str | None,
+    has_registry_record: bool,
     current: CurrentAuthoritySnapshot,
     historical_conflict: bool,
     has_malformed_only: bool,
@@ -730,6 +809,25 @@ def _classify_plan_or_runbook(
     table = current.plans if domain == "plan" else current.runbooks
     if domain == "build":
         table = current.builds
+        if not current.builds_readable:
+            if historical_conflict:
+                return (
+                    "CONFLICT",
+                    CurrentAuthorityView(status="conflict", product_discoverable=False),
+                    reasons or ["historical observations disagree"],
+                )
+            return (
+                "COMPARISON_UNAVAILABLE",
+                CurrentAuthorityView(
+                    status="unavailable",
+                    product_discoverable=False,
+                    detail=current.builds_detail,
+                ),
+                [
+                    "current Build workspace registry is not authoritatively readable",
+                    *( [current.builds_detail] if current.builds_detail else [] ),
+                ],
+            )
 
     # Unavailable APP-STATE must win over recoverability claims. Historical
     # same-ID conflicts remain CONFLICT even when APP-STATE is down.
@@ -760,31 +858,51 @@ def _classify_plan_or_runbook(
     present = table.get(identity)
     if present is None:
         if domain == "build":
-            # Build compares against current file registry (always "readable" as files).
-            if content_sha256:
+            if _sufficient_build_recoverable(
+                has_registry_record=has_registry_record,
+                content_sha256=content_sha256,
+            ):
                 return (
                     "RECOVERABLE_EXACT",
                     CurrentAuthorityView(status="absent", product_discoverable=False),
-                    ["exact Build identity absent from current workspace registry"],
+                    [
+                        "exact Build identity absent from current workspace registry",
+                        "registry metadata plus recoverable bytes are sufficient for a later exact adoption design",
+                    ],
                 )
             return (
                 "NEEDS_ADAPTER",
                 CurrentAuthorityView(status="absent", product_discoverable=False),
                 [
-                    "Build registry identity survives without recoverable bytes; "
+                    "Build identity/evidence is incomplete for exact adoption "
+                    "(need registry metadata and recoverable bytes; orphan bytes alone are insufficient)"
+                    if not has_registry_record
+                    else "Build registry identity survives without recoverable bytes; "
                     "exact adoption path needs an adaptor/recovery slice"
                 ],
             )
-        if content_sha256 or claimed_revision is not None:
+        if _sufficient_plan_runbook_recoverable(
+            has_registry_record=has_registry_record,
+            claimed_revision=claimed_revision,
+            content_sha256=content_sha256,
+            content_status=content_status,
+        ):
             return (
                 "RECOVERABLE_EXACT",
                 CurrentAuthorityView(status="absent", product_discoverable=False),
-                [f"exact {domain} identity absent from readable APP-STATE"],
+                [
+                    f"exact {domain} identity absent from readable APP-STATE",
+                    "registry metadata plus recoverable bytes/durable fields are sufficient for existing exact importer design",
+                ],
             )
         return (
-            "ORPHAN_EVIDENCE",
+            "NEEDS_ADAPTER",
             CurrentAuthorityView(status="absent", product_discoverable=False),
-            ["insufficient durable fields for recoverable exact claim"],
+            [
+                f"exact {domain} identity known but durable adoption evidence is incomplete "
+                "(UUID-bearing orphan bytes or registry row without required bytes/metadata "
+                "cannot drive the existing exact importer alone)"
+            ],
         )
 
     head_rev = present.get("object_revision") or present.get("revision")
@@ -792,7 +910,6 @@ def _classify_plan_or_runbook(
 
     if domain in {"plan", "runbook"} and claimed_revision is not None and content_sha256:
         if head_rev == claimed_revision:
-            # Confirm digest via exact historical/current revision when possible.
             try:
                 committed = exact_committed_revision(
                     identity,
@@ -824,9 +941,28 @@ def _classify_plan_or_runbook(
                         "revision bytes/digest are not retained as claimed"
                     ],
                 )
+            except ApplicationStateIntegrityError as exc:
+                return (
+                    "COMPARISON_UNAVAILABLE",
+                    CurrentAuthorityView(
+                        status="unavailable",
+                        head_revision=head_rev,
+                        product_discoverable=True,
+                        detail=str(exc),
+                    ),
+                    [f"APP-STATE integrity failure while verifying exact revision: {exc}"],
+                )
             except Exception as exc:
-                # Fall through to head comparison without failing the whole inventory.
-                reasons.append(f"exact revision probe failed: {exc}")
+                return (
+                    "COMPARISON_UNAVAILABLE",
+                    CurrentAuthorityView(
+                        status="unavailable",
+                        head_revision=head_rev,
+                        product_discoverable=True,
+                        detail=str(exc),
+                    ),
+                    [f"could not authoritatively verify exact revision/content: {exc}"],
+                )
         if head_rev is not None and claimed_revision < head_rev:
             try:
                 committed = exact_committed_revision(
@@ -859,18 +995,34 @@ def _classify_plan_or_runbook(
                     ),
                     ["same identity exists but historical revision digest is not preserved"],
                 )
+            except ApplicationStateIntegrityError as exc:
+                return (
+                    "COMPARISON_UNAVAILABLE",
+                    CurrentAuthorityView(
+                        status="unavailable",
+                        head_revision=head_rev,
+                        product_discoverable=True,
+                        detail=str(exc),
+                    ),
+                    [f"APP-STATE integrity failure while verifying preserved history: {exc}"],
+                )
             except Exception as exc:
                 return (
-                    "CONFLICT",
+                    "COMPARISON_UNAVAILABLE",
                     CurrentAuthorityView(
-                        status="conflict",
+                        status="unavailable",
                         head_revision=head_rev,
                         product_discoverable=True,
                         detail=str(exc),
                     ),
                     [f"could not verify preserved historical revision: {exc}"],
                 )
-        if head_rev == claimed_revision and content_sha256 and head_digest and head_digest != content_sha256:
+        if (
+            head_rev == claimed_revision
+            and content_sha256
+            and head_digest
+            and head_digest != content_sha256
+        ):
             return (
                 "CONFLICT",
                 CurrentAuthorityView(
@@ -883,8 +1035,21 @@ def _classify_plan_or_runbook(
             )
 
     if domain == "build":
-        if claimed_revision is not None and head_rev == claimed_revision:
-            if content_sha256 and head_digest and content_sha256 != head_digest:
+        if content_sha256:
+            if head_digest is None:
+                return (
+                    "CONFLICT",
+                    CurrentAuthorityView(
+                        status="conflict",
+                        matching_revision=head_rev,
+                        product_discoverable=True,
+                    ),
+                    [
+                        "current Build identity is present but lacks bytes for exact "
+                        "content proof against historical digest"
+                    ],
+                )
+            if head_digest != content_sha256:
                 return (
                     "CONFLICT",
                     CurrentAuthorityView(
@@ -893,19 +1058,8 @@ def _classify_plan_or_runbook(
                         matching_content_sha256=head_digest,
                         product_discoverable=True,
                     ),
-                    ["Build registry same revision with disagreeing digest"],
+                    ["Build registry same identity with disagreeing digest"],
                 )
-            return (
-                "CURRENT_EXACT",
-                CurrentAuthorityView(
-                    status="present",
-                    matching_revision=head_rev,
-                    matching_content_sha256=head_digest or content_sha256,
-                    product_discoverable=True,
-                ),
-                ["exact Build identity present in current registry"],
-            )
-        if content_sha256 and head_digest == content_sha256:
             return (
                 "CURRENT_EXACT",
                 CurrentAuthorityView(
@@ -914,8 +1068,76 @@ def _classify_plan_or_runbook(
                     matching_content_sha256=head_digest,
                     product_discoverable=True,
                 ),
-                ["exact Build content digest present in current registry"],
+                ["exact Build identity and content digest present in current registry"],
             )
+        if claimed_revision is not None and head_rev == claimed_revision:
+            return (
+                "CURRENT_EXACT",
+                CurrentAuthorityView(
+                    status="present",
+                    matching_revision=head_rev,
+                    matching_content_sha256=head_digest,
+                    product_discoverable=True,
+                ),
+                ["exact Build identity and claimed revision present (no historical digest to verify)"],
+            )
+
+    # Historical content evidence requires proof — never identity-only CURRENT_EXACT.
+    if domain in {"plan", "runbook"} and content_sha256:
+        if head_digest is None:
+            probed, failure = _probe_plan_runbook_head_digest(domain=domain, identity=identity)
+            if failure == "unavailable":
+                return (
+                    "COMPARISON_UNAVAILABLE",
+                    CurrentAuthorityView(
+                        status="unavailable",
+                        head_revision=head_rev,
+                        product_discoverable=True,
+                    ),
+                    [
+                        "current identity present but APP-STATE could not prove "
+                        "exact content against historical digest"
+                    ],
+                )
+            head_digest = probed
+        if head_digest is None:
+            return (
+                "CONFLICT",
+                CurrentAuthorityView(
+                    status="conflict",
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                ),
+                [
+                    "current identity present but no content digest available to "
+                    "verify historical bytes"
+                ],
+            )
+        if head_digest != content_sha256:
+            return (
+                "CONFLICT",
+                CurrentAuthorityView(
+                    status="conflict",
+                    head_revision=head_rev,
+                    matching_content_sha256=head_digest,
+                    product_discoverable=True,
+                ),
+                [
+                    "same identity present with disagreeing content digest "
+                    "(historical content evidence does not match current)"
+                ],
+            )
+        return (
+            "CURRENT_EXACT",
+            CurrentAuthorityView(
+                status="present",
+                matching_revision=head_rev,
+                matching_content_sha256=head_digest,
+                head_revision=head_rev,
+                product_discoverable=True,
+            ),
+            ["exact identity and content digest already in current authority"],
+        )
 
     return (
         "CURRENT_EXACT",
@@ -926,9 +1148,12 @@ def _classify_plan_or_runbook(
             head_revision=head_rev,
             product_discoverable=True,
         ),
-        reasons or ["exact identity present in current authority"],
+        reasons
+        or [
+            "exact identity present in current authority "
+            "(no additional historical revision/content evidence to verify)"
+        ],
     )
-
 
 def _classify_ingest(
     *,
@@ -1088,6 +1313,10 @@ def reconcile(
         content_sha256 = next((o.content_sha256 for o in ok if o.content_sha256), None)
         fingerprint = next((o.durable_fingerprint for o in ok if o.durable_fingerprint), None)
         from_registry = any(o.source_kind == "extraction_runs_registry" for o in observations)
+        has_registry_record = any(
+            o.source_kind == "workspace_documents_registry" for o in ok
+        )
+        content_status = next((g.content_status for g in group if g.content_status), None)
         play_binding = next((g.play_binding for g in group if g.play_binding), None)
 
         if domain in {"plan", "runbook", "build"}:
@@ -1096,6 +1325,8 @@ def reconcile(
                 identity=identity,
                 claimed_revision=claimed_revision,
                 content_sha256=content_sha256,
+                content_status=content_status,
+                has_registry_record=has_registry_record,
                 current=current,
                 historical_conflict=hist_conflict,
                 has_malformed_only=has_malformed_only,
@@ -1250,11 +1481,12 @@ def run_inventory(
             raise FileNotFoundError(f"historical root '{label}' is missing/unreadable: {root}")
 
     current = observe_current_authority(current_repo_root)
+    detail_parts = [current.detail, current.builds_detail]
     authority = sanitize_authority_coordinates(
         current_repo_root=current_repo_root,
         readable=current.readable,
         schema_head_status=current.schema_head_status,
-        detail=current.detail,
+        detail="; ".join(part for part in detail_parts if part),
     )
 
     pendings: list[_PendingObs] = []
@@ -1267,11 +1499,8 @@ def run_inventory(
 
     items = reconcile(pendings, current)
     classification_counts, domain_counts = _counts(items)
-    incomplete = not current.readable and any(
-        item.classification == "COMPARISON_UNAVAILABLE" for item in items
-    )
-    # Also incomplete when APP-STATE unreadables even with empty historical APP-STATE domains
-    if not current.readable:
+    incomplete = (not current.readable) or (not current.builds_readable)
+    if any(item.classification == "COMPARISON_UNAVAILABLE" for item in items):
         incomplete = True
 
     return InventoryReport(

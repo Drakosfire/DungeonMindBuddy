@@ -226,3 +226,265 @@ def test_comparison_unavailable_when_app_state_down(tmp_path: Path, monkeypatch)
     item = next(i for i in report.items if i.identity == doc_id)
     assert item.classification == "COMPARISON_UNAVAILABLE"
     assert report.incomplete is True
+
+
+def test_orphan_bytes_alone_are_needs_adapter_not_recoverable(tmp_path: Path) -> None:
+    root = tmp_path / "hist"
+    doc_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    target = root / "out/workspace/plan" / f"{doc_id}.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("# orphan only\n", encoding="utf-8")
+    items = reconcile(
+        scan_historical_root(root, root_label="hist"),
+        CurrentAuthoritySnapshot(readable=True, detail=None, schema_head_status="at_head"),
+    )
+    item = next(i for i in items if i.identity == doc_id)
+    assert item.classification == "NEEDS_ADAPTER"
+    assert item.classification != "RECOVERABLE_EXACT"
+
+
+def test_committed_registry_without_bytes_is_needs_adapter(tmp_path: Path) -> None:
+    root = tmp_path / "hist"
+    doc_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    _write_json(
+        root / "out/registries/workspace_documents.json",
+        {
+            "schema_version": "dmb_workspace_document_registry_v1",
+            "records": [
+                {
+                    "schema_version": "dmb_workspace_document_record_v1",
+                    "document_id": doc_id,
+                    "title": "Missing Bytes",
+                    "campaign_id": "longmont-c2",
+                    "kind": "plan",
+                    "target_relpath": f"out/workspace/plan/{doc_id}.md",
+                    "status": "active",
+                    "content_status": "committed",
+                    "revision": 3,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                }
+            ],
+        },
+    )
+    items = reconcile(
+        scan_historical_root(root, root_label="hist"),
+        CurrentAuthoritySnapshot(readable=True, detail=None, schema_head_status="at_head"),
+    )
+    item = next(i for i in items if i.identity == doc_id)
+    assert item.classification == "NEEDS_ADAPTER"
+
+
+def test_w5_build_historical_vs_current_registry(tmp_path: Path) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+    body = "# worldbuilding source\n"
+    target = hist / "out/workspace/worldbuilding" / f"{doc_id}.md"
+    target.parent.mkdir(parents=True)
+    target.write_text(body, encoding="utf-8")
+    _write_json(
+        hist / "out/registries/workspace_documents.json",
+        {
+            "schema_version": "dmb_workspace_document_registry_v1",
+            "records": [
+                {
+                    "schema_version": "dmb_workspace_document_record_v1",
+                    "document_id": doc_id,
+                    "title": "Historical Build",
+                    "campaign_id": "longmont-c2",
+                    "kind": "worldbuilding_source",
+                    "target_relpath": f"out/workspace/worldbuilding/{doc_id}.md",
+                    "status": "active",
+                    "content_status": "committed",
+                    "revision": 1,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                }
+            ],
+        },
+    )
+    import os
+
+    os.environ.pop("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", None)
+    report = run_inventory(
+        current_repo_root=current, historical_roots=[("hist", hist)]
+    )
+    item = next(i for i in report.items if i.identity == doc_id)
+    assert item.domain == "build"
+    assert item.classification == "RECOVERABLE_EXACT"
+
+
+def test_current_build_registry_unreadable_is_comparison_unavailable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.delenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", raising=False)
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+    target = hist / "out/workspace/worldbuilding" / f"{doc_id}.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("# build\n", encoding="utf-8")
+    _write_json(
+        hist / "out/registries/workspace_documents.json",
+        {
+            "schema_version": "dmb_workspace_document_registry_v1",
+            "records": [
+                {
+                    "schema_version": "dmb_workspace_document_record_v1",
+                    "document_id": doc_id,
+                    "title": "Build",
+                    "campaign_id": "longmont-c2",
+                    "kind": "worldbuilding_source",
+                    "target_relpath": f"out/workspace/worldbuilding/{doc_id}.md",
+                    "status": "active",
+                    "content_status": "committed",
+                    "revision": 1,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                }
+            ],
+        },
+    )
+    bad = current / "out/registries/workspace_documents.json"
+    bad.parent.mkdir(parents=True)
+    bad.write_text("{not-valid-registry", encoding="utf-8")
+    report = run_inventory(
+        current_repo_root=current, historical_roots=[("hist", hist)]
+    )
+    item = next(i for i in report.items if i.identity == doc_id)
+    assert item.classification == "COMPARISON_UNAVAILABLE"
+    assert item.classification != "RECOVERABLE_EXACT"
+    assert report.incomplete is True
+
+
+def test_current_exact_requires_content_match_when_digest_available(tmp_path: Path) -> None:
+    """Identity alone must not become CURRENT_EXACT when historical digest disagrees."""
+    from application_state.content.types import sha256_utf8
+
+    build_id = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+    hist_body = "# historical orphan\n"
+    hist_digest = sha256_utf8(hist_body)
+    build_root = tmp_path / "build_hist"
+    build_target = build_root / "out/workspace/worldbuilding" / f"{build_id}.md"
+    build_target.parent.mkdir(parents=True)
+    build_target.write_text(hist_body, encoding="utf-8")
+    items = reconcile(
+        scan_historical_root(build_root, root_label="hist"),
+        CurrentAuthoritySnapshot(
+            readable=True,
+            detail=None,
+            schema_head_status="at_head",
+            builds={
+                build_id: {
+                    "revision": 1,
+                    "campaign_id": "longmont-c2",
+                    "title": "Present Build",
+                    "content_sha256": "a" * 64,
+                    "target_relpath": f"out/workspace/worldbuilding/{build_id}.md",
+                }
+            },
+        ),
+    )
+    item = next(i for i in items if i.identity == build_id)
+    assert item.classification == "CONFLICT"
+    assert hist_digest != "a" * 64
+
+
+def test_w7_manifest_era_adapts_without_synthesized_identity(tmp_path: Path) -> None:
+    root = tmp_path / "hist"
+    manifest_dir = root / "out/graph_memory/runs/run-ok"
+    manifest_dir.mkdir(parents=True)
+    run_id = "graph-ingest:longmont-c2:session-99:fixture-ok"
+    _write_json(
+        manifest_dir / "graph_ingest_run_manifest.json",
+        {
+            "schema": "dmb_graph_ingest_run_manifest_v0",
+            "version": "0.1",
+            "run_id": run_id,
+            "campaign_id": "longmont-c2",
+            "session_id": "session-99",
+            "status": "candidate_extraction_ready",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "source": {
+                "source_domain": "recap",
+                "source_artifact_id": "artifact:recap:longmont-c2:session-99:fixture",
+                "normalized_recap_path": "out/graph_memory/runs/run-ok/normalized_recap_source.md",
+                "normalized_recap_sha256": "sha256:" + ("c" * 64),
+            },
+            "artifacts": {
+                "candidate_graph": {
+                    "kind": "candidate_graph",
+                    "uri": "out/graph_memory/runs/run-ok/candidate_graph.json",
+                    "sha256": "sha256:" + ("d" * 64),
+                    "exists": True,
+                }
+            },
+        },
+    )
+    items = reconcile(
+        scan_historical_root(root, root_label="hist"),
+        CurrentAuthoritySnapshot(readable=True, detail=None, schema_head_status="at_head"),
+    )
+    item = next(i for i in items if i.domain == "ingest")
+    assert item.identity == run_id
+    assert item.classification == "RECOVERABLE_EXACT"
+    assert any(o.parse_status == "adapted" for o in item.historical_observations)
+    assert "invent" not in " ".join(item.reason).lower()
+
+
+def test_app_state_integrity_error_is_comparison_unavailable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from application_state.errors import ApplicationStateIntegrityError
+    import product_continuity.inventory as inv
+
+    monkeypatch.setenv(
+        "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL",
+        "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dungeonbuddy_application_state",
+    )
+    monkeypatch.setattr(
+        inv,
+        "list_plans",
+        lambda status=None: (_ for _ in ()).throw(
+            ApplicationStateIntegrityError("corrupt plan row")
+        ),
+    )
+    root = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "12121212-1212-4121-8121-121212121212"
+    target = root / "out/workspace/plan" / f"{doc_id}.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("# plan\n", encoding="utf-8")
+    _write_json(
+        root / "out/registries/workspace_documents.json",
+        {
+            "schema_version": "dmb_workspace_document_registry_v1",
+            "records": [
+                {
+                    "schema_version": "dmb_workspace_document_record_v1",
+                    "document_id": doc_id,
+                    "title": "Integrity",
+                    "campaign_id": "longmont-c2",
+                    "kind": "plan",
+                    "target_relpath": f"out/workspace/plan/{doc_id}.md",
+                    "status": "active",
+                    "content_status": "committed",
+                    "revision": 1,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                }
+            ],
+        },
+    )
+    report = run_inventory(
+        current_repo_root=current, historical_roots=[("hist", root)]
+    )
+    item = next(i for i in report.items if i.identity == doc_id)
+    assert item.classification == "COMPARISON_UNAVAILABLE"
+    assert report.incomplete is True
+    assert report.authority.schema_head_status == "integrity_error"
