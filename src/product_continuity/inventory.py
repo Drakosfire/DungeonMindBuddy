@@ -98,6 +98,7 @@ class HistoricalObservation(BaseModel):
     claimed_revision: int | None = None
     content_sha256: str | None = None
     durable_fingerprint: str | None = None
+    content_status: str | None = None
     parse_status: ParseStatus
     detail: str | None = None
 
@@ -443,6 +444,7 @@ def _scan_workspace_registry(root: Path, root_label: str) -> list[_PendingObs]:
                     claimed_revision=record.revision,
                     content_sha256=digest,
                     durable_fingerprint=digest,
+                    content_status=record.content_status,
                     parse_status="ok",
                     detail=f"kind={record.kind}; content_status={record.content_status}",
                 ),
@@ -698,9 +700,17 @@ def _merge_group(pendings: list[_PendingObs]) -> tuple[list[HistoricalObservatio
 
     Registry + orphan-bytes observations for the same UUID are complementary when
     their digests agree (or one side lacks a digest). Disagreement requires
-    distinct non-empty digests or incompatible claimed revisions with digests.
+    distinct non-empty digests, incompatible claimed revisions with digests, or
+    disagreeing content_status (committed vs draft selects different authority proofs).
     """
-    observations = [p.observation for p in pendings if p.observation is not None]
+    observations: list[HistoricalObservation] = []
+    for pending in pendings:
+        if pending.observation is None:
+            continue
+        obs = pending.observation
+        if obs.content_status is None and pending.content_status is not None:
+            obs = obs.model_copy(update={"content_status": pending.content_status})
+        observations.append(obs)
     reasons: list[str] = []
     ok_obs = [o for o in observations if o.parse_status in {"ok", "adapted"}]
     digests = {d for o in ok_obs if (d := _obs_digest(o))}
@@ -731,6 +741,14 @@ def _merge_group(pendings: list[_PendingObs]) -> tuple[list[HistoricalObservatio
                     "across historical observations"
                 )
                 break
+
+    statuses = {o.content_status for o in ok_obs if o.content_status}
+    if len(statuses) > 1:
+        conflict = True
+        reasons.append(
+            "same durable identity disagrees across historical observations "
+            f"(content_status mismatch: {', '.join(sorted(statuses))})"
+        )
     return observations, reasons, conflict
 
 

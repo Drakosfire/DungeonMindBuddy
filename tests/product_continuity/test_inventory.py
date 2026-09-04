@@ -71,6 +71,106 @@ def test_w2_same_id_conflict_is_scan_order_independent(tmp_path: Path) -> None:
     ]
 
 
+def test_w2_content_status_disagreement_is_conflict_scan_order_independent(
+    tmp_path: Path,
+) -> None:
+    """Same ID/revision/digest but committed vs draft must CONFLICT (§3.5)."""
+    root_a = tmp_path / "a"
+    root_b = tmp_path / "b"
+    doc_id = "13131313-1313-4131-8131-131313131313"
+    body = "# same bytes\n"
+    for root, status in ((root_a, "committed"), (root_b, "draft")):
+        target = root / "out/workspace/plan" / f"{doc_id}.md"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(body, encoding="utf-8")
+        _write_json(
+            root / "out/registries/workspace_documents.json",
+            {
+                "schema_version": "dmb_workspace_document_registry_v1",
+                "records": [
+                    {
+                        "schema_version": "dmb_workspace_document_record_v1",
+                        "document_id": doc_id,
+                        "title": "Status Split",
+                        "campaign_id": "longmont-c2",
+                        "kind": "plan",
+                        "target_relpath": f"out/workspace/plan/{doc_id}.md",
+                        "status": "active",
+                        "content_status": status,
+                        "revision": 1,
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:00:00Z",
+                    }
+                ],
+            },
+        )
+
+    current = CurrentAuthoritySnapshot(readable=True, detail=None, schema_head_status="at_head")
+    ab = reconcile(
+        scan_historical_root(root_a, root_label="a")
+        + scan_historical_root(root_b, root_label="b"),
+        current,
+    )
+    ba = reconcile(
+        scan_historical_root(root_b, root_label="b")
+        + scan_historical_root(root_a, root_label="a"),
+        current,
+    )
+    item_ab = next(i for i in ab if i.identity == doc_id)
+    item_ba = next(i for i in ba if i.identity == doc_id)
+    assert item_ab.classification == "CONFLICT"
+    assert item_ba.classification == "CONFLICT"
+    assert any("content_status" in reason for reason in item_ab.reason)
+    assert [o.root_label for o in item_ab.historical_observations] == [
+        o.root_label for o in item_ba.historical_observations
+    ]
+
+
+def test_equivalent_same_content_status_still_collapses(tmp_path: Path) -> None:
+    root_a = tmp_path / "a"
+    root_b = tmp_path / "b"
+    doc_id = "14141414-1414-4141-8141-141414141414"
+    body = "# identical committed\n"
+    for root in (root_a, root_b):
+        target = root / "out/workspace/plan" / f"{doc_id}.md"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(body, encoding="utf-8")
+        _write_json(
+            root / "out/registries/workspace_documents.json",
+            {
+                "schema_version": "dmb_workspace_document_registry_v1",
+                "records": [
+                    {
+                        "schema_version": "dmb_workspace_document_record_v1",
+                        "document_id": doc_id,
+                        "title": "Same Status",
+                        "campaign_id": "longmont-c2",
+                        "kind": "plan",
+                        "target_relpath": f"out/workspace/plan/{doc_id}.md",
+                        "status": "active",
+                        "content_status": "committed",
+                        "revision": 1,
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:00:00Z",
+                    }
+                ],
+            },
+        )
+    items = reconcile(
+        scan_historical_root(root_a, root_label="a")
+        + scan_historical_root(root_b, root_label="b"),
+        CurrentAuthoritySnapshot(readable=True, detail=None, schema_head_status="at_head"),
+    )
+    item = next(i for i in items if i.identity == doc_id)
+    assert item.classification == "RECOVERABLE_EXACT"
+    assert item.classification != "CONFLICT"
+    registry_obs = [
+        o for o in item.historical_observations if o.source_kind == "workspace_documents_registry"
+    ]
+    assert len(registry_obs) == 2
+    assert {o.content_status for o in registry_obs} == {"committed"}
+
+
 def test_w8_incomplete_manifest_needs_adapter_without_invented_ids(tmp_path: Path) -> None:
     root = tmp_path / "hist"
     manifest_dir = root / "out/graph_memory/runs/run-x"
