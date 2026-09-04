@@ -1,9 +1,10 @@
 # SURFACE-INTEGRATION — Blocking Program Roadmap
 
-**Status:** ACTIVE BLOCKING CHILD PROGRAM
+**Status:** CLOSED — SI-6 accepted; blocking program complete
 **Parent:** [`ROADMAP-con-ready.md`](ROADMAP-con-ready.md)
-**Re-anchored:** 2026-09-03
+**Re-anchored:** 2026-09-04
 **Repository:** `Drakosfire/DungeonMindBuddy`
+**SI-6 report:** [`../Reports/REPORT-surface-integration-si6-clean-start.md`](../Reports/REPORT-surface-integration-si6-clean-start.md)
 
 ---
 
@@ -13,26 +14,13 @@ SURFACE-INTEGRATION establishes that an assembled DungeonBuddy runtime can truth
 
 CON-READY remains the GM-visible acceptance authority. SURFACE-INTEGRATION is its active blocking child program.
 
-The program is now in **finish-only closure**: characterize and correct only the remaining false authority/information paths required by SI-6, explicitly dispose parked Agent PR #674, run the clean-start assembled witness, then close the blocking program. Do not expand Surface Information adoption merely for uniformity.
+The program **closed** after finish-only stewardship: Play/Combat required **no new SI channels**; PR #674 received disposition **CLOSE/SUPERSEDE**; SI-6 clean-start witness **ACCEPTED** (`REPORT-surface-integration-si6-clean-start.md`). Do not reopen Surface Information adoption as a migration quota.
 
 ---
 
 ## Feature freeze
 
-**No DungeonBuddy feature thaw before SI-6 acceptance.**
-
-Paused until the assembled-runtime and information-delivery contract is proven:
-
-- PLAY-SURFACE BF3C and additional contextual inventory
-- Roll interaction extraction
-- prepared Encounter extraction
-- additional Combat integration
-- source-relative asset productization
-- additional Ingest UX/capability
-- new Agent Interaction capability beyond disposition of parked #674
-- opportunistic Plan/Build/Play UX improvements
-
-Allowed during the freeze: SURFACE-INTEGRATION implementation/design, fixes required by SI owning-boundary witnesses, dogfood evidence mining, critical correctness/security repair, backward-looking authority sync, independent DungeonMind library work that does not change Buddy's consumed contract.
+**Lifted by SI-6 acceptance (2026-09-04).** CON-READY again owns next product sequence (SI-7 re-sequencing). Prior freeze list remains historical context for what was paused; do not auto-resume the oldest parked branch without CON-READY selection.
 
 ---
 
@@ -46,9 +34,9 @@ Allowed during the freeze: SURFACE-INTEGRATION implementation/design, fixes requ
 | SI-4 | Ingest application-state authority | **DONE** — PR #679 merged @ `010634f8ea48ed396024c79db90f41d6ba92f249` (final implementation head `55414e141f6508049c56c82bfb37bce7d9f3ba51`, two review cycles) |
 | SI-5A | Build World Graph Surface Information adoption | **DONE** — PR #680 merged @ `a543af46f21d31d6ad83a88c3b2911ca4e0e4016` (final implementation head `4ccbe0fad1f5c9c60c3ced6173d842a77b162289`, three review cycles) |
 | SI-5B | Ingest application-state Surface Information adoption | **DONE** — PR #681 merged @ `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb` (final implementation head `d0e9aaa80a78f71ad6bfd2195002eb5de67f098f`, three review cycles) |
-| **SI-5 remainder** | Finish-only Play / Combat-facing disposition and Agent/#674 disposition | **CURRENT STEWARDSHIP MISSION** — add code only for an observed SI-6-blocking falsehood; no adoption quota |
-| SI-6 | Clean-start assembled-product witness (canonical runtime → browser journey → restart/reload) | Planned — **acceptance gate** |
-| SI-7 | Thaw + re-sequence paused feature roadmaps | Planned — state sync/re-sequencing after SI-6, not a feature slice |
+| **SI-5 remainder** | Finish-only Play / Combat-facing disposition and Agent/#674 disposition | **DONE** — no SI-5C/D code; #674 CLOSED/SUPERSEDED |
+| SI-6 | Clean-start assembled-product witness (canonical runtime → browser journey → restart/reload) | **ACCEPTED** — report `REPORT-surface-integration-si6-clean-start.md` on tip `5e192966…` |
+| SI-7 | Thaw + re-sequence paused feature roadmaps | **CURRENT** — state sync/re-sequencing after SI-6, not a feature slice |
 
 Do not pre-mark successors `DONE`.
 
@@ -82,7 +70,9 @@ uv run python scripts/preflight_surface_runtime.py --require-world <world_id>
 
 ## Stewardship
 
-Current finish-only steward mission: [`../Plans/HANDOFF-STEWARDSHIP-finish-surface-integration.md`](../Plans/HANDOFF-STEWARDSHIP-finish-surface-integration.md)
+Current finish-only steward mission: **COMPLETE** — see [`../Reports/REPORT-surface-integration-si6-clean-start.md`](../Reports/REPORT-surface-integration-si6-clean-start.md)
+
+Closed stewardship handoff: [`../Plans/HANDOFF-STEWARDSHIP-finish-surface-integration.md`](../Plans/HANDOFF-STEWARDSHIP-finish-surface-integration.md)
 
 Completed predecessor (SI-5B): [`../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-run-information-adoption-v1.md`](../Plans/HANDOFF-SURFACE-INTEGRATION-ingest-run-information-adoption-v1.md)
 
