@@ -19,7 +19,11 @@ pr_body_template: |
 # HANDOFF — Historical Product Material Inventory v1
 
 **Created:** 2026-09-04  
-**Status:** ACTIVE — one read-only reconciliation capability  
+**Status:** DONE / ACCEPTED — PR #684 merged  
+**Accepted exact head:** `f32f90ee1ccc9fac150ca8147c268c517a4ec8a6`  
+**Merge commit:** `8fc9989fb6da616f74876395514f4da26bd94609`  
+**Formal review cycles:** 7 (Review Cycle 7 APPROVE-equivalent, review `5115921744`)  
+**Successor:** DFC-2a — [`HANDOFF-DOGFOOD-CONTINUITY-plan-exact-adoption-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-plan-exact-adoption-v1.md) (CURRENT; not complete)  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / DFC-1`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
