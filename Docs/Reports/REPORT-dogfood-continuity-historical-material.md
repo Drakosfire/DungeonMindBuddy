@@ -1,132 +1,148 @@
-# REPORT — Dogfood continuity historical material inventory (DFC-1)
+# REPORT — DOGFOOD-CONTINUITY DFC-1 historical material inventory
 
 **Created:** 2026-09-04  
-**Tool:** `scripts/inventory_product_continuity.py`  
-**Buddy tip under inventory:** `3b84015cc90dd6c60e8d8dca6d9e2e7516779afa`  
+**Capability:** read-only continuity inventory (no migration, no UI)  
 **Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md`  
-**Mutation check:** APP-STATE row counts before/after inventory = `0/0/0/0` (plans/runbooks/ingest/play_runs) — unchanged
+**Branch:** `agent/dogfood-continuity-historical-inventory-v1`  
+**Command:**
+
+```bash
+uv run python scripts/inventory_product_continuity.py \
+  --historical-root <primary-checkout> \
+  --historical-root-label primary-checkout \
+  --historical-root <of-conks> \
+  --historical-root-label of-conks \
+  --historical-root <stewardship-si6> \
+  --historical-root-label stewardship-si6 \
+  --output-dir out/product_continuity
+```
+
+Generated ledger (not committed): `out/product_continuity/inventory.json` + `inventory.md`.  
+This report is the sanitized W13 steward answer. Absolute home paths are omitted; use root labels only.
+
+**Judgment of DFC-1:** not claimed here — this PR delivers the inventory capability and live evidence. Acceptance remains steward review.
 
 ---
 
-## 1. Current APP-STATE coordinates (sanitized)
+## 1. Answers to the six steward questions
+
+### 1. Which APP-STATE database is Buddy actually pointed at?
 
 | Field | Value |
 |---|---|
 | Configured | yes |
-| Readable | yes (`schema_head_status=at_head`) |
+| Readable | yes |
 | Host | `127.0.0.1` |
 | Port | `54329` |
 | Database | `dungeonbuddy_application_state` |
-| Current Build registry | `out/registries/workspace_documents.json` (absent in this lane checkout) |
+| Schema head | `at_head` (Alembic head `20260902_0005` after `bootstrap_local_play.py apply`) |
+| Current Build registry | `out/registries/workspace_documents.json` (absent in this inventory worktree) |
 
-### Answer to Q1 — Are we pointed at the APP-STATE database that contains prior product work?
+**Honest continuity finding:** this is the correct local DSN Buddy is configured to use, but the database was **empty of prior product work** at inventory time (0 Plans, 0 Runbooks, 0 `ingest.run`, 0 Play Runs). It was (re)created via bootstrap after the local Postgres container reset — the same class of clean-start APP-STATE SI-6 used intentionally. Historical product material therefore survives in **file roots**, not in the currently mounted APP-STATE.
 
-**No.** This is the SI-6 clean-start database name used for SURFACE-INTEGRATION witness. It is readable and at Alembic head, but it currently contains **zero** Plans, Runbooks, Ingest runs, and Play Runs. Prior dogfood material is **not** already loaded here; it survives only in historical checkout roots (and World Graph DungeonMind DB, which DFC-1 does not inventory).
+W11: Plan/Runbook/Ingest/Play APP-STATE row counts were `0/0/0/0` before and after the inventory command.
 
----
-
-## 2. Historical roots supplied (sanitized labels)
-
-| Label | Why included |
-|---|---|
-| `buddy-main-checkout` | Primary long-lived checkout with Plan registry rows + large `out/graph_memory/runs/**` |
-| `of-conks-end-to-end` | Of Conks Build worldbuilding sources |
-| `stewardship-finish-si` | SI-6 witness Build source (`SI-6 Find-existing Witness`) |
-| `play-surface-runbook-gateway` | Play/runbook authoring lane (no Play/Runbook file leftovers found) |
-
-No home-directory discovery. Absolute paths retained only in uncommitted `out/product_continuity/inventory.*`.
-
----
-
-## 3. Classification totals
+### 2. How many historical Plans are already there vs only recoverable from old roots?
 
 | Classification | Count |
 |---|---|
-| `RECOVERABLE_EXACT` | 61 |
-| `NEEDS_ADAPTER` | 3 |
-| `CURRENT_EXACT` | 0 |
-| `CURRENT_CONTAINS_HISTORY` | 0 |
-| `CONFLICT` | 0 |
-| `MALFORMED` | 0 |
-| `ORPHAN_EVIDENCE` | 0 |
-| `COMPARISON_UNAVAILABLE` | 0 |
+| `CURRENT_EXACT` / `CURRENT_CONTAINS_HISTORY` | **0** |
+| `RECOVERABLE_EXACT` | **7** |
+| `CONFLICT` / `MALFORMED` | **0** |
 
-### Per domain
+All seven Plan identities are absent from readable APP-STATE and recoverable only from historical roots (primarily `primary-checkout`):
 
-| Domain | Counts |
-|---|---|
-| Plan | `RECOVERABLE_EXACT=7` |
-| Build | `RECOVERABLE_EXACT=1`, `NEEDS_ADAPTER=3` |
-| Ingest | `RECOVERABLE_EXACT=53` (all `graph_ingest_run_manifest`) |
-| Runbook | _(no historical observations)_ |
-| Play Run | _(no historical observations)_ |
+| Identity | Title (non-authoritative label) | Evidence |
+|---|---|---|
+| `00000000-0000-4000-8000-000000000000` | probe | workspace registry |
+| `61b3a73b-df4e-4133-9879-bb2096796055` | C2 Session 27 Prep | workspace registry |
+| `80630cc2-33ee-40db-bf9d-fb5217085e17` | C2 Session 27 Prep | registry + orphan bytes |
+| `c2121a99-d0da-4ba1-b1ef-511f4f2e3abf` | C2 Session 23 Prep | workspace registry |
+| `d6ed9790-ebbf-401d-90ba-182aff80917d` | C2 Session 23 Prep | workspace registry |
+| `0bcfbf24-6afd-4dff-8d3b-939ca2f86cab` | _(untitled orphan)_ | orphan plan bytes |
+| `0eab57a6-c1e1-4b07-a66b-b29e2ef50ed4` | _(untitled orphan)_ | orphan plan bytes |
 
----
+Existing `import_plans` remains the candidate exact adoption seam for DFC-2 (not executed here).
 
-## 4. Answers to the continuity questions
+### 3. Which Build experiments are visible now vs stranded in old registries/source files?
 
-### Q2 — Plans already in APP-STATE vs only historical?
+Current inventory worktree Build registry: **absent / empty** → 0 discoverable Build sources from current product registry.
+
+| Classification | Count | Notes |
+|---|---|---|
+| `RECOVERABLE_EXACT` | 1 | orphan worldbuilding bytes `6cfebc9a-aa71-4799-8505-fbd0f5b5fb6b` @ `primary-checkout` |
+| `NEEDS_ADAPTER` | 3 | registry identity only; no recoverable target bytes colocated |
+
+Registry-only Build IDs (need a later adaptor/locator slice, not silent invent):
+
+| Identity | Title label | Root |
+|---|---|---|
+| `6678fafc-cea7-4101-b36d-fa1b0a1d1170` | Ironveil Manor | `of-conks` |
+| `9e7786d8-2253-4f8d-b37f-e0720feeaeda` | Hempholm — run packet | `of-conks` |
+| `d10bd414-d461-48eb-a514-2c34d0fe2d8d` | SI-6 Find-existing Witness | `stewardship-si6` |
+
+### 4. Of the historical Ingest runs, which are already `ingest.run`, which exist in `extraction_runs.json`, and which survive only as older manifests?
 
 | Bucket | Count |
 |---|---|
-| Already in APP-STATE (`CURRENT_*`) | **0** |
-| Only historical (`RECOVERABLE_EXACT`) | **7** |
+| Already canonical APP-STATE `ingest.run` | **0** |
+| Observations from `out/registries/extraction_runs.json` | **0** (file absent in all three scanned roots) |
+| Manifest-era `graph_ingest_run_manifest.json` → adapted exact identity, `RECOVERABLE_EXACT` | **53** |
 
-Notable recoverable Plan IDs (exact):
+Campaign split among manifest-era recoverable runs: `longmont-c1` 24, `longmont-c2` 29.  
+Adaptation used the admitted `GraphIngestRunManifest` + `adapt_recap_manifest_to_extraction_run` path; **no write** occurred. A later DFC-2 slice must decide whether to drive the existing registry importer (after producing/locating `extraction_runs.json`) or add a manifest-era exact importer — that write path is out of DFC-1 scope.
 
-- `61b3a73b-df4e-4133-9879-bb2096796055` — C2 Session 27 Prep (registry)
-- `80630cc2-33ee-40db-bf9d-fb5217085e17` — C2 Session 27 Prep (registry + bytes)
-- `c2121a99-d0da-4ba1-b1ef-511f4f2e3abf` — C2 Session 23 Prep
-- `d6ed9790-ebbf-401d-90ba-182aff80917d` — C2 Session 23 Prep
-- plus orphan/registry exact UUIDs `0bcfbf24-…`, `0eab57a6-…`, and probe id `00000000-0000-4000-8000-000000000000`
+### 5. Which Runbooks and Play Runs survived into APP-STATE?
 
-### Q3 — Build sources visible now vs stranded?
-
-| Bucket | Count | Notes |
+| Domain | In APP-STATE now | Historical observations in scanned roots |
 |---|---|---|
-| Current checkout Build registry | **0** (no `out/registries/workspace_documents.json` in this lane) |
-| Historical registry without recoverable bytes | **3** `NEEDS_ADAPTER` | `Ironveil Manor`, `Hempholm — run packet`, `SI-6 Find-existing Witness` |
-| Historical bytes with exact UUID | **1** `RECOVERABLE_EXACT` | `out/workspace/worldbuilding/6cfebc9a-…md` |
+| Runbook | **0** | **0** (no runbook registry rows / admitted evidence under the three roots) |
+| Play Run | **0** | **0** (no `out/runtime/play/runs/*.json` under the three roots) |
 
-### Q4 — Ingest: APP-STATE vs `extraction_runs.json` vs manifests?
+So for this operator's available historical checkouts, Runbook/Play continuity cannot yet be recovered from file evidence. That is an evidence gap for DFC-2, not a false “missing from APP-STATE so invent one” claim.
 
-| Source | Count |
+### 6. What exact recovery PRs are justified next?
+
+Derived only from this ledger (named successors; not implemented here):
+
+1. **DFC-2a — Plan exact adoption** for the seven `RECOVERABLE_EXACT` Plan IDs via the existing idempotent Plan importer against labeled historical roots (`primary-checkout` first).
+2. **DFC-2b — Build orphan + registry-byte recovery** — adopt orphan `6cfebc9a-…`; separately design an adaptor/locator for the three `NEEDS_ADAPTER` registry rows (do not invent bytes).
+3. **DFC-2c — Ingest manifest-era / registry adoption** — 53 exact adapted run IDs with no APP-STATE presence and no `extraction_runs.json` in scanned roots; choose one exact write seam and keep identity synthesis forbidden.
+4. **DFC-2d — Runbook/Play archive hunt** — only if additional historical roots with `runbook` registry rows or `out/runtime/play/runs/*.json` are supplied; scanned roots do not justify a recovery PR yet.
+5. **DFC-NAV1** — persistent app-shell navigation without full document reload — remains a **separate** UI lease (`App.tsx` / AppChrome / routing untouched by DFC-1).
+
+---
+
+## 2. W13 run coordinates (sanitized)
+
+| Item | Value |
 |---|---|
-| Already canonical `ingest.run` | **0** |
-| `out/registries/extraction_runs.json` observations | **0** (none present in supplied roots) |
-| Older `graph_ingest_run_manifest.json` (adapted exact `run_id`) | **53** `RECOVERABLE_EXACT` |
-
-All 53 are manifest-era IDs under `out/graph_memory/runs/**` on `buddy-main-checkout` (longmont-c1 + longmont-c2 sessions). None synthesize missing `source_artifact_id`.
-
-### Q5 — Runbooks and Play Runs in APP-STATE vs legacy artifacts?
-
-| Domain | APP-STATE | Historical observations |
-|---|---|---|
-| Runbook | 0 | 0 in supplied roots |
-| Play Run | 0 | 0 (`out/runtime/play/runs` absent in supplied roots) |
-
-Play/Runbook continuity cannot be recovered from these roots; if they existed, they were never left as file leftovers here, or lived only in other APP-STATE databases not currently configured.
-
-### Q6 — Exact recovery slices warranted next (DFC-2 candidates)
-
-Ordered by dogfood force:
-
-1. **DFC-2A — Plan exact adoption** using existing `import_plans_from_registry` against the recoverable Plan IDs/bytes above (especially Session 23/27 prep with bytes). Inventory-only classification today; no write in DFC-1.
-2. **DFC-2B — Build source recovery** for the three `NEEDS_ADAPTER` registry rows: locate missing `target_relpath` bytes or define an exact adaptor before import; plus adopt the one `RECOVERABLE_EXACT` worldbuilding file.
-3. **DFC-2C — Manifest-era Ingest adoption** for the 53 adapted `graph-ingest:…` run_ids: either promote via an explicit manifest→`ExtractionRun` importer (existing registry importer does **not** cover these) or a bounded adaptor slice that never invents IDs.
-4. **DFC-2D — Locate missing Runbook/Play history** if operator has another APP-STATE DB or unscoped root containing `out/runtime/play/**` / Runbook registry rows — not justified as a blind migration from this ledger alone.
-5. **DFC-NAV1** remains separate: persistent app-shell navigation without full document reload (not leased here).
+| Inventory worktree | `DungeonMindBuddy-dogfood-continuity-inventory` |
+| Historical roots | `primary-checkout`, `of-conks`, `stewardship-si6` |
+| Ledger totals | 64 items — `RECOVERABLE_EXACT` 61, `NEEDS_ADAPTER` 3 |
+| Conflicts / malformed | 0 / 0 |
+| Incomplete flag | `False` (APP-STATE readable) |
+| Mutation | none (APP-STATE counts unchanged; inventory writes only under `out/product_continuity/**`) |
+| Determinism | second run with same roots matched normalized ledger except `generated_at` |
 
 ---
 
-## 5. Evidence notes
+## 3. Predecessor authority sync recorded in this PR
 
-- Generated machine ledger (local, not authority): `out/product_continuity/inventory.json` / `.md`
-- Unit + disposable Postgres witnesses: `tests/product_continuity/` (8 passed)
-- No product writes: APP-STATE counts unchanged; registries under historical roots were read-only
+Backward-looking only (DFC-1 itself is not marked DONE):
+
+| Fact | Recorded in |
+|---|---|
+| PR #682 merged @ `86296a40…`; SI-6 ACCEPTED; 2 review cycles | SI-6 report, SI roadmap, stewardship handoff |
+| SURFACE-INTEGRATION CLOSED; freeze lifted | SI roadmap + CON-READY |
+| SI-7 re-sequenced → DOGFOOD-CONTINUITY DFC-1 | SI roadmap + CON-READY + STEWARDS-ANCHOR |
+| Old BF3B `CURRENT` retired → LATER after DFC-1 | CON-READY + STEWARDS-ANCHOR |
 
 ---
 
-## 6. Disposition for CON-READY
+## 4. Explicit non-claims
 
-DFC-1 inventory capability is the evidence base for DFC-2. SURFACE-INTEGRATION is closed; Of Conks and Cons assembly waits on exact recovery of the recoverable Plan/Build/Ingest identities above, not on inventing new product surfaces.
+- No Plans/Builds/Ingest/Runbooks/Play Runs were imported, migrated, or deleted.
+- No `App.tsx` / AppChrome / router changes (DFC-NAV1 untouched).
+- Titles and campaign/session labels above are display aids only; classifications used exact durable identity evidence only.
+- An empty APP-STATE after bootstrap is **not** evidence that historical material never existed — the ledger shows where it still lives.
