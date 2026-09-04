@@ -791,17 +791,21 @@ def apply_plan_adoption(
         base.importer_skipped_empty = importer_report.skipped_empty
 
     base.applied = True
-    if base.importer_skipped_empty:
-        verification, verify_detail = (
-            "failed",
-            "importer skipped_empty is not successful historical-content recovery",
-        )
-    else:
-        verification, verify_detail = _verify_product_seam(
-            current_repo_root=current_repo_root,
-            dispositions=dispositions,
-            pins=pins,
-        )
+    try:
+        if base.importer_skipped_empty:
+            verification, verify_detail = (
+                "failed",
+                "importer skipped_empty is not successful historical-content recovery",
+            )
+        else:
+            verification, verify_detail = _verify_product_seam(
+                current_repo_root=current_repo_root,
+                dispositions=dispositions,
+                pins=pins,
+            )
+    except Exception as exc:
+        verification = "failed"
+        verify_detail = f"product seam raised after commit: {exc}"
     after = historical_root_digest(historical_root)
     base.product_verification = verification
     base.product_verification_detail = verify_detail

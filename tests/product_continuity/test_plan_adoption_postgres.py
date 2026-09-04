@@ -8,8 +8,9 @@ from pathlib import Path
 import pytest
 
 from application_state.content.import_plans import import_plans_from_registry
-from application_state.content.service import commit_plan, create_plan, list_plans
+from application_state.content.service import commit_plan, create_plan, list_plans, snapshot_plan
 from application_state.content.types import sha256_utf8
+from application_state.errors import ApplicationStateUnavailableError
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
     get_workspace_document_snapshot,
@@ -671,3 +672,78 @@ def test_current_exact_missing_historical_bytes_verifies_without_inventing_empty
     assert snapshot.markdown == body
     assert snapshot.content_sha256 == sha256_utf8(body)
     assert snapshot.content_sha256 != sha256_utf8("")
+
+
+def test_post_commit_product_seam_failure_keeps_committed_state(
+    application_state_dsn: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hist = tmp_path / "hist"
+    current = tmp_path / "current"
+    current.mkdir()
+    doc_id = "28282828-2828-4282-8282-282828282828"
+    body = "# committed then seam failed\n"
+    _historical_plan(hist, document_id=doc_id, body=body, title="Durable After Verify Fail")
+    raise_on_seam = {"on": False}
+
+    original_list = plan_adoption_mod.list_workspace_documents
+    original_snapshot = plan_adoption_mod.get_workspace_document_snapshot
+    original_import = plan_adoption_mod.import_plans_from_registry
+
+    def exploding_list(*args, **kwargs):
+        if raise_on_seam["on"]:
+            raise ApplicationStateUnavailableError(
+                "injected product-seam unavailability after commit"
+            )
+        return original_list(*args, **kwargs)
+
+    def exploding_snapshot(*args, **kwargs):
+        if raise_on_seam["on"]:
+            raise ApplicationStateUnavailableError(
+                "injected product-seam unavailability after commit"
+            )
+        return original_snapshot(*args, **kwargs)
+
+    def import_then_arm(*args, **kwargs):
+        result = original_import(*args, **kwargs)
+        raise_on_seam["on"] = True
+        return result
+
+    monkeypatch.setattr(plan_adoption_mod, "list_workspace_documents", exploding_list)
+    monkeypatch.setattr(
+        plan_adoption_mod, "get_workspace_document_snapshot", exploding_snapshot
+    )
+    monkeypatch.setattr(plan_adoption_mod, "import_plans_from_registry", import_then_arm)
+
+    report = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert report.blocked is False
+    assert report.applied is True
+    assert report.importer_imported == 1
+    assert report.product_verification == "failed"
+    assert report.detail == "adoption committed; product verification failed"
+    objects = list_plans()
+    assert len(objects) == 1
+    assert str(objects[0].work_object_id) == doc_id
+    durable = snapshot_plan(doc_id)
+    assert durable.markdown == body
+    assert durable.content_sha256 == sha256_utf8(body)
+
+    raise_on_seam["on"] = False
+    replay = apply_plan_adoption(
+        current_repo_root=current,
+        historical_root=hist,
+        document_ids=[doc_id],
+    )
+    assert replay.blocked is False
+    assert replay.applied is True
+    assert replay.dispositions[0].classification == "CURRENT_EXACT"
+    assert replay.dispositions[0].action == "noop"
+    assert replay.importer_imported == 0
+    assert replay.product_verification == "passed"
+    assert len(list_plans()) == 1
+    assert list_plans()[0].object_revision == objects[0].object_revision
+    snapshot = get_workspace_document_snapshot(current, doc_id)
+    assert snapshot.markdown == body
