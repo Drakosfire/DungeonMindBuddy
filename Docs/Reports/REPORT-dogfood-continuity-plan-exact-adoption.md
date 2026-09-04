@@ -11,6 +11,8 @@ This report is the sanitized W8/W9 steward witness. Absolute home paths are omit
 
 DFC-2a itself is **not** marked complete here. Acceptance remains steward review.
 
+Review Cycle 1 at `8224500c700972a937777ebb18a4a832809c6d60` rejected blank-shell adoption and an unpinned importer TOCTOU. This file records the Cycle 2 repair witness.
+
 ---
 
 ## Authority coordinates (sanitized)
@@ -18,10 +20,8 @@ DFC-2a itself is **not** marked complete here. Acceptance remains steward review
 | Field | Value |
 |---|---|
 | Adoption source root | `primary-checkout` — one-time operator input; never product authority |
-| Current product authority | APP-STATE PostgreSQL |
-| Host | `127.0.0.1` |
-| Port | `54329` |
-| Database | `dungeonbuddy_application_state` |
+| Cycle 1 leftover product authority | APP-STATE PostgreSQL `dungeonbuddy_application_state` @ `127.0.0.1:54329` |
+| Cycle 2 fresh-write authority | isolated disposable PostgreSQL `dungeonbuddy_app_state_dfc2a_c2_70626530a4` @ `127.0.0.1:54329` |
 | Schema head | `at_head` |
 | Current Buddy worktree | DFC-2a checkout (not the historical root) |
 | Current Build/workspace files | not used as Plan authority after adoption (`file_fingerprint=postgres`, `file_exists=false`) |
@@ -44,45 +44,80 @@ Orphan IDs `0bcfbf24-…` and `0eab57a6-…` were not selected.
 
 ---
 
-## Preview / apply / replay
+## Cycle 1 leftover local witness (not mutated)
 
-Pre-apply Plan product count: **0** (`list_plans()` and `list_workspace_documents(kind="plan")`).
+Cycle 1 `--apply` against the configured local APP-STATE inserted four blank WorkObjects plus one recovered Plan. Review Cycle 1 forbade silently deleting or overwriting those rows.
 
-### Preview
+Re-read after the Cycle 2 repair (same host/port/database; **zero writes** to this authority):
 
-All five reclassified `RECOVERABLE_EXACT` / `adopt`. `applied=no`. Historical evidence digest unchanged.
+| Identity | Title | Status | Bytes | sha256 prefix |
+|---|---|---|---:|---|
+| `00000000-…0000` | probe | discarded | 0 | `e3b0c44298fc1c14` |
+| `61b3a73b-…6055` | C2 Session 27 Prep | active | 0 | `e3b0c44298fc1c14` |
+| `80630cc2-…5e17` | C2 Session 27 Prep | active | 2631 | `d8a8595d5211d00a` |
+| `c2121a99-…3abf` | C2 Session 23 Prep | active | 0 | `e3b0c44298fc1c14` |
+| `d6ed9790-…917d` | C2 Session 23 Prep | active | 0 | `e3b0c44298fc1c14` |
 
-### Apply
-
-| Identity | Title label | Historical evidence | Importer result | After apply |
-|---|---|---|---|---|
-| `00000000-…0000` | probe | draft registry; target bytes absent; `status=discarded` | skipped empty (WorkObject inserted) | `CURRENT_EXACT`; discarded; not in default active chooser |
-| `61b3a73b-…6055` | C2 Session 27 Prep | draft registry; corpus target bytes absent | skipped empty | `CURRENT_EXACT` draft; listed; empty working copy |
-| `80630cc2-…5e17` | C2 Session 27 Prep | committed registry + `out/workspace/plan/…md` bytes | **imported 1** | `CURRENT_EXACT`; listed; 2631 bytes; sha256 `d8a8595d5211d00a` |
-| `c2121a99-…3abf` | C2 Session 23 Prep | draft registry; corpus target bytes absent | skipped empty | `CURRENT_EXACT` draft; listed; empty working copy |
-| `d6ed9790-…917d` | C2 Session 23 Prep | draft registry; corpus target bytes absent | skipped empty | `CURRENT_EXACT` draft; listed; empty working copy |
-
-First apply: `importer imported=1`, `skipped empty=4`, historical root unchanged. Initial post-apply product verification failed because discarded `probe` is absent from the default **active** Plan list. Snapshot of that ID still succeeded. Verification was then status-aware (active vs discarded lists). Replay `--apply` reported five `CURRENT_EXACT` no-ops, `imported=0`, `product verification=passed`, no duplicate writes.
-
-Post-apply active Plan count: **4**. Discarded Plan count: **1**.
-
-Honest content finding: DFC-1 still classifies the four drafts as `RECOVERABLE_EXACT` without surviving target bytes. The existing importer preserved exact identity/metadata and skipped empty working copies. Only `80630cc2-…` recovered historical prose.
+Active Plan count on leftover authority: **4**. Discarded: **1**. Those rows remain as Cycle 1 residue. They are **not** the Cycle 2 recovery witness.
 
 ---
 
-## W9 product surface (DFC-2a worktree runtime)
+## Cycle 2 isolated fresh-write witness
 
-Started Buddy API (`:8000`) and UI (`:5173`) from the DFC-2a worktree. Did not mount the historical checkout as the runtime root.
+Fresh authority: empty isolated database `dungeonbuddy_app_state_dfc2a_c2_70626530a4`, schema upgraded to head. Pre-apply Plan count: **0**.
 
-1. `GET /api/live/workspace-documents?kind=plan` returned the four active adopted IDs.
-2. Snapshot of `80630cc2-…` returned `file_fingerprint=postgres`, `file_exists=false`, sha256 `d8a8595d5211d00a`, 2631 bytes.
-3. Plan chooser listed all four active IDs (two Session 27 Prep, two Session 23 Prep).
-4. Opened `80630cc2-…` — canvas showed historical Session 27 Prep (Session intent / Mireward Siege Climax).
-5. Opened `c2121a99-…` — chooser selected C2 Session 23 Prep; canvas was the empty/blank authoring shell because no historical bytes survived at the registry locator.
-6. Re-opened `80630cc2-…` in the same UI session (document reload) — same ID and Session 27 content remained.
-7. Stopped and restarted the DFC-2a API. Product list/snapshot were unchanged (`d8a8595d5211d00a` / 2631 bytes / postgres). After restart, `/plan?documentId=80630cc2-…` still listed the four IDs and opened the same Session 27 Prep.
+DFC-1 classification is unchanged. DFC-2a now additionally requires admitted historical target bytes before import. Missing/empty bytes block the requested set.
+
+### Preview of the exact five IDs
+
+`blocked=yes`, `applied=no`, historical evidence digest unchanged (`42da8a583989285b…`).
+
+| Identity | DFC-1 class | DFC-2a action |
+|---|---|---|
+| `00000000-…0000` | `RECOVERABLE_EXACT` | **block** — admitted target bytes absent/empty |
+| `61b3a73b-…6055` | `RECOVERABLE_EXACT` | **block** — admitted target bytes absent/empty |
+| `80630cc2-…5e17` | `RECOVERABLE_EXACT` | adopt (eligible; sibling blocks the set) |
+| `c2121a99-…3abf` | `RECOVERABLE_EXACT` | **block** — admitted target bytes absent/empty |
+| `d6ed9790-…917d` | `RECOVERABLE_EXACT` | **block** — admitted target bytes absent/empty |
+
+### Apply of the exact five IDs
+
+`blocked=yes`, `applied=no`, `imported=0`, `skipped_empty=0`. Isolated Plan count remained **0**. Historical root unchanged.
+
+The four IDs without surviving target bytes are later archive/adapter work. They are not adopted as blank shells.
+
+### Preview / apply / replay of the one ID with admitted bytes
+
+Selected: `80630cc2-33ee-40db-bf9d-fb5217085e17` only.
+
+| Step | Result |
+|---|---|
+| Preview | `RECOVERABLE_EXACT` / `adopt`; `blocked=no`; no writes |
+| Apply | `imported=1`; `skipped_empty=0`; `product verification=passed`; Plan count **1** |
+| Recovered content | title `C2 Session 27 Prep`; revision 2; 2631 bytes; sha256 `d8a8595d5211d00a57731354ea06bce25aa6236332b66dece59870ed9d77a511` |
+| Replay `--apply` | `CURRENT_EXACT` / `noop`; `imported=0`; Plan count still **1**; no duplicate write |
+| Historical root | unchanged (`42da8a583989285b…` before and after) |
+
+---
+
+## W9 product surface (DFC-2a worktree runtime, isolated authority)
+
+Buddy API was started from the DFC-2a worktree against the isolated witness database (not the leftover local APP-STATE). UI `:5173` proxied to that API. Historical checkout was not mounted as the runtime root.
+
+1. `GET /api/live/workspace-documents?kind=plan` returned **one** record: `80630cc2-…` / `C2 Session 27 Prep` / `committed` / revision 2.
+2. The four byte-less Cycle 1 IDs returned HTTP errors on snapshot (absent from isolated authority).
+3. Snapshot of `80630cc2-…` returned `file_fingerprint=postgres`, `file_exists=false`, sha256 `d8a8595d5211d00a…`, 2631 bytes. Markdown head: `# C2 Session 27 Prep` / `## Session intent`.
+4. Plan chooser listed only `C2 Session 27 Prep` (`80630cc2-…`). Canvas showed historical Session 27 Prep (Session intent / Opening frame / Mireward Siege Climax).
+5. Hard reload of `/plan?documentId=80630cc2-…` kept the same ID, chooser option, and historical prose.
+6. API process was stopped and restarted against the same isolated database. Product list/snapshot were unchanged (`d8a8595d5211d00a…` / 2631 bytes / postgres). After restart, the Plan surface again listed/opened the same Session 27 Prep.
 
 World Graph showed `authority_unavailable` in this runtime; that is unrelated to Plan adoption.
+
+---
+
+## Cycle 1 report (superseded as completion evidence)
+
+The first real apply against leftover local APP-STATE produced four `skipped_empty` WorkObjects and one imported Plan. Product verification was later made status-aware; the subsequent apply on that head was a five-`CURRENT_EXACT` replay. Review Cycle 1 correctly refused that as DFC-2a completion. It remains only as leftover local residue, documented above.
 
 ---
 
@@ -92,7 +127,7 @@ World Graph showed `authority_unavailable` in this runtime; that is unrelated to
 - **DFC-2c** 53 manifest-era Ingest runs
 - **DFC-2d** Runbook/Play archive hunt (no admitted evidence in scanned roots)
 - **DFC-NAV1** persistent app-shell navigation (no UI lease here)
-- Optional later: reconstruct missing draft Plan target bytes for the four empty drafts without synthesizing identity
+- Later archive/adapter: reconstruct missing draft Plan target bytes for the four DFC-1 `RECOVERABLE_EXACT` IDs that fail the DFC-2a admitted-bytes gate, without synthesizing identity
 
 ---
 
@@ -101,4 +136,6 @@ World Graph showed `authority_unavailable` in this runtime; that is unrelated to
 - DFC-2a is not DONE pending steward review.
 - No orphan Plan, Build, Ingest, Runbook, Play, or navigation code was added.
 - `import_plans.py` was not modified.
+- `src/product_continuity/inventory.py` (DFC-1 classifier) was not modified.
 - Historical `primary-checkout` files were not mutated or copied into the current worktree as authority.
+- The four blank WorkObjects in leftover local APP-STATE were not deleted or overwritten.
