@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+# ./run — local dogfood launcher for DungeonMindServer + DungeonBuddy + UI
+#
+# Starts three processes from a Buddy checkout:
+#   1. DungeonMindServer  (sibling repo, default :7860)
+#   2. DungeonBuddy API   (live_control_server, :8000)
+#   3. DungeonBuddy UI    (live-control-ui Vite, :5173)
+#
+# Env overrides:
+#   DUNGEONMIND_SERVER_ROOT   path to DungeonMindServer (default: ../DungeonMindServer)
+#   DUNGEONMIND_SERVER_PORT   default 7860
+#   BUDDY_API_PORT            default 8000
+#   BUDDY_UI_PORT             default 5173
+#   RUN_NO_RELOAD=1           disable --reload / Vite HMR extras
+#
+# Ctrl+C stops everything started by this script.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+
+DMS_ROOT="${DUNGEONMIND_SERVER_ROOT:-$ROOT/../DungeonMindServer}"
+DMS_PORT="${DUNGEONMIND_SERVER_PORT:-7860}"
+API_PORT="${BUDDY_API_PORT:-8000}"
+UI_PORT="${BUDDY_UI_PORT:-5173}"
+
+RUN_DIR="$ROOT/.run"
+mkdir -p "$RUN_DIR"
+
+PIDS=()
+
+log() { printf '[run] %s\n' "$*"; }
+die() { printf '[run] ERROR: %s\n' "$*" >&2; exit 1; }
+
+port_listening() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn 2>/dev/null | grep -E ":${port}\\b" >/dev/null
+  else
+    lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
+  fi
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+}
+
+cleanup() {
+  local pid
+  log "stopping services…"
+  for pid in "${PIDS[@]:-}"; do
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+    fi
+  done
+  # Give children a moment; then force if needed.
+  sleep 1
+  for pid in "${PIDS[@]:-}"; do
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+  done
+  rm -f "$RUN_DIR"/*.pid
+  log "stopped"
+}
+
+trap cleanup EXIT INT TERM
+
+require_cmd uv
+require_cmd npm
+
+[[ -d "$DMS_ROOT" ]] || die "DungeonMindServer not found at $DMS_ROOT (set DUNGEONMIND_SERVER_ROOT)"
+[[ -f "$ROOT/apps/live_control_server/main.py" ]] || die "not a DungeonMindBuddy checkout: $ROOT"
+[[ -d "$ROOT/apps/live-control-ui" ]] || die "missing apps/live-control-ui"
+
+start_dms() {
+  if port_listening "$DMS_PORT"; then
+    log "DungeonMindServer already listening on :$DMS_PORT — leaving it alone"
+    return 0
+  fi
+  log "starting DungeonMindServer in $DMS_ROOT on :$DMS_PORT"
+  (
+    cd "$DMS_ROOT"
+    # Prefer the repo's uv-managed env; fall back to python if needed.
+    if [[ -f dev_server.py ]]; then
+      exec uv run python dev_server.py
+    else
+      exec uv run uvicorn app:app --host 127.0.0.1 --port "$DMS_PORT" --reload
+    fi
+  ) >"$RUN_DIR/dungeonmind-server.log" 2>&1 &
+  local pid=$!
+  PIDS+=("$pid")
+  echo "$pid" >"$RUN_DIR/dungeonmind-server.pid"
+}
+
+start_buddy_api() {
+  if port_listening "$API_PORT"; then
+    log "DungeonBuddy API already listening on :$API_PORT — leaving it alone"
+    return 0
+  fi
+  log "starting DungeonBuddy API on :$API_PORT"
+  local reload_args=(--reload)
+  if [[ "${RUN_NO_RELOAD:-}" == "1" ]]; then
+    reload_args=()
+  fi
+  (
+    cd "$ROOT"
+    exec uv run uvicorn apps.live_control_server.main:app \
+      --host 127.0.0.1 \
+      --port "$API_PORT" \
+      "${reload_args[@]}"
+  ) >"$RUN_DIR/buddy-api.log" 2>&1 &
+  local pid=$!
+  PIDS+=("$pid")
+  echo "$pid" >"$RUN_DIR/buddy-api.pid"
+}
+
+start_buddy_ui() {
+  if port_listening "$UI_PORT"; then
+    log "DungeonBuddy UI already listening on :$UI_PORT — leaving it alone"
+    return 0
+  fi
+  log "starting DungeonBuddy UI on :$UI_PORT"
+  if [[ ! -d "$ROOT/apps/live-control-ui/node_modules" ]]; then
+    log "installing UI deps (npm ci)…"
+    npm --prefix "$ROOT/apps/live-control-ui" ci
+  fi
+  (
+    cd "$ROOT/apps/live-control-ui"
+    # Polling avoids ENOSPC/inotify watch exhaustion on busy Linux hosts.
+    export CHOKIDAR_USEPOLLING="${CHOKIDAR_USEPOLLING:-1}"
+    export CHOKIDAR_INTERVAL="${CHOKIDAR_INTERVAL:-2000}"
+    export VITE_LIVE_API_PROXY_TARGET="${VITE_LIVE_API_PROXY_TARGET:-http://127.0.0.1:${API_PORT}}"
+    exec npm run dev -- --host 127.0.0.1 --port "$UI_PORT"
+  ) >"$RUN_DIR/buddy-ui.log" 2>&1 &
+  local pid=$!
+  PIDS+=("$pid")
+  echo "$pid" >"$RUN_DIR/buddy-ui.pid"
+}
+
+wait_http() {
+  local url="$1"
+  local label="$2"
+  local tries="${3:-40}"
+  local i
+  for ((i = 1; i <= tries; i++)); do
+    if curl -fsS -o /dev/null "$url" 2>/dev/null; then
+      log "$label ready ($url)"
+      return 0
+    fi
+    sleep 0.5
+  done
+  log "WARNING: $label did not become ready at $url (see .run/*.log)"
+  return 1
+}
+
+log "Buddy root: $ROOT"
+log "DungeonMindServer: $DMS_ROOT"
+
+start_dms
+start_buddy_api
+start_buddy_ui
+
+wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer" 60 || true
+wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API" 60 || true
+wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" 60 || true
+
+cat <<EOF
+
+[run] local stack up
+
+  DungeonMindServer  http://127.0.0.1:${DMS_PORT}/docs
+  DungeonBuddy API   http://127.0.0.1:${API_PORT}/docs
+  DungeonBuddy UI    http://127.0.0.1:${UI_PORT}/
+
+  logs: $RUN_DIR/*.log
+
+EOF
+
+if [[ ${#PIDS[@]} -eq 0 ]]; then
+  log "nothing new started (all ports already occupied); exiting"
+  trap - EXIT INT TERM
+  exit 0
+fi
+
+log "Ctrl+C to stop processes started by this script"
+# Keep the launcher alive while children run.
+while true; do
+  for pid in "${PIDS[@]:-}"; do
+    if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
+      die "process $pid exited early — check $RUN_DIR/*.log"
+    fi
+  done
+  sleep 2
+done
