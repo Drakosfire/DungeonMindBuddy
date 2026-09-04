@@ -774,6 +774,280 @@ def _probe_plan_runbook_head_digest(
         return None, "unavailable"
 
 
+def _classify_committed_plan_runbook_revision(
+    *,
+    domain: Domain,
+    identity: str,
+    claimed_revision: int,
+    content_sha256: str | None,
+    head_rev: int | None,
+) -> tuple[Classification, CurrentAuthorityView, list[str]]:
+    """Prove claimed revision against retained WorkRevision rows."""
+    evidence_label = (
+        "revision/content" if content_sha256 else "claimed revision (no historical digest)"
+    )
+    if head_rev is not None and claimed_revision > head_rev:
+        return (
+            "CONFLICT",
+            CurrentAuthorityView(
+                status="conflict",
+                head_revision=head_rev,
+                product_discoverable=True,
+            ),
+            [
+                "historical claimed revision is ahead of current head; "
+                "exact revision cannot be represented by current authority"
+            ],
+        )
+    if head_rev == claimed_revision:
+        try:
+            committed = exact_committed_revision(
+                identity,
+                claimed_revision,
+                kind=domain,  # type: ignore[arg-type]
+                expected_sha256=content_sha256,
+            )
+            return (
+                "CURRENT_EXACT",
+                CurrentAuthorityView(
+                    status="present",
+                    matching_revision=committed.work_revision.revision_n,
+                    matching_content_sha256=(
+                        content_sha256 or committed.work_revision.content_sha256
+                    ),
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                ),
+                [f"exact identity and {evidence_label} already in APP-STATE"],
+            )
+        except ApplicationStateNotFoundError:
+            return (
+                "CONFLICT",
+                CurrentAuthorityView(
+                    status="conflict",
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                ),
+                [
+                    "current object revision matches claim but historical "
+                    "committed revision is not retained as claimed"
+                ],
+            )
+        except ApplicationStateConflictError as exc:
+            return (
+                "CONFLICT",
+                CurrentAuthorityView(
+                    status="conflict",
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                    detail=str(exc),
+                ),
+                [f"same claimed revision disagrees with current retained content: {exc}"],
+            )
+        except ApplicationStateIntegrityError as exc:
+            return (
+                "COMPARISON_UNAVAILABLE",
+                CurrentAuthorityView(
+                    status="unavailable",
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                    detail=str(exc),
+                ),
+                [f"APP-STATE integrity failure while verifying exact revision: {exc}"],
+            )
+        except Exception as exc:
+            return (
+                "COMPARISON_UNAVAILABLE",
+                CurrentAuthorityView(
+                    status="unavailable",
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                    detail=str(exc),
+                ),
+                [f"could not authoritatively verify exact {evidence_label}: {exc}"],
+            )
+    if head_rev is not None and claimed_revision < head_rev:
+        try:
+            committed = exact_committed_revision(
+                identity,
+                claimed_revision,
+                kind=domain,  # type: ignore[arg-type]
+                expected_sha256=content_sha256,
+            )
+            return (
+                "CURRENT_CONTAINS_HISTORY",
+                CurrentAuthorityView(
+                    status="contains_history",
+                    matching_revision=committed.work_revision.revision_n,
+                    matching_content_sha256=(
+                        content_sha256 or committed.work_revision.content_sha256
+                    ),
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                ),
+                [
+                    "current head advanced but exact historical "
+                    f"{evidence_label} is preserved in APP-STATE history"
+                ],
+            )
+        except ApplicationStateNotFoundError:
+            return (
+                "CONFLICT",
+                CurrentAuthorityView(
+                    status="conflict",
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                ),
+                [
+                    "same identity exists but historical claimed revision "
+                    "is not retained in APP-STATE history"
+                ],
+            )
+        except ApplicationStateConflictError as exc:
+            return (
+                "CONFLICT",
+                CurrentAuthorityView(
+                    status="conflict",
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                    detail=str(exc),
+                ),
+                [
+                    "historical claimed revision exists but disagrees with "
+                    f"retained content digest: {exc}"
+                ],
+            )
+        except ApplicationStateIntegrityError as exc:
+            return (
+                "COMPARISON_UNAVAILABLE",
+                CurrentAuthorityView(
+                    status="unavailable",
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                    detail=str(exc),
+                ),
+                [f"APP-STATE integrity failure while verifying preserved history: {exc}"],
+            )
+        except Exception as exc:
+            return (
+                "COMPARISON_UNAVAILABLE",
+                CurrentAuthorityView(
+                    status="unavailable",
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                    detail=str(exc),
+                ),
+                [f"could not verify preserved historical revision: {exc}"],
+            )
+    return (
+        "CONFLICT",
+        CurrentAuthorityView(
+            status="conflict",
+            head_revision=head_rev,
+            product_discoverable=True,
+        ),
+        ["could not reconcile historical claimed revision with current authority"],
+    )
+
+
+def _classify_draft_plan_runbook_revision(
+    *,
+    domain: Domain,
+    identity: str,
+    claimed_revision: int,
+    content_sha256: str | None,
+    head_rev: int | None,
+) -> tuple[Classification, CurrentAuthorityView, list[str]]:
+    """Compare draft/non-committed rows against WorkObject revision + working copy.
+
+    Draft registry revision maps to WorkObject.object_revision. There may be no
+    WorkRevision at all; do not require exact_committed_revision.
+    """
+    if head_rev is None or claimed_revision != head_rev:
+        return (
+            "CONFLICT",
+            CurrentAuthorityView(
+                status="conflict",
+                head_revision=head_rev,
+                product_discoverable=True,
+            ),
+            [
+                "non-committed historical claimed WorkObject revision does not match "
+                "current object revision (drafts have no retained WorkRevision history)"
+            ],
+        )
+
+    if content_sha256:
+        probed, failure = _probe_plan_runbook_head_digest(domain=domain, identity=identity)
+        if failure == "unavailable":
+            return (
+                "COMPARISON_UNAVAILABLE",
+                CurrentAuthorityView(
+                    status="unavailable",
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                ),
+                [
+                    "current draft identity present but APP-STATE could not prove "
+                    "working-copy content against historical digest"
+                ],
+            )
+        if probed is None:
+            return (
+                "CONFLICT",
+                CurrentAuthorityView(
+                    status="conflict",
+                    head_revision=head_rev,
+                    product_discoverable=True,
+                ),
+                [
+                    "current draft object revision matches claim but no working-copy "
+                    "content is available to verify historical bytes"
+                ],
+            )
+        if probed != content_sha256:
+            return (
+                "CONFLICT",
+                CurrentAuthorityView(
+                    status="conflict",
+                    head_revision=head_rev,
+                    matching_content_sha256=probed,
+                    product_discoverable=True,
+                ),
+                [
+                    "same draft WorkObject revision with disagreeing working-copy "
+                    "content digest"
+                ],
+            )
+        return (
+            "CURRENT_EXACT",
+            CurrentAuthorityView(
+                status="present",
+                matching_revision=head_rev,
+                matching_content_sha256=probed,
+                head_revision=head_rev,
+                product_discoverable=True,
+            ),
+            [
+                "exact draft identity, WorkObject revision, and working-copy content "
+                "already in APP-STATE"
+            ],
+        )
+
+    return (
+        "CURRENT_EXACT",
+        CurrentAuthorityView(
+            status="present",
+            matching_revision=head_rev,
+            head_revision=head_rev,
+            product_discoverable=True,
+        ),
+        [
+            "exact draft identity and WorkObject revision already in APP-STATE "
+            "(no historical digest to verify against working copy)"
+        ],
+    )
+
 def _classify_plan_or_runbook(
     *,
     domain: Domain,
@@ -910,163 +1184,23 @@ def _classify_plan_or_runbook(
     head_digest = present.get("content_sha256")
 
     if domain in {"plan", "runbook"} and claimed_revision is not None:
-        # Honor claimed revision even when historical target bytes/digest are absent.
-        evidence_label = (
-            "revision/content" if content_sha256 else "claimed revision (no historical digest)"
-        )
-        if head_rev is not None and claimed_revision > head_rev:
-            return (
-                "CONFLICT",
-                CurrentAuthorityView(
-                    status="conflict",
-                    head_revision=head_rev,
-                    product_discoverable=True,
-                ),
-                [
-                    "historical claimed revision is ahead of current head; "
-                    "exact revision cannot be represented by current authority"
-                ],
+        # Committed rows prove WorkRevision retention; drafts prove WorkObject
+        # revision + working-copy content (no WorkRevision required).
+        if content_status == "committed":
+            return _classify_committed_plan_runbook_revision(
+                domain=domain,
+                identity=identity,
+                claimed_revision=claimed_revision,
+                content_sha256=content_sha256,
+                head_rev=head_rev,
             )
-        if head_rev == claimed_revision:
-            try:
-                committed = exact_committed_revision(
-                    identity,
-                    claimed_revision,
-                    kind=domain,  # type: ignore[arg-type]
-                    expected_sha256=content_sha256,
-                )
-                return (
-                    "CURRENT_EXACT",
-                    CurrentAuthorityView(
-                        status="present",
-                        matching_revision=committed.work_revision.revision_n,
-                        matching_content_sha256=(
-                            content_sha256 or committed.work_revision.content_sha256
-                        ),
-                        head_revision=head_rev,
-                        product_discoverable=True,
-                    ),
-                    [f"exact identity and {evidence_label} already in APP-STATE"],
-                )
-            except ApplicationStateNotFoundError:
-                return (
-                    "CONFLICT",
-                    CurrentAuthorityView(
-                        status="conflict",
-                        head_revision=head_rev,
-                        product_discoverable=True,
-                    ),
-                    [
-                        "current object revision matches claim but historical "
-                        "revision is not retained as claimed"
-                    ],
-                )
-            except ApplicationStateConflictError as exc:
-                return (
-                    "CONFLICT",
-                    CurrentAuthorityView(
-                        status="conflict",
-                        head_revision=head_rev,
-                        product_discoverable=True,
-                        detail=str(exc),
-                    ),
-                    [f"same claimed revision disagrees with current retained content: {exc}"],
-                )
-            except ApplicationStateIntegrityError as exc:
-                return (
-                    "COMPARISON_UNAVAILABLE",
-                    CurrentAuthorityView(
-                        status="unavailable",
-                        head_revision=head_rev,
-                        product_discoverable=True,
-                        detail=str(exc),
-                    ),
-                    [f"APP-STATE integrity failure while verifying exact revision: {exc}"],
-                )
-            except Exception as exc:
-                return (
-                    "COMPARISON_UNAVAILABLE",
-                    CurrentAuthorityView(
-                        status="unavailable",
-                        head_revision=head_rev,
-                        product_discoverable=True,
-                        detail=str(exc),
-                    ),
-                    [f"could not authoritatively verify exact {evidence_label}: {exc}"],
-                )
-        if head_rev is not None and claimed_revision < head_rev:
-            try:
-                committed = exact_committed_revision(
-                    identity,
-                    claimed_revision,
-                    kind=domain,  # type: ignore[arg-type]
-                    expected_sha256=content_sha256,
-                )
-                return (
-                    "CURRENT_CONTAINS_HISTORY",
-                    CurrentAuthorityView(
-                        status="contains_history",
-                        matching_revision=committed.work_revision.revision_n,
-                        matching_content_sha256=(
-                            content_sha256 or committed.work_revision.content_sha256
-                        ),
-                        head_revision=head_rev,
-                        product_discoverable=True,
-                    ),
-                    [
-                        "current head advanced but exact historical "
-                        f"{evidence_label} is preserved in APP-STATE history"
-                    ],
-                )
-            except ApplicationStateNotFoundError:
-                return (
-                    "CONFLICT",
-                    CurrentAuthorityView(
-                        status="conflict",
-                        head_revision=head_rev,
-                        product_discoverable=True,
-                    ),
-                    [
-                        "same identity exists but historical claimed revision "
-                        "is not retained in APP-STATE history"
-                    ],
-                )
-            except ApplicationStateConflictError as exc:
-                return (
-                    "CONFLICT",
-                    CurrentAuthorityView(
-                        status="conflict",
-                        head_revision=head_rev,
-                        product_discoverable=True,
-                        detail=str(exc),
-                    ),
-                    [
-                        "historical claimed revision exists but disagrees with "
-                        f"retained content digest: {exc}"
-                    ],
-                )
-            except ApplicationStateIntegrityError as exc:
-                return (
-                    "COMPARISON_UNAVAILABLE",
-                    CurrentAuthorityView(
-                        status="unavailable",
-                        head_revision=head_rev,
-                        product_discoverable=True,
-                        detail=str(exc),
-                    ),
-                    [f"APP-STATE integrity failure while verifying preserved history: {exc}"],
-                )
-            except Exception as exc:
-                return (
-                    "COMPARISON_UNAVAILABLE",
-                    CurrentAuthorityView(
-                        status="unavailable",
-                        head_revision=head_rev,
-                        product_discoverable=True,
-                        detail=str(exc),
-                    ),
-                    [f"could not verify preserved historical revision: {exc}"],
-                )
+        return _classify_draft_plan_runbook_revision(
+            domain=domain,
+            identity=identity,
+            claimed_revision=claimed_revision,
+            content_sha256=content_sha256,
+            head_rev=head_rev,
+        )
 
     if domain == "build":
         if content_sha256:

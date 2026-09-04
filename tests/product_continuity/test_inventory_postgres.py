@@ -7,7 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from application_state.content.service import commit_plan, create_plan, exact_committed_revision
+from application_state.content.service import (
+    autosave_plan,
+    commit_plan,
+    create_plan,
+    exact_committed_revision,
+)
 from application_state.content.types import sha256_utf8
 from application_state.ingest.service import create_extraction_run
 from graph_memory.ingestion.extraction_run import ExtractionRun, ExtractionRunStatus
@@ -218,6 +223,98 @@ def test_revision_only_missing_history_is_conflict(
                     "status": "active",
                     "content_status": "committed",
                     "revision": 2,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                }
+            ],
+        },
+    )
+    current = tmp_path / "current"
+    current.mkdir()
+    report = run_inventory(
+        current_repo_root=current, historical_roots=[("hist", hist)]
+    )
+    item = next(i for i in report.items if i.identity == doc_id)
+    assert item.classification == "CONFLICT"
+    assert item.classification != "CURRENT_EXACT"
+
+
+def test_exact_draft_plan_without_work_revision_is_current_exact(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    """RC3: non-committed registry revision maps to WorkObject + working copy."""
+    created = create_plan(title="Exact Draft Continuity", campaign_id="longmont-c2")
+    doc_id = str(created.work_object_id)
+    draft_md = "# draft working copy bytes\n"
+    after_autosave = autosave_plan(doc_id, draft_md)
+    # No commit_plan → no WorkRevision; autosave advances WorkObject.object_revision.
+
+    hist = tmp_path / "hist"
+    target = hist / "out/workspace/plan" / f"{doc_id}.md"
+    target.parent.mkdir(parents=True)
+    target.write_text(draft_md, encoding="utf-8")
+    _write_json(
+        hist / "out/registries/workspace_documents.json",
+        {
+            "schema_version": "dmb_workspace_document_registry_v1",
+            "records": [
+                {
+                    "schema_version": "dmb_workspace_document_record_v1",
+                    "document_id": doc_id,
+                    "title": "Exact Draft Continuity",
+                    "campaign_id": "longmont-c2",
+                    "kind": "plan",
+                    "target_relpath": f"out/workspace/plan/{doc_id}.md",
+                    "status": "active",
+                    "content_status": "draft",
+                    "revision": after_autosave.object_revision,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                }
+            ],
+        },
+    )
+
+    current = tmp_path / "current"
+    current.mkdir()
+    report = run_inventory(
+        current_repo_root=current, historical_roots=[("hist", hist)]
+    )
+    item = next(i for i in report.items if i.identity == doc_id)
+    assert item.classification == "CURRENT_EXACT", (
+        f"{item.classification} :: {item.reason} :: {item.current_authority}"
+    )
+    assert item.classification != "CONFLICT"
+    assert item.current_authority.matching_revision == after_autosave.object_revision
+    assert item.current_authority.matching_content_sha256 == sha256_utf8(draft_md)
+
+
+def test_draft_plan_digest_mismatch_is_conflict(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    created = create_plan(title="Draft Digest Conflict", campaign_id="longmont-c2")
+    doc_id = str(created.work_object_id)
+    after_autosave = autosave_plan(doc_id, "# current draft\n")
+
+    hist = tmp_path / "hist"
+    target = hist / "out/workspace/plan" / f"{doc_id}.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("# different historical draft\n", encoding="utf-8")
+    _write_json(
+        hist / "out/registries/workspace_documents.json",
+        {
+            "schema_version": "dmb_workspace_document_registry_v1",
+            "records": [
+                {
+                    "schema_version": "dmb_workspace_document_record_v1",
+                    "document_id": doc_id,
+                    "title": "Draft Digest Conflict",
+                    "campaign_id": "longmont-c2",
+                    "kind": "plan",
+                    "target_relpath": f"out/workspace/plan/{doc_id}.md",
+                    "status": "active",
+                    "content_status": "draft",
+                    "revision": after_autosave.object_revision,
                     "created_at": "2026-01-01T00:00:00Z",
                     "updated_at": "2026-01-01T00:00:00Z",
                 }
