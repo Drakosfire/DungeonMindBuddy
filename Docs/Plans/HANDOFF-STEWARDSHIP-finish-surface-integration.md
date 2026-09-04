@@ -1,11 +1,12 @@
 # HANDOFF — STEWARDSHIP: finish SURFACE-INTEGRATION
 
 **Created:** 2026-09-03  
-**Status:** ACTIVE — steward mission, not one implementation PR  
+**Status:** ACTIVE — SI-5 remainder disposed; SI-6 RC1 witness repair on PR #682; freeze remains  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Starting Buddy anchor:** `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb` — merge of PR #681  
 **Completed predecessor:** SI-5B / PR #681, accepted implementation head `d0e9aaa80a78f71ad6bfd2195002eb5de67f098f`, merge `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb`, three formal review cycles  
-**Open collision lane:** PR #674 `AGENT-INTERACTION: enable truthful Play Ask`, parked at `c194c70947780d5248f938421615b28a262d7d37`  
+**Agent disposition:** PR #674 CLOSED/SUPERSEDED (not merged) at final head `c194c70947780d5248f938421615b28a262d7d37`  
+**SI-6 report:** [`../Reports/REPORT-surface-integration-si6-clean-start.md`](../Reports/REPORT-surface-integration-si6-clean-start.md) on tip `5e192966ae2086267569a7dbc5397852b7735550`  
 **One-line mission:** finish the already-committed SURFACE-INTEGRATION program, prove the assembled product, dispose the parked Agent lane deliberately, synchronize authority, and stop; do not use closure work as permission to expand the product.
 
 ---
@@ -137,9 +138,9 @@ Do not invent permissive fallbacks to make SI-6 pass.
 Re-anchor these facts before acting; repository/GitHub truth wins if they moved.
 
 ```text
-Buddy main
-  9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb
-  merge of PR #681
+Buddy main (stewardship tip after SI-5B sync)
+  5e192966ae2086267569a7dbc5397852b7735550
+  (contains #681 merge 9d8c8a51… + finish-only handoff/sync)
 
 SI-1   DONE  #675
 SI-2   DONE  #676
@@ -154,15 +155,29 @@ PR #681
   formal review cycles 3
 
 PR #674
-  OPEN / PARKED
-  head c194c70947780d5248f938421615b28a262d7d37
-  predates SI-1 through SI-5B and must not be merged or extended without fresh disposition
+  CLOSED / SUPERSEDED (disposition A)
+  final head           c194c70947780d5248f938421615b28a262d7d37
+  closed               2026-09-04 — not merged; A8 Play Ask deferred past SI-6
 
 remaining program truth
-  SI-5 remainder  NOT DONE
-  SI-6 witness    NOT ACCEPTED
-  SI-7 thaw       NOT STARTED
+  SI-5 remainder  DONE (no SI-5C/D code slices)
+  SI-6 witness    RC1 REPAIR (Play resume + Build Find-existing + Plan fail-closed)
+  SI-7 thaw       NOT STARTED (freeze remains)
 ```
+
+### Phase B disposition table (2026-09-03 / tip `5e192966…`)
+
+| path / observation | authority | delivery | truthful? | required for SI-6? | code? |
+|---|---|---|---|---|---|
+| Play active run / progress / pinned revision | APP-STATE `play.*` | live Play API → page state | yes | yes (#5,#8) | **no** |
+| Play Agent current-moment pointers | APP-STATE + A7 resolver | Surface Interaction agentContext | yes (fail-closed) | yes (#7) | **no** |
+| Play Ask (#674 A8) | would add Ask transport | absent on main; PR parked/closed | N/A | **no** (firewall) | **no** — CLOSE/SUPERSEDE |
+| Combat in Play / primary SI-6 journey | — | not consumed | N/A | **no** | **no** |
+| `/surface` Combat roster (disabled) | Combat session JSON | direct REST | yes when used | **no** | **no** |
+| Ingest catalog (SI-5B) | APP-STATE `ingest.run` + SI channel | already on main | yes | yes (#4) | **no** |
+| Plan/Build World information | DungeonMind + SI channels | already on main (SI-3/SI-5A) | yes | yes (#2,#3) | **no** |
+
+**Phase C:** zero implementation slices. Proceed to Phase D (SI-6).
 
 ### What SI-5B specifically established
 
