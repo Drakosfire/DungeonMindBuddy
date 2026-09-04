@@ -171,6 +171,119 @@ def test_equivalent_same_content_status_still_collapses(tmp_path: Path) -> None:
     assert {o.content_status for o in registry_obs} == {"committed"}
 
 
+def test_w2_campaign_metadata_disagreement_is_conflict_scan_order_independent(
+    tmp_path: Path,
+) -> None:
+    """Same ID/revision/digest/content_status but differing campaign → CONFLICT."""
+    root_a = tmp_path / "a"
+    root_b = tmp_path / "b"
+    doc_id = "15151515-1515-4151-8151-151515151515"
+    body = "# same committed bytes\n"
+    for root, campaign in ((root_a, "longmont-c2"), (root_b, "eldyrwild")):
+        target = root / "out/workspace/plan" / f"{doc_id}.md"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(body, encoding="utf-8")
+        _write_json(
+            root / "out/registries/workspace_documents.json",
+            {
+                "schema_version": "dmb_workspace_document_registry_v1",
+                "records": [
+                    {
+                        "schema_version": "dmb_workspace_document_record_v1",
+                        "document_id": doc_id,
+                        "title": "Campaign Split",
+                        "campaign_id": campaign,
+                        "kind": "plan",
+                        "target_relpath": f"out/workspace/plan/{doc_id}.md",
+                        "status": "active",
+                        "content_status": "committed",
+                        "revision": 1,
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:00:00Z",
+                    }
+                ],
+            },
+        )
+
+    current = CurrentAuthoritySnapshot(readable=True, detail=None, schema_head_status="at_head")
+    ab = reconcile(
+        scan_historical_root(root_a, root_label="a")
+        + scan_historical_root(root_b, root_label="b"),
+        current,
+    )
+    ba = reconcile(
+        scan_historical_root(root_b, root_label="b")
+        + scan_historical_root(root_a, root_label="a"),
+        current,
+    )
+    item_ab = next(i for i in ab if i.identity == doc_id)
+    item_ba = next(i for i in ba if i.identity == doc_id)
+    assert item_ab.classification == "CONFLICT"
+    assert item_ba.classification == "CONFLICT"
+    assert any("campaign_id" in reason for reason in item_ab.reason)
+    assert [o.root_label for o in item_ab.historical_observations] == [
+        o.root_label for o in item_ba.historical_observations
+    ]
+
+
+def test_current_authority_campaign_mismatch_is_conflict(tmp_path: Path) -> None:
+    """CURRENT_EXACT must compare admitted durable metadata against current authority."""
+    from application_state.content.types import sha256_utf8
+
+    build_id = "16161616-1616-4161-8161-161616161616"
+    body = "# build bytes\n"
+    digest = sha256_utf8(body)
+    hist = tmp_path / "hist"
+    target = hist / "out/workspace/worldbuilding" / f"{build_id}.md"
+    target.parent.mkdir(parents=True)
+    target.write_text(body, encoding="utf-8")
+    _write_json(
+        hist / "out/registries/workspace_documents.json",
+        {
+            "schema_version": "dmb_workspace_document_registry_v1",
+            "records": [
+                {
+                    "schema_version": "dmb_workspace_document_record_v1",
+                    "document_id": build_id,
+                    "title": "Build Continuity",
+                    "campaign_id": "eldyrwild",
+                    "kind": "worldbuilding_source",
+                    "target_relpath": f"out/workspace/worldbuilding/{build_id}.md",
+                    "status": "active",
+                    "content_status": "committed",
+                    "revision": 1,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                }
+            ],
+        },
+    )
+    items = reconcile(
+        scan_historical_root(hist, root_label="hist"),
+        CurrentAuthoritySnapshot(
+            readable=True,
+            detail=None,
+            schema_head_status="at_head",
+            builds={
+                build_id: {
+                    "revision": 1,
+                    "campaign_id": "longmont-c2",
+                    "title": "Build Continuity",
+                    "status": "active",
+                    "content_status": "committed",
+                    "target_session": None,
+                    "content_sha256": digest,
+                    "target_relpath": f"out/workspace/worldbuilding/{build_id}.md",
+                }
+            },
+        ),
+    )
+    item = next(i for i in items if i.identity == build_id)
+    assert item.classification == "CONFLICT"
+    assert item.classification != "CURRENT_EXACT"
+    assert any("campaign_id" in reason for reason in item.reason)
+
+
 def test_w8_incomplete_manifest_needs_adapter_without_invented_ids(tmp_path: Path) -> None:
     root = tmp_path / "hist"
     manifest_dir = root / "out/graph_memory/runs/run-x"

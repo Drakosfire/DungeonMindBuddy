@@ -52,6 +52,34 @@ from live_play.live_store import load_json
 
 INVENTORY_SCHEMA = "dmb_product_continuity_inventory_v1"
 
+# Admitted durable WorkObject / adoption metadata for Plan, Runbook, and Build
+# registry observations. Exact importer persists these; disagreement is CONFLICT.
+WORKSPACE_DURABLE_METADATA_KEYS: tuple[str, ...] = (
+    "campaign_id",
+    "title",
+    "target_session",
+    "status",
+    "content_status",
+)
+
+# Intentionally non-authoritative for exactness / equivalence:
+# physical locators and volatile clock fields are not durable identity evidence.
+WORKSPACE_NON_AUTHORITATIVE_METADATA_KEYS: tuple[str, ...] = (
+    "target_relpath",
+    "created_at",
+    "updated_at",
+)
+
+# Durable fields the current Plan/Runbook APP-STATE seam exposes and that
+# CURRENT_EXACT must compare. content_status is registry-era and selects the
+# committed-vs-draft proof path rather than a WorkObject column.
+WORKSPACE_CURRENT_COMPARABLE_KEYS: tuple[str, ...] = (
+    "campaign_id",
+    "title",
+    "target_session",
+    "status",
+)
+
 Domain = Literal["plan", "build", "ingest", "runbook", "play_run"]
 IdentityKind = Literal["document_id", "run_id"]
 Classification = Literal[
@@ -99,6 +127,7 @@ class HistoricalObservation(BaseModel):
     content_sha256: str | None = None
     durable_fingerprint: str | None = None
     content_status: str | None = None
+    durable_metadata: dict[str, Any] | None = None
     parse_status: ParseStatus
     detail: str | None = None
 
@@ -157,6 +186,7 @@ class _PendingObs:
     session_id: str | None = None
     title: str | None = None
     content_status: str | None = None
+    durable_metadata: dict[str, Any] | None = None
     observation: HistoricalObservation | None = None
     # For ingest adapted runs: durable payload fingerprint of adapted ExtractionRun
     adapted_fingerprint: str | None = None
@@ -183,6 +213,83 @@ def _utc_now() -> str:
 
 def _is_uuid(value: str) -> bool:
     return bool(_UUID_RE.match(value.strip()))
+
+
+def _workspace_durable_metadata_from_record(record: Any) -> dict[str, Any]:
+    """Extract admitted durable metadata from a workspace registry record."""
+    meta: dict[str, Any] = {}
+    for key in WORKSPACE_DURABLE_METADATA_KEYS:
+        value = getattr(record, key, None)
+        meta[key] = value
+    return meta
+
+
+def _durable_metadata_fingerprint(meta: dict[str, Any]) -> tuple[tuple[str, Any], ...]:
+    """Order-stable fingerprint of admitted durable fields that are declared."""
+    items: list[tuple[str, Any]] = []
+    for key in WORKSPACE_DURABLE_METADATA_KEYS:
+        if key not in meta:
+            continue
+        value = meta[key]
+        if key == "title" and isinstance(value, str):
+            value = value.strip()
+        if key == "campaign_id" and isinstance(value, str):
+            value = value.strip()
+        items.append((key, value))
+    return tuple(items)
+
+
+def _current_workspace_metadata_mismatches(
+    historical: dict[str, Any] | None,
+    present: dict[str, Any],
+) -> list[str]:
+    """Return admitted durable keys that disagree with current product authority."""
+    if not historical:
+        return []
+    mismatches: list[str] = []
+    for key in WORKSPACE_CURRENT_COMPARABLE_KEYS:
+        if key not in historical:
+            continue
+        hist_val = historical[key]
+        cur_val = present.get(key)
+        if key in {"title", "campaign_id"} and isinstance(hist_val, str):
+            hist_val = hist_val.strip()
+        if key in {"title", "campaign_id"} and isinstance(cur_val, str):
+            cur_val = cur_val.strip()
+        if hist_val != cur_val:
+            mismatches.append(key)
+    return mismatches
+
+
+def _apply_current_metadata_exactness(
+    classification: Classification,
+    view: CurrentAuthorityView,
+    reasons: list[str],
+    *,
+    durable_metadata: dict[str, Any] | None,
+    present: dict[str, Any] | None,
+) -> tuple[Classification, CurrentAuthorityView, list[str]]:
+    """CURRENT_EXACT must honor available durable WorkObject metadata."""
+    if classification != "CURRENT_EXACT" or not present:
+        return classification, view, reasons
+    mismatches = _current_workspace_metadata_mismatches(durable_metadata, present)
+    if not mismatches:
+        return classification, view, reasons
+    return (
+        "CONFLICT",
+        CurrentAuthorityView(
+            status="conflict",
+            matching_revision=view.matching_revision,
+            matching_content_sha256=view.matching_content_sha256,
+            head_revision=view.head_revision or present.get("object_revision") or present.get("revision"),
+            product_discoverable=True,
+        ),
+        reasons
+        + [
+            "same identity/revision/content evidence but durable WorkObject metadata "
+            f"disagrees with current authority on: {', '.join(mismatches)}"
+        ],
+    )
 
 
 def _rel(root: Path, path: Path) -> str:
@@ -266,6 +373,8 @@ def observe_current_authority(current_repo_root: Path) -> CurrentAuthoritySnapsh
                 "campaign_id": obj.campaign_id,
                 "title": obj.title,
                 "status": obj.status,
+                "target_session": obj.target_session,
+                "target_relpath": obj.target_relpath,
             }
             for obj in list_plans(status=None)
         }
@@ -275,6 +384,8 @@ def observe_current_authority(current_repo_root: Path) -> CurrentAuthoritySnapsh
                 "campaign_id": obj.campaign_id,
                 "title": obj.title,
                 "status": obj.status,
+                "target_session": obj.target_session,
+                "target_relpath": obj.target_relpath,
             }
             for obj in list_runbooks(status=None)
         }
@@ -382,9 +493,11 @@ def _load_current_builds(
             "revision": record.revision,
             "campaign_id": record.campaign_id,
             "title": record.title,
+            "status": record.status,
+            "content_status": record.content_status,
+            "target_session": record.target_session,
             "content_sha256": digest,
             "target_relpath": record.target_relpath,
-            "content_status": record.content_status,
         }
     return out, True, None
 
@@ -429,6 +542,7 @@ def _scan_workspace_registry(root: Path, root_label: str) -> list[_PendingObs]:
             target = root / record.target_relpath
             if target.is_file():
                 digest = _file_sha256(target)
+        durable_metadata = _workspace_durable_metadata_from_record(record)
         pending.append(
             _PendingObs(
                 domain=domain,
@@ -437,6 +551,7 @@ def _scan_workspace_registry(root: Path, root_label: str) -> list[_PendingObs]:
                 campaign_id=record.campaign_id,
                 title=record.title,
                 content_status=record.content_status,
+                durable_metadata=durable_metadata,
                 observation=HistoricalObservation(
                     source_kind="workspace_documents_registry",
                     root_label=root_label,
@@ -445,6 +560,7 @@ def _scan_workspace_registry(root: Path, root_label: str) -> list[_PendingObs]:
                     content_sha256=digest,
                     durable_fingerprint=digest,
                     content_status=record.content_status,
+                    durable_metadata=durable_metadata,
                     parse_status="ok",
                     detail=f"kind={record.kind}; content_status={record.content_status}",
                 ),
@@ -701,15 +817,20 @@ def _merge_group(pendings: list[_PendingObs]) -> tuple[list[HistoricalObservatio
     Registry + orphan-bytes observations for the same UUID are complementary when
     their digests agree (or one side lacks a digest). Disagreement requires
     distinct non-empty digests, incompatible claimed revisions with digests, or
-    disagreeing content_status (committed vs draft selects different authority proofs).
+    disagreeing admitted durable workspace metadata (including content_status).
     """
     observations: list[HistoricalObservation] = []
     for pending in pendings:
         if pending.observation is None:
             continue
         obs = pending.observation
+        updates: dict[str, Any] = {}
         if obs.content_status is None and pending.content_status is not None:
-            obs = obs.model_copy(update={"content_status": pending.content_status})
+            updates["content_status"] = pending.content_status
+        if obs.durable_metadata is None and pending.durable_metadata is not None:
+            updates["durable_metadata"] = pending.durable_metadata
+        if updates:
+            obs = obs.model_copy(update=updates)
         observations.append(obs)
     reasons: list[str] = []
     ok_obs = [o for o in observations if o.parse_status in {"ok", "adapted"}]
@@ -742,12 +863,23 @@ def _merge_group(pendings: list[_PendingObs]) -> tuple[list[HistoricalObservatio
                 )
                 break
 
-    statuses = {o.content_status for o in ok_obs if o.content_status}
-    if len(statuses) > 1:
+    metadata_fps = {
+        _durable_metadata_fingerprint(meta)
+        for o in ok_obs
+        if (meta := o.durable_metadata)
+    }
+    if len(metadata_fps) > 1:
         conflict = True
+        # Surface which admitted keys differ without echoing full titles into reasons.
+        differing_keys: set[str] = set()
+        metas = [o.durable_metadata for o in ok_obs if o.durable_metadata]
+        for key in WORKSPACE_DURABLE_METADATA_KEYS:
+            values = {meta.get(key) for meta in metas}
+            if len(values) > 1:
+                differing_keys.add(key)
         reasons.append(
             "same durable identity disagrees across historical observations "
-            f"(content_status mismatch: {', '.join(sorted(statuses))})"
+            f"(admitted durable metadata mismatch on: {', '.join(sorted(differing_keys))})"
         )
     return observations, reasons, conflict
 
@@ -1502,7 +1634,16 @@ def reconcile(
         has_registry_record = any(
             o.source_kind == "workspace_documents_registry" for o in ok
         )
-        content_status = next((g.content_status for g in group if g.content_status), None)
+        durable_metadata = next((o.durable_metadata for o in ok if o.durable_metadata), None)
+        content_status = None
+        if durable_metadata and durable_metadata.get("content_status") is not None:
+            content_status = durable_metadata.get("content_status")
+        else:
+            content_status = next((g.content_status for g in group if g.content_status), None)
+        if durable_metadata and not hist_conflict:
+            # Prefer unanimous admitted metadata over first-pending wins.
+            campaign_id = durable_metadata.get("campaign_id") or campaign_id
+            title = durable_metadata.get("title") or title
         play_binding = next((g.play_binding for g in group if g.play_binding), None)
 
         if domain in {"plan", "runbook", "build"}:
@@ -1517,6 +1658,19 @@ def reconcile(
                 historical_conflict=hist_conflict,
                 has_malformed_only=has_malformed_only,
                 adapt_failed=False,
+            )
+            if domain == "plan":
+                present = current.plans.get(identity)
+            elif domain == "runbook":
+                present = current.runbooks.get(identity)
+            else:
+                present = current.builds.get(identity)
+            classification, current_view, more = _apply_current_metadata_exactness(
+                classification,
+                current_view,
+                more,
+                durable_metadata=durable_metadata,
+                present=present,
             )
         elif domain == "ingest":
             classification, current_view, more = _classify_ingest(
