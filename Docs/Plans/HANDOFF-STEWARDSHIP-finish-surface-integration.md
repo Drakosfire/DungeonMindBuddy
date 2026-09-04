@@ -1,7 +1,7 @@
 # HANDOFF — STEWARDSHIP: finish SURFACE-INTEGRATION
 
 **Created:** 2026-09-03  
-**Status:** COMPLETE — SI-5 remainder disposed; SI-6 ACCEPTED; SURFACE-INTEGRATION CLOSED  
+**Status:** ACTIVE — SI-5 remainder disposed; SI-6 RC1 witness repair on PR #682; freeze remains  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Starting Buddy anchor:** `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb` — merge of PR #681  
 **Completed predecessor:** SI-5B / PR #681, accepted implementation head `d0e9aaa80a78f71ad6bfd2195002eb5de67f098f`, merge `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb`, three formal review cycles  
@@ -161,8 +161,8 @@ PR #674
 
 remaining program truth
   SI-5 remainder  DONE (no SI-5C/D code slices)
-  SI-6 witness    ACCEPTED (REPORT-surface-integration-si6-clean-start.md)
-  SI-7 thaw       CURRENT (re-sequence from CON-READY)
+  SI-6 witness    RC1 REPAIR (Play resume + Build Find-existing + Plan fail-closed)
+  SI-7 thaw       NOT STARTED (freeze remains)
 ```
 
 ### Phase B disposition table (2026-09-03 / tip `5e192966…`)

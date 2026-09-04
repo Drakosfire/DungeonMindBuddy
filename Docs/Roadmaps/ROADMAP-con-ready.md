@@ -2,12 +2,12 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-09-04 — SURFACE-INTEGRATION CLOSED (SI-6 ACCEPTED)
+**Re-anchored:** 2026-09-04 — SURFACE-INTEGRATION finish-only; SI-6 RC1 witness repair
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
 
-**Blocking child program:** [`ROADMAP-surface-integration.md`](ROADMAP-surface-integration.md) — **CLOSED** after SI-6 acceptance (`REPORT-surface-integration-si6-clean-start.md`). Feature freeze lifted; CON-READY again owns next product sequence (SI-7 re-sequencing). Do not auto-resume the oldest parked branch.
+**Blocking child program:** [`ROADMAP-surface-integration.md`](ROADMAP-surface-integration.md) — still **ACTIVE** until SI-6 ACCEPT. Feature freeze remains; do not resume parked feature branches.
 
 ---
 
