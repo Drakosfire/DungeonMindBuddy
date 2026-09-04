@@ -20,14 +20,20 @@ pr_body_template: |
 # HANDOFF — Ingest APP-STATE Run Information Adoption v1
 
 **Created:** 2026-09-03  
-**Status:** ACTIVE — SURFACE-INTEGRATION SI-5B  
+**Status:** COMPLETE — merged PR #681 @ `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-SURFACE-INTEGRATION-ingest-run-information-adoption-v1.md`  
 **Conversation/workstream:** `SURFACE-INTEGRATION / SI-5B`  
 **Flow / owner:** `SURFACE-INTEGRATION`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Base revision:** `a543af46f21d31d6ad83a88c3b2911ca4e0e4016`  
 **Predecessor:** PR #680 / SI-5A merged at `a543af46f21d31d6ad83a88c3b2911ca4e0e4016`; final implementation head `4ccbe0fad1f5c9c60c3ced6173d842a77b162289`; three formal review cycles  
-**PR title:** `SURFACE-INTEGRATION: move Ingest run catalog onto Surface Information`
+**PR title:** `SURFACE-INTEGRATION: move Ingest run catalog onto Surface Information`  
+**Accepted implementation head:** `d0e9aaa80a78f71ad6bfd2195002eb5de67f098f`  
+**Merge:** `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb`  
+**Formal review cycles:** 3  
+**Successor stewardship:** [`HANDOFF-STEWARDSHIP-finish-surface-integration.md`](HANDOFF-STEWARDSHIP-finish-surface-integration.md)
+
+> Completion note: the forward-looking body below is retained as the historical SI-5B implementation/review contract. Review established that PROMOTED exact historical inspection requires a separate neutral inspection seam and remained out of this slice; it is not automatically a SURFACE-INTEGRATION closure requirement.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md). Parent program: [`ROADMAP-surface-integration.md`](../Roadmaps/ROADMAP-surface-integration.md). Surface Information semantics: [`CONTRACT-surface-information-v1.md`](../Design/CONTRACT-surface-information-v1.md). Persistence predecessor: [`HANDOFF-SURFACE-INTEGRATION-ingest-application-state-authority-v1.md`](HANDOFF-SURFACE-INTEGRATION-ingest-application-state-authority-v1.md).
 
