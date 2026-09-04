@@ -11,7 +11,7 @@ This report is the sanitized W8/W9 steward witness. Absolute home paths are omit
 
 DFC-2a itself is **not** marked complete here. Acceptance remains steward review.
 
-Review Cycle 1 at `8224500c700972a937777ebb18a4a832809c6d60` rejected blank-shell adoption and an unpinned importer TOCTOU. Review Cycle 2 at `2b22f33469924de882f5d9cc7e43eac9667855a6` accepted that repair and requested two remaining P1s: bind the pin to the classified DFC-1 observation, and stop inventing empty historical content during `CURRENT_EXACT` no-op verification. This file records the Cycle 3 repair witness on code head `04dcc272910cd9f5589e8a9e585991f037ac4df5`.
+Review Cycle 1 at `8224500c700972a937777ebb18a4a832809c6d60` rejected blank-shell adoption and an unpinned importer TOCTOU. Review Cycle 2 at `2b22f33469924de882f5d9cc7e43eac9667855a6` accepted that repair and requested two remaining P1s: bind the pin to the classified DFC-1 observation, and stop inventing empty historical content during `CURRENT_EXACT` no-op verification. Review Cycle 3 at `0f744c9ebb5bb4fd5ec37fa0c66b15edc15b44c2` closed those P1s and requested a post-commit product-verification exception boundary. Cycle 3 live W8/W9 remains on code head `04dcc272910cd9f5589e8a9e585991f037ac4df5`. Cycle 4 code head is `c9207c9abd92522fbcd41f3fd7afab8e31770470`.
 
 ---
 
@@ -135,6 +135,24 @@ World Graph showed `authority_unavailable` in this runtime; that is unrelated to
 ## Cycle 1 report (superseded as completion evidence)
 
 The first real apply against leftover local APP-STATE produced four `skipped_empty` WorkObjects and one imported Plan. Product verification was later made status-aware; the subsequent apply on that head was a five-`CURRENT_EXACT` replay. Review Cycle 1 correctly refused that as DFC-2a completion. It remains only as leftover local residue, documented above.
+
+---
+
+## Cycle 4 post-commit verification exception boundary
+
+Code head: `c9207c9abd92522fbcd41f3fd7afab8e31770470`.
+
+If `_verify_product_seam()` raises after the importer unit-of-work has committed, the operator report is now:
+
+```text
+applied = true
+product_verification = failed
+detail = adoption committed; product verification failed
+```
+
+The adopted row is not rolled back or deleted. Owning witness `test_post_commit_product_seam_failure_keeps_committed_state`: importer succeeds, product-seam list/snapshot then raises `ApplicationStateUnavailableError`, report matches the required committed-failed result, `snapshot_plan` still returns the imported markdown, and a follow-up apply is `CURRENT_EXACT` / `noop` from that current state.
+
+Leftover local APP-STATE was not written. Cycle 3 isolated W8/W9 is unchanged as the live product-surface witness.
 
 ---
 
