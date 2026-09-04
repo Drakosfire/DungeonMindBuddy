@@ -2,10 +2,12 @@
 
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
 **Line of work:** `CON-READY`  
-**Updated:** 2026-08-31
+**Updated:** 2026-09-04  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main` `ae01ef630e170e9b2a2de6daaa93373f88dc3a91`
+**Re-anchor base:** `main` `3b84015cc90dd6c60e8d8dca6d9e2e7516779afa` (DOGFOOD-CONTINUITY handoff; after PR #682 SI-6 ACCEPT)  
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)  
+**Current forcing function:** DOGFOOD-CONTINUITY DFC-1 — [`HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md`](HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md)  
+**Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)  
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)  
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)  
 **Approved target:** [`../Design/DESIGN-play-surface-gm-cockpit-target.md`](../Design/DESIGN-play-surface-gm-cockpit-target.md)
@@ -30,9 +32,19 @@ Before dispatching a CON-READY / PLAY-SURFACE implementation:
 
 ## 1. Current product truth
 
+SURFACE-INTEGRATION is **CLOSED** (SI-6 ACCEPTED, PR #682). The temporary feature freeze is lifted. The active CON-READY forcing function is **DOGFOOD-CONTINUITY DFC-1** — historical material inventory and Of Conks and Cons continuity — not automatic resume of the old BF3B branch.
+
 The Play persistence foundation is no longer the blocker.
 
 ```text
+SURFACE-INTEGRATION
+SI-6 / PR #682    DONE / ACCEPTED — merge 86296a4021816862b1ee82cbf7478b2882493963
+SI-7              DONE — re-sequenced to DOGFOOD-CONTINUITY DFC-1
+
+DOGFOOD-CONTINUITY
+DFC-1             CURRENT — historical material inventory / Of Conks and Cons continuity
+
+PLAY STRUCTURE
 BF1 / PR #628    DONE — Beat-first v2 grammar/index/manifest
 
 APP-STATE
@@ -60,8 +72,7 @@ BF4A / PR #660   DONE — native Runbook reopen/save
                  accepted head d9b34ca87166572af8b482523862722fdd928fbe
                  merge a3fd6219062d1cd978c394d07e2f80aaa6d203eb
                  review cycles: 2
-BF3B             CURRENT / IN FLIGHT — Scene-owned Decision interaction
-                 recut branch agent/play-surface-decision-cockpit-recut
+BF3B             LATER — Scene-owned Decision interaction (parked; stale "CURRENT" sequencing retired)
 PR #670          CLOSED UNMERGED — exploratory cockpit prototype; 0 review cycles
 ```
 
@@ -190,9 +201,12 @@ DONE — native Runbook reopen/save
         merge a3fd6219062d1cd978c394d07e2f80aaa6d203eb
         review cycles: 2
         ↓
+DFC-1
+CURRENT — DOGFOOD-CONTINUITY historical material inventory / Of Conks and Cons continuity
+        handoff: HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md
+        ↓
 BF3B
-CURRENT / IN FLIGHT — Scene-owned Decision interaction
-        recut from main after closed unmerged PR #670 (0 review cycles)
+LATER — Scene-owned Decision interaction (parked until after DFC-1)
         ↓
 BF3C / BF3.x / P3 family
 additional At-a-Glance categories; fast cross-Beat inspect + retrieval
@@ -232,8 +246,10 @@ DF0 does **not** own:
 - Combat, Agent Interaction, or CUTOVER.
 
 DF0 is complete at PR #657. PLAN-BLANK-SHELL is complete at PR #661. BF4A is
-DONE at PR #660. BF3B is the current Play product slice and owns Scene-owned
-Decision interaction on an already-committed Runbook and READY Run.
+DONE at PR #660. **DFC-1** is the current CON-READY forcing function. BF3B
+(Scene-owned Decision interaction) remains a later product capability — the old
+"CURRENT / IN FLIGHT" sequencing on `agent/play-surface-decision-cockpit-recut`
+is retired as stale.
 
 Create blank Runbook, chooser copy, and paste/replace remain predecessor or
 separate product work. They are not BF3B. Closed unmerged PR #670 is exploratory
@@ -268,7 +284,9 @@ A path that forces manual source search, memory reconstruction, JSON surgery, Pl
 - DF0 local Play dogfood bootstrap is DONE (PR #657, merge `87a769d05605ff021d28f0b69c5d7ab0b8205440`).
 - PLAN-BLANK-SHELL / PR #661 is DONE (merge `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`, 4 review cycles).
 - BF4A native Runbook authoring is DONE (PR #660, accepted head `d9b34ca87166572af8b482523862722fdd928fbe`, merge `a3fd6219062d1cd978c394d07e2f80aaa6d203eb`, 2 review cycles).
-- BF3B Decision interaction is CURRENT / IN FLIGHT on `agent/play-surface-decision-cockpit-recut`. Closed unmerged PR #670 is exploratory evidence only (0 review cycles).
+- SURFACE-INTEGRATION is CLOSED (SI-6 ACCEPTED, PR #682 merge `86296a4021816862b1ee82cbf7478b2882493963`, 2 review cycles).
+- DFC-1 historical material inventory is **CURRENT** (not done).
+- BF3B Decision interaction is **not current** — parked until after DFC-1. Closed unmerged PR #670 is exploratory evidence only (0 review cycles).
 - BF3.x / P3 retrieval remains false.
 - P4 / Combat remains false.
 - global/on-demand retrieval is not proven.

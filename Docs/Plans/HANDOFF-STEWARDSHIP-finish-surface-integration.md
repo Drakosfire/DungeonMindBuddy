@@ -1,13 +1,26 @@
 # HANDOFF — STEWARDSHIP: finish SURFACE-INTEGRATION
 
 **Created:** 2026-09-03  
-**Status:** ACTIVE — SI-5 remainder disposed; SI-6 RC1 witness repair on PR #682; freeze remains  
+**Status:** COMPLETE — SI-6 ACCEPTED; SURFACE-INTEGRATION CLOSED; SI-7 re-sequenced to DOGFOOD-CONTINUITY DFC-1  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Starting Buddy anchor:** `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb` — merge of PR #681  
 **Completed predecessor:** SI-5B / PR #681, accepted implementation head `d0e9aaa80a78f71ad6bfd2195002eb5de67f098f`, merge `9d8c8a51c10bb2eb56739bc2661cb37f9f401ebb`, three formal review cycles  
 **Agent disposition:** PR #674 CLOSED/SUPERSEDED (not merged) at final head `c194c70947780d5248f938421615b28a262d7d37`  
-**SI-6 report:** [`../Reports/REPORT-surface-integration-si6-clean-start.md`](../Reports/REPORT-surface-integration-si6-clean-start.md) on tip `5e192966ae2086267569a7dbc5397852b7735550`  
+**SI-6 report:** [`../Reports/REPORT-surface-integration-si6-clean-start.md`](../Reports/REPORT-surface-integration-si6-clean-start.md) — ACCEPTED; PR #682 merge `86296a4021816862b1ee82cbf7478b2882493963`; accepted witness head `9349cb4b64d8a4849c4f379277ddb15df1fdc81a`; two formal review cycles  
 **One-line mission:** finish the already-committed SURFACE-INTEGRATION program, prove the assembled product, dispose the parked Agent lane deliberately, synchronize authority, and stop; do not use closure work as permission to expand the product.
+
+**Completion record (2026-09-04):**
+
+```text
+PR #682               merged @ 86296a4021816862b1ee82cbf7478b2882493963
+accepted witness head 9349cb4b64d8a4849c4f379277ddb15df1fdc81a
+formal review cycles  2 (RC2 review 5109075232)
+SI-6 judgment         ACCEPTED
+SURFACE-INTEGRATION   CLOSED
+SI-7                  DONE — thaw/re-sequence → DOGFOOD-CONTINUITY DFC-1
+feature freeze        lifted
+next sequence         DFC-1 (not claimed done here)
+```
 
 ---
 
@@ -31,9 +44,9 @@ The invariant for the rest of the mission is:
 
 > **Do the minimum work required for every surface used by the SI-6 witness to observe the authority it actually depends on truthfully, then run the witness. A nearby architectural improvement, cleanup opportunity, richer capability, or future magic moment is not part of this mission unless the SI-6 owning-boundary evidence fails without it.**
 
-The existing freeze remains law until acceptance:
+The feature freeze applied for the duration of this mission and was **lifted upon SI-6 acceptance**:
 
-> **No DungeonBuddy feature thaw before SI-6 acceptance.**
+> **No DungeonBuddy feature thaw before SI-6 acceptance.** *(historical mission law — satisfied and lifted)*
 
 Do not convert “finish SURFACE-INTEGRATION” into “adopt Surface Information everywhere.” The contract is a tool for truthful observations, not a migration quota.
 
@@ -161,8 +174,11 @@ PR #674
 
 remaining program truth
   SI-5 remainder  DONE (no SI-5C/D code slices)
-  SI-6 witness    RC1 REPAIR (Play resume + Build Find-existing + Plan fail-closed)
-  SI-7 thaw       NOT STARTED (freeze remains)
+  SI-6 witness    ACCEPTED — PR #682 merge 86296a4021816862b1ee82cbf7478b2882493963
+                  accepted witness head 9349cb4b64d8a4849c4f379277ddb15df1fdc81a
+                  formal review cycles 2 (RC2 review 5109075232)
+  SI-7 thaw       DONE — freeze lifted; next sequence → DOGFOOD-CONTINUITY DFC-1
+  SURFACE-INTEGRATION  CLOSED
 ```
 
 ### Phase B disposition table (2026-09-03 / tip `5e192966…`)

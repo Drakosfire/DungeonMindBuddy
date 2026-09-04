@@ -2,12 +2,14 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-09-04 — SURFACE-INTEGRATION finish-only; SI-6 RC1 witness repair
+**Re-anchored:** 2026-09-04 — SURFACE-INTEGRATION CLOSED (SI-6 ACCEPTED); DFC-1 is current before BF3B/BF3C/Combat resume
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
 
-**Blocking child program:** [`ROADMAP-surface-integration.md`](ROADMAP-surface-integration.md) — still **ACTIVE** until SI-6 ACCEPT. Feature freeze remains; do not resume parked feature branches.
+**Closed blocking child program:** [`ROADMAP-surface-integration.md`](ROADMAP-surface-integration.md) — **CLOSED** (SI-6 ACCEPTED, PR #682). No active SURFACE-INTEGRATION blocker; temporary feature freeze lifted.
+
+**Current forcing function:** DOGFOOD-CONTINUITY **DFC-1** — historical material inventory / Of Conks and Cons continuity via [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md). Resume BF3B, BF3C, and Combat lanes only after DFC-1 selection, not automatically.
 
 ---
 
@@ -243,11 +245,18 @@ CR-U17 remains **false overall** until Combat and any other relied-upon non-Play
 
 # 4. Delivery roadmap
 
-## 4.0 Current delivery state — 2026-08-29
+## 4.0 Current delivery state — 2026-09-04
 
 Repository truth at this re-anchor:
 
 ```text
+SURFACE-INTEGRATION
+SI-6 / PR #682    DONE / ACCEPTED — merge 86296a4021816862b1ee82cbf7478b2882493963
+                  accepted witness head 9349cb4b64d8a4849c4f379277ddb15df1fdc81a
+                  formal review cycles 2
+SI-7              DONE — thaw/re-sequence → DOGFOOD-CONTINUITY DFC-1
+program           CLOSED — no active blocking child
+
 PLAY STRUCTURE
 BF1 / PR #628    DONE — Beat-first v2 grammar, index, manifest foundation
 
@@ -279,11 +288,15 @@ BF4A / PR #660   DONE — native Runbook reopen/save
                  accepted head d9b34ca87166572af8b482523862722fdd928fbe
                  merge a3fd6219062d1cd978c394d07e2f80aaa6d203eb
                  review cycles: 2
-BF3B             CURRENT / IN FLIGHT — Scene-owned Decision interaction
-                 recut branch agent/play-surface-decision-cockpit-recut
+BF3B             LATER — Scene-owned Decision interaction (parked; stale "CURRENT" sequencing retired)
+                 remains a product capability; dispatch after DFC-1
 PR #670          CLOSED UNMERGED — exploratory cockpit prototype; 0 review cycles
-BF3C / BF3.x     later — additional At-a-Glance categories / retrieval
+BF3C / BF3.x     later — additional At-a-Glance categories / retrieval (after DFC-1)
 BF4              authoring composition; may run in parallel on disjoint lease
+
+DOGFOOD-CONTINUITY
+DFC-1            CURRENT — historical material inventory / Of Conks and Cons continuity
+                 handoff: Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md
 
 CUTOVER
 separate active lane; do not make remaining CUTOVER work a reason to pause disjoint Play Surface work
@@ -329,7 +342,12 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - native Runbook reopen/save from Play
    - next immutable WorkRevision even when target_relpath is null
 
-6. BF3B — CURRENT / IN FLIGHT — Scene-owned Decision interaction
+6. DFC-1 — CURRENT — DOGFOOD-CONTINUITY historical material inventory
+   - Of Conks and Cons continuity forcing function
+   - handoff: Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md
+   - must complete before resuming BF3B / BF3C / Combat product lanes
+
+7. BF3B — LATER — Scene-owned Decision interaction
    - already-committed Decision-bearing Runbook + READY Run are preconditions
    - current Scene visibly owns the Decision
    - select / change / clear selection
@@ -338,13 +356,13 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - Create blank Runbook / chooser copy / paste-replace / Beat-Scene navigator are not this slice
    - closed unmerged PR #670 is exploratory evidence only (0 review cycles)
 
-7. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
+8. FAST RETRIEVAL / OBJECT PROJECTIONS — BF3.x / P3 family
    - inspect material from other Beats without changing current moment
    - global/on-demand known object finder
    - fast NPC/location/Threat/table opening
    - exact statblock hot path
 
-8. THREAT → COMBAT + COMBAT WORKSPACE — P4 / Combat lane
+9. THREAT → COMBAT + COMBAT WORKSPACE — P4 / Combat lane
    - Add to Combat from prepared or unexpected Threat
    - Combat is one At-a-Glance entry with compact status, not a floating side rail
    - opening Combat uses the same central workspace; Combat remains Combat-owned
@@ -352,11 +370,11 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - durable Combat authority required for CR-U17 overall
    - this Combat workspace is not implemented until P4
 
-9. BF4 — Plan Beat-first authoring composition
+10. BF4 — Plan Beat-first authoring composition
    - may proceed in parallel after BF1 on disjoint leases
    - must not block getting DF0/BF3B back to a real table
 
-10. REAL SESSION DOGFOOD
+11. REAL SESSION DOGFOOD
    - deliberately include an off-script scene change
    - unplanned NPC/Threat
    - exact mechanics lookup
