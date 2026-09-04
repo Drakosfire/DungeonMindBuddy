@@ -1,7 +1,28 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import type { ExtractionRunRecord } from "../../api/types";
 import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
+import { toCatalogRun } from "./graphReviewWorkbenchUtils";
+
+function canonicalRun(overrides: Partial<ExtractionRunRecord> = {}): ExtractionRunRecord {
+  return {
+    schema_version: "dmb_extraction_run_v1",
+    version: "1.0",
+    run_id: "er_run_a",
+    source_artifact_id: "sa_1",
+    source_domain: "recap",
+    status: "reviewable",
+    campaign_id: "longmont-c2",
+    session_id: "session-23",
+    ...overrides,
+  };
+}
+
+const catalogRun = toCatalogRun(
+  canonicalRun(),
+  "artifacts/run-a/manifest.json",
+);
 
 const sessionWithRun = {
   campaignId: "longmont-c2",
@@ -13,34 +34,7 @@ const sessionWithRun = {
   goldManifestPath: "m23",
   goldGraphPath: "g23",
   goldCounts: { nodes: 2, edges: 1, evidence_refs: 1, beats: 0 },
-  availableRuns: [
-    {
-      manifest_path: "artifacts/run-a/manifest.json",
-      run_dir: "artifacts/run-a",
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-      status: "preview_union_store_ready",
-      updated_at: null,
-      created_at: null,
-      preview_union_store_path: "artifacts/run-a/preview-union.json",
-      preview_union_store_valid: true,
-      node_count: 2,
-      edge_count: 1,
-      evidence_ref_count: 1,
-      next_actions: [],
-      run_id: "run-a",
-      run_label: "Run A",
-      generated_at: null,
-      model_id: null,
-      model_provider: null,
-      extraction_profile: "baseline",
-      extraction_mode: null,
-      vocabulary_mode: "node",
-      runner_options_summary: {},
-      diagnostics_summary: {},
-      preview_union_available: true,
-    },
-  ],
+  availableRuns: [catalogRun],
 };
 
 describe("GraphReviewLoadSurface", () => {
@@ -51,14 +45,14 @@ describe("GraphReviewLoadSurface", () => {
         sessions={[sessionWithRun]}
         draftCampaignId="longmont-c2"
         draftSessionId="session-23"
-        draftManifestPath="artifacts/run-a/manifest.json"
+        draftRunId="er_run_a"
         draftSession={sessionWithRun}
-        draftLiveRun={sessionWithRun.availableRuns[0]}
+        draftLiveRun={catalogRun}
         onClose={vi.fn()}
         onLoad={vi.fn()}
         onCampaignSelect={vi.fn()}
         onSessionSelect={vi.fn()}
-        onManifestSelect={vi.fn()}
+        onRunSelect={vi.fn()}
       />,
     );
 
@@ -66,7 +60,8 @@ describe("GraphReviewLoadSurface", () => {
       screen.getByRole("dialog", { name: "Choose campaign, session, and run" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Gold \(expected\):/)).toBeInTheDocument();
-    expect(screen.getByText(/Live \(ingested\):/)).toBeInTheDocument();
+    expect(screen.getByText(/Live \(canonical\):/)).toBeInTheDocument();
+    expect(screen.getByText(/Compatibility locator:/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load" })).toBeEnabled();
   });
 
@@ -78,14 +73,14 @@ describe("GraphReviewLoadSurface", () => {
         sessions={[sessionWithRun]}
         draftCampaignId="longmont-c2"
         draftSessionId="session-23"
-        draftManifestPath="artifacts/run-a/manifest.json"
+        draftRunId="er_run_a"
         draftSession={sessionWithRun}
-        draftLiveRun={sessionWithRun.availableRuns[0]}
+        draftLiveRun={catalogRun}
         onClose={vi.fn()}
         onLoad={onLoad}
         onCampaignSelect={vi.fn()}
         onSessionSelect={vi.fn()}
-        onManifestSelect={vi.fn()}
+        onRunSelect={vi.fn()}
       />,
     );
 
@@ -100,14 +95,14 @@ describe("GraphReviewLoadSurface", () => {
         sessions={[sessionWithRun]}
         draftCampaignId="longmont-c2"
         draftSessionId="session-23"
-        draftManifestPath="artifacts/run-a/manifest.json"
+        draftRunId="er_run_a"
         draftSession={sessionWithRun}
-        draftLiveRun={sessionWithRun.availableRuns[0]}
+        draftLiveRun={catalogRun}
         onClose={vi.fn()}
         onLoad={vi.fn()}
         onCampaignSelect={vi.fn()}
         onSessionSelect={vi.fn()}
-        onManifestSelect={vi.fn()}
+        onRunSelect={vi.fn()}
       />,
     );
 

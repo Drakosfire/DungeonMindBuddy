@@ -6,11 +6,13 @@ import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAge
 import { AppChrome } from "../chrome/AppChrome";
 import { buildIngestContextFromPlanView } from "../planSurface/config/ingestSurfaceConfig";
 import { GraphReviewWorkbenchModule } from "../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule";
+import { useIngestRunCatalogInformation } from "./useIngestRunCatalogInformation";
 import "../planSurface/planSurface.css";
 
 type LoadStatus = "loading" | "ready" | "error";
 
 export function MemoryIngestPage() {
+  const catalog = useIngestRunCatalogInformation();
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [planView, setPlanView] = useState<PlanViewProjection | null>(null);
@@ -105,7 +107,11 @@ export function MemoryIngestPage() {
   return (
     <AppChrome activeRoute="ingest">
       <main className="ingest-surface-root" aria-label="Memory Ingest">
-        <GraphReviewWorkbenchModule context={context} />
+        <GraphReviewWorkbenchModule
+          context={context}
+          catalogChannel={catalog.channel}
+          onCatalogRefresh={catalog.refresh}
+        />
       </main>
     </AppChrome>
   );

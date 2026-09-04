@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   GRAPH_REVIEW_APPLIED_SELECTION_STORAGE_KEY,
+  isInadmissibleRunIdentity,
   readAppliedSelectionFromStorage,
   readAppliedSelectionFromUrl,
   resolvePersistedAppliedSelection,
@@ -10,7 +11,20 @@ import {
 } from "./graphReviewAppliedSelection";
 
 describe("graphReviewAppliedSelection", () => {
-  it("reads campaign, session, and run from the URL", () => {
+  it("reads campaign, session, and exact run_id from the URL", () => {
+    expect(
+      readAppliedSelectionFromUrl(
+        "?campaign=longmont-c2&session=session-23&run=er_run_a",
+      ),
+    ).toEqual({
+      campaignId: "longmont-c2",
+      sessionId: "session-23",
+      runId: "er_run_a",
+    });
+  });
+
+  it("rejects legacy path-shaped run identity without file migration", () => {
+    expect(isInadmissibleRunIdentity("artifacts/run-a/manifest.json")).toBe(true);
     expect(
       readAppliedSelectionFromUrl(
         "?campaign=longmont-c2&session=session-23&run=artifacts%2Frun-a%2Fmanifest.json",
@@ -18,7 +32,7 @@ describe("graphReviewAppliedSelection", () => {
     ).toEqual({
       campaignId: "longmont-c2",
       sessionId: "session-23",
-      manifestPath: "artifacts/run-a/manifest.json",
+      runId: null,
     });
   });
 
@@ -27,25 +41,27 @@ describe("graphReviewAppliedSelection", () => {
     expect(readAppliedSelectionFromUrl("?campaign=longmont-c2")).toBeNull();
   });
 
-  it("writes run into the URL and round-trips through sessionStorage", () => {
+  it("writes run_id into the URL and round-trips through v2 sessionStorage", () => {
     window.history.replaceState({}, "", "/ingest?tool=graph-review-diagnostics");
     const selection = {
       campaignId: "longmont-c2",
       sessionId: "session-23",
-      manifestPath: "artifacts/run-a/manifest.json",
+      runId: "er_run_a",
     };
     writeAppliedSelectionToUrl(selection);
     expect(window.location.pathname).toBe("/ingest");
     expect(window.location.search).toContain("session=session-23");
     expect(window.location.search).toContain("campaign=longmont-c2");
-    expect(window.location.search).toContain("run=artifacts%2Frun-a%2Fmanifest.json");
+    expect(window.location.search).toContain("run=er_run_a");
+    expect(window.location.search).not.toContain("manifest");
     expect(window.location.search).toContain("tool=graph-review-diagnostics");
 
     const storage = window.sessionStorage;
     storage.clear();
     writeAppliedSelectionToStorage(selection, storage);
     expect(readAppliedSelectionFromStorage(storage)).toEqual(selection);
-    expect(storage.getItem(GRAPH_REVIEW_APPLIED_SELECTION_STORAGE_KEY)).toContain("session-23");
+    expect(storage.getItem(GRAPH_REVIEW_APPLIED_SELECTION_STORAGE_KEY)).toContain("er_run_a");
+    expect(storage.getItem("dmb.graph-review.applied-selection.v1")).toBeNull();
   });
 
   it("fills missing run from sessionStorage for the same URL session only", () => {
@@ -54,7 +70,7 @@ describe("graphReviewAppliedSelection", () => {
         JSON.stringify({
           campaignId: "longmont-c2",
           sessionId: "session-23",
-          manifestPath: "artifacts/run-a/manifest.json",
+          runId: "er_run_a",
         }),
       setItem: () => undefined,
       removeItem: () => undefined,
@@ -70,7 +86,7 @@ describe("graphReviewAppliedSelection", () => {
     ).toEqual({
       campaignId: "longmont-c2",
       sessionId: "session-23",
-      manifestPath: "artifacts/run-a/manifest.json",
+      runId: "er_run_a",
     });
     expect(
       resolvePersistedAppliedSelection({

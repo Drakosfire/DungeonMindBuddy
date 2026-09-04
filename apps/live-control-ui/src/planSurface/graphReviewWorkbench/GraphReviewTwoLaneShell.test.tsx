@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { GraphReviewTwoLaneShell } from "./GraphReviewTwoLaneShell";
 import type { GraphReviewPrimaryLaneView, GraphReviewReferenceLaneView } from "./graphReviewReferenceLaneUtils";
 
-const primary: GraphReviewPrimaryLaneView = { laneId: "live:1", label: "Run A", runLabel: "Run A", manifestPath: "manifest.json", status: "succeeded", counts: { nodes: 1, edges: 2, evidenceRefs: 3 } };
+const primary: GraphReviewPrimaryLaneView = { laneId: "live:1", label: "Run A", runLabel: "Run A", runId: "er_run_a", manifestPath: "er_run_a", compatibilityManifestPath: null, status: "succeeded", counts: { nodes: 1, edges: 2, evidenceRefs: 3 } };
 const reference: GraphReviewReferenceLaneView = { kind: "gold_reference", laneId: "gold:1", label: "Gold Fixture", role: "gold", sourceKind: "gold_fixture", status: "missing_projection", summaryItems: [], warnings: [], note: "Projected source rendering is not implemented for this reference lane yet." };
 
 describe("GraphReviewTwoLaneShell", () => {

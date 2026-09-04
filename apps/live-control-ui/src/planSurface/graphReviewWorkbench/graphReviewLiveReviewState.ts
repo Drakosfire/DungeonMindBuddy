@@ -15,7 +15,6 @@ import type {
   GraphGoldAuthoringVerifyCommitResponse,
   GoldReviewCompareResponse,
   GoldReviewEvidenceDiffResponse,
-  GraphIngestRunSummary,
   GraphReviewLane,
   ManualReviewBedDetail,
   ManualReviewBedSummary,
@@ -59,6 +58,7 @@ import type {
   GraphReviewManualVariantSelection,
 } from "./graphReviewVariantReferenceUtils";
 import { buildVariantLiveInventoryIndex } from "./graphReviewVariantReferenceUtils";
+import type { GraphReviewCatalogRun } from "./graphReviewWorkbenchUtils";
 
 export type GraphReviewProjectionStatus =
   | "idle"
@@ -78,7 +78,7 @@ export type GraphReviewEvidenceStatus =
 export interface UseGraphReviewLiveReviewStateOptions {
   campaignId: string;
   sessionId: string;
-  liveRun: GraphIngestRunSummary | null;
+  liveRun: GraphReviewCatalogRun | null;
   committedBinding?: GraphReviewCommittedBinding | null;
   hasGold?: boolean;
   compare?: GoldReviewCompareResponse | null;
@@ -180,7 +180,7 @@ export function useGraphReviewLiveReviewState({
   );
 
   const liveRunKey = liveRun
-    ? `${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}:${liveRun.preview_union_available}`
+    ? `${liveRun.run.run_id}:${liveRun.run.status}:${(liveRun.run as { revision?: number }).revision ?? ""}`
     : "";
 
   const clearCommittedAuthority = useCallback(() => {
@@ -649,7 +649,7 @@ export function useGraphReviewLiveReviewState({
       };
     }
 
-    if (!liveRun) {
+    if (!liveRun?.compatibilityManifestPath) {
       setEvidenceStatus("unavailable");
       return () => {
         cancelled = true;
@@ -661,7 +661,7 @@ export function useGraphReviewLiveReviewState({
     void getGoldReviewEvidence({
       campaignId,
       sessionId,
-      manifestPath: liveRun.manifest_path,
+      manifestPath: liveRun.compatibilityManifestPath,
       objectKind: evidenceSelection.queryObjectKind!,
       objectId: evidenceSelection.queryObjectId!,
     })
@@ -688,7 +688,7 @@ export function useGraphReviewLiveReviewState({
     campaignId,
     sessionId,
     liveRun,
-    liveRun?.manifest_path,
+    liveRun?.compatibilityManifestPath,
     selectedEvidenceDeltaId,
     evidenceSelection.status,
     evidenceSelection.queryObjectKind,
@@ -705,8 +705,7 @@ export function useGraphReviewLiveReviewState({
     [selectedNode, goldProjection, projection, deltaIndex],
   );
 
-  const runIdentity =
-    liveRun?.run_label || liveRun?.manifest_path || "selected run";
+  const runIdentity = liveRun?.run.run_id || "selected run";
 
   const stageNodeFromSelection = () => {
     authorDraft.stageNodeFromSpan();

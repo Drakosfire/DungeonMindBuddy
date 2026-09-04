@@ -1,9 +1,9 @@
 import type {
   GoldReviewCompareResponse,
   GoldReviewSessionSummary,
-  GraphIngestRunSummary,
 } from "../../api/types";
 import type { GraphReviewManualVariantLaneView } from "./graphReviewVariantReferenceUtils";
+import type { GraphReviewCatalogRun } from "./graphReviewWorkbenchUtils";
 
 export type GraphReviewReferenceLaneKind = "empty_reference" | "gold_reference" | "manual_variant_reference";
 
@@ -25,8 +25,10 @@ export interface GraphReviewPrimaryLaneView {
   laneId: string;
   label: string;
   runLabel: string;
+  runId: string;
+  /** Display identity; always the canonical run_id, never a file path. */
   manifestPath: string;
-  previewUnionPath?: string | null;
+  compatibilityManifestPath: string | null;
   status: string;
   counts: { nodes: number; edges: number; evidenceRefs: number };
 }
@@ -49,17 +51,18 @@ export function compactRecordSummary(value: Record<string, unknown> | null | und
   return `${JSON.stringify(summary)}${suffix}`;
 }
 
-export function buildPrimaryLiveLaneView(liveRun: GraphIngestRunSummary | null): GraphReviewPrimaryLaneView | null {
+export function buildPrimaryLiveLaneView(liveRun: GraphReviewCatalogRun | null): GraphReviewPrimaryLaneView | null {
   if (!liveRun) return null;
-  const label = liveRun.run_label || liveRun.run_id || liveRun.manifest_path;
+  const label = liveRun.run.run_id;
   return {
-    laneId: `live:${liveRun.manifest_path}`,
+    laneId: `live:${liveRun.run.run_id}`,
     label,
     runLabel: label,
-    manifestPath: liveRun.manifest_path,
-    previewUnionPath: liveRun.preview_union_store_path ?? null,
-    status: liveRun.status,
-    counts: { nodes: liveRun.node_count, edges: liveRun.edge_count, evidenceRefs: liveRun.evidence_ref_count },
+    runId: liveRun.run.run_id,
+    manifestPath: liveRun.run.run_id,
+    compatibilityManifestPath: liveRun.compatibilityManifestPath,
+    status: liveRun.run.status,
+    counts: { nodes: 0, edges: 0, evidenceRefs: 0 },
   };
 }
 

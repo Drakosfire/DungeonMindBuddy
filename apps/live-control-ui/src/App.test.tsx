@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import * as liveApi from "./api/liveApi";
+import * as ingestRunCatalogApi from "./ingestSurface/ingestRunCatalogApi";
 import type {
   WorldGraphProjection,
   WorldGraphProjectionRequest,
@@ -101,6 +102,14 @@ vi.mock("./api/liveApi", async (importOriginal) => {
   };
 });
 
+vi.mock("./ingestSurface/ingestRunCatalogApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./ingestSurface/ingestRunCatalogApi")>();
+  return {
+    ...actual,
+    getExtractionRunCatalog: vi.fn(),
+  };
+});
+
 function northGateRunbookRecord() {
   return fixtureWorkspaceDocumentRecord({
     document_id: FIXTURE_DOC_ID,
@@ -176,6 +185,10 @@ describe("App inspector integration", () => {
     vi.mocked(liveApi.getGraphIngestRuns).mockResolvedValue({
       schema_version: "dmb_graph_ingest_run_registry_v1",
       version: "test",
+      runs: [],
+    });
+    vi.mocked(ingestRunCatalogApi.getExtractionRunCatalog).mockResolvedValue({
+      schema_version: "dmb_extraction_run_catalog_v1",
       runs: [],
     });
     vi.mocked(liveApi.getGoldReviewSessions).mockResolvedValue({
@@ -363,9 +376,10 @@ describe("App inspector integration", () => {
     expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
     expect(screen.queryByText(/Review extracted graph runs against gold/i)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ingest" })).toHaveClass("active");
-    expect(await screen.findByText(/No preview-ready graph runs are available/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No canonical ExtractionRuns are stored yet/i)).toBeInTheDocument();
     expect(liveApi.getPlanView).toHaveBeenCalled();
-    expect(liveApi.getGraphIngestRuns).toHaveBeenCalled();
+    expect(ingestRunCatalogApi.getExtractionRunCatalog).toHaveBeenCalled();
+    expect(liveApi.getGraphIngestRuns).not.toHaveBeenCalled();
     expect(liveApi.getGoldReviewSessions).toHaveBeenCalled();
   });
 

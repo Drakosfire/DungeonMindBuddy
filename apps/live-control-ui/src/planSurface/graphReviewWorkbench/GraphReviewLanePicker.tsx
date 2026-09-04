@@ -1,6 +1,5 @@
-import type { GraphIngestRunSummary } from "../../api/types";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
-import { GraphGoldReviewRunPicker } from "../graphGoldReview/GraphGoldReviewRunPicker";
+import { GraphReviewRunPicker } from "./GraphReviewRunPicker";
 import {
   catalogSessionLabel,
   catalogSessionsForReviewCampaign,
@@ -12,13 +11,13 @@ interface GraphReviewLanePickerProps {
   sessions: GraphReviewCatalogSession[];
   selectedCampaignId: string;
   selectedSessionId: string;
-  selectedManifestPath: string | null;
+  selectedRunId: string | null;
   onCampaignSelect: (campaignId: string) => void;
   onSessionSelect: (sessionId: string) => void;
-  onManifestSelect: (manifestPath: string | null) => void;
+  onRunSelect: (runId: string | null) => void;
 }
 
-function reviewableSessionLabel(
+function exactReviewSessionLabel(
   sessions: GraphReviewCatalogSession[],
 ): string | null {
   const reviewable = sessions.find(hasCatalogReviewableRun);
@@ -30,10 +29,10 @@ export function GraphReviewLanePicker({
   sessions,
   selectedCampaignId,
   selectedSessionId,
-  selectedManifestPath,
+  selectedRunId,
   onCampaignSelect,
   onSessionSelect,
-  onManifestSelect,
+  onRunSelect,
 }: GraphReviewLanePickerProps) {
   const campaignSessions = catalogSessionsForReviewCampaign(
     sessions,
@@ -42,10 +41,11 @@ export function GraphReviewLanePicker({
   const selectedSession = campaignSessions.find(
     (session) => session.sessionId === selectedSessionId,
   );
-  const reviewableLabel = reviewableSessionLabel(campaignSessions);
-  const selectedHasProjection = selectedSession
+  const exactReviewLabel = exactReviewSessionLabel(campaignSessions);
+  const selectedHasExactReview = selectedSession
     ? hasCatalogReviewableRun(selectedSession)
     : false;
+  const selectedHasRuns = Boolean(selectedSession?.availableRuns.length);
 
   return (
     <section
@@ -63,47 +63,60 @@ export function GraphReviewLanePicker({
       >
         {campaignSessions.map((session) => {
           const active = session.sessionId === selectedSessionId;
-          const reviewable = hasCatalogReviewableRun(session);
+          const hasRuns = session.availableRuns.length > 0;
+          const exactReviewable = hasCatalogReviewableRun(session);
           return (
             <button
               key={session.sessionId}
               type="button"
               role="tab"
               aria-selected={active}
-              aria-disabled={!reviewable}
+              aria-disabled={!hasRuns}
               className={
                 active
                   ? "graph-gold-review-pill active"
                   : "graph-gold-review-pill"
               }
-              onClick={() => reviewable && onSessionSelect(session.sessionId)}
+              onClick={() => hasRuns && onSessionSelect(session.sessionId)}
               title={
-                reviewable
-                  ? undefined
-                  : "This session has no reviewable projection."
+                !hasRuns
+                  ? "This session has no canonical ExtractionRuns."
+                  : exactReviewable
+                    ? undefined
+                    : "Visible history only — no REVIEWABLE exact-review candidate."
               }
             >
               {catalogSessionLabel(session)}
-              {!reviewable ? " · unavailable" : ""}
+              {!hasRuns
+                ? " · unavailable"
+                : !exactReviewable
+                  ? " · history"
+                  : ""}
             </button>
           );
         })}
       </div>
-      {!selectedHasProjection ? (
+      {selectedHasRuns && !selectedHasExactReview ? (
         <p className="graph-review-unavailable-state" role="status">
-          This session has no reviewable projection. This source does not have a
-          loaded recap/projection yet.
-          {reviewableLabel
-            ? ` Choose ${reviewableLabel} to review available graph projections.`
-            : " No available graph projections were found for this campaign."}
+          This session has catalog-visible runs but no REVIEWABLE exact-review
+          candidate.
+          {exactReviewLabel
+            ? ` Choose ${exactReviewLabel} for exact review.`
+            : " Promoted/terminal runs remain visible history only."}
         </p>
       ) : null}
-      <GraphGoldReviewRunPicker
-        runs={(selectedSession?.availableRuns ?? []).filter(
-          (run: GraphIngestRunSummary) => run.preview_union_available,
-        )}
-        selectedManifestPath={selectedManifestPath}
-        onSelect={onManifestSelect}
+      {!selectedHasRuns ? (
+        <p className="graph-review-unavailable-state" role="status">
+          This session has no canonical ExtractionRun yet.
+          {exactReviewLabel
+            ? ` Choose ${exactReviewLabel} to review available runs.`
+            : " No canonical recap runs were found for this campaign."}
+        </p>
+      ) : null}
+      <GraphReviewRunPicker
+        runs={selectedSession?.availableRuns ?? []}
+        selectedRunId={selectedRunId}
+        onSelect={onRunSelect}
       />
     </section>
   );
