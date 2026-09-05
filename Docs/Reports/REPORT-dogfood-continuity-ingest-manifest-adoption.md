@@ -5,7 +5,8 @@
 **Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ingest-manifest-adoption-v1.md`
 **Branch:** `agent/dogfood-continuity-ingest-manifest-adoption-v1`
 **Runtime worktree:** `DungeonMindBuddy-dogfood-continuity-ingest-manifest-adoption`
-**Code head for this witness:** `710527fe75f75526d7abb87d6e85fef8a02738e0`
+**Implementation head reviewed in Cycle 1:** `d232b894079ec404b70fbb440c1c067275d2f8da`
+**This evidence refresh:** Cycle 1 W11 assembled hard-reload / post-restart UI + explicit configured-local W14 preview (report-only; no production code change)
 **Historical roots (one-time operator input):** `primary-checkout`, `of-conks`, `stewardship-si6`
 
 This report is the sanitized W11/W14 steward witness. Absolute home paths are omitted; DSN passwords are omitted.
@@ -82,26 +83,73 @@ longmont-c2  graph-ingest:longmont-c2:session-23:20260629T040857Z
 
 ---
 
-## Configured local APP-STATE
+## Configured local APP-STATE (W14 preview, fail-closed)
 
-The `.env` DSN still names `dungeonbuddy_application_state`, but that logical database **does not exist** on the current local Postgres (`FATAL: database "dungeonbuddy_application_state" does not exist`). Preview/apply against leftover local authority was therefore not a safe exact write.
+Same `--all-historical-ingest` selector and three DFC-1 W13 roots, against the configured `.env` DSN. Isolated witness DSN was **not** pinned. No `--apply`.
 
-No leftover DFC-2a Plan rows were recreated, deleted, or overwritten. Isolated W14 is the write witness.
+```text
+configured_db_name          dungeonbuddy_application_state
+host/port                   127.0.0.1:54329
+configured_local_exists     False
+mode                        preview
+blocked                     True
+applied                     False
+selected_count              53
+classifications             COMPARISON_UNAVAILABLE=53
+actions                     block=53
+app_state_configured        True
+app_state_readable          False
+schema_head_status          unavailable
+detail                      preview only; no importer write
+product_verification        skipped
+unsafe_count                53
+sample_reason               current APP-STATE ingest authority is not authoritatively readable
+target_set_sha256           44b24f69366e1e067322628b9c46c3dfb151e3bc3c789676ff806f18ba491627
+historical_roots_unchanged  true
+importer imported           0
+```
+
+The named leftover database is absent (`FATAL: database "dungeonbuddy_application_state" does not exist`). That is a valid fail-closed reason not to perform the real local migration: current authority is not authoritatively readable, so every selected identity is `COMPARISON_UNAVAILABLE` / `block`. The matching `target_set_sha256` is the historical-manifest fingerprint set, not proof that local APP-STATE already contains those rows.
+
+No leftover DFC-2a Plan rows were recreated, deleted, or overwritten. Isolated W14 remains the only write witness.
 
 ---
 
-## W11 product catalog / restart
+## W11 assembled restart/reload
 
-Isolated Buddy API was started from this worktree with the witness DSN re-pinned after dotenv. `GET /api/live/graph-preview/extraction-runs` returned HTTP 200, schema `dmb_extraction_run_catalog_v1`, **53** runs (24/29 campaign split), including both representative IDs above. Catalog rows are canonical `ExtractionRun` JSON; they do not carry manifest locators.
+Isolated Buddy API + Vite UI were started from this worktree with the witness DSN re-pinned after dotenv. Product catalog seam:
 
-`/ingest` load-session dialog (same catalog seam) showed historical runs as catalog-visible history:
+```text
+GET /api/live/graph-preview/extraction-runs
+HTTP 200
+schema_version  dmb_extraction_run_catalog_v1
+count           53
+campaigns       longmont-c1=24 / longmont-c2=29
+```
+
+Catalog rows are canonical `ExtractionRun` JSON; they do not carry manifest locators.
+
+Assembled `/ingest` Graph Review Workbench → Load recap (same catalog seam) showed historical runs as catalog-visible, selectable history:
 
 - Campaign Longmont C2 / Session 23: `graph-ingest:longmont-c2:session-23:20260629T040857Z` selected as Live (canonical).
 - Campaign Longmont C1 / Session 10: `graph-ingest:longmont-c1:session-10:20260722T023135Z` selected as Live (canonical).
 
-UI status for those rows: catalog-visible, not `REVIEWABLE` exact-review candidates (`validated` + missing component bytes). That is artifact-continuity debt, not catalog deletion.
+Hard reload of `http://127.0.0.1:5173/ingest` remounted Graph Review Workbench. Load recap again listed both campaigns. Session 23 still offered the same C2 identity; Session 10 still offered `graph-ingest:longmont-c1:session-10:20260722T023135Z`.
 
-API was stopped and restarted against the same isolated database. Catalog after restart: **53** / 24 C1 / 29 C2 / both representative IDs present. Browser automation was unavailable for a second `/ingest` pass after restart; the catalog HTTP seam is the same payload `/ingest` consumes.
+API was stopped and restarted against the same isolated database. HTTP catalog after restart: **53** / 24 C1 / 29 C2 / both representative IDs present.
+
+Assembled `/ingest` was opened again after that restart (full remount of Graph Review Workbench). Load recap still listed Longmont C1 and C2 history. Session 23 still offered `graph-ingest:longmont-c2:session-23:20260629T040857Z`; Session 10 was selected as Live (canonical) `graph-ingest:longmont-c1:session-10:20260722T023135Z`.
+
+Sequence actually witnessed:
+
+```text
+/ingest → Load recap → C1/C2 representative history visible and selectable
+hard reload /ingest → Load recap → same C1/C2 history still visible/selectable
+stop/restart API against same isolated DB → HTTP catalog still 53 / 24 / 29
+/ingest remount → Load recap → same C1/C2 history still visible/selectable
+```
+
+UI status for those rows remains catalog-visible history, not `REVIEWABLE` exact-review candidates (`validated` + missing component bytes). That is artifact-continuity debt, not catalog deletion. No AppChrome/router/UI change was required.
 
 ---
 
@@ -111,7 +159,7 @@ DFC-2c recovered **run records**, not candidate graphs, telemetry files, or sour
 
 ---
 
-## Tests and hygiene (code head `710527fe`)
+## Tests and hygiene (implementation head `710527fe`, reviewed at `d232b894`)
 
 ```text
 uv run pytest tests/product_continuity/test_ingest_adoption.py \
@@ -140,5 +188,5 @@ Changed paths stay inside HANDOFF §4 (Phase 0 docs + adoption service/CLI/tests
 
 - DFC-2c is not DONE.
 - Historical component/artifact bytes are not guaranteed openable.
-- Configured local APP-STATE was not adopted because that database is currently absent.
+- Configured local APP-STATE was not adopted: preview against the named leftover DSN is fail-closed (`COMPARISON_UNAVAILABLE=53`, `block=53`, `applied=false`) because that database is currently absent / not authoritatively readable.
 - `/ingest` graph-review load can show historical runs as visible history without making them REVIEWABLE when component files are missing.
