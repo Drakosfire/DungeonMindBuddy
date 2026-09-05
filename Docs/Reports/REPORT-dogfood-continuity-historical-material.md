@@ -21,7 +21,7 @@ uv run python scripts/inventory_product_continuity.py \
 Generated ledger (not committed): `out/product_continuity/inventory.json` + `inventory.md`.  
 This report is the sanitized W13 steward answer. Absolute home paths are omitted; use root labels only.
 
-**Judgment of DFC-1:** not claimed here — this PR delivers the inventory capability and live evidence. Acceptance remains steward review.
+**Judgment of DFC-1:** ACCEPTED / MERGED as PR #684. Accepted exact head `f32f90ee1ccc9fac150ca8147c268c517a4ec8a6`; merge `8fc9989fb6da616f74876395514f4da26bd94609`; 7 formal review cycles (Review Cycle 7 APPROVE-equivalent, review `5115921744`). Successor **DFC-2a** is CURRENT and is not claimed complete by this record.
 
 ---
 
@@ -142,7 +142,7 @@ Derived only from this ledger (named successors; not implemented here):
 
 ## 3. Predecessor authority sync recorded in this PR
 
-Backward-looking only (DFC-1 itself is not marked DONE):
+Recorded during DFC-1; DFC-1 itself is now DONE / ACCEPTED (PR #684, 7 review cycles) as of the DFC-2a Phase 0 sync:
 
 | Fact | Recorded in |
 |---|---|

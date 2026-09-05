@@ -18,19 +18,23 @@ pr_body_template: |
 
 # HANDOFF — Historical Product Material Inventory v1
 
-**Created:** 2026-09-04  
-**Status:** ACTIVE — one read-only reconciliation capability  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md`  
-**Conversation/workstream:** `DOGFOOD-CONTINUITY / DFC-1`  
-**Flow / owner:** `DOGFOOD-CONTINUITY`  
-**Direction:** DESIGN → CODE → REVIEW  
-**Base revision:** `0c598439084986fbb85f43000719d5a67b5ecc9f`  
+**Created:** 2026-09-04
+**Status:** DONE / ACCEPTED — PR #684 merged
+**Accepted exact head:** `f32f90ee1ccc9fac150ca8147c268c517a4ec8a6`
+**Merge commit:** `8fc9989fb6da616f74876395514f4da26bd94609`
+**Formal review cycles:** 7 (Review Cycle 7 APPROVE-equivalent, review `5115921744`)
+**Successor:** DFC-2a — [`HANDOFF-DOGFOOD-CONTINUITY-plan-exact-adoption-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-plan-exact-adoption-v1.md) (CURRENT; not complete)
+**Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md`
+**Conversation/workstream:** `DOGFOOD-CONTINUITY / DFC-1`
+**Flow / owner:** `DOGFOOD-CONTINUITY`
+**Direction:** DESIGN → CODE → REVIEW
+**Base revision:** `0c598439084986fbb85f43000719d5a67b5ecc9f`
 **PR title:** `DOGFOOD-CONTINUITY: inventory historical product material`
 
-> Repository law: [`AGENTS.md`](../../AGENTS.md).  
-> Parent product roadmap: [`ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md).  
-> Completed blocking program: [`ROADMAP-surface-integration.md`](../Roadmaps/ROADMAP-surface-integration.md).  
-> Application-state authority: [`ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md).  
+> Repository law: [`AGENTS.md`](../../AGENTS.md).
+> Parent product roadmap: [`ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md).
+> Completed blocking program: [`ROADMAP-surface-integration.md`](../Roadmaps/ROADMAP-surface-integration.md).
+> Application-state authority: [`ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md).
 > Play authority: [`ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md).
 
 ---
