@@ -18,8 +18,8 @@ pr_body_template: |
 
 # HANDOFF — Historical Plan Exact Adoption v1
 
-**Created:** 2026-09-04  
-**Status:** ACTIVE — one recovery capability  
+**Created:** 2026-09-04
+**Status:** DONE / ACCEPTED
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-plan-exact-adoption-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / DFC-2a`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
@@ -31,6 +31,17 @@ pr_body_template: |
 > Parent roadmap: [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md).  
 > Predecessor handoff: [`HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md`](HANDOFF-DOGFOOD-CONTINUITY-historical-material-inventory.md).  
 > Predecessor evidence: [`../Reports/REPORT-dogfood-continuity-historical-material.md`](../Reports/REPORT-dogfood-continuity-historical-material.md).
+
+Steward acceptance (backward-only, recorded by DFC-2c):
+
+```text
+PR #685                         MERGED
+accepted exact head             076f875a8a0b8cd95932c53be730b169cd5f2818
+merge commit                    7a73a5a154fa0b1c2bac9689f201dd64d2524aa5
+formal review cycles            5
+Review Cycle 5                  APPROVE-equivalent / merge-ready
+review id                       5118642428
+```
 
 ---
 
