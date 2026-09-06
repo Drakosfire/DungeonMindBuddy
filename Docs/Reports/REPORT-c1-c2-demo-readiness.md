@@ -1,6 +1,7 @@
 # REPORT — C1/C2 demo readiness survey (DFC-3)
 
 **Created:** 2026-09-06  
+**RC1 repair:** 2026-09-06 (review `5126289112` on PR #687 @ `7dc57df4…`) — material library URI+digest ledger; Agent readiness downgraded  
 **Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md`  
 **Library:** `Docs/Operations/CAMPAIGN-MATERIAL-LIBRARY-c1-c2.md`  
 **Product `main` surveyed:** `678e9c276ad58505c53ce61d5a659ea8c792ca31`  
@@ -59,7 +60,7 @@ Do not treat `CODE-ONLY` as `READY`.
 | 1. campaign/session discovery | USABLE_WITH_GAPS | `/ingest` Load recap lists Longmont C1/C2 sessions with `· history`; `/plan` `/build` `/play` do not present APP-STATE historical C1/C2 choosers | Ingest catalog + session tabs | 17 ingested sessions; git-tracked recaps beyond catalog | Plan/Build/Play have no leftover C1/C2 WorkObjects | Keep Ingest discovery; later Plan/Build/Play adoption only where exact bytes exist |
 | 2. rich historical recap reading | DISCOVERABLE_NOT_USABLE | C1S10 / C2S23 / C2S25 exact runs bind as `validated`; recap prose never appears; banners: not exact-reviewable / not reviewable for promotion | Graph Review Load recap + exact-run projection | Git-tracked recap files; leftover ingest.run pointers | First user-visible failure: after Load, the workbench shows status banners and **no recap body** | Inspect-without-promote for `validated`/`prepared` history; serve SourceArtifact prose even when not reviewable |
 | 3. session-to-session recap navigation | USABLE_WITH_GAPS | Load-dialog session tabs move among ingested sessions without typing IDs; no previous/next on the bound workbench; chrome nav drops `?session=&campaign=&run=` | Load recap dialog | Ingested sessions only | First failure: leaving Ingest to Plan loses the bound run | Preserve ingest selection across shell; optional workbench prev/next among catalog sessions |
-| 4. entity pills and node/object interaction | NOT_CONNECTED | Bound exact runs render no pills; catalog live projection is retired | `GraphNodeHoverToken` + markdown-link lanes exist; exact-run path is plain `<pre>` | Candidate graphs/span indexes on `primary-checkout` `out/` for 31/53 runs; 0 on this checkout | First failure: no entity-linked terms in the recap view | Attach pills to readable prose **after** prose is shown; do not re-ingest |
+| 4. entity pills and node/object interaction | NOT_CONNECTED | Bound exact runs render no pills; catalog live projection is retired | `GraphNodeHoverToken` + markdown-link lanes exist; exact-run path is plain `<pre>` | Candidate graphs/span indexes on `primary-checkout` for 32/53 runs with explicit URI+digest in library §2.3; 0 on this checkout | First failure: no entity-linked terms in the recap view | Attach pills to readable prose **after** prose is shown; do not re-ingest |
 | 5. Threat/statblock projection | NOT_CONNECTED | No Threat glance or statblock sheet on the bound historical runs | `ThreatCampaignGlance` / `ThreatSheetProjection` exist; Graph Review inspect uses `GraphObjectCard` | Historical Threat objects in World/artifacts, not opened here | First failure: nothing Threat-specific appears after Load | Reconnect Threat/statblock only on a live object-open path |
 | 6. historical Ingest inspection/review | DISCOVERABLE_NOT_USABLE | 53 catalog rows; review-package HTTP `422 run_not_promotable` for C1S10/C2S23/C2S25 | Exact-review statuses = `{reviewable}` only | 53 leftover runs; 0 reviewable | First failure: Graph Review refuses `validated` as not exact-reviewable | Separate inspect vs promote; do not remap historical `validated` into `reviewable` silently |
 | 7. Plan historical open/edit/save | BLOCKED_BY_MISSING_MATERIAL | `/plan` opens a blank/local-draft shell; chooser shows `local-plan:c917bba1-…` “C2 Session 23 Prep (no longer listed as active)”; leftover `list_plans()` = 0 | Blank-shell + APP-STATE prepare/commit (`CODE-ONLY` / predecessor `TEST-PROVEN`) | DFC-2a exact Plan bytes stranded after leftover DB recreate | First failure: no historical APP-STATE Plan is choosable | Re-adopt surviving exact Plan bytes into leftover if still intact; DFC-2p for missing-byte identities |
@@ -67,10 +68,10 @@ Do not treat `CODE-ONLY` as `READY`.
 | 9. Play/Runbook historical open/edit/run/resume | BLOCKED_BY_MISSING_MATERIAL | “No durable Runs” / “No active Runbooks”; create/start disabled until campaign filled | Play APP-STATE seams exist | DFC-1 admitted 0 Runbooks/Runs | First failure: Play has nothing historical to open | Do not invent C1/C2 playable material |
 | 10. World context across surfaces | DISCOVERABLE_NOT_USABLE | Chrome: `World · Needs attention · DungeonMind authority is unavailable. (authority_unavailable)` on Ingest/Plan/Play after load | `AppChromeWorldGraphStatus` + lens `POST /api/live/world-graph/projection` | Cutover complete; remote authority 503 | First failure: World chip error on every primary surface | Restore DungeonMind Buddy-facing availability; no Buddy graph ownership |
 | 11. persistent no-reload application shell | NOT_CONNECTED | `AppChrome` uses `<a href>`; `App.tsx` pathname switch remounts pages; World chip remounts Loading → unavailable; ingest query does not survive `/plan` | DFC-NAV1 is documented successor, unbuilt | n/a | First failure: surface change is a full document navigation, not an in-app shell | DFC-NAV1 |
-| 12. Agent on Plan | USABLE_WITH_GAPS | Agent region `DungeonBuddy agent` present; `PlanAgentInteractionBar` is in Plan shell (`CODE-ONLY` ask path this pass) | Shared `AgentInteractionProvider` + Plan ask bar | No historical Plan context | First failure: Agent has no recovered C1/C2 Plan object | Keep shared chrome; bind after Plan material exists |
-| 13. Agent on Build | USABLE_WITH_GAPS | Agent region present; empty source | Shared provider; Build publishes context (`CODE-ONLY`) | No Build material | First failure: nothing to ask about | Same as Build material |
-| 14. Agent on Ingest/recap | USABLE_WITH_GAPS | Agent region present on Graph Review; no ask/query chrome in the assembled snapshot; bound recap has no prose/object | Shared chrome; Ingest publishes surface context | Bound run id exists, not useful recap text | First failure: Agent cannot see the recap the human also cannot read | Publish recap/selection after inspect path exists |
-| 15. Agent on Play | USABLE_WITH_GAPS | Agent region present; empty Play | Shared chrome | No Runbook/Run | First failure: no playable current object | Same as Play material |
+| 12. Agent on Plan | NOT_CONNECTED | Agent region present; no historical Plan object; ask bar not exercised (`CODE-ONLY`) | Shared `AgentInteractionProvider` + Plan ask bar in shell | No recovered APP-STATE Plan | First failure: shared chrome is visible but there is no usable Plan object or exercised ask flow | Bind after Plan material exists |
+| 13. Agent on Build | NOT_CONNECTED | Agent region present; empty source; no ask flow exercised | Shared provider; Build publishes context (`CODE-ONLY`) | No Build material | First failure: nothing to ask about and no exercised Agent interaction | Same as Build material |
+| 14. Agent on Ingest/recap | NOT_CONNECTED | Agent region present; no ask/query chrome observed; bound recap has no prose/object | Shared chrome; Ingest publishes surface context | Bound run id only | First failure: Agent cannot see recap text the human also cannot read | Publish recap/selection after inspect path exists |
+| 15. Agent on Play | NOT_CONNECTED | Agent region present; empty Play; no ask flow exercised | Shared chrome | No Runbook/Run | First failure: no playable object and no exercised Agent interaction | Same as Play material |
 | 16. reload/restart durability | USABLE_WITH_GAPS | Ingest catalog remounted after route changes; World/Agent in-memory lease does not survive remount | Leftover ingest.run is PostgreSQL | 53 catalog rows | First failure: World chip and Agent conversation continuity reset on navigation | NAV1 + durable Agent thread already in localStorage (`CODE-ONLY`) |
 | 17. VPC/off-hardware data readiness | NOT_CONNECTED | Recap files git-tracked; candidate/review bytes in primary-checkout `out/`; leftover Postgres is local; DungeonMind remote down | APP-STATE schema exists | 53 ingest rows local | First failure: laptop still owns review bytes + leftover DB + World unavailability | Relocate artifacts to durable storage; host leftover Postgres; restore DungeonMind |
 
@@ -211,7 +212,7 @@ Cutover is complete. This survey used only the Buddy-facing contract.
 | Buddy surfaces query/use it? | Chrome tries; fails | `LIVE-READ` World chip on Ingest/Plan/Play |
 | Visible “Graph” / World error origin | `AppChromeWorldGraphStatus` / `presentWorldGraphChromeStatus` from lens 503 — **not** recap pills | `LIVE-READ` + `CODE-ONLY` |
 | Surfaces with useful World context | none observed | `LIVE-READ` |
-| Recap pills/nodes use current World vs local artifacts? | neither: pills not rendered; candidate graphs are local `out/` URIs on ingest.run | `LIVE-READ` + library |
+| Recap pills/nodes use current World vs local artifacts? | neither: pills not rendered; candidate graphs are local `out/` URIs recorded on `ingest.run` (32 complete bundles on `primary-checkout`; see library §2.3) | `LIVE-READ` + library |
 | NPC/place/threat openable from normal use? | not from this recap path; World chip error | `LIVE-READ` |
 
 Do not bypass DungeonMind or give Buddy graph-architecture ownership to make chrome look healthy.
@@ -239,14 +240,16 @@ DFC-NAV1 already intended to solve persistent shell. Not implemented here.
 
 Shared implementation: `AgentInteractionProvider` + `AgentInteractionChrome` in `App.tsx` (not four separate Agents).
 
+**Disposition:** `NOT_CONNECTED` on all four surfaces. Visible shared chrome alone is not user-usable: there is no historical Plan/Build/Play object, no readable recap/object context on Ingest, and no exercised ask/write flow in this survey (`LIVE-READ` + `CODE-ONLY`).
+
 | Surface | Affordance visible? | Provider | Campaign | Session | Object/revision | Selected text/object | World | Answer vs write | Write approval | Survives nav? |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Plan | Agent region yes; Plan ask bar in shell | shared | default chrome campaign, not recovered Plan | no historical session | no APP-STATE Plan | `CODE-ONLY` | 503 | ask bar exists (`CODE-ONLY`) | not live-proven | lost on remount |
-| Build | region yes | shared | empty source | no | no | no | 503 | publish context only observed | n/a | lost |
-| Ingest | region yes; no ask chrome in snapshot | shared | bound C1/C2 after Load | bound session | catalog run id, not review package | no recap selection | 503 | answer chrome not observed | promote is separate Ingest workflow | lost; ingest query dropped |
-| Play | region yes | shared | empty until campaign typed | no | no Run | no | 503 | not observed | n/a | lost |
+| Plan | Agent region yes; ask bar in shell not exercised | shared | default chrome campaign, not recovered Plan | no historical session | no APP-STATE Plan | `CODE-ONLY` | 503 | ask bar exists (`CODE-ONLY`) | not live-proven | lost on remount |
+| Build | region yes | shared | empty source | no | no | no | 503 | not exercised | n/a | lost |
+| Ingest | region yes; no ask chrome observed | shared | bound C1/C2 after Load | bound session | catalog run id, not review package | no recap selection | 503 | not exercised | promote is separate Ingest workflow | lost; ingest query dropped |
+| Play | region yes | shared | empty until campaign typed | no | no Run | no | 503 | not exercised | n/a | lost |
 
-Distance from “use the Agent naturally from every surface”: chrome is already shared; **useful context is missing** (no readable recap, no World, no historical Plan/Build/Play objects). Navigation remount is a second gap.
+Distance from “use the Agent naturally from every surface”: chrome is already shared; **useful context and exercised interaction are missing**. Navigation remount is a second gap.
 
 ---
 
@@ -328,7 +331,7 @@ Post-merge leftover ingest apply that populated these 53 rows happened **before*
 
 - Did not reopen Of Conks as a running product (file compare of hover/card components only).
 - Did not dump every World node (forbidden / unnecessary).
-- Did not copy or hash every `out/` component file; session-25 example + 31/53 triple existence is the inventory grain.
+- Did not copy or hash every `out/` component file; library §2.3–§2.4 records APP-STATE URI + SHA-256 for all 53 runs and path existence for `primary-checkout` / `current-main`.
 - Did not re-adopt Plan `80630cc2-…` (would be a write).
 
 ---
@@ -368,8 +371,9 @@ user-visible outcome
   durable storage instead of primary-checkout out/.
 
 evidence that justifies it
-  0/53 complete triples on current-main; 31/53 on primary-checkout out/;
-  leftover rows already store URI/sha256 claims; unavailable_component_count was 246 at DFC-2c apply.
+  0/53 complete triples on current-main; 32/53 on primary-checkout with explicit URI+digest
+  recorded in APP-STATE (library §2.3); leftover rows already store component claims;
+  unavailable_component_count was 246 at DFC-2c apply.
 
 likely owning boundary
   Artifact storage / ingest.run component resolution (not extraction pipeline).
