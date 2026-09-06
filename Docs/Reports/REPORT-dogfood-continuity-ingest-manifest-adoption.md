@@ -11,7 +11,20 @@
 
 This report is the sanitized W11/W14 steward witness. Absolute home paths are omitted; DSN passwords are omitted.
 
-DFC-2c itself is **not** marked complete here. Acceptance remains steward review.
+## Steward acceptance (backward-only)
+
+```text
+PR #686                         MERGED
+accepted exact head             2a088c4b357a5bc43635fd31aefad42f4b5d4e95
+merge commit                    678e9c276ad58505c53ce61d5a659ea8c792ca31
+formal review cycles            2
+Review Cycle 1                  5121940121  REQUEST CHANGES-equivalent  (head d232b894079ec404b70fbb440c1c067275d2f8da)
+Review Cycle 2                  5122077943  APPROVE-equivalent / merge-ready  (head 2a088c4b357a5bc43635fd31aefad42f4b5d4e95)
+```
+
+DFC-2c recovered **53 exact ingest.run catalog identities**, not review packages, candidate-graph bytes, or leftover Plan/Runbook/Play rows. The W14 configured-local database was **absent** at DFC-2c review time; that historical fail-closed witness stays true below.
+
+Operator leftover apply after merge (named `dungeonbuddy_application_state` then holding 53 catalog rows) is DFC-3 survey observation, not a DFC-2c product change and not a claim that historical runs became `reviewable`.
 
 ---
 
@@ -186,7 +199,8 @@ Changed paths stay inside HANDOFF §4 (Phase 0 docs + adoption service/CLI/tests
 
 ## Explicit non-claims
 
-- DFC-2c is not DONE.
+- DFC-2c is DONE / ACCEPTED for exact catalog-row adoption only.
 - Historical component/artifact bytes are not guaranteed openable.
-- Configured local APP-STATE was not adopted: preview against the named leftover DSN is fail-closed (`COMPARISON_UNAVAILABLE=53`, `block=53`, `applied=false`) because that database is currently absent / not authoritatively readable.
-- `/ingest` graph-review load can show historical runs as visible history without making them REVIEWABLE when component files are missing.
+- At DFC-2c review time, configured local APP-STATE was not adopted: preview against the named leftover DSN was fail-closed (`COMPARISON_UNAVAILABLE=53`, `block=53`, `applied=false`) because that database was absent / not authoritatively readable.
+- `/ingest` graph-review load can show historical runs as visible history without making them REVIEWABLE when the run is `validated`/`prepared` or component files are missing.
+- Post-merge leftover apply and Graph Review `validated` dead-ends belong to DFC-3, not this PR.

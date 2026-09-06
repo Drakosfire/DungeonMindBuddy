@@ -19,13 +19,21 @@ pr_body_template: |
 # HANDOFF — Manifest-era Ingest Exact Adoption v1
 
 **Created:** 2026-09-04  
-**Status:** ACTIVE — one recovery capability  
+**Status:** DONE / ACCEPTED — PR #686 merged  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ingest-manifest-adoption-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / DFC-2c`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Base revision:** `7a73a5a154fa0b1c2bac9689f201dd64d2524aa5`  
 **PR title:** `DOGFOOD-CONTINUITY: adopt historical Ingest runs exactly`
+
+```text
+Steward acceptance (backward-only; recorded by DFC-3)
+PR #686                         MERGED
+accepted exact head             2a088c4b357a5bc43635fd31aefad42f4b5d4e95
+merge                           678e9c276ad58505c53ce61d5a659ea8c792ca31
+formal review cycles            2
+```
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).  
 > Parent roadmap: [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md).  
@@ -171,6 +179,8 @@ Docs/Plans/STEWARDS-ANCHOR-con-ready.md
 ```
 
 Do not mark DFC-2c complete before steward acceptance.
+
+Steward acceptance (recorded by DFC-3): DFC-2c is DONE / ACCEPTED at PR #686, accepted head `2a088c4b357a5bc43635fd31aefad42f4b5d4e95`, merge `678e9c276ad58505c53ce61d5a659ea8c792ca31`, 2 review cycles.
 
 ---
 
@@ -568,7 +578,7 @@ The report must include representative exact run IDs from both campaigns, but it
 Before review handback:
 
 - DFC-2a is recorded DONE/ACCEPTED with PR #685, 5 review cycles, accepted head and merge SHA;
-- DFC-2c remains CURRENT, not DONE;
+- DFC-2c remains CURRENT, not DONE, until steward acceptance (satisfied: PR #686 DONE / ACCEPTED; 2 review cycles);
 - DFC-2b is LATER because its evidence is incomplete;
 - actual changed paths remain inside §4 + bounded test exception;
 - `git diff --check origin/main...HEAD` passes;

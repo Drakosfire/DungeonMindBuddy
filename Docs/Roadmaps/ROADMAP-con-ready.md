@@ -2,14 +2,14 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-09-04 — DFC-2a ACCEPTED (PR #685, 5 review cycles); DFC-2c is current before evidence-incomplete DFC-2b
+**Re-anchored:** 2026-09-06 — DFC-2c ACCEPTED (PR #686, 2 review cycles); DFC-3 C1/C2 demo-readiness survey is current
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
 
 **Closed blocking child program:** [`ROADMAP-surface-integration.md`](ROADMAP-surface-integration.md) — **CLOSED** (SI-6 ACCEPTED, PR #682). No active SURFACE-INTEGRATION blocker; temporary feature freeze lifted.
 
-**Current forcing function:** DOGFOOD-CONTINUITY **DFC-2c** — exact historical Ingest run adoption via [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-ingest-manifest-adoption-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-ingest-manifest-adoption-v1.md). DFC-2a Plan adoption is DONE / ACCEPTED (PR #685). DFC-2b Build recovery is LATER because its evidence is incomplete. Resume BF3B, BF3C, and Combat lanes only after DOGFOOD-CONTINUITY recovery selection, not automatically.
+**Current forcing function:** DOGFOOD-CONTINUITY **DFC-3** — C1/C2 demo-readiness survey via [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md). DFC-2c Ingest catalog adoption is DONE / ACCEPTED (PR #686). DFC-2a Plan adoption is DONE / ACCEPTED (PR #685). Do not automatically inherit DFC-2b / BF3B; choose the next implementation slice from the survey report.
 
 ---
 
@@ -303,10 +303,15 @@ DFC-2a           DONE / ACCEPTED — exact historical Plan adoption
                  PR #685; accepted head 076f875a8a0b8cd95932c53be730b169cd5f2818
                  merge 7a73a5a154fa0b1c2bac9689f201dd64d2524aa5
                  review cycles: 5
-DFC-2c           CURRENT — exact historical Ingest run adoption
-                 handoff: Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ingest-manifest-adoption-v1.md
-                 53 manifest-era RECOVERABLE_EXACT ingest.run records
-                 not complete until steward acceptance
+DFC-2c           DONE / ACCEPTED — exact historical Ingest run catalog adoption
+                 PR #686; accepted head 2a088c4b357a5bc43635fd31aefad42f4b5d4e95
+                 merge 678e9c276ad58505c53ce61d5a659ea8c792ca31
+                 review cycles: 2
+                 53 ingest.run catalog identities; not review packages
+DFC-3            CURRENT — C1/C2 demo-readiness survey
+                 handoff: Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md
+                 report: Docs/Reports/REPORT-c1-c2-demo-readiness.md
+                 library: Docs/Operations/CAMPAIGN-MATERIAL-LIBRARY-c1-c2.md
 DFC-2b           LATER — Build archive/adapter (evidence incomplete)
 DFC-2p           LATER — Plan archive evidence recovery
 DFC-2d           LATER — Runbook/Play archive hunt (evidence-dependent)
@@ -364,18 +369,23 @@ separate active lane; do not make remaining CUTOVER work a reason to pause disjo
    - merge 7a73a5a154fa0b1c2bac9689f201dd64d2524aa5; 5 review cycles
    - one Plan recovered exactly; four registry identities still lack bytes
 
-8. DFC-2c — CURRENT — exact historical Ingest run adoption
-   - handoff: Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ingest-manifest-adoption-v1.md
-   - 53 manifest-era RECOVERABLE_EXACT ingest.run records (24 C1 + 29 C2)
-   - not complete until steward acceptance
+8. DFC-2c — DONE / ACCEPTED — exact historical Ingest run catalog adoption
+   - PR #686, accepted head 2a088c4b357a5bc43635fd31aefad42f4b5d4e95
+   - merge 678e9c276ad58505c53ce61d5a659ea8c792ca31; 2 review cycles
+   - 53 catalog identities recovered; runs remain validated/prepared, not reviewable
 
-9. DFC-2b — LATER — Build archive/adapter (evidence incomplete)
+9. DFC-3 — CURRENT — C1/C2 demo-readiness survey
+   - handoff: Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md
+   - report: Docs/Reports/REPORT-c1-c2-demo-readiness.md
+   - next implementation slices are selected from the survey, not from old DFC-2b/BF3B order
+
+10. DFC-2b — LATER — Build archive/adapter (evidence incomplete)
    - four NEEDS_ADAPTER Build identities; no safe write payload yet
 
-10. DFC-2p — LATER — Plan archive evidence recovery
+11. DFC-2p — LATER — Plan archive evidence recovery
     - four registry identities with absent bytes; two orphan-byte Plans
 
-11. BF3B — LATER — Scene-owned Decision interaction
+12. BF3B — LATER — Scene-owned Decision interaction
    - already-committed Decision-bearing Runbook + READY Run are preconditions
    - current Scene visibly owns the Decision
    - select / change / clear selection

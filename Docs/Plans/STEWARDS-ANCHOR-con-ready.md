@@ -2,11 +2,11 @@
 
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT
 **Line of work:** `CON-READY`
-**Updated:** 2026-09-04
+**Updated:** 2026-09-06
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor base:** `main` `4d09f9bff75c375fc83fea2c516125a51a58d573` (DFC-2c handoff; DFC-2a PR #685 ACCEPTED)
+**Re-anchor base:** `main` `678e9c276ad58505c53ce61d5a659ea8c792ca31` (DFC-2c PR #686 ACCEPTED; DFC-3 survey current)
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
-**Current forcing function:** DOGFOOD-CONTINUITY DFC-2c — [`HANDOFF-DOGFOOD-CONTINUITY-ingest-manifest-adoption-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ingest-manifest-adoption-v1.md)
+**Current forcing function:** DOGFOOD-CONTINUITY DFC-3 — [`HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md)
 **Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
@@ -32,7 +32,7 @@ Before dispatching a CON-READY / PLAY-SURFACE implementation:
 
 ## 1. Current product truth
 
-SURFACE-INTEGRATION is **CLOSED** (SI-6 ACCEPTED, PR #682). The temporary feature freeze is lifted. DFC-1 inventory is **DONE / ACCEPTED** (PR #684, 7 review cycles). DFC-2a Plan adoption is **DONE / ACCEPTED** (PR #685, 5 review cycles). The active CON-READY forcing function is **DOGFOOD-CONTINUITY DFC-2c** — exact historical Ingest run adoption — not automatic resume of the old BF3B branch. DFC-2b is later because Build evidence is incomplete.
+SURFACE-INTEGRATION is **CLOSED** (SI-6 ACCEPTED, PR #682). The temporary feature freeze is lifted. DFC-1 inventory is **DONE / ACCEPTED** (PR #684, 7 review cycles). DFC-2a Plan adoption is **DONE / ACCEPTED** (PR #685, 5 review cycles). DFC-2c Ingest catalog adoption is **DONE / ACCEPTED** (PR #686, 2 review cycles). The active CON-READY forcing function is **DOGFOOD-CONTINUITY DFC-3** — C1/C2 demo-readiness survey — not automatic resume of DFC-2b or the old BF3B branch. Next implementation slices come from [`../Reports/REPORT-c1-c2-demo-readiness.md`](../Reports/REPORT-c1-c2-demo-readiness.md).
 
 The Play persistence foundation is no longer the blocker.
 
@@ -44,7 +44,8 @@ SI-7              DONE — re-sequenced to DOGFOOD-CONTINUITY DFC-1
 DOGFOOD-CONTINUITY
 DFC-1             DONE / ACCEPTED — PR #684; accepted head f32f90ee1ccc9fac150ca8147c268c517a4ec8a6; merge 8fc9989fb6da616f74876395514f4da26bd94609; 7 review cycles
 DFC-2a            DONE / ACCEPTED — PR #685; accepted head 076f875a8a0b8cd95932c53be730b169cd5f2818; merge 7a73a5a154fa0b1c2bac9689f201dd64d2524aa5; 5 review cycles
-DFC-2c            CURRENT — exact historical Ingest run adoption (not complete)
+DFC-2c            DONE / ACCEPTED — PR #686; accepted head 2a088c4b357a5bc43635fd31aefad42f4b5d4e95; merge 678e9c276ad58505c53ce61d5a659ea8c792ca31; 2 review cycles
+DFC-3             CURRENT — C1/C2 demo-readiness survey (not complete)
 DFC-2b            LATER — Build archive/adapter (evidence incomplete)
 
 PLAY STRUCTURE
@@ -215,9 +216,14 @@ DONE / ACCEPTED — exact historical Plan adoption
         merge 7a73a5a154fa0b1c2bac9689f201dd64d2524aa5; 5 review cycles
         ↓
 DFC-2c
-CURRENT — exact historical Ingest run adoption
-        handoff: HANDOFF-DOGFOOD-CONTINUITY-ingest-manifest-adoption-v1.md
-        not complete until steward acceptance
+DONE / ACCEPTED — exact historical Ingest run catalog adoption
+        PR #686; accepted head 2a088c4b357a5bc43635fd31aefad42f4b5d4e95
+        merge 678e9c276ad58505c53ce61d5a659ea8c792ca31; 2 review cycles
+        ↓
+DFC-3
+CURRENT — C1/C2 demo-readiness survey
+        handoff: HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md
+        report: REPORT-c1-c2-demo-readiness.md
         ↓
 DFC-2b / DFC-2p / DFC-2d
 LATER — Build/Plan/Runbook-Play archive recovery (evidence-dependent)
@@ -264,11 +270,10 @@ DF0 does **not** own:
 
 DF0 is complete at PR #657. PLAN-BLANK-SHELL is complete at PR #661. BF4A is
 DONE at PR #660. DFC-1 is DONE / ACCEPTED at PR #684. DFC-2a is DONE / ACCEPTED
-at PR #685. **DFC-2c** is the current CON-READY forcing function and is not
-complete. DFC-2b (Build archive/adapter) is later because its evidence is
-incomplete. BF3B (Scene-owned Decision interaction) remains a later product
-capability — the old "CURRENT / IN FLIGHT" sequencing on
-`agent/play-surface-decision-cockpit-recut` is retired as stale.
+at PR #685. **DFC-2c** is DONE / ACCEPTED at PR #686 (2 review cycles). **DFC-3**
+is the current CON-READY forcing function and is not complete. DFC-2b (Build
+archive/adapter) remains later because its evidence is incomplete. Do not
+automatically resume BF3B from old sequencing.
 
 Create blank Runbook, chooser copy, and paste/replace remain predecessor or
 separate product work. They are not BF3B. Closed unmerged PR #670 is exploratory
@@ -306,7 +311,8 @@ A path that forces manual source search, memory reconstruction, JSON surgery, Pl
 - SURFACE-INTEGRATION is CLOSED (SI-6 ACCEPTED, PR #682 merge `86296a4021816862b1ee82cbf7478b2882493963`, 2 review cycles).
 - DFC-1 historical material inventory is **DONE / ACCEPTED** (PR #684, 7 review cycles).
 - DFC-2a exact historical Plan adoption is **DONE / ACCEPTED** (PR #685, 5 review cycles).
-- DFC-2c exact historical Ingest run adoption is **CURRENT** (not done).
+- DFC-2c exact historical Ingest run catalog adoption is **DONE / ACCEPTED** (PR #686, 2 review cycles).
+- DFC-3 C1/C2 demo-readiness survey is **CURRENT** (not done).
 - DFC-2b Build archive/adapter is **LATER** — evidence incomplete.
 - BF3B Decision interaction is **not current** — parked until after DOGFOOD-CONTINUITY recovery. Closed unmerged PR #670 is exploratory evidence only (0 review cycles).
 - BF3.x / P3 retrieval remains false.
