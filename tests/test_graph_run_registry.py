@@ -1132,3 +1132,238 @@ def test_reciprocal_lineage_with_non_superseded_predecessor_fails_closed_on_load
     _corrupt_ingest_run(application_state_dsn, prepared.run_id, status="prepared")
     with pytest.raises(GraphRunRegistryError, match="lineage|must be superseded"):
         get_extraction_run(tmp_path, successor.run_id)
+
+
+def _validated_recap_run(
+    tmp_path: Path,
+    *,
+    recap_text: str = "# Session Recap\n\nA paragraph.\n",
+    component_uri: str | None = None,
+    component_digest: str | None | object = ...,
+    status: ExtractionRunStatus = ExtractionRunStatus.VALIDATED,
+):
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+    )
+
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="longmont-c2",
+        session_id="session-23",
+        recap_text=recap_text,
+    )
+    source_path = tmp_path / artifact.uri.removeprefix("repo://")
+    source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    uri = component_uri or artifact.uri
+    if component_digest is ...:
+        digest: str | None = source_digest
+    else:
+        digest = component_digest
+    components = {
+        "source_artifact": ExtractionRunComponentRef(
+            kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
+            uri=uri,
+            sha256=digest,
+        ),
+    }
+    run = create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="recap",
+        campaign_id="longmont-c2",
+        session_id="session-23",
+    )
+    run = update_extraction_run_status(
+        tmp_path,
+        run.run_id,
+        status=ExtractionRunStatus.PREPARED,
+        expected_revision=run.revision,
+        components=components,
+    )
+    if status != ExtractionRunStatus.PREPARED:
+        run = update_extraction_run_status(
+            tmp_path,
+            run.run_id,
+            status=ExtractionRunStatus.EXTRACTED,
+            expected_revision=run.revision,
+        )
+    if status == ExtractionRunStatus.VALIDATED:
+        run = update_extraction_run_status(
+            tmp_path,
+            run.run_id,
+            status=ExtractionRunStatus.VALIDATED,
+            expected_revision=run.revision,
+        )
+    return run, artifact, source_path
+
+
+def test_historical_recap_inspection_reads_validated_run(tmp_path: Path) -> None:
+    from apps.live_control_server.services.graph_run_registry import (
+        get_historical_recap_inspection,
+    )
+
+    run, _artifact, _source_path = _validated_recap_run(tmp_path)
+    before = get_extraction_run(tmp_path, run.run_id)
+    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
+    after = get_extraction_run(tmp_path, run.run_id)
+
+    assert inspection.source_status == "available"
+    assert inspection.run_status == "validated"
+    assert "# Session Recap" in (inspection.source_prose or "")
+    assert inspection.source_uri is None
+    assert inspection.source_sha256
+    assert before.model_dump() == after.model_dump()
+
+
+def test_historical_recap_inspection_does_not_require_source_registry(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.graph_run_registry import (
+        get_historical_recap_inspection,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        source_artifacts_path,
+    )
+
+    run, _artifact, source_path = _validated_recap_run(tmp_path)
+    source_registry_path = source_artifacts_path(tmp_path)
+    source_registry_path.unlink()
+
+    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
+
+    assert source_path.is_file()
+    assert inspection.source_status == "available"
+    assert inspection.source_prose == "# Session Recap\n\nA paragraph.\n"
+
+
+def test_historical_recap_inspection_reads_prepared_run(tmp_path: Path) -> None:
+    from apps.live_control_server.services.graph_run_registry import (
+        get_historical_recap_inspection,
+    )
+
+    run, _artifact, _source_path = _validated_recap_run(
+        tmp_path, status=ExtractionRunStatus.PREPARED
+    )
+    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
+    assert inspection.source_status == "available"
+    assert inspection.run_status == "prepared"
+
+
+def test_historical_recap_inspection_survives_source_file_removal(tmp_path: Path) -> None:
+    from apps.live_control_server.services.graph_run_registry import (
+        get_historical_recap_inspection,
+    )
+
+    run, _artifact, source_path = _validated_recap_run(tmp_path)
+    source_path.unlink()
+    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
+    assert inspection.source_status == "available"
+    assert inspection.source_prose == "# Session Recap\n\nA paragraph.\n"
+
+
+def test_historical_recap_inspection_does_not_fallback_to_sibling_bytes(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.graph_run_registry import (
+        get_historical_recap_inspection,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+    )
+
+    sibling = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="longmont-c2",
+        session_id="session-23",
+        recap_text="# Sibling recap\n\nDifferent bytes.\n",
+    )
+    run, _artifact, _source_path = _validated_recap_run(
+        tmp_path,
+        component_uri="repo://out/registries/missing/recap.md",
+        component_digest=hashlib.sha256(b"missing").hexdigest(),
+    )
+    sibling_path = tmp_path / sibling.uri.removeprefix("repo://")
+    assert sibling_path.is_file()
+    missing_path = tmp_path / "out/registries/missing/recap.md"
+    assert not missing_path.is_file()
+
+    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
+    assert inspection.source_status == "unavailable"
+    assert inspection.source_prose is None
+
+
+def test_historical_recap_inspection_missing_digest_is_unavailable(tmp_path: Path) -> None:
+    from apps.live_control_server.services.graph_run_registry import (
+        get_historical_recap_inspection,
+    )
+
+    run, _artifact, _source_path = _validated_recap_run(tmp_path, component_digest=None)
+    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
+    assert inspection.source_status == "unavailable"
+    assert "digest" in (inspection.unavailable_reason or "")
+
+
+def test_historical_recap_inspection_does_not_resolve_source_uri(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.graph_run_registry import (
+        get_historical_recap_inspection,
+    )
+
+    run, _artifact, _source_path = _validated_recap_run(
+        tmp_path, component_uri="repo://../escape.md"
+    )
+    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
+    assert inspection.source_status == "available"
+    assert inspection.source_uri is None
+
+
+def test_historical_recap_inspection_digest_mismatch_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.graph_run_registry import (
+        get_historical_recap_inspection,
+    )
+
+    run, _artifact, _source_path = _validated_recap_run(
+        tmp_path, component_digest="f" * 64
+    )
+    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
+    assert inspection.source_status == "unavailable"
+    assert inspection.source_prose is None
+    assert "not adopted" in (inspection.unavailable_reason or "")
+
+
+def test_historical_recap_inspection_unknown_run_is_404(tmp_path: Path) -> None:
+    from apps.live_control_server.services.graph_run_registry import (
+        get_historical_recap_inspection,
+    )
+
+    with pytest.raises(GraphRunRegistryError, match="not found|missing"):
+        get_historical_recap_inspection(tmp_path, "missing-run")
+
+
+def test_historical_recap_inspection_rejects_worldbuilding_run(tmp_path: Path) -> None:
+    from apps.live_control_server.services.graph_run_registry import (
+        get_historical_recap_inspection,
+    )
+
+    record, _digest = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=record.document_id,
+        expected_revision=record.revision,
+    )
+    run = create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+    )
+    with pytest.raises(GraphRunRegistryError, match="not applicable"):
+        get_historical_recap_inspection(tmp_path, run.run_id)
+
+
+def test_get_reviewable_extraction_run_still_rejects_validated(tmp_path: Path) -> None:
+    run, _artifact, _source_path = _validated_recap_run(tmp_path)
+    with pytest.raises(GraphRunRegistryError, match="not reviewable"):
+        get_reviewable_extraction_run(tmp_path, run.run_id)

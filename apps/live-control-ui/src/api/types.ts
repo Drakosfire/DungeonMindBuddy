@@ -1759,6 +1759,41 @@ export interface ExtractionRunRecord {
   supersedes_run_id?: string | null;
 }
 
+export type HistoricalRecapSourceStatus = "available" | "unavailable";
+
+export interface HistoricalRecapInspectionResponse {
+  schema: "dmb_historical_recap_inspection_v1";
+  runId: string;
+  runStatus: string;
+  sourceDomain: string;
+  sourceArtifactId: string;
+  campaignId?: string | null;
+  sessionId?: string | null;
+  sourceStatus: HistoricalRecapSourceStatus;
+  sourceUri?: string | null;
+  sourceSha256?: string | null;
+  sourceProse?: string | null;
+  unavailableReason?: string | null;
+}
+
+export type HistoricalRecapWorldProjectionResponse = Omit<
+  WorldGraphRecapProjection,
+  "schema"
+> & {
+  schema: "dmb_historical_recap_world_projection_v1";
+  runId: string;
+  runStatus: string;
+  sourceDomain: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  campaignId: string;
+  sessionId: string;
+  worldId: string;
+  sourceSha256: string;
+  sourceStatus: "available" | "unavailable";
+  graphStatus: "available" | "unavailable";
+};
+
 export interface GraphReviewHandoffPayload {
   href: string;
   extraction_run_id: string;

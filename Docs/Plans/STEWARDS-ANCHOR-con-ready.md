@@ -4,9 +4,9 @@
 **Line of work:** `CON-READY`
 **Updated:** 2026-09-06
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor base:** `main` `678e9c276ad58505c53ce61d5a659ea8c792ca31` (DFC-2c PR #686 ACCEPTED; DFC-3 survey current)
+**Re-anchor base:** `main` `a692dbe2bd3dd53a385891ae4ed4c83668bd58ec` (DFC-3 PR #687 DONE; DEMO-R1 handoff on main)
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
-**Current forcing function:** DOGFOOD-CONTINUITY DFC-3 — [`HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md)
+**Current forcing function:** DOGFOOD-CONTINUITY **DEMO-R1** — [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md)
 **Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
@@ -32,7 +32,7 @@ Before dispatching a CON-READY / PLAY-SURFACE implementation:
 
 ## 1. Current product truth
 
-SURFACE-INTEGRATION is **CLOSED** (SI-6 ACCEPTED, PR #682). The temporary feature freeze is lifted. DFC-1 inventory is **DONE / ACCEPTED** (PR #684, 7 review cycles). DFC-2a Plan adoption is **DONE / ACCEPTED** (PR #685, 5 review cycles). DFC-2c Ingest catalog adoption is **DONE / ACCEPTED** (PR #686, 2 review cycles). The active CON-READY forcing function is **DOGFOOD-CONTINUITY DFC-3** — C1/C2 demo-readiness survey — not automatic resume of DFC-2b or the old BF3B branch. Next implementation slices come from [`../Reports/REPORT-c1-c2-demo-readiness.md`](../Reports/REPORT-c1-c2-demo-readiness.md).
+SURFACE-INTEGRATION is **CLOSED** (SI-6 ACCEPTED, PR #682). The temporary feature freeze is lifted. DFC-1 inventory is **DONE / ACCEPTED** (PR #684, 7 review cycles). DFC-2a Plan adoption is **DONE / ACCEPTED** (PR #685, 5 review cycles). DFC-2c Ingest catalog adoption is **DONE / ACCEPTED** (PR #686, 2 review cycles). **DFC-3** C1/C2 demo-readiness survey is **DONE / ACCEPTED** (PR #687, 3 review cycles). The active CON-READY forcing function is **DEMO-R1** — historical recap inspect without promotion — via [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md). Do not automatically inherit DFC-2b / BF3B.
 
 The Play persistence foundation is no longer the blocker.
 
