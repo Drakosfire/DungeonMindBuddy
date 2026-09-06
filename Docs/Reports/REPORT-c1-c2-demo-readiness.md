@@ -2,6 +2,7 @@
 
 **Created:** 2026-09-06  
 **RC1 repair:** 2026-09-06 (review `5126289112` on PR #687 @ `7dc57df4…`) — material library URI+digest ledger; Agent readiness downgraded  
+**RC2 repair:** 2026-09-06 (review `5126321767` on PR #687 @ `a4e8a7bf…`) — align report counts (32 complete / 21 partial); expand library §2.4 digest columns  
 **Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md`  
 **Library:** `Docs/Operations/CAMPAIGN-MATERIAL-LIBRARY-c1-c2.md`  
 **Product `main` surveyed:** `678e9c276ad58505c53ce61d5a659ea8c792ca31`  
@@ -108,7 +109,7 @@ Git-tracked recap files for those sessions exist on `current-main` (see library)
 | Existing extraction review | Catalog lists 53 historical runs | Catalog only | `LIVE-READ` |
 | Review/correction | Promote/confirm for `reviewable` exact-run | No historical run is `reviewable` | `EXACT_REVIEWABLE_STATUSES = {"reviewable"}` |
 | Agent | Shared Agent chrome on Ingest | Region visible; no recap-aware ask observed | `LIVE-READ` |
-| Persistence | ingest.run in leftover PostgreSQL; recap git; candidate bundles local `out/` | Catalog durable; review bytes laptop-local | library §3 |
+| Persistence | ingest.run in leftover PostgreSQL; recap git; candidate bundles local `out/` | Catalog durable; review bytes laptop-local | library §2.3–§2.4 |
 
 Catalog live projection sets `projectionStatus: "retired"` (CUTOVER D.3A; do not call UnionSupergraph). “Review and merge” toolbar gated on `projectionStatus === "ready"` is effectively dead for this lane (`CODE-ONLY` + tests).
 
@@ -212,7 +213,7 @@ Cutover is complete. This survey used only the Buddy-facing contract.
 | Buddy surfaces query/use it? | Chrome tries; fails | `LIVE-READ` World chip on Ingest/Plan/Play |
 | Visible “Graph” / World error origin | `AppChromeWorldGraphStatus` / `presentWorldGraphChromeStatus` from lens 503 — **not** recap pills | `LIVE-READ` + `CODE-ONLY` |
 | Surfaces with useful World context | none observed | `LIVE-READ` |
-| Recap pills/nodes use current World vs local artifacts? | neither: pills not rendered; candidate graphs are local `out/` URIs recorded on `ingest.run` (32 complete bundles on `primary-checkout`; see library §2.3) | `LIVE-READ` + library |
+| Recap pills/nodes use current World vs local artifacts? | neither: pills not rendered; candidate graphs are local `out/` URIs recorded on `ingest.run` (32 complete + 21 partial bundles; see library §2.3–§2.4) | `LIVE-READ` + library |
 | NPC/place/threat openable from normal use? | not from this recap path; World chip error | `LIVE-READ` |
 
 Do not bypass DungeonMind or give Buddy graph-architecture ownership to make chrome look healthy.
@@ -323,7 +324,7 @@ Post-merge leftover ingest apply that populated these 53 rows happened **before*
 - Agent ask/write approval not clicked.
 - A11y snapshot of C2S23 picker listed fewer options than the 10 catalog runs; do not claim the UI hides runs without a second count.
 - Ingest Recap tool button click failed (overlay/scroll); that panel is not claimed.
-- `current-main` missing `out/` is **not** proof bytes are globally missing (`primary-checkout` still holds 31 complete triples).
+- `current-main` missing `out/` is **not** proof bytes are globally missing (`primary-checkout` still holds **32** complete review bundles per library §2.3; **21** partial per §2.4).
 
 ---
 
@@ -331,7 +332,7 @@ Post-merge leftover ingest apply that populated these 53 rows happened **before*
 
 - Did not reopen Of Conks as a running product (file compare of hover/card components only).
 - Did not dump every World node (forbidden / unnecessary).
-- Did not copy or hash every `out/` component file; library §2.3–§2.4 records APP-STATE URI + SHA-256 for all 53 runs and path existence for `primary-checkout` / `current-main`.
+- Did not copy or hash every `out/` component file on disk; library §2.3–§2.4 records APP-STATE URI + SHA-256 per component for all 53 runs (`—` when APP-STATE has no hash). §2.3 marks `primary-checkout` byte completeness for 32 runs; §2.4 marks missing components for 21 runs.
 - Did not re-adopt Plan `80630cc2-…` (would be a write).
 
 ---
@@ -371,8 +372,8 @@ user-visible outcome
   durable storage instead of primary-checkout out/.
 
 evidence that justifies it
-  0/53 complete triples on current-main; 32/53 on primary-checkout with explicit URI+digest
-  recorded in APP-STATE (library §2.3); leftover rows already store component claims;
+  0/53 complete triples on current-main; 32/53 complete + 21/53 partial on primary-checkout
+  with per-component URI+digest in APP-STATE (library §2.3–§2.4); leftover rows already store component claims;
   unavailable_component_count was 246 at DFC-2c apply.
 
 likely owning boundary
