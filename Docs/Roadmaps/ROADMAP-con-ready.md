@@ -2,14 +2,14 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-09-06 — DFC-2c ACCEPTED (PR #686, 2 review cycles); DFC-3 C1/C2 demo-readiness survey is current
+**Re-anchored:** 2026-09-06 — DFC-3 DONE (PR #687, 3 review cycles); DEMO-R1 historical recap inspection is current
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
 
 **Closed blocking child program:** [`ROADMAP-surface-integration.md`](ROADMAP-surface-integration.md) — **CLOSED** (SI-6 ACCEPTED, PR #682). No active SURFACE-INTEGRATION blocker; temporary feature freeze lifted.
 
-**Current forcing function:** DOGFOOD-CONTINUITY **DFC-3** — C1/C2 demo-readiness survey via [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md). DFC-2c Ingest catalog adoption is DONE / ACCEPTED (PR #686). DFC-2a Plan adoption is DONE / ACCEPTED (PR #685). Do not automatically inherit DFC-2b / BF3B; choose the next implementation slice from the survey report.
+**Current forcing function:** DOGFOOD-CONTINUITY **DEMO-R1** — historical recap inspect without promotion via [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md). DFC-3 C1/C2 demo-readiness survey is DONE / ACCEPTED (PR #687). DFC-2c Ingest catalog adoption is DONE / ACCEPTED (PR #686). DFC-2a Plan adoption is DONE / ACCEPTED (PR #685). Do not automatically inherit DFC-2b / BF3B.
 
 ---
 

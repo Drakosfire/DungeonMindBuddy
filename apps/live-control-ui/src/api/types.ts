@@ -1759,6 +1759,23 @@ export interface ExtractionRunRecord {
   supersedes_run_id?: string | null;
 }
 
+export type HistoricalRecapSourceStatus = "available" | "unavailable";
+
+export interface HistoricalRecapInspectionResponse {
+  schema: "dmb_historical_recap_inspection_v1";
+  runId: string;
+  runStatus: string;
+  sourceDomain: string;
+  sourceArtifactId: string;
+  campaignId?: string | null;
+  sessionId?: string | null;
+  sourceStatus: HistoricalRecapSourceStatus;
+  sourceUri?: string | null;
+  sourceSha256?: string | null;
+  sourceProse?: string | null;
+  unavailableReason?: string | null;
+}
+
 export interface GraphReviewHandoffPayload {
   href: string;
   extraction_run_id: string;

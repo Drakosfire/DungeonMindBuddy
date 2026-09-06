@@ -325,6 +325,101 @@ def get_extraction_run(root: Path, run_id: str) -> ExtractionRun:
         raise
 
 
+def get_historical_recap_inspection(
+    root: Path, run_id: str
+) -> "HistoricalRecapInspectionResponse":
+    """Read-only exact-run recap source inspection without promotion semantics."""
+    from apps.live_control_server.models.historical_recap_inspection import (
+        HistoricalRecapInspectionResponse,
+    )
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+
+    run = get_extraction_run(root, run_id)
+    if run.source_domain != "recap":
+        raise GraphRunRegistryError(
+            "historical recap inspection is not applicable to this extraction run",
+            status_code=422,
+        )
+
+    def _digest_label(digest: str) -> str:
+        normalized = normalize_content_digest(digest)
+        return normalized if normalized.startswith("sha256:") else f"sha256:{normalized}"
+
+    def _unavailable(
+        *,
+        source_uri: str | None = None,
+        source_sha256: str | None = None,
+        reason: str,
+    ) -> HistoricalRecapInspectionResponse:
+        return HistoricalRecapInspectionResponse(
+            run_id=run.run_id,
+            run_status=run.status.value,
+            source_domain=run.source_domain,
+            source_artifact_id=run.source_artifact_id,
+            campaign_id=run.campaign_id,
+            session_id=run.session_id,
+            source_status="unavailable",
+            source_uri=source_uri,
+            source_sha256=source_sha256,
+            source_prose=None,
+            unavailable_reason=reason,
+        )
+
+    source_component = _component_by_kind(
+        run.components, ExtractionRunComponentKind.SOURCE_ARTIFACT
+    )
+    if source_component is None:
+        return _unavailable(reason="source_artifact component is not recorded on this run")
+
+    uri = (source_component.uri or "").strip()
+    if not uri:
+        return _unavailable(reason="source_artifact component uri is not recorded")
+
+    claimed_digest = normalize_content_digest(source_component.sha256)
+    if not claimed_digest:
+        return _unavailable(
+            source_uri=uri,
+            reason="source_artifact component digest is not recorded",
+        )
+
+    path = _resolve_repo_contained_uri(root, uri)
+    if not path.is_file():
+        return _unavailable(
+            source_uri=uri,
+            source_sha256=_digest_label(claimed_digest),
+            reason="recorded source file is not available in the current repository authority",
+        )
+
+    actual_digest = _file_sha256(path)
+    if claimed_digest != actual_digest:
+        raise GraphRunRegistryError(
+            "source_artifact component digest mismatch",
+            status_code=422,
+        )
+
+    try:
+        prose = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise GraphRunRegistryError(
+            f"source prose is not valid UTF-8: {exc}",
+            status_code=422,
+        ) from exc
+
+    return HistoricalRecapInspectionResponse(
+        run_id=run.run_id,
+        run_status=run.status.value,
+        source_domain=run.source_domain,
+        source_artifact_id=run.source_artifact_id,
+        campaign_id=run.campaign_id,
+        session_id=run.session_id,
+        source_status="available",
+        source_uri=uri,
+        source_sha256=_digest_label(claimed_digest),
+        source_prose=prose,
+        unavailable_reason=None,
+    )
+
+
 def get_reviewable_extraction_run(root: Path, run_id: str) -> ExtractionRun:
     """Load one REVIEWABLE ExtractionRun and assert its current evidence integrity.
 

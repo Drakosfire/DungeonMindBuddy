@@ -5,6 +5,7 @@ import {
   getExtractionRunStatus,
   getGoldReviewCompare,
   getGoldReviewSessions,
+  getHistoricalRecapInspection,
   getManualReviewBed,
   getManualReviewBeds,
   LiveApiError,
@@ -14,6 +15,7 @@ import type {
   ExtractionRunStatusResponse,
   GoldReviewCompareResponse,
   GoldReviewSessionSummary,
+  HistoricalRecapInspectionResponse,
   ManualReviewBedDetail,
   ManualReviewBedSummary,
 } from "../../api/types";
@@ -47,6 +49,7 @@ import {
 import { GraphReviewDiagnosticsProjectionBinding } from "./GraphReviewDiagnosticsProjectionBinding";
 import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
 import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
+import { GraphReviewHistoricalRecapProjection } from "./GraphReviewHistoricalRecapProjection";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
 import { GraphReviewFirstWorldPublishSheet } from "./GraphReviewFirstWorldPublishSheet";
 import {
@@ -63,6 +66,7 @@ import {
   type GraphReviewCatalogSession,
   formatCompactAppliedLoadLabel,
   isCatalogRunExactReviewable,
+  isCatalogRunHistoricalRecapInspectable,
   isCatalogRunPromotedHistory,
   isSelectedCatalogRunMissing,
   pickDefaultCatalogSession,
@@ -244,6 +248,14 @@ export function GraphReviewWorkbenchModule({
     "idle",
   );
   const [exactReviewError, setExactReviewError] = useState<string | null>(null);
+  const [historicalRecapInspection, setHistoricalRecapInspection] =
+    useState<HistoricalRecapInspectionResponse | null>(null);
+  const [historicalRecapInspectionStatus, setHistoricalRecapInspectionStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [historicalRecapInspectionError, setHistoricalRecapInspectionError] = useState<
+    string | null
+  >(null);
   const appliedCampaignSessions = useMemo(
     () =>
       appliedSelection
@@ -530,6 +542,9 @@ export function GraphReviewWorkbenchModule({
       setExactReview(null);
       setExactReviewStatus("idle");
       setExactReviewError(null);
+      setHistoricalRecapInspection(null);
+      setHistoricalRecapInspectionStatus("idle");
+      setHistoricalRecapInspectionError(null);
       setExactPrepared(null);
       setExactPrepareError(null);
       return;
@@ -542,10 +557,58 @@ export function GraphReviewWorkbenchModule({
     setExactRunError(null);
     setExactPrepared(null);
     setExactPrepareError(null);
+    setHistoricalRecapInspection(null);
+    setHistoricalRecapInspectionStatus("idle");
+    setHistoricalRecapInspectionError(null);
 
     if (!isCatalogRunExactReviewable(run)) {
       setExactReview(null);
       setExactReviewStatus("idle");
+      setExactReviewError(null);
+
+      if (isCatalogRunHistoricalRecapInspectable(run)) {
+        setHistoricalRecapInspectionStatus("loading");
+        setHistoricalRecapInspectionError(null);
+        void (async () => {
+          try {
+            const inspection = await getHistoricalRecapInspection(run.run_id);
+            if (cancelled) return;
+            const packageCampaign = (inspection.campaignId ?? "").trim();
+            const runCampaign = (run.campaign_id ?? "").trim();
+            const packageSession = (inspection.sessionId ?? "").trim();
+            const runSession = (run.session_id ?? "").trim();
+            if (
+              inspection.runId !== run.run_id
+              || inspection.sourceArtifactId !== run.source_artifact_id
+              || inspection.sourceDomain !== run.source_domain
+              || packageCampaign !== runCampaign
+              || packageSession !== runSession
+            ) {
+              setHistoricalRecapInspection(null);
+              setHistoricalRecapInspectionStatus("error");
+              setHistoricalRecapInspectionError(
+                "historical recap inspection identity does not match the loaded ExtractionRun",
+              );
+              return;
+            }
+            setHistoricalRecapInspection(inspection);
+            setHistoricalRecapInspectionStatus("ready");
+          } catch (error) {
+            if (cancelled) return;
+            setHistoricalRecapInspection(null);
+            setHistoricalRecapInspectionStatus("error");
+            setHistoricalRecapInspectionError(
+              error instanceof LiveApiError || error instanceof Error
+                ? error.message
+                : "Failed to load historical recap inspection.",
+            );
+          }
+        })();
+        return () => {
+          cancelled = true;
+        };
+      }
+
       setExactReviewError(
         isCatalogRunPromotedHistory(run)
           ? "Promoted runs are visible terminal history and are not exact-reviewable through the current resolver. A separate inspection seam is required (SI-5B stop/rebrief)."
@@ -556,6 +619,9 @@ export function GraphReviewWorkbenchModule({
       };
     }
 
+    setHistoricalRecapInspection(null);
+    setHistoricalRecapInspectionStatus("idle");
+    setHistoricalRecapInspectionError(null);
     setExactReviewStatus("loading");
     setExactReviewError(null);
     setExactReview(null);
@@ -991,6 +1057,9 @@ export function GraphReviewWorkbenchModule({
               exactReview={exactReview}
               exactReviewStatus={exactReviewStatus}
               exactReviewError={exactReviewError}
+              historicalRecapInspection={historicalRecapInspection}
+              historicalRecapInspectionStatus={historicalRecapInspectionStatus}
+              historicalRecapInspectionError={historicalRecapInspectionError}
               exactRunReviewable={exactRunReviewable}
               exactRunPromotable={exactRunPromotable}
               exactRunFirstWorldEligible={exactRunFirstWorldEligible}
@@ -1053,6 +1122,9 @@ function GraphReviewExactRunBranch(props: {
   exactReview: ExactRunReviewPackage | null;
   exactReviewStatus: "idle" | "loading" | "ready" | "error";
   exactReviewError: string | null;
+  historicalRecapInspection: HistoricalRecapInspectionResponse | null;
+  historicalRecapInspectionStatus: "idle" | "loading" | "ready" | "error";
+  historicalRecapInspectionError: string | null;
   exactRunReviewable: boolean;
   exactRunPromotable: boolean;
   exactRunFirstWorldEligible: boolean;
@@ -1067,6 +1139,7 @@ function GraphReviewExactRunBranch(props: {
   onCatalogRefresh: () => void | Promise<void>;
 }) {
   const { committedPhase } = useGraphReviewLiveState();
+  const historicalRecapInspectable = isCatalogRunHistoricalRecapInspectable(props.exactRun);
 
   // After terminal receipt for this binding, committed projection is the only
   // primary result — never exact-run candidate source/assertions.
@@ -1094,13 +1167,38 @@ function GraphReviewExactRunBranch(props: {
       {props.exactReviewStatus === "loading" ? (
         <p className="plan-projection-empty">Loading source evidence…</p>
       ) : null}
+      {props.historicalRecapInspectionStatus === "loading" ? (
+        <p className="plan-projection-empty">Loading historical recap…</p>
+      ) : null}
       {props.exactReviewError ? (
         <p className="graph-review-error" data-testid="graph-review-exact-run-review-error">
           {props.exactReviewError}
         </p>
       ) : null}
+      {props.historicalRecapInspectionError ? (
+        <p
+          className="graph-review-error"
+          data-testid="graph-review-historical-recap-error"
+        >
+          {props.historicalRecapInspectionError}
+        </p>
+      ) : null}
       {props.exactReview ? <GraphReviewExactRunProjection review={props.exactReview} /> : null}
-      {!props.exactRunReviewable ? (
+      {historicalRecapInspectable && props.historicalRecapInspection?.sourceStatus === "available"
+        ? (
+          <GraphReviewHistoricalRecapProjection inspection={props.historicalRecapInspection} />
+        )
+        : null}
+      {historicalRecapInspectable
+      && props.historicalRecapInspection?.sourceStatus === "unavailable" ? (
+        <p data-testid="graph-review-historical-recap-unavailable">
+          Historical source for this exact run is unavailable
+          {props.historicalRecapInspection.unavailableReason
+            ? `: ${props.historicalRecapInspection.unavailableReason}`
+            : "."}
+        </p>
+      ) : null}
+      {!props.exactRunReviewable && !historicalRecapInspectable ? (
         <p data-testid="graph-review-exact-run-unreviewable">
           {isCatalogRunPromotedHistory(props.exactRun)
             ? (
