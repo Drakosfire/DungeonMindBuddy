@@ -85,7 +85,7 @@ function historicalProjection(
       admissibility: "gm",
       scopeMode: "campaign",
     },
-    markdown: "# Heading\n\n[dmb-node:node-1](Bonogo) arrives.\n",
+    markdown: "# Heading\n\n[Bonogo](dmb-node:node-1) arrives.\n",
     focus: {
       focusSessionId: "session-23",
       focusedEvidenceRefIds: [],
@@ -815,13 +815,14 @@ describe("GraphReviewWorkbenchModule", () => {
   });
 
   it("loads validated recap through durable World projection, not review package", async () => {
+    const user = userEvent.setup();
     const validated = canonicalRun({ status: "validated", run_id: "er_validated" });
     const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
     const projectionSpy = vi
       .spyOn(liveApi, "getHistoricalRecapWorldProjection")
       .mockResolvedValue(
         historicalProjection({
-          markdown: "# Heading\n\n[dmb-node:node-1](Bonogo) arrives.\n",
+          markdown: "# Heading\n\n[Bonogo](dmb-node:node-1) arrives.\n",
         }),
       );
     window.history.replaceState(
@@ -844,6 +845,51 @@ describe("GraphReviewWorkbenchModule", () => {
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(screen.queryByTestId("graph-review-exact-run-unreviewable")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
+
+    const bonogoPill = await screen.findByRole("button", { name: "Bonogo" });
+    expect(bonogoPill).toHaveAttribute("data-graph-node-id", "node-1");
+    await user.click(bonogoPill);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Bonogo graph object")).toBeInTheDocument();
+  });
+
+  it("loads exact-handoff validated recap through historical projection without review package", async () => {
+    const validated = canonicalRun({ status: "validated", run_id: "er_handoff_validated" });
+    const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
+    const projectionSpy = vi
+      .spyOn(liveApi, "getHistoricalRecapWorldProjection")
+      .mockResolvedValue(
+        historicalProjection({
+          runId: "er_handoff_validated",
+          runStatus: "validated",
+          markdown: "# Handoff recap\n\n[Bonogo](dmb-node:node-1) arrives.\n",
+        }),
+      );
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?extractionRunId=er_handoff_validated&sourceArtifactId=sa_1",
+    );
+    renderWorkbench([]);
+
+    await waitFor(
+      () => {
+        expect(projectionSpy).toHaveBeenCalledWith("er_handoff_validated");
+        expect(screen.getByTestId("graph-review-historical-recap-projection")).toBeInTheDocument();
+        expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
+          "validated",
+        );
+        expect(document.body.textContent).toMatch(/Handoff recap/);
+      },
+      { timeout: 3000 },
+    );
+    expect(reviewPackageSpy).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
   });
 
   it("shows unavailable historical recap without sibling fallback", async () => {

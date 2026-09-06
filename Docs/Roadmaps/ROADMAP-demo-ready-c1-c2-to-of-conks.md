@@ -89,7 +89,7 @@ At a STOP:
 
 ## Stage 1 — Historical recap inspect without promotion
 
-**Active implementation (DEMO-R1):** [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md). STOP 1 remains closed until post-merge assembled dogfood.
+**Active implementation (DEMO-R1):** [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) (PR #689, in review). Supersedes the paused PR #688 / inspection-only handoff. STOP 1 remains closed until post-merge assembled dogfood — do not mark Stage 1 complete.
 
 ### Human outcome
 

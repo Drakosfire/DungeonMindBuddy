@@ -108,6 +108,8 @@ def test_exact_run_projection_uses_durable_source_and_current_world(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    world_root = tmp_path / "world-root"
+    monkeypatch.setattr(projection_service, "world_graph_root", lambda: world_root)
     monkeypatch.setattr(projection_service, "get_extraction_run", lambda _root, _id: _run())
     monkeypatch.setattr(
         projection_service.source_service,
@@ -137,6 +139,7 @@ def test_exact_run_projection_uses_durable_source_and_current_world(
     assert "dmb-node:node-bonogo" in response.markdown
     assert captured["request"].world_id == "eldyrwild"
     assert captured["request"].focus.session_id == "session-25"
+    assert captured["root"] == world_root
 
 
 def test_exact_run_projection_fails_closed_when_source_was_not_adopted(

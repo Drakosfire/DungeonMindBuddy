@@ -7,6 +7,7 @@ from pathlib import Path
 from apps.live_control_server.models.historical_recap_projection import (
     HistoricalRecapWorldProjectionResponse,
 )
+from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.services.graph_run_registry import (
     GraphRunRegistryError,
     get_extraction_run,
@@ -166,7 +167,7 @@ def build_historical_recap_world_projection(
         scope_mode="campaign",
     )
     try:
-        world = project_world_graph(request, root=root)
+        world = project_world_graph(request, root=world_graph_root())
     except WorldGraphProjectionServiceError as exc:
         raise HistoricalRecapProjectionError(
             str(exc),

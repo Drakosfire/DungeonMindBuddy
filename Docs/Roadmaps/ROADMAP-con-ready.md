@@ -9,7 +9,7 @@
 
 **Closed blocking child program:** [`ROADMAP-surface-integration.md`](ROADMAP-surface-integration.md) — **CLOSED** (SI-6 ACCEPTED, PR #682). No active SURFACE-INTEGRATION blocker; temporary feature freeze lifted.
 
-**Current forcing function:** DOGFOOD-CONTINUITY **DEMO-R1** — historical recap inspect without promotion via [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md). DFC-3 C1/C2 demo-readiness survey is DONE / ACCEPTED (PR #687). DFC-2c Ingest catalog adoption is DONE / ACCEPTED (PR #686). DFC-2a Plan adoption is DONE / ACCEPTED (PR #685). Do not automatically inherit DFC-2b / BF3B.
+**Current forcing function:** DOGFOOD-CONTINUITY **DEMO-R1** — historical recap World projection via [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) (PR #689, in review). Prior inspection-only handoff [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md) is superseded; PR #688 remains paused/unmerged. DFC-3 C1/C2 demo-readiness survey is DONE / ACCEPTED (PR #687). DFC-2c Ingest catalog adoption is DONE / ACCEPTED (PR #686). DFC-2a Plan adoption is DONE / ACCEPTED (PR #685). Do not automatically inherit DFC-2b / BF3B. Do not mark PR #689 or Stage 1 / STOP 1 complete here.
 
 ---
 

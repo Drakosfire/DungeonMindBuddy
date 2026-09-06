@@ -477,10 +477,12 @@ export function GraphReviewWorkbenchModule({
       setExactRun(run);
       setExactLineage(lineage);
       setExactRunStatus("ready");
-      setExactReviewStatus("loading");
-      setExactReviewError(null);
       setExactReview(null);
+      setExactReviewError(null);
       if (isCatalogRunHistoricalRecapInspectable(run)) {
+        setExactReviewStatus("idle");
+        setExactReview(null);
+        setExactReviewError(null);
         setHistoricalRecapProjectionStatus("loading");
         try {
           const projection = await getHistoricalRecapWorldProjection(run.run_id);
@@ -508,7 +510,9 @@ export function GraphReviewWorkbenchModule({
               : "Failed to load historical recap projection.",
           );
         }
+        return;
       }
+      setExactReviewStatus("loading");
       try {
         const packageResponse = await getExactRunReviewPackage(run.run_id);
         if (cancelled) return;
