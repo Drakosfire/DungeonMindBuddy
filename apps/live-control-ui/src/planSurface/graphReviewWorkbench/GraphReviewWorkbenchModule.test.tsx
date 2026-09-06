@@ -751,6 +751,100 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(screen.queryByTestId("graph-review-exact-run-source-prose")).not.toBeInTheDocument();
   });
+
+  it("loads validated recap through historical inspection, not review package", async () => {
+    const validated = canonicalRun({ status: "validated", run_id: "er_validated" });
+    const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
+    const inspectionSpy = vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({
+      schema: "dmb_historical_recap_inspection_v1",
+      runId: "er_validated",
+      runStatus: "validated",
+      sourceDomain: "recap",
+      sourceArtifactId: "sa_1",
+      campaignId: "longmont-c2",
+      sessionId: "session-23",
+      sourceStatus: "available",
+      sourceUri: "corpus/recap.md",
+      sourceSha256: "sha256:abc",
+      sourceProse: "# Heading\n\nA list:\n\n- first\n- second\n",
+      unavailableReason: null,
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_validated",
+    );
+    renderWorkbench([validated]);
+
+    await waitFor(
+      () => {
+        expect(inspectionSpy).toHaveBeenCalledWith("er_validated");
+        expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
+          "validated",
+        );
+        expect(document.body.textContent).toMatch(/Heading/);
+        expect(document.body.textContent).toMatch(/first/);
+      },
+      { timeout: 3000 },
+    );
+    expect(reviewPackageSpy).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("graph-review-exact-run-unreviewable")).not.toBeInTheDocument();
+  });
+
+  it("shows unavailable historical recap without sibling fallback", async () => {
+    const validated = canonicalRun({ status: "validated", run_id: "er_missing_source" });
+    vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({
+      schema: "dmb_historical_recap_inspection_v1",
+      runId: "er_missing_source",
+      runStatus: "validated",
+      sourceDomain: "recap",
+      sourceArtifactId: "sa_1",
+      campaignId: "longmont-c2",
+      sessionId: "session-23",
+      sourceStatus: "unavailable",
+      sourceUri: "corpus/missing.md",
+      sourceSha256: "sha256:abc",
+      sourceProse: null,
+      unavailableReason: "recorded source file is not available in the current repository authority",
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_missing_source",
+    );
+    renderWorkbench([validated]);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-historical-recap-unavailable")).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+  });
+
+  it("rejects mismatched historical recap inspection identity", async () => {
+    const validated = canonicalRun({ status: "prepared", run_id: "er_prepared" });
+    vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({
+      schema: "dmb_historical_recap_inspection_v1",
+      runId: "er_other",
+      runStatus: "prepared",
+      sourceDomain: "recap",
+      sourceArtifactId: "sa_1",
+      campaignId: "longmont-c2",
+      sessionId: "session-23",
+      sourceStatus: "available",
+      sourceProse: "# Wrong identity\n",
+      unavailableReason: null,
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_prepared",
+    );
+    renderWorkbench([validated]);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-historical-recap-error")).toBeInTheDocument(),
+    );
+  });
 });
 
 describe("GraphReviewWorkbenchModule committed authority binding", () => {

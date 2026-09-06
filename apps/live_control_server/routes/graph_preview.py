@@ -202,6 +202,21 @@ def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
     return run.model_dump(mode="json")
 
 
+@router.get("/extraction-runs/{run_id}/recap-inspection")
+def get_extraction_run_recap_inspection(run_id: str) -> dict[str, Any]:
+    """Exact-run historical recap source inspection. Read-only; never substitutes latest."""
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_historical_recap_inspection,
+    )
+
+    try:
+        response = get_historical_recap_inspection(repo_root(), run_id)
+    except GraphRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json", by_alias=True)
+
+
 @router.get("/extraction-runs/{run_id}/build-context")
 def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
     """Build-only exact-run envelope with server-resolved workspace lineage.
