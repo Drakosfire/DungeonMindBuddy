@@ -924,7 +924,7 @@ def test_recap_inspection_route_returns_validated_source(
     assert "Session Recap" in (body.get("sourceProse") or "")
 
 
-def test_recap_inspection_route_unavailable_when_source_missing(
+def test_recap_inspection_route_reads_durable_source_when_file_missing(
     recap_inspection_client: TestClient, tmp_path: Path
 ) -> None:
     from tests.test_graph_run_registry import _validated_recap_run
@@ -936,8 +936,8 @@ def test_recap_inspection_route_unavailable_when_source_missing(
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["sourceStatus"] == "unavailable"
-    assert body.get("sourceProse") is None
+    assert body["sourceStatus"] == "available"
+    assert "Session Recap" in (body.get("sourceProse") or "")
 
 
 def test_recap_inspection_route_unknown_run_404(recap_inspection_client: TestClient) -> None:

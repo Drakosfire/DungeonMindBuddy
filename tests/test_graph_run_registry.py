@@ -1210,7 +1210,7 @@ def test_historical_recap_inspection_reads_validated_run(tmp_path: Path) -> None
     assert inspection.source_status == "available"
     assert inspection.run_status == "validated"
     assert "# Session Recap" in (inspection.source_prose or "")
-    assert inspection.source_uri
+    assert inspection.source_uri is None
     assert inspection.source_sha256
     assert before.model_dump() == after.model_dump()
 
@@ -1249,7 +1249,7 @@ def test_historical_recap_inspection_reads_prepared_run(tmp_path: Path) -> None:
     assert inspection.run_status == "prepared"
 
 
-def test_historical_recap_inspection_missing_source_is_unavailable(tmp_path: Path) -> None:
+def test_historical_recap_inspection_survives_source_file_removal(tmp_path: Path) -> None:
     from apps.live_control_server.services.graph_run_registry import (
         get_historical_recap_inspection,
     )
@@ -1257,9 +1257,8 @@ def test_historical_recap_inspection_missing_source_is_unavailable(tmp_path: Pat
     run, _artifact, source_path = _validated_recap_run(tmp_path)
     source_path.unlink()
     inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "unavailable"
-    assert inspection.source_prose is None
-    assert "not available" in (inspection.unavailable_reason or "")
+    assert inspection.source_status == "available"
+    assert inspection.source_prose == "# Session Recap\n\nA paragraph.\n"
 
 
 def test_historical_recap_inspection_does_not_fallback_to_sibling_bytes(
@@ -1304,7 +1303,9 @@ def test_historical_recap_inspection_missing_digest_is_unavailable(tmp_path: Pat
     assert "digest" in (inspection.unavailable_reason or "")
 
 
-def test_historical_recap_inspection_unsafe_uri_fails_closed(tmp_path: Path) -> None:
+def test_historical_recap_inspection_does_not_resolve_source_uri(
+    tmp_path: Path,
+) -> None:
     from apps.live_control_server.services.graph_run_registry import (
         get_historical_recap_inspection,
     )
@@ -1312,11 +1313,14 @@ def test_historical_recap_inspection_unsafe_uri_fails_closed(tmp_path: Path) -> 
     run, _artifact, _source_path = _validated_recap_run(
         tmp_path, component_uri="repo://../escape.md"
     )
-    with pytest.raises(GraphRunRegistryError, match="unsafe"):
-        get_historical_recap_inspection(tmp_path, run.run_id)
+    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
+    assert inspection.source_status == "available"
+    assert inspection.source_uri is None
 
 
-def test_historical_recap_inspection_digest_mismatch_fails_closed(tmp_path: Path) -> None:
+def test_historical_recap_inspection_digest_mismatch_is_unavailable(
+    tmp_path: Path,
+) -> None:
     from apps.live_control_server.services.graph_run_registry import (
         get_historical_recap_inspection,
     )
@@ -1324,8 +1328,10 @@ def test_historical_recap_inspection_digest_mismatch_fails_closed(tmp_path: Path
     run, _artifact, _source_path = _validated_recap_run(
         tmp_path, component_digest="f" * 64
     )
-    with pytest.raises(GraphRunRegistryError, match="digest mismatch"):
-        get_historical_recap_inspection(tmp_path, run.run_id)
+    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
+    assert inspection.source_status == "unavailable"
+    assert inspection.source_prose is None
+    assert "not adopted" in (inspection.unavailable_reason or "")
 
 
 def test_historical_recap_inspection_unknown_run_is_404(tmp_path: Path) -> None:

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.models.historical_recap_projection import (
+    HistoricalRecapWorldProjectionResponse,
+)
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestLatestRunResponse,
     GraphIngestRunRegistryError,
@@ -74,6 +76,15 @@ from apps.live_control_server.services.recap_artifacts import (
 )
 
 router = APIRouter(prefix="/api/live/graph-preview", tags=["graph-preview"])
+
+
+def _reject_query_params(request: Request) -> None:
+    if request.query_params:
+        names = ", ".join(sorted(request.query_params.keys()))
+        raise HTTPException(
+            status_code=422,
+            detail=f"exact-run route does not accept query parameters: {names}",
+        )
 
 
 @router.get("/artifacts", response_model=RecapArtifactsListResponse)
@@ -203,8 +214,12 @@ def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
 
 
 @router.get("/extraction-runs/{run_id}/recap-inspection")
-def get_extraction_run_recap_inspection(run_id: str) -> dict[str, Any]:
+def get_extraction_run_recap_inspection(
+    run_id: str,
+    request: Request,
+) -> dict[str, Any]:
     """Exact-run historical recap source inspection. Read-only; never substitutes latest."""
+    _reject_query_params(request)
     from apps.live_control_server.services.graph_run_registry import (
         GraphRunRegistryError,
         get_historical_recap_inspection,
@@ -214,6 +229,35 @@ def get_extraction_run_recap_inspection(run_id: str) -> dict[str, Any]:
         response = get_historical_recap_inspection(repo_root(), run_id)
     except GraphRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.get(
+    "/extraction-runs/{run_id}/recap-projection",
+    response_model=HistoricalRecapWorldProjectionResponse,
+)
+def get_extraction_run_recap_projection(
+    run_id: str,
+    request: Request,
+) -> dict[str, Any]:
+    """Project exact durable recap text onto the current governed World."""
+    _reject_query_params(request)
+    from apps.live_control_server.services.historical_recap_world_projection import (
+        HistoricalRecapProjectionError,
+        build_historical_recap_world_projection,
+    )
+
+    try:
+        response = build_historical_recap_world_projection(repo_root(), run_id)
+    except HistoricalRecapProjectionError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={
+                "code": exc.code,
+                "message": str(exc),
+                "diagnostics": [item.model_dump(mode="json") for item in exc.diagnostics],
+            },
+        ) from exc
     return response.model_dump(mode="json", by_alias=True)
 
 

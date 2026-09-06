@@ -8,6 +8,7 @@ import * as liveApi from "../../api/liveApi";
 import type {
   ExtractPromoteConfirmReceipt,
   ExactRunReviewPackage,
+  HistoricalRecapWorldProjectionResponse,
   WorldGraphProjection,
 } from "../../api/types";
 import * as agentInteractionProvider from "../../agentInteraction/AgentInteractionProvider";
@@ -53,6 +54,67 @@ function canonicalRun(overrides: Partial<ExtractionRunRecord> = {}): ExtractionR
     status: "reviewable",
     campaign_id: "longmont-c2",
     session_id: "session-23",
+    ...overrides,
+  };
+}
+
+function historicalProjection(
+  overrides: Partial<HistoricalRecapWorldProjectionResponse> = {},
+): HistoricalRecapWorldProjectionResponse {
+  return {
+    schema: "dmb_historical_recap_world_projection_v1",
+    runId: "er_validated",
+    runStatus: "validated",
+    sourceDomain: "recap",
+    sourceArtifactId: "sa_1",
+    sourceRevisionId: "source-revision-1",
+    campaignId: "longmont-c2",
+    sessionId: "session-23",
+    worldId: "eldyrwild",
+    sourceSha256: "sha256:abc",
+    sourceStatus: "available",
+    graphStatus: "available",
+    graphId: "world-revision-1",
+    snapshot: {
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      revisionId: "world-revision-1",
+      headRevisionId: "world-revision-1",
+      isHead: true,
+      focus: { kind: "session", sessionId: "session-23", campaignId: "longmont-c2" },
+      admissibility: "gm",
+      scopeMode: "campaign",
+    },
+    markdown: "# Heading\n\n[dmb-node:node-1](Bonogo) arrives.\n",
+    focus: {
+      focusSessionId: "session-23",
+      focusedEvidenceRefIds: [],
+      focusedEdgeIds: [],
+      focusedNodeIds: ["node-1"],
+    },
+    nodeViews: {
+      "node-1": {
+        nodeId: "node-1",
+        label: "Bonogo",
+        kind: "npc",
+        role: "character",
+        aliases: [],
+        sourceDomains: [],
+        anchoredToFocusSession: true,
+        evidenceBadges: [],
+        adjacency: [],
+        suggestedExpansions: [],
+        evidenceRefIds: [],
+        sourceArtifactIds: [],
+      },
+    },
+    mentions: [],
+    sourceSpans: [],
+    diagnostics: [],
+    trustBoundary: {
+      canTrust: ["current World snapshot"],
+      cannotTrust: ["historical identity"],
+    },
     ...overrides,
   };
 }
@@ -752,23 +814,16 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByTestId("graph-review-exact-run-source-prose")).not.toBeInTheDocument();
   });
 
-  it("loads validated recap through historical inspection, not review package", async () => {
+  it("loads validated recap through durable World projection, not review package", async () => {
     const validated = canonicalRun({ status: "validated", run_id: "er_validated" });
     const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
-    const inspectionSpy = vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({
-      schema: "dmb_historical_recap_inspection_v1",
-      runId: "er_validated",
-      runStatus: "validated",
-      sourceDomain: "recap",
-      sourceArtifactId: "sa_1",
-      campaignId: "longmont-c2",
-      sessionId: "session-23",
-      sourceStatus: "available",
-      sourceUri: "corpus/recap.md",
-      sourceSha256: "sha256:abc",
-      sourceProse: "# Heading\n\nA list:\n\n- first\n- second\n",
-      unavailableReason: null,
-    });
+    const projectionSpy = vi
+      .spyOn(liveApi, "getHistoricalRecapWorldProjection")
+      .mockResolvedValue(
+        historicalProjection({
+          markdown: "# Heading\n\n[dmb-node:node-1](Bonogo) arrives.\n",
+        }),
+      );
     window.history.replaceState(
       {},
       "",
@@ -778,12 +833,12 @@ describe("GraphReviewWorkbenchModule", () => {
 
     await waitFor(
       () => {
-        expect(inspectionSpy).toHaveBeenCalledWith("er_validated");
+        expect(projectionSpy).toHaveBeenCalledWith("er_validated");
         expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
           "validated",
         );
         expect(document.body.textContent).toMatch(/Heading/);
-        expect(document.body.textContent).toMatch(/first/);
+        expect(document.body.textContent).toMatch(/Bonogo/);
       },
       { timeout: 3000 },
     );
@@ -793,20 +848,9 @@ describe("GraphReviewWorkbenchModule", () => {
 
   it("shows unavailable historical recap without sibling fallback", async () => {
     const validated = canonicalRun({ status: "validated", run_id: "er_missing_source" });
-    vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({
-      schema: "dmb_historical_recap_inspection_v1",
-      runId: "er_missing_source",
-      runStatus: "validated",
-      sourceDomain: "recap",
-      sourceArtifactId: "sa_1",
-      campaignId: "longmont-c2",
-      sessionId: "session-23",
-      sourceStatus: "unavailable",
-      sourceUri: "corpus/missing.md",
-      sourceSha256: "sha256:abc",
-      sourceProse: null,
-      unavailableReason: "recorded source file is not available in the current repository authority",
-    });
+    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockRejectedValue(
+      new Error("exact historical source is not adopted into APP-STATE"),
+    );
     window.history.replaceState(
       {},
       "",
@@ -820,20 +864,15 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
   });
 
-  it("rejects mismatched historical recap inspection identity", async () => {
+  it("rejects mismatched historical recap projection identity", async () => {
     const validated = canonicalRun({ status: "prepared", run_id: "er_prepared" });
-    vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({
-      schema: "dmb_historical_recap_inspection_v1",
-      runId: "er_other",
-      runStatus: "prepared",
-      sourceDomain: "recap",
-      sourceArtifactId: "sa_1",
-      campaignId: "longmont-c2",
-      sessionId: "session-23",
-      sourceStatus: "available",
-      sourceProse: "# Wrong identity\n",
-      unavailableReason: null,
-    });
+    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockResolvedValue(
+      historicalProjection({
+        runId: "er_other",
+        runStatus: "prepared",
+        markdown: "# Wrong identity\n",
+      }),
+    );
     window.history.replaceState(
       {},
       "",

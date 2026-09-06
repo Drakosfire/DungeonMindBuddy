@@ -1776,6 +1776,24 @@ export interface HistoricalRecapInspectionResponse {
   unavailableReason?: string | null;
 }
 
+export type HistoricalRecapWorldProjectionResponse = Omit<
+  WorldGraphRecapProjection,
+  "schema"
+> & {
+  schema: "dmb_historical_recap_world_projection_v1";
+  runId: string;
+  runStatus: string;
+  sourceDomain: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  campaignId: string;
+  sessionId: string;
+  worldId: string;
+  sourceSha256: string;
+  sourceStatus: "available" | "unavailable";
+  graphStatus: "available" | "unavailable";
+};
+
 export interface GraphReviewHandoffPayload {
   href: string;
   extraction_run_id: string;

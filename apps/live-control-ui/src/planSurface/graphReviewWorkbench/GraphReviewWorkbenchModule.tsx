@@ -5,7 +5,7 @@ import {
   getExtractionRunStatus,
   getGoldReviewCompare,
   getGoldReviewSessions,
-  getHistoricalRecapInspection,
+  getHistoricalRecapWorldProjection,
   getManualReviewBed,
   getManualReviewBeds,
   LiveApiError,
@@ -15,7 +15,7 @@ import type {
   ExtractionRunStatusResponse,
   GoldReviewCompareResponse,
   GoldReviewSessionSummary,
-  HistoricalRecapInspectionResponse,
+  HistoricalRecapWorldProjectionResponse,
   ManualReviewBedDetail,
   ManualReviewBedSummary,
 } from "../../api/types";
@@ -248,12 +248,12 @@ export function GraphReviewWorkbenchModule({
     "idle",
   );
   const [exactReviewError, setExactReviewError] = useState<string | null>(null);
-  const [historicalRecapInspection, setHistoricalRecapInspection] =
-    useState<HistoricalRecapInspectionResponse | null>(null);
-  const [historicalRecapInspectionStatus, setHistoricalRecapInspectionStatus] = useState<
+  const [historicalRecapProjection, setHistoricalRecapProjection] =
+    useState<HistoricalRecapWorldProjectionResponse | null>(null);
+  const [historicalRecapProjectionStatus, setHistoricalRecapProjectionStatus] = useState<
     "idle" | "loading" | "ready" | "error"
   >("idle");
-  const [historicalRecapInspectionError, setHistoricalRecapInspectionError] = useState<
+  const [historicalRecapProjectionError, setHistoricalRecapProjectionError] = useState<
     string | null
   >(null);
   const appliedCampaignSessions = useMemo(
@@ -392,6 +392,9 @@ export function GraphReviewWorkbenchModule({
         setExactRun(null);
         setExactRunStatus("error");
         setExactRunError(exactHandoffErrors.join("; "));
+        setHistoricalRecapProjection(null);
+        setHistoricalRecapProjectionStatus("error");
+        setHistoricalRecapProjectionError(exactHandoffErrors.join("; "));
       }
       return;
     }
@@ -399,6 +402,9 @@ export function GraphReviewWorkbenchModule({
     setExactRunStatus("loading");
     setExactRunError(null);
     setExactLineage(null);
+    setHistoricalRecapProjection(null);
+    setHistoricalRecapProjectionStatus("idle");
+    setHistoricalRecapProjectionError(null);
     const fail = (message: string) => {
       if (cancelled) return;
       setExactRun(null);
@@ -474,6 +480,35 @@ export function GraphReviewWorkbenchModule({
       setExactReviewStatus("loading");
       setExactReviewError(null);
       setExactReview(null);
+      if (isCatalogRunHistoricalRecapInspectable(run)) {
+        setHistoricalRecapProjectionStatus("loading");
+        try {
+          const projection = await getHistoricalRecapWorldProjection(run.run_id);
+          if (cancelled) return;
+          if (
+            projection.runId !== run.run_id
+            || projection.sourceArtifactId !== run.source_artifact_id
+            || projection.sourceDomain !== run.source_domain
+            || projection.campaignId !== (run.campaign_id ?? "")
+            || projection.sessionId !== (run.session_id ?? "")
+          ) {
+            throw new Error(
+              "historical recap projection identity does not match the loaded ExtractionRun",
+            );
+          }
+          setHistoricalRecapProjection(projection);
+          setHistoricalRecapProjectionStatus("ready");
+        } catch (error) {
+          if (cancelled) return;
+          setHistoricalRecapProjection(null);
+          setHistoricalRecapProjectionStatus("error");
+          setHistoricalRecapProjectionError(
+            error instanceof LiveApiError || error instanceof Error
+              ? error.message
+              : "Failed to load historical recap projection.",
+          );
+        }
+      }
       try {
         const packageResponse = await getExactRunReviewPackage(run.run_id);
         if (cancelled) return;
@@ -542,9 +577,9 @@ export function GraphReviewWorkbenchModule({
       setExactReview(null);
       setExactReviewStatus("idle");
       setExactReviewError(null);
-      setHistoricalRecapInspection(null);
-      setHistoricalRecapInspectionStatus("idle");
-      setHistoricalRecapInspectionError(null);
+      setHistoricalRecapProjection(null);
+      setHistoricalRecapProjectionStatus("idle");
+      setHistoricalRecapProjectionError(null);
       setExactPrepared(null);
       setExactPrepareError(null);
       return;
@@ -557,9 +592,9 @@ export function GraphReviewWorkbenchModule({
     setExactRunError(null);
     setExactPrepared(null);
     setExactPrepareError(null);
-    setHistoricalRecapInspection(null);
-    setHistoricalRecapInspectionStatus("idle");
-    setHistoricalRecapInspectionError(null);
+    setHistoricalRecapProjection(null);
+    setHistoricalRecapProjectionStatus("idle");
+    setHistoricalRecapProjectionError(null);
 
     if (!isCatalogRunExactReviewable(run)) {
       setExactReview(null);
@@ -567,40 +602,36 @@ export function GraphReviewWorkbenchModule({
       setExactReviewError(null);
 
       if (isCatalogRunHistoricalRecapInspectable(run)) {
-        setHistoricalRecapInspectionStatus("loading");
-        setHistoricalRecapInspectionError(null);
+        setHistoricalRecapProjectionStatus("loading");
+        setHistoricalRecapProjectionError(null);
         void (async () => {
           try {
-            const inspection = await getHistoricalRecapInspection(run.run_id);
+            const projection = await getHistoricalRecapWorldProjection(run.run_id);
             if (cancelled) return;
-            const packageCampaign = (inspection.campaignId ?? "").trim();
-            const runCampaign = (run.campaign_id ?? "").trim();
-            const packageSession = (inspection.sessionId ?? "").trim();
-            const runSession = (run.session_id ?? "").trim();
             if (
-              inspection.runId !== run.run_id
-              || inspection.sourceArtifactId !== run.source_artifact_id
-              || inspection.sourceDomain !== run.source_domain
-              || packageCampaign !== runCampaign
-              || packageSession !== runSession
+              projection.runId !== run.run_id
+              || projection.sourceArtifactId !== run.source_artifact_id
+              || projection.sourceDomain !== run.source_domain
+              || projection.campaignId !== (run.campaign_id ?? "")
+              || projection.sessionId !== (run.session_id ?? "")
             ) {
-              setHistoricalRecapInspection(null);
-              setHistoricalRecapInspectionStatus("error");
-              setHistoricalRecapInspectionError(
-                "historical recap inspection identity does not match the loaded ExtractionRun",
+              setHistoricalRecapProjection(null);
+              setHistoricalRecapProjectionStatus("error");
+              setHistoricalRecapProjectionError(
+                "historical recap projection identity does not match the loaded ExtractionRun",
               );
               return;
             }
-            setHistoricalRecapInspection(inspection);
-            setHistoricalRecapInspectionStatus("ready");
+            setHistoricalRecapProjection(projection);
+            setHistoricalRecapProjectionStatus("ready");
           } catch (error) {
             if (cancelled) return;
-            setHistoricalRecapInspection(null);
-            setHistoricalRecapInspectionStatus("error");
-            setHistoricalRecapInspectionError(
+            setHistoricalRecapProjection(null);
+            setHistoricalRecapProjectionStatus("error");
+            setHistoricalRecapProjectionError(
               error instanceof LiveApiError || error instanceof Error
                 ? error.message
-                : "Failed to load historical recap inspection.",
+                : "Failed to load historical recap projection.",
             );
           }
         })();
@@ -619,9 +650,9 @@ export function GraphReviewWorkbenchModule({
       };
     }
 
-    setHistoricalRecapInspection(null);
-    setHistoricalRecapInspectionStatus("idle");
-    setHistoricalRecapInspectionError(null);
+    setHistoricalRecapProjection(null);
+    setHistoricalRecapProjectionStatus("idle");
+    setHistoricalRecapProjectionError(null);
     setExactReviewStatus("loading");
     setExactReviewError(null);
     setExactReview(null);
@@ -1057,9 +1088,9 @@ export function GraphReviewWorkbenchModule({
               exactReview={exactReview}
               exactReviewStatus={exactReviewStatus}
               exactReviewError={exactReviewError}
-              historicalRecapInspection={historicalRecapInspection}
-              historicalRecapInspectionStatus={historicalRecapInspectionStatus}
-              historicalRecapInspectionError={historicalRecapInspectionError}
+              historicalRecapProjection={historicalRecapProjection}
+              historicalRecapProjectionStatus={historicalRecapProjectionStatus}
+              historicalRecapProjectionError={historicalRecapProjectionError}
               exactRunReviewable={exactRunReviewable}
               exactRunPromotable={exactRunPromotable}
               exactRunFirstWorldEligible={exactRunFirstWorldEligible}
@@ -1122,9 +1153,9 @@ function GraphReviewExactRunBranch(props: {
   exactReview: ExactRunReviewPackage | null;
   exactReviewStatus: "idle" | "loading" | "ready" | "error";
   exactReviewError: string | null;
-  historicalRecapInspection: HistoricalRecapInspectionResponse | null;
-  historicalRecapInspectionStatus: "idle" | "loading" | "ready" | "error";
-  historicalRecapInspectionError: string | null;
+  historicalRecapProjection: HistoricalRecapWorldProjectionResponse | null;
+  historicalRecapProjectionStatus: "idle" | "loading" | "ready" | "error";
+  historicalRecapProjectionError: string | null;
   exactRunReviewable: boolean;
   exactRunPromotable: boolean;
   exactRunFirstWorldEligible: boolean;
@@ -1167,35 +1198,33 @@ function GraphReviewExactRunBranch(props: {
       {props.exactReviewStatus === "loading" ? (
         <p className="plan-projection-empty">Loading source evidence…</p>
       ) : null}
-      {props.historicalRecapInspectionStatus === "loading" ? (
-        <p className="plan-projection-empty">Loading historical recap…</p>
+      {props.historicalRecapProjectionStatus === "loading" ? (
+        <p className="plan-projection-empty">Loading historical World projection…</p>
       ) : null}
       {props.exactReviewError ? (
         <p className="graph-review-error" data-testid="graph-review-exact-run-review-error">
           {props.exactReviewError}
         </p>
       ) : null}
-      {props.historicalRecapInspectionError ? (
+      {props.historicalRecapProjectionError ? (
         <p
           className="graph-review-error"
           data-testid="graph-review-historical-recap-error"
         >
-          {props.historicalRecapInspectionError}
+          {props.historicalRecapProjectionError}
         </p>
       ) : null}
       {props.exactReview ? <GraphReviewExactRunProjection review={props.exactReview} /> : null}
-      {historicalRecapInspectable && props.historicalRecapInspection?.sourceStatus === "available"
+      {historicalRecapInspectable && props.historicalRecapProjection
         ? (
-          <GraphReviewHistoricalRecapProjection inspection={props.historicalRecapInspection} />
+          <GraphReviewHistoricalRecapProjection projection={props.historicalRecapProjection} />
         )
         : null}
       {historicalRecapInspectable
-      && props.historicalRecapInspection?.sourceStatus === "unavailable" ? (
+      && props.historicalRecapProjectionStatus === "error" ? (
         <p data-testid="graph-review-historical-recap-unavailable">
-          Historical source for this exact run is unavailable
-          {props.historicalRecapInspection.unavailableReason
-            ? `: ${props.historicalRecapInspection.unavailableReason}`
-            : "."}
+          Historical graph projection for this exact run is unavailable:{" "}
+          {props.historicalRecapProjectionError ?? "the governed source or World authority is unavailable."}
         </p>
       ) : null}
       {!props.exactRunReviewable && !historicalRecapInspectable ? (

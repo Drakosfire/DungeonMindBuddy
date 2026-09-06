@@ -1,15 +1,41 @@
-import type { HistoricalRecapInspectionResponse } from "../../api/types";
+import { useCallback, useMemo, useState } from "react";
+
+import type { HistoricalRecapWorldProjectionResponse } from "../../api/types";
+import {
+  GraphObjectProjectionCard,
+  resolveExactProjectedNode,
+} from "../../graphObjectCard/GraphObjectProjectionCard";
+import { adaptWorldGraphNodeViewMap } from "../../worldGraph/worldGraphNodeViewAdapter";
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
 
 interface GraphReviewHistoricalRecapProjectionProps {
-  inspection: HistoricalRecapInspectionResponse;
+  projection: HistoricalRecapWorldProjectionResponse;
 }
 
 export function GraphReviewHistoricalRecapProjection({
-  inspection,
+  projection,
 }: GraphReviewHistoricalRecapProjectionProps) {
-  const campaign = inspection.campaignId?.trim() || "unknown campaign";
-  const session = inspection.sessionId?.trim() || "unknown session";
+  const adaptedNodeViews = useMemo(
+    () => adaptWorldGraphNodeViewMap(projection.nodeViews),
+    [projection.nodeViews],
+  );
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
+  const [selectedRelationshipId, setSelectedRelationshipId] = useState<string | null>(null);
+  const activeNodeView = activeNodeId
+    ? resolveExactProjectedNode(adaptedNodeViews, activeNodeId)
+    : null;
+
+  const handleInspectNode = useCallback((nodeId: string) => {
+    setSelectedRelationshipId(null);
+    setActiveNodeId(nodeId);
+  }, []);
+
+  const handleSelectRelationshipTarget = useCallback((targetId: string) => {
+    setSelectedRelationshipId(targetId);
+    if (resolveExactProjectedNode(adaptedNodeViews, targetId)) {
+      setActiveNodeId(targetId);
+    }
+  }, [adaptedNodeViews]);
 
   return (
     <div
@@ -20,22 +46,46 @@ export function GraphReviewHistoricalRecapProjection({
         className="graph-review-historical-recap-meta"
         data-testid="graph-review-historical-recap-meta"
       >
-        <code>{inspection.sourceArtifactId}</code>
+        <code>{projection.sourceArtifactId}</code>
         {" · "}
-        {campaign}
+        {projection.campaignId}
         {" · "}
-        {session}
+        {projection.sessionId}
         {" · "}
-        status <code>{inspection.runStatus}</code>
+        status <code>{projection.runStatus}</code>
+        {" · World "}
+        <code>{projection.worldId}</code>
+        {" · graph "}
+        <code>{projection.graphId}</code>
       </p>
-      <GraphProjectionReader
-        markdown={inspection.sourceProse ?? ""}
-        nodeViews={{}}
-        sourceSpans={[]}
-        documentLabel="Historical recap"
-        subtitle={`${campaign} · ${session}`}
-        className="graph-review-historical-recap-reader"
-      />
+      <p className="recap-reader-hint">
+        Exact durable recap text projected onto the current World snapshot. Graph pills resolve
+        current World identities; this view is read-only and does not promote the run.
+      </p>
+      <div className={`recap-reader-layout${activeNodeView ? " graph-explorer-open" : ""}`}>
+        <GraphProjectionReader
+          markdown={projection.markdown}
+          nodeViews={adaptedNodeViews}
+          sourceSpans={[]}
+          graphId={projection.graphId}
+          showGraphId={false}
+          documentLabel="Historical recap"
+          subtitle={`${projection.campaignId} · ${projection.sessionId}`}
+          resetKey={`${projection.runId}:${projection.sourceRevisionId}:${projection.graphId}`}
+          onInspectNode={handleInspectNode}
+          onActiveNodeChange={setActiveNodeId}
+          className="graph-review-historical-recap-reader"
+        />
+        {activeNodeView ? (
+          <aside className="recap-graph-object-panel" aria-label="Graph object">
+            <GraphObjectProjectionCard
+              nodeView={activeNodeView}
+              onSelectRelationshipTarget={handleSelectRelationshipTarget}
+              selectedRelationshipId={selectedRelationshipId}
+            />
+          </aside>
+        ) : null}
+      </div>
     </div>
   );
 }
