@@ -1,0 +1,56 @@
+# Durable local Buddy APP-STATE PostgreSQL substrate.
+#
+# This is the Buddy application-state authority for local operation. It is
+# deliberately separate from both DungeonMind PostgreSQL services:
+#
+#   127.0.0.1:54329  dungeonmind-postgres-dev        DungeonMind dev, tmpfs, NOT durable
+#   127.0.0.1:54330  dungeonmind-postgres-authority  DungeonMind durable World authority
+#   127.0.0.1:54331  dungeonbuddy-app-state          THIS FILE — Buddy durable APP-STATE
+#
+# Durability contract:
+#   - Data lives in the named volume `dungeonbuddy_app_state_data`, never tmpfs.
+#   - Ordinary `docker compose -f compose.postgres.app-state.yml down` and
+#     container replacement do NOT delete the volume.
+#   - `docker compose -f compose.postgres.app-state.yml down -v` (or
+#     `docker volume rm dungeonbuddy_app_state_data`) is the ONLY ordinary
+#     destroy path. It is an explicit destructive operator action and is not
+#     part of any normal start/stop instruction.
+#   - Local persistence is not remote backup, HA, or PITR. External
+#     backup/restore is owned by `scripts/application_state_authority.py`
+#     and `Docs/Runbooks/RUNBOOK-application-state-authority-recovery.md`.
+#
+# No migrate-on-start: schema changes remain explicit through
+# `uv run python scripts/bootstrap_local_play.py apply` (or the Alembic CLI),
+# never container bootstrap.
+#
+# Image is pinned by digest. Tag is documentation only: PostgreSQL 16.
+
+services:
+  app-state-postgres:
+    image: postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+    container_name: dungeonbuddy-app-state
+    environment:
+      POSTGRES_DB: dungeonbuddy_application_state
+      POSTGRES_USER: buddy
+      # Local 127.0.0.1-bound development default only. Override via
+      # DUNGEONBUDDY_APP_STATE_POSTGRES_PASSWORD in the environment for any
+      # non-local posture. Never commit a secret-bearing DSN.
+      POSTGRES_PASSWORD: ${DUNGEONBUDDY_APP_STATE_POSTGRES_PASSWORD:-buddy-local-dev}
+    ports:
+      - "127.0.0.1:54331:5432"
+    volumes:
+      - dungeonbuddy_app_state_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U buddy -d dungeonbuddy_application_state",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  dungeonbuddy_app_state_data:
+    name: dungeonbuddy_app_state_data

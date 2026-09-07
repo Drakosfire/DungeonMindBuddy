@@ -20,17 +20,47 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: durable Buddy application-state authority v1
 
 **Created:** 2026-09-07  
-**Status:** ACTIVE DESIGN — dispatch only after PR #690 is merged and `main` is re-anchored  
+**Status:** ACTIVE — rebased on post-#690 `main`; source-lost rebrief recorded in §0A  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md`  
 **Conversation/workstream:** DOGFOOD-CONTINUITY / DEMO-R2 durable APP-STATE  
 **Flow / owner:** DOGFOOD-CONTINUITY  
 **Direction:** DESIGN → CODE → REVIEW  
 **Prepared from:** accepted PR #690 head `01e0addbdc55eb00c0c5a0c104a718259751084d`  
-**Implementation base:** the exact `main` merge commit after PR #690; record it before the first implementation commit  
+**Implementation base:** `08c4052e3e662d94936c37cf8837cdb01a9507ca` (PR #690 squash merge to `main`, 2026-09-07)  
 **Suggested PR title:** `DOGFOOD-CONTINUITY: make Buddy APP-STATE recoverable`  
 **Suggested implementation branch:** this branch after re-anchor/rebase, or a fresh isolated worktree at the post-#690 base
 
 > Repository law: `AGENTS.md`. Persistence authority: `Docs/Design/ARCHITECTURE-application-state-layer.md`. Product sequence: `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`.
+
+## §0A Rebrief — source authority destroyed before capture (2026-09-07)
+
+At dispatch, the A0 re-anchor found the handoff's own most-adversarial sequence had already fired in production:
+
+```text
+2026-09-07 ~15:11 local: both DungeonMind PostgreSQL containers exited.
+dungeonmind-postgres-dev (127.0.0.1:54329) holds /var/lib/postgresql/data on tmpfs
+with no volume. The stop wiped it. On restart it initialized empty:
+`dungeonbuddy_application_state` does not exist; the `dungeonmind` DB has zero user tables.
+```
+
+Verified loss sweep:
+
+- no APP-STATE `pg_dump` ever existed (this handoff's §3: backup was "not a demonstrated product recovery contract");
+- no docker volume contains a Buddy APP-STATE data dir (all 21 volumes inspected; only `dungeonmind_world_authority_data` is relevant and it is DungeonMind World, intact on 54330);
+- `.env-backup/` holds DungeonMind World dumps only;
+- the `dungeonmind` database on 54329 contains no Buddy schemas.
+
+Lost rows: the 53-run C1/C2 `ingest.run` catalog, Content work objects (including the DFC-2a adopted C2S27 plan), Play runs, and the #689-adopted C2S25 `source.artifact`/`source.revision` rows. Corpus Markdown remains safe in git; the product-loadable database rows are gone.
+
+**Steward ruling (2026-09-07):** the transfer invariant below cannot execute — there is no source to transfer. This slice is rebriefed to **birth the durable authority empty** and prove the recovery tooling on it:
+
+1. The durable substrate, fingerprint, backup/restore, and isolation tooling in this handoff are still exactly the right deliverables — the loss is the proof.
+2. The authority is born empty at Alembic head on the durable substrate. The §7 witness becomes: birth → fingerprint → external backup → restore into a second clean target → fingerprint parity → container replacement survival.
+3. Repopulating APP-STATE through the supported product seams (`import_extraction_runs_from_registry`, `bootstrap_local_play` imports, the #689 source-adoption boundary) is **reconstruction from files** — explicitly out of scope here. It becomes the Stage 2B successor, executed on the durable substrate, with its own witness.
+4. "Known C1/C2 state survives the switch" (§7/§9) is void — no C1/C2 rows exist to survive. The equivalent gate moves to Stage 2B after repopulation.
+5. `Docs/Operations/CAMPAIGN-MATERIAL-LIBRARY-c1-c2.md` currently claims a live 53-row APP-STATE catalog at 54329. That claim is now false; this PR must record the loss event there (§4 row is no longer migration-conditional).
+
+The original transfer design is preserved below as the standing contract for any future source-bearing migration and as the design record of what the tooling must support.
 
 ## Roadmap ruling
 
@@ -53,7 +83,11 @@ Do not interpret this handoff as closing Stage 1 / STOP 1, completing all of Sta
 
 ## §1 Mission and merge-ready invariant
 
-**Mission:** An operator can move the current Buddy APP-STATE database off the ephemeral local PostgreSQL substrate onto a dedicated durable local authority and recover the same application state after container replacement and clean backup/restore.
+**Mission (as rebriefed in §0A):** An operator can birth a dedicated durable local Buddy APP-STATE authority on persistent storage, fingerprint every durable domain deterministically, take an external backup, restore that backup into a second clean target with identical verified state, and survive ordinary container replacement — with the tooling that a future source-bearing migration will reuse.
+
+**Merge-ready invariant (rebriefed):** The durable Buddy APP-STATE PostgreSQL service uses persistent named/bind storage on a distinct local port; the authority born on it is fingerprinted across every durable domain (schema-at-head alone is never READY); an external custom-format backup restores into a second clean target with identical fingerprint; container replacement preserves the fingerprint; runtime continues to read exactly the configured APP-STATE DSN with no fallback; and no Buddy domain semantics, DungeonMind World authority, historical content, or lifecycle state are rewritten. Transfer of a pre-existing source database is void per §0A — there is no source.
+
+**Original mission (superseded by §0A, preserved as the transfer contract):** An operator can move the current Buddy APP-STATE database off the ephemeral local PostgreSQL substrate onto a dedicated durable local authority and recover the same application state after container replacement and clean backup/restore.
 
 **Merge-ready invariant:** The exact current Buddy logical database is transferred by database backup/restore—not reconstructed from corpus/files—into one explicitly configured durable PostgreSQL authority; the target survives ordinary container replacement, an external backup restores into a second clean target with the same verified domain state, runtime uses only the configured APP-STATE DSN, and no Buddy domain semantics, DungeonMind World authority, historical content, or lifecycle state are rewritten to accomplish the move.
 
@@ -145,7 +179,7 @@ Expected focused lease:
 | Create | `Docs/Runbooks/RUNBOOK-application-state-authority-recovery.md` | Supported operator procedure and recovery contract |
 | Modify | `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md` | Record Stage 2A substrate as current structural lane; Stage 1 dogfood repair may run in parallel; neither STOP auto-closes |
 | Modify | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` | Record current parallel-lane ownership and collision boundary |
-| Modify after real migration only | `Docs/Operations/CAMPAIGN-MATERIAL-LIBRARY-c1-c2.md` | Record APP-STATE durable authority coordinates abstractly and migration/recovery evidence; never secrets/home paths |
+| Modify | `Docs/Operations/CAMPAIGN-MATERIAL-LIBRARY-c1-c2.md` | Record the 2026-09-07 tmpfs loss event and the durable authority coordinates abstractly; never secrets/home paths |
 
 Bounded discovery exception:
 
@@ -294,7 +328,7 @@ No fallback database is permitted. The runtime reads exactly the configured APP-
 | Restore preserves whole APP-STATE semantics | authority fingerprint | integration | source vs first target vs second target | same deterministic fingerprint | any domain mismatch |
 | World isolation preserved | authority CLI | contract | pass World authority DSN as target | BLOCK | operation proceeds |
 | Secrets not leaked | CLI/docs | regression | DSN with password | output redacted | secret appears |
-| Known C1/C2 state survives | real operator DB | manual/dogfood | inspect C1/C2 Ingest catalog + C2S25 durable source after switch | same 53-known-history baseline or truthful newer superset; C2S25 source still exact | historical state disappears |
+| Known C1/C2 state survives | real operator DB | manual/dogfood | VOID per §0A — no C1/C2 rows exist; repopulation witness moves to Stage 2B | n/a | n/a |
 | Existing product still runs | assembled Buddy | manual | point runtime at durable DSN, run existing APP-STATE preflight and open Ingest/Plan/Play | normal reads succeed | hidden dependency on 54329 |
 
 Required automated commands, adjusted only for repository-standard markers:
@@ -313,9 +347,25 @@ git diff --check
 git diff --name-only <post-#690-main>...HEAD
 ```
 
-### Required real migration witness
+### Required real authority-birth witness (rebriefed per §0A)
 
 Do not merge on synthetic tests alone.
+
+1. Start the durable APP-STATE service on the distinct local port with its persistent volume.
+2. Birth the authority: create the logical database and run explicit migrations to head (no migrate-on-start).
+3. Fingerprint the birthed authority; record it.
+4. Take an external custom-format backup; record SHA-256.
+5. Restore the backup into a **second clean target** (second logical database); require fingerprint parity → READY.
+6. Demonstrate the adversarial gate: a schema-only empty target compared against a populated authority is NOT_READY (covered by integration test; note it in the handback).
+7. Remove/recreate the durable database container without deleting the volume; require the same fingerprint.
+8. Demonstrate isolation: passing the DungeonMind World authority DSN as a target is BLOCKed.
+9. Keep all targets and backups intact. No cleanup of old containers/volumes in this PR.
+
+The original transfer witness (fingerprint configured source → dump → restore → C1/C2 survival) is void per §0A; its equivalent runs in Stage 2B after repopulation.
+
+Record redacted coordinates, exact commits, dump SHAs, and fingerprints in the handback/runbook. Do not commit dump bytes.
+
+### Original required real migration witness (superseded by §0A, preserved for future source-bearing migration)
 
 1. Fingerprint the currently configured APP-STATE source before mutation.
 2. Create an external source backup and record SHA-256.
@@ -328,58 +378,51 @@ Do not merge on synthetic tests alone.
 9. Restore that dump into a **second clean target** and require the same fingerprint.
 10. Keep the original/source DB and backups intact. No cleanup in this PR.
 
-Record redacted coordinates, exact commits, dump SHAs, and fingerprints in the handback/runbook. Do not commit dump bytes.
-
 ### Minimal human dogfood proof
 
-After runtime switches to the durable DSN:
+After the operator switches the runtime DSN to the durable authority (Stage 2B repopulates content first):
 
 ```text
 Open DungeonBuddy normally.
-Load a known C1/C2 historical recap through Ingest.
-Confirm the same historical run catalog is present.
-Open the already-adopted C2S25 recap and a graph pill.
-Open Plan/Play enough to prove their existing APP-STATE rows did not disappear.
+Confirm the APP-STATE preflight reports the durable coordinates (redacted).
+Open Ingest/Plan/Play enough to prove the birthed authority serves reads.
 Restart the Buddy API and repeat the read.
 ```
 
-The graph-object card may still be visually thin; that is the parallel dogfood lane, not a failure of this durability PR.
+The C1/C2 catalog and C2S25 recap return only after Stage 2B repopulation; their absence at this stage is expected, not a failure of this PR. The graph-object card may still be visually thin; that is the parallel dogfood lane, not a failure of this durability PR.
 
 ## §8 Required review handback
 
 Record:
 
-1. Exact post-#690 base SHA and reviewed head SHA.
-2. §1 mission/invariant verbatim.
+1. Exact post-#690 base SHA (`08c4052e3e662d94936c37cf8837cdb01a9507ca`) and reviewed head SHA.
+2. §1 mission/invariant verbatim, including the §0A rebrief.
 3. Actual changed paths against §4.
 4. Nano-commit story.
-5. Source APP-STATE redacted coordinates + fingerprint before migration.
-6. Durable target redacted coordinates + fingerprint after restore.
+5. §0A loss event confirmation (source unavailable; no backup; no volume).
+6. Birthed authority redacted coordinates + fingerprint.
 7. Container replacement witness + same fingerprint.
-8. Source backup SHA-256.
-9. Durable-target backup SHA-256.
-10. Second clean restore fingerprint.
-11. Existing C1/C2 product witness, including C2S25 durable source.
-12. Every automated command and exact result/provenance.
-13. Isolation proof against DungeonMind World authority.
-14. Baseline failures/waivers (`none` when none).
-15. Paths outside lease (`none` or STOP report).
-16. What remains false: remote hosting, artifact batch adoption, graph-object usefulness, Stage 1/2 STOP completion.
+8. Authority backup SHA-256.
+9. Second clean restore fingerprint parity.
+10. Isolation proof against DungeonMind World authority.
+11. Every automated command and exact result/provenance.
+12. Baseline failures/waivers (`none` when none).
+13. Paths outside lease (`none` or STOP report).
+14. What remains false: remote hosting, APP-STATE repopulation (Stage 2B), artifact batch adoption, graph-object usefulness, Stage 1/2 STOP completion.
 
 ## §9 Acceptance rubric
 
 - [ ] Dedicated Buddy APP-STATE service is persistent and isolated from both DungeonMind PostgreSQL services.
-- [ ] Source DB is captured before mutation and never reconstructed from files.
+- [ ] §0A loss event is recorded in the material library; no false live-catalog claim remains.
 - [ ] Target cannot be READY on schema health alone.
 - [ ] Deterministic fingerprint covers every current durable APP-STATE domain or implementation stopped for explicit lease expansion.
-- [ ] First durable restore matches source fingerprint.
-- [ ] Ordinary container replacement preserves target fingerprint.
+- [ ] Birthed authority fingerprint is stable across repeated computation.
 - [ ] External backup restores to a second clean target with the same fingerprint.
-- [ ] Runtime uses the durable target via the existing APP-STATE DSN contract.
-- [ ] Known C1/C2 Ingest/source state survives the switch.
+- [ ] Ordinary container replacement preserves target fingerprint.
+- [ ] Runtime uses the durable target via the existing APP-STATE DSN contract, with no fallback database.
 - [ ] No source/corpus re-ingestion, lifecycle rewrite, DungeonMind mutation, UI work, or destructive old-authority cleanup occurred.
 - [ ] Parallel graph-object usefulness work remains disjoint and unclaimed.
-- [ ] Stage 2 artifact adoption and Stage 8 remote hosting remain explicitly incomplete.
+- [ ] Stage 2B repopulation, Stage 2 artifact adoption, and Stage 8 remote hosting remain explicitly incomplete.
 
 ## Stop conditions
 

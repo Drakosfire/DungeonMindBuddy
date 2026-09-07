@@ -43,7 +43,7 @@ This does **not** mean the convention product is finished. BF3B, Combat, and add
 
 ## 1. Starting truth from DFC-3
 
-DFC-3 / PR #687 established the following current product truth:
+DFC-3 / PR #687 established the following product truth **at survey time (2026-09-06)** — see Stage 2 for the 2026-09-07 APP-STATE loss event that destroyed the database rows referenced here:
 
 - `53` historical C1/C2 `ingest.run` rows are discoverable in APP-STATE.
 - Historical recap review is **DISCOVERABLE_NOT_USABLE**: validated/prepared history binds, then the exact-review resolver rejects it because promotion-grade review requires `reviewable`.
@@ -89,7 +89,7 @@ At a STOP:
 
 ## Stage 1 — Historical recap inspect without promotion
 
-**Active implementation (DEMO-R1 chrome):** [`HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md) (PR #690). Predecessor projection [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) is **MERGED** (PR #689, `0912ce4010655655b1f7b4966ee071e043b47721`). Supersedes the paused PR #688 / inspection-only handoff. STOP 1 remains closed until assembled human dogfood — do not mark Stage 1 complete.
+**Implementation (DEMO-R1 chrome):** [`HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md) — PR #690 **MERGED** (`08c4052e3e662d94936c37cf8837cdb01a9507ca`). Predecessor projection [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) is **MERGED** (PR #689, `0912ce4010655655b1f7b4966ee071e043b47721`). Supersedes the paused PR #688 / inspection-only handoff. STOP 1 remains closed until assembled human dogfood — do not mark Stage 1 complete. **Dogfood caveat:** the 2026-09-07 APP-STATE loss (Stage 2A) destroyed the run catalog Stage 1 chrome reads; recap reading returns with Stage 2B repopulation.
 
 ### Human outcome
 
@@ -131,9 +131,14 @@ At this stop we decide whether the recap reading experience itself is pleasant e
 
 ## Stage 2 — Durable historical artifact authority
 
+**2026-09-07 loss event:** the APP-STATE database on the tmpfs-backed 54329 server was destroyed by an ordinary container stop before any backup existed — all 53 `ingest.run` rows, Content work objects, Play runs, and the adopted C2S25 source rows are gone (corpus git files and `out/` artifacts survive). The failure this stage exists to prevent has already fired once. Stage 2 is therefore split:
+
+- **Stage 2A — durable APP-STATE substrate (ACTIVE):** [`HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md). Dedicated durable Buddy PostgreSQL authority (`compose.postgres.app-state.yml`, `127.0.0.1:54331`, named volume), deterministic cross-domain fingerprint, external backup/restore with second-clean-target parity, container-replacement survival, DungeonMind isolation. Born empty per §0A rebrief.
+- **Stage 2B — repopulation (NEXT, not dispatched):** re-establish the C1/C2 catalog, adopted plans, and adopted sources on the durable authority through the supported product seams (`import_extraction_runs_from_registry`, `bootstrap_local_play` imports, the #689 source-adoption boundary), using the recovery ledger as the exact locator map. Then the artifact-byte adoption below proceeds against a durable APP-STATE.
+
 ### Human/system outcome
 
-Historical inspection no longer depends on a particular worktree’s gitignored `out/` directory.
+Historical inspection no longer depends on a particular worktree’s gitignored `out/` directory **or an ephemeral database**.
 
 ### Required behavior
 
