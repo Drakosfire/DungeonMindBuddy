@@ -4,10 +4,12 @@
 Supported operations against the durable local APP-STATE authority
 (`compose.postgres.app-state.yml`):
 
-  check       Redacted coordinates, Alembic current/head, fingerprint digest.
+  check       Status + fingerprint. OBSERVED unless --expect-fingerprint;
+              schema-at-head alone is never READY.
   fingerprint Compute (and optionally write) the deterministic fingerprint.
   backup      External custom-format pg_dump + SHA-256 + fingerprint sidecars.
-  restore     Restore a backup into a second clean target and verify parity.
+  restore     Verify dump SHA-256, restore into a second clean target, require
+              fingerprint parity. Missing digest or expected fingerprint refuses.
   verify      Fingerprint two DSNs and report READY / NOT_READY.
 
 Exit codes: 0 = READY/success, 2 = NOT_READY/blocked/error.
@@ -30,6 +32,7 @@ if str(SRC) not in sys.path:
 from application_state.authority import (  # noqa: E402
     ApplicationStateFingerprint,
     backup_authority,
+    compare_fingerprints,
     compute_fingerprint,
     redact_dsn,
     redact_secrets,
@@ -52,11 +55,28 @@ def _print_fingerprint(fp: ApplicationStateFingerprint, *, dsn: str) -> None:
     print(f"fingerprint: {fp.digest}")
 
 
+def _load_fingerprint(path: str) -> ApplicationStateFingerprint:
+    return ApplicationStateFingerprint.from_json_dict(
+        json.loads(Path(path).read_text(encoding="utf-8"))
+    )
+
+
 def _cmd_check(args: argparse.Namespace) -> int:
     dsn = _resolve_dsn(args.dsn)
     fp = compute_fingerprint(dsn)
     _print_fingerprint(fp, dsn=dsn)
-    print("READY: authority reachable, schema at head, fingerprint computed")
+    if not args.expect_fingerprint:
+        print("OBSERVED: authority reachable, schema at head, fingerprint computed")
+        print("READY requires --expect-fingerprint (schema-at-head alone is never READY)")
+        return 0
+    expected = _load_fingerprint(args.expect_fingerprint)
+    mismatches = compare_fingerprints(expected, fp)
+    if mismatches:
+        print("NOT_READY: live fingerprint does not match expected:", file=sys.stderr)
+        for mismatch in mismatches:
+            print(f"  - {mismatch}", file=sys.stderr)
+        return 2
+    print("READY: live fingerprint matches expected")
     return 0
 
 
@@ -83,21 +103,20 @@ def _cmd_backup(args: argparse.Namespace) -> int:
 
 def _cmd_restore(args: argparse.Namespace) -> int:
     target = _resolve_dsn(args.target_dsn)
-    expect = None
-    if args.expect_fingerprint:
-        expect = ApplicationStateFingerprint.from_json_dict(
-            json.loads(Path(args.expect_fingerprint).read_text(encoding="utf-8"))
-        )
+    expect = (
+        _load_fingerprint(args.expect_fingerprint) if args.expect_fingerprint else None
+    )
     report = restore_authority(
         target_dsn=target,
         backup_path=args.backup,
         source_dsn=args.source_dsn,
         expect_fingerprint=expect,
+        expected_sha256=args.expect_sha256,
     )
     print(f"target: {report.target}")
     _print_fingerprint(report.fingerprint, dsn=target)
     if report.ready:
-        print("READY: restore complete" + ("; fingerprint parity verified" if expect else ""))
+        print("READY: backup SHA-256 verified; restored fingerprint matches expected")
         return 0
     print("NOT_READY: fingerprint mismatch after restore:", file=sys.stderr)
     for mismatch in report.mismatches:
@@ -126,8 +145,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
 
-    check = commands.add_parser("check", help="redacted authority status + fingerprint")
+    check = commands.add_parser(
+        "check",
+        help="redacted authority status + fingerprint; READY only with --expect-fingerprint",
+    )
     check.add_argument("--dsn", default=None)
+    check.add_argument(
+        "--expect-fingerprint",
+        default=None,
+        help="trusted fingerprint JSON; without this, check is OBSERVED never READY",
+    )
     check.set_defaults(func=_cmd_check)
 
     fingerprint = commands.add_parser("fingerprint", help="compute the fingerprint")
@@ -147,7 +174,12 @@ def build_parser() -> argparse.ArgumentParser:
     restore.add_argument(
         "--expect-fingerprint",
         default=None,
-        help="fingerprint JSON to require after restore",
+        help="trusted fingerprint JSON (defaults to <dump>.fingerprint.json sidecar)",
+    )
+    restore.add_argument(
+        "--expect-sha256",
+        default=None,
+        help="trusted dump digest (defaults to <dump>.sha256 sidecar; sidecar required if omitted)",
     )
     restore.set_defaults(func=_cmd_restore)
 

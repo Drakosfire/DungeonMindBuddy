@@ -232,11 +232,15 @@ Failure behavior:
   unavailable/inconsistent source → STOP, no empty authority blessing
   target overlaps DungeonMind/source DB unexpectedly → BLOCK
   backup/restore command failure → NOT_READY
+  missing or mismatched backup SHA-256 → refuse restore (never READY)
+  restore without trusted expected fingerprint → refuse restore (never READY)
   fingerprint mismatch → NOT_READY
+  check without expected fingerprint → OBSERVED, never READY
   secret-bearing DSN → redact from output/docs
 
 Replay:
-  check/fingerprint → read-only
+  check without expected fingerprint → read-only OBSERVED
+  check with expected fingerprint → READY/NOT_READY
   repeated backup → new operator artifact, same logical fingerprint permitted
   repeated restore into clean target → same verified fingerprint
   restore into non-empty target → reject unless an explicit destructive operator mode is separately approved (not in this slice)
@@ -258,7 +262,7 @@ Do not add automatic migrate-on-start behavior. Existing explicit APP-STATE migr
 
 ### APP-STATE fingerprint
 
-READY must compare domain state, not merely connectivity. The application seam should produce a deterministic fingerprint/inventory over the APP-STATE domains that exist at dispatch time, using domain/public repository seams where practical.
+READY must compare domain state against a **trusted expected fingerprint** (or a second live DSN via `verify`), not merely connectivity. Observing a reachable database at Alembic head is **OBSERVED**, never READY. A wiped empty-at-head database must not be blessable. The application seam should produce a deterministic fingerprint/inventory over the APP-STATE domains that exist at dispatch time, using domain/public repository seams where practical.
 
 At minimum include:
 
@@ -282,9 +286,11 @@ If another durable APP-STATE domain/table exists at dispatch and cannot be repre
 | Source missing/unreachable | STOP; no target blessing |
 | Target empty | restore permitted only through explicit recovery command |
 | Target schema at head but fingerprint differs | NOT_READY |
-| Target fingerprint matches | READY |
-| Target container restarted/replaced with volume intact | same fingerprint / READY |
-| Second clean target restored from backup | same fingerprint / READY |
+| Target fingerprint matches a trusted expected fingerprint | READY |
+| `check` without expected fingerprint | OBSERVED, never READY |
+| Backup SHA-256 missing or mismatched | refuse restore; never READY |
+| Target container restarted/replaced with volume intact | same fingerprint / READY against the pre-replacement expected fingerprint |
+| Second clean target restored from backup | dump SHA verified; same fingerprint / READY |
 | Any DSN equals configured DungeonMind World authority | BLOCK isolation failure |
 | No durable target configured | product may remain on old source temporarily, but Stage 2A is not complete |
 
@@ -410,11 +416,15 @@ Record:
 13. Paths outside lease (`none` or STOP report).
 14. What remains false: remote hosting, APP-STATE repopulation (Stage 2B), artifact batch adoption, graph-object usefulness, Stage 1/2 STOP completion.
 
+**Review Cycle 1 (`5135562572`, head `0bd59db2`): CHANGES REQUIRED.** P1: `check`/`restore` must not claim READY without trusted fingerprint parity; P1: restore must verify backup SHA-256 against the sidecar and reject a mutated dump. This follow-up records those contracts in the operator CLI, `restore_authority()`, and tests.
+
 ## §9 Acceptance rubric
 
 - [ ] Dedicated Buddy APP-STATE service is persistent and isolated from both DungeonMind PostgreSQL services.
 - [ ] §0A loss event is recorded in the material library; no false live-catalog claim remains.
-- [ ] Target cannot be READY on schema health alone.
+- [ ] Target cannot be READY on schema health alone; `check` without `--expect-fingerprint` is OBSERVED.
+- [ ] Restore verifies dump SHA-256 before replay and refuses missing/mismatched digests.
+- [ ] Restore requires a trusted expected fingerprint; READY is parity, never "restore completed".
 - [ ] Deterministic fingerprint covers every current durable APP-STATE domain or implementation stopped for explicit lease expansion.
 - [ ] Birthed authority fingerprint is stable across repeated computation.
 - [ ] External backup restores to a second clean target with the same fingerprint.

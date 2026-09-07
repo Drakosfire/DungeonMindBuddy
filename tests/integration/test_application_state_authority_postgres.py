@@ -22,6 +22,7 @@ from psycopg import sql
 
 from application_state.authority import (
     backup_authority,
+    database_has_app_state_schema,
     restore_authority,
     verify_parity,
 )
@@ -122,13 +123,41 @@ def test_backup_restore_into_second_clean_target_parity(
             target_dsn=target_dsn,
             backup_path=record.backup_path,
             source_dsn=source_dsn,
-            expect_fingerprint=record.fingerprint,
         )
         assert report.ready, f"mismatches: {report.mismatches}"
         ready, mismatches, _, _ = verify_parity(
             source_dsn=source_dsn, target_dsn=target_dsn
         )
         assert ready, f"mismatches: {mismatches}"
+    finally:
+        _drop_database(admin, target_name)
+
+
+def test_restore_rejects_mutated_dump_bytes(
+    disposable_db: str, monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    source_dsn = disposable_db
+    upgrade_to_head(dsn=source_dsn)
+    _populate(source_dsn, monkeypatch)
+    monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
+    record = backup_authority(
+        source_dsn=source_dsn, out_path=tmp_path / "authority.dump"
+    )
+    dump = tmp_path / "authority.dump"
+    dump.write_bytes(dump.read_bytes() + b"\x00tamper")
+
+    admin = _admin_dsn()
+    target_name = f"dungeonbuddy_app_state_test_{uuid.uuid4().hex[:12]}"
+    _create_database(admin, target_name)
+    target_dsn = _replace_database(admin, target_name)
+    try:
+        with pytest.raises(ApplicationStateIntegrityError, match="SHA-256 mismatch"):
+            restore_authority(
+                target_dsn=target_dsn,
+                backup_path=record.backup_path,
+                source_dsn=source_dsn,
+            )
+        assert not database_has_app_state_schema(target_dsn)
     finally:
         _drop_database(admin, target_name)
 

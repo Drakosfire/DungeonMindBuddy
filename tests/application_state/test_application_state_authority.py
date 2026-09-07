@@ -17,12 +17,16 @@ from application_state.authority import (
     compare_fingerprints,
     compute_fingerprint,
     database_has_app_state_schema,
+    parse_sha256_sidecar,
     redact_dsn,
     redact_secrets,
+    restore_authority,
+    verify_backup_digest,
 )
 from application_state.config import TEST_ADMIN_DSN_ENV
 from application_state.content.service import create_plan
 from application_state.errors import (
+    ApplicationStateIntegrityError,
     ApplicationStateIsolationError,
     ApplicationStateMigrationError,
 )
@@ -212,3 +216,127 @@ def test_fingerprint_requires_schema_at_head() -> None:
 
 def test_database_has_app_state_schema(application_state_dsn: str) -> None:
     assert database_has_app_state_schema(application_state_dsn)
+
+
+def test_parse_sha256_sidecar_reads_sha256sum_format() -> None:
+    digest = "a" * 64
+    assert parse_sha256_sidecar(f"{digest}  authority.dump\n") == digest
+
+
+def test_parse_sha256_sidecar_rejects_garbage() -> None:
+    with pytest.raises(ApplicationStateIntegrityError, match="64-character"):
+        parse_sha256_sidecar("not-a-digest")
+
+
+def test_verify_backup_digest_rejects_missing_sidecar(tmp_path) -> None:
+    dump = tmp_path / "authority.dump"
+    dump.write_bytes(b"payload")
+    with pytest.raises(ApplicationStateIntegrityError, match="sidecar missing"):
+        verify_backup_digest(dump)
+
+
+def test_verify_backup_digest_rejects_mutated_dump(tmp_path) -> None:
+    dump = tmp_path / "authority.dump"
+    dump.write_bytes(b"payload")
+    sidecar = tmp_path / "authority.dump.sha256"
+    sidecar.write_text(f"{'b' * 64}  authority.dump\n", encoding="utf-8")
+    with pytest.raises(ApplicationStateIntegrityError, match="mismatch"):
+        verify_backup_digest(dump)
+
+
+def test_verify_backup_digest_accepts_matching_sidecar(tmp_path) -> None:
+    import hashlib
+
+    dump = tmp_path / "authority.dump"
+    dump.write_bytes(b"payload")
+    digest = hashlib.sha256(b"payload").hexdigest()
+    (tmp_path / "authority.dump.sha256").write_text(f"{digest}  authority.dump\n")
+    assert verify_backup_digest(dump) == digest
+
+
+def test_verify_backup_digest_explicit_digest_must_match_bytes(tmp_path) -> None:
+    dump = tmp_path / "authority.dump"
+    dump.write_bytes(b"payload")
+    import hashlib
+
+    real = hashlib.sha256(b"payload").hexdigest()
+    assert verify_backup_digest(dump, expected_sha256=real) == real
+    with pytest.raises(ApplicationStateIntegrityError, match="mismatch"):
+        verify_backup_digest(dump, expected_sha256="c" * 64)
+
+
+def test_restore_refuses_unverified_dump_before_touching_target(
+    application_state_dsn: str, tmp_path
+) -> None:
+    dump = tmp_path / "authority.dump"
+    dump.write_bytes(b"not-a-real-dump")
+    with pytest.raises(ApplicationStateIntegrityError, match="sidecar missing"):
+        restore_authority(target_dsn=application_state_dsn, backup_path=dump)
+
+
+def test_restore_refuses_missing_fingerprint_sidecar(
+    application_state_dsn: str, tmp_path
+) -> None:
+    dump = tmp_path / "authority.dump"
+    dump.write_bytes(b"payload")
+    import hashlib
+
+    digest = hashlib.sha256(b"payload").hexdigest()
+    (tmp_path / "authority.dump.sha256").write_text(f"{digest}  authority.dump\n")
+    with pytest.raises(ApplicationStateIntegrityError, match="fingerprint sidecar missing"):
+        restore_authority(target_dsn=application_state_dsn, backup_path=dump)
+
+
+def _load_authority_cli():
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "application_state_authority.py"
+    spec = importlib.util.spec_from_file_location("application_state_authority_cli", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_check_without_expected_fingerprint_is_observed_never_ready(
+    application_state_dsn: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli = _load_authority_cli()
+    code = cli.main(["check", "--dsn", application_state_dsn])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "READY:" not in captured.out
+    assert "OBSERVED:" in captured.out
+
+
+def test_check_with_matching_fingerprint_is_ready(
+    application_state_dsn: str, capsys: pytest.CaptureFixture[str], tmp_path
+) -> None:
+    fp = compute_fingerprint(application_state_dsn)
+    expected = tmp_path / "expected.json"
+    expected.write_text(fp.to_json(), encoding="utf-8")
+    cli = _load_authority_cli()
+    code = cli.main(
+        ["check", "--dsn", application_state_dsn, "--expect-fingerprint", str(expected)]
+    )
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "READY: live fingerprint matches expected" in captured.out
+
+
+def test_check_with_stale_fingerprint_is_not_ready(
+    application_state_dsn: str, capsys: pytest.CaptureFixture[str], tmp_path
+) -> None:
+    before = compute_fingerprint(application_state_dsn)
+    expected = tmp_path / "expected.json"
+    expected.write_text(before.to_json(), encoding="utf-8")
+    create_plan(title="Post-fingerprint mutation", campaign_id="eldyrwild")
+    cli = _load_authority_cli()
+    code = cli.main(
+        ["check", "--dsn", application_state_dsn, "--expect-fingerprint", str(expected)]
+    )
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "NOT_READY:" in captured.err
+    assert "READY:" not in captured.out

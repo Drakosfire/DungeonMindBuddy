@@ -10,6 +10,15 @@ Invariants:
 - Fingerprints are deterministic: fixed table order, stable row order, canonical
   JSON serialization, SHA-256 digests.
 - Fingerprints and reports never contain secrets; DSNs are redacted before display.
+- READY is only a parity verdict against a trusted expected fingerprint (or a
+  second live DSN via ``verify``). Observing a reachable database at Alembic
+  head is never READY — a wiped empty-at-head database is the failure this
+  module exists to catch.
+- Restore verifies dump SHA-256 against the sidecar (or an explicit digest)
+  before ``pg_restore``. A missing or mismatched digest refuses the restore.
+- Restore requires a trusted expected fingerprint (explicit argument or the
+  backup ``.fingerprint.json`` sidecar). Without one, READY cannot be claimed
+  and restore is refused.
 - A restore target must be empty of APP-STATE schemas; destructive restore is not
   a supported operation in this slice.
 """
@@ -353,6 +362,68 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_sidecar_path(backup_path: str | Path) -> Path:
+    backup = Path(backup_path)
+    return backup.with_suffix(backup.suffix + ".sha256")
+
+
+def fingerprint_sidecar_path(backup_path: str | Path) -> Path:
+    backup = Path(backup_path)
+    return backup.with_suffix(backup.suffix + ".fingerprint.json")
+
+
+def parse_sha256_sidecar(text: str) -> str:
+    """Parse a sha256sum-format sidecar (``<hex>  <filename>``)."""
+    token = text.strip().split()[0] if text.strip() else ""
+    if len(token) != 64 or any(c not in "0123456789abcdef" for c in token.lower()):
+        raise ApplicationStateIntegrityError(
+            "backup SHA-256 sidecar is not a 64-character hex digest"
+        )
+    return token.lower()
+
+
+def verify_backup_digest(
+    backup_path: str | Path, *, expected_sha256: str | None = None
+) -> str:
+    """Refuse restore when dump bytes do not match a trusted SHA-256.
+
+    ``expected_sha256`` wins when supplied; otherwise the ``.sha256`` sidecar
+    next to the dump is required. A missing sidecar is an integrity failure,
+    not a skip.
+    """
+    backup = Path(backup_path)
+    if not backup.exists():
+        raise ApplicationStateUnavailableError(f"backup file not found: {backup}")
+    actual = _sha256_file(backup)
+    if expected_sha256 is None:
+        sidecar = sha256_sidecar_path(backup)
+        if not sidecar.exists():
+            raise ApplicationStateIntegrityError(
+                "backup SHA-256 sidecar missing; refuse restore of an unverified dump"
+            )
+        expected_sha256 = parse_sha256_sidecar(sidecar.read_text(encoding="utf-8"))
+    else:
+        expected_sha256 = parse_sha256_sidecar(expected_sha256)
+    if actual != expected_sha256:
+        raise ApplicationStateIntegrityError(
+            "backup SHA-256 mismatch: dump bytes do not match the trusted digest; "
+            "refuse restore"
+        )
+    return actual
+
+
+def load_fingerprint_sidecar(backup_path: str | Path) -> ApplicationStateFingerprint:
+    sidecar = fingerprint_sidecar_path(backup_path)
+    if not sidecar.exists():
+        raise ApplicationStateIntegrityError(
+            "backup fingerprint sidecar missing; restore cannot claim READY "
+            "without a trusted expected fingerprint"
+        )
+    return ApplicationStateFingerprint.from_json_dict(
+        json.loads(sidecar.read_text(encoding="utf-8"))
+    )
+
+
 def backup_authority(*, source_dsn: str, out_path: str | Path) -> BackupRecord:
     """External custom-format backup of the APP-STATE authority.
 
@@ -391,12 +462,10 @@ def backup_authority(*, source_dsn: str, out_path: str | Path) -> BackupRecord:
             "never claim a stale dump is current authority"
         )
     backup_sha = _sha256_file(out)
-    out.with_suffix(out.suffix + ".sha256").write_text(
+    sha256_sidecar_path(out).write_text(
         f"{backup_sha}  {out.name}\n", encoding="utf-8"
     )
-    out.with_suffix(out.suffix + ".fingerprint.json").write_text(
-        before.to_json(), encoding="utf-8"
-    )
+    fingerprint_sidecar_path(out).write_text(before.to_json(), encoding="utf-8")
     return BackupRecord(
         backup_path=str(out),
         backup_sha256=backup_sha,
@@ -411,16 +480,23 @@ def restore_authority(
     backup_path: str | Path,
     source_dsn: str | None = None,
     expect_fingerprint: ApplicationStateFingerprint | None = None,
+    expected_sha256: str | None = None,
 ) -> RestoreReport:
     """Restore an external backup into a second clean target and verify.
 
-    The target must exist and be empty of APP-STATE schemas. Destructive
-    restore over an existing authority is not supported in this slice.
+    Fail-closed before ``pg_restore``:
+    - dump SHA-256 must match the sidecar or ``expected_sha256``;
+    - a trusted expected fingerprint is required (argument or sidecar);
+    - the target must exist and be empty of APP-STATE schemas.
+
+    Destructive restore over an existing authority is not supported.
+    READY is fingerprint parity against that trusted expected fingerprint,
+    never "restore completed" alone.
     """
     assert_authority_target_isolated(target_dsn, source_dsn=source_dsn)
     backup = Path(backup_path)
-    if not backup.exists():
-        raise ApplicationStateUnavailableError(f"backup file not found: {backup}")
+    verify_backup_digest(backup, expected_sha256=expected_sha256)
+    trusted = expect_fingerprint or load_fingerprint_sidecar(backup)
     if database_has_app_state_schema(target_dsn):
         raise ApplicationStateIntegrityError(
             "restore target already contains APP-STATE schemas; "
@@ -453,14 +529,10 @@ def restore_authority(
             "(`uv run python scripts/bootstrap_local_play.py apply` with the "
             "target DSN configured) before verifying parity"
         ) from exc
-    mismatches: tuple[str, ...] = ()
-    ready = True
-    if expect_fingerprint is not None:
-        mismatches = tuple(compare_fingerprints(expect_fingerprint, fingerprint))
-        ready = not mismatches
+    mismatches = tuple(compare_fingerprints(trusted, fingerprint))
     return RestoreReport(
         target=redact_dsn(target_dsn),
         fingerprint=fingerprint,
-        ready=ready,
+        ready=not mismatches,
         mismatches=mismatches,
     )
