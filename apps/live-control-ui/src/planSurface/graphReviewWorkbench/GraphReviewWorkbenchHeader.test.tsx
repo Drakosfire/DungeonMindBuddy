@@ -49,6 +49,7 @@ describe("GraphReviewWorkbenchHeader", () => {
           documentId: null,
           revision: null,
           reviewable: false,
+          readOnly: true,
           worldId: "eldyrwild",
           graphId: "rev:abc",
           inspectOnlyReason: "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge.",

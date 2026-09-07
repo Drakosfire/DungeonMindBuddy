@@ -838,6 +838,8 @@ describe("GraphReviewWorkbenchModule", () => {
         expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
           "validated",
         );
+        expect(screen.getByText("Advanced details")).toBeInTheDocument();
+        expect(screen.getByText("Read-only")).toBeInTheDocument();
         expect(document.body.textContent).toMatch(/Heading/);
         expect(document.body.textContent).toMatch(/Bonogo/);
       },
@@ -855,6 +857,37 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
     });
     expect(screen.getByLabelText("Bonogo graph object")).toBeInTheDocument();
+  });
+
+  it("keeps Advanced details after ordinary Load recap of a validated historical run", async () => {
+    const user = userEvent.setup();
+    const validated = canonicalRun({ status: "validated", run_id: "er_load_validated" });
+    const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
+    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockResolvedValue(
+      historicalProjection({
+        runId: "er_load_validated",
+        markdown: "# Loaded recap\n\n[Bonogo](dmb-node:node-1) arrives.\n",
+      }),
+    );
+    window.history.replaceState({}, "", "/ingest");
+    renderWorkbench([validated]);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Load recap" }));
+    await user.selectOptions(screen.getByLabelText("Live run"), "er_load_validated");
+    await user.click(screen.getByRole("button", { name: "Load" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
+        "validated",
+      );
+      expect(screen.getByText("Advanced details")).toBeInTheDocument();
+      expect(screen.getByText("Read-only")).toBeInTheDocument();
+      expect(document.body.textContent).toMatch(/Loaded recap/);
+    });
+    expect(reviewPackageSpy).not.toHaveBeenCalled();
   });
 
   it("loads exact-handoff validated recap through historical projection without review package", async () => {

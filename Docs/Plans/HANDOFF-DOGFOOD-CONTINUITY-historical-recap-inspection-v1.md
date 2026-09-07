@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — Historical Recap Inspection v1
 
 **Status:** SUPERSEDED — historical evidence only; **not** the active implementation handoff
-**Superseded by:** PR #689 / [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) (cumulative successor; in review)
+**Superseded by:** PR #689 MERGED / [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) (`0912ce4010655655b1f7b4966ee071e043b47721`)
 **Paused predecessor:** PR #688 remains **unmerged** — branch `agent/dogfood-continuity-historical-recap-inspection-v1`, worktree, and review state are untouched
 **Created:** 2026-09-06
 **Former status:** ACTIVE — dispatch exactly one implementation capability

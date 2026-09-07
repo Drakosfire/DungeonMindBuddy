@@ -89,7 +89,7 @@ At a STOP:
 
 ## Stage 1 — Historical recap inspect without promotion
 
-**Active implementation (DEMO-R1):** [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) (PR #689, in review). Supersedes the paused PR #688 / inspection-only handoff. STOP 1 remains closed until post-merge assembled dogfood — do not mark Stage 1 complete.
+**Active implementation (DEMO-R1 chrome):** [`HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md) (PR #690). Predecessor projection [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) is **MERGED** (PR #689, `0912ce4010655655b1f7b4966ee071e043b47721`). Supersedes the paused PR #688 / inspection-only handoff. STOP 1 remains closed until assembled human dogfood — do not mark Stage 1 complete.
 
 ### Human outcome
 

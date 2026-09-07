@@ -2,11 +2,11 @@
 
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT
 **Line of work:** `CON-READY`
-**Updated:** 2026-09-06
+**Updated:** 2026-09-07
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor base:** `main` `a692dbe2bd3dd53a385891ae4ed4c83668bd58ec` (DFC-3 PR #687 DONE; DEMO-R1 handoff on main)
+**Re-anchor base:** `main` `0912ce4010655655b1f7b4966ee071e043b47721` (DEMO-R1 PR #689 MERGED; chrome successor PR #690)
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
-**Current forcing function:** DOGFOOD-CONTINUITY **DEMO-R1** — [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) (PR #689, in review)
+**Current forcing function:** DOGFOOD-CONTINUITY **DEMO-R1** successor chrome — [`HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md) (PR #690). Predecessor projection [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) is MERGED (PR #689, `0912ce4010655655b1f7b4966ee071e043b47721`).
 **Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
@@ -32,7 +32,7 @@ Before dispatching a CON-READY / PLAY-SURFACE implementation:
 
 ## 1. Current product truth
 
-SURFACE-INTEGRATION is **CLOSED** (SI-6 ACCEPTED, PR #682). The temporary feature freeze is lifted. DFC-1 inventory is **DONE / ACCEPTED** (PR #684, 7 review cycles). DFC-2a Plan adoption is **DONE / ACCEPTED** (PR #685, 5 review cycles). DFC-2c Ingest catalog adoption is **DONE / ACCEPTED** (PR #686, 2 review cycles). **DFC-3** C1/C2 demo-readiness survey is **DONE / ACCEPTED** (PR #687, 3 review cycles). The active CON-READY forcing function is **DEMO-R1** — historical recap World projection — via [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) (PR #689, in review). The prior inspection-only handoff is superseded; PR #688 remains paused/unmerged. Do not automatically inherit DFC-2b / BF3B. Do not mark PR #689 or Stage 1 / STOP 1 complete here.
+SURFACE-INTEGRATION is **CLOSED** (SI-6 ACCEPTED, PR #682). The temporary feature freeze is lifted. DFC-1 inventory is **DONE / ACCEPTED** (PR #684, 7 review cycles). DFC-2a Plan adoption is **DONE / ACCEPTED** (PR #685, 5 review cycles). DFC-2c Ingest catalog adoption is **DONE / ACCEPTED** (PR #686, 2 review cycles). **DFC-3** C1/C2 demo-readiness survey is **DONE / ACCEPTED** (PR #687, 3 review cycles). The active CON-READY forcing function is **DEMO-R1** historical recap reading. Projection predecessor PR #689 is **MERGED** (`0912ce4010655655b1f7b4966ee071e043b47721`). Current implementation is loaded-recap chrome via [`HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md) (PR #690). The prior inspection-only handoff is superseded; PR #688 remains paused/unmerged. Do not automatically inherit DFC-2b / BF3B. Do not mark Stage 1 / STOP 1 complete here.
 
 The Play persistence foundation is no longer the blocker.
 

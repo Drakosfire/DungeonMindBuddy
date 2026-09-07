@@ -883,33 +883,48 @@ export function GraphReviewWorkbenchModule({
         ? "Worldbuilding ExtractionRuns are inspect-only until an approved authority-elevation contract lands."
         : null
     );
-  const exactRunInspectOnlyReason =
-    exactRun
-    && !exactRunPromotable
+  // Catalog Load is the owning recap path. Handoff exactRun is fallback when no
+  // applied catalog run exists. Do not wait for exact-run mode to render chrome.
+  const loadedRun = appliedLiveRun?.run ?? exactRun ?? null;
+  const loadedReviewable = loadedRun?.status === "reviewable";
+  const loadedWorldbuilding = (loadedRun?.source_domain ?? "").trim() === "worldbuilding";
+  const loadedPromotable =
+    loadedReviewable
+    && exactReview?.promotable !== false
+    && !loadedWorldbuilding;
+  const loadedReadOnly = Boolean(loadedRun) && !loadedPromotable;
+  const loadedInspectOnlyReason =
+    loadedRun
+    && loadedReadOnly
     && !exactRunFirstWorldEligible
-    && (exactRunReviewable || isCatalogRunHistoricalRecapInspectable(exactRun))
+    && (loadedReviewable || isCatalogRunHistoricalRecapInspectable(loadedRun))
       ? (
         exactRunNonPromotableReason
-        ?? "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge."
+        ?? (
+          loadedWorldbuilding
+            ? "Worldbuilding ExtractionRuns are inspect-only until an approved authority-elevation contract lands."
+            : "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge."
+        )
       )
       : null;
-  const exactRunSummary =
-    exactRun
+  const loadedRunSummary =
+    loadedRun
       ? {
-          extractionRunId: exactRun.run_id,
-          sourceDomain: exactRun.source_domain,
-          status: exactRun.status,
-          sourceArtifactId: exactRun.source_artifact_id,
-          profileId: exactRun.profile_id ?? null,
-          campaignId: exactRun.campaign_id ?? null,
-          sessionId: exactRun.session_id ?? null,
+          extractionRunId: loadedRun.run_id,
+          sourceDomain: loadedRun.source_domain,
+          status: loadedRun.status,
+          sourceArtifactId: loadedRun.source_artifact_id,
+          profileId: loadedRun.profile_id ?? null,
+          campaignId: loadedRun.campaign_id ?? null,
+          sessionId: loadedRun.session_id ?? null,
           documentId: exactLineage?.documentId ?? null,
           revision: exactLineage?.revision ?? null,
-          reviewable: exactRunReviewable,
-          promotable: exactRunPromotable,
+          reviewable: loadedReviewable,
+          promotable: loadedPromotable,
+          readOnly: loadedReadOnly,
           worldId: historicalRecapProjection?.worldId ?? null,
           graphId: historicalRecapProjection?.graphId ?? null,
-          inspectOnlyReason: exactRunInspectOnlyReason,
+          inspectOnlyReason: loadedInspectOnlyReason,
         }
       : null;
 
@@ -1074,7 +1089,7 @@ export function GraphReviewWorkbenchModule({
                 ? "Merge confirmation is in progress."
                 : null
             }
-            exactRun={exactRunSummary}
+            exactRun={loadedRunSummary}
           />
 
           {sessionsError ? (

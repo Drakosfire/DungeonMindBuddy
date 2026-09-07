@@ -15,6 +15,7 @@ interface GraphReviewExactRunSummary {
   revision: number | null;
   reviewable: boolean;
   promotable?: boolean;
+  readOnly?: boolean;
   worldId?: string | null;
   graphId?: string | null;
   inspectOnlyReason?: string | null;
@@ -92,17 +93,15 @@ export function GraphReviewWorkbenchHeader({
               </div>
             </dl>
             <p data-testid="graph-review-exact-run-scope">{scopeLabel}</p>
-            {exactRun.worldId || exactRun.graphId ? (
-              <p data-testid="graph-review-historical-recap-meta">
-                {exactRun.sourceArtifactId}
-                {exactRun.campaignId ? ` · ${exactRun.campaignId}` : ""}
-                {exactRun.sessionId ? ` · ${exactRun.sessionId}` : ""}
-                {" · status "}
-                {exactRun.status}
-                {exactRun.worldId ? ` · World ${exactRun.worldId}` : ""}
-                {exactRun.graphId ? ` · graph ${exactRun.graphId}` : ""}
-              </p>
-            ) : null}
+            <p data-testid="graph-review-historical-recap-meta">
+              {exactRun.sourceArtifactId}
+              {exactRun.campaignId ? ` · ${exactRun.campaignId}` : ""}
+              {exactRun.sessionId ? ` · ${exactRun.sessionId}` : ""}
+              {" · status "}
+              {exactRun.status}
+              {exactRun.worldId ? ` · World ${exactRun.worldId}` : ""}
+              {exactRun.graphId ? ` · graph ${exactRun.graphId}` : ""}
+            </p>
             <p className="graph-review-advanced-details-note">
               Bound to exact ExtractionRun <code>{exactRun.extractionRunId}</code>. Prepare uses
               runId-only server resolution; no latest-run fallback.
@@ -126,7 +125,7 @@ export function GraphReviewWorkbenchHeader({
             No session loaded
           </span>
         )}
-        {exactRun && !exactRun.reviewable ? (
+        {exactRun?.readOnly ? (
           <span className="graph-review-read-only-chip">Read-only</span>
         ) : null}
         <button

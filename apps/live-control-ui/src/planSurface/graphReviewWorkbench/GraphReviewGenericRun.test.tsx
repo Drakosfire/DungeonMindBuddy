@@ -367,6 +367,8 @@ describe("GraphReviewGenericRun", () => {
     expect(screen.getByTestId("graph-review-exact-run-not-promotable")).toHaveTextContent(
       /inspect-only/i,
     );
+    expect(screen.getByText("Read-only")).toBeInTheDocument();
+    expect(screen.getByText("Advanced details")).toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-first-world-publish-sheet")).not.toBeInTheDocument();
     expect(prepare).not.toHaveBeenCalled();
