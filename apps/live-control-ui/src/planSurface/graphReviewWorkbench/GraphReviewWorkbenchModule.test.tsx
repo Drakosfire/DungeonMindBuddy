@@ -838,6 +838,8 @@ describe("GraphReviewWorkbenchModule", () => {
         expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
           "validated",
         );
+        expect(screen.getByText("Advanced details")).toBeInTheDocument();
+        expect(screen.getByText("Read-only")).toBeInTheDocument();
         expect(document.body.textContent).toMatch(/Heading/);
         expect(document.body.textContent).toMatch(/Bonogo/);
       },
@@ -855,6 +857,37 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
     });
     expect(screen.getByLabelText("Bonogo graph object")).toBeInTheDocument();
+  });
+
+  it("keeps Advanced details after ordinary Load recap of a validated historical run", async () => {
+    const user = userEvent.setup();
+    const validated = canonicalRun({ status: "validated", run_id: "er_load_validated" });
+    const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
+    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockResolvedValue(
+      historicalProjection({
+        runId: "er_load_validated",
+        markdown: "# Loaded recap\n\n[Bonogo](dmb-node:node-1) arrives.\n",
+      }),
+    );
+    window.history.replaceState({}, "", "/ingest");
+    renderWorkbench([validated]);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Load recap" }));
+    await user.selectOptions(screen.getByLabelText("Live run"), "er_load_validated");
+    await user.click(screen.getByRole("button", { name: "Load" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
+        "validated",
+      );
+      expect(screen.getByText("Advanced details")).toBeInTheDocument();
+      expect(screen.getByText("Read-only")).toBeInTheDocument();
+      expect(document.body.textContent).toMatch(/Loaded recap/);
+    });
+    expect(reviewPackageSpy).not.toHaveBeenCalled();
   });
 
   it("loads exact-handoff validated recap through historical projection without review package", async () => {
@@ -890,6 +923,55 @@ describe("GraphReviewWorkbenchModule", () => {
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
+  });
+
+  it("lets exact-run handoff win Advanced details over a stale persisted catalog run", async () => {
+    const staleCatalog = canonicalRun({ status: "validated", run_id: "er_stale_catalog" });
+    const handoffRun = canonicalRun({
+      status: "validated",
+      run_id: "er_handoff_b",
+      source_artifact_id: "sa_handoff",
+      campaign_id: "longmont-c1",
+      session_id: "session-17",
+    });
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(handoffRun);
+    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockImplementation(async (runId) => {
+      if (runId === "er_stale_catalog") {
+        return historicalProjection({
+          runId: "er_stale_catalog",
+          markdown: "# Stale catalog recap A\n",
+        });
+      }
+      return historicalProjection({
+        runId: "er_handoff_b",
+        sourceArtifactId: "sa_handoff",
+        campaignId: "longmont-c1",
+        sessionId: "session-17",
+        markdown: "# Handoff recap B\n",
+      });
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_stale_catalog&extractionRunId=er_handoff_b&sourceArtifactId=sa_handoff",
+    );
+    renderWorkbench([staleCatalog]);
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent(
+          "er_handoff_b",
+        );
+        expect(document.body.textContent).toMatch(/Handoff recap B/);
+      },
+      { timeout: 3000 },
+    );
+    expect(screen.getByTestId("graph-review-exact-run-banner")).not.toHaveTextContent(
+      "er_stale_catalog",
+    );
+    expect(document.body.textContent).not.toMatch(/Stale catalog recap A/);
+    expect(screen.getByText("Session 17 · Longmont C1")).toBeInTheDocument();
+    expect(screen.queryByText("Session 23 · Longmont C2")).not.toBeInTheDocument();
   });
 
   it("shows unavailable historical recap without sibling fallback", async () => {

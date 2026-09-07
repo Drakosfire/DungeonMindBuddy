@@ -1,6 +1,6 @@
 # HANDOFF — DOGFOOD-CONTINUITY: historical recap World projection v1
 
-**Status:** READY FOR REVIEW (PR #689)
+**Status:** MERGED (PR #689, `0912ce4010655655b1f7b4966ee071e043b47721`, 2026-09-07)
 **Base revision:** `a692dbe2bd3dd53a385891ae4ed4c83668bd58ec` (`main` after DFC-3 / PR #687)
 **Branch:** `agent/dogfood-continuity-historical-recap-projection-v1`
 **PR:** #689 — `DOGFOOD-CONTINUITY: project durable historical recaps`
@@ -10,7 +10,7 @@
 
 PR #689 **cumulatively incorporates and supersedes** the unmerged/paused PR #688 implementation on this branch. The #688 branch, worktree, commits, and review state remain **unmerged and untouched**; this successor PR is the single review surface for the combined capability.
 
-Do **not** mark PR #689 or Stage 1 / STOP 1 complete in this handoff. STOP 1 remains closed until post-merge assembled human dogfood.
+Do **not** mark Stage 1 / STOP 1 complete in this handoff. STOP 1 remains closed until post-merge assembled human dogfood. Successor chrome: [`HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md) (PR #690).
 
 ## Capability
 

@@ -2,14 +2,14 @@
 
 **Status:** ACTIVE PRODUCT ROADMAP  
 **Line of work:** `CON-READY`  
-**Re-anchored:** 2026-09-06 — DFC-3 DONE (PR #687, 3 review cycles); DEMO-R1 historical recap inspection is current
+**Re-anchored:** 2026-09-07 — DEMO-R1 projection PR #689 MERGED (`0912ce4010655655b1f7b4966ee071e043b47721`); loaded-recap chrome PR #690 is current
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Historical starting anchor:** `85a2bbf048d92afed1911031ca7b6a311115873c`  
 **Stewardship anchor:** [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md)
 
 **Closed blocking child program:** [`ROADMAP-surface-integration.md`](ROADMAP-surface-integration.md) — **CLOSED** (SI-6 ACCEPTED, PR #682). No active SURFACE-INTEGRATION blocker; temporary feature freeze lifted.
 
-**Current forcing function:** DOGFOOD-CONTINUITY **DEMO-R1** — historical recap World projection via [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) (PR #689, in review). Prior inspection-only handoff [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md) is superseded; PR #688 remains paused/unmerged. DFC-3 C1/C2 demo-readiness survey is DONE / ACCEPTED (PR #687). DFC-2c Ingest catalog adoption is DONE / ACCEPTED (PR #686). DFC-2a Plan adoption is DONE / ACCEPTED (PR #685). Do not automatically inherit DFC-2b / BF3B. Do not mark PR #689 or Stage 1 / STOP 1 complete here.
+**Current forcing function:** DOGFOOD-CONTINUITY **DEMO-R1** loaded-recap chrome via [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md) (PR #690). Predecessor historical recap World projection [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) is **MERGED** (PR #689, `0912ce4010655655b1f7b4966ee071e043b47721`). Prior inspection-only handoff [`../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md) is superseded; PR #688 remains paused/unmerged. DFC-3 C1/C2 demo-readiness survey is DONE / ACCEPTED (PR #687). DFC-2c Ingest catalog adoption is DONE / ACCEPTED (PR #686). DFC-2a Plan adoption is DONE / ACCEPTED (PR #685). Do not automatically inherit DFC-2b / BF3B. Do not mark Stage 1 / STOP 1 complete here.
 
 ---
 

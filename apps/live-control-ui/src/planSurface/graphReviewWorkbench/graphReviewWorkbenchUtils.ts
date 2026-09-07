@@ -5,7 +5,7 @@ import type {
   GraphReviewLane,
 } from "../../api/types";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
-import { goldReviewSessionLabel } from "../sessionCampaignContext";
+import { formatReviewCampaignLabel, goldReviewSessionLabel } from "../sessionCampaignContext";
 
 export interface GraphReviewCatalogRun {
   run: ExtractionRunRecord;
@@ -140,12 +140,51 @@ export function catalogSessionLabel(session: GraphReviewCatalogSession): string 
   });
 }
 
+/** GM-facing loaded-recap label — session once, human campaign, no run IDs. */
+export function formatHumanExactRunLoadLabel(input: {
+  campaignId?: string | null;
+  sessionId?: string | null;
+}): string {
+  const sessionId = input.sessionId?.trim() || "";
+  const campaignId = input.campaignId?.trim() || "";
+  if (sessionId) {
+    const session = goldReviewSessionLabel({
+      session_id: sessionId,
+      session_number: parseSessionNumber(sessionId),
+    });
+    return campaignId ? `${session} · ${formatReviewCampaignLabel(campaignId)}` : session;
+  }
+  if (campaignId) {
+    return `${formatReviewCampaignLabel(campaignId)} · no session`;
+  }
+  return "World source · no session";
+}
+
+/** Machine campaign/session identity for Advanced details — stable for tests. */
+export function formatMachineExactRunScopeLabel(input: {
+  campaignId?: string | null;
+  sessionId?: string | null;
+}): string {
+  const sessionId = input.sessionId?.trim() || "";
+  const campaignId = input.campaignId?.trim() || "";
+  if (sessionId) {
+    return `campaign ${campaignId || "—"} · session ${sessionId}`;
+  }
+  if (campaignId) {
+    return `campaign ${campaignId} · no session`;
+  }
+  return "world / source authority · no session";
+}
+
 /** GM-facing session label for the workbench header — no run pipeline metadata. */
 export function formatCompactAppliedLoadLabel(
   session: GraphReviewCatalogSession | null,
 ): string | null {
   if (!session) return null;
-  return `${catalogSessionLabel(session)} · ${session.campaignId}`;
+  return formatHumanExactRunLoadLabel({
+    campaignId: session.campaignId,
+    sessionId: session.sessionId,
+  });
 }
 
 export function hasCatalogReviewableRun(

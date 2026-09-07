@@ -3636,7 +3636,7 @@ body.surface-projection-open .plan-agent-shell {
 .graph-review-workbench-header--unified {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem 1.25rem;
   margin-bottom: 0;
@@ -3664,6 +3664,44 @@ body.surface-projection-open .plan-agent-shell {
 .graph-review-workbench-session-label--empty {
   color: var(--fg-mute);
   font-weight: 500;
+}
+
+.graph-review-read-only-chip {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  color: var(--fg-mute);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.22rem 0.6rem;
+}
+
+.graph-review-advanced-details {
+  margin-top: 0.7rem;
+}
+
+.graph-review-advanced-details > summary {
+  cursor: pointer;
+  color: var(--fg-mute);
+  font-size: 0.82rem;
+  font-weight: 600;
+  list-style-position: outside;
+}
+
+.graph-review-advanced-details[open] > summary {
+  margin-bottom: 0.55rem;
+}
+
+.graph-review-advanced-details .graph-review-lane-meta {
+  margin-top: 0.35rem;
+}
+
+.graph-review-advanced-details-note,
+.graph-review-advanced-details > p {
+  color: var(--fg-mute);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0.55rem 0 0;
 }
 
 .graph-review-workbench-header-button {

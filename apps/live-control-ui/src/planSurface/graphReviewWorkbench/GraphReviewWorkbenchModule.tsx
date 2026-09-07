@@ -883,20 +883,52 @@ export function GraphReviewWorkbenchModule({
         ? "Worldbuilding ExtractionRuns are inspect-only until an approved authority-elevation contract lands."
         : null
     );
-  const exactRunSummary =
-    exactRun
+  // Exact-run handoff wins presentation identity over a stale persisted catalog
+  // selection. Catalog Load still fills chrome from appliedLiveRun when there is
+  // no exactRun (including the brief window after handleApplyLoad clears handoff).
+  const loadedRun = exactRun ?? appliedLiveRun?.run ?? null;
+  const loadedReviewable = loadedRun?.status === "reviewable";
+  const loadedWorldbuilding = (loadedRun?.source_domain ?? "").trim() === "worldbuilding";
+  const loadedPromotable =
+    loadedReviewable
+    && exactReview?.promotable !== false
+    && !loadedWorldbuilding;
+  const loadedReadOnly =
+    Boolean(loadedRun)
+    && !loadedPromotable
+    && !exactRunFirstWorldEligible;
+  const loadedInspectOnlyReason =
+    loadedRun
+    && loadedReadOnly
+    && !exactRunFirstWorldEligible
+    && (loadedReviewable || isCatalogRunHistoricalRecapInspectable(loadedRun))
+      ? (
+        exactRunNonPromotableReason
+        ?? (
+          loadedWorldbuilding
+            ? "Worldbuilding ExtractionRuns are inspect-only until an approved authority-elevation contract lands."
+            : "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge."
+        )
+      )
+      : null;
+  const loadedRunSummary =
+    loadedRun
       ? {
-          extractionRunId: exactRun.run_id,
-          sourceDomain: exactRun.source_domain,
-          status: exactRun.status,
-          sourceArtifactId: exactRun.source_artifact_id,
-          profileId: exactRun.profile_id ?? null,
-          campaignId: exactRun.campaign_id ?? null,
-          sessionId: exactRun.session_id ?? null,
+          extractionRunId: loadedRun.run_id,
+          sourceDomain: loadedRun.source_domain,
+          status: loadedRun.status,
+          sourceArtifactId: loadedRun.source_artifact_id,
+          profileId: loadedRun.profile_id ?? null,
+          campaignId: loadedRun.campaign_id ?? null,
+          sessionId: loadedRun.session_id ?? null,
           documentId: exactLineage?.documentId ?? null,
           revision: exactLineage?.revision ?? null,
-          reviewable: exactRunReviewable,
-          promotable: exactRunPromotable,
+          reviewable: loadedReviewable,
+          promotable: loadedPromotable,
+          readOnly: loadedReadOnly,
+          worldId: historicalRecapProjection?.worldId ?? null,
+          graphId: historicalRecapProjection?.graphId ?? null,
+          inspectOnlyReason: loadedInspectOnlyReason,
         }
       : null;
 
@@ -1061,7 +1093,7 @@ export function GraphReviewWorkbenchModule({
                 ? "Merge confirmation is in progress."
                 : null
             }
-            exactRun={exactRunSummary}
+            exactRun={loadedRunSummary}
           />
 
           {sessionsError ? (
@@ -1195,10 +1227,6 @@ function GraphReviewExactRunBranch(props: {
       className="graph-review-exact-run-panel"
       data-testid="graph-review-exact-run-panel"
     >
-      <p>
-        Bound to exact ExtractionRun <code>{props.exactRun.run_id}</code>. Prepare uses
-        runId-only server resolution; no latest-run fallback.
-      </p>
       {props.exactReviewStatus === "loading" ? (
         <p className="plan-projection-empty">Loading source evidence…</p>
       ) : null}
@@ -1256,12 +1284,7 @@ function GraphReviewExactRunBranch(props: {
             onCatalogRefresh={props.onCatalogRefresh}
           />
         )
-      ) : !props.exactRunPromotable ? (
-        <p data-testid="graph-review-exact-run-not-promotable">
-          {props.exactRunNonPromotableReason
-            ?? "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge."}
-        </p>
-      ) : props.exactReviewStatus === "error" ? null : (
+      ) : !props.exactRunPromotable ? null : props.exactReviewStatus === "error" ? null : (
         <GraphReviewExactRunPromoteChrome
           exactPreparing={props.exactPreparing}
           exactConfirmInFlight={props.exactConfirmInFlight}

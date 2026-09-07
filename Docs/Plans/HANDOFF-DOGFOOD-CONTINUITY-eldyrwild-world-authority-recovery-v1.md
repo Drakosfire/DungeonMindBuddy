@@ -12,7 +12,8 @@ pr_body_template: |
   ## Verification pointer
   - Buddy authority base: `a692dbe2bd3dd53a385891ae4ed4c83668bd58ec`
   - DungeonMind implementation base: `c8368d65d3122f8367d9c11f1be3a16d5b916f94`
-  - Blocked consumer: Buddy PR #689 (`d550e877820fcb0de125a949013672c06e5e398c` at dispatch)
+  - Completed consumer: Buddy PR #689 MERGED (`0912ce4010655655b1f7b4966ee071e043b47721`)
+  - DungeonMind recovery: PR #51 MERGED (`e82e790e011773369f07b1b431482d5026d4dd3e`)
   - Verification: exact D_A/D_B lineage + durable restart + backup/restore + #689 C2 Session 25 dogfood witness
 
   The checked-in handoff, cumulative diff, exact recovery evidence, destructive
@@ -23,17 +24,21 @@ pr_body_template: |
 # HANDOFF — restore durable Eldyrwild World authority
 
 **Created:** 2026-09-06  
-**Status:** ACTIVE — blocks completion of Buddy PR #689 / DEMO-R1 dogfood  
+**Status:** COMPLETE — DungeonMind PR #51 MERGED; Buddy PR #689 unblocked and MERGED  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-eldyrwild-world-authority-recovery-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY — Eldyrwild World authority recovery`  
 **Flow / owner:** `WORLD-RECOVERY / WR1`  
 **Direction:** STEWARD → CODE/OPERATE → REVIEW  
 **Buddy authority base:** `a692dbe2bd3dd53a385891ae4ed4c83668bd58ec`  
 **DungeonMind implementation base:** `c8368d65d3122f8367d9c11f1be3a16d5b916f94` (DungeonMind PR #50 merge)  
-**Blocked consumer:** DungeonMindBuddy PR #689 — hold at dogfood gate; reviewed head at dispatch `d550e877820fcb0de125a949013672c06e5e398c`  
+**DungeonMind recovery PR:** #51 MERGED `e82e790e011773369f07b1b431482d5026d4dd3e` (2026-09-07) — `RECOVERY: restore durable Eldyrwild World authority`  
+**Completed consumer:** DungeonMindBuddy PR #689 MERGED `0912ce4010655655b1f7b4966ee071e043b47721` (2026-09-07)  
+**Dispatch-time blocked consumer (historical):** DungeonMindBuddy PR #689 held at dogfood gate; reviewed head at dispatch `d550e877820fcb0de125a949013672c06e5e398c`  
 **Primary implementation repository:** `Drakosfire/DungeonMind`  
 **Suggested branch:** `recovery/eldyrwild-world-authority-v1`  
 **Suggested PR title:** `RECOVERY: restore durable Eldyrwild World authority`
+
+> Recovery and the blocked consumer are complete. This record does **not** mark Stage 1 / STOP 1 complete. STOP 1 remains the assembled DEMO-R1 dogfood close.
 
 > This is a recovery operation, not a new migration and not a Buddy graph-storage feature. DungeonMind remains the sole owner of living World Graph persistence and publication. Buddy remains a controlled consumer.
 
@@ -773,7 +778,7 @@ Record:
 12. bounded-discovery paths, if any;
 13. baseline failures/waivers;
 14. all STOP conditions encountered and disposition;
-15. what remains false: remote hosting/HA, generalized recovery, unrelated historical artifact recovery, #689 merge/STOP 1 completion.
+15. what remains false: remote hosting/HA, generalized recovery, unrelated historical artifact recovery, STOP 1 completion. #689 merge is no longer remaining-false.
 
 ---
 

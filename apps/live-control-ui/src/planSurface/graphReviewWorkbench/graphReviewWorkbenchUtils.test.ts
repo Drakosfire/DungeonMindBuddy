@@ -9,6 +9,8 @@ import {
   buildGraphReviewCatalog,
   catalogSessionLabel,
   formatCompactAppliedLoadLabel,
+  formatHumanExactRunLoadLabel,
+  formatMachineExactRunScopeLabel,
   goldSessionToLane,
   graphIngestRunToLane,
   isCatalogRunExactReviewable,
@@ -200,6 +202,21 @@ describe("graphReviewWorkbenchUtils", () => {
     expect(catalogSessionLabel(catalog[0])).toBe("Session 2");
   });
 
+  it("formats human load labels without repeating machine session ids", () => {
+    expect(
+      formatHumanExactRunLoadLabel({
+        campaignId: "longmont-c1",
+        sessionId: "session-17",
+      }),
+    ).toBe("Session 17 · Longmont C1");
+    expect(
+      formatMachineExactRunScopeLabel({
+        campaignId: "longmont-c1",
+        sessionId: "session-17",
+      }),
+    ).toBe("campaign longmont-c1 · session session-17");
+  });
+
   it("formats compact applied load labels without run pipeline metadata", () => {
     const catalog = buildGraphReviewCatalog([
       extractionRun({
@@ -208,7 +225,7 @@ describe("graphReviewWorkbenchUtils", () => {
         run_id: "er_s1",
       }),
     ]);
-    expect(formatCompactAppliedLoadLabel(catalog[0])).toBe("Session 1 · longmont-c1");
+    expect(formatCompactAppliedLoadLabel(catalog[0])).toBe("Session 1 · Longmont C1");
   });
 
   it("returns null compatibilityManifestPath when multiple gold locators match the same run_id", () => {
