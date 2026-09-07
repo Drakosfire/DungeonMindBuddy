@@ -883,6 +883,16 @@ export function GraphReviewWorkbenchModule({
         ? "Worldbuilding ExtractionRuns are inspect-only until an approved authority-elevation contract lands."
         : null
     );
+  const exactRunInspectOnlyReason =
+    exactRun
+    && !exactRunPromotable
+    && !exactRunFirstWorldEligible
+    && (exactRunReviewable || isCatalogRunHistoricalRecapInspectable(exactRun))
+      ? (
+        exactRunNonPromotableReason
+        ?? "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge."
+      )
+      : null;
   const exactRunSummary =
     exactRun
       ? {
@@ -897,6 +907,9 @@ export function GraphReviewWorkbenchModule({
           revision: exactLineage?.revision ?? null,
           reviewable: exactRunReviewable,
           promotable: exactRunPromotable,
+          worldId: historicalRecapProjection?.worldId ?? null,
+          graphId: historicalRecapProjection?.graphId ?? null,
+          inspectOnlyReason: exactRunInspectOnlyReason,
         }
       : null;
 
@@ -1195,10 +1208,6 @@ function GraphReviewExactRunBranch(props: {
       className="graph-review-exact-run-panel"
       data-testid="graph-review-exact-run-panel"
     >
-      <p>
-        Bound to exact ExtractionRun <code>{props.exactRun.run_id}</code>. Prepare uses
-        runId-only server resolution; no latest-run fallback.
-      </p>
       {props.exactReviewStatus === "loading" ? (
         <p className="plan-projection-empty">Loading source evidence…</p>
       ) : null}
@@ -1256,12 +1265,7 @@ function GraphReviewExactRunBranch(props: {
             onCatalogRefresh={props.onCatalogRefresh}
           />
         )
-      ) : !props.exactRunPromotable ? (
-        <p data-testid="graph-review-exact-run-not-promotable">
-          {props.exactRunNonPromotableReason
-            ?? "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge."}
-        </p>
-      ) : props.exactReviewStatus === "error" ? null : (
+      ) : !props.exactRunPromotable ? null : props.exactReviewStatus === "error" ? null : (
         <GraphReviewExactRunPromoteChrome
           exactPreparing={props.exactPreparing}
           exactConfirmInFlight={props.exactConfirmInFlight}

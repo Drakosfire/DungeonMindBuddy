@@ -42,26 +42,6 @@ export function GraphReviewHistoricalRecapProjection({
       className="graph-review-historical-recap-projection"
       data-testid="graph-review-historical-recap-projection"
     >
-      <p
-        className="graph-review-historical-recap-meta"
-        data-testid="graph-review-historical-recap-meta"
-      >
-        <code>{projection.sourceArtifactId}</code>
-        {" · "}
-        {projection.campaignId}
-        {" · "}
-        {projection.sessionId}
-        {" · "}
-        status <code>{projection.runStatus}</code>
-        {" · World "}
-        <code>{projection.worldId}</code>
-        {" · graph "}
-        <code>{projection.graphId}</code>
-      </p>
-      <p className="recap-reader-hint">
-        Exact durable recap text projected onto the current World snapshot. Graph pills resolve
-        current World identities; this view is read-only and does not promote the run.
-      </p>
       <div className={`recap-reader-layout${activeNodeView ? " graph-explorer-open" : ""}`}>
         <GraphProjectionReader
           markdown={projection.markdown}
@@ -70,7 +50,6 @@ export function GraphReviewHistoricalRecapProjection({
           graphId={projection.graphId}
           showGraphId={false}
           documentLabel="Historical recap"
-          subtitle={`${projection.campaignId} · ${projection.sessionId}`}
           resetKey={`${projection.runId}:${projection.sourceRevisionId}:${projection.graphId}`}
           onInspectNode={handleInspectNode}
           onActiveNodeChange={setActiveNodeId}
