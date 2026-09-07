@@ -89,6 +89,8 @@ At a STOP:
 
 ## Stage 1 — Historical recap inspect without promotion
 
+**Active implementation (DEMO-R1):** [`HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md) (PR #689, in review). Supersedes the paused PR #688 / inspection-only handoff. STOP 1 remains closed until post-merge assembled dogfood — do not mark Stage 1 complete.
+
 ### Human outcome
 
 A user can choose an existing C1/C2 historical session/run and **read the actual recap comfortably**, even when the historical run is `validated` or `prepared` and is not promotable.

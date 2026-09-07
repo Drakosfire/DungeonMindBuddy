@@ -12,6 +12,7 @@ import {
   goldSessionToLane,
   graphIngestRunToLane,
   isCatalogRunExactReviewable,
+  isCatalogRunHistoricalRecapInspectable,
   isCatalogRunPromotedHistory,
   isSelectedCatalogRunMissing,
   pickDefaultCatalogSession,
@@ -248,10 +249,17 @@ describe("graphReviewWorkbenchUtils", () => {
   it("classifies reviewable vs promoted catalog run statuses", () => {
     const reviewable = extractionRun({ status: "reviewable" });
     const promoted = extractionRun({ status: "promoted" });
+    const validated = extractionRun({ status: "validated" });
+    const prepared = extractionRun({ status: "prepared" });
     expect(isCatalogRunExactReviewable(reviewable)).toBe(true);
     expect(isCatalogRunExactReviewable(promoted)).toBe(false);
+    expect(isCatalogRunExactReviewable(validated)).toBe(false);
     expect(isCatalogRunPromotedHistory(promoted)).toBe(true);
     expect(isCatalogRunPromotedHistory(reviewable)).toBe(false);
+    expect(isCatalogRunHistoricalRecapInspectable(validated)).toBe(true);
+    expect(isCatalogRunHistoricalRecapInspectable(prepared)).toBe(true);
+    expect(isCatalogRunHistoricalRecapInspectable(promoted)).toBe(false);
+    expect(isCatalogRunHistoricalRecapInspectable(reviewable)).toBe(false);
   });
 
   it("selected-run missing only after READY/EMPTY authoritative catalog", () => {

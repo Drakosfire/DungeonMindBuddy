@@ -8,6 +8,7 @@ import * as liveApi from "../../api/liveApi";
 import type {
   ExtractPromoteConfirmReceipt,
   ExactRunReviewPackage,
+  HistoricalRecapWorldProjectionResponse,
   WorldGraphProjection,
 } from "../../api/types";
 import * as agentInteractionProvider from "../../agentInteraction/AgentInteractionProvider";
@@ -53,6 +54,67 @@ function canonicalRun(overrides: Partial<ExtractionRunRecord> = {}): ExtractionR
     status: "reviewable",
     campaign_id: "longmont-c2",
     session_id: "session-23",
+    ...overrides,
+  };
+}
+
+function historicalProjection(
+  overrides: Partial<HistoricalRecapWorldProjectionResponse> = {},
+): HistoricalRecapWorldProjectionResponse {
+  return {
+    schema: "dmb_historical_recap_world_projection_v1",
+    runId: "er_validated",
+    runStatus: "validated",
+    sourceDomain: "recap",
+    sourceArtifactId: "sa_1",
+    sourceRevisionId: "source-revision-1",
+    campaignId: "longmont-c2",
+    sessionId: "session-23",
+    worldId: "eldyrwild",
+    sourceSha256: "sha256:abc",
+    sourceStatus: "available",
+    graphStatus: "available",
+    graphId: "world-revision-1",
+    snapshot: {
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      revisionId: "world-revision-1",
+      headRevisionId: "world-revision-1",
+      isHead: true,
+      focus: { kind: "session", sessionId: "session-23", campaignId: "longmont-c2" },
+      admissibility: "gm",
+      scopeMode: "campaign",
+    },
+    markdown: "# Heading\n\n[Bonogo](dmb-node:node-1) arrives.\n",
+    focus: {
+      focusSessionId: "session-23",
+      focusedEvidenceRefIds: [],
+      focusedEdgeIds: [],
+      focusedNodeIds: ["node-1"],
+    },
+    nodeViews: {
+      "node-1": {
+        nodeId: "node-1",
+        label: "Bonogo",
+        kind: "npc",
+        role: "character",
+        aliases: [],
+        sourceDomains: [],
+        anchoredToFocusSession: true,
+        evidenceBadges: [],
+        adjacency: [],
+        suggestedExpansions: [],
+        evidenceRefIds: [],
+        sourceArtifactIds: [],
+      },
+    },
+    mentions: [],
+    sourceSpans: [],
+    diagnostics: [],
+    trustBoundary: {
+      canTrust: ["current World snapshot"],
+      cannotTrust: ["historical identity"],
+    },
     ...overrides,
   };
 }
@@ -750,6 +812,123 @@ describe("GraphReviewWorkbenchModule", () => {
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(screen.queryByTestId("graph-review-exact-run-source-prose")).not.toBeInTheDocument();
+  });
+
+  it("loads validated recap through durable World projection, not review package", async () => {
+    const user = userEvent.setup();
+    const validated = canonicalRun({ status: "validated", run_id: "er_validated" });
+    const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
+    const projectionSpy = vi
+      .spyOn(liveApi, "getHistoricalRecapWorldProjection")
+      .mockResolvedValue(
+        historicalProjection({
+          markdown: "# Heading\n\n[Bonogo](dmb-node:node-1) arrives.\n",
+        }),
+      );
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_validated",
+    );
+    renderWorkbench([validated]);
+
+    await waitFor(
+      () => {
+        expect(projectionSpy).toHaveBeenCalledWith("er_validated");
+        expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
+          "validated",
+        );
+        expect(document.body.textContent).toMatch(/Heading/);
+        expect(document.body.textContent).toMatch(/Bonogo/);
+      },
+      { timeout: 3000 },
+    );
+    expect(reviewPackageSpy).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("graph-review-exact-run-unreviewable")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
+
+    const bonogoPill = await screen.findByRole("button", { name: "Bonogo" });
+    expect(bonogoPill).toHaveAttribute("data-graph-node-id", "node-1");
+    await user.click(bonogoPill);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Bonogo graph object")).toBeInTheDocument();
+  });
+
+  it("loads exact-handoff validated recap through historical projection without review package", async () => {
+    const validated = canonicalRun({ status: "validated", run_id: "er_handoff_validated" });
+    const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
+    const projectionSpy = vi
+      .spyOn(liveApi, "getHistoricalRecapWorldProjection")
+      .mockResolvedValue(
+        historicalProjection({
+          runId: "er_handoff_validated",
+          runStatus: "validated",
+          markdown: "# Handoff recap\n\n[Bonogo](dmb-node:node-1) arrives.\n",
+        }),
+      );
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?extractionRunId=er_handoff_validated&sourceArtifactId=sa_1",
+    );
+    renderWorkbench([]);
+
+    await waitFor(
+      () => {
+        expect(projectionSpy).toHaveBeenCalledWith("er_handoff_validated");
+        expect(screen.getByTestId("graph-review-historical-recap-projection")).toBeInTheDocument();
+        expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
+          "validated",
+        );
+        expect(document.body.textContent).toMatch(/Handoff recap/);
+      },
+      { timeout: 3000 },
+    );
+    expect(reviewPackageSpy).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
+  });
+
+  it("shows unavailable historical recap without sibling fallback", async () => {
+    const validated = canonicalRun({ status: "validated", run_id: "er_missing_source" });
+    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockRejectedValue(
+      new Error("exact historical source is not adopted into APP-STATE"),
+    );
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_missing_source",
+    );
+    renderWorkbench([validated]);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-historical-recap-unavailable")).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+  });
+
+  it("rejects mismatched historical recap projection identity", async () => {
+    const validated = canonicalRun({ status: "prepared", run_id: "er_prepared" });
+    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockResolvedValue(
+      historicalProjection({
+        runId: "er_other",
+        runStatus: "prepared",
+        markdown: "# Wrong identity\n",
+      }),
+    );
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_prepared",
+    );
+    renderWorkbench([validated]);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-historical-recap-error")).toBeInTheDocument(),
+    );
   });
 });
 

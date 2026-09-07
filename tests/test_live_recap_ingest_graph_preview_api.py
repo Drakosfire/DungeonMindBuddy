@@ -891,3 +891,102 @@ def test_real_recap_manifest_adapts_to_extraction_run(
         mapped = run.components[mapped_key]
         assert mapped.uri == artifact.uri
         assert mapped.sha256 == artifact.sha256
+
+
+@pytest.fixture
+def recap_inspection_client(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str
+) -> TestClient:
+    monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_run_registry.repo_root",
+        lambda: tmp_path,
+        raising=False,
+    )
+    return TestClient(create_app())
+
+
+def test_recap_inspection_route_returns_validated_source(
+    recap_inspection_client: TestClient, tmp_path: Path
+) -> None:
+    from tests.test_graph_run_registry import _validated_recap_run
+
+    run, _artifact, _source_path = _validated_recap_run(tmp_path)
+    response = recap_inspection_client.get(
+        f"/api/live/graph-preview/extraction-runs/{run.run_id}/recap-inspection"
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema"] == "dmb_historical_recap_inspection_v1"
+    assert body["runId"] == run.run_id
+    assert body["runStatus"] == "validated"
+    assert body["sourceStatus"] == "available"
+    assert "Session Recap" in (body.get("sourceProse") or "")
+
+
+def test_recap_inspection_route_reads_durable_source_when_file_missing(
+    recap_inspection_client: TestClient, tmp_path: Path
+) -> None:
+    from tests.test_graph_run_registry import _validated_recap_run
+
+    run, _artifact, source_path = _validated_recap_run(tmp_path)
+    source_path.unlink()
+    response = recap_inspection_client.get(
+        f"/api/live/graph-preview/extraction-runs/{run.run_id}/recap-inspection"
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["sourceStatus"] == "available"
+    assert "Session Recap" in (body.get("sourceProse") or "")
+
+
+def test_recap_inspection_route_unknown_run_404(recap_inspection_client: TestClient) -> None:
+    response = recap_inspection_client.get(
+        "/api/live/graph-preview/extraction-runs/not-a-real-run/recap-inspection"
+    )
+    assert response.status_code == 404
+
+
+def test_recap_inspection_route_rejects_worldbuilding(
+    recap_inspection_client: TestClient, tmp_path: Path
+) -> None:
+    from apps.live_control_server.services.graph_run_registry import create_extraction_run
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_source_artifact_from_workspace_document,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        create_workspace_document,
+        mark_workspace_document_committed,
+    )
+
+    record = create_workspace_document(
+        tmp_path,
+        title="Lore",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    committed = mark_workspace_document_committed(
+        tmp_path, record.document_id, expected_revision=1
+    )
+    target = tmp_path / committed.target_relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# Lore\n\nBody.\n", encoding="utf-8")
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=committed.document_id,
+        expected_revision=committed.revision,
+    )
+    run = create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+    )
+    response = recap_inspection_client.get(
+        f"/api/live/graph-preview/extraction-runs/{run.run_id}/recap-inspection"
+    )
+    assert response.status_code == 422
+    assert "not applicable" in response.json()["detail"]

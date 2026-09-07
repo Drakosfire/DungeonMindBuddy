@@ -75,9 +75,9 @@ def _model_valid_terminal_run(status: ExtractionRunStatus) -> ExtractionRun:
     return _run(**extras)
 
 
-def test_alembic_head_is_ingest_0005(application_state_dsn: str) -> None:
+def test_alembic_head_is_source_0006(application_state_dsn: str) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20260902_0005"
+    assert current == head == "20260906_0006"
 
 
 @pytest.mark.parametrize(

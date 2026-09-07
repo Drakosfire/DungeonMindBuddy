@@ -59,6 +59,7 @@ export interface GraphReviewCatalogSession {
 /** Statuses that may use the existing exact-review / promote resolver seam. */
 const EXACT_REVIEWABLE_STATUSES = new Set(["reviewable"]);
 const DEFAULT_PROMOTABLE_STATUSES = new Set(["reviewable"]);
+const HISTORICAL_RECAP_INSPECTION_STATUSES = new Set(["validated", "prepared"]);
 
 export function catalogRunStatus(run: ExtractionRunRecord): string {
   return (run.status ?? "").trim().toLowerCase();
@@ -83,6 +84,16 @@ export function isCatalogRunDefaultCandidate(run: ExtractionRunRecord): boolean 
 
 export function isCatalogRunPromotedHistory(run: ExtractionRunRecord): boolean {
   return catalogRunStatus(run) === "promoted";
+}
+
+/** Non-reviewable recap history readable through the recap-inspection read seam. */
+export function isCatalogRunHistoricalRecapInspectable(
+  run: ExtractionRunRecord,
+): boolean {
+  return (
+    isRecapCatalogRun(run)
+    && HISTORICAL_RECAP_INSPECTION_STATUSES.has(catalogRunStatus(run))
+  );
 }
 
 /**

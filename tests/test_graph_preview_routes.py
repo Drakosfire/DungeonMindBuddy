@@ -37,6 +37,18 @@ def client(
     return TestClient(create_app())
 
 
+def test_historical_recap_projection_rejects_query_selectors(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/api/live/graph-preview/extraction-runs/exact-run/recap-projection"
+        "?session_id=session-99"
+    )
+
+    assert response.status_code == 422
+    assert "does not accept query parameters" in str(response.json()["detail"])
+
+
 class _FixtureCategoryClient:
     """Deterministic category-pass client for Build launch route proofs."""
 

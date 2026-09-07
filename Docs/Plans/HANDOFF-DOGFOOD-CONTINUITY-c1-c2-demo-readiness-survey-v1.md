@@ -19,7 +19,7 @@ pr_body_template: |
 # HANDOFF — C1/C2 Demo Readiness Survey v1
 
 **Created:** 2026-09-06  
-**Status:** ACTIVE — steward-designated reconnaissance slice  
+**Status:** DONE — merged PR #687 @ `823d9d4121c4534be64bf3de620b24446b2b18ab` (accepted head `29e4e2af`, 3 review cycles)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / DFC-3`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
