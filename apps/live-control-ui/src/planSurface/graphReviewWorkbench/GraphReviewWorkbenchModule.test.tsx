@@ -925,6 +925,55 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
   });
 
+  it("lets exact-run handoff win Advanced details over a stale persisted catalog run", async () => {
+    const staleCatalog = canonicalRun({ status: "validated", run_id: "er_stale_catalog" });
+    const handoffRun = canonicalRun({
+      status: "validated",
+      run_id: "er_handoff_b",
+      source_artifact_id: "sa_handoff",
+      campaign_id: "longmont-c1",
+      session_id: "session-17",
+    });
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(handoffRun);
+    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockImplementation(async (runId) => {
+      if (runId === "er_stale_catalog") {
+        return historicalProjection({
+          runId: "er_stale_catalog",
+          markdown: "# Stale catalog recap A\n",
+        });
+      }
+      return historicalProjection({
+        runId: "er_handoff_b",
+        sourceArtifactId: "sa_handoff",
+        campaignId: "longmont-c1",
+        sessionId: "session-17",
+        markdown: "# Handoff recap B\n",
+      });
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_stale_catalog&extractionRunId=er_handoff_b&sourceArtifactId=sa_handoff",
+    );
+    renderWorkbench([staleCatalog]);
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent(
+          "er_handoff_b",
+        );
+        expect(document.body.textContent).toMatch(/Handoff recap B/);
+      },
+      { timeout: 3000 },
+    );
+    expect(screen.getByTestId("graph-review-exact-run-banner")).not.toHaveTextContent(
+      "er_stale_catalog",
+    );
+    expect(document.body.textContent).not.toMatch(/Stale catalog recap A/);
+    expect(screen.getByText("Session 17 · Longmont C1")).toBeInTheDocument();
+    expect(screen.queryByText("Session 23 · Longmont C2")).not.toBeInTheDocument();
+  });
+
   it("shows unavailable historical recap without sibling fallback", async () => {
     const validated = canonicalRun({ status: "validated", run_id: "er_missing_source" });
     vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockRejectedValue(

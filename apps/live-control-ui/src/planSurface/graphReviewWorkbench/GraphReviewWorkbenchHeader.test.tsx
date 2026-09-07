@@ -68,5 +68,38 @@ describe("GraphReviewWorkbenchHeader", () => {
       "campaign longmont-c1 · session session-17",
     );
   });
+
+  it("uses exact-run identity over a stale catalog session label", () => {
+    render(
+      <GraphReviewWorkbenchHeader
+        loaded
+        sessionLabel="Session 23 · Longmont C2"
+        onOpenLoad={vi.fn()}
+        exactRun={{
+          extractionRunId: "er_handoff_b",
+          sourceDomain: "recap",
+          status: "validated",
+          sourceArtifactId: "sa_handoff",
+          profileId: null,
+          campaignId: "longmont-c1",
+          sessionId: "session-17",
+          documentId: null,
+          revision: null,
+          reviewable: false,
+          readOnly: true,
+          worldId: "eldyrwild",
+          graphId: "rev:abc",
+          inspectOnlyReason: "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge.",
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Session 17 · Longmont C1")).toBeInTheDocument();
+    expect(screen.queryByText("Session 23 · Longmont C2")).not.toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent("er_handoff_b");
+    expect(screen.getByTestId("graph-review-exact-run-banner")).not.toHaveTextContent(
+      "er_stale_catalog",
+    );
+  });
 });
 

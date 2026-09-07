@@ -36,13 +36,13 @@ This handoff was missing on Review Cycle 1 head `850c647c81fc942c196f7326f2f11c4
 
 **Mission:** A GM can load a historical recap from Graph Review and read it as a document, with session identity once and ingest/run provenance collapsed behind Advanced details.
 
-**Merge-ready invariant:** Ordinary catalog `Load recap` and exact-run handoff both keep ingest identity available behind Advanced details; they do not delete it. Read-only chrome follows inspect-only / non-promotable actions, not `status !== reviewable`.
+**Merge-ready invariant:** Ordinary catalog `Load recap` and exact-run handoff both keep ingest identity available behind Advanced details; they do not delete it. When both are present, exact-run handoff wins presentation identity. Read-only chrome follows inspect-only / non-promotable actions, not `status !== reviewable`. First-world-publish-eligible runs are not labeled Read-only.
 
 ### Pre-dispatch critique
 
 | Question | Answer |
 |---|---|
-| Can one invariant govern every claimed observable path? | Yes — loaded recap chrome is owned by the applied catalog run when present, else the exact-run handoff. |
+| Can one invariant govern every claimed observable path? | Yes — exact-run handoff wins presentation identity when present; otherwise loaded recap chrome is owned by the applied catalog run. |
 | Most likely adversarial sequence | `handleApplyLoad()` clears exact-run handoff; chrome that keys only on `exactRun` vanishes. |
 | Will §7 actually detect that failure? | Yes — Load-dialog validated recap must keep `graph-review-historical-recap-meta`, Advanced details, and Read-only. |
 | Easiest owning boundary to under-test | Catalog Load vs URL-restored exact-run. |
@@ -62,20 +62,23 @@ This handoff was missing on Review Cycle 1 head `850c647c81fc942c196f7326f2f11c4
 | Branch / isolated checkout | `dogfood-continuity/graph-review-ingest-chrome` on Buddy product checkout |
 | Parallel lanes / collision hotspots | Graph Review workbench files were #689’s lease; #689 is merged so this lane may take them |
 | Runtime/state ownership | UI-only; no APP-STATE / World writes |
-| State-authority sync set after merge | This handoff records predecessor #689. Roadmaps/STEWARDS-ANCHOR/projection+inspection handoffs travel in this PR. STOP 1 stays open. |
+| State-authority sync set after merge | This handoff records predecessor #689 and WR1 completion. Roadmaps/STEWARDS-ANCHOR/projection+inspection handoffs travel in this PR. STOP 1 stays open. |
 
 ## §3 Observable paths and adversarial sequences
 
-| Path | Current behavior (Cycle 1 head) | Required behavior | Same §1 invariant? | Owning boundary |
+| Path | Current behavior (Cycle 2 head) | Required behavior | Same §1 invariant? | Owning boundary |
 |---|---|---|---:|---|
-| Catalog Load validated recap | Chrome keyed on `exactRun`; Load clears handoff | Chrome keyed on applied catalog run | Yes | `GraphReviewWorkbenchModule` + header |
+| Catalog Load validated recap | Chrome keyed on applied catalog run | Unchanged | Yes | `GraphReviewWorkbenchModule` + header |
 | Exact-run handoff validated recap | Advanced details from `exactRun` | Unchanged, still collapsed | Yes | header |
-| Worldbuilding reviewable inspect-only | No Read-only chip (`!reviewable`) | Read-only when not promotable | Yes | header `readOnly` |
+| Exact handoff + stale persisted catalog | `loadedRun = appliedLiveRun ?? exactRun` can show run A details for run B | Exact handoff wins presentation identity | Yes | `loadedRun = exactRun ?? appliedLiveRun` |
+| Worldbuilding reviewable inspect-only | Read-only chip | Unchanged | Yes | header `readOnly` |
+| First-world-publish-eligible worldbuilding | Read-only chip while Create World Graph is shown | No Read-only; first-world sheet unchanged | Yes | `loadedReadOnly` excludes first-world |
 | Promotable recap | No chip | No chip | Yes | header |
 
 | Sequence | Required safe outcome | Owning §7 proof |
 |---|---|---|
 | Load recap → `handleApplyLoad` clears `exactHandoff`/`exactRun` | Applied catalog run still supplies Advanced details + Read-only | Load-dialog validated recap test |
+| Persisted catalog run A + `extractionRunId=B` | Advanced details and compact label describe B | Stale-catalog vs exact-handoff test |
 
 ## §4 Files in scope — write lease
 
@@ -84,6 +87,7 @@ This handoff was missing on Review Cycle 1 head `850c647c81fc942c196f7326f2f11c4
 | Create | `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-graph-review-loaded-recap-chrome-v1.md` | This review contract |
 | Modify | `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-projection-v1.md` | Predecessor #689 MERGED |
 | Modify | `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-historical-recap-inspection-v1.md` | Predecessor successor note |
+| Modify | `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-eldyrwild-world-authority-recovery-v1.md` | WR1 / #689 unblocked COMPLETE; STOP 1 stays open |
 | Modify | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` | #689 no longer “in review” |
 | Modify | `Docs/Roadmaps/ROADMAP-con-ready.md` | #689 MERGED; #690 active chrome |
 | Modify | `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md` | DEMO-R1 predecessor vs current chrome |
@@ -119,7 +123,8 @@ Output:
   Advanced details: run id, source, status, machine scope, inspect-only copy
 
 Invariant:
-  catalog Load does not delete provenance; Read-only follows !promotable
+  catalog Load does not delete provenance; exact handoff wins identity when present;
+  Read-only follows !promotable except first-world-publish-eligible
 
 Failure behavior:
   missing projection → recap error stays visible; chrome still names the loaded run
@@ -139,16 +144,19 @@ Failure behavior:
 |---|---|---|---|---|
 | Historical projection 200 | `worldId` / `graphId` optional until ready | Advanced details always; World/graph when present | Header meta line | Module tests |
 | `validated`/`prepared` recap | inspect-only | Read-only chip | `!promotable` | Load-dialog test |
-| Worldbuilding reviewable | inspect-only / optional first-world | Read-only chip; first-world sheet unchanged | `source_domain === worldbuilding` ⇒ not promotable | GenericRun test |
+| Worldbuilding reviewable | inspect-only / optional first-world | Read-only unless first-world eligible | `source_domain === worldbuilding` ⇒ not promotable; first-world suppresses chip | GenericRun test |
 
 ## §7 Evidence required to merge
 
 | Guarantee / invariant clause | Owning boundary | Evidence class | Command or manual scenario | Expected evidence | Stop condition |
 |---|---|---|---|---|---|
 | Catalog Load keeps collapsed provenance | Graph Review module | regression | §7 command | Advanced details + historical-recap-meta + Read-only | meta missing after Load |
+| Exact handoff wins over stale catalog | Graph Review module | regression | §7 command | Advanced details show run B, not persisted A | banner shows catalog A |
 | Worldbuilding inspect-only is Read-only | GenericRun + header | regression | §7 command | Read-only chip present | chip absent on reviewable worldbuilding |
+| First-world eligible is not Read-only | GenericRun | regression | §7 command | Create World Graph present; Read-only absent | chip on first-world sheet |
 | Promotable recap has no Read-only chip | existing reviewable Load tests | regression | §7 command | no Read-only on `er_run_a` | chip on promotable run |
 | Predecessor #689 recorded merged | roadmaps + handoffs | authority | diff of Docs/ | no “#689, in review” | leftover in-review claim |
+| WR1 no longer blocks #689 | WR1 handoff | authority | diff of Docs/ | WR1 status COMPLETE; #689 MERGED | leftover “ACTIVE — blocks #689” |
 
 Exact verification commands:
 
@@ -180,22 +188,24 @@ Not applicable — no required baseline failure on this UI-only slice.
 Record:
 
 1. Review Cycle 1 on `850c647c81fc942c196f7326f2f11c4c9a380d84` = REQUEST CHANGES (`5134948769`).
-2. §1 disposition after this head: catalog Load owns chrome; Read-only follows `!promotable`.
-3. §7 command rerun on the new head.
-4. Nano-commit: Cycle 1 repair (Load-path chrome + Read-only semantics + HANDOFF/authority sync).
-5. Changed paths vs §4.
-6. No baseline waiver.
-7. Paths outside §4: none.
-8. STOP 1 remains open.
-9. Successor still false: durable APP-STATE, remaining sessions, STOP 1 close.
-10. P1 Load-path, P1 HANDOFF, P2 Read-only.
+2. Review Cycle 2 on `cb0671c8484b1a92e81a6198ba63f45bbce373cb` = REQUEST CHANGES (`5135039869`).
+3. §1 disposition after this head: exact handoff wins presentation identity; first-world eligible is not Read-only; WR1 recorded COMPLETE.
+4. §7 command rerun on the new head.
+5. Nano-commit: Cycle 2 repair (exact-handoff identity + first-world Read-only + WR1 completion sync).
+6. Changed paths vs §4.
+7. No baseline waiver.
+8. Paths outside §4: none.
+9. STOP 1 remains open.
+10. Successor still false: durable APP-STATE, remaining sessions, STOP 1 close.
+11. P1 exact-handoff precedence, P1 WR1 sync, P2 first-world chip.
 
 ## §9 Acceptance rubric
 
 - [ ] Exactly one independently useful capability from §1 is delivered and proved by §7.
 - [ ] Ordinary Load recap keeps Advanced details.
-- [ ] Read-only follows inspect-only / non-promotable actions.
-- [ ] Predecessor #689 is recorded MERGED; STOP 1 is not marked complete.
+- [ ] Exact-run handoff wins presentation identity over a stale persisted catalog selection.
+- [ ] Read-only follows inspect-only / non-promotable actions; first-world eligible is not Read-only.
+- [ ] Predecessor #689 is recorded MERGED; WR1 no longer claims to block #689; STOP 1 is not marked complete.
 - [ ] Actual changed paths stay inside §4.
 - [ ] Named successor remains unimplemented/unclaimed.
 

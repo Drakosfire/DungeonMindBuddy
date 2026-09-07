@@ -883,16 +883,20 @@ export function GraphReviewWorkbenchModule({
         ? "Worldbuilding ExtractionRuns are inspect-only until an approved authority-elevation contract lands."
         : null
     );
-  // Catalog Load is the owning recap path. Handoff exactRun is fallback when no
-  // applied catalog run exists. Do not wait for exact-run mode to render chrome.
-  const loadedRun = appliedLiveRun?.run ?? exactRun ?? null;
+  // Exact-run handoff wins presentation identity over a stale persisted catalog
+  // selection. Catalog Load still fills chrome from appliedLiveRun when there is
+  // no exactRun (including the brief window after handleApplyLoad clears handoff).
+  const loadedRun = exactRun ?? appliedLiveRun?.run ?? null;
   const loadedReviewable = loadedRun?.status === "reviewable";
   const loadedWorldbuilding = (loadedRun?.source_domain ?? "").trim() === "worldbuilding";
   const loadedPromotable =
     loadedReviewable
     && exactReview?.promotable !== false
     && !loadedWorldbuilding;
-  const loadedReadOnly = Boolean(loadedRun) && !loadedPromotable;
+  const loadedReadOnly =
+    Boolean(loadedRun)
+    && !loadedPromotable
+    && !exactRunFirstWorldEligible;
   const loadedInspectOnlyReason =
     loadedRun
     && loadedReadOnly

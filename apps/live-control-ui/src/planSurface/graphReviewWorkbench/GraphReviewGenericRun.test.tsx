@@ -394,6 +394,7 @@ describe("GraphReviewGenericRun", () => {
     });
     expect(screen.getByText(/The Glass Orchard/i)).toBeInTheDocument();
     expect(screen.getByTestId("graph-review-first-world-create-cta")).toBeInTheDocument();
+    expect(screen.queryByText("Read-only")).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-exact-run-not-promotable")).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
     expect(prepare).not.toHaveBeenCalled();

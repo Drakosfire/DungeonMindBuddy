@@ -45,11 +45,10 @@ export function GraphReviewWorkbenchHeader({
       })
     : null;
   const compactLabel = exactRun
-    ? (sessionLabel
-      ?? formatHumanExactRunLoadLabel({
+    ? formatHumanExactRunLoadLabel({
         campaignId: exactRun.campaignId,
         sessionId: exactRun.sessionId,
-      }))
+      })
     : loaded && sessionLabel
       ? sessionLabel
       : null;
