@@ -148,7 +148,7 @@ Stage 2 / STOP 2 OPEN
 Stage 5A MERGED + human dogfood PASS (#694 `df15db4c695240ce08b5812d43ca398cd70ff6ac`; accepted head `d82ac0c755ad3e7581fa7a023f9c2bb46df64337`; 2 review cycles)
 Stage 5B parked/conditional — do not auto-dispatch
 PR #695 provenance MERGED (`d2c4248b14397525fd996309e230e513a3662bb1`; accepted head `fe55824e1927a29b03e7c2660ba653c86aaf4a82`; 3 review cycles; Orik human dogfood PASS)
-CURRENT — Stage 2C broad exact source adoption v1 (not DONE)
+CURRENT — Stage 2C broad exact source adoption v1 (draft PR #696; Cycle 3 CODE PASS; live evidence recorded; not DONE)
 Stage 4 rich recap / graph-object usefulness
 Stage 7A Agent-on-Ingest
 ```
@@ -258,7 +258,7 @@ STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Sta
 
 **Predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-db-backed-graph-object-provenance-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-db-backed-graph-object-provenance-v1.md) — PR #695 **MERGED** (`d2c4248b14397525fd996309e230e513a3662bb1`; accepted head `fe55824e1927a29b03e7c2660ba653c86aaf4a82`; 3 review cycles). C2S25 Orik provenance from APP-STATE source bytes passed human dogfood; broader objects still lacked source prose.
 
-**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md) — adopt every exact recoverable C1/C2 source claim into durable APP-STATE. Does not close Stage 2 / STOP 2 or Stage 4. Do not pre-mark Stage 2C DONE.
+**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md) — adopt every exact recoverable C1/C2 source claim into durable APP-STATE. Cycle 3 CODE PASS on `310c2b83`; live coverage in [`../Reports/REPORT-stage-2c-broad-source-adoption.md`](../Reports/REPORT-stage-2c-broad-source-adoption.md). Does not close Stage 2 / STOP 2 or Stage 4. Do not pre-mark Stage 2C DONE.
 
 ### Human outcome
 

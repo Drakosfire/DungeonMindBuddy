@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 2C broad exact source adoption v1
 
 **Created:** 2026-09-08  
-**Status:** IMPLEMENTATION IN REVIEW — draft PR #696; Review Cycle 2 HOLD on `cff95f30f5d3c1b764bf8b11ee2a97e78bddeb09`; Cycle 3 missing-vs-concrete scope repair in progress
+**Status:** IMPLEMENTATION IN REVIEW — draft PR #696; Review Cycle 3 CODE PASS on `310c2b839b7f4b623aec5671be4330733ce1b9be` (review `5147030710`); live preview/apply/replay/restore/witness evidence on this head; Stage 2C not DONE; keep draft
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / durable source coverage`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
@@ -193,6 +193,37 @@ unknown                   → never invent campaign/session/world/domain
 ```
 
 Next distinct head is Review Cycle 3.
+
+---
+
+## §0D Review Cycle 3 CODE PASS / PR HOLD for live evidence
+
+Reviewed exact head:
+
+```text
+310c2b839b7f4b623aec5671be4330733ce1b9be
+```
+
+Review `5147030710`. Verdict: **CODE PASS / PR HOLD for live evidence**. Cycle 2 scope defect is closed (unknown vs concrete is not conflict; concrete sibling/existing scope may fill; concrete-vs-concrete still blocks; inverse C1-vs-C2 regression leaves source rows unchanged). The four Cycle 1 repairs remain intact. No new code-level blocker.
+
+Live operator sequence after that CODE PASS (this evidence head; not a merge claim):
+
+```text
+preview                         exit 0; blocked no
+source_target_set_sha256        d9cf1648247bb7e297a10f7dbc76333fbf6b67b1ce43de4788bcc3d1dc9043b5
+CURRENT_EXACT / ADOPTABLE       1 / 22
+UNAVAILABLE / UNSUPPORTED       8 / 58
+blocking conflicts              0
+pre-write fingerprint           c1d17b77a8d2fe885ed88ed72615e2fb0b2c5f9ab2d21c7d8608145e870ba168
+post-apply fingerprint            4592d8e5ec76c9583259c472af7c3a669d1cf6f2762b3154d35eb9969bedfea1
+source.artifact / revision       1 / 1  →  23 / 23
+replay                          newly_adopted 0; noop 23; fingerprint unchanged
+World head                      rev:680c246047d67f9fe0293ee90526f670 unchanged
+C2S25 UUID                      8ed1e034-23c6-4295-b2ff-05d5cdd643a9
+clean restore READY             identical fingerprint; 23/23 revision row-set
+```
+
+Coverage report: [`../Reports/REPORT-stage-2c-broad-source-adoption.md`](../Reports/REPORT-stage-2c-broad-source-adoption.md). Keep the PR a draft. Do not invent merge SHA, final review-cycle count, or Stage 2C DONE. Next formal review of this evidence head is Review Cycle 4.
 
 ---
 

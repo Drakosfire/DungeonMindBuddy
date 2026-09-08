@@ -54,7 +54,7 @@ STAGE 2 / STOP 2  OPEN
 STAGE 5A          MERGED + human dogfood PASS — PR #694 `df15db4c695240ce08b5812d43ca398cd70ff6ac`; accepted head `d82ac0c755ad3e7581fa7a023f9c2bb46df64337`; 2 review cycles
 STAGE 5B          PARKED / CONDITIONAL — do not auto-dispatch
 PROVENANCE / #695 MERGED — `d2c4248b14397525fd996309e230e513a3662bb1`; accepted head `fe55824e1927a29b03e7c2660ba653c86aaf4a82`; 3 review cycles; Orik PASS
-CURRENT           Stage 2C broad exact source adoption v1 — not DONE
+CURRENT           Stage 2C broad exact source adoption v1 — draft PR #696; Cycle 3 CODE PASS on 310c2b83; live evidence in REPORT-stage-2c; not DONE
 
 PLAY STRUCTURE
 BF1 / PR #628    DONE — Beat-first v2 grammar/index/manifest
