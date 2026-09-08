@@ -399,6 +399,10 @@ def _world_claims_from_rows(
     return claims
 
 
+def _blank(value: str | None) -> bool:
+    return value is None or not str(value).strip()
+
+
 def _canonical_domain(domain: str) -> str:
     cleaned = (domain or "").strip()
     return DOMAIN_ALIASES.get(cleaned, cleaned)
@@ -428,10 +432,13 @@ def _scopes_conflict(
     left: tuple[str, str | None, str | None, str | None],
     right: tuple[str, str | None, str | None, str | None],
 ) -> bool:
-    if left[0] != right[0] or left[1] != right[1] or left[2] != right[2]:
-        return True
-    if left[3] and right[3] and left[3] != right[3]:
-        return True
+    """Concrete A vs concrete B conflicts. Unknown vs concrete does not."""
+
+    for left_value, right_value in zip(left, right, strict=True):
+        if _blank(left_value) or _blank(right_value):
+            continue
+        if str(left_value).strip() != str(right_value).strip():
+            return True
     return False
 
 
@@ -443,6 +450,43 @@ def _has_conflicting_scopes(
             if _scopes_conflict(left, right):
                 return True
     return False
+
+
+def _merge_scopes(
+    scopes: Sequence[tuple[str, str | None, str | None, str | None]],
+) -> tuple[str, str | None, str | None, str | None]:
+    """Keep concrete values. Never invent from unknown/None observations."""
+
+    domain = ""
+    campaign_id: str | None = None
+    session_id: str | None = None
+    world_id: str | None = None
+    for source_domain, campaign, session, world in scopes:
+        canonical = _canonical_domain(source_domain)
+        if canonical and not domain:
+            domain = canonical
+        if not _blank(campaign) and campaign_id is None:
+            campaign_id = str(campaign).strip()
+        if not _blank(session) and session_id is None:
+            session_id = str(session).strip()
+        if not _blank(world) and world_id is None:
+            world_id = str(world).strip()
+    return (domain, campaign_id, session_id, world_id)
+
+
+def _with_resolved_scope(
+    target: DurableTarget,
+    merged: tuple[str, str | None, str | None, str | None],
+) -> DurableTarget:
+    domain, campaign_id, session_id, world_id = merged
+    return target.model_copy(
+        update={
+            "source_domain": domain or target.source_domain,
+            "campaign_id": campaign_id if not _blank(campaign_id) else target.campaign_id,
+            "session_id": session_id if not _blank(session_id) else target.session_id,
+            "world_id": world_id if not _blank(world_id) else target.world_id,
+        }
+    )
 
 
 def _existing_artifact_scopes(artifact_ids: Sequence[str]) -> dict[
@@ -484,30 +528,31 @@ def _preflight_artifact_scope_conflicts(
     existing = _existing_artifact_scopes(list(scopes_by_artifact))
     for artifact_id, scope in existing.items():
         scopes_by_artifact.setdefault(artifact_id, []).append(scope)
-    conflicted = {
-        artifact_id
-        for artifact_id, scopes in scopes_by_artifact.items()
-        if _has_conflicting_scopes(scopes)
-    }
-    if not conflicted:
-        return list(targets)
+    conflicted: set[str] = set()
+    resolved: dict[str, tuple[str, str | None, str | None, str | None]] = {}
+    for artifact_id, scopes in scopes_by_artifact.items():
+        if _has_conflicting_scopes(scopes):
+            conflicted.add(artifact_id)
+        else:
+            resolved[artifact_id] = _merge_scopes(scopes)
     marked: list[DurableTarget] = []
     for target in targets:
-        if target.source_artifact_id not in conflicted:
-            marked.append(target)
-            continue
-        marked.append(
-            target.model_copy(
-                update={
-                    "classification": "SCOPE_CONFLICT",
-                    "markdown": None,
-                    "identity_kind": "none",
-                    "reason": [
-                        "source artifact identity disagrees on domain/campaign/session/world"
-                    ],
-                }
+        if target.source_artifact_id in conflicted:
+            marked.append(
+                target.model_copy(
+                    update={
+                        "classification": "SCOPE_CONFLICT",
+                        "markdown": None,
+                        "identity_kind": "none",
+                        "reason": [
+                            "source artifact identity disagrees on domain/campaign/session/world"
+                        ],
+                    }
+                )
             )
-        )
+            continue
+        merged = resolved.get(target.source_artifact_id)
+        marked.append(_with_resolved_scope(target, merged) if merged else target)
     return marked
 
 
@@ -569,6 +614,15 @@ def classify_target(
                 "reason": ["source artifact identity disagrees on domain/campaign/session/world"],
             }
         )
+    merged_domain, campaign_id, session_id, world_id = _merge_scopes(scopes)
+    base = base.model_copy(
+        update={
+            "source_domain": merged_domain or primary.source_domain,
+            "campaign_id": campaign_id,
+            "session_id": session_id,
+            "world_id": world_id,
+        }
+    )
     if not digest:
         return base.model_copy(
             update={"reason": ["authoritative content digest is missing"]}

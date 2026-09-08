@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 2C broad exact source adoption v1
 
 **Created:** 2026-09-08  
-**Status:** IMPLEMENTATION IN REVIEW — draft PR #696; Review Cycle 1 HOLD on `cbf17638803dd23936f8d8bd0f30ac434eb8a43f`; Cycle 2 contract repair in progress
+**Status:** IMPLEMENTATION IN REVIEW — draft PR #696; Review Cycle 2 HOLD on `cff95f30f5d3c1b764bf8b11ee2a97e78bddeb09`; Cycle 3 missing-vs-concrete scope repair in progress
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / durable source coverage`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
@@ -172,6 +172,30 @@ This addendum amends the live operator contract below. It does not rewrite the o
 
 ---
 
+## §0C Review Cycle 2 HOLD — missing scope is incomplete, not conflict
+
+Reviewed exact head:
+
+```text
+cff95f30f5d3c1b764bf8b11ee2a97e78bddeb09
+```
+
+Review `5146866995`. Verdict: **HOLD — one correctness repair remains**. Cycle 1 blockers are closed. Keep the PR a draft. Do not run the live bulk apply until Cycle 3 has evaluated this repair.
+
+Remaining defect: `_scopes_conflict()` treated `None != longmont-c2` as `SCOPE_CONFLICT`. A World observation with `campaign=None` / `session=None` is incomplete authority metadata, not a contradictory identity. That can block the entire bulk adoption.
+
+Required distinction:
+
+```text
+concrete A vs concrete B  → SCOPE_CONFLICT (still blocks apply)
+unknown vs concrete       → incomplete, not conflict; use the concrete value
+unknown                   → never invent campaign/session/world/domain
+```
+
+Next distinct head is Review Cycle 3.
+
+---
+
 ## §1 Mission and merge-ready invariant
 
 ### Mission
@@ -305,8 +329,8 @@ DIGEST_MISMATCH
   located bytes do not hash to the authoritative expected digest; BLOCK apply
 
 SCOPE_CONFLICT
-  same artifact identity disagrees on source_domain/campaign/session/world scope;
-  BLOCK apply
+  same artifact identity has two concrete disagreeing domain/campaign/session/world
+  values; missing/None is incomplete, not conflict; BLOCK apply
 
 REVISION_ID_CONFLICT
   a known/requested Buddy source_revision_id is already bound to different state;
@@ -324,6 +348,8 @@ Therefore:
 
 - `UNAVAILABLE_BYTES`, `AUTHORITY_METADATA_INCOMPLETE`, and `UNSUPPORTED_MEDIA` are non-blocking skips.
 - any digest/scope/revision/APP-STATE conflict blocks the entire apply until understood.
+- unknown/None campaign, session, world, or domain vs a concrete sibling value is **not** `SCOPE_CONFLICT`; keep the concrete value and do not invent scope from the unknown observation.
+- two concrete disagreeing scope values still block apply.
 
 That is the accepted safety posture for “adopt away.”
 
@@ -622,7 +648,9 @@ Prove on disposable PostgreSQL:
 17. two exact digests of the same artifact with conflicting session/campaign => `SCOPE_CONFLICT` and apply writes 0;
 18. `source_target_set_sha256` is unchanged after `ADOPTABLE_EXACT` → `CURRENT_EXACT`;
 19. omitted/blank `--expected-world-head` is an apply input error with zero writes;
-20. a stale or mismatching first locator does not hide exact matching bytes at a later authoritative locator.
+20. a stale or mismatching first locator does not hide exact matching bytes at a later authoritative locator;
+21. World/incomplete `campaign=None`/`session=None` vs ingest concrete same artifact is `ADOPTABLE_EXACT`, not `SCOPE_CONFLICT`;
+22. two genuine concrete campaigns or sessions for the same artifact still `SCOPE_CONFLICT` and apply writes 0.
 
 ### Existing source seam regression
 

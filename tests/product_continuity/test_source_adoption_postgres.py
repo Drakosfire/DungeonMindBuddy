@@ -321,6 +321,133 @@ def test_scope_conflict_blocks_apply(
     assert preview.targets[0].classification == "SCOPE_CONFLICT"
 
 
+def test_world_missing_scope_is_incomplete_not_conflict(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    markdown = "Ingest carries the concrete scope.\n"
+    digest = _write(tmp_path, "corpus/world-none-scope.md", markdown)
+    artifact = f"artifact:recap:{C2}:session-25:{digest[:12]}"
+    create_extraction_run(
+        _run(
+            run_id="run-ingest-scope",
+            artifact_id=artifact,
+            digest=digest,
+            uri="corpus/world-none-scope.md",
+            campaign_id=C2,
+            session_id="session-25",
+        )
+    )
+    world_rows = [
+        WorldSourceInventoryRow(
+            source_artifact_id=artifact,
+            source_domain="recap",
+            campaign_id=None,
+            session_id=None,
+            world_id=WORLD_ID,
+            content_sha256=digest,
+            locator="corpus/world-none-scope.md",
+            artifact_uri="corpus/world-none-scope.md",
+            artifact_kind="markdown",
+            body_storage="postgres",
+            source_revision_id="sha256:" + digest,
+        )
+    ]
+    preview = _preview(tmp_path, world_rows=world_rows)
+    assert preview.blocked is False
+    assert len(preview.targets) == 1
+    assert preview.targets[0].classification == "ADOPTABLE_EXACT"
+    assert preview.targets[0].campaign_id == C2
+    assert preview.targets[0].session_id == "session-25"
+    applied = _apply(tmp_path, preview.source_target_set_sha256, world_rows=world_rows)
+    assert applied.applied is True
+    assert applied.newly_adopted == 1
+    assert applied.targets[0].campaign_id == C2
+    assert applied.targets[0].session_id == "session-25"
+
+
+def test_world_concrete_scope_still_conflicts_with_ingest(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    markdown = "Two concrete campaigns are a conflict.\n"
+    digest = _write(tmp_path, "corpus/world-concrete-scope.md", markdown)
+    artifact = "artifact:recap:conflict:session-x:world-concrete"
+    world_rows = [
+        WorldSourceInventoryRow(
+            source_artifact_id=artifact,
+            source_domain="recap",
+            campaign_id=C1,
+            session_id="session-6",
+            world_id=WORLD_ID,
+            content_sha256=digest,
+            locator="corpus/world-concrete-scope.md",
+            artifact_uri="corpus/world-concrete-scope.md",
+            artifact_kind="markdown",
+            body_storage="postgres",
+            source_revision_id="sha256:" + digest,
+        )
+    ]
+    create_extraction_run(
+        _run(
+            run_id="run-ingest-c2",
+            artifact_id=artifact,
+            digest=digest,
+            uri="corpus/world-concrete-scope.md",
+            campaign_id=C2,
+            session_id="session-6",
+        )
+    )
+    preview = _preview(tmp_path, world_rows=world_rows)
+    assert preview.blocked is True
+    assert preview.targets[0].classification == "SCOPE_CONFLICT"
+    applied = _apply(tmp_path, preview.source_target_set_sha256, world_rows=world_rows)
+    assert applied.applied is False
+    assert applied.newly_adopted == 0
+    assert get_source_markdown(source_artifact_id=artifact, content_sha256=digest) is None
+
+
+def test_incomplete_world_digest_uses_sibling_ingest_scope(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    ingest_markdown = "Ingest revision with concrete scope.\n"
+    world_markdown = "World revision with unknown campaign/session.\n"
+    ingest_digest = _write(tmp_path, "corpus/sibling-ingest.md", ingest_markdown)
+    world_digest = _write(tmp_path, "corpus/sibling-world.md", world_markdown)
+    artifact = "artifact:recap:longmont-c2:session-25:sibling-scope"
+    world_rows = [
+        WorldSourceInventoryRow(
+            source_artifact_id=artifact,
+            source_domain="recap",
+            campaign_id=None,
+            session_id=None,
+            world_id=WORLD_ID,
+            content_sha256=world_digest,
+            locator="corpus/sibling-world.md",
+            artifact_uri="corpus/sibling-world.md",
+            artifact_kind="markdown",
+            body_storage="postgres",
+            source_revision_id="sha256:" + world_digest,
+        )
+    ]
+    create_extraction_run(
+        _run(
+            run_id="run-sibling-ingest",
+            artifact_id=artifact,
+            digest=ingest_digest,
+            uri="corpus/sibling-ingest.md",
+            campaign_id=C2,
+            session_id="session-25",
+        )
+    )
+    preview = _preview(tmp_path, world_rows=world_rows)
+    assert preview.blocked is False
+    assert {row.classification for row in preview.targets} == {"ADOPTABLE_EXACT"}
+    assert {row.campaign_id for row in preview.targets} == {C2}
+    assert {row.session_id for row in preview.targets} == {"session-25"}
+    applied = _apply(tmp_path, preview.source_target_set_sha256, world_rows=world_rows)
+    assert applied.applied is True
+    assert applied.newly_adopted == 2
+
+
 def test_recap_and_session_recap_are_the_same_domain(
     application_state_dsn: str, tmp_path: Path
 ) -> None:
