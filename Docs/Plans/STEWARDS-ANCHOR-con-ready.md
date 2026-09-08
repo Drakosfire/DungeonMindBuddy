@@ -6,7 +6,7 @@
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Re-anchor base:** `main` `35269f087cf1dcee52f169f339d1de79599b3374` (Stage 2A PR #691 MERGED and personally dogfooded)
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
-**Current forcing function:** DOGFOOD-CONTINUITY **Stage 2B** C1/C2 repopulation onto `54331` — **not dispatched**. Stage 2A is **DONE** (PR #691 merge `35269f087cf1dcee52f169f339d1de79599b3374`, 2 review cycles; human durability drill [`../Reports/REPORT-application-state-durability-drill.md`](../Reports/REPORT-application-state-durability-drill.md)). Do not treat [`HANDOFF-DOGFOOD-CONTINUITY-application-state-durability-drill-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-application-state-durability-drill-v1.md) as a Stage 2B dispatch. DEMO-R1 chrome PR #690 is MERGED (`08c4052e3e662d94936c37cf8837cdb01a9507ca`); projection PR #689 is MERGED (`0912ce4010655655b1f7b4966ee071e043b47721`).
+**Current forcing function:** DOGFOOD-CONTINUITY **Stage 2B** C1/C2 repopulation onto `54331` — **not dispatched**. Stage 2A is **DONE** (PR #691 merge `35269f087cf1dcee52f169f339d1de79599b3374`, 2 review cycles; human durability drill [`../Reports/REPORT-application-state-durability-drill.md`](../Reports/REPORT-application-state-durability-drill.md)). A local drill pickup remains uncommitted in the steward checkout; it is not repository authority and is not a Stage 2B dispatch. DEMO-R1 chrome PR #690 is MERGED (`08c4052e3e662d94936c37cf8837cdb01a9507ca`); projection PR #689 is MERGED (`0912ce4010655655b1f7b4966ee071e043b47721`).
 **Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
@@ -45,7 +45,7 @@ DOGFOOD-CONTINUITY
 DFC-1             DONE / ACCEPTED — PR #684; accepted head f32f90ee1ccc9fac150ca8147c268c517a4ec8a6; merge 8fc9989fb6da616f74876395514f4da26bd94609; 7 review cycles
 DFC-2a            DONE / ACCEPTED — PR #685; accepted head 076f875a8a0b8cd95932c53be730b169cd5f2818; merge 7a73a5a154fa0b1c2bac9689f201dd64d2524aa5; 5 review cycles
 DFC-2c            DONE / ACCEPTED — PR #686; accepted head 2a088c4b357a5bc43635fd31aefad42f4b5d4e95; merge 678e9c276ad58505c53ce61d5a659ea8c792ca31; 2 review cycles
-DFC-3             CURRENT — C1/C2 demo-readiness survey (not complete)
+DFC-3             DONE / ACCEPTED — PR #687; accepted head 29e4e2af0505fdd74ea279b166667ac75db06745; merge 823d9d4121c4534be64bf3de620b24446b2b18ab; 3 review cycles
 DFC-2b            LATER — Build archive/adapter (evidence incomplete)
 STAGE 2A / #691   DONE — durable 54331 substrate personally dogfooded; merge 35269f087cf1dcee52f169f339d1de79599b3374; 2 review cycles
 STAGE 2B          NEXT — C1/C2 repopulation onto 54331; not dispatched
@@ -224,7 +224,9 @@ DONE / ACCEPTED — exact historical Ingest run catalog adoption
         merge 678e9c276ad58505c53ce61d5a659ea8c792ca31; 2 review cycles
         ↓
 DFC-3
-CURRENT — C1/C2 demo-readiness survey
+DONE / ACCEPTED — C1/C2 demo-readiness survey
+        PR #687; accepted head 29e4e2af0505fdd74ea279b166667ac75db06745
+        merge 823d9d4121c4534be64bf3de620b24446b2b18ab; 3 review cycles
         handoff: HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md
         report: REPORT-c1-c2-demo-readiness.md
         ↓

@@ -141,8 +141,7 @@ At this stop we decide whether the recap reading experience itself is pleasant e
 Structural sequence from here (do not skip the design of Stage 2B):
 
 ```text
-merge #691
-→ backward-looking Stage 2A authority sync
+Stage 2A merge (#691) + closure sync (#692) DONE
 → Stage 2B repopulation
 → restore Stage-1 historical recap dogfood
 → continue exact artifact adoption

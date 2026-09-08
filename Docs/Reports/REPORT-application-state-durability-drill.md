@@ -1,7 +1,7 @@
 # REPORT — Buddy APP-STATE durability drill
 
 **Status:** PASSED — three proofs complete. Stage 2A is DONE. This file is **not** a Stage 2B dispatch.  
-**Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-application-state-durability-drill-v1.md`  
+**Implementation handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md) (PR #691). This report is the human drill witness. A local drill pickup remains uncommitted in the steward checkout; it is not repository authority and was intentionally excluded from this closure.  
 **Recorded:** 2026-09-07 (America/Denver)
 
 ```text
