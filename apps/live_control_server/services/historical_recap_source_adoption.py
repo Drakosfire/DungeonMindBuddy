@@ -120,6 +120,9 @@ def adopt_historical_recap_source(
 
 
 def main(argv: list[str] | None = None) -> int:
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
+
+    load_dungeonmindbuddy_dotenv(override=True)
     parser = argparse.ArgumentParser(
         description="Adopt one exact recap source into Buddy APP-STATE."
     )
