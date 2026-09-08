@@ -411,9 +411,9 @@ describe("ThreatSheetProjection", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /guards Inn/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Inn.*guards/i })).toBeInTheDocument();
     });
-    await user.click(screen.getByRole("button", { name: /guards Inn/i }));
+    await user.click(screen.getByRole("button", { name: /Inn.*guards/i }));
     rerender(
       <ThreatSheetProjection
         resolution={secondResolution}
@@ -499,9 +499,9 @@ describe("ThreatSheetProjection", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /guards Inn/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Inn.*guards/i })).toBeInTheDocument();
     });
-    await user.click(screen.getByRole("button", { name: /guards Inn/i }));
+    await user.click(screen.getByRole("button", { name: /Inn.*guards/i }));
     unmount();
 
     await act(async () => {

@@ -216,7 +216,7 @@ describe("PlayGraphObjectSheet", () => {
 
     const user = userEvent.setup();
     render(<PlayGraphObjectSheet resolution={first} graphReferenceBinding={binding} />);
-    await user.click(screen.getByRole("button", { name: /guards Inn/i }));
+    await user.click(screen.getByRole("button", { name: /Inn.*guards/i }));
 
     await waitFor(() => {
       expect(binding.resolveRelationship).toHaveBeenCalledWith(
@@ -267,7 +267,7 @@ describe("PlayGraphObjectSheet", () => {
     const { rerender } = render(
       <PlayGraphObjectSheet resolution={first} graphReferenceBinding={binding} />,
     );
-    await user.click(screen.getByRole("button", { name: /guards Inn/i }));
+    await user.click(screen.getByRole("button", { name: /Inn.*guards/i }));
     rerender(<PlayGraphObjectSheet resolution={second} graphReferenceBinding={binding} />);
 
     await act(async () => {
@@ -321,7 +321,7 @@ describe("PlayGraphObjectSheet", () => {
     const { rerender } = render(
       <PlayGraphObjectSheet resolution={first} graphReferenceBinding={binding} />,
     );
-    await user.click(screen.getByRole("button", { name: /guards Inn/i }));
+    await user.click(screen.getByRole("button", { name: /Inn.*guards/i }));
     rerender(
       <PlayGraphObjectSheet
         resolution={sameNodeDifferentCampaign}

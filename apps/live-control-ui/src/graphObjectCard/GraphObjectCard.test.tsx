@@ -63,13 +63,14 @@ describe("GraphObjectCard", () => {
 
     const text = card.textContent ?? "";
     const summaryIndex = text.indexOf("The party's meeting place with the town leader.");
-    const relatedIndex = text.indexOf("Inn (Mireward Reach) negotiated with Glowkindle");
+    const relatedIndex = text.indexOf("Related objects");
     expect(summaryIndex).toBeGreaterThanOrEqual(0);
     expect(relatedIndex).toBeGreaterThan(summaryIndex);
 
     expect(within(card).getByText(/The council meets here tonight\./)).toBeInTheDocument();
-    expect(within(card).queryByRole("heading", { name: "Related objects" })).not.toBeInTheDocument();
-    expect(within(card).getByText("Inn (Mireward Reach) negotiated with Glowkindle")).toBeInTheDocument();
+    expect(within(card).getByRole("heading", { name: "Related objects" })).toBeInTheDocument();
+    expect(within(card).getByText(/Glowkindle/)).toBeInTheDocument();
+    expect(within(card).getByText(/negotiated with/)).toBeInTheDocument();
     expect(within(card).getByText("S2")).toBeInTheDocument();
     expect(within(card).queryByText(/Trades rare herbs/)).not.toBeInTheDocument();
     expect(within(card).queryByText(/They negotiated with Glowkindle/)).not.toBeInTheDocument();
@@ -223,7 +224,7 @@ describe("GraphObjectCard", () => {
     render(<GraphObjectCard mode="plan" model={planModel} />);
 
     const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
-    expect(within(card).getByText("Inn (Mireward Reach) negotiated with Glowkindle")).toBeInTheDocument();
+    expect(within(card).getByText("Glowkindle")).toBeInTheDocument();
     expect(
       within(card).queryByRole("button", { name: /Open related object/i }),
     ).not.toBeInTheDocument();
@@ -244,7 +245,7 @@ describe("GraphObjectCard", () => {
 
     const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
     const button = within(card).getByRole("button", {
-      name: /Open related object S2 · Inn \(Mireward Reach\) negotiated with Glowkindle/i,
+      name: /Open related object S2 · Glowkindle/i,
     });
     expect(button).toBeInTheDocument();
     expect(button).not.toHaveTextContent("edge-1");

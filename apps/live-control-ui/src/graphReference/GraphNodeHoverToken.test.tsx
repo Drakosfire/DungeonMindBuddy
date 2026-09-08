@@ -17,14 +17,14 @@ const presentation: GraphNodeGlancePresentation = {
     {
       nodeId: "node:mireward",
       label: "Mireward Gate Incident",
-      edgeLabel: "Bubbles the Float Goat participated in Mireward Gate Incident",
+      edgeLabel: "participated in Mireward Gate Incident",
       anchoredToFocusSession: true,
       rankReason: "current session",
     },
     {
       nodeId: "node:river",
       label: "Flooded River",
-      edgeLabel: "Bubbles the Float Goat rescued from Flooded River",
+      edgeLabel: "rescued from Flooded River",
       anchoredToFocusSession: false,
     },
     {
@@ -68,47 +68,11 @@ describe("GraphNodeHoverToken", () => {
     expect(glance?.querySelector(".recap-node-chip-row")).toBeNull();
     expect(glance?.querySelector("strong")).toBeNull();
 
-    // Relationship clauses capped at two; no taxonomy kickers.
+    // Threads capped at two.
     const threadItems = glance?.querySelectorAll(".recap-planning-thread-list li") ?? [];
     expect(threadItems).toHaveLength(2);
-    expect(glance).toHaveTextContent("Bubbles the Float Goat participated in Mireward Gate Incident");
-    expect(glance).not.toHaveTextContent("Threads");
-    expect(glance).not.toHaveTextContent("Why now");
+    expect(glance).toHaveTextContent("participated in Mireward Gate Incident");
     expect(glance).not.toHaveTextContent("should not appear in glance");
-  });
-
-  it("does not dump evidence-role Why now or Threads kickers", () => {
-    render(
-      <GraphNodeHoverToken
-        presentation={{
-          nodeId: "npc:orik",
-          label: "Orik",
-          kind: "npc",
-          role: "npc",
-          summary: null,
-          whyNow: null,
-          knownBefore: null,
-          planningChips: [],
-          threadHints: [
-            {
-              nodeId: "npc:brin",
-              label: "Brin",
-              edgeLabel: "Orik is associated with Brin",
-              anchoredToFocusSession: true,
-            },
-          ],
-        }}
-        label="Orik"
-        pinned={false}
-        onSelect={vi.fn()}
-      />,
-    );
-
-    const glance = document.querySelector(".recap-node-hover-card");
-    expect(glance).toHaveTextContent("Orik is associated with Brin");
-    expect(glance).not.toHaveTextContent("Why now");
-    expect(glance).not.toHaveTextContent("Threads");
-    expect(glance).not.toHaveTextContent("support");
   });
 
   it("renders parchment Threat campaign glance for authored Threat chips", () => {

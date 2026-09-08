@@ -317,8 +317,7 @@ describe("PlanReferenceObjectCard", () => {
     expect(within(card).getByRole("heading", { level: 4 })).toHaveTextContent("Glowkindle");
     expect(within(card).getByText(/Also known as: Glow/)).toBeInTheDocument();
     expect(within(card).getByText("A friendly merchant.")).toBeInTheDocument();
-    expect(within(card).queryByRole("heading", { name: "Related objects" })).not.toBeInTheDocument();
-    expect(within(card).getByText("Glowkindle met at Inn")).toBeInTheDocument();
+    expect(within(card).getByRole("heading", { name: "Related objects" })).toBeInTheDocument();
 
     expect(within(card).queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
     expect(within(card).getByText("Memory tools")).toBeInTheDocument();

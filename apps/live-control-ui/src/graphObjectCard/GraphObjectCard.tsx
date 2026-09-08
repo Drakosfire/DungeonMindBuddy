@@ -1,8 +1,8 @@
 import { useRef, type ReactNode, type RefObject } from "react";
 
 import {
+  humanizeRelationshipPredicate,
   relationshipRowPrimaryCopy,
-  relationshipSentence,
   relationshipSessionStamp,
   selectDefaultRelationshipRows,
 } from "./graphObjectDisplay";
@@ -105,13 +105,12 @@ export function GraphObjectEvidenceRows({
 
 function RelationshipRowBody({
   relationship,
-  subjectLabel,
   showProvenance,
 }: {
   relationship: GraphObjectRelationshipViewModel;
-  subjectLabel: string;
   showProvenance: boolean;
 }) {
+  const predicate = humanizeRelationshipPredicate(relationship.predicate);
   const session = relationshipSessionStamp(relationship.sessionIds, relationship.campaignScope);
   const excerpt = relationship.sourceExcerpt?.trim() || null;
   const domain = relationship.sourceDomains?.[0]?.trim() || null;
@@ -122,7 +121,8 @@ function RelationshipRowBody({
         {session ? (
           <span className="graph-object-card__relationship-session">{session}</span>
         ) : null}
-        <span>{relationshipSentence(subjectLabel, relationship.predicate, relationship.label)}</span>
+        <strong>{relationship.label}</strong>
+        {predicate ? ` · ${predicate}` : ""}
       </span>
       {showProvenance ? (
         excerpt ? (
@@ -163,15 +163,15 @@ function DefaultRelationships({
   return (
     <section
       className="graph-object-card__relationships"
-      aria-label="Relationships"
+      aria-label="Connected objects and relationships"
       data-provenance={showProvenance ? "expanded" : "compact"}
     >
+      <h5>Related objects</h5>
       <ul className="graph-object-card__relationship-list">
         {rows.map((relationship) => {
           const body = (
             <RelationshipRowBody
               relationship={relationship}
-              subjectLabel={model.label}
               showProvenance={showProvenance}
             />
           );
@@ -209,7 +209,7 @@ function DefaultRelationships({
                     : "graph-object-card__relationship-button"
                 }
                 disabled={relationshipsDisabled}
-                aria-label={`Open related object ${relationshipRowPrimaryCopy(relationship, model.label)}`}
+                aria-label={`Open related object ${relationshipRowPrimaryCopy(relationship)}`}
                 onClick={() => onSelectRelationship(relationship)}
               >
                 {body}

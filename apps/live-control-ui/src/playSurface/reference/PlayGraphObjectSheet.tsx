@@ -173,17 +173,17 @@ export function PlayGraphObjectSheet({
                 {graphReferenceBinding ? (
                   <button
                     type="button"
-                    aria-label={relationshipRowPrimaryCopy(relationship, graphObject.label)}
+                    aria-label={relationshipRowPrimaryCopy(relationship)}
                     disabled={relationshipsDisabled || selectedRelationshipIdMatches(
                       navigatingRelationshipId,
                       relationship.id,
                     )}
                     onClick={() => void onSelectRelationship(relationship)}
                   >
-                    {relationshipRowPrimaryCopy(relationship, graphObject.label)}
+                    {relationshipRowPrimaryCopy(relationship)}
                   </button>
                 ) : (
-                  <span>{relationshipRowPrimaryCopy(relationship, graphObject.label)}</span>
+                  <span>{relationshipRowPrimaryCopy(relationship)}</span>
                 )}
               </li>
             ))}

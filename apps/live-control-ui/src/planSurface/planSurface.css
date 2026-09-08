@@ -5088,7 +5088,8 @@ body.surface-projection-open .plan-agent-shell {
   font-size: 0.86rem;
 }
 
-.graph-review-node-relationships-primary {
+.graph-review-node-relationships-primary,
+.graph-object-card__relationships {
   margin-top: 0.55rem;
   padding: 0.65rem 0.75rem;
   border-radius: 0.55rem;
@@ -5096,11 +5097,8 @@ body.surface-projection-open .plan-agent-shell {
   background: rgba(14, 165, 233, 0.08);
 }
 
-.graph-object-card__relationships {
-  margin-top: 0.55rem;
-}
-
-.graph-review-node-relationships-primary h5 {
+.graph-review-node-relationships-primary h5,
+.graph-object-card__relationships h5 {
   margin: 0 0 0.55rem;
   font-size: 0.95rem;
 }
