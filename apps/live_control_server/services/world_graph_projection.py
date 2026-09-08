@@ -73,6 +73,8 @@ def _require_mounted_native_read(root) -> None:
 
 def _project_world_graph_direct(
     request: WorldGraphProjectionRequest,
+    *,
+    hydrate_product_local_excerpts: bool = True,
 ) -> WorldGraphProjection:
     """Execute projection natively in DungeonMind (no Buddy kernel)."""
     from apps.live_control_server import config
@@ -83,8 +85,12 @@ def _project_world_graph_direct(
     started = time.perf_counter()
     try:
         services = direct.direct_services_from_config(request.world_id)
+        # Historical recap overlays APP-STATE bytes after this read. Passing
+        # repo_root=None skips the checkout-local source_span_index.json join
+        # without changing the public World projection request schema.
+        repo_root = config.repo_root() if hydrate_product_local_excerpts else None
         projection = direct.project_world_graph_direct(
-            services, request, repo_root=config.repo_root()
+            services, request, repo_root=repo_root
         )
     except direct.DirectWorldGraphReadError as exc:
         raise WorldGraphProjectionServiceError(
@@ -120,10 +126,14 @@ def project_world_graph(
     request: WorldGraphProjectionRequest,
     *,
     root=None,
+    hydrate_product_local_excerpts: bool = True,
 ) -> WorldGraphProjection:
     """Mounted projection is DungeonMind-only; alternate-root/Kernel paths fail closed."""
     _require_mounted_native_read(root)
-    return _project_world_graph_direct(request)
+    return _project_world_graph_direct(
+        request,
+        hydrate_product_local_excerpts=hydrate_product_local_excerpts,
+    )
 
 
 __all__ = [

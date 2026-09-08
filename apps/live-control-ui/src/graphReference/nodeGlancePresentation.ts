@@ -5,7 +5,11 @@ import type {
   GraphProjectionSuggestedExpansion,
   RecapGraphChip,
 } from "../api/types";
-import { primaryGameSummaryForNode } from "../graphObjectCard/graphObjectDisplay";
+import {
+  planningGlanceWhyNow,
+  primaryGameSummaryForNode,
+  relationshipSentence,
+} from "../graphObjectCard/graphObjectDisplay";
 import type { GraphNodeGlancePresentation, GraphNodeGlanceThreadHint } from "./types";
 
 function humanizeToken(value: string): string {
@@ -25,16 +29,19 @@ function evidencePlanningText(badge: GraphProjectionEvidenceBadge): string {
   return humanizeToken(badge.evidence_role);
 }
 
-function adjacencyThreadLabel(candidate: GraphProjectionAdjacencyCandidate): string {
+function adjacencyPredicatePhrase(candidate: GraphProjectionAdjacencyCandidate): string {
   const edgeLabel = candidate.edge_label?.trim();
   if (edgeLabel) {
-    return `${edgeLabel} ${candidate.label}`;
+    return edgeLabel;
   }
-  return `${humanizeToken(candidate.predicate)} ${candidate.label}`;
+  return humanizeToken(candidate.predicate);
 }
 
-function expansionPresentationLabel(expansion: GraphProjectionSuggestedExpansion): string {
-  return adjacencyThreadLabel(expansion);
+function expansionPresentationLabel(
+  subjectLabel: string,
+  expansion: GraphProjectionSuggestedExpansion,
+): string {
+  return relationshipSentence(subjectLabel, adjacencyPredicatePhrase(expansion), expansion.label);
 }
 
 function sessionChipLabel(sessionId: string | null | undefined): string | null {
@@ -83,7 +90,7 @@ function buildThreadHints(node: GraphProjectionNodeView): GraphNodeGlanceThreadH
     .map((expansion) => ({
       nodeId: expansion.node_id,
       label: expansion.label,
-      edgeLabel: expansionPresentationLabel(expansion),
+      edgeLabel: expansionPresentationLabel(node.label, expansion),
       anchoredToFocusSession: expansion.anchored_to_focus_session,
       rankReason: expansion.rank_reason,
     }));
@@ -94,8 +101,12 @@ export function buildGraphNodeGlancePresentation(node: GraphProjectionNodeView):
   const contextEvidence = node.evidence_badges.filter((badge) => !badge.is_focus_session_evidence);
 
   const summary = primaryGameSummaryForNode(node);
-  const whyNow = focusEvidence.length ? evidencePlanningText(focusEvidence[0]) : null;
-  const knownBefore = contextEvidence.length ? evidencePlanningText(contextEvidence[0]) : null;
+  const whyNow = focusEvidence.length
+    ? planningGlanceWhyNow(evidencePlanningText(focusEvidence[0]))
+    : null;
+  const knownBefore = contextEvidence.length
+    ? planningGlanceWhyNow(evidencePlanningText(contextEvidence[0]))
+    : null;
 
   return {
     nodeId: node.node_id,

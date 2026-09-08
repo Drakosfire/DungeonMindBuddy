@@ -4,7 +4,9 @@ import {
   formatCampaignScopeCompact,
   humanizeRelationshipPredicate,
   MAX_DEFAULT_RELATIONSHIP_ROWS,
+  planningGlanceWhyNow,
   relationshipRowPrimaryCopy,
+  relationshipSentence,
   relationshipSessionStamp,
   selectDefaultRelationshipRows,
 } from "./graphObjectDisplay";
@@ -53,8 +55,31 @@ describe("relationshipSessionStamp", () => {
   });
 });
 
+describe("relationshipSentence", () => {
+  it("orders the selected subject before a stative predicate", () => {
+    expect(relationshipSentence("Orik", "associated_with", "Brin")).toBe(
+      "Orik is associated with Brin",
+    );
+  });
+
+  it("keeps event verbs finite instead of forcing a copula", () => {
+    expect(relationshipSentence("Inn (Mireward Reach)", "negotiated_with", "Glowkindle")).toBe(
+      "Inn (Mireward Reach) negotiated with Glowkindle",
+    );
+    expect(relationshipSentence("Inn", "owns", "Pippa")).toBe("Inn owns Pippa");
+  });
+});
+
+describe("planningGlanceWhyNow", () => {
+  it("drops evidence-role tokens that are not planning copy", () => {
+    expect(planningGlanceWhyNow("support")).toBeNull();
+    expect(planningGlanceWhyNow("mention")).toBeNull();
+    expect(planningGlanceWhyNow("Held the gate")).toBe("Held the gate");
+  });
+});
+
 describe("relationshipRowPrimaryCopy", () => {
-  it("includes session stamp and omits foreign-object summary", () => {
+  it("includes session stamp and a subject-first sentence", () => {
     expect(
       relationshipRowPrimaryCopy(
         rel({
@@ -64,8 +89,9 @@ describe("relationshipRowPrimaryCopy", () => {
           sessionIds: ["session-2"],
           summary: "Bright gnome who crafts beer.",
         }),
+        "Inn",
       ),
-    ).toBe("S2 · Pippa · owns");
+    ).toBe("S2 · Inn owns Pippa");
   });
 
   it("qualifies campaign · session when both campaigns share a session number", () => {
@@ -78,8 +104,9 @@ describe("relationshipRowPrimaryCopy", () => {
           sessionIds: ["session-2"],
           campaignScope: "longmont-c1",
         }),
+        "Party",
       ),
-    ).toBe("C1 · S2 · Inn · met at");
+    ).toBe("C1 · S2 · Party met at Inn");
     expect(
       relationshipRowPrimaryCopy(
         rel({
@@ -89,8 +116,9 @@ describe("relationshipRowPrimaryCopy", () => {
           sessionIds: ["session-2"],
           campaignScope: "longmont-c2",
         }),
+        "Party",
       ),
-    ).toBe("C2 · S2 · Harbor · met at");
+    ).toBe("C2 · S2 · Party met at Harbor");
   });
 });
 

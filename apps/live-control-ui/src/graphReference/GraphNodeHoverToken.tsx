@@ -253,15 +253,13 @@ export function GraphNodeHoverToken({
               </PlanningScanSection>
             ) : null}
             {glanceThreads.length ? (
-              <PlanningScanSection title="Threads">
-                <ul className="recap-planning-thread-list">
-                  {glanceThreads.map((hint) => (
-                    <li key={`${presentation.nodeId}:${hint.nodeId}`}>
-                      {truncateThreadLabel(hint.edgeLabel)}
-                    </li>
-                  ))}
-                </ul>
-              </PlanningScanSection>
+              <ul className="recap-planning-thread-list">
+                {glanceThreads.map((hint) => (
+                  <li key={`${presentation.nodeId}:${hint.nodeId}`}>
+                    {truncateThreadLabel(hint.edgeLabel)}
+                  </li>
+                ))}
+              </ul>
             ) : null}
           </>
         )}

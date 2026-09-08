@@ -2662,6 +2662,8 @@ export interface WorldGraphProjectionAdjacencyCandidate {
   campaignScope?: string | null;
   relatedSummary?: string | null;
   sourceExcerpt?: string | null;
+  sourceExcerptIsFullParagraph?: boolean;
+  sourceExcerptHighlightSpans?: GraphProjectionTextHighlightSpan[];
 }
 
 export interface WorldGraphProjectionSuggestedExpansion extends WorldGraphProjectionAdjacencyCandidate {

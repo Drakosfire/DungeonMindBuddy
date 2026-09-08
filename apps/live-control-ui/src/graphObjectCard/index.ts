@@ -20,8 +20,10 @@ export {
   humanizeRelationshipPredicate,
   isPlaceholderNodeSummary,
   MAX_DEFAULT_RELATIONSHIP_ROWS,
+  planningGlanceWhyNow,
   primaryGameSummaryForNode,
   relationshipRowPrimaryCopy,
+  relationshipSentence,
   relationshipSessionStamp,
   selectDefaultRelationshipRows,
 } from "./graphObjectDisplay";

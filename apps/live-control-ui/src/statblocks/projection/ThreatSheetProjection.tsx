@@ -94,14 +94,14 @@ function ThreatRelationshipsSection({
               <button
                 type="button"
                 className="graph-object-card__relationship-button"
-                aria-label={relationshipRowPrimaryCopy(relationship)}
+                aria-label={relationshipRowPrimaryCopy(relationship, model.label)}
                 disabled={disabled || selectedRelationshipId === relationship.id}
                 onClick={() => onSelectRelationship(relationship)}
               >
-                {relationshipRowPrimaryCopy(relationship)}
+                {relationshipRowPrimaryCopy(relationship, model.label)}
               </button>
             ) : (
-              <span>{relationshipRowPrimaryCopy(relationship)}</span>
+              <span>{relationshipRowPrimaryCopy(relationship, model.label)}</span>
             )}
           </li>
         ))}
