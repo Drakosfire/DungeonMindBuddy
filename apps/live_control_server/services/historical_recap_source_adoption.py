@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 from pathlib import Path
+from uuid import UUID
 
 from apps.live_control_server.config import repo_root
 from apps.live_control_server.services.graph_run_registry import (
@@ -16,6 +17,10 @@ from apps.live_control_server.services.graph_run_registry import (
     _component_by_kind,
     _resolve_repo_contained_uri,
     get_extraction_run,
+)
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateValidationError,
 )
 from application_state.source import service as source_service
 from application_state.source.types import SourceMarkdownRecord
@@ -25,11 +30,38 @@ from graph_memory.ingestion.extraction_run import (
 )
 
 
+def parse_source_revision_id(raw: str | None) -> UUID | None:
+    """Parse an optional exact source revision UUID, failing closed.
+
+    ``None`` means the operator omitted the flag and the legacy generate-on-insert
+    path remains. An explicitly supplied blank or whitespace value is not an
+    omission; it fails before any adoption write.
+    """
+
+    if raw is None:
+        return None
+    cleaned = raw.strip()
+    if not cleaned:
+        raise GraphRunRegistryError(
+            "source_revision_id is not a valid UUID",
+            status_code=422,
+        )
+    try:
+        return UUID(cleaned)
+    except ValueError as exc:
+        raise GraphRunRegistryError(
+            "source_revision_id is not a valid UUID",
+            status_code=422,
+        ) from exc
+
+
 def adopt_historical_recap_source(
     root: Path,
     *,
     run_id: str,
     world_id: str,
+    source_revision_id: UUID | None = None,
+    check_only: bool = False,
 ) -> SourceMarkdownRecord:
     """Adopt bytes for one exact recap run without changing the run lifecycle."""
 
@@ -90,27 +122,50 @@ def adopt_historical_recap_source(
             "adopted_from_run_id": run.run_id,
             "adopted_from_uri": component.uri,
         },
+        source_revision_id=source_revision_id,
+        dry_run=check_only,
     )
 
 
 def main(argv: list[str] | None = None) -> int:
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
+
+    load_dungeonmindbuddy_dotenv(override=True)
     parser = argparse.ArgumentParser(
         description="Adopt one exact recap source into Buddy APP-STATE."
     )
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--world-id", required=True)
+    parser.add_argument(
+        "--source-revision-id",
+        help="Exact source.revision UUID to restore or assert.",
+    )
+    parser.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Evaluate filesystem/digest/run/scope/revision preconditions with zero writes.",
+    )
     args = parser.parse_args(argv)
     try:
+        source_revision_id = parse_source_revision_id(args.source_revision_id)
         record = adopt_historical_recap_source(
             repo_root(),
             run_id=args.run_id,
             world_id=args.world_id,
+            source_revision_id=source_revision_id,
+            check_only=args.check_only,
         )
-    except (GraphRunRegistryError, ValueError) as exc:
+    except (
+        GraphRunRegistryError,
+        ValueError,
+        ApplicationStateConflictError,
+        ApplicationStateValidationError,
+    ) as exc:
         print(str(exc))
         return 2
+    prefix = "check-only " if args.check_only else "adopted "
     print(
-        f"adopted source_artifact_id={record.source_artifact_id} "
+        f"{prefix}source_artifact_id={record.source_artifact_id} "
         f"source_revision_id={record.source_revision_id} "
         f"content_sha256=sha256:{record.content_sha256} world_id={record.world_id}"
     )

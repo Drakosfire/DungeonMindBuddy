@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -97,3 +97,115 @@ def test_adoption_fails_on_digest_drift(
             run_id=run.run_id,
             world_id="eldyrwild",
         )
+
+
+def test_adoption_passes_exact_revision_and_check_only(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    markdown = "# Session 25\n\nExact source.\n"
+    source_path = tmp_path / "recap.md"
+    source_path.write_bytes(markdown.encode("utf-8"))
+    digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    run = _run("repo://recap.md", digest)
+    requested = UUID("8ed1e034-23c6-4295-b2ff-05d5cdd643a9")
+    persisted: dict[str, object] = {}
+
+    monkeypatch.setattr(adoption, "get_extraction_run", lambda _root, _run_id: run)
+
+    def fake_persist(**kwargs):
+        persisted.update(kwargs)
+        return SourceMarkdownRecord(
+            source_revision_id=kwargs["source_revision_id"] or uuid4(),
+            source_artifact_id=kwargs["source_artifact_id"],
+            source_domain=kwargs["source_domain"],
+            campaign_id=kwargs["campaign_id"],
+            session_id=kwargs["session_id"],
+            world_id=kwargs["world_id"],
+            content_sha256=kwargs["content_sha256"],
+            media_type="text/markdown",
+            encoding="utf-8",
+            markdown=kwargs["markdown"],
+            lineage=kwargs["lineage"],
+            created_at=datetime.now(UTC),
+        )
+
+    monkeypatch.setattr(adoption.source_service, "persist_source_markdown", fake_persist)
+
+    record = adoption.adopt_historical_recap_source(
+        tmp_path,
+        run_id=run.run_id,
+        world_id="eldyrwild",
+        source_revision_id=requested,
+        check_only=True,
+    )
+
+    assert record.source_revision_id == requested
+    assert persisted["source_revision_id"] == requested
+    assert persisted["dry_run"] is True
+
+
+def test_malformed_source_revision_id_fails_before_write() -> None:
+    with pytest.raises(adoption.GraphRunRegistryError, match="valid UUID"):
+        adoption.parse_source_revision_id("not-a-uuid")
+    with pytest.raises(adoption.GraphRunRegistryError, match="valid UUID"):
+        adoption.parse_source_revision_id("")
+    with pytest.raises(adoption.GraphRunRegistryError, match="valid UUID"):
+        adoption.parse_source_revision_id("   \t  ")
+    assert adoption.parse_source_revision_id(None) is None
+
+
+def test_main_malformed_revision_does_not_adopt(monkeypatch: pytest.MonkeyPatch) -> None:
+    called = {"adopt": False}
+
+    def fake_adopt(*_args, **_kwargs):
+        called["adopt"] = True
+        raise AssertionError("adoption must not run after a malformed UUID")
+
+    monkeypatch.setattr(adoption, "adopt_historical_recap_source", fake_adopt)
+    monkeypatch.setattr(adoption, "repo_root", lambda: Path("."))
+
+    assert (
+        adoption.main(
+            [
+                "--run-id",
+                "graph-ingest:longmont-c2:session-25:20260808T005650Z",
+                "--world-id",
+                "eldyrwild",
+                "--source-revision-id",
+                "not-a-uuid",
+            ]
+        )
+        == 2
+    )
+    assert called["adopt"] is False
+
+
+def test_main_blank_source_revision_id_does_not_adopt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called = {"adopt": False}
+
+    def fake_adopt(*_args, **_kwargs):
+        called["adopt"] = True
+        raise AssertionError("adoption must not run after a blank source_revision_id")
+
+    monkeypatch.setattr(adoption, "adopt_historical_recap_source", fake_adopt)
+    monkeypatch.setattr(adoption, "repo_root", lambda: Path("."))
+
+    for blank in ("", "   "):
+        called["adopt"] = False
+        assert (
+            adoption.main(
+                [
+                    "--run-id",
+                    "graph-ingest:longmont-c2:session-25:20260808T005650Z",
+                    "--world-id",
+                    "eldyrwild",
+                    "--source-revision-id",
+                    blank,
+                ]
+            )
+            == 2
+        )
+        assert called["adopt"] is False
