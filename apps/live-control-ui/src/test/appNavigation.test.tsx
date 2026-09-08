@@ -63,9 +63,6 @@ function clickLike(
     ctrlKey: false,
     shiftKey: false,
     altKey: false,
-    preventDefault: vi.fn(),
-    currentTarget: null,
-    target: null,
     ...overrides,
   };
 }
