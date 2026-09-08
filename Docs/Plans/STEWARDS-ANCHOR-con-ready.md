@@ -2,11 +2,11 @@
 
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT
 **Line of work:** `CON-READY`
-**Updated:** 2026-09-07
+**Updated:** 2026-09-08
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor base:** `main` `1ed1b6c484d898a2216330258be2897dc0588f74` (Stage 2A closure PR #692 MERGED)
+**Re-anchor base:** `main` `73cc35abe65eb0584b765bf6e6c553684d64401e` (Stage 2B implementation PR #693 MERGED)
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
-**Current forcing function:** DOGFOOD-CONTINUITY **Stage 2B** C1/C2 repopulation onto `54331` — **CURRENT** ([`HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md`](HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md)). Stage 2A is **DONE** (PR #691 merge `35269f087cf1dcee52f169f339d1de79599b3374`, 2 review cycles; closure PR #692 merge `1ed1b6c484d898a2216330258be2897dc0588f74`, 3 review cycles, reviewed head `2bb9384099f7408cb8859c43ba98e3d8f28768aa`; human durability drill [`../Reports/REPORT-application-state-durability-drill.md`](../Reports/REPORT-application-state-durability-drill.md)). A local drill pickup remains uncommitted in the steward checkout; it is not repository authority. The superseded pre-#692 `stage-2b-…-v1` branch is not authority. DEMO-R1 chrome PR #690 is MERGED (`08c4052e3e662d94936c37cf8837cdb01a9507ca`); projection PR #689 is MERGED (`0912ce4010655655b1f7b4966ee071e043b47721`).
+**Current forcing function:** DOGFOOD-CONTINUITY **Stage 5A** no-document primary-surface navigation — **CURRENT** ([`HANDOFF-DOGFOOD-CONTINUITY-no-document-primary-surface-nav-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-no-document-primary-surface-nav-v1.md)). Stage 2B implementation is **MERGED** (PR #693, `73cc35abe65eb0584b765bf6e6c553684d64401e`); Stage 2 / STOP 2 remain **OPEN** (human STOP not accepted as a completed stage). Stage 2A is **DONE** (PR #691 merge `35269f087cf1dcee52f169f339d1de79599b3374`, 2 review cycles; closure PR #692 merge `1ed1b6c484d898a2216330258be2897dc0588f74`, 3 review cycles, reviewed head `2bb9384099f7408cb8859c43ba98e3d8f28768aa`; human durability drill [`../Reports/REPORT-application-state-durability-drill.md`](../Reports/REPORT-application-state-durability-drill.md)). STOP 2 design accepted Stage 5A ahead of Stage 4 / Agent-on-Ingest / additional source adoption. Do not mark Stage 5A DONE from this sync. Do not auto-dispatch Stage 5B. DEMO-R1 chrome PR #690 is MERGED (`08c4052e3e662d94936c37cf8837cdb01a9507ca`); projection PR #689 is MERGED (`0912ce4010655655b1f7b4966ee071e043b47721`).
 **Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
@@ -32,7 +32,7 @@ Before dispatching a CON-READY / PLAY-SURFACE implementation:
 
 ## 1. Current product truth
 
-SURFACE-INTEGRATION is **CLOSED** (SI-6 ACCEPTED, PR #682). The temporary feature freeze is lifted. DFC-1 inventory is **DONE / ACCEPTED** (PR #684, 7 review cycles). DFC-2a Plan adoption is **DONE / ACCEPTED** (PR #685, 5 review cycles). DFC-2c Ingest catalog adoption is **DONE / ACCEPTED** (PR #686, 2 review cycles). **DFC-3** C1/C2 demo-readiness survey is **DONE / ACCEPTED** (PR #687, 3 review cycles). DEMO-R1 historical recap reading: projection PR #689 **MERGED** (`0912ce4010655655b1f7b4966ee071e043b47721`), loaded-recap chrome PR #690 **MERGED** (`08c4052e3e662d94936c37cf8837cdb01a9507ca`). **Stage 2A durable APP-STATE substrate is DONE.** PR #691 merged as squash `35269f087cf1dcee52f169f339d1de79599b3374` (2 review cycles). Closure PR #692 merged as squash `1ed1b6c484d898a2216330258be2897dc0588f74` (3 review cycles; reviewed head `2bb9384099f7408cb8859c43ba98e3d8f28768aa`). The 2026-09-07 human drill proved container replacement, host reboot, and volume destroy+restore of the same Plan object (`document_id` `3c8c6f8b-498d-4d3e-afaf-15b2e1a6520d`, fingerprint `57e74f3f…`, backup `49f7260a…`) without DungeonMind World (`54330`) running. Witness: [`../Reports/REPORT-application-state-durability-drill.md`](../Reports/REPORT-application-state-durability-drill.md). **2026-09-07 APP-STATE loss event:** the tmpfs-backed 54329 server was stopped before any backup existed; the entire APP-STATE database (53 ingest runs, Content, Play, adopted C2S25 source) was destroyed. Stage 2B is **CURRENT** and must still repopulate C1/C2 onto `54331` via supported product seams. Stage 2B is **not DONE**. Stage 2 and STOP 2 remain open. The prior inspection-only handoff is superseded; PR #688 remains paused/unmerged. Do not automatically inherit DFC-2b / BF3B. Do not mark Stage 1 / STOP 1 complete here.
+SURFACE-INTEGRATION is **CLOSED** (SI-6 ACCEPTED, PR #682). The temporary feature freeze is lifted. DFC-1 inventory is **DONE / ACCEPTED** (PR #684, 7 review cycles). DFC-2a Plan adoption is **DONE / ACCEPTED** (PR #685, 5 review cycles). DFC-2c Ingest catalog adoption is **DONE / ACCEPTED** (PR #686, 2 review cycles). **DFC-3** C1/C2 demo-readiness survey is **DONE / ACCEPTED** (PR #687, 3 review cycles). DEMO-R1 historical recap reading: projection PR #689 **MERGED** (`0912ce4010655655b1f7b4966ee071e043b47721`), loaded-recap chrome PR #690 **MERGED** (`08c4052e3e662d94936c37cf8837cdb01a9507ca`). **Stage 2A durable APP-STATE substrate is DONE.** PR #691 merged as squash `35269f087cf1dcee52f169f339d1de79599b3374` (2 review cycles). Closure PR #692 merged as squash `1ed1b6c484d898a2216330258be2897dc0588f74` (3 review cycles; reviewed head `2bb9384099f7408cb8859c43ba98e3d8f28768aa`). The 2026-09-07 human drill proved container replacement, host reboot, and volume destroy+restore of the same Plan object (`document_id` `3c8c6f8b-498d-4d3e-afaf-15b2e1a6520d`, fingerprint `57e74f3f…`, backup `49f7260a…`) without DungeonMind World (`54330`) running. Witness: [`../Reports/REPORT-application-state-durability-drill.md`](../Reports/REPORT-application-state-durability-drill.md). **2026-09-07 APP-STATE loss event:** the tmpfs-backed 54329 server was stopped before any backup existed; the entire APP-STATE database (53 ingest runs, Content, Play, adopted C2S25 source) was destroyed. **Stage 2B implementation is MERGED** (PR #693, `73cc35abe65eb0584b765bf6e6c553684d64401e`) — exact C1/C2 catalog + C2S27 Plan + C2S25 source on `54331`. Stage 2B is **not** an accepted completed stage. Stage 2 and STOP 2 remain open. STOP 2 assembled-product dogfood accepted Stage 5A (no-document primary navigation) as the current implementation slice. The prior inspection-only handoff is superseded; PR #688 remains paused/unmerged. Do not automatically inherit DFC-2b / BF3B. Do not mark Stage 1 / STOP 1 complete here.
 
 The Play persistence foundation is no longer the blocker.
 
@@ -49,8 +49,9 @@ DFC-3             DONE / ACCEPTED — PR #687; accepted head 29e4e2af0505fdd74ea
 DFC-2b            LATER — Build archive/adapter (evidence incomplete)
 STAGE 2A / #691   DONE — durable 54331 substrate personally dogfooded; merge 35269f087cf1dcee52f169f339d1de79599b3374; 2 review cycles
 STAGE 2A / #692   DONE — Stage 2A closure sync; merge 1ed1b6c484d898a2216330258be2897dc0588f74; reviewed head 2bb9384099f7408cb8859c43ba98e3d8f28768aa; 3 review cycles
-STAGE 2B          CURRENT — C1/C2 repopulation onto 54331; not DONE
+STAGE 2B          IMPLEMENTATION MERGED — PR #693 `73cc35abe65eb0584b765bf6e6c553684d64401e`; human STOP remains OPEN; not an accepted completed stage
 STAGE 2 / STOP 2  OPEN
+STAGE 5A          CURRENT — no-document primary-surface navigation; not DONE
 
 PLAY STRUCTURE
 BF1 / PR #628    DONE — Beat-first v2 grammar/index/manifest
@@ -278,8 +279,10 @@ DF0 is complete at PR #657. PLAN-BLANK-SHELL is complete at PR #661. BF4A is
 DONE at PR #660. DFC-1 is DONE / ACCEPTED at PR #684. DFC-2a is DONE / ACCEPTED
 at PR #685. **DFC-2c** is DONE / ACCEPTED at PR #686 (2 review cycles). **DFC-3**
 is DONE / ACCEPTED at PR #687 (3 review cycles). **Stage 2A** is DONE at PR #691
-(personally dogfooded) with closure PR #692 merged. **Stage 2B** is the current
-structural capability and is not DONE. DFC-2b (Build archive/adapter) remains later because its
+(personally dogfooded) with closure PR #692 merged. **Stage 2B** implementation
+is MERGED (PR #693); Stage 2 / STOP 2 remain OPEN and Stage 2B is not an
+accepted completed stage. **Stage 5A** is the current implementation slice.
+DFC-2b (Build archive/adapter) remains later because its
 evidence is incomplete. Do not automatically resume BF3B from old sequencing.
 
 Create blank Runbook, chooser copy, and paste/replace remain predecessor or
@@ -321,7 +324,7 @@ A path that forces manual source search, memory reconstruction, JSON surgery, Pl
 - DFC-2c exact historical Ingest run catalog adoption is **DONE / ACCEPTED** (PR #686, 2 review cycles).
 - DFC-3 C1/C2 demo-readiness survey is **DONE / ACCEPTED** (PR #687, 3 review cycles).
 - Stage 2A durable APP-STATE substrate is **DONE** (PR #691, 2 review cycles, personally dogfooded; closure PR #692 merge `1ed1b6c484d898a2216330258be2897dc0588f74`, 3 review cycles).
-- Stage 2B C1/C2 repopulation is **CURRENT** and **not DONE**.
+- Stage 2B C1/C2 repopulation implementation is **MERGED** (PR #693) and **not** an accepted completed stage; Stage 2 / STOP 2 remain OPEN.
 - DFC-2b Build archive/adapter is **LATER** — evidence incomplete.
 - BF3B Decision interaction is **not current** — parked until after DOGFOOD-CONTINUITY recovery. Closed unmerged PR #670 is exploratory evidence only (0 review cycles).
 - BF3.x / P3 retrieval remains false.

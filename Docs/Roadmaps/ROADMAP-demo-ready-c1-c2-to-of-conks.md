@@ -134,19 +134,23 @@ At this stop we decide whether the recap reading experience itself is pleasant e
 **2026-09-07 loss event:** the APP-STATE database on the tmpfs-backed 54329 server was destroyed by an ordinary container stop before any backup existed — all 53 `ingest.run` rows, Content work objects, Play runs, and the adopted C2S25 source rows are gone (corpus git files and `out/` artifacts survive). The failure this stage exists to prevent has already fired once. Stage 2 is therefore split:
 
 - **Stage 2A — durable APP-STATE substrate (DONE):** [`HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md) — PR #691 **MERGED** (`35269f087cf1dcee52f169f339d1de79599b3374`, 2 review cycles). Personally dogfooded 2026-09-07: [`../Reports/REPORT-application-state-durability-drill.md`](../Reports/REPORT-application-state-durability-drill.md). Container replacement preserved fingerprint `57e74f3f…` and Plan `3c8c6f8b-498d-4d3e-afaf-15b2e1a6520d`. A real host reboot preserved the same state on named volume `dungeonbuddy_app_state_data`. Destroying that volume removed the authority; external backup `49f7260a…` restored the identical logical state including the same Plan `document_id`. Recovery did not depend on DungeonMind World (`54330` stayed down after reboot). This does **not** close Stage 2 or STOP 2.
-- **Stage 2B — repopulation (CURRENT, not DONE):** [`HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md) — re-establish the C1/C2 catalog, adopted plans, and adopted sources on the now-dogfooded `54331` authority through the supported product seams (`import_extraction_runs_from_registry`, `bootstrap_local_play` imports, the #689 source-adoption boundary), using the recovery ledger as the exact locator map. Then the artifact-byte adoption below proceeds against a durable APP-STATE. Do not implement from the superseded pre-#692 `stage-2b-…-v1` branch. Do not author successor work from the uncommitted durability-drill pickup.
+- **Stage 2B — repopulation (implementation MERGED, human STOP still OPEN):** [`HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md) — PR #693 **MERGED** (`73cc35abe65eb0584b765bf6e6c553684d64401e`). Exact 53 ingest identities, C2 Session 27 Prep, and C2 Session 25 source revision restored onto durable `54331`. Stage 2 / STOP 2 remain OPEN: C1 Session 10 and other recaps are catalog-only until a later exact source-adoption slice. Do not mark Stage 2B as an accepted completed stage from the Stage 5A navigation PR.
 
 **Stage 2A persistence standard (standing):** Persistence was not proven by choosing a named volume. It was proven by creating recognizable product state, surviving process and host lifecycle, deliberately destroying storage, and recovering the identical product object from an independently verified backup.
 
-Structural sequence from here (do not skip the design of Stage 2B):
+Structural sequence after STOP 2 design (2026-09-08):
 
 ```text
 Stage 2A merge (#691) DONE
 Stage 2A closure sync (#692) DONE
-Stage 2B CURRENT (this PR; not DONE)
-→ restore Stage-1 historical recap dogfood
-→ continue exact artifact adoption
-→ STOP 2
+Stage 2B implementation (#693) MERGED; human STOP remains OPEN
+Stage 2 / STOP 2 OPEN
+Stage 5A CURRENT — no-document primary-surface navigation
+→ mandatory human STOP (do not auto-dispatch Stage 5B)
+Stage 5B persistent AppChrome remount repair only if still proven
+Stage 2C additional exact source adoption after UUID semantics are accepted
+Stage 4 rich recap / graph-object usefulness
+Stage 7A Agent-on-Ingest
 ```
 
 The graph-object usefulness lane may still run in parallel wherever its lease remains disjoint.
@@ -246,6 +250,13 @@ Do not proceed merely because tests pass. Tune the experience here if needed.
 ---
 
 ## Stage 5 — Persistent application shell / DFC-NAV1
+
+STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5; this period implements **Stage 5A only**.
+
+- **Stage 5A — CURRENT:** [`HANDOFF-DOGFOOD-CONTINUITY-no-document-primary-surface-nav-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-no-document-primary-surface-nav-v1.md) — Index/Plan/Play/Ingest/Build same-document history navigation. Does not close Stage 5 / STOP 5. Does not claim persistent `AppChrome` mounting.
+- **Stage 5B — still false:** persistent AppChrome ownership / remaining post-load remount repair, only if post-5A dogfood still proves it.
+
+Do not automatically dispatch Stage 5B, Stage 4, or Agent-on-Ingest from the 5A merge.
 
 ### Human outcome
 
