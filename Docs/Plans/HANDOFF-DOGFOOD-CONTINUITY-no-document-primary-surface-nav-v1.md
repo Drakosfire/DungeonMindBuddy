@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: no-document primary-surface navigation v1
 
 **Created:** 2026-09-08  
-**Status:** READY TO DISPATCH — one implementation capability  
+**Status:** IMPLEMENTATION MERGED — PR #694 `df15db4c695240ce08b5812d43ca398cd70ff6ac`; accepted head `d82ac0c755ad3e7581fa7a023f9c2bb46df64337`; 2 review cycles; human dogfood PASS; Stage 5B remains parked/conditional
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-no-document-primary-surface-nav-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / post-STOP-2 assembled-product repair`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
