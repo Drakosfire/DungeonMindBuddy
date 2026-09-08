@@ -21,7 +21,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: DB-backed graph-object provenance v1
 
 **Created:** 2026-09-08
-**Status:** IMPLEMENTATION IN REVIEW — PR #695; not DONE
+**Status:** IMPLEMENTATION MERGED — PR #695 `d2c4248b14397525fd996309e230e513a3662bb1`; accepted head `fe55824e1927a29b03e7c2660ba653c86aaf4a82`; 3 review cycles; human dogfood PASS for Orik; broader objects still lacked source prose
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-db-backed-graph-object-provenance-v1.md`
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / durable richness recovery`
 **Flow / owner:** `DOGFOOD-CONTINUITY`

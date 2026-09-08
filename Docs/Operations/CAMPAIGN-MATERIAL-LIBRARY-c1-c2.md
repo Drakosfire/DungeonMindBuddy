@@ -46,6 +46,22 @@ or mutation. It records where exact material currently survives.
 > | Durability witness Plan | still present: `3c8c6f8b-498d-4d3e-afaf-15b2e1a6520d` |
 > | World Supergraph | read-only `54330` `eldyrwild` head `rev:680c246047d67f9fe0293ee90526f670` (unchanged) |
 
+> **2026-09-08 — Stage 2C live locators (durable `54331`).** Exact recoverable C1/C2
+> source claims were adopted into APP-STATE `source.artifact` / `source.revision`.
+> Witness: [`../Reports/REPORT-stage-2c-broad-source-adoption.md`](../Reports/REPORT-stage-2c-broad-source-adoption.md).
+> Historical survey rows and the 2026-09-07 loss event below remain historical.
+> Stage 2 / STOP 2 remain OPEN. Stage 4 remains NOT DONE.
+>
+> | Observed object | Current locator |
+> | --- | --- |
+> | Durable source coverage | 23 `source.artifact` / 23 `source.revision`; fingerprint `4592d8e5ec76c9583259c472af7c3a669d1cf6f2762b3154d35eb9969bedfea1` |
+> | Ingest catalog | still 53 `ingest.run` rows; digest `1152dd828a50008c646a5a441a08e2216e8a5fdd6f6ddeec3973c0ecb96f5cd6` (unchanged) |
+> | C2S25 source | still `source_revision_id` `8ed1e034-23c6-4295-b2ff-05d5cdd643a9`; noop during apply |
+> | C1S10 source | `source_revision_id` `6c86501b-d0fc-4e7c-9195-42856ecb962c`; artifact `artifact:recap:longmont-c1:session-10`; digest `04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf`; Graph Review now renders Historical recap from APP-STATE |
+> | C2S23 source | ingest `artifact:recap:longmont-c2:session-23:aed38be1e2c2` revision `318089e3-337b-416a-9ed8-b1f22f6aef58` plus sibling ingest/World identities; previously catalog-only |
+> | Still missing | 8 `UNAVAILABLE_BYTES` (second recap digests + threat-publication locators); 58 `UNSUPPORTED_MEDIA` (graph-native / threat-publication / party-registry) |
+> | World Supergraph | still `rev:680c246047d67f9fe0293ee90526f670` |
+
 Root aliases (no home-directory paths):
 
 | Alias | Meaning |
