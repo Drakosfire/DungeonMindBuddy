@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 2B exact C1/C2 repopulation v2
 
 **Created:** 2026-09-07  
-**Status:** READY TO DISPATCH  
+**Status:** IMPLEMENTATION MERGED — PR #693 `73cc35abe65eb0584b765bf6e6c553684d64401e`; human STOP remains OPEN; Stage 2 / STOP 2 remain OPEN  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / DEMO-R2 Stage 2B`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
@@ -35,7 +35,7 @@ pr_body_template: |
 
 ## §0 Steward ruling
 
-PR #692 is merged and is the completed predecessor:
+PR #692 is merged and is the completed predecessor of this slice:
 
 ```text
 PR #692                         MERGED
@@ -44,8 +44,10 @@ merge commit                    1ed1b6c484d898a2216330258be2897dc0588f74
 formal review cycles            3
 Stage 2A                        DONE
 Stage 2 / STOP 2                OPEN
-Stage 2B                        CURRENT — this handoff
+Stage 2B                        was CURRENT at dispatch
 ```
+
+**Post-merge status (successor Stage 5A sync):** this slice's implementation merged as PR #693 `73cc35abe65eb0584b765bf6e6c553684d64401e`. Human STOP remains OPEN. Stage 2 / STOP 2 remain OPEN. Do not mark Stage 2B as an accepted completed stage from the navigation PR.
 
 PR #691 established the durable Buddy APP-STATE substrate on `127.0.0.1:54331`. The human drill then proved recognizable product state across container replacement, real host reboot, deliberate named-volume destruction, and independently verified restore of the same Plan identity. PR #692 landed that closure and the standing persistence standard.
 

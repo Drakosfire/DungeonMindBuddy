@@ -14,6 +14,7 @@ import {
   SurfaceContextHost,
 } from "../surfaceInteraction/contextHost";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
+import { interceptPrimaryNavigationClick } from "./appNavigation";
 import { AppChromeWorldGraphStatus } from "./AppChromeWorldGraphStatus";
 
 const callbackIdentityKeys = new WeakMap<() => void, number>();
@@ -274,6 +275,7 @@ export function AppChrome({
                 key={item.href}
                 href={item.href}
                 className={item.route === activeRoute ? "active" : undefined}
+                onClick={interceptPrimaryNavigationClick}
               >
                 {item.label}
               </a>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { getEvents, getJobs, getPlanView, getSurface } from "./api/liveApi";
 import type {
@@ -23,6 +23,12 @@ import { LegacyProjectionHostAdapter } from "./planSurface/projection/LegacyProj
 import { ToolHost } from "./surfaceInteraction/toolHost/ToolHost";
 import { SurfaceContextProvider } from "./surfaceInteraction/contextHost";
 import { AppChrome, type AppChromeToolsGeneration } from "./chrome/AppChrome";
+import {
+  appRouteFromLocationSnapshot,
+  getAppLocationSnapshot,
+  interceptPrimaryNavigationClick,
+  subscribeAppLocation,
+} from "./chrome/appNavigation";
 import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "./chrome/appChromeConfig";
 import {
   WorldGraphLensProvider,
@@ -38,18 +44,6 @@ import { BuildSurfacePage } from "./buildSurface/BuildSurfacePage";
 import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
 
 type LoadStatus = "loading" | "ready" | "error";
-type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan" | "play" | "ingest" | "build";
-
-function currentRoute(): AppRoute {
-  const path = window.location.pathname.replace(/\/+$/, "") || "/";
-  if (path === "/surface" || path === "/live-control") return "surface";
-  if (path === "/tiptap-callout-spike") return "tiptap-callout-spike";
-  if (path === "/plan") return "plan";
-  if (path === "/play") return "play";
-  if (path === "/ingest") return "ingest";
-  if (path === "/build") return "build";
-  return "index";
-}
 
 function IndexSurfacePublisher() {
   const context = useMemo(
@@ -89,22 +83,22 @@ function MirewardIndex() {
       </header>
 
       <section className="launcher-grid" aria-label="Main surfaces">
-        <a className="launcher-card primary" href="/plan">
+        <a className="launcher-card primary" href="/plan" onClick={interceptPrimaryNavigationClick}>
           <span className="launcher-kicker">Plan</span>
           <strong>Prep surface</strong>
           <span>Session prep canvas with reference chips and planning tools.</span>
         </a>
-        <a className="launcher-card" href="/play">
+        <a className="launcher-card" href="/play" onClick={interceptPrimaryNavigationClick}>
           <span className="launcher-kicker">Play</span>
           <strong>Runbook table deck</strong>
           <span>Open one exact durable Run and play its bound Runbook.</span>
         </a>
-        <a className="launcher-card" href="/ingest">
+        <a className="launcher-card" href="/ingest" onClick={interceptPrimaryNavigationClick}>
           <span className="launcher-kicker">Ingest</span>
           <strong>Memory review</strong>
           <span>Graph Review workbench for reviewing and committing campaign memory.</span>
         </a>
-        <a className="launcher-card" href="/build">
+        <a className="launcher-card" href="/build" onClick={interceptPrimaryNavigationClick}>
           <span className="launcher-kicker">Build</span>
           <strong>Worldbuilding source</strong>
           <span>Create and edit worldbuilding workspace documents.</span>
@@ -276,7 +270,12 @@ function LiveControlApp() {
 }
 
 export function App() {
-  const route = currentRoute();
+  const locationSnapshot = useSyncExternalStore(
+    subscribeAppLocation,
+    getAppLocationSnapshot,
+    getAppLocationSnapshot,
+  );
+  const route = appRouteFromLocationSnapshot(locationSnapshot);
   let content;
   if (route === "index") {
     content = (
