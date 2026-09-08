@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: durable Buddy application-state authority v1
 
 **Created:** 2026-09-07  
-**Status:** ACTIVE — rebased on post-#690 `main`; source-lost rebrief recorded in §0A  
+**Status:** DONE — PR #691 merged `35269f087cf1dcee52f169f339d1de79599b3374`; 2 review cycles; personally dogfooded 2026-09-07  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md`  
 **Conversation/workstream:** DOGFOOD-CONTINUITY / DEMO-R2 durable APP-STATE  
 **Flow / owner:** DOGFOOD-CONTINUITY  
@@ -31,6 +31,22 @@ pr_body_template: |
 **Suggested implementation branch:** this branch after re-anchor/rebase, or a fresh isolated worktree at the post-#690 base
 
 > Repository law: `AGENTS.md`. Persistence authority: `Docs/Design/ARCHITECTURE-application-state-layer.md`. Product sequence: `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`.
+
+## Completion record (2026-09-07)
+
+PR #691 squash-merged to `main` as `35269f087cf1dcee52f169f339d1de79599b3374` (reviewed head `b0114501ac1a9a10d58e01a51f8979823d59b7fd`; 2 review cycles; Cycle 2 HOLD discharged on exact-head evidence without a new commit).
+
+Tooling merge was not the end of Stage 2A. Personal dogfood is recorded in [`../Reports/REPORT-application-state-durability-drill.md`](../Reports/REPORT-application-state-durability-drill.md):
+
+- process/container: PostgreSQL replacement preserved fingerprint `57e74f3f3836fd126a6a62c786ed283d5f03a59c6a547e48d3291b1d1f2a97a8` and Plan `Durability Witness — Delete Me Later` (`3c8c6f8b-498d-4d3e-afaf-15b2e1a6520d`);
+- host: real machine reboot 2026-09-07 18:49 preserved the same fingerprint on named volume `dungeonbuddy_app_state_data`;
+- disaster recovery: `down -v` destroyed that volume; backup SHA-256 `49f7260a98838d8189b071239e0c1d39a7979c4b491118693c856c4a7afad08a` restored the identical logical state, including the same Plan `document_id`.
+
+`54330` was not started after reboot. APP-STATE survival did not depend on DungeonMind World.
+
+Stage 2, STOP 2, Stage 2B repopulation, and Stage 1 recap dogfood remain false. Stage 2B is **not dispatched** from this completion.
+
+The original transfer design is preserved below as the standing contract for any future source-bearing migration and as the design record of what the tooling must support.
 
 ## §0A Rebrief — source authority destroyed before capture (2026-09-07)
 

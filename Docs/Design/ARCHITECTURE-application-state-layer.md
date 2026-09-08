@@ -3,9 +3,9 @@ document_id: dmb-architecture-application-state-layer
 title: Application State Layer — Architecture Authority
 document_class: architecture_authority
 status: active
-version: 1.1
+version: 1.2
 created_at: "2026-08-24"
-updated_at: "2026-08-24"
+updated_at: "2026-09-07"
 workstream: APP-STATE
 as0_merge: "4c90df353bfb5d0f6857357e00eb8b2b6e142257"
 as0_accepted_head: "605445b3b839b494a82218758c465edbfe59bad9"
@@ -31,6 +31,17 @@ universal domain model. Surfaces call domain services. Domain services own
 invariants. PostgreSQL owns durable Buddy application state and asset
 metadata/relationships. DungeonMind owns World Graph truth. Large binary bytes
 live in DungeonMindServer storage/CDN behind an Asset service boundary.
+
+### Durability proof standard
+
+Choosing PostgreSQL and a named volume is substrate, not proof. A Buddy
+durable authority is proven only when recognizable product state is created
+through the product, survives process and host lifecycle, is deliberately
+destroyed at the storage layer, and the identical product object returns from
+an independently verified backup. Schema-at-head, pytest-green, and
+reconstructing rows from source files after a wipe do not satisfy this
+standard. The Stage 2A operator witness is
+`Docs/Reports/REPORT-application-state-durability-drill.md`.
 
 ### Storage-independent identity law
 

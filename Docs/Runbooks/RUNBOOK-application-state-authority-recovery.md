@@ -24,6 +24,7 @@ Buddy APP-STATE and DungeonMind World are separate authorities. Never point Budd
 5. **The volume is the destroy line.** `docker compose -f compose.postgres.app-state.yml down` and container replacement keep data. `down -v` or `docker volume rm dungeonbuddy_app_state_data` destroys the authority — never run these as part of ordinary stop/start.
 6. **Local persistence is not remote backup.** External dumps via `backup` are the recovery artifact. Remote hosting/HA is Stage 8 and out of scope.
 7. **Backups and fingerprints are local artifacts.** Do not commit dump bytes. Fingerprints contain no secrets; DSNs are always redacted in output.
+8. **A named volume is not the durability proof.** Persistence is proven by creating recognizable product state through the product, surviving process and host lifecycle, deliberately destroying storage, and recovering the identical product object from an independently verified backup. Schema-at-head, pytest-green, and seed-after-kill are not that proof. Human witness: `Docs/Reports/REPORT-application-state-durability-drill.md` (Stage 2A, 2026-09-07).
 
 ## Bring up the durable authority (first birth)
 
