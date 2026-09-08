@@ -46,9 +46,13 @@ Field classification (handoff §5.7)
   anchor id prefix adaptation (``dm-source-anchor:v1:`` ↔
   ``source-anchor:v1:``).
 * C (product-local join, non-authoritative): source artifact
-  title/uri/excerpt and anchor content, read from Buddy product files and
-  registries by admitted artifact identity and verified against the
-  DungeonMind source revision's ``content_sha256`` digest.
+  title/uri/excerpt and anchor content. Generic World projection may join
+  relationship excerpts from checkout-local ``source_span_index.json`` when
+  ``repo_root`` is provided; callers pass ``repo_root=None`` to skip that
+  filesystem join. Historical recap projection overlays excerpts from
+  already-loaded APP-STATE ``source.revision`` bytes using
+  ``extract_span_from_revision_bound_text``. Anchor reads still verify
+  parent bytes against the DungeonMind source revision digest.
 * D (retired): ``external_resource``, ``threat_statblock_binding``,
   ``statblock_binding``, ``active_contribution_ids`` — Buddy-only
   hydration-era payloads the DungeonMind authority snapshot intentionally
@@ -1319,6 +1323,8 @@ def _adapt_projection_result(
         degree_by_node[rel.subject_object_id] = degree_by_node.get(rel.subject_object_id, 0) + 1
         degree_by_node[rel.object_object_id] = degree_by_node.get(rel.object_object_id, 0) + 1
     paragraph_texts: dict[str, str] = {}
+    # Product-local sidecar join is optional. Historical recap projection
+    # passes repo_root=None and overlays APP-STATE bytes after this adapt.
     if repo_root is not None:
         paragraph_texts = _load_span_paragraph_text(
             services,

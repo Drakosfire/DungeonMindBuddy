@@ -39,6 +39,8 @@ function adaptAdjacency(
     campaign_scope: candidate.campaignScope ?? null,
     related_summary: candidate.relatedSummary,
     source_excerpt: candidate.sourceExcerpt,
+    source_excerpt_is_full_paragraph: candidate.sourceExcerptIsFullParagraph,
+    source_excerpt_highlight_spans: candidate.sourceExcerptHighlightSpans,
   };
 }
 

@@ -134,7 +134,7 @@ At this stop we decide whether the recap reading experience itself is pleasant e
 **2026-09-07 loss event:** the APP-STATE database on the tmpfs-backed 54329 server was destroyed by an ordinary container stop before any backup existed — all 53 `ingest.run` rows, Content work objects, Play runs, and the adopted C2S25 source rows are gone (corpus git files and `out/` artifacts survive). The failure this stage exists to prevent has already fired once. Stage 2 is therefore split:
 
 - **Stage 2A — durable APP-STATE substrate (DONE):** [`HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md) — PR #691 **MERGED** (`35269f087cf1dcee52f169f339d1de79599b3374`, 2 review cycles). Personally dogfooded 2026-09-07: [`../Reports/REPORT-application-state-durability-drill.md`](../Reports/REPORT-application-state-durability-drill.md). Container replacement preserved fingerprint `57e74f3f…` and Plan `3c8c6f8b-498d-4d3e-afaf-15b2e1a6520d`. A real host reboot preserved the same state on named volume `dungeonbuddy_app_state_data`. Destroying that volume removed the authority; external backup `49f7260a…` restored the identical logical state including the same Plan `document_id`. Recovery did not depend on DungeonMind World (`54330` stayed down after reboot). This does **not** close Stage 2 or STOP 2.
-- **Stage 2B — repopulation (implementation MERGED, human STOP still OPEN):** [`HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md) — PR #693 **MERGED** (`73cc35abe65eb0584b765bf6e6c553684d64401e`). Exact 53 ingest identities, C2 Session 27 Prep, and C2 Session 25 source revision restored onto durable `54331`. Stage 2 / STOP 2 remain OPEN: C1 Session 10 and other recaps are catalog-only until a later exact source-adoption slice. Do not mark Stage 2B as an accepted completed stage from the Stage 5A navigation PR.
+- **Stage 2B — repopulation (implementation MERGED, human STOP still OPEN):** [`HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md) — PR #693 **MERGED** (`73cc35abe65eb0584b765bf6e6c553684d64401e`). Exact 53 ingest identities, C2 Session 27 Prep, and C2 Session 25 source revision restored onto durable `54331`. Stage 2 / STOP 2 remain OPEN: C1 Session 10 and other recaps are catalog-only until a later exact source-adoption slice.
 
 **Stage 2A persistence standard (standing):** Persistence was not proven by choosing a named volume. It was proven by creating recognizable product state, surviving process and host lifecycle, deliberately destroying storage, and recovering the identical product object from an independently verified backup.
 
@@ -145,9 +145,9 @@ Stage 2A merge (#691) DONE
 Stage 2A closure sync (#692) DONE
 Stage 2B implementation (#693) MERGED; human STOP remains OPEN
 Stage 2 / STOP 2 OPEN
-Stage 5A CURRENT — no-document primary-surface navigation
-→ mandatory human STOP (do not auto-dispatch Stage 5B)
-Stage 5B persistent AppChrome remount repair only if still proven
+Stage 5A MERGED + human dogfood PASS (#694 `df15db4c695240ce08b5812d43ca398cd70ff6ac`; accepted head `d82ac0c755ad3e7581fa7a023f9c2bb46df64337`; 2 review cycles)
+Stage 5B parked/conditional — do not auto-dispatch
+CURRENT — DB-backed graph-object provenance v1 (PR #695; not DONE)
 Stage 2C additional exact source adoption after UUID semantics are accepted
 Stage 4 rich recap / graph-object usefulness
 Stage 7A Agent-on-Ingest
@@ -251,12 +251,12 @@ Do not proceed merely because tests pass. Tune the experience here if needed.
 
 ## Stage 5 — Persistent application shell / DFC-NAV1
 
-STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5; this period implements **Stage 5A only**.
+STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Stage 5A is merged and human-accepted; Stage 5B stays parked unless a concrete remount failure reappears.
 
-- **Stage 5A — CURRENT:** [`HANDOFF-DOGFOOD-CONTINUITY-no-document-primary-surface-nav-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-no-document-primary-surface-nav-v1.md) — Index/Plan/Play/Ingest/Build same-document history navigation. Does not close Stage 5 / STOP 5. Does not claim persistent `AppChrome` mounting.
-- **Stage 5B — still false:** persistent AppChrome ownership / remaining post-load remount repair, only if post-5A dogfood still proves it.
+- **Stage 5A — MERGED + human dogfood PASS:** [`HANDOFF-DOGFOOD-CONTINUITY-no-document-primary-surface-nav-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-no-document-primary-surface-nav-v1.md) — PR #694 **MERGED** (`df15db4c695240ce08b5812d43ca398cd70ff6ac`; accepted head `d82ac0c755ad3e7581fa7a023f9c2bb46df64337`; 2 review cycles). Index/Plan/Play/Ingest/Build same-document history navigation. Does not close Stage 5 / STOP 5. Does not claim persistent `AppChrome` mounting.
+- **Stage 5B — parked/conditional:** persistent AppChrome ownership / remaining post-load remount repair, only if a concrete remount failure reappears. Do not auto-dispatch from this provenance slice.
 
-Do not automatically dispatch Stage 5B, Stage 4, or Agent-on-Ingest from the 5A merge.
+**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-db-backed-graph-object-provenance-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-db-backed-graph-object-provenance-v1.md) — PR #695. Project C2S25 graph-object relationship provenance from durable APP-STATE source bytes. Does not close Stage 2 / STOP 2, Stage 4, or the later presentation/styling slice. Do not pre-mark this slice DONE.
 
 ### Human outcome
 
