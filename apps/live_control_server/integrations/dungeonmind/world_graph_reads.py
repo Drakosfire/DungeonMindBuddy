@@ -652,6 +652,131 @@ def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummar
         ) from exc
 
 
+@dataclass(frozen=True)
+class WorldSourceInventoryRow:
+    """Read-only World source identity/digest observation. No body fetch."""
+
+    source_artifact_id: str
+    source_domain: str
+    campaign_id: str | None
+    session_id: str | None
+    world_id: str
+    content_sha256: str | None
+    locator: str | None
+    artifact_uri: str | None
+    artifact_kind: str | None
+    body_storage: str | None
+    source_revision_id: str | None
+
+
+def list_world_textual_source_inventory(
+    *,
+    world_id: str,
+    database_url: str | None = None,
+) -> list[WorldSourceInventoryRow]:
+    """Enumerate World-referenced source artifacts/revisions. Read-only."""
+
+    cleaned_world_id = world_id.strip()
+    if not cleaned_world_id:
+        raise DirectWorldGraphReadError(
+            "world_id is required for World source inventory",
+            code="invalid_request",
+            status_code=422,
+        )
+    from apps.live_control_server import config as buddy_config
+
+    url = database_url or buddy_config.world_graph_authority_database_url()
+    if not url:
+        raise DirectWorldGraphReadError(
+            "DungeonMind authority database URL is not configured "
+            f"({buddy_config.WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV})",
+            code="authority_unavailable",
+            status_code=503,
+        )
+    try:
+        bundle = PostgresRepositoryBundle(PostgresDatabase(url))
+        sources = bundle.sources
+        if not callable(getattr(sources, "list_artifacts_for_world", None)):
+            raise DirectWorldGraphReadError(
+                "DungeonMind source enumeration ports are unavailable.",
+                code="enumeration_unavailable",
+                status_code=503,
+                diagnostics=[{"reason": "source_enumeration_ports_missing"}],
+            )
+        rows: list[WorldSourceInventoryRow] = []
+        for artifact in sources.list_artifacts_for_world(cleaned_world_id):
+            domain = getattr(artifact, "source_domain", None)
+            domain_key = getattr(artifact, "source_domain_key", None)
+            if domain is not None and hasattr(domain, "value"):
+                source_domain = str(domain.value)
+            else:
+                source_domain = str(domain_key or domain or "").strip()
+            revisions = []
+            if callable(getattr(sources, "list_revisions", None)):
+                revisions = list(sources.list_revisions(artifact.source_artifact_id))
+            if not revisions:
+                rows.append(
+                    WorldSourceInventoryRow(
+                        source_artifact_id=str(artifact.source_artifact_id),
+                        source_domain=source_domain,
+                        campaign_id=getattr(artifact, "campaign_id", None),
+                        session_id=getattr(artifact, "session_id", None),
+                        world_id=str(getattr(artifact, "world_id", None) or cleaned_world_id),
+                        content_sha256=None,
+                        locator=None,
+                        artifact_uri=getattr(artifact, "uri", None),
+                        artifact_kind=getattr(artifact, "artifact_kind", None),
+                        body_storage=None,
+                        source_revision_id=None,
+                    )
+                )
+                continue
+            for revision in revisions:
+                digest = getattr(revision, "content_sha256", None)
+                rows.append(
+                    WorldSourceInventoryRow(
+                        source_artifact_id=str(artifact.source_artifact_id),
+                        source_domain=source_domain,
+                        campaign_id=getattr(artifact, "campaign_id", None),
+                        session_id=getattr(artifact, "session_id", None),
+                        world_id=str(getattr(artifact, "world_id", None) or cleaned_world_id),
+                        content_sha256=str(digest).strip() if digest else None,
+                        locator=getattr(revision, "locator", None),
+                        artifact_uri=getattr(artifact, "uri", None),
+                        artifact_kind=getattr(artifact, "artifact_kind", None),
+                        body_storage=getattr(revision, "body_storage", None),
+                        source_revision_id=str(getattr(revision, "source_revision_id", None) or "")
+                        or None,
+                    )
+                )
+        rows.sort(
+            key=lambda row: (
+                row.source_artifact_id,
+                row.content_sha256 or "",
+                row.source_revision_id or "",
+            )
+        )
+        return rows
+    except DirectWorldGraphReadError:
+        raise
+    except PersistenceUnavailableError as exc:
+        raise DirectWorldGraphReadError(
+            "DungeonMind authority is unavailable.",
+            code="authority_unavailable",
+            status_code=503,
+            diagnostics=[{"reason": "provider_unavailable", "what": "world sources"}],
+            cause=exc,
+        ) from exc
+    except Exception as exc:
+        raise DirectWorldGraphReadError(
+            "DungeonMind world source inventory failed.",
+            code="authority_integrity",
+            status_code=500,
+            diagnostics=[{"reason": "world_source_inventory_failed"}],
+            cause=exc,
+        ) from exc
+
+
 # ---------------------------------------------------------------------------
 # Request mapping (Buddy wire → DungeonMind v2 contract)
 # ---------------------------------------------------------------------------

@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 2C broad exact source adoption v1
 
 **Created:** 2026-09-08  
-**Status:** READY TO DISPATCH — one implementation capability  
+**Status:** IMPLEMENTATION IN PROGRESS — one implementation capability
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / durable source coverage`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
