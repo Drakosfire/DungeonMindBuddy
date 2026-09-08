@@ -14,8 +14,22 @@ or mutation. It records where exact material currently survives.
 
 **Surveyed:** 2026-09-06 (RC1 ledger repair: URI + SHA-256 for all 53 ingest runs; Plan/Build fingerprints; RC2: §2.4 digest columns aligned with §2.3)  
 **Product `main`:** `678e9c276ad58505c53ce61d5a659ea8c792ca31`  
-**APP-STATE:** `dungeonbuddy_application_state` @ `127.0.0.1:54329`, schema `20260902_0005` (`LIVE-READ`)  
+**APP-STATE (at survey time):** `dungeonbuddy_application_state` @ `127.0.0.1:54329`, schema `20260902_0005` (`LIVE-READ`)  
 **Ingest identity digest (sorted `run_id` SHA-256):** `59508725ad56789bc333af3cea9f311dda55b8eac1b89aa4639c49278b40f5f1`
+
+> **2026-09-07 — APP-STATE LOSS EVENT.** The 54329 PostgreSQL service was tmpfs-backed
+> (`dungeonmind-postgres-dev`, no volume). An ordinary container stop destroyed
+> `dungeonbuddy_application_state`: all 53 `ingest.run` rows, Content work objects
+> (including the DFC-2a adopted C2S27 plan), Play runs, and the PR #689 adopted C2S25
+> `source.artifact`/`source.revision` rows are gone. No backup ever existed.
+> Every `LIVE-READ` / `leftover-app-state` claim below is now **historical evidence of
+> what existed at survey time**, not a live locator. Git-tracked corpus files and `out/`
+> artifacts are unaffected. Corrective authority: durable Buddy APP-STATE substrate on
+> `127.0.0.1:54331` (`compose.postgres.app-state.yml`,
+> `Docs/Runbooks/RUNBOOK-application-state-authority-recovery.md`,
+> `HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md` §0A).
+> Repopulation through supported product seams is the Stage 2B successor; this ledger's
+> exact paths/digests are the re-derivation map.
 
 Root aliases (no home-directory paths):
 
