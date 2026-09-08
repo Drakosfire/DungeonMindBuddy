@@ -86,3 +86,63 @@ def test_source_lookup_is_exact_artifact_and_digest(
         source_artifact_id=record.source_artifact_id,
         content_sha256="0" * 64,
     ) is None
+
+
+def test_supplied_source_revision_id_is_an_exact_assertion(
+    application_state_dsn: str,
+) -> None:
+    markdown = "# Exact restore\n"
+    digest = hashlib.sha256(markdown.encode("utf-8")).hexdigest()
+    requested = UUID("8ed1e034-23c6-4295-b2ff-05d5cdd643a9")
+    kwargs = dict(
+        source_artifact_id="artifact:recap:longmont-c2:session-25:fd38b5915b32",
+        source_domain="recap",
+        campaign_id="longmont-c2",
+        session_id="session-25",
+        world_id="eldyrwild",
+        markdown=markdown,
+        content_sha256=digest,
+        lineage={"adopted_from_run_id": "graph-ingest:longmont-c2:session-25:20260808T005650Z"},
+    )
+
+    preview = persist_source_markdown(
+        **kwargs,
+        source_revision_id=requested,
+        dry_run=True,
+    )
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM source.revision").fetchone() == (0,)
+    assert preview.source_revision_id == requested
+
+    first = persist_source_markdown(**kwargs, source_revision_id=requested)
+    second = persist_source_markdown(**kwargs, source_revision_id=requested)
+    assert first.source_revision_id == requested
+    assert second.source_revision_id == requested
+
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM source.revision").fetchone() == (1,)
+
+    current = persist_source_markdown(
+        **kwargs,
+        source_revision_id=requested,
+        dry_run=True,
+    )
+    assert current.source_revision_id == requested
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM source.revision").fetchone() == (1,)
+
+    with pytest.raises(ApplicationStateConflictError, match="different source revision"):
+        persist_source_markdown(**kwargs, source_revision_id=UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+
+    other_markdown = "# Other source\n"
+    with pytest.raises(ApplicationStateConflictError, match="different source state"):
+        persist_source_markdown(
+            source_artifact_id="artifact:recap:longmont-c2:session-23:deadbeef",
+            source_domain="recap",
+            campaign_id="longmont-c2",
+            session_id="session-23",
+            world_id="eldyrwild",
+            markdown=other_markdown,
+            content_sha256=hashlib.sha256(other_markdown.encode("utf-8")).hexdigest(),
+            source_revision_id=requested,
+        )
