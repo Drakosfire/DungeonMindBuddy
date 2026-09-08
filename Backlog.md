@@ -147,6 +147,26 @@ PR #694 removed full-document loads among the primary React surfaces and the pos
 
 ---
 
+# IDEA
+
+## [IDEA] Node digest from multi-session + worldbuilding context
+**Kind:** DOGFOOD / PRODUCT  
+**Owner:** Demo-Ready Stage 4 object-card richness; timeline when that work exists  
+**Captured:** 2026-09-08  
+**Last verified:** 2026-09-08 C2S25 ingest dogfood after syntactic relationship copy
+
+Do not dispatch from this IDEA. The demo-ready roadmap owns sequencing.
+
+Syntactic hover/card copy (`Orik is associated with Brin`, no Related-objects wrap) is an improvement and still not a useful object. Orik is a thin session-local NPC: one relationship, one recap paragraph. The next richness is not more graph chrome. It is a digest of the node when there is enough context to combine.
+
+Good examples are campaign-lived PCs/NPCs such as Lysandra or Pippa: multiple sessions plus worldbuilding-related objects that can be read together. Imagine a loop that decides whether the node has enough material, then composes one GM-facing digest instead of listing edges. That composition touches timeline work, which is not ready; do not dispatch a digest slice against Orik. Keep the imagined shape: session chronology + worldbuilding objects → one readable node digest, only when the node is dense enough.
+
+**Surfaces when:** Stage 4 presentation; node card digest; Lysandra; Pippa; thin vs dense graph objects; Orik is not the example; timeline; object richness; why the card still feels empty after provenance
+
+**Refs:** C2S25 ingest dogfood; `apps/live-control-ui/src/graphObjectCard/GraphObjectCard.tsx`; `apps/live-control-ui/src/graphReference/nodeGlancePresentation.ts`
+
+---
+
 # Delegated workstreams — pointers only, no root status
 
 The rows below preserve discoverability for capabilities removed from root without creating a second status owner.
