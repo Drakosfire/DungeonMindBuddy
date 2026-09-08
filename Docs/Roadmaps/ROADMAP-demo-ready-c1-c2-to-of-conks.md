@@ -134,7 +134,7 @@ At this stop we decide whether the recap reading experience itself is pleasant e
 **2026-09-07 loss event:** the APP-STATE database on the tmpfs-backed 54329 server was destroyed by an ordinary container stop before any backup existed — all 53 `ingest.run` rows, Content work objects, Play runs, and the adopted C2S25 source rows are gone (corpus git files and `out/` artifacts survive). The failure this stage exists to prevent has already fired once. Stage 2 is therefore split:
 
 - **Stage 2A — durable APP-STATE substrate (DONE):** [`HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-application-state-durable-authority-v1.md) — PR #691 **MERGED** (`35269f087cf1dcee52f169f339d1de79599b3374`, 2 review cycles). Personally dogfooded 2026-09-07: [`../Reports/REPORT-application-state-durability-drill.md`](../Reports/REPORT-application-state-durability-drill.md). Container replacement preserved fingerprint `57e74f3f…` and Plan `3c8c6f8b-498d-4d3e-afaf-15b2e1a6520d`. A real host reboot preserved the same state on named volume `dungeonbuddy_app_state_data`. Destroying that volume removed the authority; external backup `49f7260a…` restored the identical logical state including the same Plan `document_id`. Recovery did not depend on DungeonMind World (`54330` stayed down after reboot). This does **not** close Stage 2 or STOP 2.
-- **Stage 2B — repopulation (NEXT, not dispatched):** re-establish the C1/C2 catalog, adopted plans, and adopted sources on the now-dogfooded `54331` authority through the supported product seams (`import_extraction_runs_from_registry`, `bootstrap_local_play` imports, the #689 source-adoption boundary), using the recovery ledger as the exact locator map. Then the artifact-byte adoption below proceeds against a durable APP-STATE. There is no remaining reason to delay putting valuable state into `54331`. Do not author or dispatch Stage 2B from the uncommitted durability-drill pickup.
+- **Stage 2B — repopulation (CURRENT, not DONE):** [`HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2b-c1-c2-repopulation-v2.md) — re-establish the C1/C2 catalog, adopted plans, and adopted sources on the now-dogfooded `54331` authority through the supported product seams (`import_extraction_runs_from_registry`, `bootstrap_local_play` imports, the #689 source-adoption boundary), using the recovery ledger as the exact locator map. Then the artifact-byte adoption below proceeds against a durable APP-STATE. Do not implement from the superseded pre-#692 `stage-2b-…-v1` branch. Do not author successor work from the uncommitted durability-drill pickup.
 
 **Stage 2A persistence standard (standing):** Persistence was not proven by choosing a named volume. It was proven by creating recognizable product state, surviving process and host lifecycle, deliberately destroying storage, and recovering the identical product object from an independently verified backup.
 
@@ -142,8 +142,8 @@ Structural sequence from here (do not skip the design of Stage 2B):
 
 ```text
 Stage 2A merge (#691) DONE
-Stage 2A closure sync (#692) IN REVIEW
-→ after #692 lands: Stage 2B repopulation
+Stage 2A closure sync (#692) DONE
+Stage 2B CURRENT (this PR; not DONE)
 → restore Stage-1 historical recap dogfood
 → continue exact artifact adoption
 → STOP 2
