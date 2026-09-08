@@ -31,13 +31,21 @@ from graph_memory.ingestion.extraction_run import (
 
 
 def parse_source_revision_id(raw: str | None) -> UUID | None:
-    """Parse an optional exact source revision UUID, failing closed."""
+    """Parse an optional exact source revision UUID, failing closed.
+
+    ``None`` means the operator omitted the flag and the legacy generate-on-insert
+    path remains. An explicitly supplied blank or whitespace value is not an
+    omission; it fails before any adoption write.
+    """
 
     if raw is None:
         return None
     cleaned = raw.strip()
     if not cleaned:
-        return None
+        raise GraphRunRegistryError(
+            "source_revision_id is not a valid UUID",
+            status_code=422,
+        )
     try:
         return UUID(cleaned)
     except ValueError as exc:

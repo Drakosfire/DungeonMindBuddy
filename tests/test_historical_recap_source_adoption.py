@@ -148,6 +148,11 @@ def test_adoption_passes_exact_revision_and_check_only(
 def test_malformed_source_revision_id_fails_before_write() -> None:
     with pytest.raises(adoption.GraphRunRegistryError, match="valid UUID"):
         adoption.parse_source_revision_id("not-a-uuid")
+    with pytest.raises(adoption.GraphRunRegistryError, match="valid UUID"):
+        adoption.parse_source_revision_id("")
+    with pytest.raises(adoption.GraphRunRegistryError, match="valid UUID"):
+        adoption.parse_source_revision_id("   \t  ")
+    assert adoption.parse_source_revision_id(None) is None
 
 
 def test_main_malformed_revision_does_not_adopt(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -174,3 +179,33 @@ def test_main_malformed_revision_does_not_adopt(monkeypatch: pytest.MonkeyPatch)
         == 2
     )
     assert called["adopt"] is False
+
+
+def test_main_blank_source_revision_id_does_not_adopt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called = {"adopt": False}
+
+    def fake_adopt(*_args, **_kwargs):
+        called["adopt"] = True
+        raise AssertionError("adoption must not run after a blank source_revision_id")
+
+    monkeypatch.setattr(adoption, "adopt_historical_recap_source", fake_adopt)
+    monkeypatch.setattr(adoption, "repo_root", lambda: Path("."))
+
+    for blank in ("", "   "):
+        called["adopt"] = False
+        assert (
+            adoption.main(
+                [
+                    "--run-id",
+                    "graph-ingest:longmont-c2:session-25:20260808T005650Z",
+                    "--world-id",
+                    "eldyrwild",
+                    "--source-revision-id",
+                    blank,
+                ]
+            )
+            == 2
+        )
+        assert called["adopt"] is False
