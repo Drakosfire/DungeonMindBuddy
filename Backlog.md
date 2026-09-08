@@ -26,33 +26,24 @@ Terminal work leaves this file rather than accumulating under `DONE` / `DROPPED`
 6. **One slice, one independently useful capability.** “Design and implement,” immediate UX plus future architecture, or multiple authority boundaries must be split before READY.
 7. **No shadow sequencing.** Root backlog never overrides a tracker/roadmap because its note happens to be newer.
 
-**Current verification anchor:** `main` at `62f7f9e856327247b8677b4c951801e4c58a826c` (merged PR #622), observed 2026-08-20.
+**Current verification anchor:** `main` at `df15db4c695240ce08b5812d43ca398cd70ff6ac` (PR #694 merged), observed 2026-09-08 after successful Stage 5A human dogfood.
+
+### Current sequencing posture
+
+`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md` owns the current C1/C2 demo-readiness sequence. Root backlog does **not** independently sequence historical source coverage, graph-object richness/provenance, recap presentation, navigation-shell residuals, Agent-on-Ingest/cross-surface Agent work, real-material save/reopen, or the later move of durable authorities off the laptop.
+
+PR #694 removed full-document loads among the primary React surfaces and the post-merge human dogfood was a material product win. Persistent-AppChrome Stage 5B work is therefore conditional on a concrete residual remount/restart failure rather than an automatic successor. Current steward direction is substrate-first: preserve/recover the useful prototype-era context through durable DB-backed authority and controlled DungeonMind projection before doing the deliberate fun/readable styling pass.
 
 ---
 
 # READY
 
-## [READY] Define campaign creation inside an existing world
-**Kind:** DESIGN  
-**Owner:** Build / source lifecycle  
-**Captured:** 2026-08-11  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`  
-**Depends on:** CR01B / PR #564 new-world creation; managed world-container registry; `CONTRACT-world-container-v1`.
-
-**Problem:** The former combined import item covered both creating a world and creating a campaign. New-world creation shipped; explicit creation of a campaign inside an admitted existing world remains undefined.
-
-**Slice:** Produce the campaign-creation authority contract and implementation handoff only. Freeze campaign identity, world placement, persistence/reopen semantics, duplicate/collision behavior, and the rule that campaign creation never forks or duplicates World Graph identity implicitly.
-
-**Exit proof:** One checked-in decision/contract + bounded implementation handoff resolves the success/failure matrix and names the exact implementation successor. No runtime campaign creation is claimed by this design slice.
-
-**Refs:** `Docs/Plans/HANDOFF-BUILD-create-new-world-from-build.md`; `Docs/Design/CONTRACT-world-container-v1.md`; `Docs/Roadmaps/ROADMAP-con-ready.md`.
-
 ## [READY] Publish Statblock Workbench as a Build Tool capability
 **Kind:** CODE  
 **Owner:** Build / Surface Interaction  
 **Captured:** 2026-08-11  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`  
-**Depends on:** shared Tool Host merged in PR #501; native Build Surface Interaction publication merged in PR #506; shared Threat projection/lens merged in PR #512.
+**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
+**Depends on:** shared Tool Host merged in PR #501; native Build Surface Interaction publication merged in PR #506; shared Threat projection/lens merged in PR #512. The Threat/Statblock roadmap still explicitly leaves this capability in root backlog until sequenced elsewhere.
 
 **Problem:** Build can natively publish/search/inspect World Graph capabilities through shared hosts, but Statblock Workbench authoring is not yet an ordinary Build Tool capability.
 
@@ -60,82 +51,22 @@ Terminal work leaves this file rather than accumulating under `DONE` / `DROPPED`
 
 **Exit proof:** From an admitted Build document, the shared Tool Host exposes the Workbench capability, opens the existing Workbench, survives surface/document lease replacement correctly, and leaves Plan behavior and graph/document authority unchanged.
 
-**Refs:** PRs #501, #506, #512; `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`; `apps/live-control-ui/src/surfaceInteraction/`.
-
-## [READY] Build ready-state Reload / Discard-local actions
-**Kind:** CODE  
-**Owner:** Build / Markdown Canvas  
-**Captured:** 2026-08-11  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`  
-**Depends on:** shared Edit Host and existing Canvas conflict/reload authority.
-
-**Problem:** Ordinary ready-state recovery still lacks a clear operator action for abandoning the mutable local working copy without confusing that action with durable source deletion.
-
-**Slice:** Add Reload / Discard-local through existing Canvas/Edit ownership. The action reloads the exact durable document authority, clears local dirty state, and never archives/deletes the durable source.
-
-**Exit proof:** Dirty local edits can be discarded and reloaded through the shared Edit surface; exact durable source bytes/revision remain unchanged; no Build-specific duplicate Edit bar is introduced.
-
-**Refs:** `Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`; `apps/live-control-ui/src/markdownCanvas/`; shared Edit Host implementation.
+**Refs:** PRs #501, #506, #512; `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`; `Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`; `apps/live-control-ui/src/surfaceInteraction/`.
 
 ## [READY] Define durable source archive / restore lifecycle
 **Kind:** DESIGN  
-**Owner:** Build / source lifecycle  
+**Owner:** APP-STATE / source lifecycle  
 **Captured:** 2026-08-11  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`  
-**Depends on:** current durable source/document registry; local Discard semantics remain separate.
+**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
+**Depends on:** Stage 2A durable APP-STATE authority on `54331`; immutable `source.artifact` / `source.revision` identity and exact source-Markdown service; local editor discard remains a separate non-destructive concept.
 
-**Problem:** Durable source removal is a server-owned destructive lifecycle operation and has no explicit archive/restore authority contract.
+**Problem:** Durable source removal is a server-owned lifecycle operation, but the now-real APP-STATE source authority has no explicit archive/restore contract. A local “discard my edits” action must never be confused with changing durable source visibility or identity.
 
-**Slice:** Define archive, visibility, restore, collision, audit, and confirmation semantics for one durable source. Do not implement local-draft discard in this slice and do not hard-delete by default without a named contract reason.
+**Slice:** Define archive, visibility, restore, collision, audit, confirmation, and exact-identity semantics for one APP-STATE durable source. Do not implement local-draft discard in this slice. Do not hard-delete by default without a named contract reason.
 
-**Exit proof:** One checked-in contract/decision + implementation handoff makes archive vs local discard unambiguous, defines recoverability and exact identity after restore, and identifies the authorized server write boundary.
+**Exit proof:** One checked-in contract/decision + bounded implementation handoff makes archive vs local discard unambiguous, defines recoverability and exact artifact/revision identity after restore, and identifies the authorized APP-STATE server write boundary.
 
-**Refs:** `Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`; Build source services/document registry.
-
-## [READY] Hermes composer — optimistic transcript + multiline input
-**Kind:** CODE  
-**Owner:** Hermes / Agent Interaction UI  
-**Captured:** 2026-07-30  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`  
-**Depends on:** existing Hermes thread submission API; no backend lifecycle redesign required.
-
-**Problem:** Submitted questions remain in the input until the response returns and the one-row composer is cramped for serious prep work.
-
-**Slice:** Optimistically append the user turn, clear the composer immediately, show truthful pending/error/retry state, and use an auto-growing multiline input with explicit Enter/Shift+Enter behavior.
-
-**Exit proof:** One submit creates exactly one visible user turn and one backend request, input clears immediately, multiline keyboard behavior is tested, failure is retryable without duplicate transcript turns, and thread identity remains unchanged.
-
-**Refs:** `apps/live-control-ui/src/planSurface/components/PlanAgentInteractionBar.tsx` and current Agent Interaction composer owner.
-
-## [READY] Define worldbuilding-draft elevation authority
-**Kind:** DESIGN  
-**Owner:** Build / Graph Review authority  
-**Captured:** 2026-07-24  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`  
-**Depends on:** existing `worldbuilding_draft` extraction semantics and played-canon promotion gate.
-
-**Problem:** Reviewable authored lore is intentionally not played canon, but there is no explicit authority transition for a GM who wants to elevate reviewed worldbuilding into publishable World Graph truth.
-
-**Slice:** Choose and freeze exactly one elevation model: e.g. explicit operator elevation, draft authority plane, or another bounded profile-specific transition. Do not implement the chosen model in the same slice.
-
-**Exit proof:** A checked-in decision states source authority, actor/confirmation boundary, identity/evidence preservation, replay behavior, and what remains non-canon. It explicitly forbids silently relabeling `worldbuilding_draft` as played canon and names the implementation successor.
-
-**Refs:** `src/graph_memory/candidate_semantic_promote_matrix.py`; `src/graph_memory/extraction/worldbuilding_plumbing_profile.py`; Campaign Supergraph acceptance debt.
-
-## [READY] Browser-local statblock draft persistence with untrusted receipt restore
-**Kind:** CODE  
-**Owner:** Statblock Workbench  
-**Captured:** 2026-07-24  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`  
-**Depends on:** immutable accepted-mechanics persistence and authoritative server validation remain unchanged.
-
-**Problem:** Workbench draft persistence was reverted because restoring a validation receipt from mutable browser storage would falsely preserve exact-definition trust.
-
-**Slice:** Persist only mutable working-copy/editor state (including useful undo/view state). On restore, mark the draft unvalidated and require a fresh server validation before any receipt-dependent acceptance/save action.
-
-**Exit proof:** Hard reload restores the working copy but never restores trusted validation authority; acceptance remains blocked until a fresh matching server receipt exists; corrupt/stale local data fails safely.
-
-**Refs:** reverted `statblockEditorDraftStore.ts`; PR #404 review history; current Workbench editor/validation owners.
+**Refs:** `Docs/Reports/REPORT-application-state-durability-drill.md`; `Docs/Reports/REPORT-stage-2b-c1-c2-repopulation.md`; `src/application_state/source/service.py`; `Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`.
 
 ---
 
@@ -145,7 +76,7 @@ Terminal work leaves this file rather than accumulating under `DONE` / `DROPPED`
 **Kind:** CROSS-REPO CONTRACT + CODE  
 **Owner:** DungeonMind generation lifecycle → Buddy consumer  
 **Captured:** 2026-07-30  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`  
+**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
 **Depends on:** a first-class pollable DungeonMind generation-operation / lease-heartbeat contract that Buddy can consume without guessing provider latency.
 
 **Problem:** A real generation can outlive Buddy's fixed client timeout, producing a false product failure while DungeonMind continues successfully.
@@ -156,15 +87,43 @@ Terminal work leaves this file rather than accumulating under `DONE` / `DROPPED`
 
 **Refs:** Buddy DungeonMind statblock client/config; DungeonMind generation-operation/lease domain.
 
+## [BLOCKED] Define authored-worldbuilding elevation through DungeonMind authority
+**Kind:** CROSS-REPO AUTHORITY CONTRACT / DESIGN  
+**Owner:** DungeonMind World write authority → Buddy Build/Graph Review consumer  
+**Captured:** 2026-07-24  
+**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
+**Depends on:** a controlled DungeonMind write/elevation contract for authored worldbuilding. Buddy no longer owns World Graph storage, contribution replay, or graph-truth transitions after CUTOVER.
+
+**Problem:** Reviewed authored lore still needs an explicit path to become publishable World truth when the GM chooses, but the pre-cutover READY item incorrectly assumed Buddy could choose and own that authority transition itself.
+
+**Slice when unblocked:** Consume one DungeonMind-owned elevation contract from Buddy. Preserve source identity/evidence, require an explicit actor/confirmation boundary, define replay/idempotency and failure semantics, and keep worldbuilding draft distinct from campaign played chronology. Never silently relabel `worldbuilding_draft` as played canon.
+
+**Unblock proof:** DungeonMind exposes a reviewed, durable contract that names the write authority, identity/evidence semantics, replay behavior, admissibility, and exact resulting World revision semantics without requiring Buddy to reconstruct or mutate graph storage directly.
+
+**Refs:** `Docs/Design/ARCHITECTURE-campaign-supergraph.md`; current DungeonMind CUTOVER boundary; historical `src/graph_memory/candidate_semantic_promote_matrix.py` / `worldbuilding_plumbing_profile.py` are design ancestry, not current write authority.
+
 ---
 
 # DEFERRED
+
+## [DEFERRED] Define campaign creation inside an existing World
+**Kind:** DESIGN / CROSS-BOUNDARY AUTHORITY  
+**Owner:** Buddy campaign lifecycle + DungeonMind campaign scope  
+**Captured:** 2026-08-11  
+**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
+**Trigger:** creating a genuinely new campaign becomes an immediate product/dogfood need.
+
+**Problem:** The old READY item predates the completed DungeonMind cutover and assumed a world-container model that no longer describes authority correctly. One World now has one authoritative World Supergraph; campaign is assertion/evidence/chronology/visibility scope, while Buddy owns application/source/work state.
+
+**Next slice on trigger:** Re-decompose campaign creation into its actual authority boundaries before writing a contract: Buddy campaign/application identity and source/work bindings vs DungeonMind campaign-scoped assertion semantics. Freeze only the independently useful first contract; do not fork or duplicate World identity implicitly.
+
+**Refs:** `Docs/Design/ARCHITECTURE-campaign-supergraph.md`; `Docs/Design/CONTRACT-world-container-v1.md` as historical design evidence; `Docs/Roadmaps/ROADMAP-con-ready.md`.
 
 ## [DEFERRED] Verbatim `source_phrase` grounding vs renderer snippets
 **Kind:** EVALUATION / EVIDENCE CONTRACT  
 **Owner:** Temporal/grounding evaluation  
 **Captured:** 2026-08-01  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`  
+**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`; no current demo-readiness trigger observed  
 **Trigger:** phrase-level extraction again requires this renderer path.
 
 **Problem:** Development phrase-grounding fails deterministically when the required verbatim phrase is not present in the renderer-produced cited snippet.
@@ -177,123 +136,14 @@ Terminal work leaves this file rather than accumulating under `DONE` / `DROPPED`
 **Kind:** DESIGN / EXPERIMENT  
 **Owner:** Graph extraction  
 **Captured:** 2026-07-18  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`  
-**Trigger:** current one-shot/worldbuilding dogfood shows species/flora/fauna/resource duplication materially harms preparation or retrieval.
+**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`; no current demo-readiness trigger observed  
+**Trigger:** current extraction dogfood shows species/flora/fauna/resource duplication materially harms preparation or retrieval.
 
 **Problem:** Ecology/resource concepts repeatedly blur actor/object boundaries, but current product priorities do not justify inventing a new extraction pass without fresh dogfood pressure.
 
-**Next slice on trigger:** Reproduce the defect on current extraction architecture, then design a bounded `ecology_resource_pass` and compare it against the current pipeline before implementation.
+**Next slice on trigger:** Reproduce the defect on the current DungeonMind/Buddy extraction boundary, then design a bounded `ecology_resource_pass` and compare it against the current path before implementation.
 
 **Refs:** `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-MANUAL-REVIEW.md`; `Docs/Plans/HANDOFF-prime-design-graph-memory-extraction-taxonomy.md`.
-
----
-
-# IDEA
-
-## [IDEA] Durable database persistence for GM work across worktrees
-**Kind:** PRODUCT / ARCHITECTURE  
-**Owner:** Buddy persistence (steward sequencing)  
-**Captured:** 2026-08-19  
-**Last verified:** 2026-08-20 @ post-C2S27 re-anchor, `main` `62f7f9e856327247b8677b4c951801e4c58a826c`  
-**Depends on:** separate domain-first proof from the Run-continuity and
-Combat-durability slices; this cross-domain item is not an atomic prerequisite
-and must not block either domain slice.
-
-C2 Session 27 table dogfood, operator rank 1. Plan export dropped playable
-blocks and styling; workspace drafts are checkout-local, so jumping worktrees
-lost authored work. The affected domains include Plan documents, Playable
-blocks/styling, Combat board, Threat drafts, and Run/workspace registries, but
-that list is too broad to define one implementation slice. First let the
-domain owners prove their own durability invariants; only then extract a
-bounded shared persistence seam if both domains demonstrate one.
-
-**Surfaces when:** Plan export, worktree switch, Combat state save, persistence/database, "don't lose work".
-
-**Refs:** `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`; `Docs/Plans/HANDOFF-PLAY-SURFACE-c2s27-reanchor-and-workspace-cleanup.md`.
-
-## [IDEA] Finish Combat Tracker — durable board, easy roster loading
-**Kind:** PRODUCT  
-**Owner:** Combat / Play  
-**Captured:** 2026-08-19  
-**Last verified:** 2026-08-20 @ post-C2S27 re-anchor  
-**Depends on:** disposition of the retained `agent/play-command-board-disk-saves`
-worktree (mine/adopt/commit or discard its uncommitted Combat disk-save work);
-then a bounded Lane B handoff. The P4 exact Threat→Combat design
-(`Docs/Plans/HANDOFF-PLAY-SURFACE-add-to-combat.md`) is preserved but deferred until
-this durable Combat re-anchor.
-
-Operator rank 2. The HTML Combat Tracker was the surface actually used at
-C2S27. Loading players, NPCs, and threats with sheets attached must be easy,
-and live HP/initiative/notes must persist in a Combat-owned durable authority —
-not only browser `localStorage` plus export JSON. Post-re-anchor Lane B is a
-domain-first durable Combat slice, but it cannot dispatch until the retained
-uncommitted Combat-save worktree is mined/adopted/committed or discarded.
-
-**Surfaces when:** Combat add-from-pool, live HP tracking, browser reload, worktree switch.
-
-**Refs:** `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`; `evals/c2_live_prep/mireward-prep/combat.html` (prototype evidence, PR #623 branch).
-
-## [IDEA] First-class statblock and roll-table display across surfaces
-**Kind:** PRODUCT  
-**Owner:** Surface Interaction / Statblock Workbench  
-**Captured:** 2026-08-19  
-**Last verified:** 2026-08-20 @ post-C2S27 re-anchor  
-**Depends on:** none for viewing; modification flows depend on existing Workbench/mechanics authority.
-
-Operator rank 3. Load, view, and modify a statblock from any surface (Plan, Play, Combat, Workbench) without a dead path or HTML-only preview. Roll tables have the same gap. Statblock/roll-table opening remains a first-class table need.
-
-**Surfaces when:** statblock click/preview, roll table, Threat sheet, Combat roster sheet.
-
-**Refs:** `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`; `Docs/Plans/PR-TRACKER-threat-statblock-authoring-projection.md`.
-
-## [IDEA] Native Play board usability — Beat-first current-moment stage
-**Kind:** PRODUCT / DESIGN  
-**Owner:** Play surface  
-**Captured:** 2026-08-19  
-**Last verified:** 2026-08-20 @ post-C2S27 re-anchor  
-**Depends on:** Lane A (active-Run continuity) and Lane B (durable Combat)
-domain slices, plus the reviewed Beat/Scene/Decision + Plan→Playable design
-task and its P1/P2 structure/serialization/manifest/current-position/
-migration-rebase redesign. Do not treat the D4 table-stage chrome (PR #623,
-closed unmerged) as the close of Play usability.
-
-Operator rank 4. The native Play board was abandoned almost immediately at C2S27. Beat is the larger useful hierarchy over Scenes; Decisions carry consequences and reshape which Scenes remain possible/relevant. No new native Play table implementation starts until that model is reviewed.
-
-**Surfaces when:** `/play` Table, current Beat, Scene navigation, decision/branch visibility.
-
-**Refs:** `Docs/Reports/REPORT-play-c2s27-native-runbook-dogfood-2026-08.md`; `Docs/Design/DESIGN-play-surface-projection.md`.
-
-## [IDEA] Move durable Buddy runtime state out of checkout-local `out/`
-**Kind:** ARCHITECTURE SPIKE  
-**Owner:** Buddy persistence  
-**Captured:** 2026-07-24  
-**Last verified:** 2026-08-20 @ C2 Session 27 dogfood (Plan export + worktree loss)
-
-Worktree dogfood shows that checkout-local World Graph/run registries/Threat
-drafts/candidate caches do not compose cleanly with parallel worktrees. C2S27
-table dogfood made cross-domain durability the operator's rank-1 residual:
-authored Plan blocks/styling and live Combat state do not follow the GM across
-worktrees. This remains an architecture spike, not a dispatchable shared
-database slice. After Lane A and Lane B each prove their domain invariant,
-inventory the actual shared consumers and bind one bounded migration target
-only if a common persistence seam is evidenced. Keep auditable source Markdown
-separate from runtime-state storage.
-
-## [IDEA] Hermes prompt/configuration quality pass
-**Kind:** DOGFOOD / CONFIGURATION  
-**Owner:** Hermes  
-**Captured:** 2026-07-30  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`
-
-Dogfood has shown occasional system-meta narration and uneven co-GM voice. Before promotion, define a small falsifiable quality set covering campaign-facing voice, uncertainty, no system-meta narration, and tool-selection quality, then inventory which prompt/config boundary actually owns each failure.
-
-## [IDEA] Revision-aware evidence deduplication across Hermes turns
-**Kind:** DESIGN / TELEMETRY  
-**Owner:** Hermes evidence continuity  
-**Captured:** 2026-07-16  
-**Last verified:** 2026-08-16 @ `e504310f71863604267637eea6209dcbea04f929`
-
-Stable object identity does not imply stable factual state. Before promotion, characterize whether repeated evidence is currently a measurable product/latency problem and define cross-turn identity around revision-aware evidence without making prior-turn context current authority.
 
 ---
 
@@ -303,22 +153,23 @@ The rows below preserve discoverability for capabilities removed from root witho
 
 | Capability / residual | Status owner | Root disposition / owner health |
 |---|---|---|
-| Plan/Hermes continuity across document/surface switches | `Docs/Roadmaps/ROADMAP-cross-surface-statblock-demo.md` — DEMO-02 | Delegated. Re-verify the roadmap before dispatch because its status snapshot predates the August Playable/CUTOVER work. |
-| Exact-run Graph Review presentation + inspectable evidence failures | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` — `exact-run-candidate-review-projection` | Delegated. Campaign tracker is the sole sequence owner; CUTOVER state-sync is currently being advanced separately in PR #598 and implementation PR #602. |
-| Ingest primary-path simplification | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` — PR380E | Delegated. The tracker, not root backlog, owns whether it is BLOCKED/READY. |
-| World-anchor insertion for world-fed known entities (E1b) | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` — PR380F extraction/identity hardening | Delegated as the concrete dogfood defect to preserve when PR380F is dispatched. |
-| Hermes copyable authoring artifact | `Docs/Plans/PR-TRACKER-threat-statblock-authoring-projection.md` — `AUTHORING-ARTIFACT` | Delegated; tracker re-anchored 2026-08-16 and owns READY status. |
-| Grounded answer → Threat authoring | same tracker — `AOW01` / `AOW02` | Delegated; owner marks this DECOMPOSE before dispatch. |
-| Hermes response/query graph chips | same tracker — `GRAPH-CHIPS` | Delegated; owner requires separate response-side and query-anchor slices. |
-| Workbench Revise-with-AI UX | same tracker — `REVISE-UX` | Delegated; tracker owns READY status. |
-| Dedicated statblock mechanic editor expansion | same tracker — `EDITOR-EXPANSION` | Delegated; tracker requires one mechanic family per slice. |
-| Hermes live-progress UX | same tracker — `HERMES-LIVENESS` | Delegated; tracker owns the bounded immediate liveness slice. |
-| Hermes durable performance telemetry | same tracker — `HERMES-TELEMETRY` | Delegated; tracker requires capture and reporting to be split before READY. |
-| Statblock presentation/media evolution | same tracker — `SBW16–18` | Delegated as DEFERRED domain work rather than a root IDEA. |
-| Build/Plan shared Threat projection + campaign-useful glance | merged PR #512 | Removed from active backlog as implemented; regressions should be filed as new current defects. |
-| Abandoned `/surface` / `SurfaceShell` cleanup | current source tree | Removed from active backlog after current-tree search found no `SurfaceShell` owner to dispatch; resurrect only from a concrete current consumer. |
+| C1/C2 historical source coverage, durable provenance, rich recap/object/Threat experience, session navigation, shell residuals, real-material save/reopen, Agent-on-Ingest/cross-surface Agent, observability, off-laptop durable authorities | `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md` + `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` | Delegated. This is the current execution program; root backlog must not shadow its STOP-driven sequencing. |
+| Build ready-state Reload / Discard-local actions | Demo-Ready Stage 6 / current Markdown Canvas ownership | Removed from root READY on 2026-09-08. It belongs with the real-material edit/save/reopen dogfood rather than an independent pre-Stage-6 dispatch. |
+| Hermes optimistic transcript + multiline composer | Demo-Ready Stage 7 Agent work | Removed from root READY on 2026-09-08. Useful UX remains, but Agent-on-Ingest/context/observability sequencing owns when it should ship. |
+| Hermes prompt/configuration quality + revision-aware cross-turn evidence deduplication | Demo-Ready Stage 7 / Agent observability | Removed from root IDEA on 2026-09-08. Reproduce against the assembled cross-surface Agent before creating an independent slice. |
+| First-class statblock and roll-table display across surfaces | Demo-Ready Stage 4 + `Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md` | Removed from root IDEA. Rich-object/Threat dogfood and the Threat owner decide the split; do not build a second cross-surface status lane here. |
+| Durable Combat board / easy roster loading | CON-READY / Play + Combat authorities | Removed from root IDEA. Combat remains a real product need, but it is later than current Demo-Ready continuity and must be re-anchored when Play/Combat resumes. |
+| Native Play board usability / Beat-first current moment | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` + current Play design authorities | Removed from root IDEA. BF3B and further Play work remain parked behind the current continuity program. |
+| Hermes copyable authoring artifact, grounded-answer→Threat authoring, graph chips, Revise UX, mechanic-editor expansion, liveness UX, durable telemetry, statblock presentation/media evolution | `Docs/Plans/PR-TRACKER-threat-statblock-authoring-projection.md` / Threat roadmap | Delegated; that owner remains the status authority for these domain capabilities. |
+| Historical Campaign-Supergraph residual labels such as PR380E/PR380F and exact-run review sequencing | current Demo-Ready/CUTOVER-era authorities, not the old tracker by default | Historical design ancestry only. Do not dispatch directly from stale PR380 labels without re-anchoring against the post-cutover DungeonMind boundary. |
+| Broad “durable database persistence for GM work across worktrees” umbrella | Stage 2A/2B proof + domain-specific successors | Retired as a root umbrella on 2026-09-08. Durable APP-STATE on `54331` and durable DungeonMind World on `54330` now exist and have recovery proof; remaining Combat/statblock/source-coverage/off-laptop work has narrower owners. History remains in Git. |
+| Broad “move durable Buddy runtime state out of checkout-local `out/`” umbrella | Stage 2A/2B + Demo-Ready Stage 2C/8 + domain owners | Retired as a root umbrella on 2026-09-08. Checkout-local `out/` is no longer accepted product authority for the recovered core state; surviving residuals must be named by domain rather than reopening the umbrella. |
+| Browser-local statblock draft persistence with untrusted receipt restore | Statblock Workbench / future durable draft owner if dogfood requires it | Retired from root READY on 2026-09-08. Browser-only storage is no longer an acceptable durability target. The safety insight survives: restoring mutable draft bytes must never restore a trusted validation receipt; any successor should use a domain-owned durable authority plus fresh validation. |
+| Build/Plan shared Threat projection + campaign-useful glance | merged PR #512 | Implemented; regressions should be filed as current defects rather than reviving the old capability ticket. |
+| Abandoned `/surface` / `SurfaceShell` cleanup | current source tree | Removed from active backlog after current-tree search found no owner to dispatch; resurrect only from a concrete current consumer. |
 
 ## Hygiene history
 
 - 2026-08-16 pass 1: 74 active headings → 29; see `Docs/Reports/BACKLOG-HYGIENE-2026-08-16.md`.
-- 2026-08-16 pass 2: convert root backlog from “worth doing” list to strict dispatch inventory; status-bearing entries reduced to 13, tracker-owned work delegated without duplicate status, READY reduced to seven bounded slices, and the Threat/Statblock owner tracker/roadmap re-anchored to current merged evidence.
+- 2026-08-16 pass 2: converted root backlog from “worth doing” list to strict dispatch inventory; tracker-owned work delegated without duplicate status and READY reduced to seven bounded slices.
+- 2026-09-08 pass 3: re-anchored after PR #694 and the Stage 2A/2B durability work. Status-bearing headings reduced **17 → 7** (`2 READY`, `2 BLOCKED`, `3 DEFERRED`). Demo-Ready/CON-READY/Threat-owned work moved to pointer-only delegation; pre-cutover graph-authority assumptions were corrected; broad durability umbrellas were retired after real APP-STATE/World recovery proof; browser-local statblock persistence was retired as a product durability target.
