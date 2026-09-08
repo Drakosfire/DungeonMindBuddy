@@ -31,6 +31,21 @@ or mutation. It records where exact material currently survives.
 > Repopulation through supported product seams is the Stage 2B successor; this ledger's
 > exact paths/digests are the re-derivation map.
 
+> **2026-09-08 — Stage 2B live locators (durable `54331`).** Operator recovery restored
+> the exact 53 ingest identities, C2 Session 27 Prep, and C2 Session 25 source revision
+> onto `dungeonbuddy_application_state` @ `127.0.0.1:54331` (schema `20260906_0006`).
+> Witness: [`../Reports/REPORT-stage-2b-c1-c2-repopulation.md`](../Reports/REPORT-stage-2b-c1-c2-repopulation.md).
+> Historical `LIVE-READ` / `leftover-app-state` rows below remain survey-time evidence;
+> current product authority for those recovered objects is the durable APP-STATE named here.
+>
+> | Recovered object | Current locator |
+> | --- | --- |
+> | Ingest catalog | 53 `ingest.run` rows; C1=24 C2=29; validated=36 prepared=17; identity digest `59508725ad56789bc333af3cea9f311dda55b8eac1b89aa4639c49278b40f5f1` |
+> | C2S27 Plan | `document_id` `80630cc2-33ee-40db-bf9d-fb5217085e17`; title `C2 Session 27 Prep`; revision 2; 2631 bytes; content SHA-256 `d8a8595d5211d00a57731354ea06bce25aa6236332b66dece59870ed9d77a511` |
+> | C2S25 source | `source_revision_id` `8ed1e034-23c6-4295-b2ff-05d5cdd643a9`; artifact `artifact:recap:longmont-c2:session-25:fd38b5915b32`; digest `fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d`; `world_id` `eldyrwild` |
+> | Durability witness Plan | still present: `3c8c6f8b-498d-4d3e-afaf-15b2e1a6520d` |
+> | World Supergraph | read-only `54330` `eldyrwild` head `rev:680c246047d67f9fe0293ee90526f670` (unchanged) |
+
 Root aliases (no home-directory paths):
 
 | Alias | Meaning |
