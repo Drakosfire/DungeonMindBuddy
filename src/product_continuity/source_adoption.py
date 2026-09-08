@@ -17,7 +17,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from application_state.errors import ApplicationStateConflictError
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateValidationError,
+)
 from application_state.config import load_runtime_dsn
 from application_state.ingest.service import list_extraction_runs
 from application_state.source import repository as source_repo
@@ -114,6 +117,7 @@ class SourceClaim(BaseModel):
     world_id: str | None = None
     expected_sha256: str | None = None
     locator: str | None = None
+    locators: list[str] = Field(default_factory=list)
     authority_kind: AuthorityKind
     supporting_run_ids: list[str] = Field(default_factory=list)
     supporting_authority_refs: list[str] = Field(default_factory=list)
@@ -268,6 +272,56 @@ def _try_resolve(
         return None, str(exc)
 
 
+def _unique_nonempty(values: Sequence[str | None]) -> list[str]:
+    seen: list[str] = []
+    for value in values:
+        if value and value not in seen:
+            seen.append(value)
+    return seen
+
+
+def _collect_locators(claims: Sequence[SourceClaim]) -> list[str]:
+    """Ingest locators first, then World, preserving first-seen order."""
+
+    ordered: list[str] = []
+    ranked = sorted(
+        claims,
+        key=lambda claim: 0 if claim.authority_kind == "ingest_run" else 1,
+    )
+    for claim in ranked:
+        for locator in (claim.locator, *claim.locators):
+            normalized = _normalize_locator(locator)
+            if normalized and normalized not in ordered:
+                ordered.append(normalized)
+    return ordered
+
+
+def _try_resolve_any(
+    root: Path,
+    locators: Sequence[str],
+    expected_digest: str,
+) -> tuple[_ResolvedBytes | None, str | None]:
+    if not locators:
+        return None, "locator missing"
+    saw_mismatch = False
+    saw_utf8 = False
+    for locator in locators:
+        resolved, reason = _try_resolve(root, locator, expected_digest)
+        if resolved is not None:
+            return resolved, None
+        if reason == "digest mismatch":
+            saw_mismatch = True
+            continue
+        if reason == "not utf-8":
+            saw_utf8 = True
+            continue
+    if saw_mismatch:
+        return None, "digest mismatch"
+    if saw_utf8:
+        return None, "not utf-8"
+    return None, "bytes unavailable"
+
+
 def _ingest_claims(
     *,
     campaign_ids: Sequence[str],
@@ -282,7 +336,9 @@ def _ingest_claims(
             run.components,
             ExtractionRunComponentKind.SOURCE_ARTIFACT,
         )
-        locator = component.uri if component is not None else None
+        locator = _normalize_locator(
+            component.uri if component is not None else None
+        )
         digest = normalize_content_digest(component.sha256) if component is not None else ""
         claims.append(
             SourceClaim(
@@ -292,7 +348,8 @@ def _ingest_claims(
                 session_id=run.session_id,
                 world_id=world_id,
                 expected_sha256=digest or None,
-                locator=_normalize_locator(locator),
+                locator=locator,
+                locators=[locator] if locator else [],
                 authority_kind="ingest_run",
                 supporting_run_ids=[run.run_id],
             )
@@ -313,7 +370,10 @@ def _world_claims_from_rows(
             continue
         if row.campaign_id and row.campaign_id not in wanted:
             continue
-        locator = _normalize_locator(row.locator) or _normalize_locator(row.artifact_uri)
+        locators = _unique_nonempty(
+            [_normalize_locator(row.locator), _normalize_locator(row.artifact_uri)]
+        )
+        locator = locators[0] if locators else None
         claims.append(
             SourceClaim(
                 source_artifact_id=row.source_artifact_id,
@@ -323,6 +383,7 @@ def _world_claims_from_rows(
                 world_id=row.world_id or world_id,
                 expected_sha256=normalize_content_digest(row.content_sha256 or "") or None,
                 locator=locator,
+                locators=locators,
                 authority_kind="world_source",
                 supporting_authority_refs=[
                     ref
@@ -350,6 +411,104 @@ def _scope_tuple(claim: SourceClaim) -> tuple[str, str | None, str | None, str |
         claim.session_id,
         claim.world_id,
     )
+
+
+def _target_scope(
+    target: DurableTarget,
+) -> tuple[str, str | None, str | None, str | None]:
+    return (
+        _canonical_domain(target.source_domain),
+        target.campaign_id,
+        target.session_id,
+        target.world_id,
+    )
+
+
+def _scopes_conflict(
+    left: tuple[str, str | None, str | None, str | None],
+    right: tuple[str, str | None, str | None, str | None],
+) -> bool:
+    if left[0] != right[0] or left[1] != right[1] or left[2] != right[2]:
+        return True
+    if left[3] and right[3] and left[3] != right[3]:
+        return True
+    return False
+
+
+def _has_conflicting_scopes(
+    scopes: Sequence[tuple[str, str | None, str | None, str | None]],
+) -> bool:
+    for index, left in enumerate(scopes):
+        for right in scopes[index + 1 :]:
+            if _scopes_conflict(left, right):
+                return True
+    return False
+
+
+def _existing_artifact_scopes(artifact_ids: Sequence[str]) -> dict[
+    str, tuple[str, str | None, str | None, str | None]
+]:
+    found: dict[str, tuple[str, str | None, str | None, str | None]] = {}
+    unique_ids = list(dict.fromkeys(artifact_ids))
+    if not unique_ids:
+        return found
+    with unit_of_work(load_runtime_dsn()) as conn:
+        for artifact_id in unique_ids:
+            row = source_repo.get_source_artifact(conn, artifact_id)
+            if row is None:
+                continue
+            found[artifact_id] = (
+                _canonical_domain(str(row["source_domain"] or "")),
+                row["campaign_id"],
+                row["session_id"],
+                row["world_id"],
+            )
+    return found
+
+
+def _preflight_artifact_scope_conflicts(
+    claims: Sequence[SourceClaim],
+    targets: Sequence[DurableTarget],
+) -> list[DurableTarget]:
+    scopes_by_artifact: dict[
+        str, list[tuple[str, str | None, str | None, str | None]]
+    ] = {}
+    for claim in claims:
+        scopes_by_artifact.setdefault(claim.source_artifact_id, []).append(
+            _scope_tuple(claim)
+        )
+    for target in targets:
+        scopes_by_artifact.setdefault(target.source_artifact_id, []).append(
+            _target_scope(target)
+        )
+    existing = _existing_artifact_scopes(list(scopes_by_artifact))
+    for artifact_id, scope in existing.items():
+        scopes_by_artifact.setdefault(artifact_id, []).append(scope)
+    conflicted = {
+        artifact_id
+        for artifact_id, scopes in scopes_by_artifact.items()
+        if _has_conflicting_scopes(scopes)
+    }
+    if not conflicted:
+        return list(targets)
+    marked: list[DurableTarget] = []
+    for target in targets:
+        if target.source_artifact_id not in conflicted:
+            marked.append(target)
+            continue
+        marked.append(
+            target.model_copy(
+                update={
+                    "classification": "SCOPE_CONFLICT",
+                    "markdown": None,
+                    "identity_kind": "none",
+                    "reason": [
+                        "source artifact identity disagrees on domain/campaign/session/world"
+                    ],
+                }
+            )
+        )
+    return marked
 
 
 def _merge_claims(claims: Sequence[SourceClaim]) -> list[list[SourceClaim]]:
@@ -385,8 +544,9 @@ def classify_target(
     supporting_refs = sorted(
         {ref for claim in claims for ref in claim.supporting_authority_refs}
     )
-    scopes = {_scope_tuple(claim) for claim in claims}
-    locator = next((claim.locator for claim in claims if claim.locator), None)
+    scopes = [_scope_tuple(claim) for claim in claims]
+    locators = _collect_locators(claims)
+    locator = locators[0] if locators else None
     artifact_kind = next((claim.artifact_kind for claim in claims if claim.artifact_kind), None)
     digest = normalize_content_digest(primary.expected_sha256 or "")
     base = DurableTarget(
@@ -402,7 +562,7 @@ def classify_target(
         supporting_run_ids=supporting_runs,
         supporting_authority_refs=supporting_refs,
     )
-    if len(scopes) > 1:
+    if _has_conflicting_scopes(scopes):
         return base.model_copy(
             update={
                 "classification": "SCOPE_CONFLICT",
@@ -413,10 +573,13 @@ def classify_target(
         return base.model_copy(
             update={"reason": ["authoritative content digest is missing"]}
         )
-    if not _is_markdown_media(
-        artifact_kind=artifact_kind,
-        locator=locator,
-        source_domain=primary.source_domain,
+    if not any(
+        _is_markdown_media(
+            artifact_kind=artifact_kind,
+            locator=candidate,
+            source_domain=primary.source_domain,
+        )
+        for candidate in (locators or [None])
     ):
         return base.model_copy(
             update={
@@ -424,7 +587,7 @@ def classify_target(
                 "reason": ["source is not UTF-8 Markdown"],
             }
         )
-    resolved, resolve_reason = _try_resolve(repo_root, locator, digest)
+    resolved, resolve_reason = _try_resolve_any(repo_root, locators, digest)
     if resolve_reason == "digest mismatch":
         return base.model_copy(
             update={
@@ -448,6 +611,12 @@ def classify_target(
             }
         )
     known = known_historical_revision_id(primary.source_artifact_id, digest)
+    known_id = str(known) if known is not None else None
+    locator_reason = (
+        [f"selected locator among {len(locators)} candidates"]
+        if len(locators) > 1
+        else []
+    )
     if known is not None:
         with unit_of_work(load_runtime_dsn()) as conn:
             by_revision = source_repo.get_source_markdown_by_revision_id(conn, known)
@@ -503,22 +672,28 @@ def classify_target(
                 "classification": "CURRENT_EXACT",
                 "locator": resolved.locator,
                 "markdown": resolved.markdown,
-                "known_source_revision_id": str(existing.source_revision_id),
+                "known_source_revision_id": known_id,
                 "source_revision_id": str(existing.source_revision_id),
                 "identity_kind": "current_exact",
-                "reason": ["exact artifact+digest already exists in APP-STATE"],
+                "reason": [
+                    "exact artifact+digest already exists in APP-STATE",
+                    *locator_reason,
+                ],
             }
-            )
+        )
     return base.model_copy(
         update={
             "classification": "ADOPTABLE_EXACT",
             "locator": resolved.locator,
             "markdown": resolved.markdown,
-            "known_source_revision_id": str(known) if known else None,
+            "known_source_revision_id": known_id,
             "identity_kind": (
                 "historical_uuid_recovered" if known else "new_durable_source_adoption"
             ),
-            "reason": ["authoritative identity/digest + matching exact bytes"],
+            "reason": [
+                "authoritative identity/digest + matching exact bytes",
+                *locator_reason,
+            ],
         }
     )
 
@@ -526,6 +701,10 @@ def classify_target(
 def fingerprint_targets(targets: Sequence[DurableTarget]) -> str:
     records = []
     for target in targets:
+        historical = known_historical_revision_id(
+            target.source_artifact_id,
+            target.content_sha256 or "",
+        )
         records.append(
             {
                 "source_artifact_id": target.source_artifact_id,
@@ -536,8 +715,7 @@ def fingerprint_targets(targets: Sequence[DurableTarget]) -> str:
                 "world_id": target.world_id or "",
                 "authority_kind": target.authority_kind,
                 "locator": target.locator or "",
-                "classification": target.classification,
-                "known_source_revision_id": target.known_source_revision_id or "",
+                "historical_source_revision_id": str(historical) if historical else "",
             }
         )
     records.sort(key=lambda row: (row["source_artifact_id"], row["content_sha256"], row["authority_kind"]))
@@ -584,6 +762,7 @@ def build_inventory(
         classify_target(bucket, repo_root=repo_root)
         for bucket in _merge_claims(claims)
     ]
+    targets = _preflight_artifact_scope_conflicts(claims, targets)
     targets.sort(key=lambda row: (row.source_artifact_id, row.content_sha256 or ""))
     return claims, targets, _ingest_run_count(campaign_ids)
 
@@ -640,6 +819,8 @@ def apply_source_adoption(
 ) -> SourceAdoptionReport:
     if not expected_set_sha256 or not expected_set_sha256.strip():
         raise SourceAdoptionInputError("--expected-set-sha256 is required with --apply")
+    if expected_world_head is None or not str(expected_world_head).strip():
+        raise SourceAdoptionInputError("--expected-world-head is required with --apply")
     preview = preview_source_adoption(
         repo_root=repo_root,
         world_id=world_id,
@@ -648,16 +829,45 @@ def apply_source_adoption(
         world_head=world_head,
     )
     observed_head = preview.world_head
-    if expected_world_head is not None and observed_head != expected_world_head:
+    pinned_head = expected_world_head.strip()
+    if observed_head != pinned_head:
         preview.blocked = True
+        preview.applied = False
         preview.detail = "blocked: World head drifted from the preview value"
         return preview
     if preview.source_target_set_sha256 != expected_set_sha256.strip():
         preview.blocked = True
+        preview.applied = False
         preview.detail = "blocked: recomputed source_target_set_sha256 does not match --expected-set-sha256"
         return preview
     if preview.blocked:
         preview.detail = preview.detail or "blocked: blocking classification present"
+        return preview
+
+    adoptable = [
+        target for target in preview.targets if target.classification == "ADOPTABLE_EXACT"
+    ]
+    try:
+        for target in adoptable:
+            source_service.persist_source_markdown(
+                source_artifact_id=target.source_artifact_id,
+                source_domain=target.source_domain,
+                campaign_id=target.campaign_id,
+                session_id=target.session_id,
+                world_id=target.world_id,
+                markdown=target.markdown or "",
+                content_sha256=target.content_sha256,
+                source_revision_id=(
+                    UUID(target.known_source_revision_id)
+                    if target.known_source_revision_id
+                    else None
+                ),
+                dry_run=True,
+            )
+    except (ApplicationStateConflictError, ApplicationStateValidationError) as exc:
+        preview.blocked = True
+        preview.applied = False
+        preview.detail = f"blocked: persist preflight failed before any write: {exc}"
         return preview
 
     newly_adopted = 0
@@ -710,9 +920,6 @@ def apply_source_adoption(
                 }
             )
         )
-    replay_fingerprint = fingerprint_targets(
-        [row.model_copy(update={"wrote": False}) for row in applied_targets]
-    )
     return SourceAdoptionReport(
         generated_at=_utc_now(),
         mode="apply",
@@ -731,5 +938,4 @@ def apply_source_adoption(
         noop=preview.noop,
         skipped=preview.skipped,
         new_durable_identities=new_identities,
-        detail=None if replay_fingerprint else None,
     )

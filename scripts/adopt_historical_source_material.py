@@ -2,7 +2,7 @@
 """Operator CLI for broad exact C1/C2 source adoption into APP-STATE.
 
 Preview is the default. Writes require --apply, the preview fingerprint, and a
-revalidated World head.
+pinned World head.
 """
 
 from __future__ import annotations
@@ -33,7 +33,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Adopt exact recoverable C1/C2 source material into APP-STATE. "
-            "Preview by default; --apply requires --expected-set-sha256."
+            "Preview by default; --apply requires --expected-set-sha256 and "
+            "--expected-world-head."
         )
     )
     parser.add_argument("--world-id", required=True)
@@ -108,11 +109,23 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = (args.current_root or _repo_root()).resolve()
     try:
         if args.apply:
+            if not args.expected_set_sha256:
+                print(
+                    "ERROR: --expected-set-sha256 is required with --apply",
+                    file=sys.stderr,
+                )
+                return 1
+            if not args.expected_world_head:
+                print(
+                    "ERROR: --expected-world-head is required with --apply",
+                    file=sys.stderr,
+                )
+                return 1
             report = apply_source_adoption(
                 repo_root=repo_root,
                 world_id=args.world_id,
                 campaign_ids=list(args.campaigns),
-                expected_set_sha256=args.expected_set_sha256 or "",
+                expected_set_sha256=args.expected_set_sha256,
                 expected_world_head=args.expected_world_head,
             )
         else:

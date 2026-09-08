@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 2C broad exact source adoption v1
 
 **Created:** 2026-09-08  
-**Status:** IMPLEMENTATION IN PROGRESS — one implementation capability
+**Status:** IMPLEMENTATION IN REVIEW — draft PR #696; Review Cycle 1 HOLD on `cbf17638803dd23936f8d8bd0f30ac434eb8a43f`; Cycle 2 contract repair in progress
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / durable source coverage`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
@@ -148,6 +148,27 @@ Docs/Plans/STEWARDS-ANCHOR-con-ready.md
 ```
 
 The sync may mark Stage 2C CURRENT. It must not pre-mark Stage 2C DONE, close Stage 2 / STOP 2, or start Stage 4 styling.
+
+---
+
+## §0B Review Cycle 1 HOLD — contract repair (do not treat as PASS)
+
+Reviewed exact head:
+
+```text
+cbf17638803dd23936f8d8bd0f30ac434eb8a43f
+```
+
+Review `5146686115`. Verdict: **HOLD / changes required**. Next distinct head is Review Cycle 2. Keep the PR a draft. Live inventory/apply/replay/backup/restore/witnesses remain merge-bar work after the operator contract is sound.
+
+Cycle 1 blockers, all of which this repair must close:
+
+1. **Artifact-wide scope preflight before any write.** Scope must be validated across every claim for a `source_artifact_id` plus any existing APP-STATE `source.artifact` row. Two revisions of the same artifact with conflicting campaign/session/domain cannot both preview as adoptable, and apply must not persist the first before the second fails. `persist_source_markdown(..., dry_run=True)` for every `ADOPTABLE_EXACT` target must also run before the first live persist.
+2. **Fingerprint hashes stable authority/target facts, not mutable adoption disposition.** Do not hash `classification`. Include a historical Buddy `source_revision_id` only from the accepted recovered-identity map (C2S25 today), never a newly generated or merely-current APP-STATE UUID. `ADOPTABLE_EXACT → CURRENT_EXACT` must not change `source_target_set_sha256` when external authority/locators are unchanged.
+3. **`--expected-world-head` is mandatory on apply.** Empty/omitted is an input error. Observed World head must equal the pinned preview value or apply returns with zero writes.
+4. **Try every authoritative locator.** A stale or mismatching first locator must not hide exact matching UTF-8 bytes at a later ingest or World locator. `DIGEST_MISMATCH` only if at least one locator exists on disk and none match.
+
+This addendum amends the live operator contract below. It does not rewrite the original §0 dispatch.
 
 ---
 
@@ -330,11 +351,15 @@ PREVIEW (default)
 APPLY
   require --apply
   require --expected-set-sha256 <preview value>
-  require expected World head / revalidate World head
+  require --expected-world-head <preview World head>
   rerun inventory immediately before writes
+  reject missing World-head pin
+  reject World-head drift
   reject target-set drift
   reject blocking findings
-  persist all ADOPTABLE_EXACT candidates
+  preflight artifact-wide scope against all claims + existing APP-STATE
+  dry-run persist every ADOPTABLE_EXACT target before the first live write
+  persist all ADOPTABLE_EXACT candidates only after that preflight
   leave CURRENT_EXACT no-op
   report actual source_revision_id for every durable target
 
@@ -359,29 +384,29 @@ python scripts/adopt_historical_source_material.py \
   --campaign longmont-c1 \
   --campaign longmont-c2 \
   --apply \
-  --expected-set-sha256 <sha>
+  --expected-set-sha256 <sha> \
+  --expected-world-head <rev>
 ```
 
 Exact flag names are implementation-detail latitude; the behavioral handshake is not.
 
 ### Fingerprint contents
 
-`source_target_set_sha256` must be deterministic and independent of enumeration order. At minimum hash sorted canonical records containing:
+`source_target_set_sha256` must be deterministic and independent of enumeration order. Hash sorted canonical records containing:
 
 ```text
 source_artifact_id
 expected content_sha256
-source_domain
+canonical source_domain
 campaign_id
 session_id
 world_id
 authority claim kind
 resolved locator identity (repo-relative / authority URI; no home path)
-classification
-known historical Buddy source_revision_id when one truly exists
+historical Buddy source_revision_id only when it is an accepted recovered identity
 ```
 
-Do **not** include a newly generated source revision UUID in the preview fingerprint.
+Do **not** hash `classification` or any newly generated / merely-current APP-STATE `source_revision_id`. `known_source_revision_id` on a target is the recovered historical identity from `KNOWN_HISTORICAL_REVISION_IDS` (C2S25 today). The live APP-STATE UUID is reported separately as `source_revision_id`. After `ADOPTABLE_EXACT → CURRENT_EXACT`, the fingerprint must stay unchanged when external authority and locators are unchanged.
 
 ---
 
@@ -468,7 +493,7 @@ Never select “latest file,” nearest filename, title similarity, timestamp pr
 
 ### Multiple exact locators
 
-If multiple files independently hash to the same expected digest, they are equivalent byte sources. Record the selected stable repo-relative locator and optionally the alternate count; do not treat identical bytes as conflict.
+If multiple files independently hash to the same expected digest, they are equivalent byte sources. Walk every authoritative locator for the `(source_artifact_id, digest)` bucket (ingest URIs first, then World `locator` / `artifact_uri`) until exact digest + UTF-8 Markdown match. Record the selected stable repo-relative locator and optionally the alternate count; do not treat identical bytes as conflict. `DIGEST_MISMATCH` only if at least one locator exists on disk and none match. `UNAVAILABLE_BYTES` if no locator file exists.
 
 ---
 
@@ -593,7 +618,11 @@ Prove on disposable PostgreSQL:
 13. unknown prior UUID creates one new durable adoption identity and replay preserves it;
 14. C2S25 existing source remains exact/no-op;
 15. ingest lifecycle/status rows are byte-for-byte/logically unchanged by source adoption;
-16. World read helper, if added, performs no writes.
+16. World read helper, if added, performs no writes;
+17. two exact digests of the same artifact with conflicting session/campaign => `SCOPE_CONFLICT` and apply writes 0;
+18. `source_target_set_sha256` is unchanged after `ADOPTABLE_EXACT` → `CURRENT_EXACT`;
+19. omitted/blank `--expected-world-head` is an apply input error with zero writes;
+20. a stale or mismatching first locator does not hide exact matching bytes at a later authoritative locator.
 
 ### Existing source seam regression
 

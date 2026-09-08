@@ -9,7 +9,7 @@ from uuid import UUID
 import pytest
 
 from application_state.ingest.service import create_extraction_run, list_extraction_runs
-from application_state.source.service import persist_source_markdown
+from application_state.source.service import get_source_markdown, persist_source_markdown
 from graph_memory.ingestion.extraction_run import (
     ExtractionRun,
     ExtractionRunComponentKind,
@@ -25,6 +25,7 @@ from product_continuity.source_adoption import (
     WorldSourceInventoryRow,
     apply_source_adoption,
     fingerprint_targets,
+    known_historical_revision_id,
     preview_source_adoption,
 )
 
@@ -159,6 +160,7 @@ def test_two_digests_become_two_revisions(
     assert applied.newly_adopted == 2
     replay = _preview(tmp_path)
     assert {row.classification for row in replay.targets} == {"CURRENT_EXACT"}
+    assert replay.source_target_set_sha256 == preview.source_target_set_sha256
 
 
 def test_exact_bytes_apply_and_replay(
@@ -188,7 +190,10 @@ def test_exact_bytes_apply_and_replay(
     first_revision = applied.targets[0].source_revision_id
     replay_preview = _preview(tmp_path)
     assert replay_preview.targets[0].classification == "CURRENT_EXACT"
-    replay = _apply(tmp_path, replay_preview.source_target_set_sha256)
+    assert replay_preview.targets[0].known_source_revision_id is None
+    assert replay_preview.targets[0].source_revision_id == first_revision
+    assert replay_preview.source_target_set_sha256 == preview.source_target_set_sha256
+    replay = _apply(tmp_path, preview.source_target_set_sha256)
     assert replay.newly_adopted == 0
     assert replay.targets[0].source_revision_id == first_revision
     after_runs = [row.model_dump() for row in list_extraction_runs()]
@@ -414,6 +419,7 @@ def test_known_c2s25_revision_is_preserved(
     preview = _preview(tmp_path)
     assert preview.targets[0].classification == "CURRENT_EXACT"
     assert preview.targets[0].source_revision_id == str(C2S25_REVISION_ID)
+    assert preview.targets[0].known_source_revision_id is None
     applied = _apply(tmp_path, preview.source_target_set_sha256)
     assert applied.newly_adopted == 0
     assert applied.targets[0].source_revision_id == str(C2S25_REVISION_ID)
@@ -515,3 +521,252 @@ def test_world_head_drift_blocks_apply(
     )
     assert applied.applied is False
     assert applied.blocked is True
+
+
+def test_cross_digest_scope_conflict_blocks_before_any_write(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    first = "Revision one, session two.\n"
+    second = "Revision two, session three.\n"
+    first_digest = _write(tmp_path, "corpus/cross-one.md", first)
+    second_digest = _write(tmp_path, "corpus/cross-two.md", second)
+    artifact = "artifact:recap:longmont-c2:session-x:cross-scope"
+    create_extraction_run(
+        _run(
+            run_id="run-cross-one",
+            artifact_id=artifact,
+            digest=first_digest,
+            uri="corpus/cross-one.md",
+            session_id="session-2",
+        )
+    )
+    create_extraction_run(
+        _run(
+            run_id="run-cross-two",
+            artifact_id=artifact,
+            digest=second_digest,
+            uri="corpus/cross-two.md",
+            session_id="session-3",
+        )
+    )
+    preview = _preview(tmp_path)
+    assert preview.blocked is True
+    assert {row.classification for row in preview.targets} == {"SCOPE_CONFLICT"}
+    applied = _apply(tmp_path, preview.source_target_set_sha256)
+    assert applied.applied is False
+    assert applied.newly_adopted == 0
+    assert get_source_markdown(source_artifact_id=artifact, content_sha256=first_digest) is None
+    assert get_source_markdown(source_artifact_id=artifact, content_sha256=second_digest) is None
+
+
+def test_existing_artifact_scope_blocks_other_digest_before_write(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    existing_markdown = "Already adopted session 25.\n"
+    persist_source_markdown(
+        source_artifact_id="artifact:recap:longmont-c2:session-x:existing-scope",
+        source_domain="recap",
+        campaign_id=C2,
+        session_id="session-25",
+        world_id=WORLD_ID,
+        markdown=existing_markdown,
+    )
+    later = "Different digest, different session.\n"
+    digest = _write(tmp_path, "corpus/later.md", later)
+    create_extraction_run(
+        _run(
+            run_id="run-later",
+            artifact_id="artifact:recap:longmont-c2:session-x:existing-scope",
+            digest=digest,
+            uri="corpus/later.md",
+            session_id="session-26",
+        )
+    )
+    preview = _preview(tmp_path)
+    assert preview.blocked is True
+    assert preview.targets[0].classification == "SCOPE_CONFLICT"
+    applied = _apply(tmp_path, preview.source_target_set_sha256)
+    assert applied.applied is False
+    assert applied.newly_adopted == 0
+    assert get_source_markdown(
+        source_artifact_id="artifact:recap:longmont-c2:session-x:existing-scope",
+        content_sha256=digest,
+    ) is None
+
+
+def test_apply_requires_expected_world_head(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    markdown = "World head pin.\n"
+    digest = _write(tmp_path, "corpus/pin.md", markdown)
+    create_extraction_run(
+        _run(
+            run_id="run-pin",
+            artifact_id="artifact:recap:longmont-c2:session-13:pin",
+            digest=digest,
+            uri="corpus/pin.md",
+            session_id="session-13",
+        )
+    )
+    preview = _preview(tmp_path)
+    with pytest.raises(SourceAdoptionInputError, match="expected-world-head"):
+        apply_source_adoption(
+            repo_root=tmp_path,
+            world_id=WORLD_ID,
+            campaign_ids=[C1, C2],
+            expected_set_sha256=preview.source_target_set_sha256,
+            expected_world_head=None,
+            world_rows=[],
+            world_head=HEAD,
+        )
+    with pytest.raises(SourceAdoptionInputError, match="expected-world-head"):
+        apply_source_adoption(
+            repo_root=tmp_path,
+            world_id=WORLD_ID,
+            campaign_ids=[C1, C2],
+            expected_set_sha256=preview.source_target_set_sha256,
+            expected_world_head="   ",
+            world_rows=[],
+            world_head=HEAD,
+        )
+    assert get_source_markdown(
+        source_artifact_id="artifact:recap:longmont-c2:session-13:pin",
+        content_sha256=digest,
+    ) is None
+
+
+def test_missing_first_locator_second_locator_adopts(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    markdown = "Second locator has the bytes.\n"
+    digest = _write(tmp_path, "corpus/second.md", markdown)
+    artifact = f"artifact:recap:{C2}:session-14:{digest[:12]}"
+    create_extraction_run(
+        _run(
+            run_id="run-stale",
+            artifact_id=artifact,
+            digest=digest,
+            uri="corpus/stale.md",
+            session_id="session-14",
+        )
+    )
+    create_extraction_run(
+        _run(
+            run_id="run-second",
+            artifact_id=artifact,
+            digest=digest,
+            uri="corpus/second.md",
+            session_id="session-14",
+        )
+    )
+    preview = _preview(tmp_path)
+    assert preview.blocked is False
+    assert preview.targets[0].classification == "ADOPTABLE_EXACT"
+    assert preview.targets[0].locator == "corpus/second.md"
+
+
+def test_mismatching_first_locator_second_locator_adopts(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    markdown = "Authoritative bytes.\n"
+    digest = _write(tmp_path, "corpus/right.md", markdown)
+    _write(tmp_path, "corpus/wrong.md", "Different bytes.\n")
+    artifact = f"artifact:recap:{C2}:session-15:{digest[:12]}"
+    create_extraction_run(
+        _run(
+            run_id="run-wrong",
+            artifact_id=artifact,
+            digest=digest,
+            uri="corpus/wrong.md",
+            session_id="session-15",
+        )
+    )
+    create_extraction_run(
+        _run(
+            run_id="run-right",
+            artifact_id=artifact,
+            digest=digest,
+            uri="corpus/right.md",
+            session_id="session-15",
+        )
+    )
+    preview = _preview(tmp_path)
+    assert preview.blocked is False
+    assert preview.targets[0].classification == "ADOPTABLE_EXACT"
+    assert preview.targets[0].locator == "corpus/right.md"
+
+
+def test_world_artifact_uri_is_tried_when_locator_missing(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    markdown = "World alternate locator.\n"
+    digest = _write(tmp_path, "corpus/world-good.md", markdown)
+    artifact = f"artifact:recap:{C2}:session-16:{digest[:12]}"
+    preview = _preview(
+        tmp_path,
+        world_rows=[
+            WorldSourceInventoryRow(
+                source_artifact_id=artifact,
+                source_domain="recap",
+                campaign_id=C2,
+                session_id="session-16",
+                world_id=WORLD_ID,
+                content_sha256=digest,
+                locator="corpus/world-stale.md",
+                artifact_uri="corpus/world-good.md",
+                artifact_kind="markdown",
+                body_storage="postgres",
+                source_revision_id="sha256:" + digest,
+            )
+        ],
+    )
+    assert preview.blocked is False
+    assert preview.targets[0].classification == "ADOPTABLE_EXACT"
+    assert preview.targets[0].locator == "corpus/world-good.md"
+
+
+def test_cli_apply_requires_expected_world_head_before_service(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import importlib.util
+
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / "adopt_historical_source_material.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "adopt_historical_source_material",
+        path,
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    called: list[object] = []
+    monkeypatch.setattr(cli, "load_dungeonmindbuddy_dotenv", lambda override=True: None)
+    monkeypatch.setattr(
+        cli,
+        "apply_source_adoption",
+        lambda **kwargs: called.append(kwargs),
+    )
+    code = cli.main(
+        [
+            "--world-id",
+            WORLD_ID,
+            "--campaign",
+            C2,
+            "--apply",
+            "--expected-set-sha256",
+            "abc",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == 1
+    assert called == []
+    assert "expected-world-head" in captured.err
+
+
+def test_historical_revision_id_comes_only_from_the_accepted_map() -> None:
+    assert known_historical_revision_id(C2S25_ARTIFACT_ID, C2S25_DIGEST) == C2S25_REVISION_ID
+    assert known_historical_revision_id(C2S25_ARTIFACT_ID, "ab" * 32) is None
