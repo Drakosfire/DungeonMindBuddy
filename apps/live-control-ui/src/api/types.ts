@@ -711,6 +711,8 @@ export interface AgentWorldGraphQueryContextRequest {
   admissibility: "gm";
   revision_pin: string | null;
   scope_mode?: "campaign" | "world";
+  /** Selected-object Agent path only. Omit for generic/open-ended search. */
+  selected_node_id?: string | null;
 }
 
 export type AgentWorldGraphQueryContextStatus = "ready" | "empty" | "unavailable";
@@ -2707,6 +2709,45 @@ export interface WorldGraphProjection {
   evidence: unknown[];
   sourceArtifacts: unknown[];
   diagnostics: Array<{ code: string; message: string; severity: "error" | "warning" | "info" }>;
+}
+
+export interface WorldGraphObjectProjectionRequest {
+  schema: "dmb_world_graph_object_projection_request_v1";
+  worldId: string;
+  campaignId: string;
+  nodeId: string;
+  focus?: WorldGraphProjectionFocus;
+  admissibility?: "gm" | "player";
+  revisionPin?: string | null;
+  originSurface?: "ingest" | "plan" | "build" | "play" | "agent";
+}
+
+export interface WorldGraphObjectProjectionCompleteness {
+  status: "complete" | "partial";
+  reason?: string | null;
+  truncatedFields: string[];
+}
+
+export interface WorldGraphObjectProjectionResult {
+  schema: "dmb_world_graph_object_projection_v1";
+  found: boolean;
+  completeness: WorldGraphObjectProjectionCompleteness;
+  snapshot: WorldGraphProjectionSnapshot | null;
+  requestedNodeId: string;
+  resolvedNodeId: string | null;
+  node: WorldGraphProjectionNodeView | null;
+  relatedNodes: WorldGraphProjectionNodeView[];
+  relationships?: unknown[];
+  assertions?: unknown[];
+  sourceBindings?: unknown[];
+  semanticFingerprint: string | null;
+  telemetry?: {
+    totalMs?: number | null;
+    relationshipCount?: number;
+    assertionCount?: number;
+    completeness?: "complete" | "partial";
+    truncatedFields?: string[];
+  };
 }
 
 export interface WorldGraphRecapFocusOverlay {

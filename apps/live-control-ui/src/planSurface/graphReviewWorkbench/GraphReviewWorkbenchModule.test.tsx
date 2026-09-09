@@ -382,6 +382,21 @@ function mockWorkbenchApis() {
     gold_fixture_relpath: "gold/session-23.json",
   });
   mockExactRunReviewPackage();
+  vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockImplementation(async (request) => {
+    const node = historicalProjection().nodeViews["node-1"];
+    const found = request.nodeId === "node-1" && node != null;
+    return {
+      schema: "dmb_world_graph_object_projection_v1",
+      found,
+      completeness: { status: "complete", truncatedFields: [] },
+      snapshot: historicalProjection().snapshot,
+      requestedNodeId: request.nodeId,
+      resolvedNodeId: found ? request.nodeId : null,
+      node: found ? node : null,
+      relatedNodes: [],
+      semanticFingerprint: "fp-test",
+    };
+  });
 }
 
 describe("GraphReviewWorkbenchModule", () => {
@@ -857,6 +872,13 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
     });
     expect(screen.getByLabelText("Bonogo graph object")).toBeInTheDocument();
+    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nodeId: "node-1",
+        originSurface: "ingest",
+        worldId: "eldyrwild",
+      }),
+    );
   });
 
   it("keeps Advanced details after ordinary Load recap of a validated historical run", async () => {

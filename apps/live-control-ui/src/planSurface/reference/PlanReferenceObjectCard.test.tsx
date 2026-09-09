@@ -171,6 +171,12 @@ function resolvedGraphFromNode(
     reference: referenceFromGraphNode(node),
     graphObject: buildGraphObjectCardFromNodeView(node),
     graphNodeId: node.node_id,
+    graphScope: {
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      scopeMode: "campaign",
+      revisionId: "rev-1",
+    },
     projectionState: "ready",
     ...overrides,
   };

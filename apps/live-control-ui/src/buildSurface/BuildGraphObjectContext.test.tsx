@@ -13,6 +13,20 @@ import { BuildSurfacePage } from "./BuildSurfacePage";
 
 const buildSurfaceDir = path.dirname(fileURLToPath(import.meta.url));
 
+function completeObjectFixture() {
+  return {
+    schema: "dmb_world_graph_object_projection_v1" as const,
+    found: true,
+    completeness: { status: "complete" as const, truncatedFields: [] },
+    snapshot: session23WorldGraphRecapFixture.snapshot,
+    requestedNodeId: "pc_caelynn",
+    resolvedNodeId: "pc_caelynn",
+    node: session23WorldGraphRecapFixture.nodeViews.pc_caelynn,
+    relatedNodes: [],
+    semanticFingerprint: "fp-test",
+  };
+}
+
 describe("BuildGraphObjectContext", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -22,43 +36,53 @@ describe("BuildGraphObjectContext", () => {
     expect(existsSync(path.join(buildSurfaceDir, "BuildGraphObjectContext.tsx"))).toBe(true);
   });
 
-  it("loads exact node from pinned World Graph projection", async () => {
+  it("loads exact node from complete World-object projection", async () => {
     window.history.replaceState(
       {},
       "",
       `/build?campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
     );
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: session23WorldGraphRecapFixture.snapshot,
-      summary: {
-        nodeCount: 1,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [session23WorldGraphRecapFixture.nodeViews.pc_caelynn],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    });
+    vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockResolvedValue(completeObjectFixture());
 
     render(<BuildGraphObjectContext />);
     expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText("Caelynn")).toBeInTheDocument();
     });
-    expect(liveApi.postWorldGraphProjection).toHaveBeenCalledWith(
+    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
       expect.objectContaining({
         campaignId: "longmont-c2",
+        nodeId: "pc_caelynn",
         revisionPin: session23WorldGraphRecapFixture.snapshot.revisionId,
-        focus: { kind: "none", sessionId: null },
+        originSurface: "build",
       }),
     );
+  });
+
+  it("surfaces partial completeness instead of ordinary ready", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      `/build?campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
+    );
+    vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockResolvedValue({
+      ...completeObjectFixture(),
+      completeness: {
+        status: "partial",
+        reason: "relationships_truncated",
+        truncatedFields: ["relationships"],
+      },
+    });
+
+    render(<BuildGraphObjectContext />);
+    expect(await screen.findByTestId("complete-object-partial-warning")).toHaveTextContent(
+      /truncated relationships/i,
+    );
+    expect(screen.getByTestId("build-graph-object-context")).toHaveAttribute(
+      "data-complete-object-status",
+      "partial",
+    );
+    expect(screen.getByText("Caelynn")).toBeInTheDocument();
   });
 
   it("refuses document-backed load when requireDocumentScope lacks an admitted campaign", async () => {
@@ -67,12 +91,12 @@ describe("BuildGraphObjectContext", () => {
       "",
       `/build?campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
     );
-    const postProjection = vi.spyOn(liveApi, "postWorldGraphProjection");
+    const postComplete = vi.spyOn(liveApi, "postWorldGraphCompleteObject");
 
     render(<BuildGraphObjectContext documentCampaignId={null} requireDocumentScope />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/Select a Build source/i);
-    expect(postProjection).not.toHaveBeenCalled();
+    expect(postComplete).not.toHaveBeenCalled();
   });
 
   it("BuildSurfacePage opens graph context when document is admitted from URL", async () => {
@@ -113,24 +137,7 @@ describe("BuildGraphObjectContext", () => {
       file_exists: false,
       loaded_revision: 1,
     });
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: session23WorldGraphRecapFixture.snapshot,
-      summary: {
-        nodeCount: 1,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [session23WorldGraphRecapFixture.nodeViews.pc_caelynn],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    });
+    vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockResolvedValue(completeObjectFixture());
     render(
       <AgentInteractionProvider>
         <SurfaceContextProvider>

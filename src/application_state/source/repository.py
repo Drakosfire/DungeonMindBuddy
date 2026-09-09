@@ -83,6 +83,51 @@ def get_source_markdown(
     return None if row is None else _record_from_row(row)
 
 
+def get_source_markdown_batch(
+    conn: psycopg.Connection,
+    *,
+    bindings: list[tuple[str, str]],
+) -> list[SourceMarkdownRecord]:
+    """Load many exact artifact/digest bindings in one query.
+
+    ``bindings`` are ``(source_artifact_id, content_sha256)`` pairs. Missing
+    rows are omitted; callers treat absence as ``source_not_durable``.
+    """
+    if not bindings:
+        return []
+    artifact_ids = [artifact_id for artifact_id, _digest in bindings]
+    digests = [digest for _artifact_id, digest in bindings]
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT
+                r.source_revision_id,
+                r.source_artifact_id,
+                a.source_domain,
+                a.campaign_id,
+                a.session_id,
+                a.world_id,
+                r.content_sha256,
+                r.media_type,
+                r.encoding,
+                r.markdown,
+                r.lineage,
+                r.created_at
+            FROM source.revision AS r
+            JOIN source.artifact AS a
+              ON a.source_artifact_id = r.source_artifact_id
+            WHERE (r.source_artifact_id, r.content_sha256) IN (
+                SELECT *
+                FROM unnest(%s::text[], %s::text[])
+                    AS requested(source_artifact_id, content_sha256)
+            )
+            """,
+            (artifact_ids, digests),
+        )
+        rows = cur.fetchall()
+    return [_record_from_row(dict(row)) for row in rows]
+
+
 def get_source_markdown_by_revision_id(
     conn: psycopg.Connection,
     source_revision_id: UUID,

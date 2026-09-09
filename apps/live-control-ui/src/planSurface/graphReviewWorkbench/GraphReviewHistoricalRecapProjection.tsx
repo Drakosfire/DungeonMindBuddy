@@ -3,10 +3,11 @@ import { useCallback, useMemo, useState } from "react";
 import type { HistoricalRecapWorldProjectionResponse } from "../../api/types";
 import {
   GraphObjectProjectionCard,
-  resolveExactProjectedNode,
 } from "../../graphObjectCard/GraphObjectProjectionCard";
 import { adaptWorldGraphNodeViewMap } from "../../worldGraph/worldGraphNodeViewAdapter";
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
+import { useCompleteWorldObject, usesCompleteWorldObjectPayload } from "../../graphReference/fullWorldObjectProjection";
+import { CompleteObjectPartialWarning } from "../../graphReference/CompleteObjectPartialWarning";
 
 interface GraphReviewHistoricalRecapProjectionProps {
   projection: HistoricalRecapWorldProjectionResponse;
@@ -21,9 +22,19 @@ export function GraphReviewHistoricalRecapProjection({
   );
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [selectedRelationshipId, setSelectedRelationshipId] = useState<string | null>(null);
-  const activeNodeView = activeNodeId
-    ? resolveExactProjectedNode(adaptedNodeViews, activeNodeId)
-    : null;
+  const complete = useCompleteWorldObject({
+    enabled: Boolean(activeNodeId),
+    worldId: projection.worldId || projection.snapshot.worldId,
+    campaignId: projection.campaignId,
+    nodeId: activeNodeId,
+    revisionPin: projection.snapshot.revisionId,
+    originSurface: "ingest",
+    focus: {
+      kind: "session",
+      sessionId: projection.sessionId,
+      campaignId: projection.campaignId,
+    },
+  });
 
   const handleInspectNode = useCallback((nodeId: string) => {
     setSelectedRelationshipId(null);
@@ -32,17 +43,17 @@ export function GraphReviewHistoricalRecapProjection({
 
   const handleSelectRelationshipTarget = useCallback((targetId: string) => {
     setSelectedRelationshipId(targetId);
-    if (resolveExactProjectedNode(adaptedNodeViews, targetId)) {
-      setActiveNodeId(targetId);
-    }
-  }, [adaptedNodeViews]);
+    setActiveNodeId(targetId);
+  }, []);
+
+  const objectOpen = Boolean(activeNodeId);
 
   return (
     <div
       className="graph-review-historical-recap-projection"
       data-testid="graph-review-historical-recap-projection"
     >
-      <div className={`recap-reader-layout${activeNodeView ? " graph-explorer-open" : ""}`}>
+      <div className={`recap-reader-layout${objectOpen ? " graph-explorer-open" : ""}`}>
         <GraphProjectionReader
           markdown={projection.markdown}
           nodeViews={adaptedNodeViews}
@@ -55,13 +66,24 @@ export function GraphReviewHistoricalRecapProjection({
           onActiveNodeChange={setActiveNodeId}
           className="graph-review-historical-recap-reader"
         />
-        {activeNodeView ? (
+        {objectOpen ? (
           <aside className="recap-graph-object-panel" aria-label="Graph object">
-            <GraphObjectProjectionCard
-              nodeView={activeNodeView}
-              onSelectRelationshipTarget={handleSelectRelationshipTarget}
-              selectedRelationshipId={selectedRelationshipId}
-            />
+            {complete.status === "loading" || complete.status === "idle" ? (
+              <p className="module-muted">Loading complete World object…</p>
+            ) : null}
+            {complete.status === "error" || complete.status === "missing" ? (
+              <p className="graph-preview-error" role="alert">
+                {complete.error}
+              </p>
+            ) : null}
+            <CompleteObjectPartialWarning result={complete.result} />
+            {usesCompleteWorldObjectPayload(complete.status) && complete.nodeView ? (
+              <GraphObjectProjectionCard
+                nodeView={complete.nodeView}
+                onSelectRelationshipTarget={handleSelectRelationshipTarget}
+                selectedRelationshipId={selectedRelationshipId}
+              />
+            ) : null}
           </aside>
         ) : null}
       </div>

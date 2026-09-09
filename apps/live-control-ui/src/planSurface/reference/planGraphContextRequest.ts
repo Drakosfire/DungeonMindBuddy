@@ -120,8 +120,9 @@ export function buildPlanWorldGraphProjectionRequest(
 
 export function buildPlanAgentWorldGraphQueryContextRequest(
   context: PlanWorldGraphContext,
-  options?: { revisionPin?: string | null },
+  options?: { revisionPin?: string | null; selectedNodeId?: string | null },
 ): AgentWorldGraphQueryContextRequest {
+  const selectedNodeId = options?.selectedNodeId?.trim() || null;
   return {
     schema: "dmb_agent_world_graph_query_context_request_v1",
     world_id: context.worldId,
@@ -134,5 +135,6 @@ export function buildPlanAgentWorldGraphQueryContextRequest(
     },
     admissibility: "gm",
     revision_pin: options?.revisionPin ?? null,
+    ...(selectedNodeId ? { selected_node_id: selectedNodeId } : {}),
   };
 }

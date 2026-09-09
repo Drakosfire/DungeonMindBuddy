@@ -102,6 +102,8 @@ import type {
   UnionSupergraphProjectionResponse,
   WorldGraphProjection,
   WorldGraphProjectionRequest,
+  WorldGraphObjectProjectionRequest,
+  WorldGraphObjectProjectionResult,
   WorldGraphRecapProjection,
   WorldGraphSourceAnchorReadRequest,
   WorldGraphSourceAnchorReadResponse,
@@ -994,6 +996,18 @@ export async function postWorldGraphProjection(
       method: "POST",
       body: JSON.stringify(request),
     }),
+  );
+}
+
+export async function postWorldGraphCompleteObject(
+  request: WorldGraphObjectProjectionRequest,
+): Promise<WorldGraphObjectProjectionResult> {
+  return apiFetch<WorldGraphObjectProjectionResult>(
+    "/api/live/world-graph/retrieval/complete-object",
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
   );
 }
 

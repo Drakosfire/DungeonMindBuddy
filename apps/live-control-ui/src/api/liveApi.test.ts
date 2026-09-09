@@ -28,6 +28,7 @@ import {
   postLiveQuery,
   postThreatQueryHydration,
   postWorldGraphProjection,
+  postWorldGraphCompleteObject,
   postWorldGraphSourceAnchorRead,
   getCurrentCombat,
   getGeneratedStatblock,
@@ -846,6 +847,38 @@ describe("liveApi artifact/capability helpers", () => {
       "focus",
       "admissibility",
     ]);
+  });
+
+  it("postWorldGraphCompleteObject posts the complete-object request contract", async () => {
+    const request = {
+      schema: "dmb_world_graph_object_projection_request_v1" as const,
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      nodeId: "pc:karsemine",
+      focus: { kind: "none" as const, sessionId: null },
+      admissibility: "gm" as const,
+      originSurface: "plan" as const,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_world_graph_object_projection_v1",
+        found: true,
+        completeness: { status: "complete", truncatedFields: [] },
+        snapshot: {},
+        requestedNodeId: "pc:karsemine",
+        resolvedNodeId: "pc:karsemine",
+        node: null,
+        relatedNodes: [],
+        semanticFingerprint: "fp",
+      }),
+    );
+
+    await postWorldGraphCompleteObject(request);
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/world-graph/retrieval/complete-object");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(request);
   });
 
   it("getGoldGraphProjection calls gold projection endpoint with read-only query params", async () => {
