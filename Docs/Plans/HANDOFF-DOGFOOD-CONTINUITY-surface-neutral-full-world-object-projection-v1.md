@@ -9,22 +9,27 @@ pr_body_template: |
   - Suggested PR title: `DOGFOOD-CONTINUITY: project complete World objects across surfaces`
 
   ## Product invariant
-  A selected graph object has one complete current World view. Ingest, Plan,
-  Build, Play, and Agent may add focus, ranking, chrome, and actions, but they
-  must not change which admitted World facts belong to the object.
+  A selected graph object has one complete World view at the selected World
+  revision: all admitted truth, including historical/superseded relationships,
+  with source time, occurrence time, and valid time preserved. Ingest, Plan,
+  Build, Play, and Agent selected-object context may add focus, ranking,
+  chrome, and actions, but they must not change which admitted World facts belong
+  to the object or flatten those temporal lanes.
 
   ## Verification pointer
   - Current World authority is read-only DungeonMind.
   - APP-STATE supplies exact durable source bytes for provenance hydration.
   - Current session/campaign are focus metadata, never object-truth eligibility.
+  - TemporalEnvelopeV1 lanes stay distinct; this is not a current-state reducer.
   - Full-object reads must be bounded by one authoritative World operation plus
     one batched APP-STATE source read, with no per-edge/source N+1 path.
+  - Generic Agent graph-query World-scope default is a named successor.
 ---
 
 # HANDOFF — DOGFOOD-CONTINUITY: surface-neutral full World object projection v1
 
 **Created:** 2026-09-08  
-**Status:** DESIGN READY — implementation not started  
+**Status:** DESIGN HOLD after Review Cycle 1 (`5148560899` on `612c30f9`); rebriefed on this head; CODE not started  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / full World-object projection`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
@@ -40,7 +45,7 @@ pr_body_template: |
 | Branch / isolated checkout | `dogfood-continuity/surface-neutral-full-world-object-projection-v1` |
 | Runtime/state ownership | Read-only World 54330 + APP-STATE 54331. No DB writes. Dogfood API/UI 8000/5173 if used; serialize with any leftover dogfood on those ports. 54329 unused. |
 
-> Repository law: [`AGENTS.md`](../../AGENTS.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). Current steward anchor: [`STEWARDS-ANCHOR-con-ready.md`](STEWARDS-ANCHOR-con-ready.md). Stage 2C witness: [`../Reports/REPORT-stage-2c-broad-source-adoption.md`](../Reports/REPORT-stage-2c-broad-source-adoption.md).
+> Repository law: [`AGENTS.md`](../../AGENTS.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). Current steward anchor: [`STEWARDS-ANCHOR-con-ready.md`](STEWARDS-ANCHOR-con-ready.md). Temporal lanes: [`../Design/CONTRACT-temporal-envelope-v1.md`](../Design/CONTRACT-temporal-envelope-v1.md). Stage 2C witness: [`../Reports/REPORT-stage-2c-broad-source-adoption.md`](../Reports/REPORT-stage-2c-broad-source-adoption.md).
 
 ---
 
@@ -110,6 +115,20 @@ Therefore the current failure is Buddy product projection, not DungeonMind tempo
 
 During handoff creation, two accidental zero-byte scratch files were created and immediately removed on `main`. No pre-existing repository content changed; the resulting tree is the same product tree as after #696. The visible cleanup history leaves current `main` at `0d3dd6ce024f92bdcc7eacc4573f277ed8af2cfe`. Do not conceal or reinterpret those commits during review.
 
+### §0E Review Cycle 1 DESIGN HOLD
+
+Reviewed exact head `612c30f9a5a33fb26a5ad7853070464583e7b216` as GitHub review `5148560899`. Verdict: **DESIGN HOLD before CODE**.
+
+This rebrief closes the two Cycle 1 blockers in the dispatch contract. It does not start implementation.
+
+| Finding | Repair in this head |
+|---|---|
+| “Current World object” was undefined and could be read as latest-fictional-time / latest-wins | Define current = all admitted truth at the selected World revision; require `TemporalEnvelopeV1` / equivalent lossless temporal payload on assertions and relationships; fingerprint temporal identity |
+| Generic Agent `campaign → world` default bundled into Layer E | Keep Agent selected-object parity; name generic open-ended query World-scope default as a successor |
+| #696 / Stage 2C sync paths named in acceptance but not leased | Add `ROADMAP-demo-ready-c1-c2-to-of-conks.md` and `STEWARDS-ANCHOR-con-ready.md` to §4 |
+
+CODE starts only after a later review cycle accepts this rebrief.
+
 ---
 
 ## §1 Product ruling — full object first, focus later
@@ -128,7 +147,17 @@ And across surfaces:
 
 ### Normative product law
 
-> **A selected World object has one complete current admitted World view. Surface, document, campaign, session, and interaction context may annotate, rank, highlight, or offer different actions; they must not determine which admitted World facts belong to the object.**
+> **A selected World object has one complete admitted World view at the selected World revision. Surface, document, campaign, session, and interaction context may annotate, rank, highlight, or offer different actions; they must not determine which admitted World facts belong to the object, and they must not drop or flatten historical/superseded assertions.**
+
+Define:
+
+```text
+current World object
+  = all admitted object truth at the selected World revision
+  ≠ only facts currently true at the latest fictional tick
+```
+
+This slice is append-oriented graph history as a **read**. Later Agent/ingest writes may add, supersede, close, or correct assertions through governed contribution paths. This PR does not authorize writes and must not imply destructive overwrite or “latest session wins.”
 
 Equivalently:
 
@@ -149,12 +178,13 @@ World object identity + exact World revision + admissibility
 
 For this capability it means:
 
-- all assertions/evidence admitted into the current DungeonMind World revision for the selected object;
+- all assertions/evidence admitted into the **selected** DungeonMind World revision for the selected object, including ended/superseded relationships still present at that revision;
 - world-global assertions;
 - campaign-scoped assertions from **every campaign in that World**;
 - incoming and outgoing relationships touching the selected object;
 - related endpoint nodes needed to understand those relationships;
 - object attributes/assertions;
+- the canonical temporal envelope (source time, occurrence time, valid time) where authority carries it;
 - every supporting evidence identity exposed by the authoritative read;
 - exact source prose when the supporting source revision is durable in APP-STATE and its evidence span is resolvable.
 
@@ -195,13 +225,24 @@ Those are **view filters over an already-complete object projection**, not alter
 
 ### Merge-ready invariant
 
-> Given a selected World `node_id`, Buddy can obtain one revision-pinned, GM-admissible, World-cross-campaign object projection containing the complete admitted one-hop object neighborhood and object attributes available from DungeonMind, then hydrate every eligible evidence span from its exact durable APP-STATE source revision in a bounded batch. Ingest, Plan, Build, Play, and Agent consume that same semantic projection. Current campaign/session/surface context is preserved only as focus/ranking/action metadata. No graph writes, source re-adoption, filesystem provenance fallback, or per-edge source fetch is introduced.
+> Given a selected World `node_id`, Buddy can obtain one revision-pinned, GM-admissible, World-cross-campaign object projection containing the complete admitted one-hop object neighborhood and object attributes available from DungeonMind at that World revision — including historical/superseded facts and their lossless temporal envelopes — then hydrate every eligible evidence span from its exact durable APP-STATE source revision in a bounded batch. Ingest, Plan, Build, Play, and Agent selected-object context consume that same semantic projection. Current campaign/session/surface context is preserved only as focus/ranking/action metadata. No graph writes, source re-adoption, filesystem provenance fallback, current-state reduction, temporal-lane flattening, or per-edge source fetch is introduced.
+
+### Named successor (intentionally false)
+
+```text
+Agent generic/open-ended graph search/query default
+  campaign → World scope
+```
+
+Selected-object Agent parity stays in this PR. Changing `AgentWorldGraphQueryContextRequest.scope_mode` for queries with no selected object does not.
 
 ### Independently useful outcome
 
 After this PR, selecting Karsemine from any supported surface should answer the same underlying question:
 
-> “What does the current World know about Karsemine?”
+> “What does this World revision know about Karsemine?”
+
+That includes facts recorded earlier, facts whose valid time has ended, and facts whose occurrence time is not the current session.
 
 The surface can answer a second question differently:
 
@@ -223,6 +264,10 @@ DungeonMind World @ exact revision
     evidence identity
     source-artifact/source-revision bindings
     visibility/admissibility
+    TemporalEnvelopeV1 / equivalent temporal payload
+      source time
+      occurrence time
+      valid time
 
 Buddy APP-STATE
   owns:
@@ -251,7 +296,12 @@ Do not:
 - reconstruct/union graph truth in Buddy from multiple partial reads;
 - infer a source revision by choosing “latest” APP-STATE revision;
 - guess a source digest from a filename/title/session;
-- treat missing source prose as evidence that the graph relationship is absent.
+- treat missing source prose as evidence that the graph relationship is absent;
+- reduce object truth to “facts true at the latest fictional tick”;
+- erase an ended/superseded relationship merely because a later assertion exists;
+- flatten session/source time into occurrence time;
+- infer `source_time == occurrence_time` because the source is a session recap;
+- treat `session_ids` as a substitute for the temporal envelope.
 
 ---
 
@@ -309,6 +359,11 @@ selected node
   campaign tenancy where applicable
 
 all selected-node attributes/assertions
+  TemporalEnvelopeV1 or equivalent lossless temporal payload
+    source time
+    occurrence time
+    valid time
+    honest absent/unresolved when authority does not carry a lane
 
 complete one-hop adjacency
   every admitted incoming edge
@@ -316,7 +371,8 @@ complete one-hop adjacency
   related endpoint identity + label/kind/summary needed for rendering
   predicate + direction
   campaign scope
-  session ids
+  session ids as focus/source metadata only, never as a temporal-lane substitute
+  temporal envelope / equivalent payload for the relationship assertion
   evidence refs
 
 provenance
@@ -353,7 +409,7 @@ For this capability:
 
 Buddy must not simulate completeness by unioning overlapping partial projections.
 
-If the mounted DungeonMind read contract cannot provide a complete selected-node one-hop neighborhood with explicit completeness semantics, stop implementation and report a required **DungeonMind read-contract successor**. Do not rebuild graph traversal authority in Buddy.
+If the mounted DungeonMind read contract cannot provide a complete selected-node one-hop neighborhood with explicit completeness semantics **and** a lossless temporal payload for assertions/relationships that already carry `TemporalEnvelopeV1` / `temporal_scope` in authority, stop implementation and report a required **DungeonMind read-contract successor**. Do not rebuild graph traversal authority in Buddy. Do not invent temporal lanes from session ids.
 
 ---
 
@@ -480,9 +536,13 @@ related node ids
 evidence ref ids
 exact durable source revision ids/digests when available
 provenance status per evidence/edge
+temporal semantic identity per assertion/relationship
+  source-time identity
+  occurrence-time identity
+  valid-time interval identity (open/closed/absent)
 ```
 
-Do not hash surface-specific actions/chrome/rank order into this fingerprint.
+Do not hash surface-specific actions/chrome/rank order into this fingerprint. Two otherwise-identical assertions with different occurrence or valid time must fingerprint differently.
 
 ---
 
@@ -590,15 +650,7 @@ Those are complementary layers, not competing scopes.
 
 ## §11 Agent integration
 
-The Agent must not have a sixth graph semantics.
-
-### Default graph lens
-
-For World-bound user work, Agent graph retrieval should use the whole World as its admissible graph lens. Campaign/session context is a relevance/focus signal unless the user explicitly asks for a narrower view in a future capability.
-
-The current `AgentWorldGraphQueryContextRequest.scope_mode` defaults to `campaign`. This is inconsistent with the new product law when the Agent is being asked “what do we know about X?” across the World.
-
-For this capability, the Agent path must support `scope_mode="world"` as the default full-memory posture for current World context.
+The Agent must not have a sixth graph semantics for a **selected** object.
 
 ### Selected object context
 
@@ -614,20 +666,20 @@ origin surface
 
 Before the model call, resolve that node through the **same full-object projection service** used by UI surfaces.
 
-The model receives structured complete object context subject to the same completeness flag and provenance statuses. It must not receive a Plan-only or Ingest-only reduced object.
+The model receives structured complete object context subject to the same completeness flag, provenance statuses, and temporal envelopes. It must not receive a Plan-only or Ingest-only reduced object, and it must not receive a current-state-only reduction of that object.
 
-### Open-ended Agent queries
+### Open-ended Agent queries — not this PR
 
 Do not dump the entire World graph into every prompt.
 
-For open-ended search/query:
+This PR does **not** change the generic/open-ended `AgentWorldGraphQueryContextRequest.scope_mode` default from `campaign` to `world`. That change is independently useful, independently revertible, and applies when no object is selected. It is the named successor:
 
-1. search/retrieve across World scope;
-2. select bounded relevant node identities;
-3. use the same full-object service for object expansion when detail is needed;
-4. preserve explicit truncation/token-budget diagnostics.
+```text
+HANDOFF / capability:
+  Agent generic graph query World-scope default
+```
 
-This keeps token use bounded without redefining graph truth.
+Until that successor, open-ended search may keep the existing campaign default. If the user then opens/selects a node from that result, expansion still uses this PR's full-object service.
 
 ### Citation boundary remains unchanged
 
@@ -672,6 +724,8 @@ different evidence membership
 different source revision choice
 session-specific suppression of otherwise admitted facts
 surface-specific graph reconstruction
+dropping ended/superseded relationships
+flattening source time into occurrence time
 ```
 
 ---
@@ -778,6 +832,7 @@ related endpoint nodes
 selected-node attributes
 all supporting evidence refs
 exact source revision/digest binding needed for evidence hydration
+lossless temporal envelope / equivalent payload for assertions and relationships
 explicit completeness/truncation
 ```
 
@@ -795,9 +850,9 @@ Return one stable full-object response/model plus telemetry/completeness.
 
 Wire the shared loader/model into existing graph-object open paths for Ingest, Plan, Build, and Play. Avoid redesigning card styling.
 
-### Layer E — Agent consumption
+### Layer E — Agent selected-object consumption
 
-Publish selected object identity from surfaces and use the same full-object service for selected-object Agent context; make generic graph query context World-scoped by default for this full-memory posture.
+Publish selected object identity from surfaces and use the same full-object service for selected-object Agent context. Do not change the generic/open-ended Agent graph query `scope_mode` default.
 
 Each layer is reviewable under the same invariant; do not split into independent user capabilities unless a stop condition forces rebrief.
 
@@ -812,6 +867,8 @@ Exact paths may move after bounded discovery, but expected ownership is:
 | Action | Path | Purpose |
 | --- | --- | --- |
 | Create | `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v1.md` | lane authority |
+| Modify | `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md` | backward sync #696 / Stage 2C merged facts; mark this slice current, not done |
+| Modify | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` | re-anchor to #696 merge + this slice current |
 | Create | `apps/live_control_server/services/world_graph_object_projection.py` | surface-neutral complete object + provenance join |
 | Create/modify | `apps/live_control_server/models/world_graph_object_projection.py` | strict request/response/completeness/telemetry contract if needed |
 | Modify | `apps/live_control_server/routes/world_graph_retrieval.py` or a narrowly named object-projection route module | expose one product read endpoint; do not duplicate retrieval authority |
@@ -844,7 +901,7 @@ Exact paths may move after bounded discovery, but expected ownership is:
 
 | Action | Path | Purpose |
 | --- | --- | --- |
-| Modify | `apps/live_control_server/services/agent_world_graph_query_context.py` | World-scope/default + same selected-object detail contract |
+| Modify | `apps/live_control_server/services/agent_world_graph_query_context.py` | selected-object full-object context only; do not change generic query scope_mode default |
 | Modify | `apps/live-control-ui/src/agentInteraction/AgentInteractionProvider.tsx` and/or neutral surface context types only as needed | publish selected object identity across surfaces |
 
 ### Tests
@@ -891,6 +948,9 @@ Do not absorb:
 - Threat publication recovery;
 - Combat mutation;
 - Agent autonomous graph writes;
+- generic Agent open-ended graph query `campaign → world` default (named successor);
+- mutating `TemporalEnvelopeV1` / TL00 kernel schema;
+- a current-state reducer or “latest wins” object view;
 - model-generated biographies/summaries used as graph facts;
 - new memory model;
 - Build document write-policy broadening;
@@ -923,7 +983,12 @@ Prove:
 13. source batch read executes once for N distinct evidence sources;
 14. zero filesystem reads are required for provenance;
 15. World head/revision remains unchanged;
-16. explicit partial/truncation cannot masquerade as complete.
+16. explicit partial/truncation cannot masquerade as complete;
+17. same core edge observed in multiple source sessions remains compatible support without losing source-time provenance;
+18. different occurrence time remains distinct in the response and fingerprint;
+19. different/open/closed valid-time intervals remain distinct and visible;
+20. an ended/superseded historical relationship is not silently erased merely because a later assertion exists;
+21. no `latest session wins` or `source_time == occurrence_time` reduction is introduced.
 
 ### Cross-surface semantic parity
 
@@ -952,8 +1017,8 @@ C2 Build insertion of disallowed C1-scoped reference remains denied under existi
 
 Prove:
 
-- selected object uses full World detail;
-- generic World graph query context is World-scoped for full-memory posture;
+- selected object uses full World detail, including temporal envelopes;
+- generic/open-ended Agent graph query `scope_mode` default remains unchanged;
 - focus still marks/ranks current session/campaign;
 - graph summaries are not promoted to citation authority;
 - truncation is explicit in Agent envelope/prompt block.
@@ -1050,7 +1115,7 @@ Do not auto-dispatch Stage 4.
 
 The human STOP asks:
 
-> **Can I now click a node anywhere in DungeonBuddy and trust that I am looking at the whole current World object, quickly, with source context wherever we possess exact durable source bytes?**
+> **Can I now click a node anywhere in DungeonBuddy and trust that I am looking at the whole World object at this World revision, quickly, with source context wherever we possess exact durable source bytes, without historical relationships being erased?**
 
 Concrete pass:
 
@@ -1100,12 +1165,14 @@ Stop and report rather than improvising if:
 
 - DungeonMind cannot return a complete selected-node one-hop neighborhood without Buddy reconstructing graph truth;
 - authoritative evidence does not expose enough exact source revision/digest identity to hydrate APP-STATE safely;
+- authority carries temporal_scope / TemporalEnvelopeV1 but the object read cannot preserve it losslessly;
 - completeness would require graph writes or contribution replay;
 - a new APP-STATE table/schema is required merely to perform the read;
 - full-object projection requires loading the entire World graph per click;
 - implementation introduces per-edge/per-source network or DB queries;
 - cross-surface parity requires duplicating semantic object assemblers in each surface;
 - Agent integration would need a separate graph semantics rather than the shared object detail;
+- generic Agent query World-scope default would have to land to make selected-object parity work;
 - Build read broadening would accidentally broaden write admission;
 - source prose would need to be regenerated or inferred;
 - a production path outside §4 + bounded discovery is required.
@@ -1128,8 +1195,11 @@ State-authority update needed:
 
 - [ ] One capability: surface-neutral complete World-object projection.
 - [ ] #696 merge and Stage 2C durable-source facts are backward-synced truthfully.
-- [ ] Full object read is World-cross-campaign.
+- [ ] Full object read is World-cross-campaign at the selected World revision.
 - [ ] Current campaign/session are focus only, never admission filters.
+- [ ] Current object means all admitted truth at that revision, not latest-fictional-time current-state.
+- [ ] TemporalEnvelopeV1 / equivalent payload is preserved for assertions and relationships; source, occurrence, and valid time stay distinct.
+- [ ] Ended/superseded relationships remain visible; no latest-session-wins reduction.
 - [ ] Complete one-hop incoming + outgoing adjacency is returned or explicit partial blocks the completeness claim.
 - [ ] Selected-node attributes/evidence are complete.
 - [ ] Exact evidence→source revision binding is authoritative, never “latest artifact revision.”
@@ -1141,8 +1211,8 @@ State-authority update needed:
 - [ ] Build consumes the same semantic projection without widening write admission.
 - [ ] Play consumes the same semantic projection while preserving Play-local occurrence/Threat context.
 - [ ] Agent selected-object context consumes the same semantic projection.
-- [ ] Agent general graph context uses World scope for the full-memory posture.
-- [ ] Same node/revision yields same semantic fingerprint across surfaces.
+- [ ] Generic Agent graph query World-scope default remains a named successor (unchanged in this PR).
+- [ ] Same node/revision yields same semantic fingerprint across surfaces, including temporal identity.
 - [ ] Relationship navigation loads the target's full object through the same contract.
 - [ ] Performance/count trace is recorded for Karsemine, an ordinary second node, and a high-degree node.
 - [ ] No N+1 source/edge behavior.
