@@ -29,7 +29,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: surface-neutral full World object projection v2
 
 **Created:** 2026-09-08  
-**Status:** CODE in progress after DungeonMind #52 merge `d8f7a9f0d6b256f5cf4588987520bf286f1eade3` (accepted head `bd0423da7ba917cb4010f173eeda2a3903430233`). DESIGN HOLD closed. Stage 4 remains NOT DONE.  
+**Status:** CODE + live §13 witnesses recorded on implementation head `73ebf4976264b2a5bd1941419eee6868fc807c6a`. DESIGN HOLD closed. Stage 4 remains NOT DONE.  
 **Canonical handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v2.md`  
 **Supersedes:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / full World-object projection`  
@@ -60,6 +60,8 @@ DungeonMind #52                     MERGED `d8f7a9f0d6b256f5cf4588987520bf286f1e
                                     accepted head `bd0423da7ba917cb4010f173eeda2a3903430233`
 PR #697                             DRAFT
 #697 implementation                 CODE — `WorldGraphRetrievalService.get_complete_object`
+#697 implementation head          `73ebf4976264b2a5bd1941419eee6868fc807c6a`
+#697 live §13                    RECORDED — `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-pr697-complete-object-live-witnesses.md`
 #697 Cycle 1                         DESIGN HOLD closed
 Stage 4                             NOT DONE
 ```
@@ -751,6 +753,28 @@ Prove:
 
 ## §13 Live acceptance witnesses
 
+Recorded on implementation head `73ebf4976264b2a5bd1941419eee6868fc807c6a` against World head `rev:680c246047d67f9fe0293ee90526f670`. Full sanitized table: `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-pr697-complete-object-live-witnesses.md`.
+
+```text
+Karsemine five-consumer fingerprint
+  790f70ea85b8dc5afa3413b52098b813cbbc8cd19bbde07cbabcbb3a9636c331
+  Ingest / Plan / Build / Play / Agent selected-object
+  same revision, completeness=complete
+
+S25 Lysandra          excerpt_ready 3/3
+S24 Hunter's Mark     excerpt_ready 6/6 (item-008)
+manual-seed           visible, source_not_durable, no fabricated excerpt
+temporal              kind=unknown retained (16 qualified facts)
+unrelated             npc_glowkindle under C2 focus, complete, 521 ms
+high-degree           pc:stafl 24 rels complete, truncated_fields=[]
+N+1                   complete_object + one source batch per found object;
+                      get_source_markdown = 0
+generic Agent         scope_mode=campaign, selected_node_id=None
+Build write admission tests still deny C1-object-on-C2-document
+```
+
+Human STOP after merge still requires the running UI click path. Relationship navigation was not live-clicked in this witness set.
+
 ### A — Ingest / Karsemine / C2S25
 
 Require:
@@ -874,31 +898,31 @@ Do not rewrite unrelated roadmap history.
 
 ## §17 Acceptance rubric
 
-- [ ] One capability remains: surface-neutral complete World-object projection.
-- [ ] “Current” explicitly means current World revision, not fictional-present reduction.
-- [ ] Full object read is World-cross-campaign.
-- [ ] Current campaign/session are focus only.
-- [ ] Complete one-hop incoming/outgoing adjacency is returned or explicit partial blocks completeness claims.
-- [ ] Selected-node attributes/assertions and evidence are complete.
-- [ ] Temporal semantics exposed by authority survive losslessly.
-- [ ] No current-fiction-state reducer is introduced.
-- [ ] Same edge identity with different temporal semantics cannot fingerprint as identical.
-- [ ] Exact evidence→source revision binding is authoritative, never latest-artifact inference.
-- [ ] APP-STATE provenance hydration is one bounded batch read.
-- [ ] No filesystem provenance fallback.
-- [ ] Ingest consumes the shared semantic object when opened.
-- [ ] Plan consumes the same semantic object.
-- [ ] Build consumes the same semantic object without widening write admission.
-- [ ] Play consumes the same semantic object while retaining Play-local context.
-- [ ] Agent selected-object context consumes the same semantic object.
-- [ ] Generic/open-ended Agent retrieval policy remains behaviorally unchanged.
-- [ ] Agent World-memory retrieval policy is recorded as a successor capability.
-- [ ] Same node/revision yields the same semantic fingerprint across all five consumers.
+- [x] One capability remains: surface-neutral complete World-object projection.
+- [x] “Current” explicitly means current World revision, not fictional-present reduction.
+- [x] Full object read is World-cross-campaign.
+- [x] Current campaign/session are focus only.
+- [x] Complete one-hop incoming/outgoing adjacency is returned or explicit partial blocks completeness claims.
+- [x] Selected-node attributes/assertions and evidence are complete.
+- [x] Temporal semantics exposed by authority survive losslessly.
+- [x] No current-fiction-state reducer is introduced.
+- [x] Same edge identity with different temporal semantics cannot fingerprint as identical.
+- [x] Exact evidence→source revision binding is authoritative, never latest-artifact inference.
+- [x] APP-STATE provenance hydration is one bounded batch read.
+- [x] No filesystem provenance fallback.
+- [x] Ingest consumes the shared semantic object when opened.
+- [x] Plan consumes the same semantic object.
+- [x] Build consumes the same semantic object without widening write admission.
+- [x] Play consumes the same semantic object while retaining Play-local context.
+- [x] Agent selected-object context consumes the same semantic object.
+- [x] Generic/open-ended Agent retrieval policy remains behaviorally unchanged.
+- [x] Agent World-memory retrieval policy is recorded as a successor capability.
+- [x] Same node/revision yields the same semantic fingerprint across all five consumers.
 - [ ] Relationship navigation loads the target through the same full-object contract.
-- [ ] Performance/count/temporal trace is recorded for Karsemine, one unrelated node, and one high-degree node.
-- [ ] No N+1 source/edge behavior.
-- [ ] #696 / Stage 2C predecessor state is synced into roadmap + steward anchor.
-- [ ] Stage 4 remains NOT DONE.
+- [x] Performance/count/temporal trace is recorded for Karsemine, one unrelated node, and one high-degree node.
+- [x] No N+1 source/edge behavior.
+- [x] #696 / Stage 2C predecessor state is synced into roadmap + steward anchor.
+- [x] Stage 4 remains NOT DONE.
 - [ ] Human STOP remains mandatory after merge.
 
 ---

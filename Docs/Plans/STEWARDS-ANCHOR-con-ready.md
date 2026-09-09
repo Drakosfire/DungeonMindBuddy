@@ -55,7 +55,7 @@ STAGE 5A          MERGED + human dogfood PASS — PR #694 `df15db4c695240ce08b58
 STAGE 5B          PARKED / CONDITIONAL — do not auto-dispatch
 PROVENANCE / #695 MERGED — `d2c4248b14397525fd996309e230e513a3662bb1`; accepted head `fe55824e1927a29b03e7c2660ba653c86aaf4a82`; 3 review cycles; Orik PASS
 STAGE 2C / #696   MERGED — `3e2abc0c7f8ce523b071716eb13bcf18d7979a2a`; accepted head `8f93138000c699a5d1249955003c91042f2053b1`; Stage 2 / STOP 2 remain OPEN; not an accepted completed stage
-CURRENT           PR #697 surface-neutral complete World-object projection — CODE after DungeonMind #52 merge `d8f7a9f0d6b256f5cf4588987520bf286f1eade3`; Stage 4 remains NOT DONE
+CURRENT           PR #697 surface-neutral complete World-object projection — CODE + live §13 on `73ebf4976264b2a5bd1941419eee6868fc807c6a`; Stage 4 remains NOT DONE
 
 PLAY STRUCTURE
 BF1 / PR #628    DONE — Beat-first v2 grammar/index/manifest
