@@ -35,6 +35,11 @@ pr_body_template: |
 **Implementation branch:** `dogfood-continuity/surface-neutral-full-world-object-projection-v1`  
 **Suggested PR title:** `DOGFOOD-CONTINUITY: project complete World objects across surfaces`
 
+| Field | Value |
+|---|---|
+| Branch / isolated checkout | `dogfood-continuity/surface-neutral-full-world-object-projection-v1` |
+| Runtime/state ownership | Read-only World 54330 + APP-STATE 54331. No DB writes. Dogfood API/UI 8000/5173 if used; serialize with any leftover dogfood on those ports. 54329 unused. |
+
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). Current steward anchor: [`STEWARDS-ANCHOR-con-ready.md`](STEWARDS-ANCHOR-con-ready.md). Stage 2C witness: [`../Reports/REPORT-stage-2c-broad-source-adoption.md`](../Reports/REPORT-stage-2c-broad-source-adoption.md).
 
 ---
@@ -250,7 +255,7 @@ Do not:
 
 ---
 
-## §4 Read contract — selected object, not whole graph dump
+## Selected-object read contract — not whole graph dump
 
 The product requirement is **complete selected-object detail**, not “download the entire World every time somebody clicks a chip.”
 
@@ -798,7 +803,7 @@ Each layer is reviewable under the same invariant; do not split into independent
 
 ---
 
-## §16 Expected write lease
+## §4 Files in scope — write lease
 
 Exact paths may move after bounded discovery, but expected ownership is:
 
@@ -1103,7 +1108,7 @@ Stop and report rather than improvising if:
 - Agent integration would need a separate graph semantics rather than the shared object detail;
 - Build read broadening would accidentally broaden write admission;
 - source prose would need to be regenerated or inferred;
-- a production path outside §16 + bounded discovery is required.
+- a production path outside §4 + bounded discovery is required.
 
 Report:
 
