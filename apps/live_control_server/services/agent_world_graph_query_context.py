@@ -15,6 +15,14 @@ from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
     project_world_graph,
 )
+from apps.live_control_server.services.world_graph_object_projection import (
+    WorldGraphObjectProjectionServiceError,
+    project_complete_world_object,
+)
+from apps.live_control_server.models.world_graph_object_projection import (
+    WorldGraphObjectProjectionRequest,
+    WorldGraphObjectProjectionResult,
+)
 from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
     WorldGraphProjection,
@@ -131,6 +139,7 @@ class AgentWorldGraphQueryContextRequest(BaseModel):
     revision_pin: str | None = None
     # campaign: narrative campaign only. world: all campaigns in the same world.
     scope_mode: Literal["campaign", "world"] = "campaign"
+    selected_node_id: str | None = None
 
     @field_validator("world_id", "campaign_id")
     @classmethod
@@ -139,6 +148,14 @@ class AgentWorldGraphQueryContextRequest(BaseModel):
         if not cleaned:
             raise ValueError("must be a non-empty string")
         return cleaned
+
+    @field_validator("selected_node_id")
+    @classmethod
+    def _optional_node(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
 
 
 def _diagnostic_dicts(
@@ -367,6 +384,93 @@ def build_projection_request(
     )
 
 
+def _adapt_complete_object_to_agent_envelope(
+    result: WorldGraphObjectProjectionResult,
+    *,
+    nested: AgentWorldGraphQueryContextRequest,
+    query_text: str,
+) -> dict[str, Any]:
+    """Selected-object Agent context uses the same complete object as UI surfaces."""
+    snapshot = result.snapshot
+    status: AgentGraphStatus = "ready" if result.found and result.node is not None else "empty"
+    nodes = []
+    if result.node is not None:
+        nodes.append(
+            {
+                "node_id": result.node.node_id,
+                "label": result.node.label,
+                "kind": result.node.kind,
+                "summary": result.node.summary,
+                "campaign_scope": result.node.campaign_scope,
+            }
+        )
+        nodes.extend(
+            {
+                "node_id": item.node_id,
+                "label": item.label,
+                "kind": item.kind,
+                "summary": item.summary,
+                "campaign_scope": item.campaign_scope,
+            }
+            for item in result.related_nodes
+        )
+    relationships = [
+        {
+            "edge_id": edge.edge_id,
+            "source_node_id": edge.source_node_id,
+            "target_node_id": edge.target_node_id,
+            "predicate": edge.predicate,
+            "label": edge.label,
+            "direction": edge.direction,
+            "session_ids": list(edge.session_ids),
+            "campaign_scope": edge.campaign_scope,
+            "temporal_scope": edge.temporal_scope,
+        }
+        for edge in result.relationships
+    ]
+    attributes = [
+        {
+            "assertion_id": row.assertion_id,
+            "subject_node_id": row.subject_node_id,
+            "assertion_kind": row.assertion_kind,
+            "predicate": row.predicate,
+            "label": row.label,
+            "text_value": row.text_value,
+            "campaign_scope": row.campaign_scope,
+            "temporal_scope": row.temporal_scope,
+        }
+        for row in result.assertions
+    ]
+    return {
+        "schema": AGENT_RESPONSE_SCHEMA,
+        "status": status,
+        "world_id": nested.world_id,
+        "campaign_id": nested.campaign_id,
+        "revision_id": None if snapshot is None else snapshot.revision_id,
+        "head_revision_id": None if snapshot is None else snapshot.head_revision_id,
+        "is_head": None if snapshot is None else snapshot.is_head,
+        "focus": {
+            "kind": nested.focus.kind,
+            "session_id": nested.focus.session_id,
+            "campaign_id": nested.focus.campaign_id,
+        },
+        "admissibility": nested.admissibility,
+        "scope_mode": nested.scope_mode,
+        "query_text": query_text,
+        "matched_node_ids": [result.node.node_id] if result.node is not None else [],
+        "nodes": nodes,
+        "relationships": relationships,
+        "attributes": attributes,
+        "completeness": result.completeness.status,
+        "truncated_fields": list(result.completeness.truncated_fields),
+        "semantic_fingerprint": result.semantic_fingerprint,
+        "projection_truncated": result.completeness.status == "partial",
+        "diagnostics": [],
+        "warning_codes": [],
+        "trust_boundary": dict(TRUST_BOUNDARY),
+    }
+
+
 def resolve_agent_world_graph_query_context(
     nested: AgentWorldGraphQueryContextRequest,
     *,
@@ -387,6 +491,38 @@ def resolve_agent_world_graph_query_context(
     _ = outer_campaign_id  # packet identity; graph lens is nested.campaign_id
 
     query_text = outer_text
+    selected_node_id = (nested.selected_node_id or "").strip()
+    if selected_node_id:
+        try:
+            complete = project_complete_world_object(
+                WorldGraphObjectProjectionRequest.model_validate(
+                    {
+                        "schema": "dmb_world_graph_object_projection_request_v1",
+                        "worldId": nested.world_id,
+                        "campaignId": nested.campaign_id,
+                        "nodeId": selected_node_id,
+                        "admissibility": nested.admissibility,
+                        "revisionPin": nested.revision_pin,
+                        "originSurface": "agent",
+                        "focus": {
+                            "kind": nested.focus.kind,
+                            "sessionId": nested.focus.session_id,
+                            "campaignId": nested.focus.campaign_id,
+                        },
+                    }
+                ),
+                root=root,
+            )
+        except WorldGraphObjectProjectionServiceError as exc:
+            raise AgentWorldGraphQueryContextError(
+                str(exc),
+                code=exc.code,
+                status_code=exc.status_code,
+            ) from None
+        return _adapt_complete_object_to_agent_envelope(
+            complete, nested=nested, query_text=query_text
+        )
+
     projection_request = build_projection_request(nested, query_text=query_text)
     projector = project_fn or project_world_graph
     try:

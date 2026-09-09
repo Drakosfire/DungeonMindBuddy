@@ -252,3 +252,30 @@ def get_source_markdown(
             content_sha256=digest,
             source_revision_id=source_revision_id,
         )
+
+
+def get_source_markdown_batch(
+    *,
+    bindings: list[tuple[str, str]],
+) -> dict[tuple[str, str], SourceMarkdownRecord]:
+    """Load many exact artifact/digest bindings in one APP-STATE transaction.
+
+    Duplicate bindings are collapsed. Missing rows are omitted from the
+    result map so callers can report ``source_not_durable`` without a second
+    round trip.
+    """
+    unique: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for artifact_id, content_sha256 in bindings:
+        key = (artifact_id.strip(), _normalize_digest(content_sha256))
+        if not key[0] or not key[1] or key in seen:
+            continue
+        seen.add(key)
+        unique.append(key)
+    if not unique:
+        return {}
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        rows = repository.get_source_markdown_batch(conn, bindings=unique)
+    return {(row.source_artifact_id, row.content_sha256): row for row in rows}

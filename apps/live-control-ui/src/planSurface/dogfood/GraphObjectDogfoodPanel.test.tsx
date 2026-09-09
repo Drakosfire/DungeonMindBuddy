@@ -14,6 +14,7 @@ import type { GraphReferenceResolution } from "../../graphReference/types";
 import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
 import { useProjection } from "../projection/projectionContext";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
+import { PlanReferenceProjectionBinding } from "../reference/PlanReferenceProjectionBinding";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import type { SurfaceConfig } from "../types";
 import { GraphObjectDogfoodPanel } from "./GraphObjectDogfoodPanel";
@@ -24,6 +25,7 @@ vi.mock("../../api/liveApi", async () => {
   return {
     ...actual,
     postWorldGraphProjection: vi.fn(),
+    postWorldGraphCompleteObject: vi.fn(),
   };
 });
 
@@ -171,6 +173,12 @@ function graphResolutionFromNode(node: GraphProjectionNodeView): GraphReferenceR
     reference: referenceFromGraphNode(node),
     graphObject: buildGraphObjectCardFromNodeView(node),
     graphNodeId: node.node_id,
+    graphScope: {
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      scopeMode: "campaign",
+      revisionId: "rev-1",
+    },
     projectionState: "ready",
     message: `Resolved graph node ${node.label}.`,
   };
@@ -217,10 +225,23 @@ function ActiveTitleProbe() {
   );
 }
 
+function SeedRelatedView({ node }: { node: GraphProjectionNodeView }) {
+  const { activeGraphReference, openGraphReference, graphReferenceBinding } = useProjection();
+  useEffect(() => {
+    if (activeGraphReference || graphReferenceBinding?.resolverState !== "ready") return;
+    openGraphReference({
+      resolution: graphResolutionFromNode(node),
+      projectionState: "ready",
+    });
+  }, [activeGraphReference, graphReferenceBinding, node, openGraphReference]);
+  return null;
+}
+
 function renderPanel() {
   return render(
     <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
+        <PlanReferenceProjectionBinding />
         <GraphObjectDogfoodPanel sessionDescriptor={sessionDescriptor} />
         <ActiveTitleProbe />
       </AgentInteractionProjectionTestHost>
@@ -233,6 +254,21 @@ describe("GraphObjectDogfoodPanel", () => {
     localStorage.clear();
     vi.mocked(liveApi.postWorldGraphProjection).mockReset();
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(projection);
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockReset();
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockImplementation(async (request) => {
+      const node = projection.nodes.find((entry) => entry.nodeId === request.nodeId) ?? null;
+      return {
+        schema: "dmb_world_graph_object_projection_v1",
+        found: Boolean(node),
+        completeness: { status: "complete", truncatedFields: [] },
+        snapshot: projection.snapshot,
+        requestedNodeId: request.nodeId,
+        resolvedNodeId: node?.nodeId ?? null,
+        node,
+        relatedNodes: [],
+        semanticFingerprint: "fp-test",
+      };
+    });
   });
 
   it("points dogfood toward Edit toolbar search instead of a second browser", async () => {
@@ -247,21 +283,10 @@ describe("GraphObjectDogfoodPanel", () => {
   it("adds the currently viewed related card without a duplicate search UI", async () => {
     const user = userEvent.setup();
 
-    function SeedRelatedView({ node }: { node: GraphProjectionNodeView }) {
-      const { activeGraphReference, openGraphReference } = useProjection();
-      useEffect(() => {
-        if (activeGraphReference) return;
-        openGraphReference({
-          resolution: graphResolutionFromNode(node),
-          projectionState: "ready",
-        });
-      }, [activeGraphReference, node, openGraphReference]);
-      return null;
-    }
-
     render(
       <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
         <AgentInteractionProjectionTestHost config={surfaceConfig}>
+          <PlanReferenceProjectionBinding />
           <SeedRelatedView node={richNode} />
           <GraphObjectDogfoodPanel sessionDescriptor={sessionDescriptor} />
         </AgentInteractionProjectionTestHost>
@@ -273,7 +298,7 @@ describe("GraphObjectDogfoodPanel", () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add this card to dogfood list" }));
 
-    const collection = screen.getByTestId("graph-object-dogfood-collection");
+    const collection = await screen.findByTestId("graph-object-dogfood-collection");
     expect(within(collection).getByText("Glowkindle")).toBeInTheDocument();
 
     const stored = JSON.parse(
@@ -368,24 +393,25 @@ describe("GraphObjectDogfoodPanel relationship traversal handoff", () => {
     localStorage.clear();
     vi.mocked(liveApi.postWorldGraphProjection).mockReset();
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(projection);
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockReset();
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue({
+      schema: "dmb_world_graph_object_projection_v1",
+      found: true,
+      completeness: { status: "complete", truncatedFields: [] },
+      snapshot: projection.snapshot,
+      requestedNodeId: "location-inn",
+      resolvedNodeId: "location-inn",
+      node: toWorldGraphNode(innNode),
+      relatedNodes: [],
+      semanticFingerprint: "fp-test",
+    });
   });
 
   it("does not auto-add a related card opened outside Add", async () => {
-    function SeedRelatedView({ node }: { node: GraphProjectionNodeView }) {
-      const { activeGraphReference, openGraphReference } = useProjection();
-      useEffect(() => {
-        if (activeGraphReference) return;
-        openGraphReference({
-          resolution: graphResolutionFromNode(node),
-          projectionState: "ready",
-        });
-      }, [activeGraphReference, node, openGraphReference]);
-      return null;
-    }
-
     render(
       <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
         <AgentInteractionProjectionTestHost config={surfaceConfig}>
+          <PlanReferenceProjectionBinding />
           <SeedRelatedView node={innNode} />
           <GraphObjectDogfoodPanel sessionDescriptor={sessionDescriptor} />
         </AgentInteractionProjectionTestHost>

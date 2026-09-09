@@ -126,6 +126,7 @@ export function BuildReferenceObjectProjection({
         glanceOnly={glanceOnly}
         graphReferenceBinding={graphReferenceBinding}
         projectionState={resolverProjectionState}
+        originSurface="build"
         showRelationshipProvenance={showRelationshipProvenance}
         onSelectRelationship={graphReferenceBinding ? onSelectRelationship : undefined}
         selectedRelationshipId={navigatingRelationshipId}

@@ -88,6 +88,7 @@ from dungeonmind.application.world_graph_projection import (
 )
 from dungeonmind.application.world_graph_retrieval import (
     AdmittedAssertionValue,
+    CompleteObjectLookupResult,
     EvidenceTarget,
     GraphSearchResult,
     NeighborhoodResult,
@@ -166,6 +167,15 @@ from graph_memory.retrieval.source_reader import (
     read_repo_heading_anchor,
 )
 from graph_memory.retrieval.errors import WorldGraphRetrievalError
+from apps.live_control_server.models.world_graph_object_projection import (
+    SelectedObjectCompletenessView,
+    WorldGraphObjectProjectionAssertion,
+    WorldGraphObjectProjectionRelationship,
+    WorldGraphObjectProjectionRequest,
+    WorldGraphObjectProjectionResult,
+    WorldGraphObjectProjectionSourceBinding,
+    WorldGraphObjectProjectionTelemetry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -872,6 +882,23 @@ def _map_retrieval_context(
         admissibility=_map_admissibility(context.admissibility),
         scope_mode=scope_mode,
         revision_pin=_resolve_revision_pin(context.revision_pin, binding),
+    )
+
+
+def _map_complete_object_context(
+    request: WorldGraphObjectProjectionRequest,
+    binding: DirectAuthorityBinding,
+) -> WorldGraphProjectionRequestV2:
+    """Complete-object truth is always World-cross-campaign.
+
+    Campaign/session remain Buddy focus metadata and are not admission walls.
+    """
+    return WorldGraphProjectionRequestV2(
+        world_id=request.world_id,
+        campaign_id=None,
+        admissibility=_map_admissibility(request.admissibility),
+        scope_mode=ScopeModeV2.WORLD_CROSS_CAMPAIGN,
+        revision_pin=_resolve_revision_pin(request.revision_pin, binding),
     )
 
 
@@ -1852,6 +1879,279 @@ def get_object_direct(
         return _object_result_view(result, request=request)
     except Exception as exc:  # noqa: BLE001
         raise _map_direct_error(exc) from exc
+
+
+def _complete_object_attribute_view(
+    assertion: AdmittedAssertionValue,
+    *,
+    evidence_by_id: Mapping[str, GraphEvidenceRecord | EvidenceRefV2],
+) -> WorldGraphObjectProjectionAssertion:
+    metadata = assertion.assertion_metadata
+    evidence_rows = [
+        evidence_by_id[ref] for ref in assertion.evidence_ref_ids if ref in evidence_by_id
+    ]
+    value = assertion.property_value
+    text_value: str | None
+    if assertion.assertion_kind == "alias":
+        text_value = assertion.alias
+        predicate = "alias"
+        label = assertion.alias
+    elif assertion.assertion_kind == "summary":
+        text_value = assertion.summary
+        predicate = "summary"
+        label = "summary"
+    elif assertion.assertion_kind == "aspect":
+        text_value = assertion.aspect_kind
+        predicate = "aspect"
+        label = assertion.aspect_key
+    elif assertion.assertion_kind == "existence":
+        text_value = None
+        predicate = "existence"
+        label = "existence"
+    elif isinstance(value, (dict, list)):
+        text_value = None
+        predicate = _wire_term(assertion.property_term)
+        label = assertion.property_term
+    else:
+        text_value = None if value is None else str(value)
+        predicate = _wire_term(assertion.property_term)
+        label = assertion.property_term
+    return WorldGraphObjectProjectionAssertion(
+        assertion_id=assertion.assertion_id,
+        subject_node_id=assertion.subject_object_id,
+        assertion_kind=assertion.assertion_kind,
+        predicate=predicate,
+        label=label,
+        text_value=text_value,
+        value=value if isinstance(value, dict) else {},
+        alias=assertion.alias,
+        summary=assertion.summary,
+        aspect_key=assertion.aspect_key,
+        aspect_kind=assertion.aspect_kind,
+        epistemic_kind=str(metadata.epistemic_kind) if metadata is not None else None,
+        visibility=str(metadata.visibility) if metadata is not None else None,
+        campaign_scope=metadata.campaign_scope if metadata is not None else None,
+        temporal_scope=(
+            metadata.temporal_scope.model_dump(mode="json")
+            if metadata is not None and metadata.temporal_scope is not None
+            else None
+        ),
+        evidence_ref_ids=list(assertion.evidence_ref_ids),
+        source_artifact_ids=sorted({row.source_artifact_id for row in evidence_rows}),
+    )
+
+
+def _complete_object_relationship_view(
+    rel: GraphRelationshipView,
+    *,
+    selected_object_id: str,
+    evidence_by_id: Mapping[str, GraphEvidenceRecord | EvidenceRefV2],
+) -> WorldGraphObjectProjectionRelationship:
+    metadata = rel.assertion_metadata
+    evidence_rows = [
+        evidence_by_id[ref] for ref in rel.evidence_ref_ids if ref in evidence_by_id
+    ]
+    direction: Literal["outgoing", "incoming"]
+    if rel.subject_object_id == selected_object_id:
+        direction = "outgoing"
+    else:
+        direction = "incoming"
+    return WorldGraphObjectProjectionRelationship(
+        edge_id=rel.relationship_id,
+        source_node_id=rel.subject_object_id,
+        target_node_id=rel.object_object_id,
+        predicate=_wire_term(rel.predicate) or rel.predicate,
+        label=(_wire_term(rel.predicate) or rel.predicate).replace("_", " "),
+        direction=direction,
+        session_ids=_relationship_session_ids(rel),
+        visibility=str(metadata.visibility) if metadata is not None else None,
+        campaign_scope=metadata.campaign_scope if metadata is not None else None,
+        epistemic_kind=str(metadata.epistemic_kind) if metadata is not None else None,
+        temporal_scope=(
+            metadata.temporal_scope.model_dump(mode="json")
+            if metadata is not None and metadata.temporal_scope is not None
+            else None
+        ),
+        evidence_ref_ids=list(rel.evidence_ref_ids),
+        source_artifact_ids=sorted({row.source_artifact_id for row in evidence_rows}),
+    )
+
+
+def _complete_object_source_bindings(
+    services: DirectWorldGraphReadServices,
+    anchors: Iterable[SourceAnchorMetadata],
+) -> list[WorldGraphObjectProjectionSourceBinding]:
+    bindings: list[WorldGraphObjectProjectionSourceBinding] = []
+    digest_by_revision: dict[str, str | None] = {}
+    seen_evidence: set[str] = set()
+    for anchor in anchors:
+        if anchor.evidence_ref_id in seen_evidence:
+            continue
+        seen_evidence.add(anchor.evidence_ref_id)
+        revision_id = anchor.source_revision_id
+        if revision_id and revision_id not in digest_by_revision:
+            digest_by_revision[revision_id] = _source_revision_digest(
+                services, revision_id
+            )
+        digest = digest_by_revision.get(revision_id) if revision_id else None
+        if digest is None:
+            status: Literal[
+                "excerpt_ready",
+                "no_source_span",
+                "source_not_durable",
+                "unsupported_source_media",
+                "source_binding_unavailable",
+                "span_unresolvable",
+            ] = "source_binding_unavailable"
+        elif not (anchor.source_span_ref_id or "").strip():
+            status = "no_source_span"
+        else:
+            status = "span_unresolvable"
+        bindings.append(
+            WorldGraphObjectProjectionSourceBinding(
+                evidence_ref_id=anchor.evidence_ref_id,
+                source_artifact_id=anchor.source_artifact_id,
+                source_revision_id=revision_id,
+                content_sha256=digest,
+                source_span_ref_id=anchor.source_span_ref_id,
+                source_domain=getattr(anchor.evidence, "source_domain", None),
+                session_id=_evidence_session_id(anchor.evidence),
+                provenance_status=status,
+                excerpt=None,
+            )
+        )
+    return bindings
+
+
+def get_complete_object_direct(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphObjectProjectionRequest,
+) -> WorldGraphObjectProjectionResult:
+    """Exact selected-object one-hop read. Does not join APP-STATE or files."""
+    try:
+        dnd_request = _map_complete_object_context(request, services.binding)
+        result = services.retrieval.get_complete_object(
+            dnd_request, object_id=request.node_id
+        )
+        return _complete_object_result_view(
+            services, result, request=request
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
+
+
+def _complete_object_result_view(
+    services: DirectWorldGraphReadServices,
+    result: CompleteObjectLookupResult,
+    *,
+    request: WorldGraphObjectProjectionRequest,
+) -> WorldGraphObjectProjectionResult:
+    focus = _focus_context(
+        request.focus.to_projection_focus(),
+        request_campaign_id=request.campaign_id,
+    )
+    completeness = SelectedObjectCompletenessView(
+        status=result.completeness.status,
+        reason=result.completeness.reason,
+        truncated_fields=list(result.completeness.truncated_fields),
+    )
+    snapshot = _snapshot_view(
+        result.snapshot,
+        focus=request.focus.to_projection_focus(),
+    ).model_copy(
+        update={
+            "campaign_id": request.campaign_id,
+            "scope_mode": "world",
+        }
+    )
+    if not result.found or result.object is None:
+        return WorldGraphObjectProjectionResult(
+            found=False,
+            completeness=completeness,
+            snapshot=snapshot,
+            requested_node_id=request.node_id,
+            telemetry=WorldGraphObjectProjectionTelemetry(
+                completeness=completeness.status,
+                truncated_fields=list(completeness.truncated_fields),
+            ),
+        )
+    evidence_by_id = {
+        anchor.evidence_ref_id: anchor.evidence for anchor in result.anchors
+    }
+    objects_by_id = {
+        result.object.object_id: result.object,
+        **{obj.object_id: obj for obj in result.related_objects},
+    }
+    degree_by_node: dict[str, int] = {}
+    for rel in result.relationships:
+        degree_by_node[rel.subject_object_id] = (
+            degree_by_node.get(rel.subject_object_id, 0) + 1
+        )
+        degree_by_node[rel.object_object_id] = (
+            degree_by_node.get(rel.object_object_id, 0) + 1
+        )
+    artifact_campaigns = _load_artifact_campaigns(
+        services,
+        {
+            getattr(anchor.evidence, "source_artifact_id", "")
+            for anchor in result.anchors
+        },
+    )
+    selected = _node_view(
+        result.object,
+        relationships=result.relationships,
+        objects_by_id=objects_by_id,
+        focus=focus,
+        evidence_by_id=evidence_by_id,
+        artifact_campaigns=artifact_campaigns,
+        paragraph_text_by_span_id={},
+        degree_by_node=degree_by_node,
+    )
+    related = [
+        _node_view(
+            obj,
+            relationships=result.relationships,
+            objects_by_id=objects_by_id,
+            focus=focus,
+            evidence_by_id=evidence_by_id,
+            artifact_campaigns=artifact_campaigns,
+            paragraph_text_by_span_id={},
+            degree_by_node=degree_by_node,
+        )
+        for obj in result.related_objects
+    ]
+    assertions = [
+        _complete_object_attribute_view(row, evidence_by_id=evidence_by_id)
+        for row in result.property_assertions
+    ]
+    relationships = [
+        _complete_object_relationship_view(
+            rel,
+            selected_object_id=result.object.object_id,
+            evidence_by_id=evidence_by_id,
+        )
+        for rel in result.relationships
+    ]
+    source_bindings = _complete_object_source_bindings(services, result.anchors)
+    return WorldGraphObjectProjectionResult(
+        found=True,
+        completeness=completeness,
+        snapshot=snapshot,
+        requested_node_id=request.node_id,
+        resolved_node_id=result.object.object_id,
+        node=selected,
+        related_nodes=related,
+        relationships=relationships,
+        assertions=assertions,
+        source_bindings=source_bindings,
+        telemetry=WorldGraphObjectProjectionTelemetry(
+            relationship_count=len(relationships),
+            assertion_count=len(assertions),
+            evidence_count=len(source_bindings),
+            completeness=completeness.status,
+            truncated_fields=list(completeness.truncated_fields),
+        ),
+    )
 
 
 def _object_result_view(

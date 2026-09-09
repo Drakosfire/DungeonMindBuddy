@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { LiveApiError, postWorldGraphProjection } from "../api/liveApi";
-import type { GraphProjectionNodeView, WorldGraphProjection } from "../api/types";
+import { LiveApiError } from "../api/liveApi";
+import type { GraphProjectionNodeView } from "../api/types";
 import {
   GraphObjectProjectionCard,
   resolveExactProjectedNode,
 } from "../graphObjectCard/GraphObjectProjectionCard";
+import { loadCompleteWorldObject, completeObjectNodeMap } from "../graphReference/fullWorldObjectProjection";
 import {
   admitBuildDocumentScope,
-  buildBuildWorldGraphProjectionRequest,
+  getWorldIdForCampaign,
 } from "../worldGraph/worldGraphSurfaceContext";
-import { adaptWorldGraphNodeView } from "../worldGraph/worldGraphNodeViewAdapter";
 
 export interface BuildGraphPointer {
   campaignId: string;
@@ -26,12 +26,6 @@ export function parseBuildGraphPointerFromLocation(): BuildGraphPointer | null {
   const graphRevision = params.get("graphRevision")?.trim() || null;
   if (!campaignId || !graphNodeId) return null;
   return { campaignId, graphNodeId, graphRevision };
-}
-
-function adaptProjectionNodeMap(projection: WorldGraphProjection): Record<string, GraphProjectionNodeView> {
-  return Object.fromEntries(
-    projection.nodes.map((node) => [node.nodeId, adaptWorldGraphNodeView(node)]),
-  );
 }
 
 export interface BuildGraphObjectContextProps {
@@ -95,11 +89,8 @@ export function BuildGraphObjectContext({
       }
     }
 
-    const request = buildBuildWorldGraphProjectionRequest({
-      campaignId: pointer.campaignId,
-      revisionPin: pointer.graphRevision,
-    });
-    if (!request) {
+    const worldId = getWorldIdForCampaign(pointer.campaignId);
+    if (!worldId) {
       if (!isCurrent()) return;
       setStatus("error");
       setError(`Unknown campaign mapping for ${pointer.campaignId}.`);
@@ -111,15 +102,25 @@ export function BuildGraphObjectContext({
       setError(null);
     }
     try {
-      const projection = await postWorldGraphProjection(request);
+      const result = await loadCompleteWorldObject({
+        schema: "dmb_world_graph_object_projection_request_v1",
+        worldId,
+        campaignId: pointer.campaignId,
+        nodeId: pointer.graphNodeId,
+        admissibility: "gm",
+        revisionPin: pointer.graphRevision,
+        originSurface: "build",
+        focus: { kind: "none", sessionId: null },
+      });
       if (!isCurrent()) return;
-      const adapted = adaptProjectionNodeMap(projection);
+      const adapted = completeObjectNodeMap(result);
       setNodeViews(adapted);
-      setRevisionId(projection.snapshot.revisionId);
-      setActiveNodeId(pointer.graphNodeId);
-      if (!adapted[pointer.graphNodeId]) {
+      setRevisionId(result.snapshot?.revisionId ?? pointer.graphRevision);
+      const resolvedId = result.resolvedNodeId ?? pointer.graphNodeId;
+      setActiveNodeId(resolvedId);
+      if (!result.found || !adapted[resolvedId]) {
         setStatus("missing_node");
-        setError(`Exact node ${pointer.graphNodeId} is not present in the pinned World Graph projection.`);
+        setError(`Exact node ${pointer.graphNodeId} is not present in the complete World object read.`);
         return;
       }
       setStatus("ready");
@@ -148,11 +149,28 @@ export function BuildGraphObjectContext({
   const handleSelectRelationshipTarget = useCallback(
     (targetId: string) => {
       setSelectedRelationshipId(targetId);
-      if (resolveExactProjectedNode(nodeViews, targetId)) {
-        setActiveNodeId(targetId);
-      }
+      if (!pointer) return;
+      const worldId = getWorldIdForCampaign(pointer.campaignId);
+      if (!worldId) return;
+      void loadCompleteWorldObject({
+        schema: "dmb_world_graph_object_projection_request_v1",
+        worldId,
+        campaignId: pointer.campaignId,
+        nodeId: targetId,
+        admissibility: "gm",
+        revisionPin: pointer.graphRevision,
+        originSurface: "build",
+        focus: { kind: "none", sessionId: null },
+      }).then((result) => {
+        const adapted = completeObjectNodeMap(result);
+        setNodeViews(adapted);
+        setRevisionId(result.snapshot?.revisionId ?? pointer.graphRevision);
+        if (result.found && result.resolvedNodeId) {
+          setActiveNodeId(result.resolvedNodeId);
+        }
+      });
     },
-    [nodeViews],
+    [pointer],
   );
 
   if (!pointer) {

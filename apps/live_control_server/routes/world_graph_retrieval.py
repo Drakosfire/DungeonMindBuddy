@@ -9,6 +9,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from apps.live_control_server.services.world_graph_object_projection import (
+    WorldGraphObjectProjectionServiceError,
+    project_complete_world_object,
+)
+from apps.live_control_server.models.world_graph_object_projection import (
+    WorldGraphObjectProjectionRequest,
+    WorldGraphObjectProjectionResult,
+)
 from apps.live_control_server.services.world_graph_retrieval import (
     WorldGraphRetrievalServiceError,
     get_campaign_object,
@@ -129,6 +137,29 @@ def post_world_graph_retrieval_object(
         return _error_response(
             WorldGraphRetrievalServiceError(
                 "World graph retrieval failed unexpectedly.",
+                code="retrieval_internal_error",
+                status_code=500,
+            )
+        )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/complete-object", response_model=WorldGraphObjectProjectionResult)
+def post_world_graph_complete_object(
+    request_context: Request,
+    request: WorldGraphObjectProjectionRequest,
+) -> dict[str, Any] | JSONResponse:
+    try:
+        _reject_query_params(request_context)
+        response = project_complete_world_object(request)
+    except WorldGraphObjectProjectionServiceError as exc:
+        return _error_response(exc)
+    except WorldGraphRetrievalServiceError as exc:
+        return _error_response(exc)
+    except Exception:
+        return _error_response(
+            WorldGraphRetrievalServiceError(
+                "World graph object projection failed unexpectedly.",
                 code="retrieval_internal_error",
                 status_code=500,
             )

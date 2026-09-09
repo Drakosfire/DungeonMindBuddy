@@ -29,7 +29,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: surface-neutral full World object projection v1
 
 **Created:** 2026-09-08  
-**Status:** DESIGN HOLD after Review Cycle 1 (`5148560899` on `612c30f9`); rebriefed on this head; CODE not started  
+**Status:** DESIGN HOLD after Review Cycle 1 (`5148560899` on `612c30f9`); superseded by v2. CODE resumed on v2 after DungeonMind #52 merge.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / full World-object projection`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  

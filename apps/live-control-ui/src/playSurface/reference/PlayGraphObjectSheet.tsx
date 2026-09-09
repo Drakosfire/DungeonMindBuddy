@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type {
   GraphObjectEvidenceViewModel,
   GraphObjectRelationshipViewModel,
 } from "../../graphObjectCard";
 import { relationshipRowPrimaryCopy } from "../../graphObjectCard/graphObjectDisplay";
+import { useCompleteWorldObject } from "../../graphReference/fullWorldObjectProjection";
 import type {
   GraphReferenceProjectionBinding,
   GraphReferenceProjectionState,
@@ -52,7 +54,18 @@ export function PlayGraphObjectSheet({
   projectionState = null,
   onReadSourceEvidence,
 }: PlayGraphObjectSheetProps) {
-  const graphObject = resolution.graphObject;
+  const complete = useCompleteWorldObject({
+    enabled: true,
+    worldId: resolution.graphScope.worldId,
+    campaignId: resolution.graphScope.campaignId,
+    nodeId: resolution.graphNodeId,
+    revisionPin: resolution.graphScope.revisionId,
+    originSurface: "play",
+  });
+  const graphObject =
+    complete.status === "ready" && complete.nodeView
+      ? buildGraphObjectCardFromNodeView(complete.nodeView)
+      : resolution.graphObject;
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
   const graphReferenceBindingRef = useRef(graphReferenceBinding);
   graphReferenceBindingRef.current = graphReferenceBinding;
@@ -151,7 +164,7 @@ export function PlayGraphObjectSheet({
       data-node-id={resolution.graphNodeId}
       data-revision-id={resolution.graphScope.revisionId}
     >
-      <header data-testid="play-graph-object-sheet-world">
+      <header data-testid="play-graph-object-sheet-world" data-complete-object-status={complete.status}>
         <h2>{graphObject.label}</h2>
         {graphObject.summary ? <p>{graphObject.summary}</p> : null}
         <p className="module-muted">
@@ -162,6 +175,14 @@ export function PlayGraphObjectSheet({
           {" @ "}
           <code>{resolution.graphScope.revisionId}</code>
         </p>
+        {complete.status === "loading" ? (
+          <p className="module-muted">Loading complete World object…</p>
+        ) : null}
+        {complete.status === "error" || complete.status === "missing" ? (
+          <p className="graph-preview-error" role="alert">
+            {complete.error}
+          </p>
+        ) : null}
       </header>
 
       {(graphObject.relationships ?? []).length ? (

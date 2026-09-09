@@ -858,6 +858,10 @@ export function PlanAgentInteractionBar({
           worldGraphContext: projectionState !== "loading"
             ? buildPlanAgentWorldGraphQueryContextRequest(planWorldGraphContext, {
                 revisionPin: projection?.snapshot.revisionId ?? null,
+                selectedNodeId:
+                  agentInteraction.activeGraphReference?.kind === "resolved_graph"
+                    ? agentInteraction.activeGraphReference.graphNodeId
+                    : null,
               })
             : null,
           conversationHistory: buildHermesConversationHistory(currentThread.turns),

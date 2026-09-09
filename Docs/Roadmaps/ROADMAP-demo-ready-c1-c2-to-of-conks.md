@@ -148,7 +148,8 @@ Stage 2 / STOP 2 OPEN
 Stage 5A MERGED + human dogfood PASS (#694 `df15db4c695240ce08b5812d43ca398cd70ff6ac`; accepted head `d82ac0c755ad3e7581fa7a023f9c2bb46df64337`; 2 review cycles)
 Stage 5B parked/conditional — do not auto-dispatch
 PR #695 provenance MERGED (`d2c4248b14397525fd996309e230e513a3662bb1`; accepted head `fe55824e1927a29b03e7c2660ba653c86aaf4a82`; 3 review cycles; Orik human dogfood PASS)
-CURRENT — Stage 2C broad exact source adoption v1 (draft PR #696; Cycle 3 CODE PASS; live evidence recorded; not DONE)
+PR #696 Stage 2C MERGED (`3e2abc0c7f8ce523b071716eb13bcf18d7979a2a`; accepted head `8f93138000c699a5d1249955003c91042f2053b1`); Stage 2 / STOP 2 remain OPEN
+CURRENT — PR #697 surface-neutral complete World-object projection (CODE in progress after DungeonMind #52 merge `d8f7a9f0`; Stage 4 remains NOT DONE)
 Stage 4 rich recap / graph-object usefulness
 Stage 7A Agent-on-Ingest
 ```
@@ -258,7 +259,9 @@ STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Sta
 
 **Predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-db-backed-graph-object-provenance-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-db-backed-graph-object-provenance-v1.md) — PR #695 **MERGED** (`d2c4248b14397525fd996309e230e513a3662bb1`; accepted head `fe55824e1927a29b03e7c2660ba653c86aaf4a82`; 3 review cycles). C2S25 Orik provenance from APP-STATE source bytes passed human dogfood; broader objects still lacked source prose.
 
-**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md) — adopt every exact recoverable C1/C2 source claim into durable APP-STATE. Cycle 3 CODE PASS on `310c2b83`; live coverage in [`../Reports/REPORT-stage-2c-broad-source-adoption.md`](../Reports/REPORT-stage-2c-broad-source-adoption.md). Does not close Stage 2 / STOP 2 or Stage 4. Do not pre-mark Stage 2C DONE.
+**Predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-2c-broad-source-adoption-v1.md) — PR #696 **MERGED** (`3e2abc0c7f8ce523b071716eb13bcf18d7979a2a`; accepted head `8f93138000c699a5d1249955003c91042f2053b1`). Stage 2C is not an accepted completed stage; Stage 2 / STOP 2 remain OPEN. Stage 4 remains NOT DONE.
+
+**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v2.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v2.md) — PR #697 CODE after DungeonMind #52 merge `d8f7a9f0d6b256f5cf4588987520bf286f1eade3`. One selected World object at an exact revision, World-cross-campaign, via `WorldGraphRetrievalService.get_complete_object`. Does not close Stage 4. Do not auto-dispatch Stage 4 styling or generic Agent retrieval-policy work.
 
 ### Human outcome
 

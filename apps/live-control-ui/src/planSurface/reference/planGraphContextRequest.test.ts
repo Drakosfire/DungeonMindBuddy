@@ -118,6 +118,24 @@ describe("planGraphContextRequest", () => {
     expect(buildPlanWorldGraphProjectionRequest(context!).scopeMode).toBe("campaign");
   });
 
+  it("includes selected_node_id only when a graph object is selected", () => {
+    const context = getPlanWorldGraphContext(sessionDescriptor, {
+      lens: {
+        selectedCampaignIds: ["longmont-c1", "longmont-c2"],
+        focus: null,
+      },
+    });
+    expect(buildPlanAgentWorldGraphQueryContextRequest(context!)).not.toHaveProperty(
+      "selected_node_id",
+    );
+    expect(
+      buildPlanAgentWorldGraphQueryContextRequest(context!, { selectedNodeId: "pc:karsemine" }),
+    ).toMatchObject({
+      selected_node_id: "pc:karsemine",
+      scope_mode: "world",
+    });
+  });
+
   it("PR380B: longmont-c1/c2 map to eldyrwild for future neutral surface context re-export", () => {
     const c1 = getPlanWorldGraphContext(
       fixturePlanSessionDescriptor({ campaignId: "longmont-c1", memorySession: 1 }),

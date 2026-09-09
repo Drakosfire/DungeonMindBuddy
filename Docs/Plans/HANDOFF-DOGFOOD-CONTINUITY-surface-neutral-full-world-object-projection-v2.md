@@ -29,7 +29,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: surface-neutral full World object projection v2
 
 **Created:** 2026-09-08  
-**Status:** DESIGN READY — Cycle 1 corrections incorporated; implementation not started  
+**Status:** CODE in progress after DungeonMind #52 merge `d8f7a9f0d6b256f5cf4588987520bf286f1eade3` (accepted head `bd0423da7ba917cb4010f173eeda2a3903430233`). DESIGN HOLD closed. Stage 4 remains NOT DONE.  
 **Canonical handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v2.md`  
 **Supersedes:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / full World-object projection`  
@@ -56,9 +56,12 @@ historical ingest runs              53 unchanged
 World authority                     DungeonMind 54330, read-only from Buddy
 World head                          rev:680c246047d67f9fe0293ee90526f670
 APP-STATE                           Buddy 54331
+DungeonMind #52                     MERGED `d8f7a9f0d6b256f5cf4588987520bf286f1eade3`
+                                    accepted head `bd0423da7ba917cb4010f173eeda2a3903430233`
 PR #697                             DRAFT
-#697 implementation                 NOT STARTED
-#697 Cycle 1                         DESIGN HOLD
+#697 implementation                 CODE — `WorldGraphRetrievalService.get_complete_object`
+#697 Cycle 1                         DESIGN HOLD closed
+Stage 4                             NOT DONE
 ```
 
 The human dogfood failure remains the trigger:
