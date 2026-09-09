@@ -35,7 +35,30 @@ export async function loadCompleteWorldObject(
   return postWorldGraphCompleteObject(request);
 }
 
-export type CompleteWorldObjectStatus = "idle" | "loading" | "ready" | "missing" | "error";
+export type CompleteWorldObjectStatus =
+  | "idle"
+  | "loading"
+  | "ready"
+  | "partial"
+  | "missing"
+  | "error";
+
+export function usesCompleteWorldObjectPayload(
+  status: CompleteWorldObjectStatus,
+): boolean {
+  return status === "ready" || status === "partial";
+}
+
+export function completeWorldObjectPartialCopy(
+  result: WorldGraphObjectProjectionResult,
+): string {
+  const fields = result.completeness.truncatedFields;
+  const fieldText = fields.length > 0 ? fields.join(", ") : "unspecified fields";
+  const reason = result.completeness.reason?.trim();
+  return reason
+    ? `Partial World object: truncated ${fieldText} (${reason}). This is not a complete admitted view.`
+    : `Partial World object: truncated ${fieldText}. This is not a complete admitted view.`;
+}
 
 export interface UseCompleteWorldObjectArgs {
   enabled: boolean;
@@ -116,6 +139,10 @@ export function useCompleteWorldObject({
         if (!loaded.found || !loaded.node || !completeObjectNodeMap(loaded)[resolvedId]) {
           setStatus("missing");
           setError(`Exact node ${nodeId} is not present in the complete World object read.`);
+          return;
+        }
+        if (loaded.completeness.status !== "complete") {
+          setStatus("partial");
           return;
         }
         setStatus("ready");

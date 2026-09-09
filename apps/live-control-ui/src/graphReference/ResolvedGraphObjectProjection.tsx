@@ -10,7 +10,8 @@ import { ThreatSheetProjection } from "../statblocks/projection/ThreatSheetProje
 import { shouldRenderThreatCampaignSheet } from "../statblocks/projection/threatSheetViewModel";
 import type { PlanSessionDescriptor } from "../planSurface/types";
 import type { WorldGraphObjectProjectionRequest } from "../api/types";
-import { useCompleteWorldObject } from "./fullWorldObjectProjection";
+import { useCompleteWorldObject, usesCompleteWorldObjectPayload } from "./fullWorldObjectProjection";
+import { CompleteObjectPartialWarning } from "./CompleteObjectPartialWarning";
 import type {
   GraphReferenceProjectionBinding,
   GraphReferenceProjectionState,
@@ -89,7 +90,10 @@ export function ResolvedGraphObjectProjection({
         actions: glanceModel.actions,
       }
     : null;
-  const cardModel = complete.status === "ready" && completeModel ? completeModel : glanceModel;
+  const cardModel =
+    usesCompleteWorldObjectPayload(complete.status) && completeModel
+      ? completeModel
+      : glanceModel;
 
   return (
     <div data-complete-object-status={complete.status}>
@@ -101,6 +105,7 @@ export function ResolvedGraphObjectProjection({
           {complete.error}
         </p>
       ) : null}
+      <CompleteObjectPartialWarning result={complete.result} />
       <GraphObjectProjectionCard
         model={cardModel}
         mode={mode}

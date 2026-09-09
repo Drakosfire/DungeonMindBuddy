@@ -6,7 +6,8 @@ import {
 } from "../../graphObjectCard/GraphObjectProjectionCard";
 import { adaptWorldGraphNodeViewMap } from "../../worldGraph/worldGraphNodeViewAdapter";
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
-import { useCompleteWorldObject } from "../../graphReference/fullWorldObjectProjection";
+import { useCompleteWorldObject, usesCompleteWorldObjectPayload } from "../../graphReference/fullWorldObjectProjection";
+import { CompleteObjectPartialWarning } from "../../graphReference/CompleteObjectPartialWarning";
 
 interface GraphReviewHistoricalRecapProjectionProps {
   projection: HistoricalRecapWorldProjectionResponse;
@@ -75,7 +76,8 @@ export function GraphReviewHistoricalRecapProjection({
                 {complete.error}
               </p>
             ) : null}
-            {complete.status === "ready" && complete.nodeView ? (
+            <CompleteObjectPartialWarning result={complete.result} />
+            {usesCompleteWorldObjectPayload(complete.status) && complete.nodeView ? (
               <GraphObjectProjectionCard
                 nodeView={complete.nodeView}
                 onSelectRelationshipTarget={handleSelectRelationshipTarget}

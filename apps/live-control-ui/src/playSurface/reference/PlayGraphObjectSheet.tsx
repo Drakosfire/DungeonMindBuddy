@@ -6,7 +6,8 @@ import type {
   GraphObjectRelationshipViewModel,
 } from "../../graphObjectCard";
 import { relationshipRowPrimaryCopy } from "../../graphObjectCard/graphObjectDisplay";
-import { useCompleteWorldObject } from "../../graphReference/fullWorldObjectProjection";
+import { useCompleteWorldObject, usesCompleteWorldObjectPayload } from "../../graphReference/fullWorldObjectProjection";
+import { CompleteObjectPartialWarning } from "../../graphReference/CompleteObjectPartialWarning";
 import type {
   GraphReferenceProjectionBinding,
   GraphReferenceProjectionState,
@@ -63,7 +64,7 @@ export function PlayGraphObjectSheet({
     originSurface: "play",
   });
   const graphObject =
-    complete.status === "ready" && complete.nodeView
+    usesCompleteWorldObjectPayload(complete.status) && complete.nodeView
       ? buildGraphObjectCardFromNodeView(complete.nodeView)
       : resolution.graphObject;
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
@@ -183,6 +184,7 @@ export function PlayGraphObjectSheet({
             {complete.error}
           </p>
         ) : null}
+        <CompleteObjectPartialWarning result={complete.result} />
       </header>
 
       {(graphObject.relationships ?? []).length ? (

@@ -149,7 +149,7 @@ Stage 5A MERGED + human dogfood PASS (#694 `df15db4c695240ce08b5812d43ca398cd70f
 Stage 5B parked/conditional — do not auto-dispatch
 PR #695 provenance MERGED (`d2c4248b14397525fd996309e230e513a3662bb1`; accepted head `fe55824e1927a29b03e7c2660ba653c86aaf4a82`; 3 review cycles; Orik human dogfood PASS)
 PR #696 Stage 2C MERGED (`3e2abc0c7f8ce523b071716eb13bcf18d7979a2a`; accepted head `8f93138000c699a5d1249955003c91042f2053b1`); Stage 2 / STOP 2 remain OPEN
-CURRENT — PR #697 surface-neutral complete World-object projection (CODE + live §13 on `73ebf497`; Stage 4 remains NOT DONE)
+CURRENT — PR #697 surface-neutral complete World-object projection (CODE Cycle 3 after Cycle 2 HOLD; Stage 4 remains NOT DONE)
 Stage 4 rich recap / graph-object usefulness
 Stage 7A Agent-on-Ingest
 ```

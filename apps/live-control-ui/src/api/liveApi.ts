@@ -105,7 +105,6 @@ import type {
   WorldGraphObjectProjectionRequest,
   WorldGraphObjectProjectionResult,
   WorldGraphRecapProjection,
-  WorldGraphRecapProjection,
   WorldGraphSourceAnchorReadRequest,
   WorldGraphSourceAnchorReadResponse,
   PartyRegistrySurfaceResponse,

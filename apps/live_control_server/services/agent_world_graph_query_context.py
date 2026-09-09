@@ -6,6 +6,7 @@ Graph context is structured campaign memory/navigation — never citation author
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Literal
 
@@ -46,6 +47,8 @@ WARNING_GRAPH_QUERY_TRUNCATED_RELATIONSHIPS = "graph_query_truncated_relationshi
 WARNING_GRAPH_QUERY_TRUNCATED_ATTRIBUTES = "graph_query_truncated_attributes"
 WARNING_GRAPH_CONTEXT_NOT_CONFIGURED = "graph_context_not_configured"
 WARNING_GRAPH_CONTEXT_DETAIL_NOT_PERSISTED = "graph_context_detail_not_persisted"
+
+SELECTED_OBJECT_EXCERPT_POLICY = "provenance_context_not_citation"
 
 _DIAGNOSTIC_WARNING_CODE_MAP = {
     "search_truncated_nodes": WARNING_GRAPH_QUERY_TRUNCATED_NODES,
@@ -393,6 +396,10 @@ def _adapt_complete_object_to_agent_envelope(
     """Selected-object Agent context uses the same complete object as UI surfaces."""
     snapshot = result.snapshot
     status: AgentGraphStatus = "ready" if result.found and result.node is not None else "empty"
+    truncated = result.completeness.status == "partial"
+    object_scope = "world"
+    if snapshot is not None and snapshot.scope_mode in {"campaign", "world"}:
+        object_scope = snapshot.scope_mode
     nodes = []
     if result.node is not None:
         nodes.append(
@@ -425,6 +432,7 @@ def _adapt_complete_object_to_agent_envelope(
             "session_ids": list(edge.session_ids),
             "campaign_scope": edge.campaign_scope,
             "temporal_scope": edge.temporal_scope,
+            "evidence_ref_ids": list(edge.evidence_ref_ids),
         }
         for edge in result.relationships
     ]
@@ -438,9 +446,18 @@ def _adapt_complete_object_to_agent_envelope(
             "text_value": row.text_value,
             "campaign_scope": row.campaign_scope,
             "temporal_scope": row.temporal_scope,
+            "evidence_ref_ids": list(row.evidence_ref_ids),
         }
         for row in result.assertions
     ]
+    source_bindings = [
+        _adapt_selected_object_source_binding(row) for row in result.source_bindings
+    ]
+    warning_codes = _warning_codes_from_diagnostics(
+        [],
+        projection_truncated=truncated,
+        status=status,
+    )
     return {
         "schema": AGENT_RESPONSE_SCHEMA,
         "status": status,
@@ -455,19 +472,45 @@ def _adapt_complete_object_to_agent_envelope(
             "campaign_id": nested.focus.campaign_id,
         },
         "admissibility": nested.admissibility,
-        "scope_mode": nested.scope_mode,
+        "scope_mode": object_scope,
+        "retrieval_scope_mode": nested.scope_mode,
         "query_text": query_text,
         "matched_node_ids": [result.node.node_id] if result.node is not None else [],
         "nodes": nodes,
         "relationships": relationships,
         "attributes": attributes,
+        "source_bindings": source_bindings,
+        "excerpt_policy": SELECTED_OBJECT_EXCERPT_POLICY,
         "completeness": result.completeness.status,
         "truncated_fields": list(result.completeness.truncated_fields),
         "semantic_fingerprint": result.semantic_fingerprint,
-        "projection_truncated": result.completeness.status == "partial",
+        "projection_truncated": truncated,
         "diagnostics": [],
-        "warning_codes": [],
+        "warning_codes": warning_codes,
         "trust_boundary": dict(TRUST_BOUNDARY),
+    }
+
+
+def _adapt_selected_object_source_binding(row: Any) -> dict[str, Any]:
+    excerpt_ready = row.provenance_status == "excerpt_ready"
+    excerpt = row.excerpt if excerpt_ready and row.excerpt else None
+    return {
+        "evidence_ref_id": row.evidence_ref_id,
+        "source_artifact_id": row.source_artifact_id,
+        "source_revision_id": row.source_revision_id,
+        "content_sha256": row.content_sha256,
+        "source_span_ref_id": row.source_span_ref_id,
+        "session_id": row.session_id,
+        "provenance_status": row.provenance_status,
+        "excerpt": excerpt,
+        "excerpt_included": excerpt is not None,
+        "excerpt_omission_reason": None
+        if excerpt is not None
+        else (
+            "excerpt_not_ready"
+            if not excerpt_ready
+            else "excerpt_empty"
+        ),
     }
 
 
@@ -599,8 +642,27 @@ def render_world_graph_prompt_block(envelope: dict[str, Any] | None) -> str:
             f"{(envelope.get('focus') or {}).get('session_id')}"
         ),
         f"admissibility: {envelope.get('admissibility')}",
+        f"scope_mode: {envelope.get('scope_mode')}",
+        *(
+            [f"retrieval_scope_mode: {envelope.get('retrieval_scope_mode')}"]
+            if envelope.get("retrieval_scope_mode") is not None
+            else []
+        ),
         f"projection_truncated: {bool(envelope.get('projection_truncated'))}",
     ]
+    if envelope.get("completeness") is not None:
+        lines.append(f"completeness: {envelope.get('completeness')}")
+        truncated_fields = list(envelope.get("truncated_fields") or [])
+        if truncated_fields:
+            lines.append("truncated_fields: " + ", ".join(truncated_fields))
+    if envelope.get("semantic_fingerprint"):
+        lines.append(f"semantic_fingerprint: {envelope.get('semantic_fingerprint')}")
+    if envelope.get("excerpt_policy"):
+        lines.append(
+            "excerpt_policy: "
+            f"{envelope.get('excerpt_policy')} "
+            "(source excerpts here are provenance context, not citation authority)"
+        )
 
     if status == "unavailable":
         lines.append("Graph claims are forbidden for this turn.")
@@ -633,6 +695,8 @@ def render_world_graph_prompt_block(envelope: dict[str, Any] | None) -> str:
                 f"{edge.get('edge_id')} | {edge.get('predicate')} | "
                 f"{edge.get('source_node_id')} -> {edge.get('target_node_id')} | "
                 f"direction={edge.get('direction')} | label={edge.get('label')}"
+                f"{_prompt_optional_json('temporal_scope', edge.get('temporal_scope'))}"
+                f"{_prompt_optional_ids('evidence_ref_ids', edge.get('evidence_ref_ids'))}"
             )
     else:
         lines.append("relationships: (none)")
@@ -646,14 +710,49 @@ def render_world_graph_prompt_block(envelope: dict[str, Any] | None) -> str:
                 f"{attribute.get('assertion_id')} | subject={attribute.get('subject_node_id')} | "
                 f"predicate={attribute.get('predicate')} | label={attribute.get('label')} | "
                 f"text={attribute.get('text_value') or ''}"
+                f"{_prompt_optional_json('temporal_scope', attribute.get('temporal_scope'))}"
+                f"{_prompt_optional_ids('evidence_ref_ids', attribute.get('evidence_ref_ids'))}"
             )
     else:
         lines.append("attributes: (none)")
+
+    source_bindings = list(envelope.get("source_bindings") or [])
+    if source_bindings:
+        lines.append("source_bindings:")
+        for binding in source_bindings:
+            excerpt = binding.get("excerpt")
+            excerpt_note = (
+                f" | excerpt={excerpt}"
+                if binding.get("excerpt_included") and excerpt
+                else f" | excerpt_omitted={binding.get('excerpt_omission_reason')}"
+            )
+            lines.append(
+                "- "
+                f"{binding.get('evidence_ref_id')} | artifact={binding.get('source_artifact_id')} | "
+                f"revision={binding.get('source_revision_id')} | digest={binding.get('content_sha256')} | "
+                f"status={binding.get('provenance_status')}"
+                f"{excerpt_note}"
+            )
 
     for code in list(envelope.get("warning_codes") or []):
         lines.append(f"warning: {code}")
 
     return "\n".join(lines)
+
+
+def _prompt_optional_json(label: str, value: Any) -> str:
+    if value in (None, "", {}, []):
+        return ""
+    return f" | {label}={json.dumps(value, sort_keys=True, default=str)}"
+
+
+def _prompt_optional_ids(label: str, value: Any) -> str:
+    if not value:
+        return ""
+    ids = [str(item) for item in value if str(item)]
+    if not ids:
+        return ""
+    return f" | {label}={', '.join(ids)}"
 
 
 def compact_persisted_summary(envelope: dict[str, Any] | None) -> dict[str, Any] | None:

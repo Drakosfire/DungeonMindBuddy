@@ -19,6 +19,7 @@ vi.mock("../../api/liveApi", async () => {
 });
 
 import { postThreatQueryHydration } from "../../api/liveApi";
+import * as liveApi from "../../api/liveApi";
 
 const revision = revisionFixture as StatblockRevisionResourceV1;
 const scopeG1 = {
@@ -358,5 +359,61 @@ describe("PlayGraphObjectSheet", () => {
       "data-revision-id",
       "rev-g1",
     );
+  });
+
+  it("surfaces partial completeness on the World section", async () => {
+    vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockResolvedValue({
+      schema: "dmb_world_graph_object_projection_v1",
+      found: true,
+      completeness: {
+        status: "partial",
+        reason: "relationships_truncated",
+        truncatedFields: ["relationships"],
+      },
+      snapshot: {
+        worldId: scopeG1.worldId,
+        campaignId: scopeG1.campaignId,
+        revisionId: scopeG1.revisionId,
+        headRevisionId: scopeG1.revisionId,
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "world",
+      },
+      requestedNodeId: "npc:mira",
+      resolvedNodeId: "npc:mira",
+      node: {
+        nodeId: "npc:mira",
+        label: "Mira",
+        kind: "npc",
+        role: "place",
+        aliases: [],
+        sourceDomains: [],
+        evidenceBadges: [],
+        adjacency: [],
+        suggestedExpansions: [],
+        evidenceRefIds: [],
+        sourceArtifactIds: [],
+        anchoredToFocusSession: true,
+        summary: "Partial complete-object payload.",
+      },
+      relatedNodes: [],
+      semanticFingerprint: "fp-partial",
+    });
+
+    render(
+      <PlayGraphObjectSheet
+        resolution={graphResolution({ nodeId: "npc:mira", label: "Mira", kind: "npc" })}
+      />,
+    );
+
+    expect(await screen.findByTestId("complete-object-partial-warning")).toHaveTextContent(
+      /truncated relationships/i,
+    );
+    expect(screen.getByTestId("play-graph-object-sheet-world")).toHaveAttribute(
+      "data-complete-object-status",
+      "partial",
+    );
+    expect(screen.getByText("Partial complete-object payload.")).toBeInTheDocument();
   });
 });

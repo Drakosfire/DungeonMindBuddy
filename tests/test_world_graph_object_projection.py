@@ -35,6 +35,7 @@ from application_state.source.service import (
 )
 from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphQueryContextRequest,
+    render_world_graph_prompt_block,
     resolve_agent_world_graph_query_context,
 )
 from graph_memory.projection.world_projection import (
@@ -442,15 +443,36 @@ def test_agent_selected_object_uses_complete_object_not_generic_projection(monke
         relationships=[
             _relationship(temporal_kind="unknown").model_copy(
                 update={
+                    "evidence_ref_ids": ["ev:s24"],
                     "temporal_scope": {
                         "schema_version": "dm_temporal_scope_ref_v1",
                         "kind": "unknown",
                         "valid_time": {"kind": "open"},
-                    }
+                    },
                 }
             )
         ],
-        assertions=[_assertion(assertion_id="asrt:a", temporal_kind="unknown")],
+        assertions=[
+            _assertion(assertion_id="asrt:a", temporal_kind="unknown").model_copy(
+                update={"evidence_ref_ids": ["ev:s24"]}
+            )
+        ],
+        source_bindings=[
+            WorldGraphObjectProjectionSourceBinding(
+                evidence_ref_id="ev:s24",
+                source_artifact_id="artifact:s24",
+                source_revision_id="rev-src-24",
+                content_sha256="aaa",
+                session_id="session-24",
+                provenance_status="excerpt_ready",
+                excerpt="Hunter's Mark is visible in S24.",
+            ),
+            WorldGraphObjectProjectionSourceBinding(
+                evidence_ref_id="ev:manual",
+                source_artifact_id="artifact:manual-seed",
+                provenance_status="source_not_durable",
+            ),
+        ],
         semantic_fingerprint="fp-selected",
     )
     calls = {"complete": 0, "generic": 0}
@@ -484,13 +506,33 @@ def test_agent_selected_object_uses_complete_object_not_generic_projection(monke
         project_fn=fake_generic,
     )
     assert calls == {"complete": 1, "generic": 0}
-    assert envelope["scope_mode"] == "campaign"
+    assert envelope["scope_mode"] == "world"
+    assert envelope["retrieval_scope_mode"] == "campaign"
     assert envelope["completeness"] == "partial"
     assert envelope["truncated_fields"] == ["assertions"]
     assert envelope["semantic_fingerprint"] == "fp-selected"
     assert envelope["relationships"][0]["temporal_scope"]["valid_time"] == {
         "kind": "open"
     }
+    assert envelope["relationships"][0]["evidence_ref_ids"] == ["ev:s24"]
+    assert envelope["attributes"][0]["evidence_ref_ids"] == ["ev:s24"]
+    assert envelope["source_bindings"][0]["provenance_status"] == "excerpt_ready"
+    assert envelope["source_bindings"][0]["excerpt_included"] is True
+    assert envelope["source_bindings"][1]["excerpt_included"] is False
+    assert envelope["source_bindings"][1]["excerpt_omission_reason"] == "excerpt_not_ready"
+    assert envelope["excerpt_policy"] == "provenance_context_not_citation"
+
+    prompt = render_world_graph_prompt_block(envelope)
+    assert "temporal_scope=" in prompt
+    assert '"valid_time": {"kind": "open"}' in prompt
+    assert "evidence_ref_ids=ev:s24" in prompt
+    assert "status=excerpt_ready" in prompt
+    assert "Hunter's Mark is visible in S24." in prompt
+    assert "excerpt_omitted=excerpt_not_ready" in prompt
+    assert "retrieval_scope_mode: campaign" in prompt
+    assert "scope_mode: world" in prompt
+    assert "completeness: partial" in prompt
+    assert "provenance context, not citation authority" in prompt
 
 
 def test_agent_without_selected_node_keeps_generic_projection(monkeypatch):

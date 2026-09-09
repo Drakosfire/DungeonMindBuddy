@@ -59,6 +59,32 @@ describe("BuildGraphObjectContext", () => {
     );
   });
 
+  it("surfaces partial completeness instead of ordinary ready", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      `/build?campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
+    );
+    vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockResolvedValue({
+      ...completeObjectFixture(),
+      completeness: {
+        status: "partial",
+        reason: "relationships_truncated",
+        truncatedFields: ["relationships"],
+      },
+    });
+
+    render(<BuildGraphObjectContext />);
+    expect(await screen.findByTestId("complete-object-partial-warning")).toHaveTextContent(
+      /truncated relationships/i,
+    );
+    expect(screen.getByTestId("build-graph-object-context")).toHaveAttribute(
+      "data-complete-object-status",
+      "partial",
+    );
+    expect(screen.getByText("Caelynn")).toBeInTheDocument();
+  });
+
   it("refuses document-backed load when requireDocumentScope lacks an admitted campaign", async () => {
     window.history.replaceState(
       {},

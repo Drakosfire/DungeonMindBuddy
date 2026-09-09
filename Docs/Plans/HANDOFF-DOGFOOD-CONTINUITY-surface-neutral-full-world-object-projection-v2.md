@@ -29,7 +29,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: surface-neutral full World object projection v2
 
 **Created:** 2026-09-08  
-**Status:** CODE + live §13 witnesses recorded on implementation head `73ebf4976264b2a5bd1941419eee6868fc807c6a`. DESIGN HOLD closed. Stage 4 remains NOT DONE.  
+**Status:** CODE Cycle 3 repairing Cycle 2 HOLD (`5157501379` on `4e3d04e622543c315c27005c4e36863eaad33b6d`). Stage 4 remains NOT DONE.  
 **Canonical handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v2.md`  
 **Supersedes:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / full World-object projection`  
@@ -63,6 +63,8 @@ PR #697                             DRAFT
 #697 implementation head          `73ebf4976264b2a5bd1941419eee6868fc807c6a`
 #697 live §13                    RECORDED — `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-pr697-complete-object-live-witnesses.md`
 #697 Cycle 1                         DESIGN HOLD closed
+#697 Cycle 2                         HOLD — `5157501379` on `4e3d04e622543c315c27005c4e36863eaad33b6d`
+#697 Cycle 3                         CODE — UI partial honesty + Agent pre-model payload; production UI build required on this head
 Stage 4                             NOT DONE
 ```
 
@@ -748,6 +750,19 @@ Prove:
 - completeness/truncation survives;
 - graph summaries do not become citation authority;
 - **generic Agent retrieval default remains behaviorally unchanged**.
+
+Cycle 3 UI/Agent repairs are proven by:
+
+```text
+uv run pytest tests/test_world_graph_object_projection.py -k 'not source_markdown_batch'
+cd apps/live-control-ui && npm test -- --run \
+  src/graphReference/ResolvedGraphObjectProjection.test.tsx \
+  src/buildSurface/BuildGraphObjectContext.test.tsx \
+  src/playSurface/reference/PlayGraphObjectSheet.test.tsx
+cd apps/live-control-ui && npm run build
+```
+
+Live Eldyrwild §13 was not repeated; selected-object service timing was not materially changed.
 
 ---
 
