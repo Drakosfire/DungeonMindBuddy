@@ -168,6 +168,146 @@ The rows below preserve discoverability for capabilities removed from root witho
 | Build/Plan shared Threat projection + campaign-useful glance | merged PR #512 | Implemented; regressions should be filed as current defects rather than reviving the old capability ticket. |
 | Abandoned `/surface` / `SurfaceShell` cleanup | current source tree | Removed from active backlog after current-tree search found no owner to dispatch; resurrect only from a concrete current consumer. |
 
+## Captured UI/product goals — non-status design input
+
+These goals preserve the 2026-09-09 fresh-eyes Buddy UI audit and the Of Conks / Hempholm prototype comparison as **design input only**. They do not own sequence and are not dispatchable from root. The Demo-Ready roadmap, CON-READY/Play authorities, Threat roadmap, and future dogfood STOP decisions own decomposition and ordering.
+
+The forcing product question behind all of them is:
+
+> Can a GM move through **prepare → run → capture/review → update World → resume** with less friction than a well-organized Markdown workspace, while DungeonMind/APP-STATE authority remains trustworthy but mostly invisible?
+
+### Goal 1 — Orient Buddy around the GM journey, not subsystem taxonomy
+
+**Outcome:** The application explains where the GM is in the campaign and what they can do next without requiring them to understand graph, run, revision, publication, or ingestion architecture.
+
+**User stories:**
+
+- As a GM opening DungeonBuddy, I can immediately see the current campaign/session state and resume the most likely next task.
+- As a GM moving from preparation into play and then post-session review, I can follow the workflow without translating between architectural surface names and my table work.
+- As a GM who wants technical detail, I can still inspect exact IDs, revisions, publication state, and evidence through an Advanced/operator path rather than losing that truth.
+- As a returning GM, the home/index experience tells me what is prepared, what was last played, what needs review, and what can be resumed.
+
+**Scope guardrail:** This is information architecture, navigation, terminology, and workflow framing. It does not change DungeonMind authority, APP-STATE ownership, or invent automatic campaign-state transitions.
+
+### Goal 2 — Make the shared shell coherent, responsive, and context-preserving
+
+**Outcome:** Plan, Play, Ingest, and Build feel like modes of one application rather than independently composed workbenches competing for fixed screen real estate.
+
+**User stories:**
+
+- As a GM on desktop or a narrow viewport, I can use the primary work area without drawers, rails, scrims, and the Agent bar overlapping or squeezing it into an unusable strip.
+- As a GM opening a tool or object, I can understand what is primary content and what is temporary chrome, and dismiss secondary UI predictably.
+- As a GM switching surfaces, I preserve the campaign/session/document context that should survive the switch and do not inherit stale controls from the prior surface.
+- As a GM, I do not lose persistent screen space to an unavailable global feature.
+
+**Scope guardrail:** Prefer one responsive shared drawer/pane composition and explicit mobile behavior. Do not add another fixed rail to solve an existing fixed-rail problem. Persistent AppChrome remains conditional on an observed remount failure rather than being assumed necessary.
+
+### Goal 3 — Make native Play a table instrument, not a debugger cockpit
+
+**Outcome:** Keep native Play's durable state model and cockpit composition, but make the current moment scan and behave like a GM handout at the table.
+
+**User stories:**
+
+- As a GM running a session, the current Scene/Beat gets most of the useful viewport while navigation and presence remain cheap.
+- As a GM scanning the current moment, I can distinguish At the table, read-aloud, GM notes, rules, warnings, and wait/succeed/fail material without reading one undifferentiated body blob.
+- As a GM making or recording a Decision, I use native durable option identity/persistence, and after selection the relevant Scene choices visibly become more or less prominent rather than relevance existing only as text below the Decision.
+- As a GM, I can inspect a Scene without accidentally making it current, and I can deliberately Make Current when I am ready.
+- As a GM, At a Glance shows actual nearby/openable people, places, threats, or tools instead of spending a rail on a count such as “Scenes N”.
+- As a GM, current-moment material reads as a paper instrument inside dark product chrome: dark AppChrome/rails around a warm parchment Scene/Beat/object/mechanics surface.
+
+**Scope guardrail:** Preserve native Decision CAS/persistence, Inspect vs Make Current, exact object identity, collapsible rails, and Scene-centered current-moment semantics. Do **not** merge or revive `ofConks*` adventure code, prep-HTML hosting, branch enums, hardcoded media maps, or packet-specific product surfaces.
+
+### Goal 4 — Present World objects for table use first and inspection second
+
+**Outcome:** A complete surface-neutral World object remains exact underneath, while the default Play/object presentation leads with what helps the GM use it now.
+
+**User stories:**
+
+- As a GM clicking Karsemine, Nar Granitetooth, or another World object, I first see a readable sheet with type, title, an At-the-table summary, relevant hooks/rules/source material, and connected objects as openable chips.
+- As a GM hovering an object, I get one useful glance line rather than taxonomy, graph adjacency, and provenance diagnostics.
+- As a GM following a connected object, I click a chip and remain in the table flow rather than entering a graph-browser row/list experience.
+- As a GM who needs provenance, I can expand Advanced to inspect node ID, World revision, evidence counts/anchors, raw relationship detail, and other diagnostic identity.
+- As a GM opening a Threat, the same parchment hierarchy can expose exact mechanics and a clear Add to Combat action.
+
+**Scope guardrail:** Presentation must consume the complete admitted object rather than reinterpreting or truncating graph truth. Current-state/timeline reduction, media asset contracts, and map-pin resolution are later capabilities unless separately dispatched. IDs move under Advanced; they are not removed.
+
+### Goal 5 — Turn Ingest into a GM memory-review workflow
+
+**Outcome:** Normal Ingest usage answers “what did DungeonBuddy learn from this session, and what needs my decision?” while exact pipeline state remains available for diagnosis.
+
+**User stories:**
+
+- As a GM reviewing Session 25, I can see a concise summary such as proposed updates, accepted-looking updates, decisions needed, and unresolved identities before opening technical details.
+- As a GM reviewing proposed memory, I can approve, reject, or resolve the material that needs judgment and understand what publication will change.
+- As a GM, publishing approved changes is an explicit action; merely inspecting historical source material never mutates World truth.
+- As an operator debugging a problem, I can still inspect exact run identity, lifecycle state, proposal/receipt bindings, and validation diagnostics under Advanced.
+
+**Scope guardrail:** This is a presentation/workflow reframe over the governed write path. Do not weaken exact-run binding, explicit confirmation, stale-fail-closed behavior, or DungeonMind write authority to make the UI simpler.
+
+### Goal 6 — Give Build an obvious authoring job
+
+**Outcome:** Build communicates what the GM is creating, why they are creating it, and how that authored material relates to the campaign without presenting a mostly empty generic source canvas.
+
+**User stories:**
+
+- As a GM entering Build, I understand that I am authoring reusable world/campaign source material and can choose a meaningful starting intent instead of confronting an unexplained “New source”.
+- As a GM creating an NPC, location, faction, encounter idea, or other worldbuilding source, I can work in a calm document-first canvas and use World references without needing to understand graph storage.
+- As a GM, I can save, leave, reopen, and continue the same durable authored material.
+- As a GM, I can distinguish “I wrote this source” from “this is now published World truth”; authoring does not silently elevate canon.
+
+**Scope guardrail:** Exact creation templates/categories should be proved by real authoring demand rather than pre-building a taxonomy of forms. World elevation remains a separate governed DungeonMind authority capability.
+
+### Goal 7 — Integrate Combat into Play instead of maintaining a parallel product model
+
+**Outcome:** Combat remains a recognizable tabletop tool but becomes an ordinary Play mode with durable application state and contextual entry/exit.
+
+**User stories:**
+
+- As a GM looking at a relevant Threat or Beat, I can add/open combat through a real table-facing control without rebuilding the creature or roster manually.
+- As a GM entering Combat, I can load the relevant roster quickly, operate initiative/HP/turn state, and return to the current Scene without losing where I was.
+- As a GM who closes or restarts the application, I can trust the documented durability semantics of active combat rather than discovering that this one major workflow only lived in browser-local state.
+- As a GM in Combat, I see combat-relevant tools; unrelated ingestion/operator controls do not appear merely because they share old toolbox infrastructure.
+
+**Scope guardrail:** Combat is a Play mode/lens, not a peer graph or new authority system. Durable Combat state and roster-loading are later CON-READY/Play capabilities and must be re-anchored before dispatch.
+
+### Goal 8 — Make the Agent contextual where it exists
+
+**Outcome:** The Agent feels like an interaction capability of the current work rather than a permanently visible global promise that often says to open another surface.
+
+**User stories:**
+
+- As a GM asking about the object, prose selection, Scene, or document I am already looking at, the Agent receives that current context without requiring me to paste or restate it.
+- As a GM on a surface where Agent interaction is not yet useful, I do not lose persistent space to a disabled bar advertising unavailable functionality.
+- As a GM moving between supported surfaces, I can tell what context the Agent currently has and avoid accidentally asking against stale campaign/session/object state.
+- As an advanced user debugging an answer, I can inspect model, token, cost, timing, retrieval, graph/source context, and tool-step traces without making that telemetry the default conversation UI.
+
+**Scope guardrail:** Agent context consumes the same selected World object and surface/document context as the product. It must not invent a parallel graph interpretation or use chat history as campaign truth.
+
+### Supporting UI engineering constraint — make redesign cheaper than preservation
+
+This is not a GM-facing capability and should not be dispatched as one giant refactor. It is a constraint on slices implementing the goals above:
+
+- stop growing multi-thousand-line production components and giant route-specific stylesheets when a touched seam can be extracted cleanly;
+- converge on reusable layout, typography, spacing, parchment, and dark-chrome tokens instead of adding one-off paint;
+- eliminate overlapping fixed-position composition rather than compensating with more z-index/responsive exceptions;
+- keep one trustworthy fast frontend verification path so visual/product work does not rely only on narrow handoff-specific tests;
+- require each cleanup to be justified by a product slice or a separately bounded maintainability defect, not by a broad rewrite program.
+
+### Of Conks design-evidence locator
+
+Read these as visual/interaction evidence only; **do not merge the dogfood branches wholesale**.
+
+| Evidence | Locator |
+|---|---|
+| Table-ready prototype / PR #578 | `dogfood/of-conks-hempholm-table-ready` @ `88e4d65e7ed69afe262008749194e2b948ce4c43` |
+| Prototype paint | `apps/live-control-ui/src/playSurface/beats/beats.css`; `graphReference/playObjectSheetProjection.css`; `PlayObjectSheetProjection.tsx` on that branch |
+| End-to-end follow-on handoff | `dogfood/of-conks-end-to-end` @ `b40d893f`; `Docs/Plans/HANDOFF-CON-READY-of-conks-end-to-end-dogfood.md` |
+| Packet visual hierarchy | `evals/of_conks_end_to_end_dogfood/packet/assets/of-conks-packet.css` on `dogfood/of-conks-end-to-end` |
+| Native Play composition | `apps/live-control-ui/src/playSurface/playSurface.css`; `PlayGraphObjectSheet.tsx`; current Play cockpit/design authorities on `main` |
+| Parchment survivor on main | `apps/live-control-ui/src/statblocks/projection/threatSheetProjection.css` and Threat glance/sheet presentation |
+
+Design synthesis: **keep native state/persistence/composition; steal prototype table hierarchy and visual grammar.** Navigation/presence should be cheap; the current card should be expensive. Dark room chrome and warm paper instruments are complementary parts of one product, not competing themes.
+
 ## Hygiene history
 
 - 2026-08-16 pass 1: 74 active headings → 29; see `Docs/Reports/BACKLOG-HYGIENE-2026-08-16.md`.
