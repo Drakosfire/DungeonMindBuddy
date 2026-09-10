@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4A opened World-object usefulness
 
 **Created:** 2026-09-09
-**Status:** CODE Cycle 2 — repairing Review Cycle 1 HOLD `5161602902` on `7a4e1e08c9f36b268d151504c9f6f34047b7e8b4`. Human dogfood remains required before merge.
+**Status:** CODE Cycle 3 — repairing Review Cycle 2 HOLD `5162078687` on `507ee3b028dbb3c87060548712e3e1f7b7ecccc7`. Canonical Ingest human witness passed; Plan gate disposition recorded below.
 **Flow / owner:** `DOGFOOD-CONTINUITY`
 **Direction:** DESIGN → CODE → REVIEW → MERGE → HUMAN DOGFOOD
 **Canonical handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-4a-opened-object-usefulness-v1.md`
@@ -9,6 +9,7 @@
 **Suggested PR title:** `DOGFOOD-CONTINUITY: make opened World objects useful to inspect`
 **PR:** #698
 **Cycle 1 reviewed head:** `7a4e1e08c9f36b268d151504c9f6f34047b7e8b4`
+**Cycle 2 reviewed head:** `507ee3b028dbb3c87060548712e3e1f7b7ecccc7`
 
 > Dispatched from clean post-#697 `main` at merge `947a727ddf1b7a98a670242f103920c91db62605`. PR #698 is in review; do not mark Stage 4A complete before review and human dogfood.
 
@@ -512,7 +513,7 @@ Do not add caching infrastructure or prefetching in this PR.
 
 ## 11. Automated evidence
 
-Cycle 1 accepted the Stage 4A core and classified the production build failure as inherited baseline debt: the failing `ThreatPublicationPanel.tsx` blob is identical on base and reviewed head. Cycle 2 adds the missing historical Ingest Advanced wiring and thin wrapper regression. Author-local focused evidence must be rerun on the Cycle 2 head before handback.
+Cycle 1 accepted the Stage 4A core and classified the production build failure as inherited baseline debt: the failing `ThreatPublicationPanel.tsx` blob is identical on base and reviewed head. Cycle 2 added the missing historical Ingest Advanced wiring but its wrapper proof covered only Advanced. Cycle 3 strengthens that real wrapper regression to prove complete `8 → 15`, zero extra Show-all request, omitted-row provenance, and partial-warning survival. Author-local result: 59 tests passed across the five focused suites.
 
 ### Shared relationship presentation
 
@@ -614,7 +615,7 @@ Plan Expand
   This is the already-routed generic lens/retrieval successor, not compensated here.
 ```
 
-The Ingest witness passes Stage 4A. The combined Ingest + Plan human acceptance remains open until Plan can reach its existing exact-object Expand path without the out-of-scope generic lens failure.
+The Ingest witness passes Stage 4A. For #698, the human merge gate is explicitly narrowed to this canonical Ingest witness plus an attempted Plan witness: Plan is accepted as **BLOCKED BY INHERITED SUCCESSOR** because the generic lens fails before the already-proven exact-object presentation can open. This is not a waiver of Stage 4A behavior and does not mark the Plan witness passed; repeat Plan Expand after the retrieval-policy successor makes it reachable.
 
 ### Witness A — Karsemine from C2S25 Ingest
 
@@ -644,6 +645,8 @@ Require the same underlying fifteen relationship identities and same determinist
 Plan-specific chrome/actions may differ.
 
 The objective is not pixel identity.
+
+**#698 disposition:** attempted and blocked before object open by the inherited generic-lens campaign mismatch. Not a #698 merge blocker under the narrowed human gate above; not recorded as PASS.
 
 ### Witness C — high-degree object
 
@@ -734,6 +737,7 @@ apps/live-control-ui/src/graphObjectCard/GraphObjectCard.tsx
 apps/live-control-ui/src/graphObjectCard/graphObjectDisplay.ts
 apps/live-control-ui/src/graphObjectCard/types.ts
 apps/live-control-ui/src/graphObjectCard/GraphObjectCard.test.tsx
+apps/live-control-ui/src/graphObjectCard/GraphObjectProjectionCard.tsx
 
 apps/live-control-ui/src/graphReference/ResolvedGraphObjectProjection.tsx
 apps/live-control-ui/src/graphReference/ResolvedGraphObjectProjection.test.tsx
@@ -743,6 +747,7 @@ Bounded discovery may add one shared Advanced component and thin wrapper tests/p
 
 ```text
 apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewHistoricalRecapProjection.tsx
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.test.tsx
 apps/live-control-ui/src/buildSurface/BuildGraphObjectContext.tsx
 apps/live-control-ui/src/playSurface/reference/PlayGraphObjectSheet.tsx
 apps/live-control-ui/src/planSurface/planSurface.css
@@ -816,7 +821,7 @@ when this PR itself passes review and dogfood.
 * [x] Newly revealed relationships retain existing navigation behavior.
 * [x] Technical graph identity is hidden by default.
 * [x] Advanced exposes available diagnostics without adding backend contracts.
-* [ ] Ingest and Plan human witnesses pass.
+* [x] Canonical Ingest human witness passes; Plan was attempted and explicitly dispositioned as blocked by the inherited generic-lens successor rather than mislabeled PASS.
 * [x] Shared behavior remains valid through Ingest/Build/Play wrapper tests.
 * [x] Stage 4 remains NOT DONE.
 * [x] Stage 7A remains NOT DONE.

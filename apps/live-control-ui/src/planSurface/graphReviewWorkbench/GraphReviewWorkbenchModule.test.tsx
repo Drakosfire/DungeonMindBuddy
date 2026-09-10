@@ -119,6 +119,47 @@ function historicalProjection(
   };
 }
 
+function completeHistoricalObject(
+  status: "complete" | "partial" = "complete",
+  relationshipCount = 15,
+) {
+  const projection = historicalProjection();
+  const baseNode = projection.nodeViews["node-1"]!;
+  return {
+    schema: "dmb_world_graph_object_projection_v1" as const,
+    found: true,
+    completeness: {
+      status,
+      reason: status === "partial" ? "relationships_truncated" : null,
+      truncatedFields: status === "partial" ? ["relationships"] : [],
+    },
+    snapshot: projection.snapshot,
+    requestedNodeId: "node-1",
+    resolvedNodeId: "node-1",
+    node: {
+      ...baseNode,
+      adjacency: Array.from({ length: relationshipCount }, (_, index) => ({
+        edgeId: `edge-${String(index + 1).padStart(2, "0")}`,
+        nodeId: `related-${index + 1}`,
+        label: `Related ${String(index + 1).padStart(2, "0")}`,
+        kind: "npc",
+        predicate: "knows",
+        direction: "outgoing" as const,
+        anchoredToFocusSession: index === relationshipCount - 1,
+        sourceDomains: ["recap"],
+        evidenceRefIds: [`evidence-${index + 1}`],
+        sessionIds: [index === relationshipCount - 1 ? "session-24" : `session-${index + 1}`],
+        campaignScope: "longmont-c2",
+        sourceExcerpt: index === relationshipCount - 1
+          ? "Provenance on the initially omitted relationship."
+          : null,
+      })),
+    },
+    relatedNodes: [],
+    semanticFingerprint: "fp-test",
+  };
+}
+
 function readyCatalogChannel(runs: ExtractionRunRecord[] = [canonicalRun()]) {
   const channel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
     INGEST_RUN_CATALOG_DESCRIPTOR,
@@ -840,6 +881,9 @@ describe("GraphReviewWorkbenchModule", () => {
           markdown: "# Heading\n\n[Bonogo](dmb-node:node-1) arrives.\n",
         }),
       );
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(
+      completeHistoricalObject("complete"),
+    );
     window.history.replaceState(
       {},
       "",
@@ -872,6 +916,10 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
     });
     expect(screen.getByLabelText("Bonogo graph object")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(8);
+    await user.click(screen.getByRole("button", { name: "Show all 15 relationships (7 more)" }));
+    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(15);
+    expect(screen.getByText(/Provenance on the initially omitted relationship\./)).toBeVisible();
     const objectAdvanced = screen.getByText("Advanced").closest("details");
     expect(objectAdvanced).not.toHaveAttribute("open");
     await user.click(screen.getByText("Advanced"));
@@ -885,6 +933,35 @@ describe("GraphReviewWorkbenchModule", () => {
         worldId: "eldyrwild",
       }),
     );
+    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the partial warning visible while Ingest discloses every returned row", async () => {
+    const user = userEvent.setup();
+    const validated = canonicalRun({ status: "validated", run_id: "er_partial" });
+    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockResolvedValue(
+      historicalProjection({
+        runId: "er_partial",
+        markdown: "# Partial recap\n\n[Bonogo](dmb-node:node-1) arrives.\n",
+      }),
+    );
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(
+      completeHistoricalObject("partial"),
+    );
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-23&run=er_partial",
+    );
+    renderWorkbench([validated]);
+
+    await user.click(await screen.findByRole("button", { name: "Bonogo" }));
+    const warning = await screen.findByTestId("complete-object-partial-warning");
+    expect(warning).toHaveTextContent(/Partial World object: truncated relationships/i);
+    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(8);
+    await user.click(screen.getByRole("button", { name: "Show all 15 relationships (7 more)" }));
+    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(15);
+    expect(warning).toBeVisible();
     expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
   });
 
