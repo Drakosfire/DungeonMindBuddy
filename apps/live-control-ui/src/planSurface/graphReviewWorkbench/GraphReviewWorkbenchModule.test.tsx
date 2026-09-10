@@ -872,6 +872,12 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
     });
     expect(screen.getByLabelText("Bonogo graph object")).toBeInTheDocument();
+    const objectAdvanced = screen.getByText("Advanced").closest("details");
+    expect(objectAdvanced).not.toHaveAttribute("open");
+    await user.click(screen.getByText("Advanced"));
+    expect(within(objectAdvanced!).getByText("node-1")).toBeVisible();
+    expect(within(objectAdvanced!).getByText("fp-test")).toBeVisible();
+    expect(within(objectAdvanced!).getByText("ingest")).toBeVisible();
     expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
       expect.objectContaining({
         nodeId: "node-1",
@@ -879,6 +885,7 @@ describe("GraphReviewWorkbenchModule", () => {
         worldId: "eldyrwild",
       }),
     );
+    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
   });
 
   it("keeps Advanced details after ordinary Load recap of a validated historical run", async () => {
@@ -1537,6 +1544,7 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
   });
 });
 
+
 describe("GraphReviewWorkbenchModule exact-run primary after confirm", () => {
   beforeEach(() => {
     mockWorkbenchApis();
@@ -1742,4 +1750,3 @@ describe("GraphReviewWorkbenchModule exact-run primary after confirm", () => {
     expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
   });
 });
-

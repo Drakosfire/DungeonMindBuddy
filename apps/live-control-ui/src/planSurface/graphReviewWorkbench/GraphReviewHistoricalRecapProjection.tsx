@@ -8,6 +8,7 @@ import { adaptWorldGraphNodeViewMap } from "../../worldGraph/worldGraphNodeViewA
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
 import { useCompleteWorldObject, usesCompleteWorldObjectPayload } from "../../graphReference/fullWorldObjectProjection";
 import { CompleteObjectPartialWarning } from "../../graphReference/CompleteObjectPartialWarning";
+import { CompleteWorldObjectAdvancedDetails } from "../../graphReference/CompleteWorldObjectAdvancedDetails";
 
 interface GraphReviewHistoricalRecapProjectionProps {
   projection: HistoricalRecapWorldProjectionResponse;
@@ -82,6 +83,12 @@ export function GraphReviewHistoricalRecapProjection({
                 nodeView={complete.nodeView}
                 onSelectRelationshipTarget={handleSelectRelationshipTarget}
                 selectedRelationshipId={selectedRelationshipId}
+                advancedSlot={complete.result ? (
+                  <CompleteWorldObjectAdvancedDetails
+                    result={complete.result}
+                    originSurface="ingest"
+                  />
+                ) : undefined}
               />
             ) : null}
           </aside>

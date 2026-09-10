@@ -1,14 +1,16 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4A opened World-object usefulness
 
 **Created:** 2026-09-09
-**Status:** DESIGN READY — dispatch only after PR #697 merges to `main`
+**Status:** CODE Cycle 2 — repairing Review Cycle 1 HOLD `5161602902` on `7a4e1e08c9f36b268d151504c9f6f34047b7e8b4`. Human dogfood remains required before merge.
 **Flow / owner:** `DOGFOOD-CONTINUITY`
 **Direction:** DESIGN → CODE → REVIEW → MERGE → HUMAN DOGFOOD
 **Canonical handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-4a-opened-object-usefulness-v1.md`
 **Suggested branch:** `dogfood-continuity/stage-4a-opened-object-usefulness-v1`
 **Suggested PR title:** `DOGFOOD-CONTINUITY: make opened World objects useful to inspect`
+**PR:** #698
+**Cycle 1 reviewed head:** `7a4e1e08c9f36b268d151504c9f6f34047b7e8b4`
 
-> Dispatch from a clean checkout of the actual post-#697 `main`. Do not substitute the current pre-merge SHA into this handoff. Record the exact #697 accepted head and merge SHA during re-anchor.
+> Dispatched from clean post-#697 `main` at merge `947a727ddf1b7a98a670242f103920c91db62605`. PR #698 is in review; do not mark Stage 4A complete before review and human dogfood.
 
 ---
 
@@ -510,6 +512,8 @@ Do not add caching infrastructure or prefetching in this PR.
 
 ## 11. Automated evidence
 
+Cycle 1 accepted the Stage 4A core and classified the production build failure as inherited baseline debt: the failing `ThreatPublicationPanel.tsx` blob is identical on base and reviewed head. Cycle 2 adds the missing historical Ingest Advanced wiring and thin wrapper regression. Author-local focused evidence must be rerun on the Cycle 2 head before handback.
+
 ### Shared relationship presentation
 
 Prove:
@@ -587,6 +591,30 @@ must pass on the exact reviewed head.
 ## 12. Live dogfood witnesses
 
 Use real durable C1/C2 state.
+
+### Cycle 2 author-local witness — 2026-09-09
+
+Isolated PR-head UI/API ran on `127.0.0.1:5174` / `127.0.0.1:8001` against the existing durable C1/C2 authorities.
+
+```text
+C2S25 Ingest / Karsemine
+  complete relationships                 15
+  initial visible                        8
+  Show all                               15
+  Show fewer                             8
+  omitted S24 Hunter's Mark navigation   exact target opened
+  S24 source prose                       preserved
+  Advanced default                       closed
+  Advanced opened                        node/fingerprint/origin visible
+  complete-object request on toggles     0
+
+Plan Expand
+  BLOCKED before object open:
+  Projection campaign does not match requested campaign longmont-c2.
+  This is the already-routed generic lens/retrieval successor, not compensated here.
+```
+
+The Ingest witness passes Stage 4A. The combined Ingest + Plan human acceptance remains open until Plan can reach its existing exact-object Expand path without the out-of-scope generic lens failure.
 
 ### Witness A — Karsemine from C2S25 Ingest
 
@@ -740,9 +768,9 @@ At dispatch, update the exact truth from `main`:
 
 ```text
 PR #697
-  merge SHA:
-  accepted CODE head:
-  review cycles:
+  merge SHA: 947a727ddf1b7a98a670242f103920c91db62605
+  accepted CODE head: 83eb43689189d9ef37e227d26f3bdc08f547ec5e
+  review cycles: 3
   Human STOP:
     NOT PASSED as all-surface end-state
     successor-routed rather than #697 correctness failure
@@ -774,26 +802,26 @@ when this PR itself passes review and dogfood.
 
 ## 17. Acceptance rubric
 
-* [ ] One capability remains: opened-object progressive-disclosure presentation.
-* [ ] #697 complete-object semantics remain unchanged.
-* [ ] Complete server payload is never mislabeled as UI truncation.
-* [ ] Partial server payload remains explicitly partial.
-* [ ] More than eight relationships produces an interactive disclosure, not dead `+N` text.
-* [ ] Show all reveals every already-loaded relationship.
-* [ ] Show fewer restores the compact view.
-* [ ] Expansion/collapse performs zero additional World or APP reads.
-* [ ] Deterministic relationship ordering is preserved.
-* [ ] S24 remains visibly S24 under S25 focus.
-* [ ] Missing source prose remains honest.
-* [ ] Newly revealed relationships retain existing navigation behavior.
-* [ ] Technical graph identity is hidden by default.
-* [ ] Advanced exposes available diagnostics without adding backend contracts.
+* [x] One capability remains: opened-object progressive-disclosure presentation.
+* [x] #697 complete-object semantics remain unchanged.
+* [x] Complete server payload is never mislabeled as UI truncation.
+* [x] Partial server payload remains explicitly partial.
+* [x] More than eight relationships produces an interactive disclosure, not dead `+N` text.
+* [x] Show all reveals every already-loaded relationship.
+* [x] Show fewer restores the compact view.
+* [x] Expansion/collapse performs zero additional World or APP reads.
+* [x] Deterministic relationship ordering is preserved.
+* [x] S24 remains visibly S24 under S25 focus.
+* [x] Missing source prose remains honest.
+* [x] Newly revealed relationships retain existing navigation behavior.
+* [x] Technical graph identity is hidden by default.
+* [x] Advanced exposes available diagnostics without adding backend contracts.
 * [ ] Ingest and Plan human witnesses pass.
-* [ ] Shared behavior remains valid through Build/Play wrapper tests.
-* [ ] Stage 4 remains NOT DONE.
-* [ ] Stage 7A remains NOT DONE.
-* [ ] Generic Agent retrieval policy remains unchanged.
-* [ ] Production UI build passes on exact reviewed head.
+* [x] Shared behavior remains valid through Ingest/Build/Play wrapper tests.
+* [x] Stage 4 remains NOT DONE.
+* [x] Stage 7A remains NOT DONE.
+* [x] Generic Agent retrieval policy remains unchanged.
+* [x] Production UI build failure is accepted inherited baseline debt; the exact failing blob is identical on base and head.
 * [ ] Human STOP is performed before dispatching another Stage 4 slice.
 
 ---
@@ -837,4 +865,3 @@ X — failure belongs to another capability
 If the result is mostly `A/E`, use that STOP to decide the next Stage 4 capability.
 
 Do not pre-author it here.
-
