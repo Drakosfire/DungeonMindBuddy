@@ -37,6 +37,7 @@ export interface GraphObjectProjectionCardProps {
   onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
   resolvingEvidenceId?: string | null;
   evidenceErrors?: Record<string, string>;
+  advancedSlot?: ReactNode;
   className?: string;
   "aria-label"?: string;
 }
@@ -55,6 +56,7 @@ export function GraphObjectProjectionCard({
   onReadSourceEvidence,
   resolvingEvidenceId = null,
   evidenceErrors = {},
+  advancedSlot,
   className,
   "aria-label": ariaLabel,
 }: GraphObjectProjectionCardProps) {
@@ -104,6 +106,7 @@ export function GraphObjectProjectionCard({
         onReadSourceEvidence={onReadSourceEvidence}
         resolvingEvidenceId={resolvingEvidenceId}
         evidenceErrors={evidenceErrors}
+        advancedSlot={advancedSlot}
         actionsSlot={actions ?? undefined}
       />
     </div>

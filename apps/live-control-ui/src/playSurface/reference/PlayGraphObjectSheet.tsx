@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import { GraphObjectRelationships } from "../../graphObjectCard/GraphObjectCard";
 import type {
   GraphObjectEvidenceViewModel,
   GraphObjectRelationshipViewModel,
 } from "../../graphObjectCard";
-import { relationshipRowPrimaryCopy } from "../../graphObjectCard/graphObjectDisplay";
 import { useCompleteWorldObject, usesCompleteWorldObjectPayload } from "../../graphReference/fullWorldObjectProjection";
 import { CompleteObjectPartialWarning } from "../../graphReference/CompleteObjectPartialWarning";
+import { CompleteWorldObjectAdvancedDetails } from "../../graphReference/CompleteWorldObjectAdvancedDetails";
 import type {
   GraphReferenceProjectionBinding,
   GraphReferenceProjectionState,
@@ -171,10 +172,6 @@ export function PlayGraphObjectSheet({
         <p className="module-muted">
           {graphObject.kind ?? "object"}
           {graphObject.role ? ` · ${graphObject.role}` : ""}
-          {" · "}
-          <code>{resolution.graphNodeId}</code>
-          {" @ "}
-          <code>{resolution.graphScope.revisionId}</code>
         </p>
         {complete.status === "loading" ? (
           <p className="module-muted">Loading complete World object…</p>
@@ -187,32 +184,19 @@ export function PlayGraphObjectSheet({
         <CompleteObjectPartialWarning result={complete.result} />
       </header>
 
-      {(graphObject.relationships ?? []).length ? (
-        <section aria-label="Connected graph objects">
-          <h3>Connected objects</h3>
-          <ul>
-            {(graphObject.relationships ?? []).map((relationship) => (
-              <li key={relationship.id}>
-                {graphReferenceBinding ? (
-                  <button
-                    type="button"
-                    aria-label={relationshipRowPrimaryCopy(relationship)}
-                    disabled={relationshipsDisabled || selectedRelationshipIdMatches(
-                      navigatingRelationshipId,
-                      relationship.id,
-                    )}
-                    onClick={() => void onSelectRelationship(relationship)}
-                  >
-                    {relationshipRowPrimaryCopy(relationship)}
-                  </button>
-                ) : (
-                  <span>{relationshipRowPrimaryCopy(relationship)}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
+      {complete.result ? (
+        <CompleteWorldObjectAdvancedDetails result={complete.result} originSurface="play" />
       ) : null}
+
+      <div className="graph-object-card">
+        <GraphObjectRelationships
+          model={graphObject}
+          onSelectRelationship={graphReferenceBinding ? onSelectRelationship : undefined}
+          selectedRelationshipId={navigatingRelationshipId}
+          relationshipsDisabled={relationshipsDisabled}
+          showProvenance
+        />
+      </div>
 
       <section aria-label="Source evidence" data-testid="play-graph-object-sheet-source">
         <h3>Source</h3>
@@ -276,11 +260,4 @@ export function PlayGraphObjectSheet({
       {isThreat ? <PlayThreatMechanicsSection resolution={resolution} /> : null}
     </article>
   );
-}
-
-function selectedRelationshipIdMatches(
-  navigatingRelationshipId: string | null,
-  relationshipId: string,
-): boolean {
-  return navigatingRelationshipId === relationshipId;
 }

@@ -5179,6 +5179,37 @@ body.surface-projection-open .plan-agent-shell {
   background: rgba(14, 165, 233, 0.22);
 }
 
+.graph-object-card .graph-object-card__relationship-disclosure {
+  margin-top: 0.55rem;
+  border: 0;
+  background: transparent;
+  color: #7dd3fc;
+  padding: 0.2rem 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.graph-object-card__advanced {
+  margin-top: 0.55rem;
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.85rem;
+}
+
+.graph-object-card__advanced summary {
+  cursor: pointer;
+}
+
+.graph-object-card__advanced dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.25rem 0.65rem;
+}
+
+.graph-object-card__advanced dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .graph-review-projected-interaction-surface .graph-review-node-game-card,
 .graph-review-projected-interaction-surface .graph-object-card {
   border: none;
@@ -7295,4 +7326,3 @@ body.surface-projection-open .plan-agent-shell {
   font: inherit;
   font-weight: 400;
 }
-

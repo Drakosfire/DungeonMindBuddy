@@ -48,6 +48,55 @@ const planModel: GraphObjectCardViewModel = {
 };
 
 describe("GraphObjectCard", () => {
+  it("reveals and collapses every already-loaded relationship, then resets for a new object", async () => {
+    const user = userEvent.setup();
+    const onSelectRelationship = vi.fn();
+    const relationships = Array.from({ length: 15 }, (_, index) => ({
+      id: `edge-${String(index + 1).padStart(2, "0")}`,
+      label: `Object ${String(index + 1).padStart(2, "0")}`,
+      predicate: index === 13 ? "holds" : "knows",
+      targetId: `node-${index + 1}`,
+      campaignScope: "longmont-c2",
+      sessionIds: [index === 13 ? "session-24" : `session-${index + 1}`],
+      sourceExcerpt: index === 13 ? "Durable prose for the omitted row." : null,
+      sourceDomains: index === 13 ? ["recap"] : [],
+    }));
+    const model = { ...planModel, id: "karsemine", label: "Karsemine", relationships };
+    const { rerender } = render(
+      <GraphObjectCard
+        model={model}
+        showRelationshipProvenance
+        onSelectRelationship={onSelectRelationship}
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(8);
+    expect(screen.queryByText("Object 14")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show all 15 relationships (7 more)" }));
+    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(15);
+    expect(screen.getByText("C2 · S24")).toBeInTheDocument();
+    expect(screen.getByText(/Durable prose for the omitted row/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Open related object C2 · S24 · Object 14/ }));
+    expect(onSelectRelationship).toHaveBeenCalledWith(relationships[13]);
+
+    await user.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(8);
+    await user.click(screen.getByRole("button", { name: "Show all 15 relationships (7 more)" }));
+    rerender(<GraphObjectCard model={{ ...model, id: "stafl", label: "Stafl" }} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(8);
+    expect(screen.getByRole("button", { name: "Show all 15 relationships (7 more)" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("renders no relationship disclosure at zero or eight rows", () => {
+    const { rerender } = render(<GraphObjectCard model={{ ...planModel, relationships: [] }} />);
+    expect(screen.queryByRole("button", { name: /Show all|Show fewer/ })).not.toBeInTheDocument();
+    rerender(<GraphObjectCard model={{ ...planModel, relationships: Array.from({ length: 8 }, (_, index) => ({ id: `edge-${index}`, label: `Row ${index}` })) }} />);
+    expect(screen.queryByRole("button", { name: /Show all|Show fewer/ })).not.toBeInTheDocument();
+  });
+
   it("renders plan mode with summary before related objects and omits foreign bios", async () => {
     const user = userEvent.setup();
     render(<GraphObjectCard mode="plan" model={planModel} />);
@@ -120,17 +169,17 @@ describe("GraphObjectCard", () => {
     expect(within(card).getByText("C2 · S2")).toBeInTheDocument();
   });
 
-  it("shows node id in plan mode only when showDebugIdentifiers is true", async () => {
+  it("does not expose node id through ordinary Details", async () => {
     const user = userEvent.setup();
-    render(<GraphObjectCard mode="plan" model={planModel} showDebugIdentifiers />);
+    render(<GraphObjectCard mode="plan" model={planModel} />);
 
     const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
     await user.click(within(card).getByText("Details"));
 
     const detailsPanel = within(card).getByText("Details").closest("details");
     expect(detailsPanel).not.toBeNull();
-    expect(within(detailsPanel!).getByText(/Node ID:/)).toBeInTheDocument();
-    expect(within(detailsPanel!).getByText("location-inn")).toBeInTheDocument();
+    expect(within(detailsPanel!).queryByText(/Node ID:/)).not.toBeInTheDocument();
+    expect(within(detailsPanel!).queryByText("location-inn")).not.toBeInTheDocument();
   });
 
   it("does not render graph-review class names in plan mode", () => {

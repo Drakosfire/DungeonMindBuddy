@@ -8,6 +8,7 @@ import {
 } from "../graphObjectCard/GraphObjectProjectionCard";
 import { loadCompleteWorldObject, completeObjectNodeMap } from "../graphReference/fullWorldObjectProjection";
 import { CompleteObjectPartialWarning } from "../graphReference/CompleteObjectPartialWarning";
+import { CompleteWorldObjectAdvancedDetails } from "../graphReference/CompleteWorldObjectAdvancedDetails";
 import {
   admitBuildDocumentScope,
   getWorldIdForCampaign,
@@ -226,6 +227,9 @@ export function BuildGraphObjectContext({
           nodeView={activeNodeView}
           onSelectRelationshipTarget={handleSelectRelationshipTarget}
           selectedRelationshipId={selectedRelationshipId}
+          advancedSlot={loadedResult ? (
+            <CompleteWorldObjectAdvancedDetails result={loadedResult} originSurface="build" />
+          ) : undefined}
         />
       ) : null}
     </section>
