@@ -1,7 +1,8 @@
-import { useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import {
   humanizeRelationshipPredicate,
+  MAX_DEFAULT_RELATIONSHIP_ROWS,
   relationshipRowPrimaryCopy,
   relationshipSessionStamp,
   selectDefaultRelationshipRows,
@@ -17,8 +18,6 @@ import type {
 export interface GraphObjectCardProps {
   model: GraphObjectCardViewModel;
   mode?: GraphObjectCardMode;
-  /** When true, plan-mode details may show raw node identifiers. */
-  showDebugIdentifiers?: boolean;
   /**
    * When true (Plan reference Expand), related rows show origin prose under each
    * chronological pill. Compact click keeps pills scan-only.
@@ -36,6 +35,8 @@ export interface GraphObjectCardProps {
   actionsSlot?: ReactNode;
   /** Optional override for collapsed details (e.g. review status / merge provenance). */
   detailsSlot?: ReactNode;
+  /** Technical identity/debug information, closed behind an explicit disclosure. */
+  advancedSlot?: ReactNode;
   /** Invoked when the GM chooses Read source on one explicit evidence row. */
   onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
   /** Disables the clicked evidence row while source navigation resolves. */
@@ -142,7 +143,7 @@ function RelationshipRowBody({
   );
 }
 
-function DefaultRelationships({
+export function GraphObjectRelationships({
   model,
   onSelectRelationship,
   selectedRelationshipId,
@@ -156,9 +157,18 @@ function DefaultRelationships({
   showProvenance: boolean;
 }) {
   const source = model.relationships ?? [];
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [model.id]);
+
   if (!source.length) return null;
 
-  const { rows, omittedCount } = selectDefaultRelationshipRows(source);
+  const { rows, omittedCount } = selectDefaultRelationshipRows(
+    source,
+    expanded ? source.length : undefined,
+  );
 
   return (
     <section
@@ -218,8 +228,17 @@ function DefaultRelationships({
           );
         })}
       </ul>
-      {omittedCount > 0 ? (
-        <p className="graph-object-card__muted">+{omittedCount} more</p>
+      {source.length > MAX_DEFAULT_RELATIONSHIP_ROWS ? (
+        <button
+          type="button"
+          className="graph-object-card__relationship-disclosure"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((current) => !current)}
+        >
+          {expanded
+            ? "Show fewer"
+            : `Show all ${source.length} relationships (${omittedCount} more)`}
+        </button>
       ) : null}
     </section>
   );
@@ -342,15 +361,11 @@ function PlanMemoryTools({
 
 function DefaultDetails({
   model,
-  mode,
-  showDebugIdentifiers,
   onReadSourceEvidence,
   resolvingEvidenceId,
   evidenceErrors,
 }: {
   model: GraphObjectCardViewModel;
-  mode: GraphObjectCardMode;
-  showDebugIdentifiers: boolean;
   onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
   resolvingEvidenceId?: string | null;
   evidenceErrors?: Record<string, string>;
@@ -359,12 +374,9 @@ function DefaultDetails({
   const evidence = model.evidence ?? [];
   const sourceDomains = details?.sourceDomains ?? model.sourceDomains ?? [];
   const evidenceCount = details?.evidenceCount ?? evidence.length;
-  const showIdentifiers =
-    mode === "plan" && showDebugIdentifiers && Boolean(details?.nodeId);
   const hasBody =
     Boolean(details?.visibilityLabel || model.visibilityLabel) ||
     Boolean(details?.sourceAnchorText) ||
-    showIdentifiers ||
     evidenceCount > 0 ||
     sourceDomains.length > 0 ||
     Boolean(details?.lines?.length) ||
@@ -416,14 +428,6 @@ function DefaultDetails({
           ))}
         </section>
       ) : null}
-      {showIdentifiers ? (
-        <section className="graph-object-card__details-section" aria-label="Identifiers">
-          <h6>Identifiers</h6>
-          <p>
-            <strong>Node ID:</strong> {details?.nodeId}
-          </p>
-        </section>
-      ) : null}
     </details>
   );
 }
@@ -438,7 +442,6 @@ function DefaultDetails({
 export function GraphObjectCard({
   model,
   mode = "plan",
-  showDebugIdentifiers = false,
   showRelationshipProvenance = false,
   onSelectRelationship,
   selectedRelationshipId = null,
@@ -446,6 +449,7 @@ export function GraphObjectCard({
   relationshipsSlot,
   actionsSlot,
   detailsSlot,
+  advancedSlot,
   onReadSourceEvidence,
   resolvingEvidenceId = null,
   evidenceErrors = {},
@@ -464,7 +468,7 @@ export function GraphObjectCard({
       <GraphObjectIdentityHeader model={model} />
       <GraphObjectSummary model={model} />
       {relationshipsSlot ?? (
-        <DefaultRelationships
+        <GraphObjectRelationships
           model={model}
           onSelectRelationship={onSelectRelationship}
           selectedRelationshipId={selectedRelationshipId}
@@ -475,13 +479,12 @@ export function GraphObjectCard({
       {detailsSlot ?? (
         <DefaultDetails
           model={model}
-          mode={mode}
-          showDebugIdentifiers={showDebugIdentifiers}
           onReadSourceEvidence={onReadSourceEvidence}
           resolvingEvidenceId={resolvingEvidenceId}
           evidenceErrors={evidenceErrors}
         />
       )}
+      {advancedSlot}
       {actionsSlot ?? (mode === "plan" ? <PlanMemoryTools model={model} rootRef={rootRef} /> : null)}
     </article>
   );

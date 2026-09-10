@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
@@ -86,5 +87,24 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
       expect(container.querySelector("[data-complete-object-status='ready']")).toBeTruthy();
     });
     expect(screen.queryByTestId("complete-object-partial-warning")).not.toBeInTheDocument();
+  });
+
+  it("keeps exact World identity behind Advanced without another request", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(completeObject("complete"));
+    render(<ResolvedGraphObjectProjection resolution={resolvedCaelynn()} originSurface="ingest" />);
+
+    const advanced = await screen.findByText("Advanced");
+    const panel = advanced.closest("details");
+    expect(panel).not.toHaveAttribute("open");
+    expect(screen.queryByText("fp-test")).not.toBeVisible();
+    await user.click(advanced);
+    expect(within(panel!).getByText("fp-test")).toBeVisible();
+    expect(within(panel!).getByText("pc_caelynn")).toBeVisible();
+    expect(within(panel!).getByText("ingest")).toBeVisible();
+    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
+    await user.click(advanced);
+    expect(panel).not.toHaveAttribute("open");
+    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
   });
 });

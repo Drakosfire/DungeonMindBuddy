@@ -12,6 +12,7 @@ import type { PlanSessionDescriptor } from "../planSurface/types";
 import type { WorldGraphObjectProjectionRequest } from "../api/types";
 import { useCompleteWorldObject, usesCompleteWorldObjectPayload } from "./fullWorldObjectProjection";
 import { CompleteObjectPartialWarning } from "./CompleteObjectPartialWarning";
+import { CompleteWorldObjectAdvancedDetails } from "./CompleteWorldObjectAdvancedDetails";
 import type {
   GraphReferenceProjectionBinding,
   GraphReferenceProjectionState,
@@ -117,6 +118,12 @@ export function ResolvedGraphObjectProjection({
         onReadSourceEvidence={onReadSourceEvidence}
         resolvingEvidenceId={resolvingEvidenceId}
         evidenceErrors={evidenceErrors}
+        advancedSlot={complete.result ? (
+          <CompleteWorldObjectAdvancedDetails
+            result={complete.result}
+            originSurface={originSurface}
+          />
+        ) : undefined}
       />
     </div>
   );
