@@ -132,7 +132,24 @@ export function AppChrome({
 }: AppChromeProps) {
   const { winner: secondaryContext } = usePeekRegionState();
   const priorSecondaryKindRef = useRef(secondaryContext?.kind ?? null);
+  const secondaryKindRef = useRef(secondaryContext?.kind ?? null);
+  secondaryKindRef.current = secondaryContext?.kind ?? null;
   const savedNarrowScrollYRef = useRef<number | null>(null);
+  const centerRef = useRef<HTMLDivElement | null>(null);
+  const savedCenterScrollRef = useRef<{ element: HTMLElement; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const center = centerRef.current;
+    if (activeRoute !== "ingest" || !center) return;
+    const captureReadingPosition = (event: Event) => {
+      if (secondaryKindRef.current !== null) return;
+      const element = event.target;
+      if (!(element instanceof HTMLElement) || !center.contains(element)) return;
+      savedCenterScrollRef.current = { element, top: element.scrollTop };
+    };
+    center.addEventListener("scroll", captureReadingPosition, true);
+    return () => center.removeEventListener("scroll", captureReadingPosition, true);
+  }, [activeRoute]);
 
   useLayoutEffect(() => {
     if (activeRoute !== "ingest") return;
@@ -146,7 +163,13 @@ export function AppChrome({
     } else if (previousKind !== null && nextKind === null && savedNarrowScrollYRef.current !== null) {
       const returnY = savedNarrowScrollYRef.current;
       savedNarrowScrollYRef.current = null;
-      requestAnimationFrame(() => window.scrollTo({ top: returnY, behavior: "auto" }));
+      const centerReadingPosition = savedCenterScrollRef.current;
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: returnY, behavior: "auto" });
+        if (centerReadingPosition?.element.isConnected) {
+          centerReadingPosition.element.scrollTop = centerReadingPosition.top;
+        }
+      });
     }
 
     priorSecondaryKindRef.current = nextKind;
@@ -317,7 +340,9 @@ export function AppChrome({
 
       {activeRoute === "ingest" ? (
         <div className="app-chrome-workspace">
-          <div className="app-chrome-center" data-testid="app-chrome-center">{children}</div>
+          <div ref={centerRef} className="app-chrome-center" data-testid="app-chrome-center">
+            {children}
+          </div>
           <PeekRegionSlot />
         </div>
       ) : children}

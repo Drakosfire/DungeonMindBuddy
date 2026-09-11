@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -28,7 +28,12 @@ function ResponsiveHarness() {
     <AgentInteractionProvider>
       <PeekRegionProvider>
         <button type="button" onClick={() => setOpen(true)}>Open secondary</button>
-        <AppChrome activeRoute="ingest"><main data-testid="recap-sentinel">Recap center</main></AppChrome>
+        <AppChrome activeRoute="ingest">
+          <main data-testid="recap-sentinel">
+            Recap center
+            <div data-testid="recap-scroll-region" />
+          </main>
+        </AppChrome>
         <PeekClaim kind="world-object" active={open} label="World object" onDismiss={() => setOpen(false)}>
           <p>World peek</p>
         </PeekClaim>
@@ -72,12 +77,17 @@ describe("AppChrome Ingest peek composition", () => {
 
     render(<ResponsiveHarness />);
     const sentinel = screen.getByTestId("recap-sentinel");
+    const readingRegion = screen.getByTestId("recap-scroll-region");
+    readingRegion.scrollTop = 275;
+    fireEvent.scroll(readingRegion);
     await user.click(screen.getByRole("button", { name: "Open secondary" }));
     expect(sentinel).toBeInTheDocument();
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
+    readingRegion.scrollTop = 0;
 
     await user.click(screen.getByTestId("secondary-context-dismiss").querySelector("button")!);
     expect(sentinel).toBeInTheDocument();
     expect(scrollTo).toHaveBeenLastCalledWith({ top: 432, behavior: "auto" });
+    expect(readingRegion.scrollTop).toBe(275);
   });
 });
