@@ -172,6 +172,8 @@ The rows below preserve discoverability for capabilities removed from root witho
 
 These goals preserve the 2026-09-09 fresh-eyes Buddy UI audit and the Of Conks / Hempholm prototype comparison as **design input only**. They do not own sequence and are not dispatchable from root. The Demo-Ready roadmap, CON-READY/Play authorities, Threat roadmap, and future dogfood STOP decisions own decomposition and ordering.
 
+**Interaction language (2026-09-10):** shell regions, peek/glance grammar, steal/ignore from Mobbin + Of Conks, and the recommended first peek-not-overlay slice live in [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](Docs/Design/ui-language/DESIGN-interaction-layer-language.md). That folder is the living UI language; `ARCHITECTURE-surface-interaction-layer.md` remains chrome **ownership**.
+
 The forcing product question behind all of them is:
 
 > Can a GM move through **prepare → run → capture/review → update World → resume** with less friction than a well-organized Markdown workspace, while DungeonMind/APP-STATE authority remains trustworthy but mostly invisible?
@@ -289,7 +291,7 @@ This is not a GM-facing capability and should not be dispatched as one giant ref
 
 - stop growing multi-thousand-line production components and giant route-specific stylesheets when a touched seam can be extracted cleanly;
 - converge on reusable layout, typography, spacing, parchment, and dark-chrome tokens instead of adding one-off paint;
-- eliminate overlapping fixed-position composition rather than compensating with more z-index/responsive exceptions;
+- eliminate overlapping fixed-position composition rather than compensating with more z-index/responsive exceptions (see `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`);
 - keep one trustworthy fast frontend verification path so visual/product work does not rely only on narrow handoff-specific tests;
 - require each cleanup to be justified by a product slice or a separately bounded maintainability defect, not by a broad rewrite program.
 
@@ -301,8 +303,8 @@ Read these as visual/interaction evidence only; **do not merge the dogfood branc
 |---|---|
 | Table-ready prototype / PR #578 | `dogfood/of-conks-hempholm-table-ready` @ `88e4d65e7ed69afe262008749194e2b948ce4c43` |
 | Prototype paint | `apps/live-control-ui/src/playSurface/beats/beats.css`; `graphReference/playObjectSheetProjection.css`; `PlayObjectSheetProjection.tsx` on that branch |
-| End-to-end follow-on handoff | `dogfood/of-conks-end-to-end` @ `b40d893f`; `Docs/Plans/HANDOFF-CON-READY-of-conks-end-to-end-dogfood.md` |
-| Packet visual hierarchy | `evals/of_conks_end_to_end_dogfood/packet/assets/of-conks-packet.css` on `dogfood/of-conks-end-to-end` |
+| End-to-end follow-on | `dogfood/of-conks-end-to-end` @ `b40d893f` — UI-hardening dogfood, **not** the Hempholm parchment prototype |
+| Packet visual hierarchy | Play Object Sheet CSS/TSX on the table-ready tip; there is no `of-conks-packet.css` on `88e4d65e` |
 | Native Play composition | `apps/live-control-ui/src/playSurface/playSurface.css`; `PlayGraphObjectSheet.tsx`; current Play cockpit/design authorities on `main` |
 | Parchment survivor on main | `apps/live-control-ui/src/statblocks/projection/threatSheetProjection.css` and Threat glance/sheet presentation |
 
