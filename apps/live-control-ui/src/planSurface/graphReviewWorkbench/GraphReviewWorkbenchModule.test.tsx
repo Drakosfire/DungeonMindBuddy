@@ -471,7 +471,7 @@ describe("GraphReviewWorkbenchModule", () => {
     );
   });
 
-  it("exposes Ingest Recap from the toolbox before a session is loaded", async () => {
+  it("does not expose a Recap View overlay from the toolbox before a session is loaded", async () => {
     const user = userEvent.setup();
     window.history.replaceState({}, "", "/ingest");
     renderWorkbench();
@@ -482,7 +482,7 @@ describe("GraphReviewWorkbenchModule", () => {
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
 
-    expect(screen.getByRole("button", { name: "Ingest Recap" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ingest Recap" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Diagnostics" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Author Draft" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Author Node" })).toBeInTheDocument();
@@ -590,7 +590,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(window.location.search).toContain("run=er_run_a");
   });
 
-  it("opens toolbox with Ingest Recap and Diagnostics tools", async () => {
+  it("opens toolbox with Diagnostics and without a Recap View overlay", async () => {
     const user = userEvent.setup();
     mockExactRunReviewPackage();
     window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-23&run=er_run_a");
@@ -602,7 +602,7 @@ describe("GraphReviewWorkbenchModule", () => {
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
 
-    expect(screen.getByRole("button", { name: "Ingest Recap" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ingest Recap" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Diagnostics" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Author Draft" })).not.toBeInTheDocument();
   });

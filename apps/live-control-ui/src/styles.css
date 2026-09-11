@@ -4,6 +4,20 @@
   line-height: 1.45;
   background: #12141a;
   color: #e8eaef;
+  /* Chrome band: ToolHost / EditHost / ProjectionHost / Author Node sit
+     outside .app-shell, so the inset lives on :root. Sidebars consume
+     these; do not restate per-host pixel heights. */
+  --app-chrome-top: 5.5rem;
+  --app-chrome-bottom: 4.75rem;
+  --app-ask-open-height: min(64vh, 680px);
+}
+
+:root:has(.app-chrome-header .surface-context-host) {
+  --app-chrome-top: 8rem;
+}
+
+:root:has(.plan-agent-shell.open) {
+  --app-chrome-bottom: var(--app-ask-open-height);
 }
 
 * {
@@ -37,7 +51,7 @@ code {
 .app-wrap {
   max-width: 960px;
   margin: 0 auto;
-  padding: 16px 20px 48px;
+  padding: 16px 20px calc(var(--app-chrome-bottom) + 1rem);
 }
 
 .app-wrap:has(.plan-surface-root) {
@@ -311,9 +325,9 @@ code {
 
 .app-edit-toolbox-drawer {
   position: fixed;
-  top: 0;
+  top: var(--app-chrome-top);
   left: 0;
-  bottom: 0;
+  bottom: var(--app-chrome-bottom);
   z-index: 860;
   width: min(440px, 94vw);
   display: flex;
@@ -334,9 +348,8 @@ code {
 }
 
 .app-shell--edit-dock:has(.plan-surface-root) {
-  --plan-agent-bar-height: 4.75rem;
-  /* The collapsed bar is hidden while the drawer pane is open. */
-  --plan-agent-open-chrome-height: min(64vh, 680px);
+  --plan-agent-bar-height: var(--app-chrome-bottom);
+  --plan-agent-open-chrome-height: var(--app-ask-open-height);
 }
 
 .app-shell--edit-dock .app-shell-layout {
@@ -354,13 +367,13 @@ code {
 
 .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-edit-toolbox--docked .app-edit-toolbox-drawer {
   position: fixed;
-  top: 0;
+  top: var(--app-chrome-top);
   left: 0;
-  bottom: var(--plan-agent-bar-height, 4.75rem);
+  bottom: var(--app-chrome-bottom);
   z-index: 30;
   width: min(380px, 32vw);
   height: auto;
-  max-height: calc(100vh - var(--plan-agent-bar-height, 4.75rem));
+  max-height: none;
   transform: none;
   box-shadow: none;
   overflow: hidden;
@@ -370,8 +383,8 @@ code {
 .app-shell--edit-dock:has(.app-edit-toolbox--docked.open):has(.plan-agent-shell.open)
   .app-edit-toolbox--docked
   .app-edit-toolbox-drawer {
-  bottom: var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px)));
-  max-height: calc(100vh - var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px))));
+  bottom: var(--app-chrome-bottom);
+  max-height: none;
 }
 
 .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-edit-toolbox--docked .app-edit-toolbox-body {
@@ -548,9 +561,9 @@ code {
 
 .app-tools-toolbox-drawer {
   position: fixed;
-  top: 0;
+  top: var(--app-chrome-top);
   right: 0;
-  bottom: 0;
+  bottom: var(--app-chrome-bottom);
   z-index: 860;
   width: min(440px, 94vw);
   display: flex;
@@ -2044,6 +2057,18 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
+  :root {
+    /* Narrow navigation and the unavailable Ask bar both wrap. These remain
+       conservative stabilization reserves until the shared shell owns real
+       layout regions. */
+    --app-chrome-top: 10rem;
+    --app-chrome-bottom: 6.5rem;
+  }
+
+  :root:has(.app-chrome-header .surface-context-host) {
+    --app-chrome-top: 10.5rem;
+  }
+
   .app-chrome-header {
     position: static;
   }
@@ -2054,19 +2079,19 @@ button:disabled {
 
   .app-shell--edit-dock .app-edit-toolbox--docked .app-edit-toolbox-drawer {
     position: fixed;
-    top: 0;
+    top: var(--app-chrome-top);
     left: 0;
-    bottom: var(--plan-agent-bar-height, 4.75rem);
+    bottom: var(--app-chrome-bottom);
     z-index: 860;
     width: min(440px, 94vw);
-    max-height: calc(100vh - var(--plan-agent-bar-height, 4.75rem));
+    max-height: none;
     transform: translateX(-100%);
     box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
   }
 
   .app-shell--edit-dock:has(.plan-agent-shell.open) .app-edit-toolbox--docked .app-edit-toolbox-drawer {
-    bottom: var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px)));
-    max-height: calc(100vh - var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px))));
+    bottom: var(--app-chrome-bottom);
+    max-height: none;
   }
 
   .app-shell--edit-dock .app-edit-toolbox--docked.open .app-edit-toolbox-drawer {
@@ -2087,12 +2112,12 @@ button:disabled {
 
   .app-shell--edit-dock:has(.plan-surface-root) .app-edit-toolbox-toggle {
     top: auto;
-    bottom: calc(var(--plan-agent-bar-height, 4.75rem) + 0.75rem);
+    bottom: calc(var(--app-chrome-bottom) + 0.75rem);
     transform: none;
   }
 
   .app-shell--edit-dock:has(.plan-agent-shell.open) .app-edit-toolbox-toggle {
-    bottom: calc(var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px))) + 0.75rem);
+    bottom: calc(var(--app-chrome-bottom) + 0.75rem);
   }
 
   .app-edit-toolbox-toggle,

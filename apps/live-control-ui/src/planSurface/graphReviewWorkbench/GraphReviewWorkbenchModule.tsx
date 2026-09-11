@@ -978,7 +978,7 @@ export function GraphReviewWorkbenchModule({
   );
   const hasCatalogSessions = catalogSessions.length > 0 || Boolean(sessionsError);
   // Keep live-state (and the Tools drawer) mounted even before a session is loaded so
-  // Ingest Recap remains reachable from the empty /ingest landing state.
+  // Diagnostics remains reachable from the empty /ingest landing state.
   // Exact campaignless runs must not inherit applied/draft/context campaign lenses.
   const exactRunCampaignId = hasExactRunLoad
     ? (exactRun?.campaign_id ?? "").trim()
@@ -1148,8 +1148,8 @@ export function GraphReviewWorkbenchModule({
               chrome={
                 !hasCatalogSessions && catalogState.status !== "empty" ? (
                   <p className="plan-projection-empty">
-                    No canonical recap ExtractionRuns are available yet. Use Ingest Recap in the toolbox to
-                    paste a recap, run extraction, and persist an APP-STATE run.
+                    No canonical recap ExtractionRuns are available yet. Load recap stays unavailable until an
+                    APP-STATE run exists.
                   </p>
                 ) : !hasAppliedLoad ? (
                   <p className="plan-projection-empty graph-review-load-empty">
