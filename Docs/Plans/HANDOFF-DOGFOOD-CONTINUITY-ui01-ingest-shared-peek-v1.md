@@ -486,7 +486,16 @@ Record:
 - Complete-object request count: stayed at one in the owning integration regression. The browser witness showed no reload spinner or visible delay during arbitration.
 - Compatibility: focused Tool/Projection tests preserve non-Ingest legacy placement; Plan/Build/Play were not migrated. Ingest Ask retained the #699 fixed bottom-sheet behavior and passed Open/Close smoke.
 - Successors remain false: UI-02 Agent dock/absence is unimplemented; 7A1 remains queued and undispatched; Stage 4 remains not done.
-- Review Cycle 1 has not yet occurred. No independent-review or CI provenance is claimed here.
+- At the initial handback, Review Cycle 1 had not yet occurred; that evidence block therefore claims no independent-review or CI provenance.
+
+### Cycle 2 repair handback
+
+- Review Cycle 1: `HOLD` on exact head `bb6d6d0abdc97913ab15405f843c6ba11c26c6ed`; review `5180065480`.
+- Finding disposition: closed narrowly. Commit `5a27fa0825cc37b12d455cf6b95f91ea5e2187cc` removes Peek's literal sticky offset and viewport-height calculation. Peek is now normal-flow (`position: static`, `max-height: none`, `overflow: visible`) at desktop and narrow widths.
+- Scope: one production CSS file changed. No Agent, Load lock, generic-lens, parchment, UI-02, or 7A1 work entered the repair.
+- Author-local evidence: the same six focused files passed, 80 tests total; production build passed with only the existing Vite large-chunk advisory.
+- Exact-code-head browser evidence: desktop computed Peek geometry was `position: static`, `top: auto`, `max-height: none`, `overflow: visible`; Nav remained visible and there was no horizontal overflow. The Karsemine Show all → Tools → Diagnostics → Karsemine sequence restored Show fewer. At `390×844`, Peek remained static below CENTER in normal flow, with Nav visible, no horizontal overflow, and disclosure state retained.
+- Prior finding ledger: Cycle 1 guessed Peek chrome geometry — closed. No other Cycle 1 finding was issued.
 
 - [x] One capability only: Ingest secondary context composes through one shared Peek while the loaded recap remains CENTER.
 - [x] Peek is a real layout region, not another `position: fixed` drawer or z-index exception.
