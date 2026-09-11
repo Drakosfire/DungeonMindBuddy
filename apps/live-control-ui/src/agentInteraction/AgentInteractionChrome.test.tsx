@@ -78,8 +78,12 @@ describe("AgentInteractionChrome", () => {
       "data-surface-id",
       "ingest",
     );
-    expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent(/Ask DungeonBuddy · Ingest · New thread/i);
-    expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent(/Graph Review · longmont-c2/i);
+    const open = screen.getByRole("button", { name: "Open" });
+    expect(open).toHaveAttribute("title");
+    expect(open.getAttribute("title")).toMatch(/Ask DungeonBuddy · Ingest · New thread/i);
+    expect(open.getAttribute("title")).toMatch(/Graph Review · longmont-c2/i);
+    expect(open.querySelector("img")).toHaveAttribute("src", expect.stringContaining("dungeonbuddy-agent.png"));
+    expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent("");
   });
 
   it("preserves pane state while plugin presence temporarily disappears", async () => {
