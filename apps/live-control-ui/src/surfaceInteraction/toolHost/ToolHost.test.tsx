@@ -133,6 +133,7 @@ describe("ToolHost", () => {
     await user.click(screen.getByRole("button", { name: "Tools" }));
     expect(screen.getByTestId("app-peek-region")).toHaveAttribute("data-active-peek", "tools");
     expect(screen.getByLabelText("Tools toolbar")).toBeVisible();
+    expect(screen.getByLabelText("Tools toolbar").closest('[data-peek-claim="tools"]')).not.toBeNull();
     expect(document.querySelector(".app-tools-toolbox-backdrop")).not.toBeInTheDocument();
     expect(document.querySelector(".app-tools-toolbox")).toHaveClass("app-tools-toolbox--peek");
   });

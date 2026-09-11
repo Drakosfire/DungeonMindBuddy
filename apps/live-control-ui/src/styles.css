@@ -616,7 +616,7 @@ code {
   transform: translateX(0);
 }
 
-.app-tools-toolbox--peek .app-tools-toolbox-drawer {
+.app-peek-claim[data-peek-claim="tools"] .app-tools-toolbox-drawer {
   position: static;
   inset: auto;
   z-index: auto;
