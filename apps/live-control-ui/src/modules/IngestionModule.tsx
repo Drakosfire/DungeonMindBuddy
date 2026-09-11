@@ -634,7 +634,7 @@ function buildToastForResult(
   }
 
   if (result.status === "ready_for_planning_activation") {
-    nextSteps.unshift("Open Recap View to read the recap and inspect graph chips.");
+    nextSteps.unshift("Review in workbench to read the recap and inspect graph chips.");
   }
 
   if (frontmatterSeedReady) {
@@ -680,7 +680,7 @@ function buildToastForResult(
       : result.status === "ready_for_planning_activation" && graphBlocked
         ? `Session packaged. Graph extract was blocked: ${graphPreview?.blocked_reason ?? "unknown reason"}.`
       : result.status === "ready_for_planning_activation" && graphMaterialized
-        ? "Session packaged and graph is on disk. Review in workbench, or open Recap View."
+        ? "Session packaged and graph is on disk. Review in workbench."
       : result.status === "ready_for_planning_activation"
         ? "Session packaged. Next: Run ingest to extract the graph."
       : result.status === "breadcrumb_required"
@@ -1378,10 +1378,10 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
             : graphMaterialized
               ? forceGraphRun
                 ? "Replaced the existing graph with a fresh extract from the packaged recap."
-                : "Graph extract finished. Review the preview graph in the workbench or Recap View."
+                : "Graph extract finished. Review the preview graph in the workbench."
               : "Ingest finished; review the Graph status panel for the next step.",
           nextSteps: ok
-            ? ["Open Recap View", "Review in workbench"]
+            ? ["Review in workbench"]
             : ["Check Graph status / errors", "Retry Run ingest after fixing"],
           sticky: true,
         });
@@ -1791,14 +1791,6 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
     projection?.close();
   }
 
-  function openRecapView() {
-    if (typeof window !== "undefined") {
-      window.location.assign(
-        `/plan?tool=recap&campaign=${encodeURIComponent(ingestCampaignId)}&session=session-${recapSession}`,
-      );
-    }
-  }
-
   async function reconcileNormalizedRecap(keepBasename: string) {
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
@@ -1884,8 +1876,6 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
     recommendedKeep ??
     (selectableKeep.length === 1 ? selectableKeep[0].basename : null);
   const canReconcile = hasNormalizedDuplicates && !reconciling && Boolean(selectedKeep);
-  const canOpenRecapView =
-    hasApplied && (state.status === "ready_for_planning_activation" || hasApplied);
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
@@ -2375,13 +2365,6 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
 
           {state.status === "error" ? (
             <p className="module-error">{state.message ?? "Ingestion operation failed."}</p>
-          ) : null}
-          {canOpenRecapView ? (
-            <div className="module-success">
-              <button type="button" onClick={openRecapView}>
-                Open Recap View
-              </button>
-            </div>
           ) : null}
         </section>
 

@@ -607,7 +607,7 @@ body.surface-projection-open .plan-agent-shell {
 .plan-agent-pane {
   display: flex;
   flex-direction: column;
-  max-height: min(64vh, 680px);
+  max-height: var(--app-ask-open-height);
   overflow: hidden;
   border: 1px solid rgba(122, 162, 247, 0.34);
   border-bottom: none;
@@ -625,6 +625,31 @@ body.surface-projection-open .plan-agent-shell {
   border: none;
   box-shadow: none;
   padding: 0.75rem 1rem 0.85rem;
+}
+
+/* Ingest/Build: Ask is not available, so Open is a sheet in the chrome
+   band — not a full-viewport takeover over Tools / recap. */
+.plan-agent-shell.open[data-ask-available="false"] {
+  inset: auto;
+  left: 50%;
+  top: auto;
+  right: auto;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(1180px, calc(100vw - 2rem));
+  height: auto;
+  max-height: var(--app-ask-open-height);
+}
+
+.plan-agent-shell.open[data-ask-available="false"] .plan-agent-pane {
+  max-height: var(--app-ask-open-height);
+  height: auto;
+  width: 100%;
+  border-radius: 18px 18px 0 0;
+  border: 1px solid rgba(122, 162, 247, 0.34);
+  border-bottom: none;
+  box-shadow: 0 -20px 54px rgba(0, 0, 0, 0.66);
+  padding: 1rem;
 }
 
 .plan-agent-pane-header {
@@ -5509,7 +5534,10 @@ body.surface-projection-open .plan-agent-shell {
 
 .graph-review-author-node-drawer {
   position: fixed;
-  inset: 0;
+  top: var(--app-chrome-top);
+  right: 0;
+  bottom: var(--app-chrome-bottom);
+  left: 0;
   z-index: 860;
   display: flex;
   flex-direction: column;

@@ -663,7 +663,7 @@ describe("IngestionModule", () => {
     expect(screen.getAllByText("ready_for_planning_activation").length).toBeGreaterThan(0);
   });
 
-  it("opens the recap view for generated recap memory", async () => {
+  it("does not open Plan Recap View after generating recap memory", async () => {
     const user = setupIngestUser();
     const assign = vi.fn();
     Object.defineProperty(window, "location", {
@@ -696,14 +696,9 @@ describe("IngestionModule", () => {
     );
     await user.click(screen.getByRole("button", { name: "Prep for ingest" }));
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
-    });
-    expect(screen.getByText(/Prep complete/i)).toBeInTheDocument();
-    const openButton = screen.getByRole("button", { name: "Open Recap View" });
-    await user.click(openButton);
-
-    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&campaign=longmont-c2&session=session-22");
+    expect(await screen.findByText(/Prep complete/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Recap View" })).not.toBeInTheDocument();
+    expect(assign).not.toHaveBeenCalled();
   });
 
   it("Prep for ingest packages without graph extraction", async () => {
@@ -735,7 +730,7 @@ describe("IngestionModule", () => {
     expect(screen.queryByText(/preview graph materialized/i)).not.toBeInTheDocument();
   });
 
-  it("reports blocked Run ingest without hiding Open Recap View", async () => {
+  it("reports blocked Run ingest without offering Plan Recap View", async () => {
     const user = setupIngestUser();
     let phase: "prep" | "ingest" = "prep";
     mockRecapIngestWithInspect(() => {
@@ -778,7 +773,7 @@ describe("IngestionModule", () => {
         { timeout: 5000 },
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Recap View" })).not.toBeInTheDocument();
   });
 
   it("submits build_graph_preview_bundle and shows source bundle blocked state", async () => {
@@ -1391,7 +1386,7 @@ describe("IngestionModule", () => {
   });
 });
 
-describe("IngestionModule PR380B characterization (Recap CTA vs preview union)", () => {
+describe("IngestionModule Recap View CTA retired", () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
@@ -1408,42 +1403,32 @@ describe("IngestionModule PR380B characterization (Recap CTA vs preview union)",
       return status;
     });
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    if (status.status === "ready_for_planning_activation") {
-      await waitFor(() => {
-        expect(screen.getByRole("button", { name: "Open Recap View" })).toBeInTheDocument();
-      });
-    } else {
-      await waitFor(() => {
-        expect(recapIngestApi.postRecapIngest).toHaveBeenCalled();
-      });
-    }
+    await waitFor(() => {
+      expect(recapIngestApi.postRecapIngest).toHaveBeenCalled();
+    });
   }
 
-  it("enables Open Recap View when normalized recap exists without preview union", async () => {
+  it("does not offer Plan Recap View when a normalized recap exists without preview union", async () => {
     await renderWithStatus(
       makeStatus({
         status: "recap_applied",
         states: ["recap_applied", "normalized_created"],
       }),
     );
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
-    });
+    expect(screen.queryByRole("button", { name: "Open Recap View" })).not.toBeInTheDocument();
   });
 
-  it("does not require preview union readiness for Open Recap View", async () => {
+  it("does not offer Plan Recap View when ingest is ready_for_planning_activation", async () => {
     await renderWithStatus(
       makeStatus({
         status: "ready_for_planning_activation",
         states: ["recap_applied", "normalized_created", "ready_for_planning_activation"],
       }),
     );
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
-    });
+    expect(screen.queryByRole("button", { name: "Open Recap View" })).not.toBeInTheDocument();
   });
 
-  it("navigates to Recap with campaign and session query params", async () => {
+  it("does not navigate to Plan Recap after prep", async () => {
     const user = setupIngestUser();
     const assign = vi.spyOn(window.location, "assign").mockImplementation(() => undefined);
     mockRecapIngestWithInspect(() =>
@@ -1468,11 +1453,9 @@ describe("IngestionModule PR380B characterization (Recap CTA vs preview union)",
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await fillRecapInputs(user, "Session 22 Recap\n\nBody.", "Session 22 - Title");
     await user.click(screen.getByRole("button", { name: "Prep for ingest" }));
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
-    });
-    await user.click(screen.getByRole("button", { name: "Open Recap View" }));
-    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&campaign=longmont-c2&session=session-22");
+    expect(await screen.findByText(/Prep complete/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Recap View" })).not.toBeInTheDocument();
+    expect(assign).not.toHaveBeenCalled();
     assign.mockRestore();
   });
 });

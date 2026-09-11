@@ -82,9 +82,9 @@
 
 .surface-projection-drawer {
   position: fixed;
-  top: 0;
+  top: var(--app-chrome-top);
   right: 0;
-  bottom: 0;
+  bottom: var(--app-chrome-bottom);
   z-index: 860;
   border: 1px solid var(--border, #2a3142);
   border-right: none;
@@ -115,7 +115,10 @@
 
 .surface-projection-drawer--fullscreen {
   position: fixed;
-  inset: 0;
+  top: var(--app-chrome-top);
+  right: 0;
+  bottom: var(--app-chrome-bottom);
+  left: 0;
   width: auto;
   z-index: 1000;
   max-height: none;

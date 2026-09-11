@@ -30,13 +30,12 @@ describe("buildIngestContextFromPlanView", () => {
 });
 
 describe("createIngestSurfaceConfig", () => {
-  it("keeps ingest tool ids", () => {
+  it("publishes Diagnostics and does not publish a Recap View overlay", () => {
     const config = createIngestSurfaceConfig(
       buildIngestContextFromPlanView(planView, ""),
     );
     expect(config.id).toBe("ingest");
     expect(config.tools.map((tool) => tool.id)).toEqual([
-      "ingest-recap",
       "graph-review-diagnostics",
     ]);
   });
