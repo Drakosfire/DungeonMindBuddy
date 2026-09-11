@@ -518,11 +518,11 @@
 
 .plan-agent-shell {
   position: fixed;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
+  right: 1rem;
+  bottom: 1rem;
   z-index: 920;
-  width: min(1180px, calc(100vw - 2rem));
+  width: max-content;
+  max-width: calc(100vw - 2rem);
   display: grid;
   gap: 0;
   pointer-events: none;
@@ -531,6 +531,7 @@
 .plan-agent-shell.open {
   inset: 0;
   left: 0;
+  right: 0;
   bottom: 0;
   transform: none;
   width: 100vw;
@@ -555,25 +556,17 @@ body.surface-projection-open .plan-agent-shell {
   display: contents;
 }
 
-.agent-interaction-empty {
-  padding: 0.25rem 0 0.5rem;
-}
-
-.agent-interaction-empty a {
-  color: var(--accent, #7aa2f7);
-}
-
 .plan-agent-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   border: 1px solid rgba(122, 162, 247, 0.34);
-  border-bottom: none;
-  border-radius: 18px 18px 0 0;
+  border-radius: 999px;
   background: #111722;
   box-shadow: 0 -18px 46px rgba(0, 0, 0, 0.58);
-  padding: 0.8rem 1rem;
+  max-width: 28rem;
+  padding: 0.55rem 0.65rem 0.55rem 0.85rem;
 }
 
 .plan-agent-bar strong,
@@ -625,31 +618,6 @@ body.surface-projection-open .plan-agent-shell {
   border: none;
   box-shadow: none;
   padding: 0.75rem 1rem 0.85rem;
-}
-
-/* Ingest/Build: Ask is not available, so Open is a sheet in the chrome
-   band — not a full-viewport takeover over Tools / recap. */
-.plan-agent-shell.open[data-ask-available="false"] {
-  inset: auto;
-  left: 50%;
-  top: auto;
-  right: auto;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: min(1180px, calc(100vw - 2rem));
-  height: auto;
-  max-height: var(--app-ask-open-height);
-}
-
-.plan-agent-shell.open[data-ask-available="false"] .plan-agent-pane {
-  max-height: var(--app-ask-open-height);
-  height: auto;
-  width: 100%;
-  border-radius: 18px 18px 0 0;
-  border: 1px solid rgba(122, 162, 247, 0.34);
-  border-bottom: none;
-  box-shadow: 0 -20px 54px rgba(0, 0, 0, 0.66);
-  padding: 1rem;
 }
 
 .plan-agent-pane-header {

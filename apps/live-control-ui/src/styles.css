@@ -8,7 +8,7 @@
      outside .app-shell, so the inset lives on :root. Sidebars consume
      these; do not restate per-host pixel heights. */
   --app-chrome-top: 5.5rem;
-  --app-chrome-bottom: 4.75rem;
+  --app-chrome-bottom: 0rem;
   --app-ask-open-height: min(64vh, 680px);
 }
 
@@ -2106,11 +2106,10 @@ button:disabled {
 
 @media (max-width: 900px) {
   :root {
-    /* Narrow navigation and the unavailable Ask bar both wrap. These remain
-       conservative stabilization reserves until the shared shell owns real
-       layout regions. */
+    /* Narrow navigation wraps; unavailable/collapsed Agent chrome reserves no
+       global bottom band. */
     --app-chrome-top: 10rem;
-    --app-chrome-bottom: 6.5rem;
+    --app-chrome-bottom: 0rem;
   }
 
   :root:has(.app-chrome-header .surface-context-host) {
