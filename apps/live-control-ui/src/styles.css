@@ -2058,7 +2058,11 @@ button:disabled {
 
 @media (max-width: 900px) {
   :root {
-    --app-chrome-top: 7.5rem;
+    /* Narrow navigation and the unavailable Ask bar both wrap. These remain
+       conservative stabilization reserves until the shared shell owns real
+       layout regions. */
+    --app-chrome-top: 10rem;
+    --app-chrome-bottom: 6.5rem;
   }
 
   :root:has(.app-chrome-header .surface-context-host) {

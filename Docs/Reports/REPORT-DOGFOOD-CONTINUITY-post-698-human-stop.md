@@ -10,16 +10,16 @@
 
 Do not paste recap prose, DSNs, or `.env` values into this report or into chat with the 7A1 agent.
 
-This STOP gates Stage 7A1. Design already exists and is **STOP-GATED**:
+This STOP gates the next dispatch. Stage 7A1 design already exists and remains **DESIGN READY / QUEUED**:
 
 ```text
 branch   origin/dogfood-continuity/stage-7a1-ingest-contextual-ask-v1
 commit   e34f68915e0ca535bed7aa9bc13a8bdd2fabea0a
 handoff  Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-7a1-ingest-contextual-ask-v1.md
-status   DESIGN READY / STOP-GATED
+status   DESIGN READY / QUEUED BEHIND UI DESIGN SERIES
 ```
 
-Do not tell that agent to implement until this sheet’s dispatch decision is filled.
+Do not tell that agent to implement until the UI design series is complete and the product is re-anchored.
 
 ---
 
@@ -35,8 +35,7 @@ This session answers one product question:
 
 Then a dispatch question:
 
-> **Is Stage 7A1 still the next independently useful capability?**  
-> (Ask from historical Ingest without leaving the recap.)
+> **Does contextual Ask outrank the UI/product hierarchy work exposed by this STOP?**
 
 ---
 
@@ -205,30 +204,27 @@ Open only if a real C2 document / Runbook already exists. Do not invent one.
 
 ---
 
-## Dispatch decision for the 7A1 agent
+## Dispatch decision after the STOP
 
 Fill **one**:
 
 ```text
-[x] DISPATCH Stage 7A1 as designed
-      Mission still: Ask from exact loaded historical Ingest recap,
-      with optional opened World object, using existing Agent chrome.
-      Do not start 7A2 (free-text highlight). Do not repair Plan lens.
-      Do not change generic search policy.
-      Do not restore Tools → Ingest Recap or Open Recap View.
+[x] DISPATCH A BOUNDED UI DESIGN / IMPLEMENTATION SERIES FIRST
+      Start with one independently reviewable slice, using Play as the
+      visual north-star proving surface: dark room chrome + parchment
+      table instrument; navigation/presence cheap + current card expensive;
+      table meaning first + graph identity under Advanced.
+      Carry accepted primitives into recap/object/Ingest through later
+      bounded slices; do not redesign the whole app in one PR.
+
+[ ] DISPATCH Stage 7A1 as designed
 
 [ ] REBRIEF Stage 7A1 before implementation
-      What changed: ________________________________
-      What the new first capability is: ____________
-
-[ ] DIFFERENT successor first
-      Name it: ____________________________________
-      Why it outranks 7A1: _________________________
 ```
 
 If inspection itself is still `R` / `D` / `T` and you would not stay in Ingest to look at people, **do not dispatch 7A1**. Say that plainly. 7A1 assumes `#698` inspection is good enough to stand on.
 
-If the card is mostly `A`/`E` and the remaining anger is “I still have to go to Plan to ask,” that is the 7A1 confirm.
+The card is mostly `A`/`E`, but the STOP also confirmed that the product hierarchy still feels assembled rather than deliberately designed. That product-level finding outranks adding contextual Ask. Stage 7A1 remains a valid queued capability, not the next dispatch.
 
 ---
 
@@ -246,7 +242,7 @@ Recorded on `db7c6660` after a cold restart of API/UI. Ingest has **Load**, not 
 | `World · Needs attention · Projection campaign does not match requested campaign longmont-c2` | X | inherited generic-lens successor | **Standing on hard refresh** of `/ingest?campaign=longmont-c2&session=session-25`. Graph Review persist writes `campaign=`. World lens treats bare `?campaign=` (not `/build`, no `scopeMode=campaign`) as C1+C2 **world union**. World-scope snapshot `campaignId` is empty; the chrome verifier then fails closed. Not Recap-View leftover. 7A1 must not repair this. |
 | Load slower than liked | P | after a UI design pass | Not a `#698` fail. Do not optimize before the Load-bar lock / Recap-tool confusion is designed. |
 
-**7A1:** still the Ask-on-this-recap question. Do not absorb Recap View, edit-lock placement, sentence copy, lens mismatch, or load-speed. Do not restore Tools → Ingest Recap / Open Recap View.
+**Next:** a bounded UI design / implementation series, beginning with Play as the visual north-star proving surface. **Then re-anchor before 7A1.** The 7A1 contract remains Ask-on-this-recap and must not absorb Recap View, edit-lock placement, sentence copy, lens mismatch, or load-speed. Do not restore Tools → Ingest Recap / Open Recap View.
 
 **Immediate recover:** open [C2S25 Ingest](http://127.0.0.1:5173/ingest?campaign=longmont-c2&session=session-25) as a full navigation. Recap View overlay is removed from Ingest Tools.
 
@@ -260,6 +256,8 @@ Landed on `dogfood-continuity/remove-ingest-recap-overlay-v1` after the operator
 
 2. **Chrome band for composable sidebars.** Ask / Tools overlap because ToolHost, EditHost, ProjectionHost, and Author Node sit outside `.app-shell` with `top: 0; bottom: 0`. Inset is now `:root --app-chrome-top` / `--app-chrome-bottom`. Ingest Ask-unavailable **Open** is a bottom sheet, not a full-viewport takeover.
 
+This chrome band is a stabilization boundary, not the target UI architecture. Its centralized offsets are intentionally conservative and may reserve more space than the auto-height unavailable-Ask sheet consumes. The UI series should replace guessed viewport offsets with a shared shell whose header, workspace, drawers, and Agent occupy real layout regions; do not preserve these exact numbers as design authority.
+
 Operator also recorded, not repaired here:
 
 - First-boot Ingest flicker → Stage 5B
@@ -269,9 +267,20 @@ Operator also recorded, not repaired here:
 - Load speed after a UI design pass
 - Standing generic-lens campaign mismatch on `?campaign=`
 
+### Post-repair browser witness
+
+Run 2026-09-10 from the #699 branch against the real local API/UI and read-only World / APP-STATE authorities. Exact committed head is recorded in the PR review evidence after the repair commit.
+
+- Hard-refresh Ingest, select C2S25 run `graph-ingest:longmont-c2:session-25:20260808T182312Z`, and Load: PASS. Session 25 remained in Graph Review after opening Karsemine; the complete object card opened alongside the recap.
+- Tools publication: PASS. Diagnostics remained and no `Ingest Recap` button was present.
+- Desktop chrome composition at `1280×720`: PASS. Header ended at `70.8px`; open Tools occupied `88–644px`; collapsed Ask began at `649.3px`.
+- Narrow chrome composition at `390×844`: initial witness found real overlap from wrapped chrome, repaired in this PR, then PASS. Header ended at `146.7px`; open Tools occupied `160–740px`; collapsed Ask began at `752.5px`.
+- Ask-unavailable Open / Close at both widths: PASS. It opened as a bottom sheet, Tools ended exactly at the sheet boundary, and Close restored the collapsed bar.
+- Expected inherited noise remained: `Projection campaign does not match requested campaign longmont-c2`. This is still the generic-lens successor, not a #699 failure.
+
 ---
 
-## Paste this back to the 7A1 agent
+## Carry this into the next design dispatch and the queued 7A1 lane
 
 Copy after the STOP. Keep it exact-SHA. Do not paste recap prose.
 
@@ -299,16 +308,21 @@ Agent on Ingest:
   that remains the 7A1 mission
 
 Dispatch:
-  DISPATCH 7A1 as designed
+  BOUNDED UI DESIGN / IMPLEMENTATION SERIES FIRST
+  Play is the visual north-star proving surface
+  re-anchor after the series before dispatching 7A1
+
+7A1:
+  DESIGN READY / QUEUED
+  mission remains Ask from the exact loaded historical Ingest recap
 
 Do not implement 7A2, generic World search, Plan lens repair,
 Build/Play Agent, or graph-change proposals in the 7A1 PR.
 Do not restore Tools → Ingest Recap or Open Recap View
 (`/plan?tool=recap`); Graph Review is the recap reader.
 
-If DISPATCH: implementation base is current origin/main after this
-follow-up merges (chrome band + Recap overlay removal). Until then
-keep the design handoff:
+When 7A1 is reconsidered, re-anchor its implementation base after the
+UI series. Preserve the design handoff meanwhile:
   Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-7a1-ingest-contextual-ask-v1.md
   First live proof after CODE is still C2S25 → Karsemine → Ask
   “What else do we know about her?”

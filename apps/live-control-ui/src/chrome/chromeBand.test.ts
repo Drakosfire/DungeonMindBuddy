@@ -42,4 +42,11 @@ describe("app chrome band", () => {
       /\.plan-agent-shell\.open\[data-ask-available="false"\]\s*\{[^}]*max-height:\s*var\(--app-ask-open-height\)/s,
     );
   });
+
+  it("reserves wrapped navigation and Ask chrome at the narrow breakpoint", () => {
+    const css = readCss("styles.css");
+    expect(css).toMatch(
+      /@media[^{}]*\(max-width:\s*720px\)[\s\S]*?:root\s*\{[^}]*--app-chrome-top:\s*10rem;[^}]*--app-chrome-bottom:\s*6\.5rem;/,
+    );
+  });
 });
