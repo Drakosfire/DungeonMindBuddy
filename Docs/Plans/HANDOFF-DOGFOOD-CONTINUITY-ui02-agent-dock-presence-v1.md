@@ -18,14 +18,14 @@ pr_body_template: |
 
 # HANDOFF — DOGFOOD-CONTINUITY: UI-02 truthful Agent dock presence
 
-**Created:** 2026-09-11  
+**Created:** 2026-09-11
 **Status:** ACTIVE — implementation complete; awaiting independent review
-**Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui02-agent-dock-presence-v1.md`  
-**Conversation/workstream:** UI language design series / C1-C2 demo-readiness  
-**Flow / owner:** `DOGFOOD-CONTINUITY` / Agent Interaction chrome presentation  
-**Direction:** DESIGN → CODE → REVIEW  
-**Base revision:** `5810a253239a53d731da831a9ac4ccd2548f10d9` — PR #700 merge  
-**Design branch:** `dogfood-continuity/ui02-agent-dock-presence-v1`  
+**Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui02-agent-dock-presence-v1.md`
+**Conversation/workstream:** UI language design series / C1-C2 demo-readiness
+**Flow / owner:** `DOGFOOD-CONTINUITY` / Agent Interaction chrome presentation
+**Direction:** DESIGN → CODE → REVIEW
+**Base revision:** `5810a253239a53d731da831a9ac4ccd2548f10d9` — PR #700 merge
+**Design branch:** `dogfood-continuity/ui02-agent-dock-presence-v1`
 **Suggested PR title if dispatched:** `DOGFOOD-CONTINUITY: make Agent presence cheap and truthful`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). UI language: [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](../Design/ui-language/DESIGN-interaction-layer-language.md). Shell ownership: [`Docs/Design/ARCHITECTURE-surface-interaction-layer.md`](../Design/ARCHITECTURE-surface-interaction-layer.md).
