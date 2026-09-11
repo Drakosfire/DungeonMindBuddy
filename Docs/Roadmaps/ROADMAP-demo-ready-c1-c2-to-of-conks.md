@@ -152,7 +152,8 @@ PR #696 Stage 2C MERGED (`3e2abc0c7f8ce523b071716eb13bcf18d7979a2a`; accepted he
 PR #697 complete World-object projection MERGED (`947a727ddf1b7a98a670242f103920c91db62605`; accepted head `83eb43689189d9ef37e227d26f3bdc08f547ec5e`; 3 review cycles; Human STOP successor-routed)
 PR #698 opened-object usefulness MERGED (`db7c66603217ab037d0bdbce0802646c4cb1dcf7`); post-merge inspection accepted as A/E-good enough
 PR #699 STOP stabilization MERGED (`b1153423f04dd220e3b53d305e8627146a8afb7e`; accepted head `99420b0b248aea4d037ae08c1c58b836c8acabe5`; 2 review cycles); Recap overlay removed and chrome offsets explicitly temporary
-CURRENT — UI-01 Ingest shared Peek composition on base `514823701246879d88085857e5f23258fd0b763e`; Stage 4 remains NOT DONE
+PR #700 UI-01 Ingest shared Peek composition MERGED (`5810a253239a53d731da831a9ac4ccd2548f10d9`; accepted head `d6091ee9e053ab3c2eb889d77ad3ec432836e1f8`; 2 review cycles)
+CURRENT — UI-02 truthful Agent dock presence on base `5810a253239a53d731da831a9ac4ccd2548f10d9`; Stage 4 remains NOT DONE
 Stage 7A1 Agent-on-Ingest remains DESIGN READY / QUEUED behind the UI series
 ```
 
@@ -267,7 +268,9 @@ STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Sta
 
 **Completed presentation predecessor:** PR #698 (`db7c66603217ab037d0bdbce0802646c4cb1dcf7`) made compact opened-object presentation with local Show all/Show fewer and technical identity behind Advanced A/E-good enough in post-merge dogfood. PR #699 (`b1153423f04dd220e3b53d305e8627146a8afb7e`; accepted head `99420b0b248aea4d037ae08c1c58b836c8acabe5`; 2 review cycles) removed the duplicate Ingest Recap path and stabilized chrome overlap without claiming its guessed offsets as target architecture.
 
-**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md) — Ingest-first shared Peek composition. The exact loaded recap remains CENTER while World object, Tools, and Projection arbitrate one real PEEK region. UI-01 is active, not complete; Stage 4 remains NOT DONE. UI-02 Agent dock and Stage 7A1 contextual Ask remain false/queued.
+**Completed UI predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md) — PR #700 merged at `5810a253239a53d731da831a9ac4ccd2548f10d9` after 2 review cycles. The exact loaded recap remains CENTER while World object, Tools, and Projection arbitrate one real PEEK region.
+
+**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-ui02-agent-dock-presence-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-ui02-agent-dock-presence-v1.md) — visible Agent presence follows real Ask-plugin registration; unavailable surfaces lose Agent chrome and its phantom bottom band, while registered closed Ask becomes a compact dock. UI-02 is active, not complete; Stage 4 remains NOT DONE. Stage 7A1 contextual Ask remains false/queued.
 
 ### Human outcome
 

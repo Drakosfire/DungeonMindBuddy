@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { AgentInteractionChrome } from "./AgentInteractionChrome";
 import { AgentInteractionProvider } from "./AgentInteractionProvider";
-import { AskPluginSlotProvider } from "./AskPluginSlot";
+import { AskPluginSlotProvider, useRegisterAskPluginPresence } from "./AskPluginSlot";
 import { usePublishAgentSurfaceContext } from "./usePublishAgentSurfaceContext";
 
 function PublishBuildContext() {
@@ -43,8 +43,12 @@ function PublishIngestContext() {
 }
 
 describe("AgentInteractionChrome", () => {
-  it("shows cross-surface bar and honest empty Ask without a Plan plugin", async () => {
-    const user = userEvent.setup();
+  function RegisterAsk({ present = true }: { present?: boolean }) {
+    useRegisterAskPluginPresence(present);
+    return null;
+  }
+
+  it("renders no Agent chrome or Open action without a registered Ask plugin", () => {
     render(
       <AgentInteractionProvider>
         <AskPluginSlotProvider>
@@ -54,32 +58,17 @@ describe("AgentInteractionChrome", () => {
       </AgentInteractionProvider>,
     );
 
-    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute(
-      "data-ask-available",
-      "false",
-    );
-    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute(
-      "data-surface-id",
-      "build",
-    );
-    expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent(/Ask DungeonBuddy · Build/i);
-    expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent(
-      /Build worldbuilding document · Open Plan to enable Ask/i,
-    );
-
-    await user.click(screen.getByTestId("agent-interaction-open"));
-    expect(screen.getByTestId("agent-interaction-ask-empty")).toHaveTextContent(/Open Plan to ask/i);
-    expect(screen.getByTestId("agent-interaction-current-surface")).toHaveTextContent(
-      /Current surface: Build/i,
-    );
-    expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
+    expect(screen.queryByTestId("agent-interaction-chrome")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Plan" })).not.toBeInTheDocument();
   });
 
-  it("labels the bar with published Ingest surface identity", () => {
+  it("derives presence from plugin registration rather than the published surface", () => {
     render(
       <AgentInteractionProvider>
         <AskPluginSlotProvider>
           <PublishIngestContext />
+          <RegisterAsk />
           <AgentInteractionChrome />
         </AskPluginSlotProvider>
       </AgentInteractionProvider>,
@@ -89,7 +78,42 @@ describe("AgentInteractionChrome", () => {
       "data-surface-id",
       "ingest",
     );
-    expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent(/Ask DungeonBuddy · Ingest/i);
+    expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent(/Ask DungeonBuddy · Ingest · New thread/i);
     expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent(/Graph Review · longmont-c2/i);
+  });
+
+  it("preserves pane state while plugin presence temporarily disappears", async () => {
+    const user = userEvent.setup();
+    const view = render(
+      <AgentInteractionProvider>
+        <AskPluginSlotProvider>
+          <RegisterAsk />
+          <AgentInteractionChrome />
+        </AskPluginSlotProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open" }));
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveClass("open");
+
+    view.rerender(
+      <AgentInteractionProvider>
+        <AskPluginSlotProvider>
+          <RegisterAsk present={false} />
+          <AgentInteractionChrome />
+        </AskPluginSlotProvider>
+      </AgentInteractionProvider>,
+    );
+    expect(screen.queryByTestId("agent-interaction-chrome")).not.toBeInTheDocument();
+
+    view.rerender(
+      <AgentInteractionProvider>
+        <AskPluginSlotProvider>
+          <RegisterAsk />
+          <AgentInteractionChrome />
+        </AskPluginSlotProvider>
+      </AgentInteractionProvider>,
+    );
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveClass("open");
   });
 });

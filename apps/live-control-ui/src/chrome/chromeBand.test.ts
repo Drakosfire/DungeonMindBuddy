@@ -13,7 +13,7 @@ describe("app chrome band", () => {
   it("declares the inset once on :root for composable hosts outside .app-shell", () => {
     const css = readCss("styles.css");
     expect(css).toMatch(/:root\s*\{[^}]*--app-chrome-top:/s);
-    expect(css).toMatch(/:root\s*\{[^}]*--app-chrome-bottom:/s);
+    expect(css).toMatch(/:root\s*\{[^}]*--app-chrome-bottom:\s*0rem/s);
     expect(css).toMatch(/:root:has\(\.plan-agent-shell\.open\)\s*\{[^}]*--app-chrome-bottom:\s*var\(--app-ask-open-height\)/s);
   });
 
@@ -36,17 +36,17 @@ describe("app chrome band", () => {
     expect(plan).toMatch(/\.graph-review-author-node-drawer\s*\{[^}]*bottom:\s*var\(--app-chrome-bottom\)/s);
   });
 
-  it("keeps Ingest Ask-unavailable Open as a sheet instead of a viewport takeover", () => {
+  it("has no unavailable Ask sheet presentation and keeps the registered closed dock compact", () => {
     const css = readCss("planSurface/planSurface.css");
-    expect(css).toMatch(
-      /\.plan-agent-shell\.open\[data-ask-available="false"\]\s*\{[^}]*max-height:\s*var\(--app-ask-open-height\)/s,
-    );
+    expect(css).not.toMatch(/\.plan-agent-shell\.open\[data-ask-available="false"\]/);
+    expect(css).toMatch(/\.plan-agent-shell\s*\{[^}]*width:\s*max-content;[^}]*max-width:\s*calc\(100vw - 2rem\)/s);
+    expect(css).toMatch(/\.plan-agent-bar\s*\{[^}]*max-width:\s*28rem/s);
   });
 
-  it("reserves wrapped navigation and Ask chrome at the narrow breakpoint", () => {
+  it("reserves wrapped navigation but no collapsed Agent band at the narrow breakpoint", () => {
     const css = readCss("styles.css");
     expect(css).toMatch(
-      /@media[^{}]*\(max-width:\s*720px\)[\s\S]*?:root\s*\{[^}]*--app-chrome-top:\s*10rem;[^}]*--app-chrome-bottom:\s*6\.5rem;/,
+      /@media[^{}]*\(max-width:\s*900px\)[\s\S]*?:root\s*\{[^}]*--app-chrome-top:\s*10rem;[^}]*--app-chrome-bottom:\s*0rem;/,
     );
   });
 });
