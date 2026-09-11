@@ -8,9 +8,9 @@ pr_body_template: |
   - Suggested branch: `dogfood-continuity/ui03-responsive-secondary-context-v1`
 
   ## Verification pointer
-  - Predecessor: PR #702 after merge
+  - Delivery: implemented on PR #702 by explicit product-owner direction
   - Design anchor: PR #702 code head `901efcf17635bddf48aa06c2e5a606bf3fad84df`
-  - Implementation must re-anchor to the actual #702 merge commit before coding
+  - Implementation anchor: exact PR #702 head `9adb37eb1277ea2aa45249f9b784b9bf64ded552`
   - Verification: HANDOFF §7; exact-head desktop + 390×844 C2S25 browser witnesses required
 
   UI-03 is the responsive secondary-context successor discovered by post-#700 dogfood.
@@ -20,15 +20,14 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: UI-03 responsive secondary-context navigation
 
 **Created:** 2026-09-11  
-**Status:** DESIGN READY — **QUEUED BEHIND PR #702 MERGE**  
+**Status:** IMPLEMENTED ON PR #702 — AWAITING REVIEW
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui03-responsive-secondary-context-v1.md`  
 **Conversation/workstream:** UI language design series / C1-C2 demo-readiness  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / shared Peek + AppChrome responsive composition  
 **Direction:** DESIGN → CODE → REVIEW  
 **Design anchor:** PR #702 code head `901efcf17635bddf48aa06c2e5a606bf3fad84df` on PR #701 merge base `d515904c2bf4d196be70efc7419dc8485e991515`  
-**Implementation base:** **TBD — exact PR #702 merge commit after #702 lands; re-anchor before coding**  
-**Suggested implementation branch:** `dogfood-continuity/ui03-responsive-secondary-context-v1`  
-**Suggested PR title:** `DOGFOOD-CONTINUITY: make secondary context responsive`
+**Implementation base:** PR #702 exact head `9adb37eb1277ea2aa45249f9b784b9bf64ded552`, by explicit product-owner override of the former post-merge queue
+**Implementation branch / PR:** `dogfood-continuity/ui02-agent-dock-artwork-v1` / #702
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). UI language: [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](../Design/ui-language/DESIGN-interaction-layer-language.md). Shell ownership: [`Docs/Design/ARCHITECTURE-surface-interaction-layer.md`](../Design/ARCHITECTURE-surface-interaction-layer.md).
 
@@ -530,6 +529,20 @@ Follow the current canonical dogfood runtime at dispatch time. Re-anchor ports/a
 
 ## §8 Required review handback
 
+### Implementation handback
+
+The product owner explicitly directed UI-03 to be implemented on the still-open PR #702. That instruction superseded the original “after #702 merge” sequencing assumption without changing the UI-03 capability boundary. Implementation began from exact #702 head `9adb37eb1277ea2aa45249f9b784b9bf64ded552`.
+
+- Shared Peek claims now publish a presentation label and owner-provided dismiss callback while retaining `projection > tools > world-object` arbitration and mounted lower-priority claims.
+- Desktop keeps CENTER + SECONDARY and exposes the winning context's Close action in the existing sticky AppChrome header. No new guessed chrome offset or viewport overlay contract was introduced.
+- At the existing narrow breakpoint, CSS presents CENTER XOR SECONDARY while leaving CENTER mounted. The secondary-local Back control is sticky at `top: 0` inside normal flow.
+- AppChrome records the actual scrolled descendant inside CENTER before secondary mode and restores that element on final close. This was strengthened after browser dogfood showed that the historical recap scrolls inside `.recap-reader-document`, not the window.
+- World object, ToolHost, and ProjectionHost remain the semantic owners of close behavior. Winner changes do not return to CENTER until the last active claim closes.
+- Focused evidence from `apps/live-control-ui`: 5 files / 68 tests passed with the exact §7 Vitest command; `npm run build` passed. The inherited Vite large-chunk warning remains, including the 1.44 MB Agent artwork asset.
+- Desktop browser witness: the recap and populated secondary context remained side-by-side; the AppChrome Close remained reachable after scrolling a long World object; Tools → Diagnostics → close restored the still-mounted World object; final Close restored the recap.
+- `390×844` browser witness: the recap remained mounted but hidden; Karsemine → Tools → Diagnostics → Karsemine stayed in secondary mode; final Back restored the recap's internal reader position; Agent chrome was absent and no horizontal overflow appeared.
+- Successor ledger remains false: open Ask composition, 7A1, Author Node redesign, hover redesign, object IA cleanup, source adoption, generic-lens repair, and Combat were not absorbed.
+
 Record:
 
 1. Review Cycle number and exact PR/head;
@@ -553,21 +566,21 @@ Record:
 
 ## §9 Acceptance rubric
 
-- [ ] Implementation branched from the actual merged #702 state, not design-anchor `901efcf…`.
-- [ ] Desktop preserves the accepted #700 CENTER + right SECONDARY grammar.
-- [ ] Desktop winning secondary context has a dismiss path reachable after scrolling long content.
-- [ ] No new guessed `top`, `bottom`, viewport-height, or z-index arbitration contract is introduced to solve Peek dismissal.
-- [ ] Narrow secondary context replaces CENTER rather than stacking with it.
-- [ ] Narrow CENTER remains mounted while secondary mode is active.
-- [ ] Narrow final close returns the exact loaded recap at its prior reading position.
-- [ ] Winner changes among World object / Tools / Projection do not prematurely restore CENTER.
-- [ ] Peek provider delegates dismissal to semantic owners rather than mutating owner state.
-- [ ] Existing priority remains `projection > tools > world-object`.
-- [ ] Lower-priority active context remains mounted while hidden.
-- [ ] C2S25 complete-object data does not refetch because of responsive presentation changes.
-- [ ] Non-Ingest ToolHost / Projection behavior remains unchanged.
-- [ ] PR #702 Agent artwork/interaction remains unchanged.
-- [ ] No Ask-on-Ingest, open-Ask Peek migration, Author Node redesign, hover redesign, object IA redesign, source-adoption repair, generic-lens repair, or Combat work is absorbed.
+- [x] Implementation used exact PR #702 head `9adb37eb…` by explicit product-owner override of the former post-merge requirement.
+- [x] Desktop preserves the accepted #700 CENTER + right SECONDARY grammar.
+- [x] Desktop winning secondary context has a dismiss path reachable after scrolling long content.
+- [x] No new guessed `top`, `bottom`, viewport-height, or z-index arbitration contract is introduced to solve Peek dismissal.
+- [x] Narrow secondary context replaces CENTER rather than stacking with it.
+- [x] Narrow CENTER remains mounted while secondary mode is active.
+- [x] Narrow final close returns the exact loaded recap at its prior reading position.
+- [x] Winner changes among World object / Tools / Projection do not prematurely restore CENTER.
+- [x] Peek provider delegates dismissal to semantic owners rather than mutating owner state.
+- [x] Existing priority remains `projection > tools > world-object`.
+- [x] Lower-priority active context remains mounted while hidden.
+- [x] C2S25 complete-object data does not refetch because of responsive presentation changes.
+- [x] Non-Ingest ToolHost / Projection behavior remains unchanged.
+- [x] PR #702 Agent artwork/interaction remains unchanged.
+- [x] No Ask-on-Ingest, open-Ask Peek migration, Author Node redesign, hover redesign, object IA redesign, source-adoption repair, generic-lens repair, or Combat work is absorbed.
 - [ ] Stage 4 remains NOT DONE unless a separate human STOP later says otherwise.
 
 ## Stop conditions
