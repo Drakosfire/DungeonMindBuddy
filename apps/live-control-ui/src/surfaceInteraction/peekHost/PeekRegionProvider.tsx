@@ -11,6 +11,12 @@ import { createPortal } from "react-dom";
 
 export type PeekClaimKind = "world-object" | "tools" | "projection";
 
+export interface PeekClaimDescriptor {
+  kind: PeekClaimKind;
+  label: string;
+  onDismiss: () => void;
+}
+
 const PEEK_PRIORITY: Record<PeekClaimKind, number> = {
   "world-object": 1,
   tools: 2,
@@ -19,8 +25,8 @@ const PEEK_PRIORITY: Record<PeekClaimKind, number> = {
 
 interface PeekRegionContextValue {
   target: HTMLElement | null;
-  winner: PeekClaimKind | null;
-  register: (kind: PeekClaimKind) => () => void;
+  winner: PeekClaimDescriptor | null;
+  register: (descriptor: PeekClaimDescriptor) => () => void;
   setTarget: (target: HTMLElement | null) => void;
 }
 
@@ -28,30 +34,34 @@ const PeekRegionContext = createContext<PeekRegionContextValue | null>(null);
 
 export function PeekRegionProvider({ children }: { children: ReactNode }) {
   const [target, setTarget] = useState<HTMLElement | null>(null);
-  const [claims, setClaims] = useState<ReadonlySet<PeekClaimKind>>(() => new Set());
+  const [claims, setClaims] = useState<ReadonlyMap<PeekClaimKind, PeekClaimDescriptor>>(
+    () => new Map(),
+  );
 
-  const register = useCallback((kind: PeekClaimKind) => {
+  const register = useCallback((descriptor: PeekClaimDescriptor) => {
     setClaims((current) => {
-      if (current.has(kind)) return current;
-      const next = new Set(current);
-      next.add(kind);
+      const next = new Map(current);
+      next.set(descriptor.kind, descriptor);
       return next;
     });
     return () => {
       setClaims((current) => {
-        if (!current.has(kind)) return current;
-        const next = new Set(current);
-        next.delete(kind);
+        if (current.get(descriptor.kind) !== descriptor) return current;
+        const next = new Map(current);
+        next.delete(descriptor.kind);
         return next;
       });
     };
   }, []);
 
   const winner = useMemo(() => {
-    let selected: PeekClaimKind | null = null;
-    for (const kind of claims) {
-      if (selected === null || PEEK_PRIORITY[kind] > PEEK_PRIORITY[selected]) {
-        selected = kind;
+    let selected: PeekClaimDescriptor | null = null;
+    for (const descriptor of claims.values()) {
+      if (
+        selected === null
+        || PEEK_PRIORITY[descriptor.kind] > PEEK_PRIORITY[selected.kind]
+      ) {
+        selected = descriptor;
       }
     }
     return selected;
@@ -65,14 +75,14 @@ export function PeekRegionProvider({ children }: { children: ReactNode }) {
   return <PeekRegionContext.Provider value={value}>{children}</PeekRegionContext.Provider>;
 }
 
-function usePeekRegion() {
+export function usePeekRegionState() {
   const value = useContext(PeekRegionContext);
   if (!value) throw new Error("Peek region must be used inside PeekRegionProvider");
   return value;
 }
 
 export function PeekRegionSlot() {
-  const { setTarget, winner } = usePeekRegion();
+  const { setTarget, winner } = usePeekRegionState();
   const targetRef = useCallback((node: HTMLElement | null) => setTarget(node), [setTarget]);
 
   return (
@@ -80,20 +90,33 @@ export function PeekRegionSlot() {
       ref={targetRef}
       className="app-peek-region"
       data-testid="app-peek-region"
-      data-active-peek={winner ?? undefined}
+      data-active-peek={winner?.kind ?? undefined}
       aria-label="Secondary context"
       hidden={winner === null}
-    />
+    >
+      {winner ? (
+        <header className="app-peek-region__nav">
+          <button type="button" onClick={winner.onDismiss}>
+            ← Back
+          </button>
+          <span>{winner.label}</span>
+        </header>
+      ) : null}
+    </aside>
   );
 }
 
 export function PeekClaim({
   kind,
   active,
+  label,
+  onDismiss,
   children,
 }: {
   kind: PeekClaimKind;
   active: boolean;
+  label: string;
+  onDismiss: () => void;
   children: ReactNode;
 }) {
   const region = useContext(PeekRegionContext);
@@ -101,8 +124,9 @@ export function PeekClaim({
 
   useEffect(() => {
     if (!active || !register) return;
-    return register(kind);
-  }, [active, kind, register]);
+    const descriptor = { kind, label, onDismiss };
+    return register(descriptor);
+  }, [active, kind, label, onDismiss, register]);
 
   if (!active) return null;
   // Component-level tests and isolated stories may render an owner without the
@@ -115,8 +139,8 @@ export function PeekClaim({
     <div
       className="app-peek-claim"
       data-peek-claim={kind}
-      hidden={region.winner !== kind}
-      aria-hidden={region.winner !== kind}
+      hidden={region.winner?.kind !== kind}
+      aria-hidden={region.winner?.kind !== kind}
     >
       {children}
     </div>,

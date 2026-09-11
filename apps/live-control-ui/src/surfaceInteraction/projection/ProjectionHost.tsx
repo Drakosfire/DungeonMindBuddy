@@ -153,6 +153,13 @@ export function ProjectionHost({
   );
 
   return usesPeek ? (
-    <PeekClaim kind="projection" active={isOpen}>{host}</PeekClaim>
+    <PeekClaim
+      kind="projection"
+      active={isOpen}
+      label={active?.title ?? labels.toolTitle}
+      onDismiss={onClose}
+    >
+      {host}
+    </PeekClaim>
   ) : host;
 }

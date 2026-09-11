@@ -136,6 +136,8 @@ describe("ToolHost", () => {
     expect(screen.getByLabelText("Tools toolbar").closest('[data-peek-claim="tools"]')).not.toBeNull();
     expect(document.querySelector(".app-tools-toolbox-backdrop")).not.toBeInTheDocument();
     expect(document.querySelector(".app-tools-toolbox")).toHaveClass("app-tools-toolbox--peek");
+    await user.click(screen.getByRole("button", { name: "← Back" }));
+    expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
   });
 
   it("groups tools by placement order rather than label text", async () => {

@@ -40,7 +40,7 @@ describe("app chrome band", () => {
     const css = readCss("planSurface/planSurface.css");
     expect(css).not.toMatch(/\.plan-agent-shell\.open\[data-ask-available="false"\]/);
     expect(css).toMatch(/\.plan-agent-shell\s*\{[^}]*width:\s*max-content;[^}]*max-width:\s*calc\(100vw - 2rem\)/s);
-    expect(css).toMatch(/\.plan-agent-bar\s*\{[^}]*max-width:\s*28rem/s);
+    expect(css).toMatch(/\.plan-agent-bar\s*\{[^}]*width:\s*5rem;[^}]*height:\s*5rem/s);
   });
 
   it("reserves wrapped navigation but no collapsed Agent band at the narrow breakpoint", () => {

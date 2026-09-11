@@ -1,22 +1,49 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { PeekClaim, PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { AppChrome } from "./AppChrome";
 
 function renderIngestChrome(withPeek: boolean) {
-  return render(
+  const onDismiss = vi.fn();
+  const view = render(
     <AgentInteractionProvider>
       <PeekRegionProvider>
         <AppChrome activeRoute="ingest"><main>Recap center</main></AppChrome>
-        <PeekClaim kind="world-object" active={withPeek}><p>World peek</p></PeekClaim>
+        <PeekClaim kind="world-object" active={withPeek} label="World object" onDismiss={onDismiss}>
+          <p>World peek</p>
+        </PeekClaim>
       </PeekRegionProvider>
     </AgentInteractionProvider>,
+  );
+  return { ...view, onDismiss };
+}
+
+function ResponsiveHarness() {
+  const [open, setOpen] = useState(false);
+  return (
+    <AgentInteractionProvider>
+      <PeekRegionProvider>
+        <button type="button" onClick={() => setOpen(true)}>Open secondary</button>
+        <AppChrome activeRoute="ingest">
+          <main data-testid="recap-sentinel">
+            Recap center
+            <div data-testid="recap-scroll-region" />
+          </main>
+        </AppChrome>
+        <PeekClaim kind="world-object" active={open} label="World object" onDismiss={() => setOpen(false)}>
+          <p>World peek</p>
+        </PeekClaim>
+      </PeekRegionProvider>
+    </AgentInteractionProvider>
   );
 }
 
 describe("AppChrome Ingest peek composition", () => {
+  afterEach(() => vi.unstubAllGlobals());
   it("keeps Nav outside the CENTER/PEEK workspace and collapses an empty Peek", () => {
     renderIngestChrome(false);
     const header = screen.getByTestId("app-chrome-header");
@@ -29,9 +56,38 @@ describe("AppChrome Ingest peek composition", () => {
   });
 
   it("composes populated Peek beside the still-mounted CENTER", () => {
-    renderIngestChrome(true);
+    const { onDismiss } = renderIngestChrome(true);
     expect(screen.getByText("Recap center")).toBeInTheDocument();
     expect(screen.getByTestId("app-peek-region")).not.toHaveAttribute("hidden");
     expect(screen.getByText("World peek")).toBeVisible();
+    screen.getByTestId("secondary-context-dismiss").querySelector("button")?.click();
+    expect(onDismiss).toHaveBeenCalledOnce();
+  });
+
+  it("keeps CENTER mounted and restores narrow reading position after the final dismiss", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    const scrollTo = vi.fn();
+    vi.stubGlobal("scrollTo", scrollTo);
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 432 });
+
+    render(<ResponsiveHarness />);
+    const sentinel = screen.getByTestId("recap-sentinel");
+    const readingRegion = screen.getByTestId("recap-scroll-region");
+    readingRegion.scrollTop = 275;
+    fireEvent.scroll(readingRegion);
+    await user.click(screen.getByRole("button", { name: "Open secondary" }));
+    expect(sentinel).toBeInTheDocument();
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
+    readingRegion.scrollTop = 0;
+
+    await user.click(screen.getByTestId("secondary-context-dismiss").querySelector("button")!);
+    expect(sentinel).toBeInTheDocument();
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 432, behavior: "auto" });
+    expect(readingRegion.scrollTop).toBe(275);
   });
 });

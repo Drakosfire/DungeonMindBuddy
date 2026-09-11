@@ -1,6 +1,7 @@
 import { agentSurfaceLabel, surfaceContextSubtitle } from "./surfaceContextDisplay";
 import { useAskPluginSlot } from "./AskPluginSlot";
 import { useAgentInteraction } from "./useAgentInteraction";
+import dungeonBuddyAgentImage from "../assets/dungeonbuddy-agent.png";
 
 /**
  * App-scoped Agent Interaction shell (R10b).
@@ -40,23 +41,20 @@ export function AgentInteractionChrome() {
         </>
       ) : (
         <div className="plan-agent-bar agent-interaction-bar" data-testid="agent-interaction-bar">
-          <div>
-            <strong>
-              Ask DungeonBuddy
-              {surfaceLabel ? ` · ${surfaceLabel}` : ""}
-              {` · ${threadTitle}`}
-            </strong>
-            <span className="plan-agent-muted">
-              {surfaceSubtitle ?? "Graph-grounded ask ready"}
-            </span>
-          </div>
           <button
             type="button"
             onClick={() => setPaneOpen(true)}
             aria-expanded={open}
+            aria-label="Open"
+            title={[
+              "Ask DungeonBuddy",
+              surfaceLabel,
+              threadTitle,
+              surfaceSubtitle ?? "Graph-grounded ask ready",
+            ].filter(Boolean).join(" · ")}
             data-testid="agent-interaction-open"
           >
-            Open
+            <img src={dungeonBuddyAgentImage} alt="" aria-hidden="true" />
           </button>
         </div>
       )}

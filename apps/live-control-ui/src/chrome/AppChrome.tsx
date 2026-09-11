@@ -13,7 +13,7 @@ import type { SurfaceInteractionWorkObjectIdentity } from "../surfaceInteraction
 import {
   SurfaceContextHost,
 } from "../surfaceInteraction/contextHost";
-import { PeekRegionSlot } from "../surfaceInteraction/peekHost";
+import { PeekRegionSlot, usePeekRegionState } from "../surfaceInteraction/peekHost";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 import { interceptPrimaryNavigationClick } from "./appNavigation";
 import { AppChromeWorldGraphStatus } from "./AppChromeWorldGraphStatus";
@@ -130,6 +130,51 @@ export function AppChrome({
   editToolboxLayout = "overlay",
   children,
 }: AppChromeProps) {
+  const { winner: secondaryContext } = usePeekRegionState();
+  const priorSecondaryKindRef = useRef(secondaryContext?.kind ?? null);
+  const secondaryKindRef = useRef(secondaryContext?.kind ?? null);
+  secondaryKindRef.current = secondaryContext?.kind ?? null;
+  const savedNarrowScrollYRef = useRef<number | null>(null);
+  const centerRef = useRef<HTMLDivElement | null>(null);
+  const savedCenterScrollRef = useRef<{ element: HTMLElement; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const center = centerRef.current;
+    if (activeRoute !== "ingest" || !center) return;
+    const captureReadingPosition = (event: Event) => {
+      if (secondaryKindRef.current !== null) return;
+      const element = event.target;
+      if (!(element instanceof HTMLElement) || !center.contains(element)) return;
+      savedCenterScrollRef.current = { element, top: element.scrollTop };
+    };
+    center.addEventListener("scroll", captureReadingPosition, true);
+    return () => center.removeEventListener("scroll", captureReadingPosition, true);
+  }, [activeRoute]);
+
+  useLayoutEffect(() => {
+    if (activeRoute !== "ingest") return;
+    const previousKind = priorSecondaryKindRef.current;
+    const nextKind = secondaryContext?.kind ?? null;
+    const narrow = window.matchMedia?.("(max-width: 900px)").matches ?? false;
+
+    if (previousKind === null && nextKind !== null && narrow) {
+      savedNarrowScrollYRef.current = window.scrollY;
+      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
+    } else if (previousKind !== null && nextKind === null && savedNarrowScrollYRef.current !== null) {
+      const returnY = savedNarrowScrollYRef.current;
+      savedNarrowScrollYRef.current = null;
+      const centerReadingPosition = savedCenterScrollRef.current;
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: returnY, behavior: "auto" });
+        if (centerReadingPosition?.element.isConnected) {
+          centerReadingPosition.element.scrollTop = centerReadingPosition.top;
+        }
+      });
+    }
+
+    priorSecondaryKindRef.current = nextKind;
+  }, [activeRoute, secondaryContext?.kind]);
+
   const agentInteraction = useAgentInteraction();
   const pageActionsRef = useRef(pageActions);
   pageActionsRef.current = pageActions;
@@ -285,11 +330,19 @@ export function AppChrome({
           <AppChromeWorldGraphStatus />
         </nav>
         <SurfaceContextHost />
+        {activeRoute === "ingest" && secondaryContext ? (
+          <div className="app-secondary-context-dismiss" data-testid="secondary-context-dismiss">
+            <span>{secondaryContext.label}</span>
+            <button type="button" onClick={secondaryContext.onDismiss}>Close</button>
+          </div>
+        ) : null}
       </header>
 
       {activeRoute === "ingest" ? (
         <div className="app-chrome-workspace">
-          <div className="app-chrome-center">{children}</div>
+          <div ref={centerRef} className="app-chrome-center" data-testid="app-chrome-center">
+            {children}
+          </div>
           <PeekRegionSlot />
         </div>
       ) : children}
