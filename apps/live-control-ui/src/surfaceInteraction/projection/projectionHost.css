@@ -105,6 +105,32 @@
   transform: translateX(0);
 }
 
+.surface-projection-host--peek,
+.surface-projection-host--peek .surface-projection-drawer {
+  width: 100%;
+}
+
+.surface-projection-host--peek .surface-projection-backdrop {
+  display: none !important;
+}
+
+.surface-projection-host--peek .surface-projection-drawer {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  max-height: none;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+  transition: none;
+}
+
+.surface-projection-host--peek .surface-projection-drawer--wide,
+.surface-projection-host--peek .surface-projection-drawer--fullscreen,
+.surface-projection-host--peek .surface-projection-drawer--compact {
+  width: 100%;
+}
+
 .surface-projection-drawer--compact {
   width: min(440px, 94vw);
 }

@@ -15,6 +15,7 @@ import * as agentInteractionProvider from "../../agentInteraction/AgentInteracti
 import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
 import type { ProjectionSurfacePublication } from "../../agentInteraction/agentInteractionTypes";
 import { ToolHost } from "../../surfaceInteraction/toolHost/ToolHost";
+import { PeekRegionProvider, PeekRegionSlot } from "../../surfaceInteraction/peekHost";
 import { SurfaceContextProvider } from "../../surfaceInteraction/contextHost";
 import type { PlanContextDescriptor } from "../types";
 import { LegacyProjectionHostAdapter } from "../projection/LegacyProjectionHostAdapter";
@@ -261,13 +262,16 @@ function renderWorkbench(
   return render(
     <AgentInteractionProvider>
       <SurfaceContextProvider>
-        <GraphReviewWorkbenchModule
-          context={moduleContext}
-          catalogChannel={options?.catalogChannel ?? readyCatalogChannel(runs)}
-          onCatalogRefresh={options?.onCatalogRefresh ?? (() => undefined)}
-        />
-        <ToolHost />
-        <LegacyProjectionHostAdapter />
+        <PeekRegionProvider>
+          <GraphReviewWorkbenchModule
+            context={moduleContext}
+            catalogChannel={options?.catalogChannel ?? readyCatalogChannel(runs)}
+            onCatalogRefresh={options?.onCatalogRefresh ?? (() => undefined)}
+          />
+          <PeekRegionSlot />
+          <ToolHost />
+          <LegacyProjectionHostAdapter />
+        </PeekRegionProvider>
       </SurfaceContextProvider>
     </AgentInteractionProvider>,
   );
@@ -926,6 +930,16 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(within(objectAdvanced!).getByText("node-1")).toBeVisible();
     expect(within(objectAdvanced!).getByText("fp-test")).toBeVisible();
     expect(within(objectAdvanced!).getByText("ingest")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    expect(screen.getByLabelText("Tools toolbar")).toBeVisible();
+    expect(screen.getByTestId("graph-object-projection-card")).not.toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Diagnostics" }));
+    expect(await screen.findByLabelText("Diagnostics projection")).toBeVisible();
+    expect(screen.getByTestId("graph-object-projection-card")).not.toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Close toolbox" }));
+    expect(screen.getByTestId("graph-object-projection-card")).toBeVisible();
+    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(15);
     expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
       expect.objectContaining({
         nodeId: "node-1",
@@ -934,6 +948,9 @@ describe("GraphReviewWorkbenchModule", () => {
       }),
     );
     expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Close World object" }));
+    expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
+    expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
   });
 
   it("keeps the partial warning visible while Ingest discloses every returned row", async () => {

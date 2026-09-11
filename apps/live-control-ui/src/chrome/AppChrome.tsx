@@ -13,6 +13,7 @@ import type { SurfaceInteractionWorkObjectIdentity } from "../surfaceInteraction
 import {
   SurfaceContextHost,
 } from "../surfaceInteraction/contextHost";
+import { PeekRegionSlot } from "../surfaceInteraction/peekHost";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 import { interceptPrimaryNavigationClick } from "./appNavigation";
 import { AppChromeWorldGraphStatus } from "./AppChromeWorldGraphStatus";
@@ -286,7 +287,12 @@ export function AppChrome({
         <SurfaceContextHost />
       </header>
 
-      {children}
+      {activeRoute === "ingest" ? (
+        <div className="app-chrome-workspace">
+          <div className="app-chrome-center">{children}</div>
+          <PeekRegionSlot />
+        </div>
+      ) : children}
     </div>
   );
 

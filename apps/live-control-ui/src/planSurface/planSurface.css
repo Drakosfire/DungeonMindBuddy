@@ -2412,6 +2412,34 @@ body.surface-projection-open .plan-agent-shell {
   min-height: 0;
 }
 
+.graph-review-historical-recap-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.recap-graph-object-panel {
+  min-width: 0;
+}
+
+.recap-graph-object-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid var(--border, #2a3142);
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recap-graph-object-panel__header button {
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.25rem;
+}
+
 .recap-reader-document,
 .recap-node-panel {
   background: rgba(18, 20, 26, 0.55);

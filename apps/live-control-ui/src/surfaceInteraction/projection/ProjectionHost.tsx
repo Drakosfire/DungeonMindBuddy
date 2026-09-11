@@ -8,6 +8,7 @@ import type {
   ProjectionSize,
 } from "./types";
 import "./projectionHost.css";
+import { PeekClaim } from "../peekHost";
 
 export interface ProjectionHostProps {
   active: ActiveProjection | null;
@@ -18,6 +19,7 @@ export interface ProjectionHostProps {
   onNavigate: (itemId: string) => void;
   onClose: () => void;
   onExpand: () => void;
+  placement?: "legacy" | "peek";
 }
 
 function projectionDrawerClass(size: ProjectionSize | undefined): string {
@@ -43,15 +45,18 @@ export function ProjectionHost({
   onNavigate,
   onClose,
   onExpand,
+  placement = "legacy",
 }: ProjectionHostProps) {
   const isOpen = active !== null;
+  const usesPeek = placement === "peek";
   const activeToolId = active?.kind === "tool" ? active.key : null;
-  const showModalBackdrop = isOpen && active?.kind === "tool";
+  const showModalBackdrop = !usesPeek && isOpen && active?.kind === "tool";
   const drawerClass = projectionDrawerClass(active?.size);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const rootClass = [
     "surface-projection-host",
     isOpen ? "surface-projection-host--open" : "",
+    usesPeek ? "surface-projection-host--peek" : "",
     active?.kind === "content" ? "surface-projection-host--reference" : "",
   ]
     .filter(Boolean)
@@ -60,11 +65,11 @@ export function ProjectionHost({
   const themeStyle = (theme?.tokens ?? {}) as CSSProperties;
 
   useEffect(() => {
-    document.body.classList.toggle("surface-projection-open", isOpen);
+    document.body.classList.toggle("surface-projection-open", isOpen && !usesPeek);
     return () => {
       document.body.classList.remove("surface-projection-open");
     };
-  }, [isOpen]);
+  }, [isOpen, usesPeek]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -84,7 +89,7 @@ export function ProjectionHost({
     return null;
   }
 
-  return (
+  const host = (
     <div
       className={rootClass}
       style={themeStyle}
@@ -146,4 +151,8 @@ export function ProjectionHost({
       </aside>
     </div>
   );
+
+  return usesPeek ? (
+    <PeekClaim kind="projection" active={isOpen}>{host}</PeekClaim>
+  ) : host;
 }

@@ -21,6 +21,7 @@ import {
 } from "./agentInteraction/surfaceInteractionCompat";
 import { LegacyProjectionHostAdapter } from "./planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "./surfaceInteraction/toolHost/ToolHost";
+import { PeekRegionProvider } from "./surfaceInteraction/peekHost";
 import { SurfaceContextProvider } from "./surfaceInteraction/contextHost";
 import { AppChrome, type AppChromeToolsGeneration } from "./chrome/AppChrome";
 import {
@@ -302,10 +303,12 @@ export function App() {
         <WorldGraphLensProvider planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
           <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
             <SurfaceContextProvider>
-              {content}
-              <ToolHost />
-              <LegacyProjectionHostAdapter />
-              <AgentInteractionChrome />
+              <PeekRegionProvider>
+                {content}
+                <ToolHost />
+                <LegacyProjectionHostAdapter />
+                <AgentInteractionChrome />
+              </PeekRegionProvider>
             </SurfaceContextProvider>
           </WorldGraphLensProjectionProvider>
         </WorldGraphLensProvider>

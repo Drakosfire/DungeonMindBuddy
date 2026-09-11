@@ -22,6 +22,7 @@ import { LegacyProjectionHostAdapter } from "../../planSurface/projection/Legacy
 import { buildSurfaceInteractionIdentity } from "../surfaceIdentity";
 import type { SurfaceInteractionPublication, SurfaceInteractionToolContribution } from "../types";
 import { ToolHost } from "./ToolHost";
+import { PeekRegionProvider, PeekRegionSlot } from "../peekHost";
 
 vi.mock("../../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api/liveApi")>();
@@ -108,6 +109,32 @@ describe("ToolHost", () => {
 
     expect(screen.queryByTestId("surface-tool-host")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+  });
+
+  it("places active Ingest Tools in Peek while legacy surfaces keep their drawer", async () => {
+    const user = userEvent.setup();
+    const ingestPublication = {
+      ...makeNativePublication([makeTool({ id: "diagnostics", label: "Diagnostics" })]),
+      surfaceId: "ingest",
+      label: "Ingest",
+      identity: buildSurfaceInteractionIdentity({ surfaceId: "ingest", instanceParts: ["peek"] }),
+    };
+
+    render(
+      <AgentInteractionProvider>
+        <PeekRegionProvider>
+          <NativeToolsPublisher publication={ingestPublication} />
+          <PeekRegionSlot />
+          <ToolHost />
+        </PeekRegionProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    expect(screen.getByTestId("app-peek-region")).toHaveAttribute("data-active-peek", "tools");
+    expect(screen.getByLabelText("Tools toolbar")).toBeVisible();
+    expect(document.querySelector(".app-tools-toolbox-backdrop")).not.toBeInTheDocument();
+    expect(document.querySelector(".app-tools-toolbox")).toHaveClass("app-tools-toolbox--peek");
   });
 
   it("groups tools by placement order rather than label text", async () => {
