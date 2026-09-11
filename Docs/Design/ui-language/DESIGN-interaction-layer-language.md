@@ -3,7 +3,7 @@ document_id: dmb-design-interaction-layer-language
 title: Interaction Layer language — shell regions, peek, glance, Agent dock
 document_class: product_design
 status: design_input
-version: 0.1
+version: 0.2
 created_at: "2026-09-10"
 updated_at: "2026-09-10"
 workstream: UI-LANGUAGE
@@ -16,7 +16,9 @@ companion_designs:
   canvas: "../DESIGN-shared-markdown-canvas-surface-composition.md"
 product_goals: "../../Backlog.md"
 evidence:
-  - "PR #578 / dogfood/of-conks-hempholm-table-ready @ 88e4d65e — table hierarchy and dual aesthetic"
+  - "PR #578 / dogfood/of-conks-hempholm-table-ready @ 88e4d65e — parchment instruments (Scene/object/threat)"
+  - "dogfood/of-conks-end-to-end @ b40d893f / fe70b6d6 — boutique packet (roll + prepared encounter)"
+  - "EVIDENCE-of-conks-styling.md — what we liked; keep vs discard; two palettes"
   - "REPORT-pr578-play-dogfood-mining.md — preserve the interaction, discard adventure-specific bridges"
   - "PR #698 / #699 — compact object cards; Recap overlay removed; chrome-band is stabilization only"
   - "2026-09-10 Mobbin research — Notion side peek, Linear Properties/Help/Ask dock, Figma canvas + comment pin"
@@ -140,12 +142,13 @@ Threats stay a sheet (parchment survivor on `main`: `threatSheetProjection.css`)
 
 ## 5. Dual aesthetic (paint grammar, not first slice)
 
-Keep native state and composition. Steal Of Conks hierarchy:
+Keep native state and composition. Steal Of Conks hierarchy. There are **two styling piles** with different jobs — do not mash them into one theme. The why lives in [`EVIDENCE-of-conks-styling.md`](EVIDENCE-of-conks-styling.md).
 
 - **Dark room chrome** — Nav, rails, graph chips, glances (`#151b28` family).
-- **Warm paper instruments** — current recap / Scene / object sheet (`#f7ebd7`, Bookinsanity, gold border, crimson for *current*).
+- **Warm paper instruments** — current recap / Scene / object / threat (`#f7ebd7`, Bookinsanity, gold `#c0ad6a` border, crimson `#a11d18` for *current*).
+- **Dark ops handout** — roll table / prepared encounter when those exist (`#14171c` / gold `#d9a441` action). Not chrome. Not a second recap.
 
-These are complementary parts of one product, not competing themes. Navigation/presence is cheap; the current card is expensive.
+These are complementary parts of one product, not competing themes. Navigation/presence is cheap; the current card is expensive. Do not parchment a Roll. Do not dashboard a Scene.
 
 Of Conks locator (feel only — do not merge):
 
@@ -153,11 +156,12 @@ Of Conks locator (feel only — do not merge):
 |---|---|
 | Table-ready prototype / PR #578 | `dogfood/of-conks-hempholm-table-ready` @ `88e4d65e7ed69afe262008749194e2b948ce4c43` |
 | Scene deck + parchment stage | `apps/live-control-ui/src/playSurface/beats/beats.css`, `BeatsPanel.tsx` on that tip |
-| Object sheet | `playObjectSheetProjection.css`, `PlayObjectSheetProjection.tsx` on that tip |
-| `dogfood/of-conks-end-to-end` @ `b40d893f` | Different UI-hardening dogfood — **not** the Hempholm parchment prototype |
+| Object sheet IA + paint | `playObjectSheetProjection.css`, `PlayObjectSheetProjection.tsx` on that tip |
 | Parchment on `main` | `apps/live-control-ui/src/statblocks/projection/threatSheetProjection.css` |
+| Boutique packet CSS/JS/HTML | `dogfood/of-conks-end-to-end` @ `b40d893f`; added `fe70b6d6574b138dd3cd0c6f7876acc5117020c8` as `evals/of_conks_end_to_end_dogfood/packet/` (`of-conks-packet.css` is **not** on `88e4d65e`) |
+| What we liked / keep vs discard | [`EVIDENCE-of-conks-styling.md`](EVIDENCE-of-conks-styling.md) |
 
-There is no `of-conks-packet.css` on the table-ready tip. Packet feel lives in the Play Object Sheet.
+Hex values are hierarchy evidence, not a token contract. Do not commit `packet/local/` licensed fixtures.
 
 Directional Play image (hierarchy, not pixels): [`DESIGN-play-surface-gm-cockpit-target.md`](../DESIGN-play-surface-gm-cockpit-target.md). Beat Context / At a Glance / Combat as a permanent right rail in that older image are **not** the product target.
 

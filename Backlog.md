@@ -172,7 +172,7 @@ The rows below preserve discoverability for capabilities removed from root witho
 
 These goals preserve the 2026-09-09 fresh-eyes Buddy UI audit and the Of Conks / Hempholm prototype comparison as **design input only**. They do not own sequence and are not dispatchable from root. The Demo-Ready roadmap, CON-READY/Play authorities, Threat roadmap, and future dogfood STOP decisions own decomposition and ordering.
 
-**Interaction language (2026-09-10):** shell regions, peek/glance grammar, steal/ignore from Mobbin + Of Conks, and the recommended first peek-not-overlay slice live in [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](Docs/Design/ui-language/DESIGN-interaction-layer-language.md). That folder is the living UI language; `ARCHITECTURE-surface-interaction-layer.md` remains chrome **ownership**.
+**Interaction language (2026-09-10):** shell regions, peek/glance grammar, steal/ignore from Mobbin + Of Conks, and the recommended first peek-not-overlay slice live in [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](Docs/Design/ui-language/DESIGN-interaction-layer-language.md). What we liked about Of Conks paint (parchment instruments vs boutique packet, keep vs discard) is captured in [`Docs/Design/ui-language/EVIDENCE-of-conks-styling.md`](Docs/Design/ui-language/EVIDENCE-of-conks-styling.md). That folder is the living UI language; `ARCHITECTURE-surface-interaction-layer.md` remains chrome **ownership**.
 
 The forcing product question behind all of them is:
 
@@ -304,11 +304,12 @@ Read these as visual/interaction evidence only; **do not merge the dogfood branc
 | Table-ready prototype / PR #578 | `dogfood/of-conks-hempholm-table-ready` @ `88e4d65e7ed69afe262008749194e2b948ce4c43` |
 | Prototype paint | `apps/live-control-ui/src/playSurface/beats/beats.css`; `graphReference/playObjectSheetProjection.css`; `PlayObjectSheetProjection.tsx` on that branch |
 | End-to-end follow-on | `dogfood/of-conks-end-to-end` @ `b40d893f` — UI-hardening dogfood, **not** the Hempholm parchment prototype |
-| Packet visual hierarchy | Play Object Sheet CSS/TSX on the table-ready tip; there is no `of-conks-packet.css` on `88e4d65e` |
+| Boutique packet CSS/JS/HTML | `evals/of_conks_end_to_end_dogfood/packet/` on the e2e branch (added `fe70b6d6`); `of-conks-packet.css` is **not** on `88e4d65e` |
+| What we liked / keep vs discard | [`Docs/Design/ui-language/EVIDENCE-of-conks-styling.md`](Docs/Design/ui-language/EVIDENCE-of-conks-styling.md) |
 | Native Play composition | `apps/live-control-ui/src/playSurface/playSurface.css`; `PlayGraphObjectSheet.tsx`; current Play cockpit/design authorities on `main` |
 | Parchment survivor on main | `apps/live-control-ui/src/statblocks/projection/threatSheetProjection.css` and Threat glance/sheet presentation |
 
-Design synthesis: **keep native state/persistence/composition; steal prototype table hierarchy and visual grammar.** Navigation/presence should be cheap; the current card should be expensive. Dark room chrome and warm paper instruments are complementary parts of one product, not competing themes.
+Design synthesis: **keep native state/persistence/composition; steal prototype table hierarchy and visual grammar.** Navigation/presence should be cheap; the current card should be expensive. Dark room chrome, warm paper instruments, and dark ops handouts (roll / prepared encounter) are complementary parts of one product, not competing themes. Do not merge dogfood branches wholesale.
 
 ## Hygiene history
 
