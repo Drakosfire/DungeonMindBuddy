@@ -12,14 +12,14 @@ pr_body_template: |
   - Changed paths: must remain inside HANDOFF §4 / bounded discovery
   - Verification: HANDOFF §7; exact-head Plan + unavailable-surface browser witness required
 
-  This handoff is DESIGN READY but dogfood-gated. Do not dispatch implementation until
-  the post-#700 operator pass confirms UI-02 is still the next slice.
+  Post-#700 dogfood was submitted to design and the product owner explicitly dispatched
+  UI-02 unchanged. The checked-in handoff and exact-head evidence are the review contract.
 ---
 
 # HANDOFF — DOGFOOD-CONTINUITY: UI-02 truthful Agent dock presence
 
 **Created:** 2026-09-11  
-**Status:** DESIGN READY — **DO NOT DISPATCH UNTIL POST-#700 DOGFOOD DISPOSITION**  
+**Status:** ACTIVE — implementation complete; awaiting independent review
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui02-agent-dock-presence-v1.md`  
 **Conversation/workstream:** UI language design series / C1-C2 demo-readiness  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / Agent Interaction chrome presentation  
@@ -39,7 +39,7 @@ This handoff is intentionally prepared **before** that dogfood finishes so imple
 Before coding, the steward must record one of:
 
 ```text
-[ ] DISPATCH UI-02 unchanged
+[x] DISPATCH UI-02 unchanged — product owner confirmed dogfood notes were submitted to design and explicitly authorized implementation on 2026-09-11
 [ ] REBRIEF UI-02 from #700 dogfood findings
 [ ] DEFER UI-02; different UI/product defect outranks it
 ```
@@ -93,8 +93,8 @@ main                         5810a253239a53d731da831a9ac4ccd2548f10d9
 #700                         MERGED — UI-01 Ingest shared Peek
 #700 accepted head           d6091ee9e053ab3c2eb889d77ad3ec432836e1f8
 open implementation PRs      none at handoff creation
-UI-01                        code-complete; operator dogfood in progress
-UI-02                        DESIGN READY / DOGFOOD-GATED
+UI-01                        MERGED in #700; post-merge dogfood submitted
+UI-02                        ACTIVE / DISPATCHED unchanged
 7A1                          DESIGN READY / QUEUED; do not dispatch here
 Stage 4                      NOT DONE
 ```
@@ -404,19 +404,34 @@ Record:
 
 ## §9 Acceptance rubric
 
-- [ ] Post-#700 dogfood explicitly dispatches UI-02; handoff was not implemented speculatively.
-- [ ] No Ask plugin → no Agent chrome DOM and no focusable Open action.
-- [ ] No Ask plugin → no Agent-specific persistent bottom-space reservation.
-- [ ] Real Ask plugin + closed → compact dock, not full-width bar.
-- [ ] Real Ask plugin + open → existing Plan Ask behavior remains intact.
-- [ ] Visibility is driven by Ask-plugin registration, not route/surface heuristics.
-- [ ] UI-02 does not clear or rewrite Agent semantic state merely because capability is temporarily unavailable.
-- [ ] Ingest/Build/Play do not gain Ask capability.
-- [ ] UI-01 Peek remains intact.
-- [ ] Narrow viewport has no phantom bottom band or horizontal overflow.
-- [ ] No new public/durable/API contract.
-- [ ] Actual changes remain inside §4 / bounded discovery.
-- [ ] UI-03/open-Ask composition, 7A1, parchment paint, Load lock, generic-lens, Combat remain unimplemented/unclaimed.
+### Implementation handback — ready for Review Cycle 1
+
+- Authorization: after #700 dogfood notes were submitted to design, the product owner explicitly said “Proceed and implement”; UI-02 was dispatched unchanged.
+- Implementation code head: `9c158c8852daa5575666c14388fbc482409eb70c`; branch `dogfood-continuity/ui02-agent-dock-presence-v1`.
+- Invariant disposition: `AgentInteractionChrome` returns no DOM unless `askPluginPresent` is true. A registered closed Ask renders one compact fixed dock; opening it retains the existing full Plan Ask host/pane. No route or surface whitelist was added.
+- State continuity: the focused component regression opens the pane, unregisters the plugin, confirms chrome absence, re-registers it, and confirms the provider-owned open state returns unchanged.
+- Layout contract: default and narrow `--app-chrome-bottom` are `0rem`; only `.plan-agent-shell.open` activates `--app-ask-open-height`. The retired unavailable sheet CSS was deleted. Ordinary `.app-wrap` bottom padding computes to 16px on Ingest.
+- Author-local automated evidence: the exact §7 five-file command passed, 47 tests total. Production build passed with only the existing Vite large-chunk advisory.
+- Desktop browser evidence on the code head: Ingest had no Agent chrome, no Open action, `--app-chrome-bottom: 0rem`, 16px content bottom padding, visible Nav, and no horizontal overflow. UI-01 Karsemine → Tools → Diagnostics → Karsemine remained intact. Plan’s closed dock measured 448px in a 1280px viewport (35% width), exposed one Open action and truthful Plan/thread context; open Ask mounted the real Plan pane with Question and Close controls, then returned to the compact dock.
+- Navigation browser evidence: Plan → Ingest → Plan removed and restored chrome solely with plugin registration; the dock label remained identical across the round trip.
+- Narrow browser evidence at `390×844`: Plan dock measured 358px without horizontal overflow; Ingest had no Agent DOM, zero bottom reservation, 16px ordinary padding, visible Nav, and no horizontal overflow.
+- Actual production/test paths are exactly the five expected §4 paths. State-authority sync is backward-looking for #700 and marks UI-02 active, never complete.
+- Successors remain false: useful open-Ask composition/UI-03, Ask-on-Ingest/7A1, parchment paint, Load lock, generic-lens repair, and Combat are unimplemented/unclaimed.
+- Review Cycle 1 has not occurred; no independent-review or CI provenance is claimed.
+
+- [x] Post-#700 dogfood explicitly dispatches UI-02; handoff was not implemented speculatively.
+- [x] No Ask plugin → no Agent chrome DOM and no focusable Open action.
+- [x] No Ask plugin → no Agent-specific persistent bottom-space reservation.
+- [x] Real Ask plugin + closed → compact dock, not full-width bar.
+- [x] Real Ask plugin + open → existing Plan Ask behavior remains intact.
+- [x] Visibility is driven by Ask-plugin registration, not route/surface heuristics.
+- [x] UI-02 does not clear or rewrite Agent semantic state merely because capability is temporarily unavailable.
+- [x] Ingest/Build/Play do not gain Ask capability.
+- [x] UI-01 Peek remains intact.
+- [x] Narrow viewport has no phantom bottom band or horizontal overflow.
+- [x] No new public/durable/API contract.
+- [x] Actual changes remain inside §4 / bounded discovery.
+- [x] UI-03/open-Ask composition, 7A1, parchment paint, Load lock, generic-lens, Combat remain unimplemented/unclaimed.
 
 ## Stop conditions
 

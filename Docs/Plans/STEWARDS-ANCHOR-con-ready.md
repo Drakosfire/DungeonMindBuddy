@@ -4,9 +4,9 @@
 **Line of work:** `CON-READY`
 **Updated:** 2026-09-11
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor base:** `main` `514823701246879d88085857e5f23258fd0b763e` (after PR #698 merge `db7c66603217ab037d0bdbce0802646c4cb1dcf7` and PR #699 merge `b1153423f04dd220e3b53d305e8627146a8afb7e`; #699 accepted head `99420b0b248aea4d037ae08c1c58b836c8acabe5`, 2 review cycles)
+**Re-anchor base:** `main` `5810a253239a53d731da831a9ac4ccd2548f10d9` (after PR #700 merge; accepted head `d6091ee9e053ab3c2eb889d77ad3ec432836e1f8`, 2 review cycles)
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
-**Current forcing function:** DOGFOOD-CONTINUITY **UI-01 Ingest shared Peek composition** — **ACTIVE** ([`HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md)). PR #698 made complete World objects compact and inspectable; PR #699 removed the duplicate recap path and proved its chrome-band offsets were stabilization rather than target architecture. The accepted Ingest-first decomposition now gives World object, Tools, and Projection one real PEEK region while the loaded recap remains CENTER. UI-02 Agent dock and Stage 7A1 contextual Ask remain queued. Stage 4 remains NOT DONE.
+**Current forcing function:** DOGFOOD-CONTINUITY **UI-02 truthful Agent dock presence** — **ACTIVE** ([`HANDOFF-DOGFOOD-CONTINUITY-ui02-agent-dock-presence-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui02-agent-dock-presence-v1.md)). PR #700 merged the Ingest shared Peek at `5810a253`; post-merge dogfood was submitted to design and the product owner dispatched UI-02 unchanged. Agent chrome must now exist only where a real Ask plugin is registered, with no phantom bottom band on unavailable surfaces. Stage 7A1 remains queued and Stage 4 remains NOT DONE.
 **Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
@@ -58,7 +58,8 @@ STAGE 2C / #696   MERGED — `3e2abc0c7f8ce523b071716eb13bcf18d7979a2a`; accepte
 PR #697           MERGED — complete World-object projection; merge `947a727d`; accepted head `83eb4368`; 3 review cycles; Human STOP successor-routed
 PR #698           MERGED — opened-object usefulness; merge `db7c6660`; post-merge A/E inspection accepted
 PR #699           MERGED — STOP stabilization; merge `b1153423`; accepted head `99420b0b`; 2 review cycles
-CURRENT           UI-01 Ingest shared Peek composition; UI-02 and 7A1 queued; Stage 4 remains NOT DONE
+PR #700           MERGED — UI-01 Ingest shared Peek; merge `5810a253`; accepted head `d6091ee9`; 2 review cycles
+CURRENT           UI-02 truthful Agent dock presence; 7A1 queued; Stage 4 remains NOT DONE
 
 PLAY STRUCTURE
 BF1 / PR #628    DONE — Beat-first v2 grammar/index/manifest
@@ -291,10 +292,10 @@ is MERGED (PR #693); Stage 2 / STOP 2 remain OPEN and Stage 2B is not an
 accepted completed stage. **Stage 5A** is MERGED + human dogfood PASS at
 PR #694. **Stage 5B** remains parked/conditional. **PR #695 provenance** is
 MERGED. **Stage 2C broad exact source adoption v1** is MERGED at PR #696.
-PR #697, #698, and #699 are merged predecessors. The current implementation
-slice is UI-01 Ingest shared Peek composition. Do not mark Stage 2C as an
-accepted completed stage from this sync, do not pre-mark UI-01 complete, and
-do not advance UI-02 or Stage 7A1.
+PR #697, #698, #699, and #700 are merged predecessors. The current
+implementation slice is UI-02 truthful Agent dock presence. Do not mark Stage
+2C as an accepted completed stage from this sync, do not pre-mark UI-02
+complete, and do not advance Stage 7A1.
 DFC-2b (Build archive/adapter) remains later because its
 evidence is incomplete. Do not automatically resume BF3B from old sequencing.
 
