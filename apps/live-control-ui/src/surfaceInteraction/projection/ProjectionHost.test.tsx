@@ -68,7 +68,9 @@ describe("ProjectionHost shell", () => {
     expect(document.querySelector(".surface-projection-host")).not.toBeInTheDocument();
   });
 
-  it("places an explicit Peek projection without a modal backdrop or body overlay state", () => {
+  it("places an explicit Peek projection without a modal backdrop or body overlay state", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
     render(
       <PeekRegionProvider>
         <PeekRegionSlot />
@@ -78,7 +80,7 @@ describe("ProjectionHost shell", () => {
           labels={NEUTRAL_LABELS}
           body={<p>Peek body</p>}
           onNavigate={vi.fn()}
-          onClose={vi.fn()}
+          onClose={onClose}
           onExpand={vi.fn()}
           placement="peek"
         />
@@ -89,6 +91,8 @@ describe("ProjectionHost shell", () => {
     expect(document.querySelector(".surface-projection-host")).toHaveClass("surface-projection-host--peek");
     expect(document.querySelector(".surface-projection-backdrop")).toHaveAttribute("hidden");
     expect(document.body).not.toHaveClass("surface-projection-open");
+    await user.click(screen.getByRole("button", { name: "← Back" }));
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("calls onClose when the modal backdrop is clicked", async () => {

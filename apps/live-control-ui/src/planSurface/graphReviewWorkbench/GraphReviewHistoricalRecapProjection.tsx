@@ -74,7 +74,12 @@ export function GraphReviewHistoricalRecapProjection({
           className="graph-review-historical-recap-reader"
         />
       </div>
-      <PeekClaim kind="world-object" active={objectOpen}>
+      <PeekClaim
+        kind="world-object"
+        active={objectOpen}
+        label="World object"
+        onDismiss={handleCloseObject}
+      >
         {objectOpen ? (
           <aside className="recap-graph-object-panel" aria-label="Graph object">
             <header className="recap-graph-object-panel__header">

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { sameSurfaceInteractionIdentity } from "../surfaceIdentity";
@@ -32,10 +32,11 @@ export function ToolHost() {
   const previousIdentityRef = useRef<SurfaceInteractionIdentity | null>(identity);
   isOpenRef.current = isOpen;
 
-  function closeDrawer(reason: ToolHostCloseReason) {
+  const closeDrawer = useCallback((reason: ToolHostCloseReason) => {
     closeReasonRef.current = reason;
     setIsOpen(false);
-  }
+  }, []);
+  const dismissPeek = useCallback(() => closeDrawer("dismiss"), [closeDrawer]);
 
   // Close launcher on exact identity change (surface switch / lease replace).
   useEffect(() => {
@@ -210,7 +211,14 @@ export function ToolHost() {
         Tools
       </button>
       {usesIngestPeek ? (
-        <PeekClaim kind="tools" active={isOpen}>{drawer}</PeekClaim>
+        <PeekClaim
+          kind="tools"
+          active={isOpen}
+          label="Tools"
+          onDismiss={dismissPeek}
+        >
+          {drawer}
+        </PeekClaim>
       ) : (
         <>
           <div

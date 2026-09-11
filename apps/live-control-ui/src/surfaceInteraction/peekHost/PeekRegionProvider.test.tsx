@@ -11,6 +11,7 @@ function StatefulObject() {
 }
 
 function Harness() {
+  const [world, setWorld] = useState(true);
   const [tools, setTools] = useState(false);
   const [projection, setProjection] = useState(false);
   return (
@@ -18,9 +19,20 @@ function Harness() {
       <button onClick={() => setTools((value) => !value)}>Toggle tools</button>
       <button onClick={() => setProjection((value) => !value)}>Toggle projection</button>
       <PeekRegionSlot />
-      <PeekClaim kind="world-object" active><StatefulObject /></PeekClaim>
-      <PeekClaim kind="tools" active={tools}><p>Tools content</p></PeekClaim>
-      <PeekClaim kind="projection" active={projection}><p>Projection content</p></PeekClaim>
+      <PeekClaim kind="world-object" active={world} label="World object" onDismiss={() => setWorld(false)}>
+        <StatefulObject />
+      </PeekClaim>
+      <PeekClaim kind="tools" active={tools} label="Tools" onDismiss={() => setTools(false)}>
+        <p>Tools content</p>
+      </PeekClaim>
+      <PeekClaim
+        kind="projection"
+        active={projection}
+        label="Diagnostics"
+        onDismiss={() => setProjection(false)}
+      >
+        <p>Projection content</p>
+      </PeekClaim>
     </PeekRegionProvider>
   );
 }
@@ -49,6 +61,10 @@ describe("PeekRegionProvider", () => {
     await user.click(screen.getByRole("button", { name: "Toggle tools" }));
     expect(slot).toHaveAttribute("data-active-peek", "world-object");
     expect(screen.getByRole("button", { name: "Object state 1" })).toBeVisible();
+
+    expect(slot).toHaveTextContent("World object");
+    await user.click(screen.getByRole("button", { name: "← Back" }));
+    expect(slot).toHaveAttribute("hidden");
   });
 
   it("collapses the physical slot when no claim is active", () => {
