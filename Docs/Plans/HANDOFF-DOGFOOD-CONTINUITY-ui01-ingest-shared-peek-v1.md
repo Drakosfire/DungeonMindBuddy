@@ -18,14 +18,14 @@ pr_body_template: |
 
 # HANDOFF — DOGFOOD-CONTINUITY: UI-01 Ingest shared peek composition
 
-**Created:** 2026-09-10  
-**Status:** ACTIVE — one implementation capability  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md`  
-**Conversation/workstream:** UI language design series / C1-C2 demo-readiness  
-**Flow / owner:** `DOGFOOD-CONTINUITY` / Surface Interaction + AppChrome layout  
-**Direction:** DESIGN → CODE → REVIEW  
-**Base revision:** `514823701246879d88085857e5f23258fd0b763e`  
-**Implementation branch:** `dogfood-continuity/ui01-ingest-shared-peek-v1`  
+**Created:** 2026-09-10
+**Status:** ACTIVE — implementation complete; awaiting independent review
+**Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md`
+**Conversation/workstream:** UI language design series / C1-C2 demo-readiness
+**Flow / owner:** `DOGFOOD-CONTINUITY` / Surface Interaction + AppChrome layout
+**Direction:** DESIGN → CODE → REVIEW
+**Base revision:** `514823701246879d88085857e5f23258fd0b763e`
+**Implementation branch:** `dogfood-continuity/ui01-ingest-shared-peek-v1`
 **PR title:** `DOGFOOD-CONTINUITY: compose Ingest around one shared peek`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). UI language: [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](../Design/ui-language/DESIGN-interaction-layer-language.md). Shell ownership: [`Docs/Design/ARCHITECTURE-surface-interaction-layer.md`](../Design/ARCHITECTURE-surface-interaction-layer.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
@@ -473,24 +473,39 @@ Record:
 
 ## §9 Acceptance rubric
 
-- [ ] One capability only: Ingest secondary context composes through one shared Peek while the loaded recap remains CENTER.
-- [ ] Peek is a real layout region, not another `position: fixed` drawer or z-index exception.
-- [ ] Exactly one Peek is visible; arbitration is deterministic (`projection > tools > world-object`).
-- [ ] Lower-priority object context survives temporary Tools/Projection visibility without a new complete-object read caused by Peek arbitration.
-- [ ] C2S25 recap remains mounted/preserved through the canonical adversarial path.
-- [ ] World object close is explicit and local; no recap navigation/remount occurs.
-- [ ] Nav is never covered.
-- [ ] Narrow viewport stacks CENTER/PEEK in usable normal flow.
-- [ ] ToolHost and ProjectionHost remain semantic/lifecycle owners; AppChrome/Peek own layout only.
-- [ ] SurfaceInteraction publication/types and server contracts are unchanged.
-- [ ] Plan / Build / Play are not silently migrated to Peek presentation.
-- [ ] #699 Agent behavior is not redesigned in this slice.
-- [ ] #698 object disclosure/provenance/partial behavior remains green.
-- [ ] State-authority sync is backward-looking and truthful; Stage 4 remains NOT DONE.
-- [ ] Actual changed paths stay inside §4 / bounded discovery.
-- [ ] Exact-head desktop + narrow browser witness passes.
-- [ ] Build/test provenance and any inherited baseline failure are recorded truthfully.
-- [ ] UI-02, Play parchment paint, Load-bar lock, generic-lens repair, token glance, Combat, and 7A1 remain unimplemented/unclaimed.
+### Implementation handback — ready for Review Cycle 1
+
+- PR: `#700`; branch: `dogfood-continuity/ui01-ingest-shared-peek-v1`; implementation code head: `0ff26d4806519cf139af2b907996078e67d977e2`.
+- Mission disposition: implemented one Ingest-only shared Peek layout region with deterministic `projection > tools > world-object` arbitration. Lower-priority claims remain mounted while hidden.
+- Automated evidence (author-local): six focused files passed, 80 tests total. The owning Graph Review workbench regression proves the complete Karsemine sequence, retained 15-row disclosure state, and exactly one complete-object request; it was kept in the existing leased integration file rather than creating the optional focused wrapper file. Existing React `act(...)` and intentional error-path stderr remained warnings only.
+- Production build (author-local): passed at the implementation code head. Vite emitted only its existing large-chunk advisory.
+- Repository checks: actual changed paths are all inside §4; paths outside the write lease: `none`. `git diff --check` is clean after normalizing pre-existing handoff line endings.
+- Nano/fix story: the first exact-head desktop witness exposed that the portaled Tools drawer no longer matched its former ancestor-qualified Peek selector and rendered beyond the viewport. Commit `0ff26d48` anchors the drawer through its actual `data-peek-claim="tools"` portal owner and adds a DOM-containment assertion. The witness was then repeated successfully.
+- Desktop C2S25 dogfood: recap stayed mounted in CENTER; Karsemine occupied PEEK with no backdrop; Show all persisted as Show fewer; Tools replaced World; Diagnostics replaced Tools in the same region; closing Diagnostics restored Karsemine without a loading delay; Nav stayed visible; no horizontal overflow appeared.
+- Narrow C2S25 dogfood at `390×844`: CENTER and PEEK stacked in normal flow (`position: static`, Peek below CENTER); the same World → Tools → Diagnostics → World sequence passed; Nav remained visible and there was no horizontal overflow.
+- Complete-object request count: stayed at one in the owning integration regression. The browser witness showed no reload spinner or visible delay during arbitration.
+- Compatibility: focused Tool/Projection tests preserve non-Ingest legacy placement; Plan/Build/Play were not migrated. Ingest Ask retained the #699 fixed bottom-sheet behavior and passed Open/Close smoke.
+- Successors remain false: UI-02 Agent dock/absence is unimplemented; 7A1 remains queued and undispatched; Stage 4 remains not done.
+- Review Cycle 1 has not yet occurred. No independent-review or CI provenance is claimed here.
+
+- [x] One capability only: Ingest secondary context composes through one shared Peek while the loaded recap remains CENTER.
+- [x] Peek is a real layout region, not another `position: fixed` drawer or z-index exception.
+- [x] Exactly one Peek is visible; arbitration is deterministic (`projection > tools > world-object`).
+- [x] Lower-priority object context survives temporary Tools/Projection visibility without a new complete-object read caused by Peek arbitration.
+- [x] C2S25 recap remains mounted/preserved through the canonical adversarial path.
+- [x] World object close is explicit and local; no recap navigation/remount occurs.
+- [x] Nav is never covered.
+- [x] Narrow viewport stacks CENTER/PEEK in usable normal flow.
+- [x] ToolHost and ProjectionHost remain semantic/lifecycle owners; AppChrome/Peek own layout only.
+- [x] SurfaceInteraction publication/types and server contracts are unchanged.
+- [x] Plan / Build / Play are not silently migrated to Peek presentation.
+- [x] #699 Agent behavior is not redesigned in this slice.
+- [x] #698 object disclosure/provenance/partial behavior remains green.
+- [x] State-authority sync is backward-looking and truthful; Stage 4 remains NOT DONE.
+- [x] Actual changed paths stay inside §4 / bounded discovery.
+- [x] Exact-head desktop + narrow browser witness passes.
+- [x] Build/test provenance and any inherited baseline failure are recorded truthfully.
+- [x] UI-02, Play parchment paint, Load-bar lock, generic-lens repair, token glance, Combat, and 7A1 remain unimplemented/unclaimed.
 
 ## Stop conditions
 
