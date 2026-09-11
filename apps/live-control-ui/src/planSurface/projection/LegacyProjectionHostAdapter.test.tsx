@@ -236,6 +236,38 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
     expect(navButton).toHaveClass("active");
   });
 
+  it("selects Peek placement for Ingest while leaving Build on legacy placement", async () => {
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+    const ingestConfig: SurfaceConfig = {
+      id: "ingest",
+      label: "Ingest",
+      context: surfaceConfig.context,
+      tools: [{ id: "graph-review-diagnostics", label: "Diagnostics", size: "wide" }],
+      canvas: { documentId: null },
+      theme: {},
+    };
+
+    render(
+      <AgentInteractionProjectionTestHost config={ingestConfig}>
+        <CaptureApi />
+        <LegacyProjectionHostAdapter />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    act(() => {
+      hostApi!.openTool("graph-review-diagnostics");
+    });
+
+    await waitFor(() => {
+      expect(document.querySelector(".surface-projection-host")).toHaveClass("surface-projection-host--peek");
+    });
+    expect(document.body).not.toHaveClass("surface-projection-open");
+  });
+
   it("renders no Tools toggle for a contradictory identity/config publication", () => {
     function ContradictoryPublisher() {
       const { publishProjectionSurface } = useAgentInteraction();

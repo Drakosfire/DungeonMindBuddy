@@ -150,8 +150,10 @@ Stage 5B parked/conditional — do not auto-dispatch
 PR #695 provenance MERGED (`d2c4248b14397525fd996309e230e513a3662bb1`; accepted head `fe55824e1927a29b03e7c2660ba653c86aaf4a82`; 3 review cycles; Orik human dogfood PASS)
 PR #696 Stage 2C MERGED (`3e2abc0c7f8ce523b071716eb13bcf18d7979a2a`; accepted head `8f93138000c699a5d1249955003c91042f2053b1`); Stage 2 / STOP 2 remain OPEN
 PR #697 complete World-object projection MERGED (`947a727ddf1b7a98a670242f103920c91db62605`; accepted head `83eb43689189d9ef37e227d26f3bdc08f547ec5e`; 3 review cycles; Human STOP successor-routed)
-CURRENT — Stage 4A opened-object usefulness; Stage 4 remains NOT DONE
-Stage 7A Agent-on-Ingest
+PR #698 opened-object usefulness MERGED (`db7c66603217ab037d0bdbce0802646c4cb1dcf7`); post-merge inspection accepted as A/E-good enough
+PR #699 STOP stabilization MERGED (`b1153423f04dd220e3b53d305e8627146a8afb7e`; accepted head `99420b0b248aea4d037ae08c1c58b836c8acabe5`; 2 review cycles); Recap overlay removed and chrome offsets explicitly temporary
+CURRENT — UI-01 Ingest shared Peek composition on base `514823701246879d88085857e5f23258fd0b763e`; Stage 4 remains NOT DONE
+Stage 7A1 Agent-on-Ingest remains DESIGN READY / QUEUED behind the UI series
 ```
 
 The graph-object usefulness lane may still run in parallel wherever its lease remains disjoint.
@@ -263,7 +265,9 @@ STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Sta
 
 **Completed predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v2.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-surface-neutral-full-world-object-projection-v2.md) — PR #697 **MERGED** (`947a727ddf1b7a98a670242f103920c91db62605`; accepted head `83eb43689189d9ef37e227d26f3bdc08f547ec5e`; 3 review cycles). Complete-object retrieval works where an object opens. Human STOP remains not passed as an all-surface end state; presentation findings are successor-routed rather than #697 correctness failures.
 
-**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage-4a-opened-object-usefulness-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage-4a-opened-object-usefulness-v1.md) — compact opened-object presentation with local Show all/Show fewer and technical identity behind Advanced. Agent availability, generic World-wide search, and Build/Play material creation remain outside this slice. Stage 4 remains NOT DONE.
+**Completed presentation predecessor:** PR #698 (`db7c66603217ab037d0bdbce0802646c4cb1dcf7`) made compact opened-object presentation with local Show all/Show fewer and technical identity behind Advanced A/E-good enough in post-merge dogfood. PR #699 (`b1153423f04dd220e3b53d305e8627146a8afb7e`; accepted head `99420b0b248aea4d037ae08c1c58b836c8acabe5`; 2 review cycles) removed the duplicate Ingest Recap path and stabilized chrome overlap without claiming its guessed offsets as target architecture.
+
+**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md) — Ingest-first shared Peek composition. The exact loaded recap remains CENTER while World object, Tools, and Projection arbitrate one real PEEK region. UI-01 is active, not complete; Stage 4 remains NOT DONE. UI-02 Agent dock and Stage 7A1 contextual Ask remain false/queued.
 
 ### Human outcome
 

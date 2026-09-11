@@ -2,7 +2,7 @@
 
 **Purpose:** Brief the design agent on the 2026-09-10 shell/language work after `#698` / `#699`. This is not an implementation lease and not permission to dispatch code.
 
-**Status:** DESIGN INPUT — language captured; first slice not leased  
+**Status:** DESIGN ACCEPTED — UI-01 leased and active; later slices remain unleased
 **Created:** 2026-09-10  
 **From:** steward + operator after `#699` merge, Mobbin research, and Of Conks styling capture  
 **To:** the next design agent for the bounded UI design / implementation series  
@@ -19,12 +19,17 @@ main                         d23c8b0efcd8b882046cc6cc52a4f33f5e5fe4eb
 #699                         MERGED — Recap overlay gone; Tools between nav and Ask;
                              Ask Open is a bottom sheet; chrome-band is
                              stabilization only
+UI-01                        ACTIVE — Ingest shared Peek composition on
+                             dogfood-continuity/ui01-ingest-shared-peek-v1
+                             from 514823701246879d88085857e5f23258fd0b763e
 open PRs                     none
 7A1                          DESIGN READY / QUEUED on
                              origin/dogfood-continuity/stage-7a1-ingest-contextual-ask-v1
                              @ e34f68915e0ca535bed7aa9bc13a8bdd2fabea0a
                              handoff lives on that branch, not on main
 ```
+
+Accepted decomposition: Ingest is the first implementation consumer of the shared Peek primitive; Play remains the visual grammar north star. UI-02 separately owns Agent dock/absence behavior. UI-01 does not pre-complete the series or Stage 4.
 
 > Repository law: `AGENTS.md`. Steward judgment: `Docs/Process/STEWARD-CYCLE.md`. Language (feel/compose): `Docs/Design/ui-language/`. Chrome **ownership**: `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`. Product goals (non-status): root `Backlog.md` Captured UI section.
 

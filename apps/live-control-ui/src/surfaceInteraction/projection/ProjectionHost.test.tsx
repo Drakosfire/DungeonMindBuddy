@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProjectionHost } from "./ProjectionHost";
 import type { ActiveProjection, ProjectionHostLabels } from "./types";
+import { PeekRegionProvider, PeekRegionSlot } from "../peekHost";
 
 const NEUTRAL_LABELS: ProjectionHostLabels = {
   toggleTitle: "Surface tools",
@@ -65,6 +66,29 @@ describe("ProjectionHost shell", () => {
 
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
     expect(document.querySelector(".surface-projection-host")).not.toBeInTheDocument();
+  });
+
+  it("places an explicit Peek projection without a modal backdrop or body overlay state", () => {
+    render(
+      <PeekRegionProvider>
+        <PeekRegionSlot />
+        <ProjectionHost
+          active={toolActive}
+          navigationItems={navigationItems}
+          labels={NEUTRAL_LABELS}
+          body={<p>Peek body</p>}
+          onNavigate={vi.fn()}
+          onClose={vi.fn()}
+          onExpand={vi.fn()}
+          placement="peek"
+        />
+      </PeekRegionProvider>,
+    );
+
+    expect(screen.getByTestId("app-peek-region")).toHaveAttribute("data-active-peek", "projection");
+    expect(document.querySelector(".surface-projection-host")).toHaveClass("surface-projection-host--peek");
+    expect(document.querySelector(".surface-projection-backdrop")).toHaveAttribute("hidden");
+    expect(document.body).not.toHaveClass("surface-projection-open");
   });
 
   it("calls onClose when the modal backdrop is clicked", async () => {

@@ -373,6 +373,11 @@ export function LegacyProjectionHostAdapter() {
         onNavigate={onNavigate}
         onClose={close}
         onExpand={expandContent}
+        placement={
+          policy.kind === "legacy-plan-or-ingest" && policy.config.id === "ingest"
+            ? "peek"
+            : "legacy"
+        }
       />
     </>
   );

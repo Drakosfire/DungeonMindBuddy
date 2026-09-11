@@ -9,6 +9,7 @@ import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionR
 import { useCompleteWorldObject, usesCompleteWorldObjectPayload } from "../../graphReference/fullWorldObjectProjection";
 import { CompleteObjectPartialWarning } from "../../graphReference/CompleteObjectPartialWarning";
 import { CompleteWorldObjectAdvancedDetails } from "../../graphReference/CompleteWorldObjectAdvancedDetails";
+import { PeekClaim } from "../../surfaceInteraction/peekHost";
 
 interface GraphReviewHistoricalRecapProjectionProps {
   projection: HistoricalRecapWorldProjectionResponse;
@@ -49,12 +50,17 @@ export function GraphReviewHistoricalRecapProjection({
 
   const objectOpen = Boolean(activeNodeId);
 
+  const handleCloseObject = useCallback(() => {
+    setSelectedRelationshipId(null);
+    setActiveNodeId(null);
+  }, []);
+
   return (
     <div
       className="graph-review-historical-recap-projection"
       data-testid="graph-review-historical-recap-projection"
     >
-      <div className={`recap-reader-layout${objectOpen ? " graph-explorer-open" : ""}`}>
+      <div className="recap-reader-layout graph-review-historical-recap-layout">
         <GraphProjectionReader
           markdown={projection.markdown}
           nodeViews={adaptedNodeViews}
@@ -67,8 +73,16 @@ export function GraphReviewHistoricalRecapProjection({
           onActiveNodeChange={setActiveNodeId}
           className="graph-review-historical-recap-reader"
         />
+      </div>
+      <PeekClaim kind="world-object" active={objectOpen}>
         {objectOpen ? (
           <aside className="recap-graph-object-panel" aria-label="Graph object">
+            <header className="recap-graph-object-panel__header">
+              <span>World object</span>
+              <button type="button" onClick={handleCloseObject} aria-label="Close World object">
+                ×
+              </button>
+            </header>
             {complete.status === "loading" || complete.status === "idle" ? (
               <p className="module-muted">Loading complete World object…</p>
             ) : null}
@@ -93,7 +107,7 @@ export function GraphReviewHistoricalRecapProjection({
             ) : null}
           </aside>
         ) : null}
-      </div>
+      </PeekClaim>
     </div>
   );
 }

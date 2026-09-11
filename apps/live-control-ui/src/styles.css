@@ -140,6 +140,41 @@ code {
   overflow: visible;
 }
 
+.app-chrome-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.app-chrome-workspace:has(> .app-peek-region:not([hidden])) {
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 28rem);
+}
+
+.app-chrome-center,
+.app-peek-region,
+.app-peek-claim {
+  min-width: 0;
+}
+
+.app-peek-region {
+  position: static;
+  overflow: visible;
+  border: 1px solid #2a3142;
+  border-radius: 10px;
+  background: #171b24;
+}
+
+.app-peek-region[hidden],
+.app-peek-claim[hidden] {
+  display: none !important;
+}
+
+.app-peek-claim {
+  width: 100%;
+}
+
 .app-world-graph-status {
   margin-left: auto;
   min-width: 0;
@@ -577,6 +612,19 @@ code {
 
 .app-tools-toolbox.open .app-tools-toolbox-drawer {
   transform: translateX(0);
+}
+
+.app-peek-claim[data-peek-claim="tools"] .app-tools-toolbox-drawer {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  width: 100%;
+  min-height: 16rem;
+  max-height: none;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+  transition: none;
 }
 
 .launcher-root {
@@ -2071,6 +2119,17 @@ button:disabled {
 
   .app-chrome-header {
     position: static;
+  }
+
+  .app-chrome-workspace,
+  .app-chrome-workspace:has(> .app-peek-region:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-peek-region {
+    position: static;
+    max-height: none;
+    overflow: visible;
   }
 
   .app-shell--edit-dock .app-shell-layout {
