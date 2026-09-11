@@ -19,13 +19,14 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: UI-02 truthful Agent dock presence
 
 **Created:** 2026-09-11
-**Status:** ACTIVE — implementation complete; awaiting independent review
+**Status:** UI-02 MERGED in PR #701 — product-owner artwork amendment awaiting review
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui02-agent-dock-presence-v1.md`
 **Conversation/workstream:** UI language design series / C1-C2 demo-readiness
 **Flow / owner:** `DOGFOOD-CONTINUITY` / Agent Interaction chrome presentation
 **Direction:** DESIGN → CODE → REVIEW
 **Base revision:** `5810a253239a53d731da831a9ac4ccd2548f10d9` — PR #700 merge
 **Design branch:** `dogfood-continuity/ui02-agent-dock-presence-v1`
+**Artwork amendment branch:** `dogfood-continuity/ui02-agent-dock-artwork-v1`
 **Suggested PR title if dispatched:** `DOGFOOD-CONTINUITY: make Agent presence cheap and truthful`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). UI language: [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](../Design/ui-language/DESIGN-interaction-layer-language.md). Shell ownership: [`Docs/Design/ARCHITECTURE-surface-interaction-layer.md`](../Design/ARCHITECTURE-surface-interaction-layer.md).
@@ -416,7 +417,7 @@ Record:
 - Desktop browser evidence on the first code head: Ingest had no Agent chrome, no Open action, `--app-chrome-bottom: 0rem`, 16px content bottom padding, visible Nav, and no horizontal overflow. UI-01 Karsemine → Tools → Diagnostics → Karsemine remained intact. Plan’s closed dock was materially narrower than the viewport, exposed one Open action and truthful Plan/thread context; open Ask mounted the real Plan pane with Question and Close controls, then returned to the compact dock.
 - Navigation browser evidence: Plan → Ingest → Plan removed and restored chrome solely with plugin registration; the dock label remained identical across the round trip.
 - Narrow browser evidence at `390×844`: the compact Plan dock remained usable without horizontal overflow; Ingest had no Agent DOM, zero bottom reservation, 16px ordinary padding, visible Nav, and no horizontal overflow.
-- Product-owner visual amendment: the supplied 1254×1254 PNG is checked in as `dungeonbuddy-agent.png`; the collapsed Agent control is now image-only with no rendered text, while its accessible Open name and tooltip preserve interaction and contextual meaning. Exact-head browser proof measured an 80×80 image control, empty rendered text, the expected asset URL, no horizontal overflow, and a successful transition into the existing real Ask pane. This explicit user direction expands §4 by exactly the named asset path and no broader visual-system work.
+- Product-owner visual amendment after PR #701 merged at `d515904c2bf4d196be70efc7419dc8485e991515`: the supplied 1254×1254 PNG is checked in as `dungeonbuddy-agent.png`; the collapsed Agent control is now image-only with no rendered text, while its accessible Open name and tooltip preserve interaction and contextual meaning. Exact-head browser proof measured an 80×80 image control, empty rendered text, the expected asset URL, no horizontal overflow, and a successful transition into the existing real Ask pane. This explicit user direction expands §4 by exactly the named asset path and no broader visual-system work, and ships as a narrow follow-up PR because #701 merged during implementation.
 - Actual production/test/asset paths are exactly the six expected §4 paths after the explicit asset lease expansion. State-authority sync is backward-looking for #700 and marks UI-02 active, never complete.
 - Successors remain false: useful open-Ask composition/UI-03, Ask-on-Ingest/7A1, parchment paint, Load lock, generic-lens repair, and Combat are unimplemented/unclaimed.
 - Review Cycle 1 has not occurred; no independent-review or CI provenance is claimed.
