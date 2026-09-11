@@ -209,6 +209,8 @@ Mobbin did not return a usable Notion `@page` mention hover. Do not keep searchi
 
 ## 7. Recommended first slice (not a lease)
 
+Design-agent pickup (still not a lease): [`HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`](../../Plans/HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md). That agent confirms or challenges the proving surface below before anything is dispatched.
+
 Proving surface: **Ingest Graph Review / C2S25**. Play is the visual north star for *grammar*; Ingest is where the chrome fight is visible today.
 
 Invariants:

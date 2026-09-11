@@ -14,4 +14,8 @@ Of Conks paint evidence (what we liked, two piles, keep vs discard):
 
 [`EVIDENCE-of-conks-styling.md`](EVIDENCE-of-conks-styling.md)
 
+Design-agent pickup for the UI series (not a write lease):
+
+[`../../Plans/HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`](../../Plans/HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md)
+
 Add later Mobbin captures, token notes, and proving-surface sketches to this folder. Do not dump them into architecture authorities.
