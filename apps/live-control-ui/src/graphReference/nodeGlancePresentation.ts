@@ -77,6 +77,24 @@ function suggestedExpansionsForNode(node: GraphProjectionNodeView): GraphProject
   }));
 }
 
+function focusRelationshipText(node: GraphProjectionNodeView): string | null {
+  const focusRelationship = suggestedExpansionsForNode(node).find(
+    (candidate) => candidate.anchored_to_focus_session,
+  );
+  if (!focusRelationship) {
+    return null;
+  }
+  const relationship = humanizeToken(
+    focusRelationship.edge_label?.trim() || focusRelationship.predicate,
+  );
+  if (!relationship) {
+    return null;
+  }
+  return focusRelationship.direction === "incoming"
+    ? `${focusRelationship.label} ${relationship} ${node.label} this session.`
+    : `${node.label} ${relationship} ${focusRelationship.label} this session.`;
+}
+
 function buildThreadHints(node: GraphProjectionNodeView): GraphNodeGlanceThreadHint[] {
   return suggestedExpansionsForNode(node)
     .slice(0, 2)
@@ -94,7 +112,9 @@ export function buildGraphNodeGlancePresentation(node: GraphProjectionNodeView):
   const contextEvidence = node.evidence_badges.filter((badge) => !badge.is_focus_session_evidence);
 
   const summary = primaryGameSummaryForNode(node);
-  const whyNow = focusEvidence.length ? evidencePlanningText(focusEvidence[0]) : null;
+  const whyNow = focusEvidence.length
+    ? evidencePlanningText(focusEvidence[0])
+    : focusRelationshipText(node);
   const knownBefore = contextEvidence.length ? evidencePlanningText(contextEvidence[0]) : null;
 
   return {
