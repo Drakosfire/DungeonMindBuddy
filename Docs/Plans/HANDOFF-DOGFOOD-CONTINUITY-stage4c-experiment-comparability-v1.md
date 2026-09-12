@@ -1,7 +1,8 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4C trustworthy extraction experiment comparison
 
 **Created:** 2026-09-12
-**Status:** IMPLEMENTED — REVIEW READY
+**Status:** MERGED — PASS
+**Merge:** PR #705, `29c50b985091f590d2d6212b10cd79dcc8be5288`; accepted head `e0b8dd9b363cef3980055ef73c8634a67b2fa9e8`; 2 review cycles
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md`
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`
 **Flow / owner:** `DOGFOOD-CONTINUITY` / Extraction Lab comparison evidence
@@ -29,8 +30,9 @@ The broader ingestion-improvement program is accepted with these corrections:
 ### Program horizon (not this PR's lease)
 
 ```text
-P0a  trustworthy cross-contract comparison          ← THIS PR
-P0b  isolated experiment runner + repetitions + execution telemetry
+P0a  trustworthy cross-contract comparison          DONE — PR #705
+P0b1 one bounded isolated baseline/candidate pair   CURRENT — Stage 4D
+P0b2 repetitions + aggregation + resume/budget + async lifecycle
 P1   characterize current baseline and failure classes
 P2   bounded ablation PRs, one change at a time
 P3   candidate qualification + frozen validation + qualitative probes
@@ -354,7 +356,7 @@ Record:
 - [x] Existing same-contract regression and explicit baseline-promotion semantics remain unchanged.
 - [x] No LLM execution, gold editing, source adoption, APP-STATE mutation, or World publication is added.
 - [x] PR #704 is synchronized as merged with the Stage 4 WOW gate still HOLD.
-- [x] P0b orchestration/repetition/cost-latency successor remains unimplemented.
+- [x] P0b orchestration/repetition/cost-latency successor remained unimplemented in PR #705; bounded P0b1 is now the Stage 4D successor.
 
 ## Stop conditions
 

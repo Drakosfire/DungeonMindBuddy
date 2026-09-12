@@ -4,9 +4,9 @@
 **Line of work:** `CON-READY`
 **Updated:** 2026-09-12
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor base:** `main` `a90f5e81355952d80ad5dba24bd4d27d5eedd930` (after PR #704 merge)
+**Re-anchor base:** `main` `29c50b985091f590d2d6212b10cd79dcc8be5288` (after PR #705 merge)
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
-**Current forcing function:** DOGFOOD-CONTINUITY **Stage 4C trustworthy extraction experiment comparison** — **ACTIVE** ([`HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md)). PR #704 merged at `a90f5e81` after 1 formal review cycle, preserving useful glance mechanics while human dogfood held the Stage 4 WOW gate on incomplete accumulated campaign truth. Stage 4C establishes trustworthy cross-contract evidence before automated tuning. Stage 7A1 remains queued and Stage 4 remains NOT DONE.
+**Current forcing function:** DOGFOOD-CONTINUITY **Stage 4D / P0b1 isolated extraction experiment pair** — **ACTIVE** ([`HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md)). PR #705 merged trustworthy cross-contract comparison at `29c50b98` with accepted head `e0b8dd9b` after 2 review cycles. Stage 4D now supplies one bounded, isolated, dry-run-by-default execution path before the separately authorized paid Session 23 smoke. Stage 7A1 remains queued and Stage 4 remains NOT DONE.
 **Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
@@ -61,7 +61,7 @@ PR #699           MERGED — STOP stabilization; merge `b1153423`; accepted head
 PR #700           MERGED — UI-01 Ingest shared Peek; merge `5810a253`; accepted head `d6091ee9`; 2 review cycles
 PR #701           MERGED — UI-02 truthful Agent presence; merge `d515904c`; head `77f2e09f`; 1 formal review cycle (CODE PASS / DOC HOLD)
 PR #702           MERGED — Agent artwork + UI-03 responsive secondary context; merge `92a50db8`; head `90a75542`; 1 formal review cycle (HOLD; no approving disposition recorded)
-CURRENT           Stage 4C extraction experiment comparability; 7A1 queued; Stage 4 remains NOT DONE
+CURRENT           Stage 4D/P0b1 isolated extraction pair; paid smoke remains post-merge; Stage 4 NOT DONE
 
 PLAY STRUCTURE
 BF1 / PR #628    DONE — Beat-first v2 grammar/index/manifest
@@ -294,10 +294,10 @@ is MERGED (PR #693); Stage 2 / STOP 2 remain OPEN and Stage 2B is not an
 accepted completed stage. **Stage 5A** is MERGED + human dogfood PASS at
 PR #694. **Stage 5B** remains parked/conditional. **PR #695 provenance** is
 MERGED. **Stage 2C broad exact source adoption v1** is MERGED at PR #696.
-PR #697 through #704 are merged predecessors. PR #704 remains a human WOW HOLD
-despite merge. The current implementation slice is Stage 4C trustworthy extraction
-experiment comparison. Do not mark Stage 2C or Stage 4 as an
-accepted completed stage from this sync, do not pre-mark Stage 4C complete, and
+PR #697 through #705 are merged predecessors. PR #704 remains a human WOW HOLD
+despite merge. PR #705 passed after 2 review cycles. The current implementation
+slice is Stage 4D/P0b1 isolated extraction experiment pair. Do not mark Stage 2C
+or Stage 4 as an accepted completed stage from this sync, do not pre-mark Stage 4D complete, and
 do not advance Stage 7A1.
 DFC-2b (Build archive/adapter) remains later because its
 evidence is incomplete. Do not automatically resume BF3B from old sequencing.

@@ -156,7 +156,8 @@ PR #700 UI-01 Ingest shared Peek composition MERGED (`5810a253239a53d731da831a9a
 PR #701 UI-02 truthful Agent dock presence MERGED (`d515904c2bf4d196be70efc7419dc8485e991515`; head `77f2e09feac08a92abceb3c54235ff0476b726ce`; 1 formal review cycle)
 PR #702 Agent artwork + UI-03 responsive secondary context MERGED (`92a50db8bd41d632e54e5bbbd265738f546e0a5b`; head `90a755429aba3673089a0d24325a5db7ece8c5c8`; 1 formal review cycle, HOLD)
 PR #704 Stage 4B glance MERGED (`a90f5e81355952d80ad5dba24bd4d27d5eedd930`; accepted head `02b2529176703b3f8b69ad9fcb594f401c1c5f6b`; 1 formal review cycle); human WOW gate remains HOLD
-CURRENT — Stage 4C trustworthy extraction experiment comparison; Stage 4 remains NOT DONE
+PR #705 Stage 4C comparison MERGED (`29c50b985091f590d2d6212b10cd79dcc8be5288`; accepted head `e0b8dd9b363cef3980055ef73c8634a67b2fa9e8`; 2 review cycles)
+CURRENT — Stage 4D/P0b1 one bounded isolated experiment pair; Stage 4 remains NOT DONE
 Stage 7A1 Agent-on-Ingest remains DESIGN READY / QUEUED behind the UI series
 ```
 
@@ -277,7 +278,9 @@ STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Sta
 
 **Completed presentation predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4b-recap-world-reference-glance-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4b-recap-world-reference-glance-v1.md) — PR #704 merged at `a90f5e81355952d80ad5dba24bd4d27d5eedd930` with accepted head `02b2529176703b3f8b69ad9fcb594f401c1c5f6b` after 1 formal review cycle. Useful glance mechanics landed, but product-owner dogfood held the WOW gate because representative accumulated campaign truth remains inaccessible or too thin.
 
-**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md) — prove that baseline and candidate runs share path-independent corpus content and surface-filtered human gold intent, while allowing and enumerating changed pipeline contracts. This is the measurement prerequisite for ingestion tuning; it does not mark Stage 4 done, run experiments, or publish new World truth. Stage 7A1 contextual Ask remains false/queued.
+**Completed evidence predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md) — PR #705 merged at `29c50b985091f590d2d6212b10cd79dcc8be5288` with accepted head `e0b8dd9b363cef3980055ef73c8634a67b2fa9e8` after 2 review cycles. Same-corpus/same-gold comparisons may now cross intentionally different pipeline contracts while failing closed on ambiguous cohorts and incomplete results.
+
+**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md) — dry-run-by-default orchestration for exactly one fresh baseline and one fresh candidate over 1–3 exact sources, with observed model/cost/runtime evidence, qualified Extraction Lab bundles, and the existing #705 comparison ruler. The paid C2 Session 23 smoke remains a separate post-merge operator gate; P0b2 and Stage 4 completion remain false.
 
 ### Human outcome
 
