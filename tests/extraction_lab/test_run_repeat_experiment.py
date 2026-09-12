@@ -1,4 +1,5 @@
 import json
+import hashlib
 
 import pytest
 
@@ -8,13 +9,21 @@ from extraction_lab.run_repeat_experiment import run_repeat_experiment
 from tests.extraction_lab.test_repeat_experiment_manifest import SHA, _fixture, _write
 
 
-def _child_factory(tmp_path, *, drift_at=None, fail_at=None, mutate_pair_at=None):
+def _child_factory(
+    tmp_path,
+    *,
+    drift_at=None,
+    fail_at=None,
+    mutate_pair_at=None,
+    child_sha_mismatch_at=None,
+):
     calls = []
     def child(**kwargs):
         calls.append(kwargs)
         if not kwargs["execute"]:
             return {"mode": "dry_run", "plan": {"source_count": 1}}
         number = len([call for call in calls if call["execute"]])
+        manifest_sha = hashlib.sha256(kwargs["manifest_path"].read_bytes()).hexdigest()
         if mutate_pair_at == number:
             kwargs["manifest_path"].write_text("{}", encoding="utf-8")
         if fail_at == number:
@@ -29,7 +38,7 @@ def _child_factory(tmp_path, *, drift_at=None, fail_at=None, mutate_pair_at=None
         comparison_path = tmp_path / f"comparison-{number}.json"
         metric = {name: {"baseline": 1, "candidate": 1, "delta": 0} for name in ("entity_anchor_recall", "fact_anchor_recall", "unresolved_core_anchors", "total_entity_count", "total_fact_count")}
         _write(comparison_path, {"metric_deltas": metric, "anchor_transitions": {"entity": [], "fact": []}})
-        return {"schema": "dmb_extraction_pair_receipt_v1", "status": "completed", "manifest_sha256": "pair", "repository_sha": SHA, "surface": "core_extraction",
+        return {"schema": "dmb_extraction_pair_receipt_v1", "status": "completed", "manifest_sha256": "mismatch" if child_sha_mismatch_at == number else manifest_sha, "repository_sha": SHA, "surface": "core_extraction",
                 "sources": [{"locator": "one.md", "sha256": "source"}], "gold": {"entity": {"sha256": "e"}, "fact": {"sha256": "f"}},
                 "model_policy_sha256": "policy", "variants": variants,
                 "comparison": {"status": "completed", "comparable": True, "artifact_path": str(comparison_path)}}
@@ -71,3 +80,35 @@ def test_rep_two_failure_is_fail_fast_and_never_qualifies(tmp_path, mode):
     assert not (out / "qualification.json").exists()
     receipt = json.loads((out / "repeat_receipt.json").read_text(encoding="utf-8"))
     assert receipt["status"] == "failed"
+
+
+def test_child_manifest_sha_must_equal_parent_pin(tmp_path):
+    repo, manifest = _fixture(tmp_path, repetitions=2)
+    calls, child = _child_factory(tmp_path, child_sha_mismatch_at=1)
+    out = tmp_path / "out"
+    with pytest.raises(ExperimentFailure, match="child_pair_manifest_sha_mismatch"):
+        run_repeat_experiment(
+            manifest_path=manifest,
+            out_dir=out,
+            execute=True,
+            repo_root=repo,
+            pair_runner=child,
+        )
+    assert len([call for call in calls if call["execute"]]) == 1
+    assert not (out / "qualification.json").exists()
+
+
+def test_manifest_mutation_during_final_repetition_blocks_qualification(tmp_path):
+    repo, manifest = _fixture(tmp_path, repetitions=2)
+    calls, child = _child_factory(tmp_path, mutate_pair_at=2)
+    out = tmp_path / "out"
+    with pytest.raises(ExperimentFailure, match="pair_manifest_drift"):
+        run_repeat_experiment(
+            manifest_path=manifest,
+            out_dir=out,
+            execute=True,
+            repo_root=repo,
+            pair_runner=child,
+        )
+    assert len([call for call in calls if call["execute"]]) == 2
+    assert not (out / "qualification.json").exists()

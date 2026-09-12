@@ -7,7 +7,7 @@
 **Flow / owner:** `DOGFOOD-CONTINUITY` / repeated Extraction Lab qualification  
 **Direction:** DESIGN → CODE → REVIEW  
 **Base revision:** `4af440b2cc4102972ad6212590885248e58375c1` (main after PR #706 merge)  
-**Branch:** `dogfood-continuity/stage4e-repeated-pair-qualification-v1`  
+**Branch:** `dogfood-continuity/stage4e-repeated-pair-qualification-impl`
 **PR title:** `DOGFOOD-CONTINUITY: qualify extraction variance across repeated pairs`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). Benchmark authority: [`Docs/Design/DESIGN-benchmark-philosophy-and-goals.md`](../Design/DESIGN-benchmark-philosophy-and-goals.md). Execution predecessor: [`HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md).
@@ -100,7 +100,7 @@ Dispatch rules:
 
 - exact PR #706 merge SHA: `4af440b2cc4102972ad6212590885248e58375c1`
 - pair manifest SHA-256: `e8721e6833a81e051ed17b31d60f27f7c5e30110a82e0babf2f4667d844d08d9`
-- execution receipt path at smoke time: `/tmp/dmb-stage4d-live-smoke-20260912/experiment_receipt.json`; this checked-in record is the durable evidence summary
+- execution receipt path at smoke time: `/tmp/dmb-stage4d-live-smoke-20260912/experiment_receipt.json`; the raw temporary receipt was not retained, and this checked-in, sanitized Smoke Gate Record is explicitly the accepted durable evidence artifact for dispatch/review
 - receipt `completed`; comparison `comparable=true`
 - observed entity/fact model, both variants: `gpt-5.3-codex`
 - actual pair telemetry: 79,720 input tokens; 57,119 output tokens; 44,800 cached tokens; 33 API calls; `$0.8686`; 99.15 seconds summed variant runtime

@@ -36,6 +36,11 @@ def _pair_sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _assert_pair_manifest_pinned(*, path: Path, expected: str, stage: str) -> None:
+    if _pair_sha(path) != expected:
+        raise ExperimentFailure(stage, "pair_manifest_drift")
+
+
 def run_repeat_experiment(
     *,
     manifest_path: Path,
@@ -108,8 +113,12 @@ def run_repeat_experiment(
     expected_identity: dict[str, Any] | None = None
     try:
         for index in range(1, repeat.manifest.repetitions + 1):
-            if _pair_sha(repeat.pair_manifest_path) != repeat.pair_manifest_sha256:
-                raise ExperimentFailure(f"rep-{index:03d}", "pair_manifest_drift")
+            stage = f"rep-{index:03d}"
+            _assert_pair_manifest_pinned(
+                path=repeat.pair_manifest_path,
+                expected=repeat.pair_manifest_sha256,
+                stage=stage,
+            )
             child_root = out_dir / f"rep-{index:03d}"
             row = {
                 "index": index,
@@ -137,19 +146,26 @@ def run_repeat_experiment(
                 }
                 raise
             if child.get("status") != "completed":
-                raise ExperimentFailure(f"rep-{index:03d}", "child_not_completed")
+                raise ExperimentFailure(stage, "child_not_completed")
             if child.get("schema") != "dmb_extraction_pair_receipt_v1":
-                raise ExperimentFailure(f"rep-{index:03d}", "child_receipt_schema_invalid")
+                raise ExperimentFailure(stage, "child_receipt_schema_invalid")
+            if child.get("manifest_sha256") != repeat.pair_manifest_sha256:
+                raise ExperimentFailure(stage, "child_pair_manifest_sha_mismatch")
+            _assert_pair_manifest_pinned(
+                path=repeat.pair_manifest_path,
+                expected=repeat.pair_manifest_sha256,
+                stage=stage,
+            )
             comparison = child.get("comparison", {})
             if comparison.get("status") != "completed" or comparison.get("comparable") is not True:
-                raise ExperimentFailure(f"rep-{index:03d}", "child_not_comparable")
+                raise ExperimentFailure(stage, "child_not_comparable")
             identity = execution_identity(child)
             if expected_identity is None:
                 expected_identity = identity
             else:
                 mismatch = identity_mismatch_reason(expected_identity, identity)
                 if mismatch:
-                    raise ExperimentFailure(f"rep-{index:03d}", mismatch)
+                    raise ExperimentFailure(stage, mismatch)
             successful.append(child)
             child_receipt_path = child_root / "experiment_receipt.json"
             child_bytes = (
@@ -167,6 +183,11 @@ def run_repeat_experiment(
             receipt["completed_repetitions"] = len(successful)
             _write_json(receipt_path, receipt)
 
+        _assert_pair_manifest_pinned(
+            path=repeat.pair_manifest_path,
+            expected=repeat.pair_manifest_sha256,
+            stage="qualification",
+        )
         qualification = qualify_repetitions(successful)
         qualification_path = out_dir / "qualification.json"
         report_path = out_dir / "report.md"
