@@ -386,6 +386,15 @@ def _aggregate_batch_report(
         and r.get("entities_delta", -1) == 0
         and r.get("evidence_delta", -1) == 0
     )
+    source_timings = []
+    for result in results:
+        source_path = result.get("path")
+        run_row = _latest_completed_run_for_path(store_dir, Path(str(source_path))) if source_path else None
+        source_timings.append({
+            "source_path": str(source_path or ""),
+            "status": "completed" if run_row else result.get("status", "failed"),
+            "duration_ms": int((run_row or {}).get("duration_ms", 0) or 0),
+        })
 
     model_name = _dominant_model_name(llm_rows)
     service_tier = str(summary.get("service_tier") or "standard")
@@ -413,6 +422,7 @@ def _aggregate_batch_report(
             "ended_at": ended_at,
             "elapsed_seconds": round(elapsed_sec, 3),
         },
+        "source_timings": source_timings,
         "files": {
             "total": file_total,
             "succeeded": succeeded,

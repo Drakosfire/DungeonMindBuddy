@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -118,12 +119,14 @@ def run_campaign_memory_baseline(
             raise ExperimentFailure(stage, "pinned_input_drift")
 
     assert_state("preflight")
+    experiment_started = time.perf_counter()
     out_dir.mkdir(parents=True)
     receipt: dict[str, Any] = {
         "schema": "dmb_campaign_memory_baseline_receipt_v1",
         "status": "running",
         "started_at": _now(),
         "completed_at": None,
+        "duration_seconds": None,
         "manifest_sha256": baseline.manifest_sha256,
         "repository_sha": baseline.manifest.repository_sha,
         "pins": baseline.manifest.pins.model_dump(),
@@ -142,6 +145,16 @@ def run_campaign_memory_baseline(
                 "".join(f"{x}\n" for x in baseline.source_locators), encoding="utf-8"
             )
             store = root / "store"
+            row = {
+                "index": index,
+                "status": "running",
+                "started_at": _now(),
+                "completed_at": None,
+                "duration_seconds": None,
+                "store_path": str(store),
+            }
+            receipt["repetitions"].append(row)
+            _write(receipt_path, receipt)
             argv = [
                 sys.executable,
                 str(baseline.repo_root / "tools/batch_ingest_corpus.py"),
@@ -169,6 +182,19 @@ def run_campaign_memory_baseline(
                     f"rep_{index}_batch", f"batch_subprocess_exit_{result.returncode}"
                 )
             report = _read(store / "logs" / "batch_report.json")
+            window = report.get("run_window") or {}
+            row.update(
+                {
+                    "completed_at": window.get("ended_at"),
+                    "duration_seconds": window.get("elapsed_seconds", 0),
+                    "source_timings": report.get("source_timings", []),
+                    "stage_timings_ms": report.get("timing", {}),
+                    "partial_batch_report_path": str(
+                        store / "logs" / "batch_report.json"
+                    ),
+                }
+            )
+            _write(receipt_path, receipt)
             _validate_batch_report(report, 7)
             entity_model, fact_model = _observed_models(
                 store / "logs" / "model_calls.jsonl"
@@ -215,23 +241,22 @@ def run_campaign_memory_baseline(
             calls = telemetry.get("api_calls") or {}
             input_tokens = tokens.get("input_tokens", 0)
             output_tokens = tokens.get("output_tokens", 0)
-            row = {
-                "index": index,
-                "status": "completed",
-                "store_path": str(store),
-                "lab_run_path": str(lab),
-                "observed_models": {"entity": entity_model, "fact": fact_model},
-                "pricing_per_million_tokens_usd": SOL_PRICING_PER_MILLION_TOKENS_USD,
-                "telemetry": {
-                    "runtime_seconds": window.get("elapsed_seconds", 0),
-                    "api_calls": calls.get("total", 0),
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "total_tokens": input_tokens + output_tokens,
-                    "cost_usd": cost.get("estimated_cost_usd", 0),
-                },
-            }
-            receipt["repetitions"].append(row)
+            row.update(
+                {
+                    "status": "completed",
+                    "lab_run_path": str(lab),
+                    "observed_models": {"entity": entity_model, "fact": fact_model},
+                    "pricing_per_million_tokens_usd": SOL_PRICING_PER_MILLION_TOKENS_USD,
+                    "telemetry": {
+                        "runtime_seconds": window.get("elapsed_seconds", 0),
+                        "api_calls": calls.get("total", 0),
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "total_tokens": input_tokens + output_tokens,
+                        "cost_usd": cost.get("estimated_cost_usd", 0),
+                    },
+                }
+            )
             _write(receipt_path, receipt)
             assert_state(f"rep_{index}_after")
         assert_state("before_qualification")
@@ -272,6 +297,7 @@ def run_campaign_memory_baseline(
             {
                 "status": "completed",
                 "completed_at": _now(),
+                "duration_seconds": time.perf_counter() - experiment_started,
                 "qualification_path": str(out_dir / "qualification.json"),
                 "witness_index_path": str(out_dir / "witness_index.json"),
                 "report_path": str(out_dir / "report.md"),
@@ -289,9 +315,12 @@ def run_campaign_memory_baseline(
             {
                 "status": "failed",
                 "completed_at": _now(),
+                "duration_seconds": time.perf_counter() - experiment_started,
                 "failure": {"stage": failure.stage, "reason": failure.reason},
             }
         )
+        if receipt["repetitions"] and receipt["repetitions"][-1]["status"] == "running":
+            receipt["repetitions"][-1]["status"] = "failed"
         _write(receipt_path, receipt)
         raise failure from exc
 
