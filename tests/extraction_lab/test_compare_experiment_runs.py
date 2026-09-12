@@ -176,3 +176,47 @@ def test_report_contains_tradeoffs_without_ranking(tmp_path) -> None:
     assert "class_mismatch" in report
     assert "winner" not in report.lower()
     assert "promotion" not in report.lower()
+
+
+def test_missing_anchor_result_fails_closed_without_quality_claims(tmp_path) -> None:
+    baseline = _run(tmp_path, "baseline")
+    candidate = _run(tmp_path, "candidate", model="candidate-model")
+    _write_json(candidate / "entity_results.json", [])
+    result = compare_experiment_runs(baseline_dir=baseline, candidate_dir=candidate)
+    assert result["comparable"] is False
+    assert result["non_comparable_reasons"] == [
+        "candidate_entity_result_count_mismatch",
+        "entity_result_anchor_id_set_mismatch",
+    ]
+    assert "metric_deltas" not in result
+    assert "anchor_transitions" not in result
+
+
+def test_duplicate_anchor_result_fails_closed_without_quality_claims(tmp_path) -> None:
+    baseline = _run(tmp_path, "baseline")
+    candidate = _run(tmp_path, "candidate", model="candidate-model")
+    row = json.loads((candidate / "entity_results.json").read_text(encoding="utf-8"))[0]
+    _write_json(candidate / "entity_results.json", [row, row])
+    result = compare_experiment_runs(baseline_dir=baseline, candidate_dir=candidate)
+    assert result["comparable"] is False
+    assert result["non_comparable_reasons"] == [
+        "candidate_entity_result_anchor_ids_duplicate",
+        "candidate_entity_result_count_mismatch",
+    ]
+    assert "metric_deltas" not in result
+    assert "anchor_transitions" not in result
+
+
+def test_different_anchor_result_id_set_fails_closed_even_when_counts_match(
+    tmp_path,
+) -> None:
+    baseline = _run(tmp_path, "baseline")
+    candidate = _run(tmp_path, "candidate", model="candidate-model")
+    row = json.loads((candidate / "entity_results.json").read_text(encoding="utf-8"))[0]
+    row["anchor_id"] = "unexpected_anchor"
+    _write_json(candidate / "entity_results.json", [row])
+    result = compare_experiment_runs(baseline_dir=baseline, candidate_dir=candidate)
+    assert result["comparable"] is False
+    assert result["non_comparable_reasons"] == ["entity_result_anchor_id_set_mismatch"]
+    assert "metric_deltas" not in result
+    assert "anchor_transitions" not in result

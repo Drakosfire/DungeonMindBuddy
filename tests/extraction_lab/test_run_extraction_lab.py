@@ -89,7 +89,9 @@ def test_run_extraction_lab_emits_required_artifacts(tmp_path) -> None:
     assert (run_dir / "fact_results.json").exists()
     assert (run_dir / "aggregate_metrics.json").exists()
     assert (run_dir / "report.md").exists()
-    contract = json.loads((run_dir / "pipeline_contract.json").read_text(encoding="utf-8"))
+    contract = json.loads(
+        (run_dir / "pipeline_contract.json").read_text(encoding="utf-8")
+    )
     assert contract["store_sha256"]
     assert contract["corpus_source_sha256"]
     benchmark = json.loads(
@@ -97,8 +99,12 @@ def test_run_extraction_lab_emits_required_artifacts(tmp_path) -> None:
     )
     manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
     assert benchmark["surface"] == "core_extraction"
-    assert benchmark["corpus"]["available"] is True
-    assert benchmark["corpus"]["source_count"] == 2
+    assert benchmark["corpus"] == {
+        "available": False,
+        "fingerprint": None,
+        "source_count": 0,
+        "unavailable_reasons": ["source_cohort_unproven"],
+    }
     assert benchmark["gold"]["entity_anchor_count"] == 1
     assert benchmark["gold"]["fact_anchor_count"] == 1
     assert manifest["benchmark_contract"] == benchmark

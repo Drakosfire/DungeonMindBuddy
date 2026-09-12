@@ -308,14 +308,21 @@ If implementation cannot prove useful comparison without running ingestion/model
 ### Implementation handback
 
 - `benchmark_contract_v1` is stamped both in `run_manifest.json` and as `benchmark_contract.json`. It keeps `surface`, path-independent corpus identity, and surface-filtered semantic gold identity separate from the existing pipeline contract.
-- Corpus identity hashes sorted logical paths relative to the explicit corpus root plus source-byte hashes. Missing roots, missing sources, or sources outside that root make identity unavailable instead of falling back to absolute paths.
+- Corpus identity hashes sorted logical paths relative to the explicit corpus root plus source-byte hashes. Missing roots, missing exact source provenance, missing sources, or sources outside that root make identity unavailable instead of inferring a cohort from the root or falling back to absolute paths.
 - Gold identity canonicalizes only anchors for the evaluated surface, including set-like anchor fields; JSON formatting, anchor ordering, and unrelated-surface changes do not create false drift, while evaluated semantic changes do.
 - `compare_experiment_runs` accepts changed pipeline contracts and enumerates field-level differences. It emits metric deltas plus entity/fact improved, regressed, and unchanged transitions with before/after failure buckets.
-- Legacy, unsupported, unavailable, divergent-stamp, surface, corpus, and gold identities fail closed. Non-comparable artifacts omit metric deltas and anchor transitions; neither JSON nor Markdown emits a winner, READY state, composite score, or promotion recommendation.
-- Full Extraction Lab regression: `32 passed`. Scoped Ruff checks and `git diff --check` pass.
-- CLI smoke emitted two independently stamped runs with different entity/fact model IDs, then produced `comparable=true` and enumerated both model differences without any LLM, store, baseline, APP-STATE, or World mutation.
+- Legacy, unsupported, unavailable, divergent-stamp, surface, corpus, gold, and incomplete/duplicate anchor-result identities fail closed. Result rows must have unique IDs, match baseline-to-candidate ID sets, and match benchmark-contract counts before any metric delta or transition is emitted. Non-comparable artifacts omit metric deltas and anchor transitions; neither JSON nor Markdown emits a winner, READY state, composite score, or promotion recommendation.
+- Full Extraction Lab regression after Cycle 1 repairs: `36 passed`. Scoped Ruff checks and `git diff --check` pass.
+- Exact-provenance CLI smoke emits two independently stamped runs with different entity/fact model IDs, then produces `comparable=true` and enumerates both model differences without any LLM, store, baseline, APP-STATE, or World mutation. The committed sample store has no `ingest_index.json`, so it now correctly stamps `source_cohort_unproven` rather than treating every Markdown file under the supplied root as scored input.
 - Changed paths remain within §4; the bounded fixture exception was not used. P0b execution orchestration, repetitions, cache policy, and cost/latency capture remain false.
 - Backward-looking authority now records PR #704 merged at `a90f5e81355952d80ad5dba24bd4d27d5eedd930`, accepted head `02b2529176703b3f8b69ad9fcb594f401c1c5f6b`, 1 formal review cycle, with the human Stage 4 WOW gate still HOLD.
+
+### Review Cycle 1 finding ledger
+
+- Exact reviewed head: `479437f3ea5756b320e84888a04a1f5a30b262c7`; verdict **HOLD**; review `5186961511`.
+- Closed for Cycle 2: absent `ingest_index.json` no longer triggers corpus-root `rglob` inference; the benchmark corpus identity is unavailable with `source_cohort_unproven`.
+- Closed for Cycle 2: missing, extra, duplicate, or count-inconsistent entity/fact result rows make the comparison non-comparable and suppress all quality claims.
+- Design remains unchanged; no P0b runner, ingestion, gold, publication, or authority scope was added.
 
 Record:
 

@@ -100,6 +100,26 @@ def _benchmark_qualification_reasons(
     return reasons
 
 
+def _result_qualification_reasons(
+    *,
+    side: str,
+    kind: str,
+    rows: list[dict[str, Any]],
+    expected_count: Any,
+) -> tuple[list[str], set[str]]:
+    reasons: list[str] = []
+    anchor_ids = [str(row.get("anchor_id", "")).strip() for row in rows]
+    if any(not anchor_id for anchor_id in anchor_ids):
+        reasons.append(f"{side}_{kind}_result_anchor_id_missing")
+    if len(anchor_ids) != len(set(anchor_ids)):
+        reasons.append(f"{side}_{kind}_result_anchor_ids_duplicate")
+    if not isinstance(expected_count, int) or isinstance(expected_count, bool):
+        reasons.append(f"{side}_{kind}_result_expected_count_unavailable")
+    elif len(rows) != expected_count:
+        reasons.append(f"{side}_{kind}_result_count_mismatch")
+    return reasons, set(anchor_ids)
+
+
 def _render_report(comparison: dict[str, Any]) -> str:
     lines = [
         "# Extraction experiment comparison",
@@ -183,6 +203,38 @@ def compare_experiment_runs(
 
     baseline_pipeline = _read_json(baseline_dir / "pipeline_contract.json")
     candidate_pipeline = _read_json(candidate_dir / "pipeline_contract.json")
+    baseline_entity_results = _read_json(baseline_dir / "entity_results.json")
+    candidate_entity_results = _read_json(candidate_dir / "entity_results.json")
+    baseline_fact_results = _read_json(baseline_dir / "fact_results.json")
+    candidate_fact_results = _read_json(candidate_dir / "fact_results.json")
+    if baseline_benchmark is not None and candidate_benchmark is not None:
+        result_sets: dict[str, tuple[set[str], set[str]]] = {}
+        for kind, baseline_rows, candidate_rows in (
+            ("entity", baseline_entity_results, candidate_entity_results),
+            ("fact", baseline_fact_results, candidate_fact_results),
+        ):
+            baseline_result_reasons, baseline_ids = _result_qualification_reasons(
+                side="baseline",
+                kind=kind,
+                rows=baseline_rows,
+                expected_count=baseline_benchmark.get("gold", {}).get(
+                    f"{kind}_anchor_count"
+                ),
+            )
+            candidate_result_reasons, candidate_ids = _result_qualification_reasons(
+                side="candidate",
+                kind=kind,
+                rows=candidate_rows,
+                expected_count=candidate_benchmark.get("gold", {}).get(
+                    f"{kind}_anchor_count"
+                ),
+            )
+            reasons.extend(baseline_result_reasons)
+            reasons.extend(candidate_result_reasons)
+            result_sets[kind] = (baseline_ids, candidate_ids)
+        for kind, (baseline_ids, candidate_ids) in result_sets.items():
+            if baseline_ids != candidate_ids:
+                reasons.append(f"{kind}_result_anchor_id_set_mismatch")
     comparison: dict[str, Any] = {
         "schema_version": COMPARISON_SCHEMA_VERSION,
         "baseline_run_id": baseline_manifest.get("run_id"),
@@ -212,12 +264,12 @@ def compare_experiment_runs(
     }
     comparison["anchor_transitions"] = {
         "entity": _anchor_transitions(
-            _read_json(baseline_dir / "entity_results.json"),
-            _read_json(candidate_dir / "entity_results.json"),
+            baseline_entity_results,
+            candidate_entity_results,
         ),
         "fact": _anchor_transitions(
-            _read_json(baseline_dir / "fact_results.json"),
-            _read_json(candidate_dir / "fact_results.json"),
+            baseline_fact_results,
+            candidate_fact_results,
         ),
     }
     return comparison

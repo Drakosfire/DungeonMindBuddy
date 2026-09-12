@@ -38,7 +38,12 @@ def compute_corpus_identity(
 
     paths = list(source_paths)
     if not paths:
-        paths = sorted(corpus_source_root.rglob("*.md"))
+        return {
+            "available": False,
+            "fingerprint": None,
+            "source_count": 0,
+            "unavailable_reasons": ["source_cohort_unproven"],
+        }
 
     sources: list[dict[str, str]] = []
     reasons: list[str] = []

@@ -125,3 +125,25 @@ def test_corpus_identity_fails_closed_without_stable_root(tmp_path) -> None:
     )
     assert contract["corpus"]["available"] is False
     assert contract["corpus"]["fingerprint"] is None
+
+
+def test_corpus_identity_fails_closed_without_exact_source_cohort(tmp_path) -> None:
+    entities, facts = _anchors(tmp_path)
+    root = tmp_path / "corpus"
+    root.mkdir()
+    (root / "unproven.md").write_text(
+        "This file may not have fed the store.\n", encoding="utf-8"
+    )
+    contract = compute_benchmark_contract(
+        surface="core_extraction",
+        source_paths=[],
+        corpus_source_root=root,
+        entity_anchors=entities,
+        fact_anchors=facts,
+    )
+    assert contract["corpus"] == {
+        "available": False,
+        "fingerprint": None,
+        "source_count": 0,
+        "unavailable_reasons": ["source_cohort_unproven"],
+    }
