@@ -1,12 +1,14 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4B recap World-reference glance
 
 **Created:** 2026-09-11  
-**Status:** ACTIVE — one implementation capability  
+**Status:** IMPLEMENTED — AWAITING REVIEW / HUMAN WOW DISPOSITION
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4b-recap-world-reference-glance-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW gate`  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / historical recap reading + shared graph-reference presentation  
 **Direction:** DESIGN → CODE → REVIEW  
 **Base revision:** `92a50db8bd41d632e54e5bbbd265738f546e0a5b` (main after PR #702 merge)  
+**Implementation branch:** `dogfood-continuity/stage4b-recap-world-reference-glance-impl`
+**Implementation code head:** `79e012b7`
 **PR title:** `DOGFOOD-CONTINUITY: make recap World references glanceable`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). UI language: [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](../Design/ui-language/DESIGN-interaction-layer-language.md).
@@ -209,6 +211,21 @@ The suspected delayed Ingest → Plan full-document refresh is **not** part of t
 
 ## §8 Required review handback
 
+### Implementation handback
+
+- The ordinary token now presents one compact dark-room glance: explicit object label, humanized type (`PC`/`NPC` where applicable), optional resident summary, and at most one truthful current-session relationship.
+- Hover and focus only expose the glance. Click/tap/Enter first closes transient glance state and then calls the existing `onSelect`; the historical recap integration proves the same complete-object path still opens and no glance remains open.
+- No new API or fetch was introduced. C2S25 revealed that Karsemine has no resident summary or labeled focus evidence, but does have focus-session adjacency. `nodeGlancePresentation` deterministically renders that resident fact as “Captain Lysandra Ironveil allied with Karsemine this session.”
+- Exact-head browser dogfood also exposed unlabeled evidence-role filler (`support`). Fix commit `79e012b7` removes that debug-like fallback: unlabeled evidence uses a resident focus relationship or the context region is omitted.
+- Threat specialization remains routed through `ThreatCampaignGlance`; the ordinary content reduction does not flatten it.
+- Focused evidence from `apps/live-control-ui`: 3 files / 40 tests passed (`GraphNodeHoverToken`, `nodeGlancePresentation`, and `GraphReviewWorkbenchModule`); `npm run build` passed with the inherited large-chunk warning.
+- Desktop C2S25: the quiet inline Karsemine token opened a compact anchored glance with `Karsemine / PC / Why it matters here`; hover → click removed the glance and opened the existing right-side complete object; close returned the recap with no stale card.
+- `390×844` C2S25: direct tap opened the complete object without a tooltip gate; CENTER remained mounted/hidden; Back restored a deep internal recap scroll position of `2400`; no horizontal overflow or lingering glance appeared.
+- Keyboard focus equivalence and Enter activation are proven at the owning component boundary. Browser automation could not advance native tab focus reliably, so the human reviewer should include the handoff's keyboard scenario in the experiential disposition.
+- Backward-looking #701/#702 predecessor truth is synchronized in the four §2 authority files. Stage 4 remains NOT DONE.
+- Changed paths are limited to §4. The only created test, `nodeGlancePresentation.test.ts`, is the explicitly named presentation-test path.
+- Still false: 7A1, Agent capability, Author Node/Tools redesign, new World fetch, generic-lens repair, Session 23 adoption, performance work, and Play/Combat redesign.
+
 Record:
 
 1. `Review Cycle <N>` and exact PR/branch/head SHA;
@@ -224,17 +241,17 @@ Record:
 
 ## §9 Acceptance rubric
 
-- [ ] Exactly one independently useful capability is delivered: recognizable recap World reference → useful glance → existing full inspection.
-- [ ] Idle reference is intentionally interactive but remains visually cheaper than recap prose.
-- [ ] Ordinary glance answers “what is this?” and, when evidence exists, “why does it matter here?” without becoming a mini graph inspector.
-- [ ] Hover and keyboard focus reveal the same truthful glance and do not select/open the object.
-- [ ] Click/tap/Enter uses the existing exact node inspection path; no alternate identity or fetch path is introduced.
-- [ ] Glance is dismissed when activation opens the complete object; no stale floating card remains.
-- [ ] Narrow/touch does not require hover or a first-tap tooltip step.
-- [ ] Threat specialization remains intact and is not silently redesigned.
-- [ ] Desktop and 390×844 C2S25 witnesses preserve recap reading context through open/close.
-- [ ] #702/UI-03 predecessor truth is synchronized backward-looking in the named authority docs; Stage 4 is **not** pre-marked complete.
-- [ ] Actual changed paths stay inside §4 / bounded discovery.
+- [x] Exactly one independently useful capability is delivered: recognizable recap World reference → useful glance → existing full inspection.
+- [x] Idle reference is intentionally interactive but remains visually cheaper than recap prose.
+- [x] Ordinary glance answers “what is this?” and, when evidence exists, “why does it matter here?” without becoming a mini graph inspector.
+- [x] Hover and keyboard focus reveal the same truthful glance and do not select/open the object.
+- [x] Click/tap/Enter uses the existing exact node inspection path; no alternate identity or fetch path is introduced.
+- [x] Glance is dismissed when activation opens the complete object; no stale floating card remains.
+- [x] Narrow/touch does not require hover or a first-tap tooltip step.
+- [x] Threat specialization remains intact and is not silently redesigned.
+- [x] Desktop and 390×844 C2S25 witnesses preserve recap reading context through open/close.
+- [x] #702/UI-03 predecessor truth is synchronized backward-looking in the named authority docs; Stage 4 is **not** pre-marked complete.
+- [x] Actual changed paths stay inside §4 / bounded discovery.
 
 ## Stop conditions
 
