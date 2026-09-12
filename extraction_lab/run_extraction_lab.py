@@ -9,6 +9,7 @@ from typing import Any
 
 from extraction_lab.anchor_resolver import resolve_entity_anchors, resolve_fact_anchors
 from extraction_lab.anchor_schema import load_entity_anchors, load_fact_anchors
+from extraction_lab.benchmark_contract import compute_benchmark_contract
 from extraction_lab.pipeline_contract import compute_pipeline_contract
 from extraction_lab.report import render_report
 from extraction_lab.run_manifest import build_run_manifest
@@ -151,8 +152,17 @@ def run_extraction_lab(
         pipeline_code_sha=pipeline_code_sha,
     )
 
-    entity_anchors = [a for a in load_entity_anchors(entity_anchor_path) if a.surface == surface]
-    fact_anchors = [a for a in load_fact_anchors(fact_anchor_path) if a.surface == surface]
+    all_entity_anchors = load_entity_anchors(entity_anchor_path)
+    all_fact_anchors = load_fact_anchors(fact_anchor_path)
+    benchmark_contract = compute_benchmark_contract(
+        surface=surface,
+        source_paths=source_paths,
+        corpus_source_root=corpus_source_root,
+        entity_anchors=all_entity_anchors,
+        fact_anchors=all_fact_anchors,
+    )
+    entity_anchors = [a for a in all_entity_anchors if a.surface == surface]
+    fact_anchors = [a for a in all_fact_anchors if a.surface == surface]
     entity_results = resolve_entity_anchors(entity_anchors, entities, facts)
     entity_results_by_id = {row["anchor_id"]: row for row in entity_results}
     fact_results = resolve_fact_anchors(fact_anchors, entity_results_by_id, facts)
@@ -162,6 +172,7 @@ def run_extraction_lab(
         surface=surface,
         store_path=store_path,
         contract=contract,
+        benchmark_contract=benchmark_contract,
         entity_anchor_count=len(entity_anchors),
         fact_anchor_count=len(fact_anchors),
         entity_count=len(entities),
@@ -172,6 +183,7 @@ def run_extraction_lab(
     run_dir = out_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     _write_json(run_dir / "pipeline_contract.json", contract)
+    _write_json(run_dir / "benchmark_contract.json", benchmark_contract)
     _write_json(run_dir / "run_manifest.json", manifest)
     _write_json(run_dir / "entity_results.json", entity_results)
     _write_json(run_dir / "fact_results.json", fact_results)
