@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4B recap World-reference glance
 
 **Created:** 2026-09-11  
-**Status:** IMPLEMENTED — AWAITING REVIEW / HUMAN WOW DISPOSITION
+**Status:** HUMAN DOGFOOD HOLD — WOW GATE NOT PASSED
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4b-recap-world-reference-glance-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW gate`  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / historical recap reading + shared graph-reference presentation  
@@ -225,6 +225,42 @@ The suspected delayed Ingest → Plan full-document refresh is **not** part of t
 - Backward-looking #701/#702 predecessor truth is synchronized in the four §2 authority files. Stage 4 remains NOT DONE.
 - Changed paths are limited to §4. The only created test, `nodeGlancePresentation.test.ts`, is the explicitly named presentation-test path.
 - Still false: 7A1, Agent capability, Author Node/Tools redesign, new World fetch, generic-lens repair, Session 23 adoption, performance work, and Play/Combat redesign.
+
+### Product-owner dogfood disposition — 2026-09-11
+
+**Exact head witnessed:** `ce17bc110992042ed098e5ed30b91ceb0b13e01e`
+
+**Verdict:** **HOLD.** The presentation work is directionally useful, but the human WOW question cannot yet be answered “yes.” Recap references still do not feel like living campaign memory because the product cannot access enough of the existing corpus truth to supply the useful identity and historical context.
+
+Observed product findings:
+
+1. **Representative corpus truth is inaccessible.** C2 Session 24 loads, but C2 Session 23 reports `exact historical source is not adopted into APP-STATE`. The original Session 23 Markdown contains the missing facts:
+   - Orik Tane is introduced as mayor of **Mireward** and can command the room;
+   - Brin Holloway is a cook from Edge and the visible leader of the refugee group;
+   - breadcrumbed source explicitly routes recap spellings `Orik Tane` / `Orik` to the existing `Orric Tane` hub.
+   The current S25 projection/full objects do not surface those facts. This is an authority/adoption gap, not absent authored lore.
+2. **The chosen glance context is too local and arbitrary.** `Captain Lysandra Ironveil allied with Karsemine this session` is truthful resident data, but “this session” is redundant while reading that session and the edge is not necessarily the best reason the object matters. The desired lens should combine durable node identity with relevant session↔node context, including prior-session beats when they establish who the object is.
+3. **Some authored `dmb-node:` Markdown references render as literal Markdown instead of World tokens.** The recap therefore mixes interactive memory tokens with visible implementation syntax.
+4. **Glance hierarchy needs another visual pass.** The type label (`PC`) occupies a full row beneath the name despite being small metadata; it should sit more economically with identity.
+5. **Secondary dismissal is duplicated.** The World object has a local `×` and AppChrome simultaneously shows `World object · Close`. Persistent dismissal remains necessary for long panels, but two competing controls feel superfluous; a later UI-03 follow-up should converge on one reachable affordance.
+6. **Full World objects still read as implementation/debug surfaces.** Brin's object exposed ingestion-oriented metadata (IDs, revision/fingerprint, source bindings, completeness, origin surface) while omitting the useful existing S23 identity.
+7. **Ordinary recap loading is over-specified.** Desired product default: load the promoted graph winner for campaign + session. Run selection and run/gold metadata belong under Advanced or dedicated ingestion-tuning/benchmark tooling. The extra Load/Cancel ceremony and `Read-only` default label add product friction.
+8. **C1 still does not load.** Corpus completeness remains nearly co-equal in priority with UI work; UI is first only narrowly.
+
+What remains accepted:
+
+- the compact anchored dark-room glance is preferable to the prior planning/debug card;
+- hover/focus separation, click dismissal, Threat specialization, and narrow direct-tap behavior remain mechanically sound;
+- no stale glance appeared when full inspection opened;
+- narrow Back restored the exact recap reading position.
+
+Disposition boundary:
+
+- preserve #704's useful presentation work for review;
+- do not manufacture prose or add a new fetch inside this frontend-only slice;
+- do not mark Stage 4 complete;
+- route representative source adoption / accumulated World projection as the prerequisite for a credible WOW re-witness;
+- separately route recap Markdown-token rendering, duplicate secondary close, simplified loading chrome, and full-object information architecture.
 
 Record:
 
