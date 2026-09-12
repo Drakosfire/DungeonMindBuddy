@@ -30,30 +30,73 @@ class UsageStats:
     output_tokens: int = 0
     cached_tokens: int = 0
     api_calls: int = 0
+    reasoning_tokens: int | None = None
+    parsed_output_bytes: int = 0
 
     def merge(self, other: UsageStats) -> None:
+        had_calls = self.api_calls > 0
         self.input_tokens += other.input_tokens
         self.output_tokens += other.output_tokens
         self.cached_tokens += other.cached_tokens
         self.api_calls += other.api_calls
+        if not had_calls:
+            self.reasoning_tokens = other.reasoning_tokens
+        elif self.reasoning_tokens is None or other.reasoning_tokens is None:
+            self.reasoning_tokens = None
+        else:
+            self.reasoning_tokens += other.reasoning_tokens
+        self.parsed_output_bytes += other.parsed_output_bytes
 
-    def to_dict(self) -> dict[str, int]:
-        return asdict(self)
+    def to_dict(self) -> dict[str, int | None]:
+        payload = asdict(self)
+        payload["visible_output_tokens"] = (
+            self.output_tokens - self.reasoning_tokens
+            if self.reasoning_tokens is not None
+            else None
+        )
+        return payload
 
 
-def _usage_dict_from_openai_response(response: Any) -> dict[str, int]:
+def _usage_dict_from_openai_response(response: Any) -> dict[str, int | None]:
     usage_raw = getattr(response, "usage", None)
     if not usage_raw:
-        return {"input_tokens": 0, "output_tokens": 0, "cached_tokens": 0}
+        return {"input_tokens": 0, "output_tokens": 0, "cached_tokens": 0, "reasoning_tokens": None}
     details = getattr(usage_raw, "input_tokens_details", None)
     cached = 0
     if details is not None:
         cached = int(getattr(details, "cached_tokens", 0) or 0)
+    output_details = getattr(usage_raw, "output_tokens_details", None)
+    reasoning = (
+        int(getattr(output_details, "reasoning_tokens", 0) or 0)
+        if output_details is not None
+        and getattr(output_details, "reasoning_tokens", None) is not None
+        else None
+    )
     return {
         "input_tokens": int(getattr(usage_raw, "input_tokens", 0) or 0),
         "output_tokens": int(getattr(usage_raw, "output_tokens", 0) or 0),
         "cached_tokens": cached,
+        "reasoning_tokens": reasoning,
     }
+
+
+def _experiment_request_kwargs() -> dict[str, Any]:
+    kwargs: dict[str, Any] = {}
+    if os.environ.get("DMB_OPENAI_SERVICE_TIER") == "flex":
+        kwargs["service_tier"] = "flex"
+    effort = os.environ.get("DMB_OPENAI_REASONING_EFFORT", "").strip()
+    if effort:
+        kwargs["reasoning"] = {"effort": effort}
+    return kwargs
+
+
+def _attach_entity_usage(result: dict[str, Any], response: Any) -> dict[str, Any]:
+    usage = _usage_dict_from_openai_response(response)
+    usage["parsed_output_bytes"] = len(
+        json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    )
+    result["_usage"] = usage
+    return result
 
 
 _PROMPT_ID = "phase_b_pass1_entity_extraction_v6_prompt_cache_split"
@@ -354,6 +397,7 @@ class OpenAIResponsesEntityClient:
                 {"role": "user", "content": user_prompt},
             ],
             text_format=EntityExtractionResult,
+            **_experiment_request_kwargs(),
         ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
@@ -362,8 +406,7 @@ class OpenAIResponsesEntityClient:
             result = parsed.model_dump()
         else:
             result = EntityExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return _attach_entity_usage(result, response)
 
     def extract_recap(
         self,
@@ -386,6 +429,7 @@ class OpenAIResponsesEntityClient:
                 {"role": "user", "content": user_prompt},
             ],
             text_format=_RecapExtractionResult,
+            **_experiment_request_kwargs(),
         ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
@@ -394,8 +438,7 @@ class OpenAIResponsesEntityClient:
             result = parsed.model_dump()
         else:
             result = _RecapExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return _attach_entity_usage(result, response)
 
     def extract_entities_batched(
         self,
@@ -413,6 +456,7 @@ class OpenAIResponsesEntityClient:
                 {"role": "user", "content": user_prompt},
             ],
             text_format=BatchedEntityExtractionResult,
+            **_experiment_request_kwargs(),
         ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
@@ -421,8 +465,7 @@ class OpenAIResponsesEntityClient:
             result = parsed.model_dump()
         else:
             result = BatchedEntityExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return _attach_entity_usage(result, response)
 
 
 class AsyncOpenAIResponsesEntityClient:
@@ -461,7 +504,7 @@ class AsyncOpenAIResponsesEntityClient:
                     {"role": "user", "content": user_prompt},
                 ],
                 text_format=EntityExtractionResult,
-                **({"service_tier": "flex"} if os.environ.get("DMB_OPENAI_SERVICE_TIER") == "flex" else {}),
+                **_experiment_request_kwargs(),
             )
         ).response
         parsed = getattr(response, "output_parsed", None)
@@ -471,8 +514,7 @@ class AsyncOpenAIResponsesEntityClient:
             result = parsed.model_dump()
         else:
             result = EntityExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return _attach_entity_usage(result, response)
 
     async def extract_recap(
         self,
@@ -495,7 +537,7 @@ class AsyncOpenAIResponsesEntityClient:
                     {"role": "user", "content": user_prompt},
                 ],
                 text_format=_RecapExtractionResult,
-                **({"service_tier": "flex"} if os.environ.get("DMB_OPENAI_SERVICE_TIER") == "flex" else {}),
+                **_experiment_request_kwargs(),
             )
         ).response
         parsed = getattr(response, "output_parsed", None)
@@ -505,8 +547,7 @@ class AsyncOpenAIResponsesEntityClient:
             result = parsed.model_dump()
         else:
             result = _RecapExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return _attach_entity_usage(result, response)
 
     async def extract_entities_batched(
         self,
@@ -525,7 +566,7 @@ class AsyncOpenAIResponsesEntityClient:
                     {"role": "user", "content": user_prompt},
                 ],
                 text_format=BatchedEntityExtractionResult,
-                **({"service_tier": "flex"} if os.environ.get("DMB_OPENAI_SERVICE_TIER") == "flex" else {}),
+                **_experiment_request_kwargs(),
             )
         ).response
         parsed = getattr(response, "output_parsed", None)
@@ -535,8 +576,7 @@ class AsyncOpenAIResponsesEntityClient:
             result = parsed.model_dump()
         else:
             result = BatchedEntityExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return _attach_entity_usage(result, response)
 
     async def aclose(self) -> None:
         closer = getattr(self._client, "aclose", None)
@@ -867,7 +907,7 @@ def _build_batched_entity_user_prompt(
     )
 
 
-def _pop_usage_from_entity_payload(payload: Any) -> tuple[dict[str, Any], dict[str, int]]:
+def _pop_usage_from_entity_payload(payload: Any) -> tuple[dict[str, Any], dict[str, Any]]:
     if not isinstance(payload, dict):
         raise TypeError("extract_entities payload must be a dict")
     raw = payload.pop("_usage", None) or {}
@@ -875,6 +915,8 @@ def _pop_usage_from_entity_payload(payload: Any) -> tuple[dict[str, Any], dict[s
         "input_tokens": int(raw.get("input_tokens", 0) or 0),
         "output_tokens": int(raw.get("output_tokens", 0) or 0),
         "cached_tokens": int(raw.get("cached_tokens", 0) or 0),
+        "reasoning_tokens": raw.get("reasoning_tokens"),
+        "parsed_output_bytes": int(raw.get("parsed_output_bytes", 0) or 0),
     }
     return payload, usage
 
@@ -1235,13 +1277,15 @@ async def extract_entities_batch(
     collected_event_records: list[dict[str, Any]] = []
     collected_claims: list[dict[str, Any]] = []
 
-    def _usage_for_call(udict: dict[str, int]) -> UsageStats:
+    def _usage_for_call(udict: dict[str, Any]) -> UsageStats:
         billed = openai_client is not None
         return UsageStats(
             input_tokens=udict.get("input_tokens", 0),
             output_tokens=udict.get("output_tokens", 0),
             cached_tokens=udict.get("cached_tokens", 0),
             api_calls=1 if billed else 0,
+            reasoning_tokens=udict.get("reasoning_tokens"),
+            parsed_output_bytes=udict.get("parsed_output_bytes", 0),
         )
 
     slot_results: list[EntityExtractionResult | None] = [None] * len(evidence_units)
