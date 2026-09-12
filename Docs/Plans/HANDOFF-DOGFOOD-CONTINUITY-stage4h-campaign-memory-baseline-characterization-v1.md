@@ -803,3 +803,192 @@ Affected paths/authority:
 Proposed successor/re-brief:
 State-authority update needed:
 ```
+
+---
+
+## §16 Paid characterization findings and successor recommendations
+
+### Evidence identity
+
+The completed paid characterization is pinned to implementation head:
+
+```text
+6a61b63dca555d3d70cac3e38eb3e48c6fc690da
+```
+
+Durable sanitized record:
+
+```text
+https://github.com/Drakosfire/DungeonMindBuddy/pull/710#issuecomment-5649023090
+```
+
+The three-repetition run completed over the exact seven-source cohort with
+`gpt-5.6-sol`, Flex, batch size 5, isolated stores/caches, and explicit legacy
+frontmatter normalization. Frozen source bytes and benchmark fingerprints did
+not change. The production model policy remained `gpt-5.3-codex`.
+
+This section is interpretation of that evidence. It does not alter the frozen
+gold, retroactively change the paid execution, or claim that identity and
+temporal requirements were formally scored.
+
+### Measured result
+
+```text
+entity recall: [1.0, 1.0, 1.0]
+fact recall:   [0.6, 0.6, 0.6]
+
+stable entity PASS: 6 / 6
+stable fact PASS:   3 / 5
+stable fact FAIL:   2 / 5
+```
+
+Stable fact passes:
+
+- Brin Holloway is a cook from Edge;
+- Brin leads the refugees/evacuees;
+- Orik Tane is Mireward's mayor.
+
+Stable fact failures, both `keyword_mismatch`:
+
+- Karsemine learns that the tripod creature is weak to fire;
+- Mireward is under active siege/refugee pressure.
+
+Operational evidence:
+
+```text
+wall time:       2005.393 seconds (33m 25.4s)
+per-run time:    723.243 / 649.475 / 625.308 seconds
+API calls:       84 per run / 252 total
+input tokens:    751,933 total
+output tokens:   750,827 total
+Flex cost:       $2.8586 / $2.6461 / $2.7358
+total cost:      $8.2405
+mean run cost:   $2.7468
+```
+
+Counts varied while benchmark outcomes remained stable:
+
+```text
+entities: 128 / 121 / 128
+facts:    850 / 825 / 824
+```
+
+This is useful descriptive stability, not evidence that every extracted record
+is deterministic.
+
+### Finding A — decisive knowledge is summarized away
+
+The source explicitly says that Hunter's Mark revealed the tripod creature was
+resistant to poison and **weak to fire**. All three runs preserved only a fact
+equivalent to:
+
+```text
+Karsemine used Hunter's Mark to learn its weaknesses and resistances.
+```
+
+The extractor noticed the correct event but discarded its table-useful answer.
+This is lossy abstraction rather than wholesale retrieval or entity failure.
+
+Mireward shows the same failure shape. The stores contain nearby facts such as
+the refugee crush disrupting the town, northern arrivals filling haylofts, and
+the north breaking against Mireward, but do not preserve the direct operational
+statement `under siege` / `siege pressure` / `meat-monster flank` required by
+the gold intent.
+
+**Classification:** `A. entity/fact recovery`, specifically preservation of
+discovery payloads and direct operational truths.
+
+**Recommended bounded successor:** require extraction to retain the answer or
+payload of discoveries, conclusions, vulnerabilities, immunities, revelations,
+and current threats—not merely that a character learned or experienced them.
+Evaluate the candidate against both stable failures while protecting the three
+currently passing facts.
+
+### Finding B — ordinary entity recall masks identity fragmentation
+
+Both Orik/Orric entity anchors pass independently, but the unscored witness
+shows different entity IDs in every repetition:
+
+```text
+Session 23: Orik Tane
+reference:  Orric Tane / Mayor Orric Tane
+result:     two actors in 3 / 3 repetitions
+```
+
+Brin provides the positive control: recap Brin and reference Brin resolved to
+one entity within every repetition. Exact/same-name reconciliation works here;
+spelling-tolerant cross-source reconciliation does not.
+
+Entity ID strings also vary between repetitions—for example
+`ent_brin_holloway` versus `brin_holloway`. Within-run identity can be coherent
+while cross-run identifier generation remains unstable.
+
+**Classification:** `C. identity fragmentation / coalescence`.
+
+**Recommended bounded successor:** make the existing identity expectations
+executable before attempting a broad identity fix. Then test a narrow alias or
+spelling-drift candidate against Orik/Orric, with Brin as the non-regression
+control. Do not infer success from independent entity-anchor recall.
+
+### Finding C — source authority is not yet safe for automatic publication
+
+The Mireward scaffold describes itself as non-canon until promoted, while its
+legacy metadata says `canon_layer: world`. The explicit compatibility projection
+allows the frozen source to be measured, but the disposable store consequently
+contains scaffold-derived facts with `CANON` truth state.
+
+This is acceptable only as disclosed disposable experiment behavior. It is not
+a safe contract for automatic durable World publication. Document metadata and
+prose-level authority disagree, and the present pipeline does not represent that
+disagreement faithfully.
+
+**Classification:** `E. provenance or observability insufficiency`, with a
+governance consequence.
+
+**Recommended boundary:** automatic full-corpus extraction may target disposable
+stores; exact digest-bound source adoption may later be automated; semantic World
+facts, merges, aliases, and relationships must not be silently promoted while
+authority conflicts remain unresolved.
+
+### Finding D — cost is affordable, but the whole-corpus projection is crude
+
+The mean measured Sol/Flex seven-source workload projects linearly to about
+`$170.30` for 434 Markdown files. The same price-only projection reports roughly:
+
+```text
+GPT-5.6 Luna Flex:  $10.07
+GPT-5.6 Terra Flex: $100.67
+GPT-5.6 Sol Flex:   $170.30
+```
+
+These are planning estimates, not model-quality or budget guarantees. The
+Mireward scaffold contributed 76 of 130 evidence units, so scaling by file count
+assumes an unusually large average file. Applying alternate model prices to
+Sol's token volume also assumes identical token behavior across models.
+
+**Classification:** `F. operational cost/runtime burden` is not currently the
+dominant blocker, but projection quality needs improvement before a full-corpus
+budget is approved.
+
+**Recommended bounded successor:** inventory corpus bytes, evidence units, and
+expected prompt batches without model calls; project from those workload units
+rather than file count. Treat Luna/Terra estimates as price-equivalent scenarios
+until small paid ablations measure their actual token volume and quality.
+
+### Recommended ordering
+
+```text
+1. Preserve decisive discovery/threat payloads in extraction.
+2. Make cross-source identity expectations executable.
+3. Test narrow Orik/Orric spelling-tolerant reconciliation.
+4. Resolve source-authority semantics before durable full-corpus publication.
+5. Replace file-count cost projection with corpus workload inventory.
+6. Only then qualify model/cost alternatives and rehearse full-corpus ingestion.
+```
+
+The dominant immediate issue is not that Sol failed to notice the relevant
+material. It repeatedly found the correct entities and nearby facts, then
+abstracted away the part a GM needs at the table. That makes a narrow extraction
+ablation the best first correction, while identity measurement should follow
+closely because better facts alone cannot connect Orik to Orric's reference
+history.
