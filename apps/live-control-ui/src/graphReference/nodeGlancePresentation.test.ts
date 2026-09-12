@@ -24,6 +24,20 @@ describe("buildGraphNodeGlancePresentation", () => {
   it("uses one resident focus-session relationship when the evidence badge has no label", () => {
     const presentation = buildGraphNodeGlancePresentation(
       nodeFixture({
+        evidence_badges: [
+          {
+            evidence_ref_id: "evidence:unlabeled-session-25",
+            source_artifact_id: "artifact:session-25",
+            source_domain: "session_recap",
+            evidence_role: "support",
+            is_focus_session_evidence: true,
+            can_open_source: true,
+            can_highlight_span: false,
+            label: null,
+            session_id: "session-25",
+            source_span_ref_id: null,
+          },
+        ],
         suggested_expansions: [
           {
             edge_id: "edge:lysandra:commands:karsemine",

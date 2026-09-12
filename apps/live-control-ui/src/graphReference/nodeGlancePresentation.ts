@@ -25,6 +25,10 @@ function evidencePlanningText(badge: GraphProjectionEvidenceBadge): string {
   return humanizeToken(badge.evidence_role);
 }
 
+function labeledEvidenceText(badge: GraphProjectionEvidenceBadge): string | null {
+  return badge.label?.trim() ? evidencePlanningText(badge) : null;
+}
+
 function adjacencyThreadLabel(candidate: GraphProjectionAdjacencyCandidate): string {
   const edgeLabel = candidate.edge_label?.trim();
   if (edgeLabel) {
@@ -112,9 +116,8 @@ export function buildGraphNodeGlancePresentation(node: GraphProjectionNodeView):
   const contextEvidence = node.evidence_badges.filter((badge) => !badge.is_focus_session_evidence);
 
   const summary = primaryGameSummaryForNode(node);
-  const whyNow = focusEvidence.length
-    ? evidencePlanningText(focusEvidence[0])
-    : focusRelationshipText(node);
+  const whyNow = focusEvidence.map(labeledEvidenceText).find(Boolean)
+    ?? focusRelationshipText(node);
   const knownBefore = contextEvidence.length ? evidencePlanningText(contextEvidence[0]) : null;
 
   return {
