@@ -28,7 +28,7 @@ class Pins(BaseModel):
 
 class Execution(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    mode: Literal["realtime"]
+    mode: Literal["flex"]
     cache_policy: Literal["isolated"]
     repetitions: Literal[3]
     batch_size: Literal[5]
@@ -39,6 +39,7 @@ class BaselineManifest(BaseModel):
     schema_name: Literal[SCHEMA] = Field(alias="schema")
     experiment_id: str = Field(min_length=1)
     repository_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
+    model_id: Literal["gpt-5.6-sol"]
     benchmark: str
     temporal_intent: str
     pins: Pins

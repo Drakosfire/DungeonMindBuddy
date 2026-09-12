@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import json
 import logging
+import os
 import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -460,6 +461,7 @@ class AsyncOpenAIResponsesEntityClient:
                     {"role": "user", "content": user_prompt},
                 ],
                 text_format=EntityExtractionResult,
+                **({"service_tier": "flex"} if os.environ.get("DMB_OPENAI_SERVICE_TIER") == "flex" else {}),
             )
         ).response
         parsed = getattr(response, "output_parsed", None)
@@ -493,6 +495,7 @@ class AsyncOpenAIResponsesEntityClient:
                     {"role": "user", "content": user_prompt},
                 ],
                 text_format=_RecapExtractionResult,
+                **({"service_tier": "flex"} if os.environ.get("DMB_OPENAI_SERVICE_TIER") == "flex" else {}),
             )
         ).response
         parsed = getattr(response, "output_parsed", None)
@@ -522,6 +525,7 @@ class AsyncOpenAIResponsesEntityClient:
                     {"role": "user", "content": user_prompt},
                 ],
                 text_format=BatchedEntityExtractionResult,
+                **({"service_tier": "flex"} if os.environ.get("DMB_OPENAI_SERVICE_TIER") == "flex" else {}),
             )
         ).response
         parsed = getattr(response, "output_parsed", None)
@@ -553,6 +557,9 @@ def _now_utc_iso() -> str:
 
 
 def _load_fast_smart_model_id() -> str:
+    override = os.environ.get("DMB_STRUCTURED_GENERATION_MODEL_OVERRIDE", "").strip()
+    if override:
+        return override
     from src.model_policy import load_buddy_model_policy
 
     payload = load_buddy_model_policy(strict=True)

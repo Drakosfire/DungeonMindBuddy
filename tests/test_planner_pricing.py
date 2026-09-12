@@ -17,6 +17,14 @@ def test_gpt56_luna_does_not_fall_through_to_gpt5() -> None:
     assert r["output"] == 1.20
 
 
+def test_gpt56_sol_uses_current_promotional_standard_rates() -> None:
+    assert pricing_rates_for_model("gpt-5.6-sol") == {
+        "input": 4.0,
+        "cached_input": 0.4,
+        "output": 20.0,
+    }
+
+
 def test_usage_cost_splits_cached_input() -> None:
     c = usage_cost_usd(
         model_id="gpt-5.3-chat-latest",

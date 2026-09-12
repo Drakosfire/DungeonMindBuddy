@@ -16,6 +16,7 @@ from extraction_lab.campaign_memory_baseline_qualification import (
     render_report,
 )
 from extraction_lab.run_extraction_lab import run_extraction_lab
+from extraction_lab.flex_cost_projection import project_flex_costs
 from extraction_lab.run_pair_experiment import (
     ExperimentFailure,
     _batch_telemetry,
@@ -28,6 +29,11 @@ from extraction_lab.run_pair_experiment import (
 
 ROOT = Path(__file__).resolve().parents[1]
 BatchRunner = Callable[[Sequence[str], Path], subprocess.CompletedProcess[str]]
+SOL_PRICING_PER_MILLION_TOKENS_USD = {
+    "input": 2.0,
+    "cached_input": 0.2,
+    "output": 10.0,
+}
 
 
 def _sha(path: Path) -> str:
@@ -64,7 +70,7 @@ def run_campaign_memory_baseline(
 ) -> dict[str, Any]:
     baseline = load_baseline_manifest(manifest_path, repo_root=repo_root)
     policy_path = baseline.repo_root / "MODEL_POLICY.json"
-    _, policy_sha, planned_model = _load_model_policy(policy_path)
+    _, policy_sha, policy_model = _load_model_policy(policy_path)
     pins = {
         "manifest": baseline.manifest_sha256,
         "benchmark": _sha(baseline.benchmark_path),
@@ -81,7 +87,10 @@ def run_campaign_memory_baseline(
         "source_ingestions": 21,
         "sources": baseline.source_locators,
         "batch_size": 5,
-        "resolved_structured_generation_model": planned_model,
+        "production_policy_model": policy_model,
+        "experiment_model": baseline.manifest.model_id,
+        "service_tier": "flex",
+        "pricing_per_million_tokens_usd": SOL_PRICING_PER_MILLION_TOKENS_USD,
         "will_execute": execute,
     }
     if out_dir.exists():
@@ -144,6 +153,10 @@ def run_campaign_memory_baseline(
                 str(paths),
                 "--batch-size",
                 "5",
+                "--structured-generation-model",
+                baseline.manifest.model_id,
+                "--openai-service-tier",
+                "flex",
             ]
             result = batch_runner(argv, baseline.repo_root)
             (root / "stdout.log").write_text(
@@ -161,6 +174,10 @@ def run_campaign_memory_baseline(
                 store / "logs" / "model_calls.jsonl"
             )
             observed_models = (entity_model, fact_model)
+            if set(observed_models) != {baseline.manifest.model_id}:
+                raise ExperimentFailure(
+                    f"rep_{index}_models", "observed_model_does_not_match_manifest"
+                )
             if expected_models is None:
                 expected_models = observed_models
             elif observed_models != expected_models:
@@ -204,6 +221,7 @@ def run_campaign_memory_baseline(
                 "store_path": str(store),
                 "lab_run_path": str(lab),
                 "observed_models": {"entity": entity_model, "fact": fact_model},
+                "pricing_per_million_tokens_usd": SOL_PRICING_PER_MILLION_TOKENS_USD,
                 "telemetry": {
                     "runtime_seconds": window.get("elapsed_seconds", 0),
                     "api_calls": calls.get("total", 0),
@@ -221,6 +239,29 @@ def run_campaign_memory_baseline(
             repetitions=receipt["repetitions"],
             benchmark_path=baseline.benchmark_path,
             temporal_path=baseline.temporal_path,
+        )
+        mean_input = qualification["operations"]["input_tokens"]["mean"]
+        mean_output = qualification["operations"]["output_tokens"]["mean"]
+        mean_cached = (
+            sum(
+                _read(Path(row["store_path"]) / "logs" / "batch_report.json")["tokens"][
+                    "cached_tokens"
+                ]
+                for row in receipt["repetitions"]
+            )
+            / 3
+        )
+        full_corpus_count = sum(
+            1
+            for path in baseline.corpus_root.rglob("*.md")
+            if "_dungeonbuddy" not in path.parts
+        )
+        qualification["cost_projections"] = project_flex_costs(
+            input_tokens=mean_input,
+            cached_tokens=mean_cached,
+            output_tokens=mean_output,
+            measured_source_count=7,
+            target_source_count=full_corpus_count,
         )
         _write(out_dir / "qualification.json", qualification)
         _write(out_dir / "witness_index.json", witness)

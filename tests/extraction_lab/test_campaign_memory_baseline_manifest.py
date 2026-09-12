@@ -14,6 +14,7 @@ def manifest_payload() -> dict:
         "schema": "dmb_campaign_memory_baseline_characterization_v1",
         "experiment_id": "stage4h-live",
         "repository_sha": "0" * 40,
+        "model_id": "gpt-5.6-sol",
         "benchmark": "evals/campaign_memory_development/benchmark.json",
         "temporal_intent": "evals/campaign_memory_development/temporal_expectations.json",
         "pins": {
@@ -23,7 +24,7 @@ def manifest_payload() -> dict:
             "temporal_intent_fingerprint": "ed3596e4fd7d75029534c19e5017f4905840347356bf5323b30c365f906c56c4",
         },
         "execution": {
-            "mode": "realtime",
+            "mode": "flex",
             "cache_policy": "isolated",
             "repetitions": 3,
             "batch_size": 5,

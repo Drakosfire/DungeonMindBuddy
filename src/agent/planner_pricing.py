@@ -10,7 +10,7 @@ from typing import Any
 _PRICING_PER_1M: dict[str, dict[str, float]] = {
     "gpt-5.6-luna": {"input": 0.20, "cached_input": 0.02, "output": 1.20},
     "gpt-5.6-terra": {"input": 2.00, "cached_input": 0.20, "output": 12.00},
-    "gpt-5.6-sol": {"input": 5.00, "cached_input": 0.50, "output": 30.00},
+    "gpt-5.6-sol": {"input": 4.00, "cached_input": 0.40, "output": 20.00},
     "gpt-5.4-nano": {"input": 0.20, "cached_input": 0.02, "output": 1.25},
     "gpt-5.4-mini": {"input": 0.75, "cached_input": 0.075, "output": 4.50},
     "gpt-5.4-pro": {"input": 30.00, "cached_input": 30.00, "output": 180.00},

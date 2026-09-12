@@ -27,4 +27,10 @@ def test_default_is_inert_dry_run(tmp_path: Path) -> None:
     )
     assert result["mode"] == "dry_run"
     assert result["plan"]["source_ingestions"] == 21
+    assert result["plan"]["experiment_model"] == "gpt-5.6-sol"
+    assert result["plan"]["pricing_per_million_tokens_usd"] == {
+        "input": 2.0,
+        "cached_input": 0.2,
+        "output": 10.0,
+    }
     assert not out.exists()

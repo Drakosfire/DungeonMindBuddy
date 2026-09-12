@@ -8,7 +8,7 @@
 **Direction:** DESIGN → CODE → PAID CHARACTERIZATION → REVIEW  
 **Base revision:** `0aa77bf791efa00cb51f45f3c7acd273ac3f351f` (main after PR #709 merge)  
 **Branch:** `dogfood-continuity/stage4h-campaign-memory-baseline-characterization-impl`
-**PR title:** `DOGFOOD-CONTINUITY: characterize the current campaign-memory baseline`
+**PR title:** `DOGFOOD-CONTINUITY: establish the Sol campaign-memory baseline`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). Predecessors: [`HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md) and [`HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md).
 
@@ -22,7 +22,7 @@ P0b1   bounded isolated A/B execution                     DONE — PR #706
 P0b2a  repeated-run variability qualification             DONE — PR #707
 P1a    campaign-memory entity/fact benchmark              DONE — PR #708
 P1a.1  identity + temporal requirement intent             DONE — PR #709
-P1b    unchanged-pipeline baseline characterization       ← THIS PR
+P1b    gold-backed Sol baseline characterization          ← THIS PR
 P2     first evidence-selected correction                 later
 P3     candidate qualification                            later
 P4     full-corpus disposable rehearsal                   later
@@ -51,7 +51,7 @@ Stage 4G temporal overlay
     ed3596e4fd7d75029534c19e5017f4905840347356bf5323b30c365f906c56c4
 ```
 
-Current Buddy model policy on the base resolves:
+Current Buddy production model policy on the base resolves:
 
 ```text
 structured_generation → fast_smart → gpt-5.3-codex
@@ -65,9 +65,9 @@ Stage 4 remains **HOLD**. No extraction improvement, identity coalescence, tempo
 
 ## §1 Mission and merge-ready invariant
 
-**Mission:** Execute the current unchanged ingestion pipeline three times over the exact frozen seven-source campaign-memory benchmark using fresh isolated stores/caches, score the existing entity/fact anchors, expose run-to-run stability and failure buckets, and generate inspectable but explicitly unscored identity/temporal witness packets so the next engineering change can be selected from evidence.
+**Mission:** Execute the unchanged ingestion prompts and extraction contracts with an explicit `gpt-5.6-sol` experiment override three times over the exact frozen seven-source campaign-memory benchmark using fresh isolated stores/caches, score the existing entity/fact anchors, expose run-to-run stability and failure buckets, and generate inspectable but explicitly unscored identity/temporal witness packets so the next engineering change can be selected from evidence.
 
-**Merge-ready invariant:** On one exact review head, three cold-cache repetitions ingest exactly the Stage 4F seven-source cohort with the current pinned model policy and batch size `5`; all three reproduce identical repository/source/gold/temporal/model-policy execution identity; each produces a qualified Extraction Lab bundle for `campaign_memory_development`; a deterministic qualification artifact reports scored entity/fact recall, per-anchor stability/failure buckets, count and cost/runtime/token telemetry; an unscored witness artifact exposes the actual store representation relevant to all Stage 4F identity and Stage 4G temporal requirements; and the PR handback truthfully records the result without changing extraction, scoring, benchmark authority, model policy, DungeonMind, APP-STATE, or World publication behavior.
+**Merge-ready invariant:** On one exact review head, three cold-cache repetitions ingest exactly the Stage 4F seven-source cohort with explicit `gpt-5.6-sol` model identity and batch size `5`; all three reproduce identical repository/source/gold/temporal/model-policy/model execution identity; each produces a qualified Extraction Lab bundle for `campaign_memory_development`; a deterministic qualification artifact reports scored entity/fact recall, per-anchor stability/failure buckets, count and updated Sol cost/runtime/token telemetry; an unscored witness artifact exposes the actual store representation relevant to all Stage 4F identity and Stage 4G temporal requirements; and the PR handback truthfully records the result without changing prompts, scoring, benchmark authority, production model-policy selection, DungeonMind, APP-STATE, or World publication behavior.
 
 ### Success is characterization, not a high score
 
@@ -102,7 +102,7 @@ P1b requires:
 
 ```text
 exactly 7 frozen sources
-one unchanged configuration
+one explicit Sol configuration
 3 repetitions
 ```
 
@@ -135,7 +135,7 @@ surface: campaign_memory_development
 sources: exactly the 7 sources from Stage 4F benchmark.json
 entity/fact gold: exactly the paths owned by Stage 4F benchmark.json
 temporal intent: exact Stage 4G sidecar
-mode: realtime
+mode: flex
 repetitions: 3
 cache policy: isolated / fresh store each repetition
 batch size: 5
@@ -143,7 +143,7 @@ OpenAI Batch API: false
 resume: false
 force: false
 auto-escalate: false
-model policy mutation: forbidden
+production model policy mutation: forbidden
 ```
 
 Repetition order is fixed:
@@ -186,6 +186,7 @@ Recommended operator manifest:
   "schema": "dmb_campaign_memory_baseline_characterization_v1",
   "experiment_id": "stage4h-c2-mireward-current-baseline",
   "repository_sha": "<EXACT REVIEW HEAD SHA>",
+  "model_id": "gpt-5.6-sol",
   "benchmark": "evals/campaign_memory_development/benchmark.json",
   "temporal_intent": "evals/campaign_memory_development/temporal_expectations.json",
   "pins": {
@@ -195,7 +196,7 @@ Recommended operator manifest:
     "temporal_intent_fingerprint": "ed3596e4fd7d75029534c19e5017f4905840347356bf5323b30c365f906c56c4"
   },
   "execution": {
-    "mode": "realtime",
+    "mode": "flex",
     "cache_policy": "isolated",
     "repetitions": 3,
     "batch_size": 5
@@ -601,15 +602,23 @@ Preferred implementation lease:
 | Action | Path | Purpose |
 |---|---|---|
 | Create | `extraction_lab/campaign_memory_baseline_manifest.py` | Strict P1b operator manifest + frozen authority loading. |
-| Create | `extraction_lab/run_campaign_memory_baseline.py` | Dry-run/paid three-repetition current-pipeline execution + fail-closed receipt. |
+| Create | `extraction_lab/run_campaign_memory_baseline.py` | Dry-run/paid three-repetition Sol/Flex execution + fail-closed receipt. |
+| Create | `extraction_lab/flex_cost_projection.py` | Dated Flex price snapshot and same-workload/full-corpus projections. |
 | Create | `extraction_lab/campaign_memory_baseline_qualification.py` | Scored descriptive aggregation + unscored witness assembly/report. |
 | Create | `tests/extraction_lab/test_campaign_memory_baseline_manifest.py` | Manifest/pin/source-authority failures. |
 | Create | `tests/extraction_lab/test_run_campaign_memory_baseline.py` | Execution, drift, fail-fast, cold-store and exact-command witnesses. |
 | Create | `tests/extraction_lab/test_campaign_memory_baseline_qualification.py` | Metric/stability/telemetry and unscored witness regressions. |
+| Create | `tests/extraction_lab/test_flex_cost_projection.py` | Flex rates, arithmetic, and projection-assumption regressions. |
 | Modify | `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md` | Backward-looking #709 merge/PASS only. |
 | Modify | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` | Record #709 done and Stage 4H current. |
 | Modify | `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md` | Record P1a.1 complete; P1b active; Stage 4 remains NOT DONE. |
 | Modify | `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4h-campaign-memory-baseline-characterization-v1.md` | Implementation/review handback only. |
+| Modify | `src/ingestion/entity_extractor.py` | Honor the explicit experiment-only model override before policy resolution. |
+| Modify | `src/ingestion/fact_extractor.py` | Honor the same explicit experiment-only model override. |
+| Modify | `tools/batch_ingest_corpus.py` | Accept the explicit model argument without mutating production model policy; retain/update Sol cost telemetry. |
+| Modify | `tests/test_model_policy_authority.py` | Prove shared explicit override and unchanged default policy behavior. |
+| Modify | `src/agent/planner_pricing.py` | Correct Sol promotional standard rates from supplied pricing authority. |
+| Modify | `tests/test_planner_pricing.py` | Lock the corrected Sol standard rates. |
 
 ### Expected no-change paths
 
