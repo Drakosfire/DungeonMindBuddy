@@ -914,11 +914,15 @@ describe("GraphReviewWorkbenchModule", () => {
 
     const bonogoPill = await screen.findByRole("button", { name: "Bonogo" });
     expect(bonogoPill).toHaveAttribute("data-graph-node-id", "node-1");
+    const bonogoGlance = bonogoPill.closest(".recap-node-token-wrap")!;
+    fireEvent.mouseEnter(bonogoGlance);
+    expect(bonogoGlance).toHaveAttribute("data-open", "true");
     await user.click(bonogoPill);
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
     });
+    expect(bonogoGlance).toHaveAttribute("data-open", "false");
     expect(screen.getByLabelText("Bonogo graph object")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(8);
     await user.click(screen.getByRole("button", { name: "Show all 15 relationships (7 more)" }));

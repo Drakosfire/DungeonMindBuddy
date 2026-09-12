@@ -12,9 +12,9 @@
 }
 
 .recap-node-token {
-  border: 1px solid rgba(156, 163, 175, 0.35);
+  border: 1px solid rgba(156, 163, 175, 0.46);
   border-radius: 999px;
-  background: rgba(156, 163, 175, 0.12);
+  background: rgba(156, 163, 175, 0.1);
   color: var(--fg, #e8eaef);
   cursor: pointer;
   display: inline;
@@ -31,6 +31,10 @@
 .recap-node-token.pinned {
   outline: none;
   box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.25);
+}
+
+.recap-node-token:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg, #0c1018), 0 0 0 4px rgba(122, 162, 247, 0.72);
 }
 
 .recap-node-glance[data-open="true"]:not(.recap-node-glance--above) .recap-node-token {
@@ -64,9 +68,9 @@
 }
 
 .recap-planning-card {
-  gap: 0.4rem;
-  max-width: 280px;
-  min-width: 200px;
+  gap: 0.36rem;
+  max-width: min(22rem, calc(100vw - 2rem));
+  min-width: min(17rem, calc(100vw - 2rem));
 }
 
 .recap-planning-scan-section {
@@ -89,6 +93,31 @@
   -webkit-line-clamp: 4;
   line-height: 1.4;
   overflow: hidden;
+}
+
+.recap-node-glance-title {
+  color: #f8fafc;
+  font-size: 0.94rem;
+  line-height: 1.2;
+}
+
+.recap-node-glance-context {
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  display: grid;
+  gap: 0.18rem;
+  margin-top: 0.12rem;
+  padding-top: 0.42rem;
+}
+
+.recap-node-glance-context > span {
+  color: #93c5fd;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.025em;
+}
+
+.recap-node-glance-context small {
+  color: #cbd5e1;
 }
 
 .recap-planning-thread-list {

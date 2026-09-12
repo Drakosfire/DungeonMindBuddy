@@ -153,7 +153,9 @@ PR #697 complete World-object projection MERGED (`947a727ddf1b7a98a670242f103920
 PR #698 opened-object usefulness MERGED (`db7c66603217ab037d0bdbce0802646c4cb1dcf7`); post-merge inspection accepted as A/E-good enough
 PR #699 STOP stabilization MERGED (`b1153423f04dd220e3b53d305e8627146a8afb7e`; accepted head `99420b0b248aea4d037ae08c1c58b836c8acabe5`; 2 review cycles); Recap overlay removed and chrome offsets explicitly temporary
 PR #700 UI-01 Ingest shared Peek composition MERGED (`5810a253239a53d731da831a9ac4ccd2548f10d9`; accepted head `d6091ee9e053ab3c2eb889d77ad3ec432836e1f8`; 2 review cycles)
-CURRENT — UI-02 truthful Agent dock presence on base `5810a253239a53d731da831a9ac4ccd2548f10d9`; Stage 4 remains NOT DONE
+PR #701 UI-02 truthful Agent dock presence MERGED (`d515904c2bf4d196be70efc7419dc8485e991515`; head `77f2e09feac08a92abceb3c54235ff0476b726ce`; 1 formal review cycle)
+PR #702 Agent artwork + UI-03 responsive secondary context MERGED (`92a50db8bd41d632e54e5bbbd265738f546e0a5b`; head `90a755429aba3673089a0d24325a5db7ece8c5c8`; 1 formal review cycle, HOLD)
+CURRENT — Stage 4B recap World-reference glance; Stage 4 WOW gate remains human and NOT DONE
 Stage 7A1 Agent-on-Ingest remains DESIGN READY / QUEUED behind the UI series
 ```
 
@@ -270,7 +272,9 @@ STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Sta
 
 **Completed UI predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-ui01-ingest-shared-peek-v1.md) — PR #700 merged at `5810a253239a53d731da831a9ac4ccd2548f10d9` after 2 review cycles. The exact loaded recap remains CENTER while World object, Tools, and Projection arbitrate one real PEEK region.
 
-**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-ui02-agent-dock-presence-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-ui02-agent-dock-presence-v1.md) — visible Agent presence follows real Ask-plugin registration; unavailable surfaces lose Agent chrome and its phantom bottom band, while registered closed Ask becomes a compact dock. UI-02 is active, not complete; Stage 4 remains NOT DONE. Stage 7A1 contextual Ask remains false/queued.
+**Completed UI predecessors:** PR #701 merged truthful Agent presence at `d515904c2bf4d196be70efc7419dc8485e991515`. PR #702 merged Agent artwork plus responsive secondary context at `92a50db8bd41d632e54e5bbbd265738f546e0a5b`; desktop keeps CENTER + SECONDARY and narrow uses CENTER XOR SECONDARY while preserving the mounted recap.
+
+**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4b-recap-world-reference-glance-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4b-recap-world-reference-glance-v1.md) — recognizable recap World reference → useful resident-data glance → existing full inspection. This advances the human Stage 4 WOW question without declaring Stage 4 complete. Stage 7A1 contextual Ask remains false/queued.
 
 ### Human outcome
 

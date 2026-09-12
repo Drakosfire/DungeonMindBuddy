@@ -10,7 +10,7 @@ const presentation: GraphNodeGlancePresentation = {
   kind: "creature",
   role: "creature",
   summary: "A float goat rescued from the flooded river.",
-  whyNow: null,
+  whyNow: "Helped the party secure the south gate this session.",
   knownBefore: "Tied to Mirathorn politics in character notes",
   planningChips: [{ label: "creature", tone: "neutral" }],
   threadHints: [
@@ -42,7 +42,7 @@ describe("GraphNodeHoverToken", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders a lean CSS hover glance without duplicated name/type chrome", () => {
+  it("renders a compact ordinary glance with identity, summary, and current context", () => {
     render(
       <GraphNodeHoverToken
         presentation={presentation}
@@ -59,20 +59,92 @@ describe("GraphNodeHoverToken", () => {
     expect(glance).toBeInTheDocument();
     expect(glance).toHaveAttribute("role", "tooltip");
 
-    // Summary + single type once; no name header, Known before, or role chip row.
+    expect(glance).toHaveTextContent("Bubbles the Float Goat");
     expect(glance).toHaveTextContent("A float goat rescued from the flooded river.");
+    expect(glance).toHaveTextContent("Why it matters here");
+    expect(glance).toHaveTextContent("Helped the party secure the south gate this session.");
     expect(glance?.querySelector(".recap-node-kind")?.textContent).toBe("creature");
     expect(glance?.textContent).not.toMatch(/creature\s*·\s*creature/i);
     expect(glance).not.toHaveTextContent("Known before");
     expect(glance).not.toHaveTextContent("Tied to Mirathorn politics");
     expect(glance?.querySelector(".recap-node-chip-row")).toBeNull();
-    expect(glance?.querySelector("strong")).toBeNull();
-
-    // Threads capped at two.
-    const threadItems = glance?.querySelectorAll(".recap-planning-thread-list li") ?? [];
-    expect(threadItems).toHaveLength(2);
-    expect(glance).toHaveTextContent("participated in Mireward Gate Incident");
+    expect(glance).not.toHaveTextContent("Threads");
+    expect(glance).not.toHaveTextContent("participated in Mireward Gate Incident");
     expect(glance).not.toHaveTextContent("should not appear in glance");
+  });
+
+  it("opens on hover or keyboard focus without selecting", () => {
+    const onSelect = vi.fn();
+    render(
+      <GraphNodeHoverToken
+        presentation={presentation}
+        label={presentation.label}
+        pinned={false}
+        onSelect={onSelect}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: presentation.label });
+    const wrap = button.closest(".recap-node-token-wrap")!;
+    fireEvent.mouseEnter(wrap);
+    expect(wrap).toHaveAttribute("data-open", "true");
+    expect(button).toHaveAttribute("aria-describedby");
+    expect(onSelect).not.toHaveBeenCalled();
+
+    fireEvent.mouseLeave(wrap);
+    expect(wrap).toHaveAttribute("data-open", "false");
+    fireEvent.focus(button);
+    expect(wrap).toHaveAttribute("data-open", "true");
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("dismisses the glance before selecting on click or Enter activation", () => {
+    const onSelect = vi.fn();
+    render(
+      <GraphNodeHoverToken
+        presentation={presentation}
+        label={presentation.label}
+        pinned={false}
+        onSelect={onSelect}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: presentation.label });
+    const wrap = button.closest(".recap-node-token-wrap")!;
+    fireEvent.mouseEnter(wrap);
+    fireEvent.click(button);
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(wrap).toHaveAttribute("data-open", "false");
+
+    fireEvent.focus(button);
+    fireEvent.keyDown(button, { key: "Enter" });
+    fireEvent.click(button);
+    expect(onSelect).toHaveBeenCalledTimes(2);
+    expect(wrap).toHaveAttribute("data-open", "false");
+  });
+
+  it("omits unavailable summary and current-context regions without debug filler", () => {
+    render(
+      <GraphNodeHoverToken
+        presentation={{
+          ...presentation,
+          summary: null,
+          whyNow: null,
+          knownBefore: null,
+          threadHints: [],
+        }}
+        label={presentation.label}
+        pinned={false}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const glance = document.querySelector(".recap-node-hover-card")!;
+    expect(glance).toHaveTextContent("Bubbles the Float Goat");
+    expect(glance).toHaveTextContent("creature");
+    expect(glance).not.toHaveTextContent("Why it matters here");
+    expect(glance).not.toHaveTextContent(/node:bubbles|unknown|unavailable/i);
   });
 
   it("renders parchment Threat campaign glance for authored Threat chips", () => {
@@ -124,7 +196,7 @@ describe("GraphNodeHoverToken", () => {
     );
 
     const kind = document.querySelector(".recap-node-hover-card .recap-node-kind");
-    expect(kind?.textContent).toBe("npc · creature");
+    expect(kind?.textContent).toBe("NPC · creature");
   });
 
   it("flips the glance above when Ask DungeonBuddy would cover it", () => {
