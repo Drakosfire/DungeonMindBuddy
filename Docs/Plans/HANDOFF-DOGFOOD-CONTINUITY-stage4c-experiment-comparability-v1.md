@@ -1,13 +1,13 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4C trustworthy extraction experiment comparison
 
-**Created:** 2026-09-12  
+**Created:** 2026-09-12
 **Status:** IMPLEMENTED — REVIEW READY
-**Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md`  
-**Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`  
-**Flow / owner:** `DOGFOOD-CONTINUITY` / Extraction Lab comparison evidence  
-**Direction:** DESIGN → CODE → REVIEW  
-**Base revision:** `a90f5e81355952d80ad5dba24bd4d27d5eedd930` (main after PR #704 merge)  
-**Branch:** `dogfood-continuity/stage4c-experiment-comparability-v1`  
+**Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md`
+**Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`
+**Flow / owner:** `DOGFOOD-CONTINUITY` / Extraction Lab comparison evidence
+**Direction:** DESIGN → CODE → REVIEW
+**Base revision:** `a90f5e81355952d80ad5dba24bd4d27d5eedd930` (main after PR #704 merge)
+**Branch:** `dogfood-continuity/stage4c-experiment-comparability-v1`
 **PR title:** `DOGFOOD-CONTINUITY: make extraction variants comparably measurable`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). Benchmark authority: [`Docs/Design/DESIGN-benchmark-philosophy-and-goals.md`](../Design/DESIGN-benchmark-philosophy-and-goals.md).
