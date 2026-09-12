@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4F campaign-memory development benchmark
 
 **Created:** 2026-09-12  
-**Status:** IMPLEMENTED — REVIEW READY
+**Status:** DONE — PR #708 MERGED
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / campaign-memory benchmark authority  
@@ -24,7 +24,7 @@ P0b1  one bounded isolated baseline/candidate pair       DONE — PR #706
 P0b2a repeated-pair qualification + variance summary     DONE — PR #707
 LIVE  one-source Stage 4D smoke                          DONE — 2026-09-12
 LIVE  three-repetition Stage 4E run                      DONE — 2026-09-12
-P1a   representative campaign-memory benchmark authority ← THIS PR
+P1a   representative campaign-memory benchmark authority DONE — PR #708
 P1b   baseline characterization on that benchmark        later / evidence-selected
 P2    bounded extraction ablations                       later / evidence-selected
 P3    frozen validation                                  later
@@ -33,6 +33,8 @@ P5    governed durable publication                       later
 ```
 
 PR #707 merged at `4227f97da35e384e995263d5c6a62d9711333488`, accepted head `4ca2c12c3ad15e6e6c18b0fab8fb5acb2a76ebcc`, after 2 formal review cycles. It can repeat one exact Stage 4D pair 2–3 times with isolated stores/caches and summarize metric, anchor, cost, token, and runtime variability without ranking a winner.
+
+PR #708 merged at `444b39963286667400c827b8765f8246763b8701`, accepted head `8da461e21b69291d9f61b1d7309cb883a9dc06e5`, after 2 formal review cycles. It froze the seven-source campaign-memory benchmark with six entity anchors, five fact anchors, two unscored identity expectations, corpus fingerprint `925ad24a54d888e2f1d3673919d126767b39cdeaf885c07057bfb5da346ba8c1`, and gold fingerprint `de072c175cc00a1dc7ed672cdaca317ee0f8cb381a8186e9cfc53a5885a4cd23`.
 
 The Stage 4 WOW gate remains **HOLD**. The UI work exposed that the product does not yet recover enough accumulated campaign truth for a World reference to feel like living memory.
 

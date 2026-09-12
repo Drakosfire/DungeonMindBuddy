@@ -1,0 +1,158 @@
+{
+  "schema": "dmb_campaign_memory_temporal_intent_v1",
+  "benchmark_id": "c2-mireward-campaign-memory-dev-v1",
+  "benchmark_corpus_fingerprint": "925ad24a54d888e2f1d3673919d126767b39cdeaf885c07057bfb5da346ba8c1",
+  "benchmark_gold_fingerprint": "de072c175cc00a1dc7ed672cdaca317ee0f8cb381a8186e9cfc53a5885a4cd23",
+  "expectations": [
+    {
+      "expectation_id": "brin_cook_from_edge_background",
+      "subject_anchor": "brin_holloway_session23",
+      "fact_anchor": "brin_role",
+      "identity_expectation_refs": ["brin_cross_source_identity"],
+      "temporal_kind": "background",
+      "persistence": "enduring",
+      "truth_window": {"start_session": null, "end_session": null},
+      "evidence": [
+        {
+          "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+          "source_session": 23,
+          "source_text_marker": "Brin Holloway, a cook from Edge",
+          "role": "supports"
+        }
+      ],
+      "intent": "By S23 Brin is known as a cook from Edge; S23 is evidence, not the beginning of that background."
+    },
+    {
+      "expectation_id": "brin_refugee_leader_state",
+      "subject_anchor": "brin_holloway_session23",
+      "fact_anchor": "brin_refugee_leadership",
+      "identity_expectation_refs": ["brin_cross_source_identity"],
+      "temporal_kind": "state",
+      "persistence": "until_changed",
+      "truth_window": {"start_session": null, "end_session": null},
+      "evidence": [
+        {
+          "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+          "source_session": 23,
+          "source_text_marker": "A clear leader of the group steps forward, Brin Holloway",
+          "role": "supports"
+        },
+        {
+          "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 25 - Mireward Gate Battle II.md",
+          "source_session": 25,
+          "source_text_marker": "talking with the leader of the refugees, Brin",
+          "role": "confirms"
+        }
+      ],
+      "intent": "Brin's refugee leadership is supported in S23 and confirmed in S25 without inventing when it began."
+    },
+    {
+      "expectation_id": "orric_mayor_state",
+      "subject_anchor": "orik_tane_session23",
+      "fact_anchor": "orik_mayor_role",
+      "identity_expectation_refs": ["orric_orik_cross_source_identity"],
+      "temporal_kind": "state",
+      "persistence": "until_changed",
+      "truth_window": {"start_session": null, "end_session": null},
+      "evidence": [
+        {
+          "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+          "source_session": 23,
+          "source_text_marker": "As mayor, Orik Tane can easily command the room.",
+          "role": "supports"
+        },
+        {
+          "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 25 - Mireward Gate Battle II.md",
+          "source_session": 25,
+          "source_text_marker": "they find the mayor, Orik",
+          "role": "confirms"
+        }
+      ],
+      "intent": "Orik/Orric is mayor in S23 and remains mayor in S25; neither source establishes when the office began."
+    },
+    {
+      "expectation_id": "brin_refugee_arrival_event",
+      "subject_anchor": "brin_holloway_session23",
+      "fact_anchor": null,
+      "identity_expectation_refs": ["brin_cross_source_identity"],
+      "temporal_kind": "event",
+      "persistence": "historical",
+      "truth_window": {"start_session": 23, "end_session": 23},
+      "evidence": [
+        {
+          "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+          "source_session": 23,
+          "source_text_marker": "A clear leader of the group steps forward, Brin Holloway",
+          "role": "supports"
+        }
+      ],
+      "intent": "Brin's arrival with the refugees is enduring historical truth, not a persistent current-location state."
+    },
+    {
+      "expectation_id": "karsemine_tripod_fire_weakness_knowledge",
+      "subject_anchor": "karsemine_session23",
+      "fact_anchor": "karsemine_fire_weakness_discovery",
+      "identity_expectation_refs": [],
+      "temporal_kind": "knowledge_acquisition",
+      "persistence": "enduring",
+      "truth_window": {"start_session": 23, "end_session": null},
+      "evidence": [
+        {
+          "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+          "source_session": 23,
+          "source_text_marker": "the creatures are resistant to poison, but weak to fire",
+          "role": "supports"
+        }
+      ],
+      "intent": "Karsemine acquires the fire-weakness knowledge in S23 and that useful knowledge remains available afterward."
+    },
+    {
+      "expectation_id": "mireward_siege_pressure_state",
+      "subject_anchor": "mireward_reach",
+      "fact_anchor": "mireward_siege_pressure",
+      "identity_expectation_refs": [],
+      "temporal_kind": "state",
+      "persistence": "until_changed",
+      "truth_window": {"start_session": null, "end_session": null},
+      "evidence": [
+        {
+          "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+          "source_session": 23,
+          "source_text_marker": "shadows are coming from the Reach to the north gate",
+          "role": "supports"
+        },
+        {
+          "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 25 - Mireward Gate Battle II.md",
+          "source_session": 25,
+          "source_text_marker": "three new hybrid creatures wrapped around something and beginning to burrow into the ground",
+          "role": "confirms"
+        }
+      ],
+      "intent": "Mireward remains under operational pressure across S23-S25, without claiming when the broader threat began or ended."
+    },
+    {
+      "expectation_id": "mireward_north_gate_battle_state",
+      "subject_anchor": "mireward_reach",
+      "fact_anchor": null,
+      "identity_expectation_refs": [],
+      "temporal_kind": "state",
+      "persistence": "bounded",
+      "truth_window": {"start_session": 23, "end_session": 24},
+      "evidence": [
+        {
+          "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+          "source_session": 23,
+          "source_text_marker": "shadows are coming from the Reach to the north gate",
+          "role": "supports"
+        },
+        {
+          "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md",
+          "source_session": 24,
+          "source_text_marker": "Finally Thrin finishes off the writhing creature, ending the battle.",
+          "role": "ends"
+        }
+      ],
+      "intent": "The North Gate battle ends in S24; that local ending must not erase broader Mireward siege pressure."
+    }
+  ]
+}

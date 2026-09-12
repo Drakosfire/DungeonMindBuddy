@@ -159,7 +159,8 @@ PR #704 Stage 4B glance MERGED (`a90f5e81355952d80ad5dba24bd4d27d5eedd930`; acce
 PR #705 Stage 4C comparison MERGED (`29c50b985091f590d2d6212b10cd79dcc8be5288`; accepted head `e0b8dd9b363cef3980055ef73c8634a67b2fa9e8`; 2 review cycles)
 PR #706 Stage 4D/P0b1 MERGED (`4af440b2cc4102972ad6212590885248e58375c1`; accepted head `97df142cfee328c689a32ced19cfe2a9755f1b98`; 2 review cycles); exact-merge paid one-source smoke PASS on 2026-09-12 (`comparable=true`, `$0.8686`)
 PR #707 Stage 4E/P0b2a MERGED (`4227f97da35e384e995263d5c6a62d9711333488`; accepted head `4ca2c12c3ad15e6e6c18b0fab8fb5acb2a76ebcc`; 2 review cycles); exact-merge 3-repetition paid gate PASS (`3/3 comparable`, stable identity, `$2.7019`)
-CURRENT — Stage 4F/P1a campaign-memory development benchmark; Stage 4 remains NOT DONE
+PR #708 Stage 4F/P1a MERGED (`444b39963286667400c827b8765f8246763b8701`; accepted head `8da461e21b69291d9f61b1d7309cb883a9dc06e5`; 2 review cycles); seven-source campaign-memory benchmark authority frozen
+CURRENT — Stage 4G/P1a.1 campaign-memory temporal intent; Stage 4 remains NOT DONE
 Stage 7A1 Agent-on-Ingest remains DESIGN READY / QUEUED behind the UI series
 ```
 
@@ -286,7 +287,9 @@ STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Sta
 
 **Completed measurement predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md) — PR #707 merged at `4227f97da35e384e995263d5c6a62d9711333488`; the exact-merge three-repetition Session 23 gate passed 3/3 comparable pairs with stable identity. The old Mirathorn gold scored 0/23 throughout, proving it does not represent the campaign-memory product question.
 
-**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md) — freeze a model-free seven-source C2/Mireward cohort and human gold for Brin, Orik/Orric, Karsemine, and Mireward, including unscored cross-source identity intent. No extraction tuning or Stage 4 completion claim.
+**Completed benchmark predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md) — PR #708 merged at `444b39963286667400c827b8765f8246763b8701` after 2 review cycles. Its seven-source C2/Mireward benchmark and human entity/fact gold are frozen; identity expectations remain explicitly unscored.
+
+**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md) — add seven model-free temporal requirements that separate evidence time from truth time and distinguish background, history, ongoing state, knowledge acquisition, and a bounded local battle. No extraction, temporal scoring, DungeonMind ontology, or Stage 4 completion claim.
 
 ### Human outcome
 

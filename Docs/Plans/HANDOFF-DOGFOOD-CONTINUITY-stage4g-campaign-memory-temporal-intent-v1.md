@@ -1,13 +1,13 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4G campaign-memory temporal intent
 
 **Created:** 2026-09-12  
-**Status:** DESIGN READY — NOT IMPLEMENTED  
+**Status:** IMPLEMENTED — REVIEW READY
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / campaign-memory temporal requirements  
 **Direction:** DESIGN → CODE → REVIEW  
 **Base revision:** `444b39963286667400c827b8765f8246763b8701` (main after PR #708 merge)  
-**Branch:** `dogfood-continuity/stage4g-temporal-intent-overlay-v1`  
+**Branch:** `dogfood-continuity/stage4g-temporal-intent-overlay-impl`
 **PR title:** `DOGFOOD-CONTINUITY: define campaign-memory temporal intent`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). Benchmark philosophy: [`Docs/Design/DESIGN-benchmark-philosophy-and-goals.md`](../Design/DESIGN-benchmark-philosophy-and-goals.md). Benchmark predecessor: [`HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md).
@@ -826,28 +826,42 @@ The benchmark should decide whether the next change belongs to extraction, scori
 
 ---
 
+## §12A Implementation handback — temporal witnesses
+
+| Expectation | Subject / fact | Kind · persistence | Truth window | Evidence / brief exact marker | Why it matters |
+|---|---|---|---|---|---|
+| `brin_cook_from_edge_background` | Brin / `brin_role` | background · enduring | unknown → unknown | S23 “Brin Holloway, a cook from Edge” | Observation does not invent the start of Brin's background. |
+| `brin_refugee_leader_state` | Brin / `brin_refugee_leadership` | state · until changed | unknown → unknown | S23 “A clear leader…”; S25 “leader of the refugees, Brin” | Later confirmation sustains the role without fabricating when it began. |
+| `orric_mayor_state` | Orik / `orik_mayor_role` | state · until changed | unknown → unknown | S23 “As mayor, Orik Tane…”; S25 “the mayor, Orik” | Evidence time is not appointment time; identity intent links Orric/Orik. |
+| `brin_refugee_arrival_event` | Brin / requirement-only | event · historical | S23 → S23 | S23 “A clear leader … Brin Holloway” | The arrival stays historical without becoming current location. |
+| `karsemine_tripod_fire_weakness_knowledge` | Karsemine / fire weakness | knowledge acquisition · enduring | S23 → unknown | S23 “resistant to poison, but weak to fire” | The learning moment is known and its table value persists. |
+| `mireward_siege_pressure_state` | Mireward / siege pressure | state · until changed | unknown → unknown | S23 “shadows … north gate”; S25 “three new hybrid creatures…” | Broad pressure remains open-ended rather than becoming evergreen. |
+| `mireward_north_gate_battle_state` | Mireward / requirement-only | state · bounded | S23 → S24 | S23 north-gate shadows; S24 “ending the battle” | A local battle ends without erasing the broader continuing threat. |
+
+The vocabulary above is benchmark-only requirements language. The validator loads no store and defines no DungeonMind production ontology.
+
 ## §13 Acceptance rubric
 
-- [ ] Exactly one capability: a validated temporal-requirements overlay.
-- [ ] #708 benchmark/gold files remain byte-for-byte unchanged.
-- [ ] Exactly seven temporal expectations exist.
-- [ ] All seven are grounded in the existing seven-source Stage 4F cohort.
-- [ ] Benchmark ID/corpus/gold fingerprints are pinned and revalidated.
-- [ ] Evidence session is modeled separately from truth-window boundaries.
-- [ ] Unknown truth start/end remains unknown.
-- [ ] Brin background does not falsely begin in S23.
-- [ ] Brin leadership and Orric mayor state are confirmed across S23→S25 without invented start dates.
-- [ ] Brin arrival is historical S23 event, not persistent current state.
-- [ ] Karsemine fire-weakness knowledge acquisition begins in S23 and is marked enduring.
-- [ ] Mireward siege pressure remains open-ended until changed.
-- [ ] North Gate battle is bounded S23→S24 without implying broader siege pressure ended.
-- [ ] Existing Brin and Orik/Orric identity expectations are referenced, not reimplemented.
-- [ ] Requirement-only temporal cases are allowed without pretending they have current fact anchors.
-- [ ] No current scorer behavior changes.
-- [ ] No DungeonMind schema/storage/reasoning changes.
-- [ ] No extraction/model/prompt/taxonomy changes.
-- [ ] No model calls or paid evidence.
-- [ ] Stage 4 WOW remains HOLD.
+- [x] Exactly one capability: a validated temporal-requirements overlay.
+- [x] #708 benchmark/gold files remain byte-for-byte unchanged.
+- [x] Exactly seven temporal expectations exist.
+- [x] All seven are grounded in the existing seven-source Stage 4F cohort.
+- [x] Benchmark ID/corpus/gold fingerprints are pinned and revalidated.
+- [x] Evidence session is modeled separately from truth-window boundaries.
+- [x] Unknown truth start/end remains unknown.
+- [x] Brin background does not falsely begin in S23.
+- [x] Brin leadership and Orric mayor state are confirmed across S23→S25 without invented start dates.
+- [x] Brin arrival is historical S23 event, not persistent current state.
+- [x] Karsemine fire-weakness knowledge acquisition begins in S23 and is marked enduring.
+- [x] Mireward siege pressure remains open-ended until changed.
+- [x] North Gate battle is bounded S23→S24 without implying broader siege pressure ended.
+- [x] Existing Brin and Orik/Orric identity expectations are referenced, not reimplemented.
+- [x] Requirement-only temporal cases are allowed without pretending they have current fact anchors.
+- [x] No current scorer behavior changes.
+- [x] No DungeonMind schema/storage/reasoning changes.
+- [x] No extraction/model/prompt/taxonomy changes.
+- [x] No model calls or paid evidence.
+- [x] Stage 4 WOW remains HOLD.
 
 ## Stop conditions
 
