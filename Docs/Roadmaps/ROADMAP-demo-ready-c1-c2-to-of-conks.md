@@ -157,7 +157,8 @@ PR #701 UI-02 truthful Agent dock presence MERGED (`d515904c2bf4d196be70efc7419d
 PR #702 Agent artwork + UI-03 responsive secondary context MERGED (`92a50db8bd41d632e54e5bbbd265738f546e0a5b`; head `90a755429aba3673089a0d24325a5db7ece8c5c8`; 1 formal review cycle, HOLD)
 PR #704 Stage 4B glance MERGED (`a90f5e81355952d80ad5dba24bd4d27d5eedd930`; accepted head `02b2529176703b3f8b69ad9fcb594f401c1c5f6b`; 1 formal review cycle); human WOW gate remains HOLD
 PR #705 Stage 4C comparison MERGED (`29c50b985091f590d2d6212b10cd79dcc8be5288`; accepted head `e0b8dd9b363cef3980055ef73c8634a67b2fa9e8`; 2 review cycles)
-CURRENT — Stage 4D/P0b1 one bounded isolated experiment pair; Stage 4 remains NOT DONE
+PR #706 Stage 4D/P0b1 MERGED (`4af440b2cc4102972ad6212590885248e58375c1`; accepted head `97df142cfee328c689a32ced19cfe2a9755f1b98`; 2 review cycles); exact-merge paid one-source smoke PASS on 2026-09-12 (`comparable=true`, `$0.8686`)
+CURRENT — Stage 4E/P0b2a repeated-pair qualification; Stage 4 remains NOT DONE
 Stage 7A1 Agent-on-Ingest remains DESIGN READY / QUEUED behind the UI series
 ```
 
@@ -280,7 +281,9 @@ STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Sta
 
 **Completed evidence predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md) — PR #705 merged at `29c50b985091f590d2d6212b10cd79dcc8be5288` with accepted head `e0b8dd9b363cef3980055ef73c8634a67b2fa9e8` after 2 review cycles. Same-corpus/same-gold comparisons may now cross intentionally different pipeline contracts while failing closed on ambiguous cohorts and incomplete results.
 
-**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md) — dry-run-by-default orchestration for exactly one fresh baseline and one fresh candidate over 1–3 exact sources, with observed model/cost/runtime evidence, qualified Extraction Lab bundles, and the existing #705 comparison ruler. The paid C2 Session 23 smoke remains a separate post-merge operator gate; P0b2 and Stage 4 completion remain false.
+**Completed execution predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md) — PR #706 merged at `4af440b2cc4102972ad6212590885248e58375c1` after 2 review cycles. Its exact-merge C2 Session 23 paid smoke completed with `comparable=true`, stable pins, observed `gpt-5.3-codex`, and `$0.8686` actual cost.
+
+**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md) — repeat one bounded #706 pair 2–3 times with fresh isolated roots, fail closed on identity drift, and expose descriptive metric, anchor, cost, token, and runtime variability without a winner or promotion claim. Stage 4 completion remains false.
 
 ### Human outcome
 

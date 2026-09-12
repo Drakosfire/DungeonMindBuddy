@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4E repeated extraction-pair qualification
 
 **Created:** 2026-09-12  
-**Status:** DESIGN READY — DISPATCH BLOCKED ON STAGE 4D LIVE SMOKE  
+**Status:** IMPLEMENTED — REVIEW READY
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / repeated Extraction Lab qualification  
@@ -21,7 +21,7 @@ The earlier P0b2 label bundled too many independent capabilities: repetitions, a
 ```text
 P0a   trustworthy cross-contract comparison              DONE — PR #705
 P0b1  one bounded isolated baseline/candidate pair       DONE — PR #706
-LIVE  one-source paid Stage 4D smoke                     REQUIRED BEFORE DISPATCH
+LIVE  one-source paid Stage 4D smoke                     DONE — 2026-09-12
 P0b2a repeated-pair qualification + variance summary     ← THIS PR
 P0b2b resumable/budget-aware lifecycle                   later
 P0b2c async OpenAI Batch/event-driven execution          later if justified
@@ -96,7 +96,17 @@ Dispatch rules:
 
 ### Smoke Gate Record
 
-`PENDING — required before implementation. Do not change Status to ACTIVE until recorded.`
+**PASS — 2026-09-12, operator: Codex with explicit user authorization.**
+
+- exact PR #706 merge SHA: `4af440b2cc4102972ad6212590885248e58375c1`
+- pair manifest SHA-256: `e8721e6833a81e051ed17b31d60f27f7c5e30110a82e0babf2f4667d844d08d9`
+- execution receipt path at smoke time: `/tmp/dmb-stage4d-live-smoke-20260912/experiment_receipt.json`; this checked-in record is the durable evidence summary
+- receipt `completed`; comparison `comparable=true`
+- observed entity/fact model, both variants: `gpt-5.3-codex`
+- actual pair telemetry: 79,720 input tokens; 57,119 output tokens; 44,800 cached tokens; 33 API calls; `$0.8686`; 99.15 seconds summed variant runtime
+- baseline: `$0.4298`, 53.194 seconds; candidate: `$0.4388`, 45.956 seconds
+- clean pinned worktree remained at the exact merge SHA; source, entity gold, fact gold, and `MODEL_POLICY.json` post-run hashes matched their receipt pins; APP-STATE and DungeonMind were not invoked or mutated
+- classification: orchestration/provenance PASS. Poor anchor quality is intentionally not a machinery failure and makes no claim that either batch size is better.
 
 ---
 
@@ -694,21 +704,21 @@ Record:
 
 ## §14 Acceptance rubric
 
-- [ ] §1 live Stage 4D smoke gate is recorded and successful before implementation begins.
-- [ ] Exactly one independently useful capability is delivered: repeated qualification of one bounded Stage 4D pair.
-- [ ] Stage 4D remains the single pair execution authority.
-- [ ] Default invocation performs no paid execution.
-- [ ] Only 2–3 repetitions are permitted.
-- [ ] Every repetition has fresh non-overlapping Stage 4D roots/stores/caches.
-- [ ] All repetitions consume identical pair-manifest bytes and pinned benchmark/execution identity.
-- [ ] Parent completion requires every child pair completed + comparable.
-- [ ] Failure is fail-fast and preserves prior evidence without pretending qualification.
-- [ ] Metrics expose exact values + mean/min/max/pstdev and delta sign counts.
-- [ ] Anchor-level stability is visible across repetitions.
-- [ ] Cost/runtime/token telemetry is aggregated truthfully.
-- [ ] No composite score, winner, READY, promotion, significance claim, or publication is introduced.
-- [ ] Resume, budgets, async lifecycle, larger cohort, holdouts, tuning, and publication remain false.
-- [ ] Stage 4 WOW remains HOLD.
+- [x] §1 live Stage 4D smoke gate is recorded and successful before implementation begins.
+- [x] Exactly one independently useful capability is delivered: repeated qualification of one bounded Stage 4D pair.
+- [x] Stage 4D remains the single pair execution authority.
+- [x] Default invocation performs no paid execution.
+- [x] Only 2–3 repetitions are permitted.
+- [x] Every repetition has fresh non-overlapping Stage 4D roots/stores/caches.
+- [x] All repetitions consume identical pair-manifest bytes and pinned benchmark/execution identity.
+- [x] Parent completion requires every child pair completed + comparable.
+- [x] Failure is fail-fast and preserves prior evidence without pretending qualification.
+- [x] Metrics expose exact values + mean/min/max/pstdev and delta sign counts.
+- [x] Anchor-level stability is visible across repetitions.
+- [x] Cost/runtime/token telemetry is aggregated truthfully.
+- [x] No composite score, winner, READY, promotion, significance claim, or publication is introduced.
+- [x] Resume, budgets, async lifecycle, larger cohort, holdouts, tuning, and publication remain false.
+- [x] Stage 4 WOW remains HOLD.
 
 ## Stop conditions
 

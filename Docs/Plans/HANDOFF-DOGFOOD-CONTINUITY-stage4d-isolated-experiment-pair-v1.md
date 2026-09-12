@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4D isolated extraction experiment pair
 
 **Created:** 2026-09-12
-**Status:** IMPLEMENTED — REVIEW READY
+**Status:** DONE — PR #706 MERGED; LIVE SMOKE PASS
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md`
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`
 **Flow / owner:** `DOGFOOD-CONTINUITY` / Extraction Lab bounded experiment execution
@@ -20,8 +20,10 @@ The experiment program is now:
 
 ```text
 P0a  trustworthy cross-contract comparison          DONE — PR #705
-P0b1 one bounded isolated baseline/candidate pair   ← THIS PR
-P0b2 repetitions + aggregation + resume/budget + async lifecycle
+P0b1 one bounded isolated baseline/candidate pair   DONE — PR #706
+P0b2a repeated-pair qualification                   CURRENT
+P0b2b resume + budget lifecycle                     later
+P0b2c async lifecycle                               later if justified
 P1   characterize current baseline and failure classes
 P2   bounded ablation PRs, one change at a time
 P3   frozen validation + qualitative qualification
@@ -478,6 +480,8 @@ No paid API call is required to merge this implementation PR.
 ---
 
 ## §10 Immediate post-merge live smoke gate
+
+**PASS — 2026-09-12.** Exact merge `4af440b2cc4102972ad6212590885248e58375c1`; pair manifest SHA-256 `e8721e6833a81e051ed17b31d60f27f7c5e30110a82e0babf2f4667d844d08d9`; receipt `completed`; comparison `comparable=true`; both variants observed `gpt-5.3-codex` for entity and fact extraction. Pair telemetry was 79,720 input, 57,119 output, 44,800 cached tokens, 33 API calls, `$0.8686`, and 99.15 seconds summed variant runtime. All pinned source/gold/policy hashes remained unchanged; no APP-STATE or DungeonMind mutation occurred. This qualifies the machinery only, not either batch size or the Stage 4 WOW gate.
 
 This is an **operator action after merge**, not hidden inside the implementation PR.
 
