@@ -1,13 +1,16 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4G campaign-memory temporal intent
 
 **Created:** 2026-09-12  
-**Status:** IMPLEMENTED — REVIEW READY
+**Status:** DONE — PR #709 MERGED
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / campaign-memory temporal requirements  
 **Direction:** DESIGN → CODE → REVIEW  
 **Base revision:** `444b39963286667400c827b8765f8246763b8701` (main after PR #708 merge)  
 **Branch:** `dogfood-continuity/stage4g-temporal-intent-overlay-impl`
+**Accepted head:** `236ea6c5d1486ccf7012ed6b1ea8f33f4b3af457`
+**Merge revision:** `0aa77bf791efa00cb51f45f3c7acd273ac3f351f`
+**Formal review cycles:** `2`
 **PR title:** `DOGFOOD-CONTINUITY: define campaign-memory temporal intent`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). Benchmark philosophy: [`Docs/Design/DESIGN-benchmark-philosophy-and-goals.md`](../Design/DESIGN-benchmark-philosophy-and-goals.md). Benchmark predecessor: [`HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md).
@@ -23,8 +26,8 @@ P0a    trustworthy cross-contract comparison              DONE — PR #705
 P0b1   one bounded isolated baseline/candidate pair       DONE — PR #706
 P0b2a  repeated-pair qualification + variance summary     DONE — PR #707
 P1a    campaign-memory entity/fact development benchmark  DONE — PR #708
-P1a.1  temporal requirements overlay                      ← THIS PR
-P1b    unchanged-pipeline baseline characterization       next / evidence-selected
+P1a.1  temporal requirements overlay                      DONE — PR #709
+P1b    unchanged-pipeline baseline characterization       current / Stage 4H
 P2     bounded extraction or scorer/representation change later / evidence-selected
 P3     frozen validation                                  later
 P4     full-corpus rehearsal into disposable authorities later

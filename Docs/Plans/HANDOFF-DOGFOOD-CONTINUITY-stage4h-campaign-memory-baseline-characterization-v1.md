@@ -1,13 +1,13 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4H campaign-memory baseline characterization
 
 **Created:** 2026-09-12  
-**Status:** DESIGN READY — NOT IMPLEMENTED  
+**Status:** IMPLEMENTED — PAID CHARACTERIZATION REQUIRED ON EXACT HEAD
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4h-campaign-memory-baseline-characterization-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / campaign-memory baseline characterization  
 **Direction:** DESIGN → CODE → PAID CHARACTERIZATION → REVIEW  
 **Base revision:** `0aa77bf791efa00cb51f45f3c7acd273ac3f351f` (main after PR #709 merge)  
-**Branch:** `dogfood-continuity/stage4h-campaign-memory-baseline-characterization-v1`  
+**Branch:** `dogfood-continuity/stage4h-campaign-memory-baseline-characterization-impl`
 **PR title:** `DOGFOOD-CONTINUITY: characterize the current campaign-memory baseline`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). Predecessors: [`HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md) and [`HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md).
