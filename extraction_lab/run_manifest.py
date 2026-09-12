@@ -15,6 +15,7 @@ def build_run_manifest(
     surface: str,
     store_path: Path,
     contract: dict[str, Any],
+    benchmark_contract: dict[str, Any],
     entity_anchor_count: int,
     fact_anchor_count: int,
     entity_count: int,
@@ -28,6 +29,7 @@ def build_run_manifest(
         "completed_at": _utc_now_iso(),
         "store_path": str(store_path),
         "pipeline_contract": contract,
+        "benchmark_contract": benchmark_contract,
         "counts": {
             "entity_anchors": entity_anchor_count,
             "fact_anchors": fact_anchor_count,

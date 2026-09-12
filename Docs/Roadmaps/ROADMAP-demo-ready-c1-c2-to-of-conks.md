@@ -155,7 +155,8 @@ PR #699 STOP stabilization MERGED (`b1153423f04dd220e3b53d305e8627146a8afb7e`; a
 PR #700 UI-01 Ingest shared Peek composition MERGED (`5810a253239a53d731da831a9ac4ccd2548f10d9`; accepted head `d6091ee9e053ab3c2eb889d77ad3ec432836e1f8`; 2 review cycles)
 PR #701 UI-02 truthful Agent dock presence MERGED (`d515904c2bf4d196be70efc7419dc8485e991515`; head `77f2e09feac08a92abceb3c54235ff0476b726ce`; 1 formal review cycle)
 PR #702 Agent artwork + UI-03 responsive secondary context MERGED (`92a50db8bd41d632e54e5bbbd265738f546e0a5b`; head `90a755429aba3673089a0d24325a5db7ece8c5c8`; 1 formal review cycle, HOLD)
-CURRENT — Stage 4B recap World-reference glance; Stage 4 WOW gate remains human and NOT DONE
+PR #704 Stage 4B glance MERGED (`a90f5e81355952d80ad5dba24bd4d27d5eedd930`; accepted head `02b2529176703b3f8b69ad9fcb594f401c1c5f6b`; 1 formal review cycle); human WOW gate remains HOLD
+CURRENT — Stage 4C trustworthy extraction experiment comparison; Stage 4 remains NOT DONE
 Stage 7A1 Agent-on-Ingest remains DESIGN READY / QUEUED behind the UI series
 ```
 
@@ -274,7 +275,9 @@ STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Sta
 
 **Completed UI predecessors:** PR #701 merged truthful Agent presence at `d515904c2bf4d196be70efc7419dc8485e991515`. PR #702 merged Agent artwork plus responsive secondary context at `92a50db8bd41d632e54e5bbbd265738f546e0a5b`; desktop keeps CENTER + SECONDARY and narrow uses CENTER XOR SECONDARY while preserving the mounted recap.
 
-**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4b-recap-world-reference-glance-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4b-recap-world-reference-glance-v1.md) — recognizable recap World reference → useful resident-data glance → existing full inspection. This advances the human Stage 4 WOW question without declaring Stage 4 complete. Stage 7A1 contextual Ask remains false/queued.
+**Completed presentation predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4b-recap-world-reference-glance-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4b-recap-world-reference-glance-v1.md) — PR #704 merged at `a90f5e81355952d80ad5dba24bd4d27d5eedd930` with accepted head `02b2529176703b3f8b69ad9fcb594f401c1c5f6b` after 1 formal review cycle. Useful glance mechanics landed, but product-owner dogfood held the WOW gate because representative accumulated campaign truth remains inaccessible or too thin.
+
+**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md) — prove that baseline and candidate runs share path-independent corpus content and surface-filtered human gold intent, while allowing and enumerating changed pipeline contracts. This is the measurement prerequisite for ingestion tuning; it does not mark Stage 4 done, run experiments, or publish new World truth. Stage 7A1 contextual Ask remains false/queued.
 
 ### Human outcome
 

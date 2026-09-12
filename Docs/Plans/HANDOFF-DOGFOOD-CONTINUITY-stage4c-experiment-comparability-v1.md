@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4C trustworthy extraction experiment comparison
 
 **Created:** 2026-09-12  
-**Status:** ACTIVE — one implementation capability  
+**Status:** IMPLEMENTED — REVIEW READY
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / Extraction Lab comparison evidence  
@@ -305,6 +305,18 @@ If implementation cannot prove useful comparison without running ingestion/model
 
 ## §8 Required review handback
 
+### Implementation handback
+
+- `benchmark_contract_v1` is stamped both in `run_manifest.json` and as `benchmark_contract.json`. It keeps `surface`, path-independent corpus identity, and surface-filtered semantic gold identity separate from the existing pipeline contract.
+- Corpus identity hashes sorted logical paths relative to the explicit corpus root plus source-byte hashes. Missing roots, missing sources, or sources outside that root make identity unavailable instead of falling back to absolute paths.
+- Gold identity canonicalizes only anchors for the evaluated surface, including set-like anchor fields; JSON formatting, anchor ordering, and unrelated-surface changes do not create false drift, while evaluated semantic changes do.
+- `compare_experiment_runs` accepts changed pipeline contracts and enumerates field-level differences. It emits metric deltas plus entity/fact improved, regressed, and unchanged transitions with before/after failure buckets.
+- Legacy, unsupported, unavailable, divergent-stamp, surface, corpus, and gold identities fail closed. Non-comparable artifacts omit metric deltas and anchor transitions; neither JSON nor Markdown emits a winner, READY state, composite score, or promotion recommendation.
+- Full Extraction Lab regression: `32 passed`. Scoped Ruff checks and `git diff --check` pass.
+- CLI smoke emitted two independently stamped runs with different entity/fact model IDs, then produced `comparable=true` and enumerated both model differences without any LLM, store, baseline, APP-STATE, or World mutation.
+- Changed paths remain within §4; the bounded fixture exception was not used. P0b execution orchestration, repetitions, cache policy, and cost/latency capture remain false.
+- Backward-looking authority now records PR #704 merged at `a90f5e81355952d80ad5dba24bd4d27d5eedd930`, accepted head `02b2529176703b3f8b69ad9fcb594f401c1c5f6b`, 1 formal review cycle, with the human Stage 4 WOW gate still HOLD.
+
 Record:
 
 1. `Review Cycle <N>` and exact PR/branch/head SHA;
@@ -324,18 +336,18 @@ Record:
 
 ## §9 Acceptance rubric
 
-- [ ] Exactly one capability is delivered: trustworthy pairwise cross-contract experiment comparison.
-- [ ] Comparison eligibility is governed by benchmark identity, not pipeline identity.
-- [ ] Benchmark corpus fingerprint is independent of absolute checkout/worktree path.
-- [ ] Gold fingerprint represents canonical anchors filtered to the evaluated surface.
-- [ ] Pipeline prompt/model/taxonomy/config differences remain visible experimental variables.
-- [ ] Corpus/gold/surface ambiguity fails closed and produces no winner/promotion claim.
-- [ ] Comparable reports include aggregate deltas and anchor-level improved/regressed transitions.
-- [ ] No composite winner score or hidden acceptance policy is introduced.
-- [ ] Existing same-contract regression and explicit baseline-promotion semantics remain unchanged.
-- [ ] No LLM execution, gold editing, source adoption, APP-STATE mutation, or World publication is added.
-- [ ] PR #704 is synchronized as merged with the Stage 4 WOW gate still HOLD.
-- [ ] P0b orchestration/repetition/cost-latency successor remains unimplemented.
+- [x] Exactly one capability is delivered: trustworthy pairwise cross-contract experiment comparison.
+- [x] Comparison eligibility is governed by benchmark identity, not pipeline identity.
+- [x] Benchmark corpus fingerprint is independent of absolute checkout/worktree path.
+- [x] Gold fingerprint represents canonical anchors filtered to the evaluated surface.
+- [x] Pipeline prompt/model/taxonomy/config differences remain visible experimental variables.
+- [x] Corpus/gold/surface ambiguity fails closed and produces no winner/promotion claim.
+- [x] Comparable reports include aggregate deltas and anchor-level improved/regressed transitions.
+- [x] No composite winner score or hidden acceptance policy is introduced.
+- [x] Existing same-contract regression and explicit baseline-promotion semantics remain unchanged.
+- [x] No LLM execution, gold editing, source adoption, APP-STATE mutation, or World publication is added.
+- [x] PR #704 is synchronized as merged with the Stage 4 WOW gate still HOLD.
+- [x] P0b orchestration/repetition/cost-latency successor remains unimplemented.
 
 ## Stop conditions
 

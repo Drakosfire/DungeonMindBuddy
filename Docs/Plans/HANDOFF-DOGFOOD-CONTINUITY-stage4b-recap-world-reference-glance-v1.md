@@ -1,14 +1,15 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4B recap World-reference glance
 
 **Created:** 2026-09-11  
-**Status:** HUMAN DOGFOOD HOLD — WOW GATE NOT PASSED
+**Status:** MERGED — HUMAN DOGFOOD HOLD / WOW GATE NOT PASSED
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4b-recap-world-reference-glance-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW gate`  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / historical recap reading + shared graph-reference presentation  
 **Direction:** DESIGN → CODE → REVIEW  
 **Base revision:** `92a50db8bd41d632e54e5bbbd265738f546e0a5b` (main after PR #702 merge)  
-**Implementation branch:** `dogfood-continuity/stage4b-recap-world-reference-glance-impl`
-**Implementation code head:** `79e012b7`
+**Implementation branch:** `dogfood-continuity/stage4b-recap-world-reference-glance-v1`
+**Implementation code head:** `02b2529176703b3f8b69ad9fcb594f401c1c5f6b`
+**Merge:** PR #704, `a90f5e81355952d80ad5dba24bd4d27d5eedd930` (1 formal review cycle)
 **PR title:** `DOGFOOD-CONTINUITY: make recap World references glanceable`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). UI language: [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](../Design/ui-language/DESIGN-interaction-layer-language.md).
@@ -231,6 +232,8 @@ The suspected delayed Ingest → Plan full-document refresh is **not** part of t
 **Exact head witnessed:** `ce17bc110992042ed098e5ed30b91ceb0b13e01e`
 
 **Verdict:** **HOLD.** The presentation work is directionally useful, but the human WOW question cannot yet be answered “yes.” Recap references still do not feel like living campaign memory because the product cannot access enough of the existing corpus truth to supply the useful identity and historical context.
+
+PR #704 was subsequently merged at `a90f5e81355952d80ad5dba24bd4d27d5eedd930` with accepted implementation head `02b2529176703b3f8b69ad9fcb594f401c1c5f6b`. The merge preserves the useful presentation mechanics; it does not clear this human WOW HOLD.
 
 Observed product findings:
 
