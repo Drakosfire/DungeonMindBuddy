@@ -1,13 +1,13 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4F campaign-memory development benchmark
 
 **Created:** 2026-09-12  
-**Status:** DESIGN READY — DISPATCH BLOCKED ON STAGE 4E LIVE REPEATED RUN  
+**Status:** IMPLEMENTED — REVIEW READY
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / campaign-memory benchmark authority  
 **Direction:** DESIGN → CODE → REVIEW  
 **Base revision:** `4227f97da35e384e995263d5c6a62d9711333488` (main after PR #707 merge)  
-**Branch:** `dogfood-continuity/stage4f-campaign-memory-development-benchmark-v1`  
+**Branch:** `dogfood-continuity/stage4f-campaign-memory-development-benchmark-impl`
 **PR title:** `DOGFOOD-CONTINUITY: define campaign-memory development benchmark`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). Benchmark philosophy: [`Docs/Design/DESIGN-benchmark-philosophy-and-goals.md`](../Design/DESIGN-benchmark-philosophy-and-goals.md). Execution predecessor: [`HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md).
@@ -23,7 +23,7 @@ P0a   trustworthy cross-contract comparison              DONE — PR #705
 P0b1  one bounded isolated baseline/candidate pair       DONE — PR #706
 P0b2a repeated-pair qualification + variance summary     DONE — PR #707
 LIVE  one-source Stage 4D smoke                          DONE — 2026-09-12
-LIVE  three-repetition Stage 4E run                      REQUIRED BEFORE DISPATCH
+LIVE  three-repetition Stage 4E run                      DONE — 2026-09-12
 P1a   representative campaign-memory benchmark authority ← THIS PR
 P1b   baseline characterization on that benchmark        later / evidence-selected
 P2    bounded extraction ablations                       later / evidence-selected
@@ -105,7 +105,20 @@ failure classification if any
 
 ### Repeated Run Gate Record
 
-`PENDING — implementation dispatch is not authorized until this record is filled.`
+**PASS — 2026-09-12, operator: Codex with explicit user authorization.** This checked-in sanitized record is the accepted durable evidence artifact; raw artifacts existed under `/tmp/dmb-stage4e-live-repeat-20260912/` at execution time.
+
+- exact PR #707 merge: `4227f97da35e384e995263d5c6a62d9711333488`
+- repeat manifest SHA-256: `c2f68af429b9936cb14280683406ca666add3c174b4edea757171a4c7ec51a16`
+- pair manifest SHA-256: `86b58f9986606bebb6fe5780e440efd2b79d5c56cc421209aafbbc16137b064c`
+- parent receipt `completed`; 3/3 repetitions completed; all three comparisons `comparable=true`
+- observed entity/fact model for both variants in every repetition: `gpt-5.3-codex`
+- per-pair cost: `$0.8987`, `$0.9024`, `$0.9008`; total `$2.7019`
+- per-pair summed variant runtime: `99.519s`, `102.141s`, `97.267s`; total `298.927s`
+- total telemetry: 239,131 input tokens; 178,222 output tokens; 134,400 cached tokens; 99 API calls
+- anchor stability: unrelated Mirathorn gold remained 0/13 entity and 0/10 fact anchors for both variants in all repetitions; all 23 transitions were unchanged. This proves the old gold cannot measure Session 23 campaign memory, not that either variant wins.
+- stochastic output: baseline entities `[54,55,57]`, candidate `[60,55,51]`; baseline facts `[125,138,134]`, candidate `[136,143,144]`
+- repository, source, gold, model-policy, observed-model, benchmark corpus, and benchmark gold identity stayed pinned
+- disposition: P0 machinery/provenance PASS; Stage 4F dispatch authorized. P1b remains a successor decision after the new benchmark exists.
 
 ---
 
@@ -560,22 +573,40 @@ If the Stage 4E live run instead reveals an operational blocker, P0b2b/P0b2c may
 
 ---
 
+## §11A Implementation handback — human gold witnesses
+
+| Anchor | Source | Brief exact marker | Editorial intent / Stage 4 WOW value |
+|---|---|---|---|
+| `brin_holloway_session23` | S23 recap | “A clear leader … Brin Holloway, a cook from Edge” | Brin is a named played actor with meaningful context, not a session-only label. |
+| `brin_holloway_reference` | Brin seed | “Brin Holloway — character seed” | Preserves the stable reference half of Brin's cross-source identity. |
+| `orik_tane_session23` | S23 recap | “As mayor, Orik Tane can easily command the room.” | Preserves the played spelling and why Orik matters. |
+| `orric_tane_reference` | Orric seed | “Mayor Orric Tane — character seed” | Preserves the canonical spelling for later identity scoring. |
+| `karsemine_session23` | S23 recap | “Karsemine uses her Hunter’s Mark” | Connects a PC to a table-useful discovery. |
+| `mireward_reach` | Mireward scaffold | “Mireward Reach — place build scaffold” | Establishes the place whose accumulated pressure should be visible. |
+| `brin_role` | S23 recap | “Brin Holloway, a cook from Edge” | Requires occupational/origin memory beyond entity existence. |
+| `brin_refugee_leadership` | S23 recap | “A clear leader of the group …” | Requires Brin's survivor/refugee leadership context. |
+| `orik_mayor_role` | S23 recap | “As mayor, Orik Tane …” | Requires the key contextual anchor missing from UI dogfood. |
+| `karsemine_fire_weakness_discovery` | S23 recap | “resistant to poison, but weak to fire” | Requires actionable played knowledge. |
+| `mireward_siege_pressure` | Mireward scaffold | “First **visible** siege pressure at Mireward” | Requires immediate siege/refugee context rather than generic place identity. |
+
+The two manifest identity expectations link the Brin and Orik/Orric source pairs as editorial intent only. Stage 4F validates their references/classes but does not claim current scoring proves coalescence.
+
 ## §12 Acceptance rubric
 
-- [ ] Stage 4E post-merge three-repetition gate is durably recorded before implementation dispatch.
-- [ ] Exactly one capability is delivered: a validated campaign-memory development benchmark definition.
-- [ ] Exact seven-source cohort is frozen with content SHA pins.
-- [ ] No archive/normalized/breadcrumbed/generated source enters the cohort.
-- [ ] New gold uses a dedicated `campaign_memory_development` surface.
-- [ ] Every anchor is grounded by an exact marker in one pinned source.
-- [ ] Brin, Orik/Orric, Karsemine, and Mireward product witnesses are represented.
-- [ ] Cross-source Brin and Orik/Orric identity intent is recorded without claiming it is already scored.
-- [ ] Existing Mirathorn core gold remains untouched.
-- [ ] Existing benchmark fingerprint semantics are reused.
-- [ ] Validator is deterministic, path-independent, and model-free.
-- [ ] No prompt/model/taxonomy/filter changes.
-- [ ] No paid run, baseline promotion, APP-STATE mutation, or World publication.
-- [ ] Stage 4 WOW remains HOLD.
+- [x] Stage 4E post-merge three-repetition gate is durably recorded before implementation dispatch.
+- [x] Exactly one capability is delivered: a validated campaign-memory development benchmark definition.
+- [x] Exact seven-source cohort is frozen with content SHA pins.
+- [x] No archive/normalized/breadcrumbed/generated source enters the cohort.
+- [x] New gold uses a dedicated `campaign_memory_development` surface.
+- [x] Every anchor is grounded by an exact marker in one pinned source.
+- [x] Brin, Orik/Orric, Karsemine, and Mireward product witnesses are represented.
+- [x] Cross-source Brin and Orik/Orric identity intent is recorded without claiming it is already scored.
+- [x] Existing Mirathorn core gold remains untouched.
+- [x] Existing benchmark fingerprint semantics are reused.
+- [x] Validator is deterministic, path-independent, and model-free.
+- [x] No prompt/model/taxonomy/filter changes.
+- [x] No paid run, baseline promotion, APP-STATE mutation, or World publication.
+- [x] Stage 4 WOW remains HOLD.
 
 ## Stop conditions
 

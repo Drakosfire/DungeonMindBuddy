@@ -6,7 +6,7 @@
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Re-anchor base:** `main` `4af440b2cc4102972ad6212590885248e58375c1` (after PR #706 merge)
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
-**Current forcing function:** DOGFOOD-CONTINUITY **Stage 4E / P0b2a repeated-pair qualification** — **ACTIVE** ([`HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md)). PR #706 merged at `4af440b2` with accepted head `97df142c` after 2 review cycles. Its exact-merge one-source paid smoke passed on 2026-09-12 with `comparable=true`, observed `gpt-5.3-codex`, and `$0.8686` actual pair cost. Stage 4E describes 2–3-run variability without ranking candidates. Stage 7A1 remains queued and Stage 4 remains NOT DONE.
+**Current forcing function:** DOGFOOD-CONTINUITY **Stage 4F / P1a campaign-memory development benchmark** — **ACTIVE** ([`HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md)). PR #707 merged at `4227f97d` with accepted head `4ca2c12c` after 2 review cycles. Its exact-merge three-repetition paid gate passed 3/3 comparable pairs with stable identity and `$2.7019` total cost. Stage 4F defines model-free human gold for Brin, Orik/Orric, Karsemine, and Mireward. No extraction improvement has been accepted; Stage 7A1 remains queued and Stage 4 remains NOT DONE.
 **Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
@@ -62,7 +62,8 @@ PR #700           MERGED — UI-01 Ingest shared Peek; merge `5810a253`; accepte
 PR #701           MERGED — UI-02 truthful Agent presence; merge `d515904c`; head `77f2e09f`; 1 formal review cycle (CODE PASS / DOC HOLD)
 PR #702           MERGED — Agent artwork + UI-03 responsive secondary context; merge `92a50db8`; head `90a75542`; 1 formal review cycle (HOLD; no approving disposition recorded)
 STAGE 4D / P0b1  DONE — PR #706 `4af440b2`; accepted head `97df142c`; 2 review cycles; paid smoke PASS
-CURRENT           Stage 4E/P0b2a repeated-pair qualification; Stage 4 NOT DONE
+STAGE 4E / P0b2a DONE — PR #707 `4227f97d`; accepted head `4ca2c12c`; 2 review cycles; 3-repetition live gate PASS
+CURRENT           Stage 4F/P1a campaign-memory development benchmark; Stage 4 NOT DONE
 
 PLAY STRUCTURE
 BF1 / PR #628    DONE — Beat-first v2 grammar/index/manifest

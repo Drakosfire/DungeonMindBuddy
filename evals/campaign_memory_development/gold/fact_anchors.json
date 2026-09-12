@@ -1,0 +1,57 @@
+[
+  {
+    "anchor_id": "brin_role",
+    "intent": "Recover that Brin is a cook from Edge, not merely a name in Session 23.",
+    "subject_anchor": "brin_holloway_session23",
+    "expected_attribute": "role",
+    "match_keywords": ["cook", "Edge"],
+    "alternative_attributes": [],
+    "source_text_marker": "Brin Holloway, a cook from Edge",
+    "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+    "surface": "campaign_memory_development"
+  },
+  {
+    "anchor_id": "brin_refugee_leadership",
+    "intent": "Recover Brin's leadership of the survivors/refugees reaching Mireward.",
+    "subject_anchor": "brin_holloway_session23",
+    "expected_attribute": "event_progression",
+    "match_keywords": ["leader", "survivors", "refugees", "group"],
+    "alternative_attributes": ["role", "operational_status"],
+    "source_text_marker": "A clear leader of the group steps forward, Brin Holloway",
+    "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+    "surface": "campaign_memory_development"
+  },
+  {
+    "anchor_id": "orik_mayor_role",
+    "intent": "Recover that played-history Orik Tane is Mireward's mayor.",
+    "subject_anchor": "orik_tane_session23",
+    "expected_attribute": "rank_or_title",
+    "match_keywords": ["mayor"],
+    "alternative_attributes": ["role", "governance"],
+    "source_text_marker": "As mayor, Orik Tane can easily command the room.",
+    "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+    "surface": "campaign_memory_development"
+  },
+  {
+    "anchor_id": "karsemine_fire_weakness_discovery",
+    "intent": "Recover Karsemine's table-useful discovery that tripod creatures resist poison and are weak to fire.",
+    "subject_anchor": "karsemine_session23",
+    "expected_attribute": "event_outcome",
+    "match_keywords": ["weak", "fire", "poison", "resistant"],
+    "alternative_attributes": ["event_progression"],
+    "source_text_marker": "the creatures are resistant to poison, but weak to fire",
+    "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+    "surface": "campaign_memory_development"
+  },
+  {
+    "anchor_id": "mireward_siege_pressure",
+    "intent": "Recover Mireward's immediate siege and refugee pressure as operational context.",
+    "subject_anchor": "mireward_reach",
+    "expected_attribute": "operational_status",
+    "match_keywords": ["siege", "refugees", "meat-monster", "pressure"],
+    "alternative_attributes": ["event_progression"],
+    "source_text_marker": "First **visible** siege pressure at Mireward",
+    "source_file": "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+    "surface": "campaign_memory_development"
+  }
+]
