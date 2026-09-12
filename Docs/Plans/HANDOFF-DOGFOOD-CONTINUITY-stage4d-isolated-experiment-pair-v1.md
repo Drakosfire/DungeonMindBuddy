@@ -1,13 +1,13 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4D isolated extraction experiment pair
 
-**Created:** 2026-09-12  
-**Status:** DESIGN READY — NOT IMPLEMENTED  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md`  
-**Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`  
-**Flow / owner:** `DOGFOOD-CONTINUITY` / Extraction Lab bounded experiment execution  
-**Direction:** DESIGN → CODE → REVIEW  
-**Base revision:** `29c50b985091f590d2d6212b10cd79dcc8be5288` (main after PR #705 merge)  
-**Branch:** `dogfood-continuity/stage4d-isolated-experiment-pair-v1`  
+**Created:** 2026-09-12
+**Status:** IMPLEMENTED — REVIEW READY
+**Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md`
+**Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`
+**Flow / owner:** `DOGFOOD-CONTINUITY` / Extraction Lab bounded experiment execution
+**Direction:** DESIGN → CODE → REVIEW
+**Base revision:** `29c50b985091f590d2d6212b10cd79dcc8be5288` (main after PR #705 merge)
+**Branch:** `dogfood-continuity/stage4d-isolated-experiment-pair-v1`
 **PR title:** `DOGFOOD-CONTINUITY: run one isolated extraction experiment pair`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Product sequence: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md). Benchmark authority: [`Docs/Design/DESIGN-benchmark-philosophy-and-goals.md`](../Design/DESIGN-benchmark-philosophy-and-goals.md). Predecessor: [`HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4c-experiment-comparability-v1.md).
@@ -120,7 +120,7 @@ The runner accepts one JSON manifest with this semantic shape:
   "surface": "core_extraction",
   "corpus_root": "corpus/eldyrwild-markdown",
   "sources": [
-    "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md"
+    "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md"
   ],
   "entity_anchors": "evals/mirathorn_vertical_slice/gold/entity_anchors.json",
   "fact_anchors": "evals/mirathorn_vertical_slice/gold/fact_anchors.json",
@@ -486,7 +486,7 @@ corpus root:
   corpus/eldyrwild-markdown
 
 source:
-  Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md
+  Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md
 
 surface:
   core_extraction
@@ -528,6 +528,20 @@ Smoke PASS does **not** mean either batch size is better and does not advance th
 
 ## §11 Required review handback
 
+### Implementation handback
+
+- `dmb_extraction_pair_experiment_v1` is a strict, extra-forbidden Pydantic contract: exact repository SHA, one existing in-repo corpus root, 1–3 unique non-managed Markdown sources, parseable in-repo entity/fact gold, realtime + isolated cache + one repetition, and exactly baseline/candidate with only bounded `batch_size` variation.
+- Default invocation performs repository/source/gold/model-policy preflight, prints a normalized plan, creates no output root or FactStore, and makes no batch/model call. Only explicit `--execute` enters the paid path; execute additionally requires a clean worktree, absent output root, and present API key before creating artifacts.
+- Each variant invokes the existing batch tool as an argv subprocess with only exact store, corpus root, generated paths file, and batch size. Baseline and candidate receive distinct fresh store and store-local `.cache` paths; forbidden resume/force/Batch/escalation flags are absent.
+- Buddy-root `MODEL_POLICY.json` bytes are hashed before execution and checked after each variant. The successful fake pair proves they remain byte-identical. A mutation after baseline produces a failed pair before candidate while retaining the completed baseline bundle.
+- Entity/fact model IDs are derived only from each fresh store's `logs/model_calls.jsonl`. Missing or multiple model IDs per stage fail closed; requested policy model and observed execution model deliberately differ in the successful fixture, and Extraction Lab receives the observed IDs.
+- The receipt captures exact source/gold/policy fingerprints; per-variant summary/report/log paths; observed models; API, token, cache, cost, and runtime telemetry; benchmark fingerprint and pipeline contract. It is written atomically through running/failed/completed states and contains no winner, READY, promotion, or acceptance claim.
+- Deterministic full-path proof executes baseline then candidate through fake batch artifacts, real Extraction Lab scoring, and the real PR #705 comparator. `completed` occurs only with `comparable=true`. Candidate subprocess failure and forced non-comparable comparison both leave truthful failed receipts without a pair-quality claim.
+- Full Extraction Lab suite: `54 passed`. Required focused Ruff and diff hygiene pass. A real CLI dry-run against C2 Session 23 produced the normalized batch-size 5/4 plan and left its requested output path absent.
+- The handoff's live-smoke locator was corrected to the existing canonical source `Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md`; the previously written `...Mireward Gate Battle.md` path does not exist outside managed normalized history.
+- Actual changed paths remain inside §6; no bounded fixtures were added. Batch ingestion, Extraction Lab/comparator predecessors, model policy, ingestion prompts, APP-STATE, and DungeonMind remain unchanged.
+- P0b2 remains false. The one-source paid smoke remains explicitly post-merge and is not pre-claimed by this implementation evidence. Stage 4 WOW remains HOLD.
+
 Record:
 
 1. Review Cycle `<N>`, exact branch/head/base;
@@ -550,20 +564,20 @@ Record:
 
 ## §12 Acceptance rubric
 
-- [ ] Exactly one independently useful capability exists: execute one bounded isolated extraction pair and emit truthful measurable evidence.
-- [ ] Default invocation cannot spend money or call a model.
-- [ ] `--execute` requires exact clean pinned repository state.
-- [ ] Source cohort is exact, unique, inside corpus root, and capped at 3.
-- [ ] Baseline/candidate stores and caches cannot overlap.
-- [ ] P0b1 does not mutate `MODEL_POLICY.json`.
-- [ ] Actual observed models, cost, tokens, cache, and runtime are represented in the receipt.
-- [ ] Both variants are scored by existing Extraction Lab.
-- [ ] Final comparison is the existing PR #705 comparator.
-- [ ] Partial failure never yields `completed`.
-- [ ] Comparable execution does not imply winner/READY/promotion.
-- [ ] APP-STATE and DungeonMind are untouched.
-- [ ] Repetitions/resume/async/budgets/holdouts remain deferred to P0b2/later.
-- [ ] Stage 4 WOW remains HOLD.
+- [x] Exactly one independently useful capability exists: execute one bounded isolated extraction pair and emit truthful measurable evidence.
+- [x] Default invocation cannot spend money or call a model.
+- [x] `--execute` requires exact clean pinned repository state.
+- [x] Source cohort is exact, unique, inside corpus root, and capped at 3.
+- [x] Baseline/candidate stores and caches cannot overlap.
+- [x] P0b1 does not mutate `MODEL_POLICY.json`.
+- [x] Actual observed models, cost, tokens, cache, and runtime are represented in the receipt.
+- [x] Both variants are scored by existing Extraction Lab.
+- [x] Final comparison is the existing PR #705 comparator.
+- [x] Partial failure never yields `completed`.
+- [x] Comparable execution does not imply winner/READY/promotion.
+- [x] APP-STATE and DungeonMind are untouched.
+- [x] Repetitions/resume/async/budgets/holdouts remain deferred to P0b2/later.
+- [x] Stage 4 WOW remains HOLD.
 
 ## Stop conditions
 
