@@ -1,0 +1,64 @@
+{
+  "schema": "dmb_campaign_memory_development_benchmark_v1",
+  "benchmark_id": "c2-mireward-campaign-memory-dev-v1",
+  "surface": "campaign_memory_development",
+  "corpus_root": "corpus/eldyrwild-markdown",
+  "sources": [
+    {
+      "locator": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+      "sha256": "77ba5030b5c89e8888e8a3d900fe3fc07b94313af81a7ad5f888eb663d4c7782",
+      "role": "played_recap",
+      "reason": "Direct played witness for Brin, Orik, Karsemine, and Mireward under attack."
+    },
+    {
+      "locator": "Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md",
+      "sha256": "7fe085121d651f21211f8e58c3192159c4cfaf7b07ce9f78d02b4d082e5df8bc",
+      "role": "played_recap",
+      "reason": "Second played session in the Mireward sequence."
+    },
+    {
+      "locator": "Longmont Campaign/Campaign 2/Session Recaps/Session 25 - Mireward Gate Battle II.md",
+      "sha256": "a3513d738fe09820dfbee1c30adcba176f0beca070701b4a67e94a4935e822b7",
+      "role": "played_recap",
+      "reason": "Third played session in the Mireward sequence and original UI dogfood witness."
+    },
+    {
+      "locator": "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+      "sha256": "c02514f8463734e565904632abd4c7e9736962bf1e76e262f374ff1acc2c8430",
+      "role": "world_reference",
+      "reason": "Stable place context for Mireward, its refugee pressure, and siege preparation."
+    },
+    {
+      "locator": "Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md",
+      "sha256": "12aa6e16c79cc9b97c3008defb0caaa69b3f914022a9aadb3ecabe4e9016eb79",
+      "role": "character_reference",
+      "reason": "Stable Brin reference paired with the Session 23 played spelling and role."
+    },
+    {
+      "locator": "Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md",
+      "sha256": "7e06aae068b85d1f039aa8b98a499c8f3d05ace01d4473923b26872710bd9748",
+      "role": "character_reference",
+      "reason": "Canonical Orric reference paired with the Session 23 Orik spelling."
+    },
+    {
+      "locator": "Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md",
+      "sha256": "6d7496cc6adb3beda66ad216ea94e4f1cdc5ee1d8f2b6e79c814ea0d5774e150",
+      "role": "continuity_reference",
+      "reason": "Stable PC continuity context alongside Karsemine's played Session 23 discovery."
+    }
+  ],
+  "entity_anchors": "gold/entity_anchors.json",
+  "fact_anchors": "gold/fact_anchors.json",
+  "identity_expectations": [
+    {
+      "expectation_id": "brin_cross_source_identity",
+      "anchor_ids": ["brin_holloway_session23", "brin_holloway_reference"],
+      "intent": "Brin in Session 23 and Brin Holloway's stable character reference are the same actor."
+    },
+    {
+      "expectation_id": "orric_orik_cross_source_identity",
+      "anchor_ids": ["orik_tane_session23", "orric_tane_reference"],
+      "intent": "Session 23 Orik Tane and canonical Orric Tane are the same actor despite spelling drift."
+    }
+  ]
+}

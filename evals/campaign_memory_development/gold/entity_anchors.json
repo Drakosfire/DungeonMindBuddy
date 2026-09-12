@@ -1,0 +1,56 @@
+[
+  {
+    "anchor_id": "brin_holloway_session23",
+    "intent": "Recover Brin Holloway as the named actor leading survivors from Edge in played history.",
+    "expected_class": "actor",
+    "expected_names": ["Brin Holloway", "Brin"],
+    "source_text_marker": "A clear leader of the group steps forward, Brin Holloway, a cook from Edge",
+    "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+    "surface": "campaign_memory_development"
+  },
+  {
+    "anchor_id": "brin_holloway_reference",
+    "intent": "Recover the stable Brin Holloway character reference as an actor.",
+    "expected_class": "actor",
+    "expected_names": ["Brin Holloway", "Brin"],
+    "source_text_marker": "# Brin Holloway — character seed",
+    "source_file": "Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md",
+    "surface": "campaign_memory_development"
+  },
+  {
+    "anchor_id": "orik_tane_session23",
+    "intent": "Recover the played Session 23 spelling of Mireward's mayor as an actor.",
+    "expected_class": "actor",
+    "expected_names": ["Orik Tane", "Orik"],
+    "source_text_marker": "As mayor, Orik Tane can easily command the room.",
+    "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+    "surface": "campaign_memory_development"
+  },
+  {
+    "anchor_id": "orric_tane_reference",
+    "intent": "Recover canonical Orric Tane from stable character reference material.",
+    "expected_class": "actor",
+    "expected_names": ["Orric Tane"],
+    "source_text_marker": "# Mayor Orric Tane — character seed",
+    "source_file": "Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md",
+    "surface": "campaign_memory_development"
+  },
+  {
+    "anchor_id": "karsemine_session23",
+    "intent": "Recover Karsemine as the actor who learned a table-useful monster weakness.",
+    "expected_class": "actor",
+    "expected_names": ["Karsemine"],
+    "source_text_marker": "Back on the wall, Karsemine uses her Hunter’s Mark",
+    "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+    "surface": "campaign_memory_development"
+  },
+  {
+    "anchor_id": "mireward_reach",
+    "intent": "Recover Mireward Reach as the place under immediate siege and refugee pressure.",
+    "expected_class": "place",
+    "expected_names": ["Mireward Reach", "Mireward"],
+    "source_text_marker": "# Mireward Reach — place build scaffold",
+    "source_file": "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+    "surface": "campaign_memory_development"
+  }
+]

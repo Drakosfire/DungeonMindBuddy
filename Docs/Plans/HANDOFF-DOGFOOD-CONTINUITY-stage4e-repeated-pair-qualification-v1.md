@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4E repeated extraction-pair qualification
 
 **Created:** 2026-09-12  
-**Status:** IMPLEMENTED — REVIEW READY
+**Status:** DONE — PR #707 MERGED; LIVE REPEATED RUN PASS
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / Stage 4 WOW recovery / ingestion-quality experiment program`  
 **Flow / owner:** `DOGFOOD-CONTINUITY` / repeated Extraction Lab qualification  
@@ -22,7 +22,7 @@ The earlier P0b2 label bundled too many independent capabilities: repetitions, a
 P0a   trustworthy cross-contract comparison              DONE — PR #705
 P0b1  one bounded isolated baseline/candidate pair       DONE — PR #706
 LIVE  one-source paid Stage 4D smoke                     DONE — 2026-09-12
-P0b2a repeated-pair qualification + variance summary     ← THIS PR
+P0b2a repeated-pair qualification + variance summary     DONE — PR #707
 P0b2b resumable/budget-aware lifecycle                   later
 P0b2c async OpenAI Batch/event-driven execution          later if justified
 P1    representative development-cohort characterization
@@ -32,6 +32,8 @@ P4    full-corpus rehearsal into disposable authorities
 P5    governed durable source adoption / World publication
 P6    baseline-vs-final analysis and remaining gaps
 ```
+
+PR #707 merged at `4227f97da35e384e995263d5c6a62d9711333488` with accepted head `4ca2c12c3ad15e6e6c18b0fab8fb5acb2a76ebcc` after 2 formal review cycles. Its exact-merge three-repetition Session 23 run passed on 2026-09-12: 3/3 pairs completed, all comparisons were comparable, identity stayed pinned, observed models were consistently `gpt-5.3-codex`, and total cost was `$2.7019`. This qualifies P0 operation, not extraction quality or Stage 4 WOW.
 
 ### Why this split
 

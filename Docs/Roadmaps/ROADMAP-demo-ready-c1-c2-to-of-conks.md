@@ -158,7 +158,8 @@ PR #702 Agent artwork + UI-03 responsive secondary context MERGED (`92a50db8bd41
 PR #704 Stage 4B glance MERGED (`a90f5e81355952d80ad5dba24bd4d27d5eedd930`; accepted head `02b2529176703b3f8b69ad9fcb594f401c1c5f6b`; 1 formal review cycle); human WOW gate remains HOLD
 PR #705 Stage 4C comparison MERGED (`29c50b985091f590d2d6212b10cd79dcc8be5288`; accepted head `e0b8dd9b363cef3980055ef73c8634a67b2fa9e8`; 2 review cycles)
 PR #706 Stage 4D/P0b1 MERGED (`4af440b2cc4102972ad6212590885248e58375c1`; accepted head `97df142cfee328c689a32ced19cfe2a9755f1b98`; 2 review cycles); exact-merge paid one-source smoke PASS on 2026-09-12 (`comparable=true`, `$0.8686`)
-CURRENT — Stage 4E/P0b2a repeated-pair qualification; Stage 4 remains NOT DONE
+PR #707 Stage 4E/P0b2a MERGED (`4227f97da35e384e995263d5c6a62d9711333488`; accepted head `4ca2c12c3ad15e6e6c18b0fab8fb5acb2a76ebcc`; 2 review cycles); exact-merge 3-repetition paid gate PASS (`3/3 comparable`, stable identity, `$2.7019`)
+CURRENT — Stage 4F/P1a campaign-memory development benchmark; Stage 4 remains NOT DONE
 Stage 7A1 Agent-on-Ingest remains DESIGN READY / QUEUED behind the UI series
 ```
 
@@ -283,7 +284,9 @@ STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Sta
 
 **Completed execution predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4d-isolated-experiment-pair-v1.md) — PR #706 merged at `4af440b2cc4102972ad6212590885248e58375c1` after 2 review cycles. Its exact-merge C2 Session 23 paid smoke completed with `comparable=true`, stable pins, observed `gpt-5.3-codex`, and `$0.8686` actual cost.
 
-**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md) — repeat one bounded #706 pair 2–3 times with fresh isolated roots, fail closed on identity drift, and expose descriptive metric, anchor, cost, token, and runtime variability without a winner or promotion claim. Stage 4 completion remains false.
+**Completed measurement predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4e-repeated-pair-qualification-v1.md) — PR #707 merged at `4227f97da35e384e995263d5c6a62d9711333488`; the exact-merge three-repetition Session 23 gate passed 3/3 comparable pairs with stable identity. The old Mirathorn gold scored 0/23 throughout, proving it does not represent the campaign-memory product question.
+
+**CURRENT capability:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md) — freeze a model-free seven-source C2/Mireward cohort and human gold for Brin, Orik/Orric, Karsemine, and Mireward, including unscored cross-source identity intent. No extraction tuning or Stage 4 completion claim.
 
 ### Human outcome
 
