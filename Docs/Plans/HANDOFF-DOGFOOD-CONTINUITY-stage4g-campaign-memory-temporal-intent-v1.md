@@ -180,7 +180,7 @@ Top-level semantic shape:
           "source_file": "... exact Stage 4F cohort locator ...",
           "source_session": 23,
           "source_text_marker": "... exact marker ...",
-          "role": "supports | confirms | ends"
+          "role": "supports | confirms | starts | ends"
         }
       ],
       "intent": "human-readable temporal requirement"
@@ -254,6 +254,7 @@ Rules:
 - `null` means unknown.
 - Never fill a start merely because that is the first source where the fact appears.
 - Never fill an end merely because the cohort stops.
+- A non-point truth start requires evidence with `role = "starts"` in that session. Ordinary `supports`/`confirms` evidence cannot establish when a background/state began. A point event with `start_session = end_session` is the narrow exception because observing its occurrence establishes its session.
 - An explicit end requires evidence with `role = "ends"` in that session.
 - `persistence = "bounded"` requires a non-null `end_session`.
 - If both boundaries are present, `end_session >= start_session`.
@@ -443,7 +444,7 @@ Evidence:
 ```text
 S23 recap
 marker: "the creatures are resistant to poison, but weak to fire"
-role: supports
+role: starts
 ```
 
 Intent:
@@ -517,7 +518,7 @@ Evidence:
 ```text
 S23 recap
 marker: "shadows are coming from the Reach to the north gate"
-role: supports
+role: starts
 
 S24 recap
 marker: "Finally Thrin finishes off the writhing creature, ending the battle."
@@ -540,7 +541,7 @@ Every temporal evidence record must:
 - use an exact non-empty `source_text_marker` found in the pinned source bytes;
 - carry the correct source session for that pinned source;
 - use `source_session = null` only for cohort reference sources whose frontmatter session is null;
-- use one of `supports`, `confirms`, or `ends`;
+- use one of `supports`, `confirms`, `starts`, or `ends`;
 - not claim source provenance that current ingestion does not already provide.
 
 For this v1 overlay, use played S23/S24/S25 evidence only for the seven required expectations. The stable reference files remain available through Stage 4F identity/fact intent but are not needed as temporal clock witnesses.

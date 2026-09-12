@@ -52,7 +52,7 @@ class TemporalEvidence(BaseModel):
     source_file: str = Field(min_length=1)
     source_session: int | None
     source_text_marker: str = Field(min_length=1)
-    role: Literal["supports", "confirms", "ends"]
+    role: Literal["supports", "confirms", "starts", "ends"]
 
     @field_validator("source_file", "source_text_marker")
     @classmethod
@@ -140,6 +140,11 @@ def _validate_truth(expectation: TemporalExpectation) -> None:
                 f"{label} boundary lacks evidence: {expectation.expectation_id}"
             )
     ending_rows = [row for row in expectation.evidence if row.role == "ends"]
+    starting_rows = [row for row in expectation.evidence if row.role == "starts"]
+    if starting_rows and start is None:
+        raise ValueError(f"starts evidence requires start session: {expectation.expectation_id}")
+    if any(row.source_session != start for row in starting_rows):
+        raise ValueError(f"starts evidence session mismatch: {expectation.expectation_id}")
     if ending_rows and end is None:
         raise ValueError(f"ends evidence requires end session: {expectation.expectation_id}")
     if expectation.persistence == "bounded" and end is None:
@@ -149,6 +154,11 @@ def _validate_truth(expectation: TemporalExpectation) -> None:
     # A point event may use one supporting observation for its start=end occurrence.
     # Ending a state/interval requires explicit `ends` evidence.
     point_event = expectation.temporal_kind == "event" and start == end
+    if start is not None and not point_event and not any(
+        row.role == "starts" and row.source_session == start
+        for row in expectation.evidence
+    ):
+        raise ValueError(f"start boundary lacks starts evidence: {expectation.expectation_id}")
     if end is not None and not point_event and not any(
         row.role == "ends" and row.source_session == end for row in expectation.evidence
     ):
@@ -190,6 +200,9 @@ def validate_campaign_memory_temporal_intent(
     entity_by_id = {row.anchor_id: row for row in entities}
     fact_by_id = {row.anchor_id: row for row in facts}
     identity_ids = {row.expectation_id for row in benchmark.identity_expectations}
+    identity_by_id = {
+        row.expectation_id: row for row in benchmark.identity_expectations
+    }
     corpus_root = _resolve_inside(
         repo_root.resolve(), benchmark.corpus_root, label="corpus_root"
     )
@@ -209,6 +222,11 @@ def validate_campaign_memory_temporal_intent(
             raise ValueError(
                 f"unknown identity expectation ref: {expectation.expectation_id}"
             )
+        for ref in expectation.identity_expectation_refs:
+            if expectation.subject_anchor not in identity_by_id[ref].anchor_ids:
+                raise ValueError(
+                    f"identity expectation subject mismatch: {expectation.expectation_id}"
+                )
         evidence_keys = [
             (row.source_file, row.source_session, row.source_text_marker, row.role)
             for row in expectation.evidence

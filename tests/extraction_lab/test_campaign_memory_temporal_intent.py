@@ -124,6 +124,7 @@ def test_unknown_top_level_and_nested_fields_fail(tmp_path) -> None:
         ("unknown_fact", "unknown fact anchor"),
         ("fact_subject", "fact subject mismatch"),
         ("unknown_identity", "unknown identity expectation ref"),
+        ("wrong_identity", "identity expectation subject mismatch"),
         ("duplicate_identity", "duplicate identity expectation ref"),
     ],
 )
@@ -139,6 +140,8 @@ def test_authority_references_fail_closed(tmp_path, mutation, message) -> None:
         row["fact_anchor"] = "orik_mayor_role"
     elif mutation == "unknown_identity":
         row["identity_expectation_refs"] = ["missing"]
+    elif mutation == "wrong_identity":
+        row["identity_expectation_refs"] = ["orric_orik_cross_source_identity"]
     else:
         row["identity_expectation_refs"] *= 2
     _write(temporal, payload)
@@ -241,4 +244,33 @@ def test_unknown_start_knowledge_start_and_bounded_battle_are_preserved(tmp_path
     assert mayor["truth_window"] == {"start_session": None, "end_session": None}
     assert knowledge["truth_window"] == {"start_session": 23, "end_session": None}
     assert battle["truth_window"] == {"start_session": 23, "end_session": 24}
+    assert _validate(repo, benchmark, temporal)["validated"] is True
+
+
+def test_observation_does_not_establish_mayor_truth_start(tmp_path) -> None:
+    repo, benchmark, temporal = _fixture(tmp_path)
+    payload = _json(temporal)
+    mayor = _expectation(payload, "orric_mayor_state")
+    mayor["truth_window"]["start_session"] = 23
+    _write(temporal, payload)
+    with pytest.raises(ValueError, match="start boundary lacks starts evidence"):
+        _validate(repo, benchmark, temporal)
+
+
+def test_non_point_truth_start_requires_matching_starts_evidence(tmp_path) -> None:
+    repo, benchmark, temporal = _fixture(tmp_path)
+    payload = _json(temporal)
+    knowledge = _expectation(payload, "karsemine_tripod_fire_weakness_knowledge")
+    knowledge["evidence"][0]["role"] = "supports"
+    _write(temporal, payload)
+    with pytest.raises(ValueError, match="start boundary lacks starts evidence"):
+        _validate(repo, benchmark, temporal)
+
+
+def test_point_event_occurrence_remains_start_end_exception(tmp_path) -> None:
+    repo, benchmark, temporal = _fixture(tmp_path)
+    payload = _json(temporal)
+    arrival = _expectation(payload, "brin_refugee_arrival_event")
+    assert arrival["truth_window"] == {"start_session": 23, "end_session": 23}
+    assert arrival["evidence"][0]["role"] == "supports"
     assert _validate(repo, benchmark, temporal)["validated"] is True

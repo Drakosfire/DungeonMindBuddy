@@ -101,7 +101,7 @@
           "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
           "source_session": 23,
           "source_text_marker": "the creatures are resistant to poison, but weak to fire",
-          "role": "supports"
+          "role": "starts"
         }
       ],
       "intent": "Karsemine acquires the fire-weakness knowledge in S23 and that useful knowledge remains available afterward."
@@ -143,7 +143,7 @@
           "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
           "source_session": 23,
           "source_text_marker": "shadows are coming from the Reach to the north gate",
-          "role": "supports"
+          "role": "starts"
         },
         {
           "source_file": "Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md",
