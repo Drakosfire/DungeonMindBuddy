@@ -23,6 +23,7 @@ RECEIPT_SCHEMA = "dmb_extraction_pair_receipt_v1"
 BatchRunner = Callable[[Sequence[str], Path], subprocess.CompletedProcess[str]]
 RepositoryShaReader = Callable[[Path], str]
 WorktreeCleanReader = Callable[[Path], bool]
+ExecutionStateAssertion = Callable[[str], None]
 
 
 class ExperimentFailure(RuntimeError):
@@ -118,6 +119,56 @@ def _assert_policy_unchanged(
 ) -> None:
     if not policy_path.is_file() or _file_sha256(policy_path) != expected_sha256:
         raise ExperimentFailure(stage, "model_policy_changed_during_experiment")
+
+
+def _pinned_input_hashes(
+    pair: NormalizedPairExperiment, policy_path: Path
+) -> dict[str, Any]:
+    return {
+        "sources": {
+            locator: _file_sha256(path)
+            for locator, path in zip(
+                pair.source_locators, pair.source_paths, strict=True
+            )
+        },
+        "entity_gold": _file_sha256(pair.entity_anchor_path),
+        "fact_gold": _file_sha256(pair.fact_anchor_path),
+        "model_policy": _file_sha256(policy_path),
+    }
+
+
+def _assert_execution_state(
+    *,
+    pair: NormalizedPairExperiment,
+    policy_path: Path,
+    expected_hashes: dict[str, Any],
+    repository_sha_reader: RepositoryShaReader,
+    worktree_clean_reader: WorktreeCleanReader,
+    stage: str,
+) -> None:
+    if repository_sha_reader(pair.repo_root) != pair.manifest.repository_sha:
+        raise ExperimentFailure(stage, "repository_sha_changed_during_experiment")
+    if not worktree_clean_reader(pair.repo_root):
+        raise ExperimentFailure(stage, "worktree_changed_during_experiment")
+    for locator, path in zip(pair.source_locators, pair.source_paths, strict=True):
+        if (
+            not path.is_file()
+            or _file_sha256(path) != expected_hashes["sources"][locator]
+        ):
+            raise ExperimentFailure(
+                stage, f"source_bytes_changed_during_experiment:{locator}"
+            )
+    if (
+        not pair.entity_anchor_path.is_file()
+        or _file_sha256(pair.entity_anchor_path) != expected_hashes["entity_gold"]
+    ):
+        raise ExperimentFailure(stage, "entity_gold_changed_during_experiment")
+    if (
+        not pair.fact_anchor_path.is_file()
+        or _file_sha256(pair.fact_anchor_path) != expected_hashes["fact_gold"]
+    ):
+        raise ExperimentFailure(stage, "fact_gold_changed_during_experiment")
+    _assert_policy_unchanged(policy_path, expected_hashes["model_policy"], stage=stage)
 
 
 def _normalized_plan(
@@ -248,6 +299,7 @@ def _execute_variant(
     variant: str,
     batch_size: int,
     batch_runner: BatchRunner,
+    assert_execution_state: ExecutionStateAssertion,
 ) -> dict[str, Any]:
     variant_root = experiment_root / variant
     store_path = variant_root / "store"
@@ -289,6 +341,7 @@ def _execute_variant(
     entity_model, fact_model = _observed_models(
         store_path / "logs" / "model_calls.jsonl"
     )
+    assert_execution_state(f"{variant}_before_scoring")
 
     run_dir = run_extraction_lab(
         store_path=store_path,
@@ -359,6 +412,17 @@ def run_pair_experiment(
     if not active_environ.get("OPENAI_API_KEY"):
         raise ExperimentFailure("preflight", "openai_api_key_missing")
     _assert_policy_unchanged(policy_path, policy_sha256, stage="preflight")
+    pinned_hashes = _pinned_input_hashes(pair, policy_path)
+
+    def assert_execution_state(stage: str) -> None:
+        _assert_execution_state(
+            pair=pair,
+            policy_path=policy_path,
+            expected_hashes=pinned_hashes,
+            repository_sha_reader=repository_sha_reader,
+            worktree_clean_reader=worktree_clean_reader,
+            stage=stage,
+        )
 
     experiment_root = out_dir.resolve()
     experiment_root.mkdir(parents=True, exist_ok=False)
@@ -372,6 +436,7 @@ def run_pair_experiment(
     try:
         for variant in ("baseline", "candidate"):
             current_stage = variant
+            assert_execution_state(f"before_{variant}")
             variant_config = getattr(pair.manifest.variants, variant)
             receipt["variants"][variant]["status"] = "running"
             _write_json_atomic(receipt_path, receipt)
@@ -381,14 +446,14 @@ def run_pair_experiment(
                 variant=variant,
                 batch_size=variant_config.batch_size,
                 batch_runner=batch_runner,
+                assert_execution_state=assert_execution_state,
             )
             receipt["variants"][variant] = variant_receipt
             _write_json_atomic(receipt_path, receipt)
-            _assert_policy_unchanged(
-                policy_path, policy_sha256, stage=f"after_{variant}"
-            )
+            assert_execution_state(f"after_{variant}")
 
         current_stage = "comparison"
+        assert_execution_state("before_comparison")
         comparison_dir = experiment_root / "comparison"
         comparison = write_comparison(
             baseline_dir=Path(

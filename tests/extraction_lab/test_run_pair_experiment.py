@@ -265,10 +265,109 @@ def test_policy_change_after_baseline_fails_before_candidate(tmp_path) -> None:
     receipt = json.loads((out / "experiment_receipt.json").read_text(encoding="utf-8"))
     assert len(calls) == 1
     assert receipt["status"] == "failed"
-    assert receipt["variants"]["baseline"]["status"] == "completed"
-    assert Path(receipt["variants"]["baseline"]["extraction_lab_run_path"]).is_dir()
+    assert receipt["variants"]["baseline"]["status"] == "failed"
+    assert not (out / "baseline" / "extraction_lab").exists()
     assert receipt["variants"]["candidate"]["status"] == "not_started"
     assert receipt["comparison"] == {"status": "not_started"}
+
+
+@pytest.mark.parametrize(
+    ("target", "expected_reason"),
+    [
+        ("source", "source_bytes_changed_during_experiment:session.md"),
+        ("entity_gold", "entity_gold_changed_during_experiment"),
+        ("fact_gold", "fact_gold_changed_during_experiment"),
+    ],
+)
+def test_input_byte_drift_after_baseline_ingest_fails_before_scoring(
+    tmp_path, target, expected_reason
+) -> None:
+    repo, manifest = _fixture(tmp_path)
+    calls = []
+    success = _fake_successful_batch(calls)
+
+    def mutate_input(argv, cwd):
+        result = success(argv, cwd)
+        paths = {
+            "source": repo / "corpus" / "session.md",
+            "entity_gold": repo / "entity.json",
+            "fact_gold": repo / "fact.json",
+        }
+        paths[target].write_text("changed after ingest\n", encoding="utf-8")
+        return result
+
+    out = tmp_path / "out"
+    with pytest.raises(ExperimentFailure, match=expected_reason):
+        _run(repo, manifest, out, execute=True, batch_runner=mutate_input)
+    receipt = json.loads((out / "experiment_receipt.json").read_text(encoding="utf-8"))
+    assert len(calls) == 1
+    assert receipt["status"] == "failed"
+    assert receipt["variants"]["baseline"]["status"] == "failed"
+    assert receipt["variants"]["candidate"]["status"] == "not_started"
+    assert receipt["comparison"] == {"status": "not_started"}
+    assert not (out / "baseline" / "extraction_lab").exists()
+
+
+def test_repository_sha_drift_after_ingest_fails_before_scoring(tmp_path) -> None:
+    repo, manifest = _fixture(tmp_path)
+    calls = []
+    state = {"sha": SHA}
+    success = _fake_successful_batch(calls)
+
+    def change_head(argv, cwd):
+        result = success(argv, cwd)
+        state["sha"] = "c" * 40
+        return result
+
+    out = tmp_path / "out"
+    with pytest.raises(
+        ExperimentFailure, match="repository_sha_changed_during_experiment"
+    ):
+        run_pair_experiment(
+            manifest_path=manifest,
+            out_dir=out,
+            execute=True,
+            repo_root=repo,
+            batch_runner=change_head,
+            repository_sha_reader=lambda _root: state["sha"],
+            worktree_clean_reader=lambda _root: True,
+            environ={"OPENAI_API_KEY": "test-only"},
+        )
+    receipt = json.loads((out / "experiment_receipt.json").read_text(encoding="utf-8"))
+    assert len(calls) == 1
+    assert receipt["status"] == "failed"
+    assert receipt["variants"]["candidate"]["status"] == "not_started"
+    assert not (out / "baseline" / "extraction_lab").exists()
+
+
+def test_worktree_drift_after_ingest_fails_before_scoring(tmp_path) -> None:
+    repo, manifest = _fixture(tmp_path)
+    calls = []
+    state = {"clean": True}
+    success = _fake_successful_batch(calls)
+
+    def dirty_worktree(argv, cwd):
+        result = success(argv, cwd)
+        state["clean"] = False
+        return result
+
+    out = tmp_path / "out"
+    with pytest.raises(ExperimentFailure, match="worktree_changed_during_experiment"):
+        run_pair_experiment(
+            manifest_path=manifest,
+            out_dir=out,
+            execute=True,
+            repo_root=repo,
+            batch_runner=dirty_worktree,
+            repository_sha_reader=lambda _root: SHA,
+            worktree_clean_reader=lambda _root: state["clean"],
+            environ={"OPENAI_API_KEY": "test-only"},
+        )
+    receipt = json.loads((out / "experiment_receipt.json").read_text(encoding="utf-8"))
+    assert len(calls) == 1
+    assert receipt["status"] == "failed"
+    assert receipt["variants"]["candidate"]["status"] == "not_started"
+    assert not (out / "baseline" / "extraction_lab").exists()
 
 
 def test_ambiguous_observed_model_fails_closed(tmp_path) -> None:

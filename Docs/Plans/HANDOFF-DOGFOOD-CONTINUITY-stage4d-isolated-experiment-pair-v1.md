@@ -251,6 +251,10 @@ For each variant, actual model identity used for Extraction Lab stamping must be
 
 At minimum, record observed entity-extraction model id(s) and fact-extraction model id(s). If current normal execution yields exactly one model per stage, pass those exact ids into `run_extraction_lab` as `entity_model` / `fact_model`.
 
+### Pinned execution-state integrity
+
+Capture the exact source, entity-gold, fact-gold, and model-policy byte fingerprints before execution. Revalidate those fingerprints together with repository `HEAD` and worktree cleanliness before each variant, after each variant's batch ingest and before its Extraction Lab scoring, after each scored variant, and before comparison. Any drift fails the receipt at that boundary. In particular, baseline scoring must never re-read source or gold bytes different from those that baseline ingested under the pinned experiment.
+
 ### Scoring and comparison
 
 Only after one variant's batch execution completed successfully:
@@ -533,14 +537,22 @@ Smoke PASS does **not** mean either batch size is better and does not advance th
 - `dmb_extraction_pair_experiment_v1` is a strict, extra-forbidden Pydantic contract: exact repository SHA, one existing in-repo corpus root, 1–3 unique non-managed Markdown sources, parseable in-repo entity/fact gold, realtime + isolated cache + one repetition, and exactly baseline/candidate with only bounded `batch_size` variation.
 - Default invocation performs repository/source/gold/model-policy preflight, prints a normalized plan, creates no output root or FactStore, and makes no batch/model call. Only explicit `--execute` enters the paid path; execute additionally requires a clean worktree, absent output root, and present API key before creating artifacts.
 - Each variant invokes the existing batch tool as an argv subprocess with only exact store, corpus root, generated paths file, and batch size. Baseline and candidate receive distinct fresh store and store-local `.cache` paths; forbidden resume/force/Batch/escalation flags are absent.
-- Buddy-root `MODEL_POLICY.json` bytes are hashed before execution and checked after each variant. The successful fake pair proves they remain byte-identical. A mutation after baseline produces a failed pair before candidate while retaining the completed baseline bundle.
+- Repository SHA/cleanliness plus source, entity-gold, fact-gold, and Buddy-root `MODEL_POLICY.json` bytes are pinned before execution and revalidated before each variant, between batch ingest and scoring, after scoring, and before comparison. The successful fake pair proves they remain stable. Drift during a variant fails before scoring; drift between qualified variants preserves prior artifacts but blocks the next variant/comparison.
 - Entity/fact model IDs are derived only from each fresh store's `logs/model_calls.jsonl`. Missing or multiple model IDs per stage fail closed; requested policy model and observed execution model deliberately differ in the successful fixture, and Extraction Lab receives the observed IDs.
 - The receipt captures exact source/gold/policy fingerprints; per-variant summary/report/log paths; observed models; API, token, cache, cost, and runtime telemetry; benchmark fingerprint and pipeline contract. It is written atomically through running/failed/completed states and contains no winner, READY, promotion, or acceptance claim.
 - Deterministic full-path proof executes baseline then candidate through fake batch artifacts, real Extraction Lab scoring, and the real PR #705 comparator. `completed` occurs only with `comparable=true`. Candidate subprocess failure and forced non-comparable comparison both leave truthful failed receipts without a pair-quality claim.
-- Full Extraction Lab suite: `54 passed`. Required focused Ruff and diff hygiene pass. A real CLI dry-run against C2 Session 23 produced the normalized batch-size 5/4 plan and left its requested output path absent.
+- Full Extraction Lab suite after Cycle 1 repair: `59 passed`. Required focused Ruff and diff hygiene pass. A real CLI dry-run against C2 Session 23 produced the normalized batch-size 5/4 plan and left its requested output path absent.
 - The handoff's live-smoke locator was corrected to the existing canonical source `Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md`; the previously written `...Mireward Gate Battle.md` path does not exist outside managed normalized history.
 - Actual changed paths remain inside §6; no bounded fixtures were added. Batch ingestion, Extraction Lab/comparator predecessors, model policy, ingestion prompts, APP-STATE, and DungeonMind remain unchanged.
 - P0b2 remains false. The one-source paid smoke remains explicitly post-merge and is not pre-claimed by this implementation evidence. Stage 4 WOW remains HOLD.
+
+### Review Cycle 1 finding ledger
+
+- Exact reviewed head: `6b3dc948f3c3da61b23c658ef063372bcad46ac2`; verdict **HOLD**; review `5187322288`.
+- Closed for Cycle 2: the repository SHA and cleanliness plus exact source/gold/policy byte fingerprints are revalidated at every variant/scoring/comparison boundary.
+- Closed adversarial sequence: baseline batch ingest followed by source-byte drift now fails at `baseline_before_scoring`; no Extraction Lab bundle, candidate execution, or comparison is produced from the changed source.
+- Repository-HEAD drift, worktree drift, entity-gold drift, fact-gold drift, and policy drift have equivalent focused fail-closed witnesses.
+- No runner scope, predecessor contract, P0b2 capability, or authority surface was added.
 
 Record:
 
