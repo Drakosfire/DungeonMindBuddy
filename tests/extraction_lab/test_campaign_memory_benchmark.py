@@ -6,6 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 import extraction_lab.campaign_memory_benchmark as benchmark_module
+from extraction_lab.anchor_resolver import resolve_fact_anchor
+from extraction_lab.anchor_schema import load_fact_anchors
 from extraction_lab.campaign_memory_benchmark import (
     REQUIRED_SOURCES,
     validate_campaign_memory_benchmark,
@@ -162,3 +164,99 @@ def test_fact_dependency_and_identity_intent_fail_closed(tmp_path) -> None:
     _write(entity_path, entities)
     with pytest.raises(ValueError, match="identity expectation class mismatch"):
         validate_campaign_memory_benchmark(manifest, repo_root=repo)
+
+
+def test_compound_fact_intents_reject_insufficient_partial_matches() -> None:
+    anchors = {
+        anchor.anchor_id: anchor
+        for anchor in load_fact_anchors(CHECKED_IN / "gold" / "fact_anchors.json")
+    }
+    resolved = {
+        "brin_holloway_session23": {"passed": True, "resolved_entity_id": "brin"},
+        "karsemine_session23": {"passed": True, "resolved_entity_id": "karsemine"},
+    }
+
+    edge_without_cook = resolve_fact_anchor(
+        anchors["brin_role"],
+        resolved,
+        [
+            {
+                "fact_id": "edge-only",
+                "subject_entity_id": "brin",
+                "attribute": "role",
+                "value": {"label": "Brin came from Edge"},
+            }
+        ],
+    )
+    assert edge_without_cook["passed"] is False
+    assert edge_without_cook["fail_bucket"] == "keyword_mismatch"
+
+    group_without_leadership = resolve_fact_anchor(
+        anchors["brin_refugee_leadership"],
+        resolved,
+        [
+            {
+                "fact_id": "group-only",
+                "subject_entity_id": "brin",
+                "attribute": "event_progression",
+                "value": {"label": "Brin traveled with the group of survivors"},
+            }
+        ],
+    )
+    assert group_without_leadership["passed"] is False
+    assert group_without_leadership["fail_bucket"] == "keyword_mismatch"
+
+    poison_without_fire = resolve_fact_anchor(
+        anchors["karsemine_fire_weakness_discovery"],
+        resolved,
+        [
+            {
+                "fact_id": "poison-only",
+                "subject_entity_id": "karsemine",
+                "attribute": "event_outcome",
+                "value": {"label": "The creatures are resistant to poison"},
+            }
+        ],
+    )
+    assert poison_without_fire["passed"] is False
+    assert poison_without_fire["fail_bucket"] == "keyword_mismatch"
+
+
+def test_compound_fact_intents_accept_independently_sufficient_phrases() -> None:
+    anchors = {
+        anchor.anchor_id: anchor
+        for anchor in load_fact_anchors(CHECKED_IN / "gold" / "fact_anchors.json")
+    }
+    resolved = {
+        "brin_holloway_session23": {"passed": True, "resolved_entity_id": "brin"},
+        "karsemine_session23": {"passed": True, "resolved_entity_id": "karsemine"},
+    }
+    cases = (
+        ("brin_role", "brin", "role", "Brin is a cook from Edge"),
+        (
+            "brin_refugee_leadership",
+            "brin",
+            "event_progression",
+            "Brin is the clear leader of the refugees",
+        ),
+        (
+            "karsemine_fire_weakness_discovery",
+            "karsemine",
+            "event_outcome",
+            "Karsemine learned the creatures are weak to fire",
+        ),
+    )
+    for anchor_id, entity_id, attribute, label in cases:
+        result = resolve_fact_anchor(
+            anchors[anchor_id],
+            resolved,
+            [
+                {
+                    "fact_id": anchor_id,
+                    "subject_entity_id": entity_id,
+                    "attribute": attribute,
+                    "value": {"label": label},
+                }
+            ],
+        )
+        assert result["passed"] is True
