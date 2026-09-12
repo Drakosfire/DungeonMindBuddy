@@ -158,6 +158,13 @@ Each repetition receives a new absent root and therefore a new local cache.
 
 No retry-on-quality behavior. No automatic rerun of failed anchors. No prompt/model/taxonomy fallback.
 
+The frozen cohort includes four documents whose legacy frontmatter predates the
+current strict metadata schema. Paid characterization therefore uses the explicit
+`--normalize-legacy-frontmatter` compatibility path. It projects World documents
+onto current evergreen World metadata and ignores unsupported descriptive keys,
+without modifying source bytes. The default ingest path remains strict, and the
+batch report records that normalization was enabled.
+
 ### Model identity
 
 At preflight resolve the Buddy-owned `structured_generation` model from `MODEL_POLICY.json` and pin the policy bytes.
@@ -616,6 +623,10 @@ Preferred implementation lease:
 | Modify | `src/ingestion/entity_extractor.py` | Honor the explicit experiment-only model override before policy resolution. |
 | Modify | `src/ingestion/fact_extractor.py` | Honor the same explicit experiment-only model override. |
 | Modify | `tools/batch_ingest_corpus.py` | Accept the explicit model argument without mutating production model policy; retain/update Sol cost telemetry. |
+| Modify | `src/cli.py` | Accept the explicit legacy-frontmatter normalization flag and pass it to chunking. |
+| Modify | `src/ingestion/frontmatter.py` | Provide an opt-in, schema-validated projection of legacy metadata without changing source bytes. |
+| Modify | `src/ingestion/chunker.py` | Apply the same explicit normalization while preserving body line anchors. |
+| Modify | `tests/ingestion/test_frontmatter.py` | Prove strict-by-default behavior and bounded legacy projection. |
 | Modify | `tests/test_model_policy_authority.py` | Prove shared explicit override and unchanged default policy behavior. |
 | Modify | `src/agent/planner_pricing.py` | Correct Sol promotional standard rates from supplied pricing authority. |
 | Modify | `tests/test_planner_pricing.py` | Lock the corrected Sol standard rates. |
@@ -640,9 +651,10 @@ extraction_lab/repeat_experiment_manifest.py
 extraction_lab/run_repeat_experiment.py
 extraction_lab/repeat_experiment_qualification.py
 extraction_lab/compare_experiment_runs.py
-tools/batch_ingest_corpus.py
 MODEL_POLICY.json
-src/ingestion/**
+src/ingestion/entity_extractor.py (except the model override named above)
+src/ingestion/fact_extractor.py (except the model override named above)
+src/ingestion/** (except `frontmatter.py` and `chunker.py` named above)
 corpus/eldyrwild-markdown/**
 apps/**
 ```

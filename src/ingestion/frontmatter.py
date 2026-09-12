@@ -104,6 +104,44 @@ def _metadata_from_payload(payload: dict[str, str | int | None]) -> DocumentMeta
     )
 
 
+def _normalize_legacy_payload(
+    payload: dict[str, str | int | None],
+) -> dict[str, str | int | None]:
+    """Project legacy corpus metadata onto the current ingestion contract.
+
+    This is intentionally lossy and must only be reached through an explicit caller
+    opt-in. Source bytes remain unchanged; unsupported descriptive keys are ignored.
+    World documents are interpreted as evergreen World reference material because
+    the current contract cannot represent session-scoped World metadata.
+    """
+    known = {
+        "title",
+        "document_class",
+        "canon_layer",
+        "campaign_id",
+        "temporal_scope",
+        "session",
+        "origin_session",
+        "last_updated_session",
+        "source_class",
+        "session_pc_roster",
+    }
+    normalized = {key: value for key, value in payload.items() if key in known}
+    if normalized.get("canon_layer") == "world":
+        normalized.update(
+            {
+                "document_class": "world",
+                "campaign_id": None,
+                "temporal_scope": "evergreen",
+                "session": None,
+                "origin_session": None,
+                "last_updated_session": None,
+                "source_class": "seed_reference",
+            }
+        )
+    return normalized
+
+
 def split_frontmatter(markdown: str) -> tuple[str | None, str]:
     if not markdown.startswith("---\n"):
         return None, markdown
@@ -125,19 +163,25 @@ def split_frontmatter(markdown: str) -> tuple[str | None, str]:
     return block, body
 
 
-def parse_document_frontmatter(markdown: str) -> tuple[DocumentMetadata | None, str]:
+def parse_document_frontmatter(
+    markdown: str, *, normalize_legacy: bool = False
+) -> tuple[DocumentMetadata | None, str]:
     block, body = split_frontmatter(markdown)
     if block is None:
         return None, markdown
 
     payload = _parse_frontmatter_block(block)
+    if normalize_legacy:
+        payload = _normalize_legacy_payload(payload)
     metadata = _metadata_from_payload(payload)
     return metadata, body
 
 
-def load_document_frontmatter(path: Path) -> tuple[DocumentMetadata | None, str]:
+def load_document_frontmatter(
+    path: Path, *, normalize_legacy: bool = False
+) -> tuple[DocumentMetadata | None, str]:
     text = path.read_text(encoding="utf-8")
-    return parse_document_frontmatter(text)
+    return parse_document_frontmatter(text, normalize_legacy=normalize_legacy)
 
 
 def render_frontmatter(metadata: DocumentMetadata) -> str:

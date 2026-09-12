@@ -74,6 +74,63 @@ def test_parse_document_frontmatter_invalid_schema_raises() -> None:
         parse_document_frontmatter(markdown)
 
 
+def test_legacy_normalization_is_explicit_and_projects_world_metadata() -> None:
+    markdown = """---
+title: "Brin Holloway"
+document_class: reference
+canon_layer: world
+campaign_id: null
+temporal_scope: evergreen
+session: null
+origin_session: 23
+last_updated_session: 23
+source_class: seed_reference
+subject_class: npc
+---
+# Brin
+"""
+
+    with pytest.raises(FrontmatterValidationError):
+        parse_document_frontmatter(markdown)
+
+    metadata, body = parse_document_frontmatter(markdown, normalize_legacy=True)
+
+    assert metadata is not None
+    assert metadata.document_class == "world"
+    assert metadata.canon_layer == "world"
+    assert metadata.temporal_scope == "evergreen"
+    assert metadata.origin_session is None
+    assert metadata.last_updated_session is None
+    assert metadata.source_class == "seed_reference"
+    assert body == "# Brin\n"
+
+
+def test_legacy_normalization_drops_descriptive_keys_without_weakening_campaign_metadata() -> None:
+    markdown = """---
+title: "Karsemine timeline"
+document_class: reference
+canon_layer: campaign
+campaign_id: longmont-c2
+temporal_scope: campaign_stateful
+session: null
+origin_session: null
+last_updated_session: 19
+source_class: ledger_or_dossier
+subject_class: pc
+subject_doc_kind: timeline
+---
+# Timeline
+"""
+
+    metadata, _body = parse_document_frontmatter(markdown, normalize_legacy=True)
+
+    assert metadata is not None
+    assert metadata.document_class == "reference"
+    assert metadata.canon_layer == "campaign"
+    assert metadata.campaign_id == "longmont-c2"
+    assert metadata.last_updated_session == 19
+
+
 def test_render_and_write_frontmatter_round_trip(tmp_path: Path) -> None:
     body = "# Session Notes\n\nThe council argues."
     metadata = infer_frontmatter_metadata_heuristic(
@@ -117,4 +174,3 @@ def test_infer_frontmatter_heuristic_campaign_play() -> None:
     assert metadata.origin_session == 8
     assert metadata.last_updated_session == 8
     assert metadata.source_class == "observed_session_recap"
-

@@ -170,6 +170,7 @@ def run_campaign_memory_baseline(
                 baseline.manifest.model_id,
                 "--openai-service-tier",
                 "flex",
+                "--normalize-legacy-frontmatter",
             ]
             result = batch_runner(argv, baseline.repo_root)
             (root / "stdout.log").write_text(

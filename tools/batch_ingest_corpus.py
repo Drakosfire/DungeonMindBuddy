@@ -417,6 +417,11 @@ def _aggregate_batch_report(
 
     return {
         "generated_at": _utc_now_iso(),
+        "normalization": {
+            "legacy_frontmatter": bool(
+                summary.get("normalize_legacy_frontmatter", False)
+            )
+        },
         "run_window": {
             "started_at": started,
             "ended_at": ended_at,
@@ -553,6 +558,11 @@ def main() -> int:
     parser.add_argument("--structured-generation-model", default="")
     parser.add_argument("--openai-service-tier", choices=["flex"], default=None)
     parser.add_argument(
+        "--normalize-legacy-frontmatter",
+        action="store_true",
+        help="Explicitly normalize legacy metadata without changing source bytes.",
+    )
+    parser.add_argument(
         "--enforce-cheap-pass",
         action="store_true",
         help="Temporarily force structured_generation=cheapest during base pass.",
@@ -644,6 +654,7 @@ def main() -> int:
         "file_count": len(paths),
         "use_openai_batch_api": bool(args.use_batch_api),
         "service_tier": args.openai_service_tier or "standard",
+        "normalize_legacy_frontmatter": bool(args.normalize_legacy_frontmatter),
         "results": [],
     }
     decisions: list[dict[str, Any]] = []
@@ -717,6 +728,8 @@ def main() -> int:
                 entities_before = len(cli.store.entities)
                 evidence_before = len(cli.store.evidence_units)
                 line = f"ingest {shlex.quote(str(path))} --batch-size {args.batch_size}"
+                if args.normalize_legacy_frontmatter:
+                    line += " --normalize-legacy-frontmatter"
                 if args.force:
                     line += " --force"
                 if args.use_batch_api:
@@ -776,6 +789,8 @@ def main() -> int:
                         line = (
                             f"ingest {shlex.quote(str(path))} --force --batch-size {args.batch_size}"
                         )
+                        if args.normalize_legacy_frontmatter:
+                            line += " --normalize-legacy-frontmatter"
                         if args.use_batch_api:
                             line += " --use-openai-batch-api"
                         before = _latest_completed_run_for_path(store_dir, path)
