@@ -7,12 +7,16 @@ never logged, hashed, or returned.
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+
+from pydantic import ValidationError
 
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.llm.api_client import ApiCallResult, DungeonMindApiClient
@@ -163,6 +167,109 @@ def ensure_experiment_secrets(repo_root: Path, environ: dict[str, str]) -> None:
                 os.environ[name] = loaded
 
 
+JSON_OBJECT_SCHEMA_INSTRUCTION = (
+    "Return JSON. Your output MUST be a single JSON object that validates against "
+    "this JSON Schema. Every object must include every required field. "
+    "Rows with decision=exclude still require display_name.\n"
+)
+
+
+class ParsedChatResponse:
+    """Proxy so local Pydantic results look like Responses output_parsed."""
+
+    def __init__(
+        self,
+        raw: Any,
+        parsed: Any,
+        *,
+        json_object_attempts: int = 1,
+        json_object_retry_errors: list[dict[str, Any]] | None = None,
+        json_object_retry_input_tokens: int = 0,
+        json_object_retry_output_tokens: int = 0,
+        json_object_retry_cost_usd: float = 0.0,
+    ) -> None:
+        object.__setattr__(self, "_raw", raw)
+        object.__setattr__(self, "output_parsed", parsed)
+        object.__setattr__(self, "json_object_attempts", json_object_attempts)
+        object.__setattr__(self, "json_object_retry_errors", json_object_retry_errors or [])
+        object.__setattr__(self, "json_object_retry_input_tokens", json_object_retry_input_tokens)
+        object.__setattr__(self, "json_object_retry_output_tokens", json_object_retry_output_tokens)
+        object.__setattr__(self, "json_object_retry_cost_usd", json_object_retry_cost_usd)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._raw, name)
+
+
+def json_object_max_attempts(environ: dict[str, str] | None = None) -> int:
+    env = environ if environ is not None else os.environ
+    value = int(str(env.get("DMB_JSON_OBJECT_MAX_ATTEMPTS") or "5").strip())
+    if value < 1:
+        raise ValueError("DMB_JSON_OBJECT_MAX_ATTEMPTS must be >= 1")
+    return value
+
+
+def classify_json_object_error(exc: BaseException) -> dict[str, Any]:
+    """Record parse failures without storing model text or corpus."""
+    if isinstance(exc, json.JSONDecodeError):
+        return {
+            "class": "JSONDecodeError",
+            "lineno": exc.lineno,
+            "colno": exc.colno,
+            "pos": exc.pos,
+        }
+    if isinstance(exc, ValidationError):
+        fields = []
+        for err in exc.errors()[:20]:
+            loc = ".".join(str(part) for part in (err.get("loc") or ()))
+            fields.append({"type": err.get("type"), "loc": loc})
+        return {
+            "class": "ValidationError",
+            "error_count": exc.error_count(),
+            "fields": fields,
+        }
+    if isinstance(exc, ValueError):
+        return {"class": "ValueError", "kind": str(exc)[:80]}
+    return {"class": type(exc).__name__}
+
+
+def json_object_retry_usage(response: Any) -> dict[str, Any]:
+    attempts = getattr(response, "json_object_attempts", None)
+    if attempts is None:
+        return {}
+    payload: dict[str, Any] = {
+        "json_object_attempts": int(attempts),
+        "json_object_retries": max(0, int(attempts) - 1),
+        "json_object_retry_errors": list(getattr(response, "json_object_retry_errors", []) or []),
+    }
+    extra_in = int(getattr(response, "json_object_retry_input_tokens", 0) or 0)
+    extra_out = int(getattr(response, "json_object_retry_output_tokens", 0) or 0)
+    extra_cost = float(getattr(response, "json_object_retry_cost_usd", 0.0) or 0.0)
+    if extra_in:
+        payload["json_object_retry_input_tokens"] = extra_in
+    if extra_out:
+        payload["json_object_retry_output_tokens"] = extra_out
+    if extra_cost:
+        payload["json_object_retry_cost_usd"] = extra_cost
+    return payload
+
+
+def _chat_token_counts(response: Any) -> tuple[int, int]:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return 0, 0
+    if isinstance(usage, dict):
+        raw_in = usage.get("prompt_tokens", usage.get("input_tokens", 0))
+        raw_out = usage.get("completion_tokens", usage.get("output_tokens", 0))
+    else:
+        raw_in = getattr(usage, "prompt_tokens", None)
+        if raw_in is None:
+            raw_in = getattr(usage, "input_tokens", 0)
+        raw_out = getattr(usage, "completion_tokens", None)
+        if raw_out is None:
+            raw_out = getattr(usage, "output_tokens", 0)
+    return int(raw_in or 0), int(raw_out or 0)
+
+
 def _as_chat_messages(payload: Any) -> list[dict[str, Any]]:
     if not isinstance(payload, list):
         raise ValueError("structured parse input must be a list of role/content messages")
@@ -176,6 +283,65 @@ def _as_chat_messages(payload: Any) -> list[dict[str, Any]]:
             raise ValueError("structured parse input items require role and content")
         messages.append({"role": role, "content": content})
     return messages
+
+
+def _message_content(response: Any) -> str:
+    choices = getattr(response, "choices", None)
+    if not choices:
+        raise ValueError("chat completion returned no choices")
+    message = getattr(choices[0], "message", None)
+    content = None if message is None else getattr(message, "content", None)
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("chat completion returned empty content")
+    return content
+
+
+def load_json_object(raw: str) -> Any:
+    text = raw.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    return json.loads(text)
+
+
+def attach_json_schema_instruction(messages: list[dict[str, Any]], text_format: Any) -> list[dict[str, Any]]:
+    schema_text = json.dumps(text_format.model_json_schema(), indent=2, sort_keys=True)
+    instruction = f"{JSON_OBJECT_SCHEMA_INSTRUCTION}{schema_text}"
+    attached = False
+    out: list[dict[str, Any]] = []
+    for message in messages:
+        if not attached and message.get("role") == "system":
+            out.append(
+                {
+                    "role": "system",
+                    "content": f"{message['content']}\n\n{instruction}",
+                }
+            )
+            attached = True
+            continue
+        out.append(dict(message))
+    if not attached:
+        out.insert(0, {"role": "system", "content": instruction})
+    return out
+
+
+def chat_json_object_kwargs(kwargs: dict[str, Any]) -> tuple[dict[str, Any], Any]:
+    """Map a Responses-style parse call onto DeepSeek Chat Completions json_object."""
+    payload = dict(kwargs)
+    text_format = payload.pop("text_format", None)
+    if text_format is None:
+        raise ValueError("chat_completions transport requires text_format")
+    incoming = payload.pop("input", None)
+    extra = dict(payload.pop("extra_body", {}) or {})
+    reasoning = payload.pop("reasoning", None)
+    if reasoning is not None:
+        extra["reasoning"] = reasoning
+    payload.pop("service_tier", None)
+    payload["messages"] = attach_json_schema_instruction(_as_chat_messages(incoming), text_format)
+    payload["response_format"] = {"type": "json_object"}
+    if extra:
+        payload["extra_body"] = extra
+    return payload, text_format
 
 
 def parsed_output_from_response(response: Any) -> Any:
@@ -231,15 +397,35 @@ def provider_cost_usd_from_response(response: Any) -> float | None:
         return None
 
 
-def _chat_parse_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
-    payload = dict(kwargs)
-    text_format = payload.pop("text_format", None)
-    if text_format is None:
-        raise ValueError("chat_completions transport requires text_format")
-    incoming = payload.pop("input", None)
-    payload["messages"] = _as_chat_messages(incoming)
-    payload["response_format"] = text_format
-    return payload
+def _parsed_chat_result(
+    call: ApiCallResult,
+    *,
+    text_format: Any,
+    json_object_attempts: int = 1,
+    json_object_retry_errors: list[dict[str, Any]] | None = None,
+    json_object_retry_input_tokens: int = 0,
+    json_object_retry_output_tokens: int = 0,
+    json_object_retry_cost_usd: float = 0.0,
+    elapsed_ms: float | None = None,
+) -> ApiCallResult:
+    parsed = text_format.model_validate(load_json_object(_message_content(call.response)))
+    return ApiCallResult(
+        action=call.action,
+        elapsed_ms=call.elapsed_ms if elapsed_ms is None else elapsed_ms,
+        response=ParsedChatResponse(
+            call.response,
+            parsed,
+            json_object_attempts=json_object_attempts,
+            json_object_retry_errors=json_object_retry_errors,
+            json_object_retry_input_tokens=json_object_retry_input_tokens,
+            json_object_retry_output_tokens=json_object_retry_output_tokens,
+            json_object_retry_cost_usd=json_object_retry_cost_usd,
+        ),
+    )
+
+
+def _retryable_json_object_error(exc: BaseException) -> bool:
+    return isinstance(exc, (json.JSONDecodeError, ValidationError, ValueError))
 
 
 def structured_parse(
@@ -247,7 +433,40 @@ def structured_parse(
 ) -> ApiCallResult:
     transport = extraction_transport()
     if transport == "chat_completions":
-        return api_client.chat_completions_parse(action=action, **_chat_parse_kwargs(kwargs))
+        payload, text_format = chat_json_object_kwargs(kwargs)
+        max_attempts = json_object_max_attempts()
+        errors: list[dict[str, Any]] = []
+        retry_in = 0
+        retry_out = 0
+        retry_cost = 0.0
+        elapsed = 0.0
+        last_exc: BaseException | None = None
+        for attempt in range(1, max_attempts + 1):
+            call = api_client.chat_completions_create(action=action, **payload)
+            elapsed += call.elapsed_ms
+            try:
+                return _parsed_chat_result(
+                    call,
+                    text_format=text_format,
+                    json_object_attempts=attempt,
+                    json_object_retry_errors=errors,
+                    json_object_retry_input_tokens=retry_in,
+                    json_object_retry_output_tokens=retry_out,
+                    json_object_retry_cost_usd=retry_cost,
+                    elapsed_ms=elapsed,
+                )
+            except Exception as exc:
+                if not _retryable_json_object_error(exc) or attempt >= max_attempts:
+                    raise
+                errors.append(classify_json_object_error(exc))
+                inn, out = _chat_token_counts(call.response)
+                retry_in += inn
+                retry_out += out
+                cost = provider_cost_usd_from_response(call.response)
+                if cost is not None:
+                    retry_cost += cost
+                last_exc = exc
+        raise last_exc if last_exc is not None else RuntimeError("json_object retry exhausted")
     return api_client.responses_parse(action=action, **kwargs)
 
 
@@ -256,7 +475,38 @@ async def structured_parse_async(
 ) -> ApiCallResult:
     transport = extraction_transport()
     if transport == "chat_completions":
-        return await api_client.chat_completions_parse_async(
-            action=action, **_chat_parse_kwargs(kwargs)
-        )
+        payload, text_format = chat_json_object_kwargs(kwargs)
+        max_attempts = json_object_max_attempts()
+        errors: list[dict[str, Any]] = []
+        retry_in = 0
+        retry_out = 0
+        retry_cost = 0.0
+        elapsed = 0.0
+        last_exc: BaseException | None = None
+        for attempt in range(1, max_attempts + 1):
+            call = await api_client.chat_completions_create_async(action=action, **payload)
+            elapsed += call.elapsed_ms
+            try:
+                return _parsed_chat_result(
+                    call,
+                    text_format=text_format,
+                    json_object_attempts=attempt,
+                    json_object_retry_errors=errors,
+                    json_object_retry_input_tokens=retry_in,
+                    json_object_retry_output_tokens=retry_out,
+                    json_object_retry_cost_usd=retry_cost,
+                    elapsed_ms=elapsed,
+                )
+            except Exception as exc:
+                if not _retryable_json_object_error(exc) or attempt >= max_attempts:
+                    raise
+                errors.append(classify_json_object_error(exc))
+                inn, out = _chat_token_counts(call.response)
+                retry_in += inn
+                retry_out += out
+                cost = provider_cost_usd_from_response(call.response)
+                if cost is not None:
+                    retry_cost += cost
+                last_exc = exc
+        raise last_exc if last_exc is not None else RuntimeError("json_object retry exhausted")
     return await api_client.responses_parse_async(action=action, **kwargs)

@@ -18,7 +18,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: execute Stage 4I exploratory Luna/Terra/Sol ingestion screen
 
 **Created:** 2026-09-12  
-**Status:** ACTIVE — rebriefed after initial reconnaissance; whole-document ablation next
+**Status:** SUPERSEDED AS ACTIVE EXPERIMENT CONTRACT — Stage 4I.2 continues on PR #711; see `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4i2-deepseek-quality-timing-screen-v1.md`. This file remains historical evidence for the Luna/Terra/Sol and context-ablation predecessor.
 **Canonical handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4i-exploratory-model-screen-impl-v1.md`  
 **Branch:** `dogfood-continuity/stage4i-exploratory-model-screen-impl`  
 **Stacked base:** `34cc1ded9e98082491a00612ae030b33d2479105` — exact current head of PR #710 at dispatch  

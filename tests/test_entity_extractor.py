@@ -368,6 +368,10 @@ def test_usage_accumulates_across_units(tmp_path: Path) -> None:
                     "input_tokens": 10,
                     "output_tokens": 3,
                     "cached_tokens": 1,
+                    "request_elapsed_ms": [12.5],
+                    "provider_cost_usd": 0.001,
+                    "observed_providers": ["DeepSeek"],
+                    "observed_models": ["deepseek/deepseek-v4.1-flash"],
                 },
             }
 
@@ -386,3 +390,6 @@ def test_usage_accumulates_across_units(tmp_path: Path) -> None:
     assert u["output_tokens"] == 9
     assert u["cached_tokens"] == 3
     assert u["api_calls"] == 3
+    assert u["request_elapsed_ms"] == [12.5, 12.5, 12.5]
+    assert u["observed_providers"] == ["DeepSeek", "DeepSeek", "DeepSeek"]
+    assert u["provider_cost_usd"] == 0.003

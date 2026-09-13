@@ -156,6 +156,13 @@ PR #694 removed full-document loads among the primary React surfaces and the pos
 **Surfaces when:** ingestion experiments, provider/model comparisons, full-corpus cost projections, request-topology changes, whole-document context, Flex latency, or batch/realtime decisions are being designed or reviewed.
 **Refs:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4i-exploratory-model-screen-impl-v1.md`; `tools/batch_ingest_corpus.py`; `src/ingestion/extraction_context.py`; PR #711.
 
+## [IDEA] DeepSeek-none is the leading cheap extractor pending GM prose judgment — captured 2026-09-13
+**Context:** Stage 4I.2 16-arm screen on PR #711; operator prior after DeepSeek json_object retry completed.
+**Insight:** Official DeepSeek is operationally usable (pin held; json_object + local Pydantic + same-request resend). DeepSeek reasoning effort did not help this job. DeepSeek-none is cheaper/faster than Luna Flex low but mintier. Quality remains unjudged until object/prose review of DeepSeek none vs DeepSeek low vs Luna Flex low. If DeepSeek-none is grounded and merely noisier, spend engineering on reconciliation/ranking rather than a more expensive extractor.
+**Action:** Finish the zero-spend three-arm object review (identity, continuity completeness, specificity, GM prose, noise, prep-trust, Stacy retain). Freeze or reject DeepSeek-none as full-corpus extractor only after that judgment. Do not buy DeepSeek reasoning effort for this extraction contract.
+**Surfaces when:** Stage 4J ingestion-profile freeze, DeepSeek vs Luna extractor choice, reasoning-effort for extraction, graph/reconciliation vs model-spend tradeoff, quality_packet human ratings.
+**Refs:** PR #711; `out/stage4i2-reasoning-ablation-d63a688c6bf9/quality_compare_three_arms.compact.json`; canvases/stage4i2-three-arm-quality-compare.canvas.tsx
+
 ---
 
 # Delegated workstreams — pointers only, no root status

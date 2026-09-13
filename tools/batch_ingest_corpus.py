@@ -284,6 +284,22 @@ def _fmt_tokens_short(n: int) -> str:
     return str(n)
 
 
+def json_object_parse_row_counts(usage: dict[str, Any]) -> tuple[int, int, int]:
+    """Return (http_attempts, retries, calls_with_retries) for one model_calls usage blob.
+
+    A stored retry count of 0 is zero, not missing. The previous
+    ``usage.get("json_object_retries") or (attempts - 1)`` form treated first-try
+    success as ``attempts - 1`` retries and inflated batch-report totals.
+    """
+    attempts_raw = usage.get("json_object_attempts")
+    if not attempts_raw:
+        return 0, 0, 0
+    attempts = int(attempts_raw)
+    retries_raw = usage.get("json_object_retries")
+    retries = int(retries_raw) if retries_raw is not None else max(0, attempts - 1)
+    return attempts, retries, 1 if retries > 0 else 0
+
+
 def _dominant_model_name(llm_rows: list[dict[str, Any]]) -> str:
     names = [str(r.get("model_name", "")).strip() for r in llm_rows if str(r.get("model_name", "")).strip()]
     if not names:
@@ -356,6 +372,10 @@ def _aggregate_batch_report(
     provider_costs: list[float] = []
     observed_providers: list[str] = []
     observed_models: list[str] = []
+    json_object_http_attempts = 0
+    json_object_retries = 0
+    json_object_calls_with_retries = 0
+    json_object_error_classes: Counter[str] = Counter()
     for mc in llm_rows:
         usage = mc.get("usage") or {}
         if not isinstance(usage, dict):
@@ -372,6 +392,13 @@ def _aggregate_batch_report(
         models = usage.get("observed_models") or []
         if isinstance(models, list):
             observed_models.extend(str(item) for item in models if item)
+        attempts, retries, retried_call = json_object_parse_row_counts(usage)
+        json_object_http_attempts += attempts
+        json_object_retries += retries
+        json_object_calls_with_retries += retried_call
+        for err in usage.get("json_object_retry_errors") or []:
+            if isinstance(err, dict) and err.get("class"):
+                json_object_error_classes[str(err["class"])] += 1
 
     event_records_total = sum(int(mc.get("event_records_count", 0) or 0) for mc in entity_calls)
     claims_total = sum(int(mc.get("claims_count", 0) or 0) for mc in entity_calls)
@@ -532,6 +559,13 @@ def _aggregate_batch_report(
             "request_elapsed_p50_ms": _percentile(request_elapsed, 50),
             "request_elapsed_p95_ms": _percentile(request_elapsed, 95),
             "request_elapsed_max_ms": max(request_elapsed) if request_elapsed else None,
+            "json_object_parse": {
+                "http_attempts": json_object_http_attempts,
+                "retries": json_object_retries,
+                "calls_with_retries": json_object_calls_with_retries,
+                "error_classes": dict(json_object_error_classes),
+                "note": "same-request resend after invalid JSON or local schema failure; not semantic repair",
+            },
         },
         "entity_class_distribution": dict(sorted(class_dist.items(), key=lambda x: (-x[1], x[0]))),
         "recap": {

@@ -145,6 +145,9 @@ def test_stage4i2_dry_run_sends_zero_api_calls_and_creates_no_output(tmp_path: P
     assert result["plan"]["extraction_context_mode"] == "whole_document"
     assert result["plan"]["run_order"][0] == "deepseek-none"
     assert result["plan"]["run_order"][-1] == "luna-flex-max"
+    assert result["plan"]["transport_by_provider"]["openrouter"] == "chat_completions"
+    assert result["plan"]["openrouter_response_format"] == {"type": "json_object"}
+    assert result["plan"]["json_object_max_attempts"] == 5
     assert calls == []
     assert not out.exists()
 
@@ -171,9 +174,11 @@ def test_stage4i2_execute_isolates_stores_and_whole_document_contract(tmp_path: 
         if arm["provider"] == "openrouter":
             assert argv[argv.index("--openrouter-provider-pin") + 1] == "DeepSeek"
             assert arm["model"] == DEEPSEEK_FLASH_SLUG
+            assert argv[argv.index("--extraction-transport") + 1] == "chat_completions"
         else:
             assert arm["model"] == LUNA_MODEL
             assert "--openrouter-provider-pin" not in argv
+            assert argv[argv.index("--extraction-transport") + 1] == "responses"
         assert "gold/entity_anchors.json" not in joined
         assert "gold/fact_anchors.json" not in joined
         assert "PREREGISTRATION-DOGFOOD-CONTINUITY-stage4i" not in joined

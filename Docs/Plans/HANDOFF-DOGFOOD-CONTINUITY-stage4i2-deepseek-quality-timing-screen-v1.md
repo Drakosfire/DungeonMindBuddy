@@ -15,7 +15,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4I.2 DeepSeek quality + timing screen
 
 **Created:** 2026-09-12  
-**Status:** EXECUTING ON PR #711 — OpenRouter seam implemented; operator waived the $3 ceiling and expanded this notebook run to the full reasoning-effort matrix  
+**Status:** EXECUTING ON PR #711 — json_object overlay + sanitized three-arm quality compare are now the reviewable execution-equivalent code; human GM ratings remain NOT_EVALUATED; do not freeze Stage 4J; no further API spend until this head is reviewed  
 **PR / branch:** `#711` / `dogfood-continuity/stage4i-exploratory-model-screen-impl`  
 **Dispatch base:** `2eb373757e1a74e48a8e60e072c655a0d3538924`  
 **Flow:** DOGFOOD-CONTINUITY / ingestion convergence  
@@ -76,6 +76,39 @@ If **NO**:
 - do not open Stage 4J yet.
 
 Experiment code is disposable by default. Useful ideas graduate by being reimplemented/cherry-picked deliberately under the Stage 4J write lease, not because #711 accumulated them.
+
+### Execution-equivalent code (closes the GitHub review gap)
+
+GitHub #711 was stuck at `90b940a2f2badf5235a31e74b79491c50aa78cf4` (handoff dispatch). The paid DeepSeek 4-arm retry run executed against local `d63a688c6bf9ce3d21323f6243cd7f3cf42db209` (OpenRouter seam, previously unpushed) plus an uncommitted json_object overlay. That overlay is now the reviewable notebook code. Review the new PR head after push, not `90b940a2`.
+
+```text
+OpenRouter seam predecessor:  d63a688c6bf9ce3d21323f6243cd7f3cf42db209
+Previous GitHub HEAD:         90b940a2f2badf5235a31e74b79491c50aa78cf4
+json_object overlay:          the commit that lands this subsection
+```
+
+Actual DeepSeek transport (discovered; not the intended Responses JSON Schema path):
+
+```text
+Luna / OpenAI:     Responses API + JSON Schema (strict)
+Official DeepSeek: Chat Completions response_format={"type":"json_object"}
+                   + schema text in the system message
+                   + local Pydantic validation (mandatory)
+Pin:               provider order=["DeepSeek"], allow_fallbacks=false
+Retry:             same-request resend on JSONDecodeError / ValidationError /
+                   empty-content ValueError
+Bound:             DMB_JSON_OBJECT_MAX_ATTEMPTS default 5
+Not:               evaluator LLM, semantic repair, prompt rewrite
+Accounting:        json_object_retries of 0 is zero, not missing.
+                   Trust http_attempts and calls_with_retries.
+Quality artifact:  extraction_lab/campaign_memory_stage4i2_three_arm_quality_compare.md
+                   extraction_lab/campaign_memory_stage4i2_three_arm_quality_compare.json
+Human ratings:     NOT_EVALUATED
+Stage 4J freeze:   NO
+Further API spend: NO until this head is reviewed
+```
+
+The paid stores remain local under `out/stage4i2-reasoning-ablation-d63a688c6bf9/` and are not committed. The committed compare JSON is the sanitized subject-attached dump for the freeze list.
 
 ---
 
@@ -555,6 +588,8 @@ usage/cost metadata
 
 If OpenRouter Responses proves incompatible, a Chat Completions adapter using the exact same system/user text and JSON schema is allowed as a bounded fallback. Record the transport difference prominently. Local Pydantic validation remains mandatory.
 
+**What actually ran:** official DeepSeek on OpenRouter does not honor provider-side `json_schema`. The notebook uses Chat Completions `json_object` plus local Pydantic. Same-request resend (cap 5) is required transport repair, not optional polish. See §0 execution-equivalent code.
+
 ---
 
 ## §9 Files in scope — exclusive write lease
@@ -738,6 +773,8 @@ A more expensive model earns its premium only when it preserves materially bette
 ---
 
 ## §14 Decision gate into Stage 4J
+
+**Current state (2026-09-13):** not frozen. Cost, latency, transport reliability, and mechanical recall are comparable. `quality_packet.json` human ratings remain `NOT_EVALUATED`. The committed three-arm compare is the GM-review surface. Do not open Stage 4J until those ratings exist. No further API spend before review of this overlay.
 
 Evidence is sufficient to freeze the initial full-corpus plan when we can state, with concrete witnesses:
 

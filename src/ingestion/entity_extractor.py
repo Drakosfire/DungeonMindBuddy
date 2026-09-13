@@ -25,6 +25,7 @@ from src.llm.api_client import DungeonMindApiClient
 from src.llm.experiment_provider import (
     build_async_openai_client,
     build_sync_openai_client,
+    json_object_retry_usage,
     parsed_output_from_response,
     provider_cost_usd_from_response,
     routing_identity_from_response,
@@ -60,6 +61,10 @@ class UsageStats:
     observed_providers: list[str] = field(default_factory=list)
     observed_models: list[str] = field(default_factory=list)
 
+    json_object_attempts: int = 0
+    json_object_retries: int = 0
+    json_object_retry_errors: list[dict[str, Any]] = field(default_factory=list)
+
     def merge(self, other: UsageStats) -> None:
         had_calls = self.api_calls > 0
         self.input_tokens += other.input_tokens
@@ -82,6 +87,9 @@ class UsageStats:
             self.provider_cost_usd = None
         else:
             self.provider_cost_usd += other.provider_cost_usd
+        self.json_object_attempts += other.json_object_attempts
+        self.json_object_retries += other.json_object_retries
+        self.json_object_retry_errors.extend(other.json_object_retry_errors)
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -110,9 +118,14 @@ def usage_stats_from_call_dict(udict: dict[str, Any], *, billed: bool) -> UsageS
     if not models and isinstance(routing, dict) and routing.get("model"):
         models = [str(routing["model"])]
     cost = udict.get("provider_cost_usd")
+    attempts = int(udict.get("json_object_attempts") or 0)
+    retries = int(udict.get("json_object_retries") or 0)
+    errors = udict.get("json_object_retry_errors") or []
+    extra_in = int(udict.get("json_object_retry_input_tokens") or 0)
+    extra_out = int(udict.get("json_object_retry_output_tokens") or 0)
     return UsageStats(
-        input_tokens=udict.get("input_tokens", 0),
-        output_tokens=udict.get("output_tokens", 0),
+        input_tokens=int(udict.get("input_tokens", 0) or 0) + extra_in,
+        output_tokens=int(udict.get("output_tokens", 0) or 0) + extra_out,
         cached_tokens=udict.get("cached_tokens", 0),
         api_calls=1 if billed else 0,
         reasoning_tokens=udict.get("reasoning_tokens"),
@@ -121,6 +134,9 @@ def usage_stats_from_call_dict(udict: dict[str, Any], *, billed: bool) -> UsageS
         provider_cost_usd=float(cost) if cost is not None else None,
         observed_providers=[str(item) for item in providers],
         observed_models=[str(item) for item in models],
+        json_object_attempts=attempts,
+        json_object_retries=retries,
+        json_object_retry_errors=list(errors) if isinstance(errors, list) else [],
     )
 
 
@@ -191,6 +207,14 @@ def _attach_entity_usage(
             usage["observed_providers"] = [identity["provider"]]
         if isinstance(identity.get("model"), str):
             usage["observed_models"] = [identity["model"]]
+    retry = json_object_retry_usage(response)
+    if retry:
+        usage.update(retry)
+        extra_cost = retry.get("json_object_retry_cost_usd")
+        if extra_cost is not None and usage.get("provider_cost_usd") is not None:
+            usage["provider_cost_usd"] = float(usage["provider_cost_usd"]) + float(extra_cost)
+        elif extra_cost is not None:
+            usage["provider_cost_usd"] = float(extra_cost)
     result["_usage"] = usage
     return result
 
@@ -1006,6 +1030,37 @@ def _pop_usage_from_entity_payload(payload: Any) -> tuple[dict[str, Any], dict[s
         "reasoning_tokens": raw.get("reasoning_tokens"),
         "parsed_output_bytes": int(raw.get("parsed_output_bytes", 0) or 0),
     }
+    elapsed = raw.get("request_elapsed_ms")
+    if isinstance(elapsed, list) and elapsed:
+        usage["request_elapsed_ms"] = [float(item) for item in elapsed]
+    elif raw.get("elapsed_ms") is not None:
+        usage["request_elapsed_ms"] = [float(raw["elapsed_ms"])]
+    if raw.get("provider_cost_usd") is not None:
+        usage["provider_cost_usd"] = raw["provider_cost_usd"]
+    for key in ("observed_providers", "observed_models"):
+        values = raw.get(key) or []
+        if isinstance(values, list) and values:
+            usage[key] = [str(item) for item in values]
+    routing = raw.get("routing")
+    if isinstance(routing, dict) and routing:
+        usage["routing"] = routing
+        if "observed_providers" not in usage and isinstance(routing.get("provider"), str):
+            usage["observed_providers"] = [routing["provider"]]
+        if "observed_models" not in usage and isinstance(routing.get("model"), str):
+            usage["observed_models"] = [routing["model"]]
+    if raw.get("json_object_attempts") is not None:
+        usage["json_object_attempts"] = int(raw["json_object_attempts"])
+    if raw.get("json_object_retries") is not None:
+        usage["json_object_retries"] = int(raw["json_object_retries"])
+    errors = raw.get("json_object_retry_errors")
+    if isinstance(errors, list) and errors:
+        usage["json_object_retry_errors"] = errors
+    if raw.get("json_object_retry_input_tokens") is not None:
+        usage["json_object_retry_input_tokens"] = int(raw["json_object_retry_input_tokens"])
+    if raw.get("json_object_retry_output_tokens") is not None:
+        usage["json_object_retry_output_tokens"] = int(raw["json_object_retry_output_tokens"])
+    if raw.get("json_object_retry_cost_usd") is not None:
+        usage["json_object_retry_cost_usd"] = raw["json_object_retry_cost_usd"]
     return payload, usage
 
 

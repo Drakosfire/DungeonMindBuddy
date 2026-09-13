@@ -143,7 +143,7 @@ def arm_ingest_argv(
         "--extraction-provider",
         arm["provider"],
         "--extraction-transport",
-        "responses",
+        "chat_completions" if arm["provider"] == "openrouter" else "responses",
     ]
     if arm["provider"] == "openrouter":
         argv.extend(["--openrouter-provider-pin", arm["openrouter_provider_pin"] or "DeepSeek"])
@@ -222,6 +222,7 @@ def _arm_telemetry(report: dict[str, Any], counts: dict[str, int]) -> dict[str, 
                 else None
             ),
         },
+        "json_object_parse": timing.get("json_object_parse") or {},
     }
 
 
@@ -266,7 +267,16 @@ def run_screen(
         "extraction_context_mode": "whole_document",
         "cache_policy": "isolated",
         "fact_contract": "payload_lean_v1",
-        "transport": "responses",
+        "transport": "responses_for_openai_chat_json_object_for_openrouter",
+        "transport_by_provider": {
+            "openai": "responses",
+            "openrouter": "chat_completions",
+        },
+        "openrouter_response_format": {"type": "json_object"},
+        "openrouter_schema_enforcement": "local_pydantic_after_json_object",
+        "json_object_max_attempts": 5,
+        "json_object_retry": "same_request_resend_on_invalid_json_or_schema; not semantic repair",
+        "provider_json_schema": "unavailable_on_official_deepseek_openrouter_pin",
         "reasoning_contract": REASONING_CONTRACT,
         "budget_ceiling_usd": budget_ceiling_usd,
         "operator_budget_waived": OPERATOR_BUDGET_WAIVED,

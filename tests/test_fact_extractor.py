@@ -857,6 +857,9 @@ def test_usage_accumulates_across_fact_units(tmp_path: Path) -> None:
                     "input_tokens": 8,
                     "output_tokens": 2,
                     "cached_tokens": 0,
+                    "request_elapsed_ms": [9.0],
+                    "provider_cost_usd": 0.002,
+                    "observed_providers": ["DeepSeek"],
                 },
             }
 
@@ -876,6 +879,9 @@ def test_usage_accumulates_across_fact_units(tmp_path: Path) -> None:
     assert u["input_tokens"] == 16
     assert u["output_tokens"] == 4
     assert u["api_calls"] == 2
+    assert u["request_elapsed_ms"] == [9.0, 9.0]
+    assert u["observed_providers"] == ["DeepSeek", "DeepSeek"]
+    assert u["provider_cost_usd"] == 0.004
 
 
 def test_prepare_fact_batch_requests_chunked_cache_key_only_entries(tmp_path: Path) -> None:
