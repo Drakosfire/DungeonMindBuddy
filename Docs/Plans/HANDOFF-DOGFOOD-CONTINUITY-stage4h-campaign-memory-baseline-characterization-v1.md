@@ -816,11 +816,16 @@ The completed paid characterization is pinned to implementation head:
 6a61b63dca555d3d70cac3e38eb3e48c6fc690da
 ```
 
-Durable sanitized record:
+Durable sanitized records:
 
 ```text
-https://github.com/Drakosfire/DungeonMindBuddy/pull/710#issuecomment-5649023090
+executive: https://github.com/Drakosfire/DungeonMindBuddy/pull/710#issuecomment-5649023090
+salvage:   https://github.com/Drakosfire/DungeonMindBuddy/pull/710#issuecomment-5650056954
 ```
+
+Machine-local stores and the deterministic salvage JSON remain on the operator
+machine at `out/stage4h-sol-flex-6a61b63d/` (gitignored copy of
+`/tmp/stage4h-sol-flex-6a61b63d/`). They are not in this PR.
 
 The three-repetition run completed over the exact seven-source cohort with
 `gpt-5.6-sol`, Flex, batch size 5, isolated stores/caches, and explicit legacy
@@ -876,33 +881,44 @@ facts:    850 / 825 / 824
 This is useful descriptive stability, not evidence that every extracted record
 is deterministic.
 
-### Finding A — decisive knowledge is summarized away
+### Finding A — scored failures are subject-attachment misses, not missing memory
 
-The source explicitly says that Hunter's Mark revealed the tripod creature was
-resistant to poison and **weak to fire**. All three runs preserved only a fact
-equivalent to:
+A later deterministic salvage of the three paid stores (no additional API spend)
+shows that both stable `keyword_mismatch` failures still contain the gold
+payload. The executive comment inferred lossy compression from Karsemine's own
+facts; the stores contradict that as the main story.
+
+Karsemine, all three repetitions:
 
 ```text
-Karsemine used Hunter's Mark to learn its weaknesses and resistances.
+on the scored subject:
+  Uses Hunter's Mark … learns its weaknesses and resistances
+on Tripod Creatures:
+  r1  [defenses] Resistant to poison
+      [defenses] Weak to fire
+  r2  [defenses] Resistant to poison but weak to fire
+  r3  [defenses] The tripod creatures are resistant to poison.
+      [physical_condition] The tripod creatures are weak to fire.
 ```
 
-The extractor noticed the correct event but discarded its table-useful answer.
-This is lossy abstraction rather than wholesale retrieval or entity failure.
+The extractor noticed the discovery *act* on Karsemine and attached the named
+resistances to the creature. A weaker compression remains on the PC fact; the
+table payload itself was not discarded.
 
-Mireward shows the same failure shape. The stores contain nearby facts such as
-the refugee crush disrupting the town, northern arrivals filling haylofts, and
-the north breaking against Mireward, but do not preserve the direct operational
-statement `under siege` / `siege pressure` / `meat-monster flank` required by
-the gold intent.
+Mireward, all three repetitions: the gold keyword `siege pressure` is present,
+on sibling entity `Mireward` (and in rep 3, the refugee-wave entity), not on
+scored `mireward_reach`. Nearby Reach facts (refugee crush, haylofts) are real
+but are not the miss. If the scorer had accepted the sibling place entity, the
+keyword would have passed in every repetition.
 
-**Classification:** `A. entity/fact recovery`, specifically preservation of
-discovery payloads and direct operational truths.
+**Classification:** `A. entity/fact recovery` is still the bucket, but the
+mechanism is subject/alias attachment plus scorer subject binding—not absence
+and not primarily sentence-level compression.
 
-**Recommended bounded successor:** require extraction to retain the answer or
-payload of discoveries, conclusions, vulnerabilities, immunities, revelations,
-and current threats—not merely that a character learned or experienced them.
-Evaluate the candidate against both stable failures while protecting the three
-currently passing facts.
+**Recommended bounded successor:** resolve payload identity across related
+subjects (Karsemine discovery → creature defenses; Mireward ↔ Mireward Reach)
+before changing extraction prompts. Keep the three passing facts as
+non-regression controls.
 
 ### Finding B — ordinary entity recall masks identity fragmentation
 
@@ -930,12 +946,34 @@ executable before attempting a broad identity fix. Then test a narrow alias or
 spelling-drift candidate against Orik/Orric, with Brin as the non-regression
 control. Do not infer success from independent entity-anchor recall.
 
+Salvage identity inventory of the same stores shows Orik/Orric is not isolated.
+Separate entities also survived for Karsemine/Karsemin/Kasemine, Baergrom/Baergorm,
+Lysandra/Lysandro, duplicate Edge ids, and Mireward vs Mireward Reach. Several of
+those rows already carry the drifted spelling as an alias *and* minted a second
+entity anyway.
+
 ### Finding C — source authority is not yet safe for automatic publication
 
 The Mireward scaffold describes itself as non-canon until promoted, while its
 legacy metadata says `canon_layer: world`. The explicit compatibility projection
 allows the frozen source to be measured, but the disposable store consequently
 contains scaffold-derived facts with `CANON` truth state.
+
+Exact projection used for this run (confirmed in ingest logs as
+`layer=world`, `source_class=seed_reference`, `campaign_id=null`):
+
+```text
+document_class: planning          → world
+temporal_scope: campaign_stateful → evergreen
+origin_session: 21                → null
+last_updated_session: 21          → null
+source_class: planning_document   → seed_reference
+```
+
+`(world, seed_reference) → CANON/seed_prep`. All 363–377 scaffold facts are
+CANON. Brin/Orric seeds already were `seed_reference`; origin/last_updated 23
+were wiped to null. The Karsemine timeline stayed `campaign` /
+`ledger_or_dossier` (only extra keys dropped). Recaps were unchanged.
 
 This is acceptable only as disclosed disposable experiment behavior. It is not
 a safe contract for automatic durable World publication. Document metadata and
@@ -975,20 +1013,59 @@ expected prompt batches without model calls; project from those workload units
 rather than file count. Treat Luna/Terra estimates as price-equivalent scenarios
 until small paid ablations measure their actual token volume and quality.
 
+The salvage recovered the missing per-source and entity-vs-fact split from the
+same paid logs (rep-001 shown; other reps in the salvage comment):
+
+```text
+S23 recap           13 EU   122 facts   ≈$0.43
+S24 recap           11 EU   126 facts   ≈$0.37
+S25 recap           10 EU   109 facts   ≈$0.38
+Mireward scaffold   76 EU   377 facts   ≈$1.32   ← 46% of the run
+Brin seed            9 EU    34 facts   ≈$0.14
+Orric seed           8 EU    27 facts   ≈$0.09
+Karsemine timeline   3 EU    55 facts   ≈$0.13
+```
+
+824–850 facts is an enormous count, not especially verbose facts (~63–92 source
+bytes/fact). Recaps mint ~10 facts per evidence unit. The scaffold is expensive
+because chunking produced 76 units. The timeline is the other pathology: 3 units
+→ ~55 facts.
+
+Fact extraction does not dominate. Entity extraction is the larger bill
+(~$1.47–$1.64 vs ~$1.17–$1.22), with ~739 output tokens per entity emission vs
+~125 per fact. Local app cache hits were 0; provider prompt cache is entity-heavy
+(~74%) and fact-light (~36%, scaffold fact 29.5%). S23 entity is already 99.9%
+cached across its 13 concurrent unit calls, so prefix cache saturates inside the
+first file.
+
+Exact `(subject, attribute, normalized)` duplicate facts are almost nonexistent
+(0–1 extra rows per ~850). The overlapping-chunk “emit the same truth five times”
+cost hypothesis is not supported. A 50-fact precision sample (seed 710) found 0
+unsupported labels: 28 useful, 15 low-value, 2 redundant, 5 over-abstracted, and
+all 10 scaffold samples authority-wrong as CANON.
+
+Cannot recover from this run: reasoning vs visible output tokens, per-API-call
+usage, and serialized structured-output bytes. `model_calls.jsonl` is
+per-source-stage.
+
 ### Recommended ordering
 
 ```text
-1. Preserve decisive discovery/threat payloads in extraction.
-2. Make cross-source identity expectations executable.
-3. Test narrow Orik/Orric spelling-tolerant reconciliation.
-4. Resolve source-authority semantics before durable full-corpus publication.
-5. Replace file-count cost projection with corpus workload inventory.
-6. Only then qualify model/cost alternatives and rehearse full-corpus ingestion.
+1. Subject/alias resolution for scoring and storage
+   (Karsemine↔tripod payload, Mireward↔Reach, Orik↔Orric, spelling clusters).
+2. Stop promoting planning scaffolds to CANON.
+3. Evidence-unit budget on large planning files (76 units ≈ $1.32 of $2.86).
+4. Make cross-source identity expectations executable; test spelling-tolerant
+   reconciliation with Brin as non-regression control.
+5. Entity structured-output size (the larger half of the bill).
+6. Fact-stage prompt cache (0.35 vs entity 0.74).
+7. Replace file-count cost projection with corpus workload inventory.
+8. Only then qualify model/cost alternatives and rehearse full-corpus ingestion.
 ```
 
 The dominant immediate issue is not that Sol failed to notice the relevant
-material. It repeatedly found the correct entities and nearby facts, then
-abstracted away the part a GM needs at the table. That makes a narrow extraction
-ablation the best first correction, while identity measurement should follow
-closely because better facts alone cannot connect Orik to Orric's reference
-history.
+material, and it is not that the table payload was compressed away. The stores
+already hold both failed gold payloads on nearby subjects. Identity attachment,
+legacy-frontmatter CANON promotion, and scaffold evidence-unit count are the
+deterministic levers that can replace another paid extraction ablation as the
+first correction.
