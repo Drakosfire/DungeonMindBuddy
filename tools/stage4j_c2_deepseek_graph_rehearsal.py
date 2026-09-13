@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -61,6 +62,21 @@ class SessionRecapRef:
 
 def _utc_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _load_stage4j_dotenv() -> None:
+    """Load repo env without clobbering an operator-set rehearsal World DSN."""
+    preserved = {
+        key: os.environ[key]
+        for key in (
+            "DUNGEONMIND_WORLD_GRAPH_AUTHORITY",
+            "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL",
+        )
+        if os.environ.get(key, "").strip()
+    }
+    load_dungeonmindbuddy_dotenv()
+    for key, value in preserved.items():
+        os.environ[key] = value
 
 
 def _output_root(custom: Path | None = None) -> Path:
@@ -161,7 +177,7 @@ def cmd_census(args: argparse.Namespace) -> int:
 
 
 def cmd_extract(args: argparse.Namespace) -> int:
-    load_dungeonmindbuddy_dotenv()
+    _load_stage4j_dotenv()
     sessions = _parse_sessions(
         sessions=args.sessions,
         session_start=args.session_start,
@@ -230,6 +246,15 @@ def cmd_extract(args: argparse.Namespace) -> int:
             continue
 
         ok = result.failure_kind is None and result.candidate_graph is not None
+        candidate_path = _resolve_candidate_graph_path(
+            session_dir, run_id=result.run.run_id
+        )
+        if ok and candidate_path is not None:
+            canonical = session_dir / "candidate_graph.json"
+            if candidate_path != canonical:
+                canonical.write_text(
+                    candidate_path.read_text(encoding="utf-8"), encoding="utf-8"
+                )
         receipt = {
             "schema": "dmb_stage4j_c2_extract_receipt_v0",
             "session": ref.session,
@@ -242,6 +267,11 @@ def cmd_extract(args: argparse.Namespace) -> int:
             "model_id": result.model_id,
             "diagnostics": list(result.diagnostics or []),
             "output_dir": str(session_dir.relative_to(REPO_ROOT)),
+            "candidate_graph_path": (
+                str(candidate_path.relative_to(REPO_ROOT))
+                if candidate_path is not None
+                else None
+            ),
             "generated_at": _utc_now(),
         }
         _write_json(receipt_path, receipt)
@@ -260,6 +290,25 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _resolve_candidate_graph_path(
+    session_dir: Path,
+    *,
+    run_id: str | None = None,
+) -> Path | None:
+    """Locate candidate_graph.json under a session output dir (flat or run-scoped)."""
+    direct = session_dir / "candidate_graph.json"
+    if direct.is_file():
+        return direct
+    if run_id:
+        nested = session_dir / run_id / "candidate_graph.json"
+        if nested.is_file():
+            return nested
+    for nested in sorted(session_dir.glob("*/candidate_graph.json")):
+        if nested.is_file():
+            return nested
+    return None
+
+
 def _select_all_selectable(review_items: Sequence[dict[str, Any]]) -> list[str]:
     selected: list[str] = []
     for item in review_items:
@@ -273,8 +322,36 @@ def _select_all_selectable(review_items: Sequence[dict[str, Any]]) -> list[str]:
     return selected
 
 
+def _select_non_edge_selectable(review_items: Sequence[dict[str, Any]]) -> list[str]:
+    """Experiment fallback when edge qualification blocks select-all confirm."""
+    non_edge_kinds = {"edge", "relationship"}
+    selected: list[str] = []
+    for item in review_items:
+        if not isinstance(item, Mapping):
+            continue
+        if not item.get("selectable"):
+            continue
+        if str(item.get("kind") or "").strip().lower() in non_edge_kinds:
+            continue
+        sqid = str(item.get("slice_qualified_id") or "").strip()
+        if sqid:
+            selected.append(sqid)
+    return selected
+
+
+def _edge_inexpressible_error(exc: BaseException) -> bool:
+    message = str(exc).lower()
+    markers = (
+        "edge endpoint kinds are not admitted",
+        "edge predicate has no dungeonmind mapping",
+        "node kind has no dungeonmind mapping",
+        "governed_write_inexpressible",
+    )
+    return any(marker in message for marker in markers)
+
+
 def cmd_promote(args: argparse.Namespace) -> int:
-    load_dungeonmindbuddy_dotenv()
+    _load_stage4j_dotenv()
     try:
         database_url = rehearsal_world_database_url()
     except Stage4JRehearsalGuardError as exc:
@@ -303,9 +380,22 @@ def cmd_promote(args: argparse.Namespace) -> int:
             continue
 
         session_dir = out_root / f"session_{session:02d}"
-        candidate_path = session_dir / "candidate_graph.json"
-        if not candidate_path.is_file():
-            print(f"Skipping session {session:02d}: missing {candidate_path}", file=sys.stderr)
+        receipt_candidate = str(extract_receipt.get("candidate_graph_path") or "").strip()
+        candidate_path = (
+            (REPO_ROOT / receipt_candidate).resolve()
+            if receipt_candidate
+            else None
+        )
+        if candidate_path is None or not candidate_path.is_file():
+            candidate_path = _resolve_candidate_graph_path(
+                session_dir,
+                run_id=str(extract_receipt.get("run_id") or "") or None,
+            )
+        if candidate_path is None or not candidate_path.is_file():
+            print(
+                f"Skipping session {session:02d}: missing candidate_graph under {session_dir}",
+                file=sys.stderr,
+            )
             exit_code = 1
             continue
 
@@ -346,6 +436,7 @@ def cmd_promote(args: argparse.Namespace) -> int:
             if not selected:
                 raise RuntimeError("prepare returned no selectable review_items")
 
+            promote_mode = "select_all"
             confirm_request = type(
                 "ConfirmRequest",
                 (),
@@ -354,13 +445,37 @@ def cmd_promote(args: argparse.Namespace) -> int:
                     "assertion_ids": selected,
                 },
             )()
-            confirm_payload = world_graph_writes.confirm_extract_promote_via_dungeonmind(
-                confirm_request,
-                database_url=database_url,
-                confirming_principal=CONFIRMING_PRINCIPAL,
-                assertion_ids=tuple(selected),
-                repo_root=REPO_ROOT,
-            )
+            try:
+                confirm_payload = world_graph_writes.confirm_extract_promote_via_dungeonmind(
+                    confirm_request,
+                    database_url=database_url,
+                    confirming_principal=CONFIRMING_PRINCIPAL,
+                    assertion_ids=tuple(selected),
+                    repo_root=REPO_ROOT,
+                )
+            except Exception as confirm_exc:
+                if not _edge_inexpressible_error(confirm_exc):
+                    raise
+                fallback = _select_non_edge_selectable(prepare_result.review_items)
+                if not fallback:
+                    raise
+                promote_mode = "non_edge_fallback"
+                selected = fallback
+                confirm_request = type(
+                    "ConfirmRequest",
+                    (),
+                    {
+                        "review_package": sealed,
+                        "assertion_ids": selected,
+                    },
+                )()
+                confirm_payload = world_graph_writes.confirm_extract_promote_via_dungeonmind(
+                    confirm_request,
+                    database_url=database_url,
+                    confirming_principal=CONFIRMING_PRINCIPAL,
+                    assertion_ids=tuple(selected),
+                    repo_root=REPO_ROOT,
+                )
         except Exception as exc:  # noqa: BLE001 — per-session promote failure
             promote_receipt = {
                 **extract_receipt,
@@ -382,6 +497,7 @@ def cmd_promote(args: argparse.Namespace) -> int:
             "proposal_digest": prepare_result.proposal_digest,
             "parent_revision_id": prepare_result.parent_revision_id,
             "selected_assertion_count": len(selected),
+            "promote_mode": promote_mode,
             "confirm_outcome": confirm_payload.get("outcome"),
             "committed_revision_id": confirm_payload.get("committed_revision_id"),
             "promote_generated_at": _utc_now(),
@@ -393,13 +509,13 @@ def cmd_promote(args: argparse.Namespace) -> int:
         print(
             f"Promoted session {session:02d}: "
             f"revision={confirm_payload.get('committed_revision_id')} "
-            f"selected={len(selected)}"
+            f"selected={len(selected)} mode={promote_mode}"
         )
     return exit_code
 
 
 def cmd_dogfood(args: argparse.Namespace) -> int:
-    load_dungeonmindbuddy_dotenv()
+    _load_stage4j_dotenv()
     out_root = _output_root(Path(args.output) if args.output else None)
     template_path = out_root / "session_28_dogfood_checklist.md"
 
@@ -458,9 +574,9 @@ Verdict: GRAPH / REOPEN RECAPS / MIXED
         request = WorldGraphSearchRequest.model_validate(
             {
                 "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
-                "world_id": DEFAULT_WORLD_ID,
-                "campaign_id": campaign_id_from_number(CAMPAIGN_NUMBER),
-                "query_text": (
+                "worldId": DEFAULT_WORLD_ID,
+                "campaignId": campaign_id_from_number(CAMPAIGN_NUMBER),
+                "queryText": (
                     "Session 28 prep: party companions and unresolved Mireward threads"
                 ),
             }
@@ -537,12 +653,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    load_dungeonmindbuddy_dotenv()
+    _load_stage4j_dotenv()
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
-    guard_url = __import__("os").environ.get(
-        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", ""
-    )
+    guard_url = os.environ.get("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "")
     if args.command in {"promote", "dogfood"} and guard_url.strip():
         try:
             assert_rehearsal_world_db_url(guard_url)

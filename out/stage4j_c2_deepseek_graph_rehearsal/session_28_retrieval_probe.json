@@ -1,0 +1,359 @@
+{
+  "Mireward gate battle party companions traveling": {
+    "schema": "dmb_world_graph_retrieval_result_v1",
+    "operation": "search",
+    "outcome": "empty",
+    "snapshot": {
+      "worldId": "eldyrwild",
+      "campaignId": "longmont-c2",
+      "revisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "headRevisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "isHead": true,
+      "focus": {
+        "kind": "none",
+        "sessionId": null,
+        "campaignId": null
+      },
+      "admissibility": "gm",
+      "scopeMode": "campaign"
+    },
+    "requestSummary": {
+      "query_text": "Mireward gate battle party companions traveling",
+      "seed_node_ids": []
+    },
+    "matchedNodeIds": [],
+    "matchReasons": {},
+    "requestedNodeId": null,
+    "resolvedNodeId": null,
+    "nodes": [],
+    "relationships": [],
+    "attributes": [],
+    "sourceAnchors": [],
+    "coverage": {
+      "requestedSeedNodeIds": [],
+      "missingSeedNodeIds": [],
+      "resolvedRedirects": {},
+      "truncatedFields": [],
+      "missingEvidenceRefIds": [],
+      "unreadableAnchorIds": []
+    },
+    "trustBoundary": {
+      "canTrust": [
+        "Every returned node, relationship, attribute, and source anchor is admitted by one explicit DungeonMind revision plus the requested world/campaign/focus/admissibility context.",
+        "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+        "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+      ],
+      "cannotTrust": [
+        "Source content bytes are product-local presentation data verified against the DungeonMind source revision digest at read time.",
+        "Result truncation is reported explicitly; truncated views are never silently complete."
+      ]
+    },
+    "diagnostics": []
+  },
+  "Thrin pulled underground wall breach": {
+    "schema": "dmb_world_graph_retrieval_result_v1",
+    "operation": "search",
+    "outcome": "empty",
+    "snapshot": {
+      "worldId": "eldyrwild",
+      "campaignId": "longmont-c2",
+      "revisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "headRevisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "isHead": true,
+      "focus": {
+        "kind": "none",
+        "sessionId": null,
+        "campaignId": null
+      },
+      "admissibility": "gm",
+      "scopeMode": "campaign"
+    },
+    "requestSummary": {
+      "query_text": "Thrin pulled underground wall breach",
+      "seed_node_ids": []
+    },
+    "matchedNodeIds": [],
+    "matchReasons": {},
+    "requestedNodeId": null,
+    "resolvedNodeId": null,
+    "nodes": [],
+    "relationships": [],
+    "attributes": [],
+    "sourceAnchors": [],
+    "coverage": {
+      "requestedSeedNodeIds": [],
+      "missingSeedNodeIds": [],
+      "resolvedRedirects": {},
+      "truncatedFields": [],
+      "missingEvidenceRefIds": [],
+      "unreadableAnchorIds": []
+    },
+    "trustBoundary": {
+      "canTrust": [
+        "Every returned node, relationship, attribute, and source anchor is admitted by one explicit DungeonMind revision plus the requested world/campaign/focus/admissibility context.",
+        "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+        "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+      ],
+      "cannotTrust": [
+        "Source content bytes are product-local presentation data verified against the DungeonMind source revision digest at read time.",
+        "Result truncation is reported explicitly; truncated views are never silently complete."
+      ]
+    },
+    "diagnostics": []
+  },
+  "refugees Mireward Lysandro": {
+    "schema": "dmb_world_graph_retrieval_result_v1",
+    "operation": "search",
+    "outcome": "empty",
+    "snapshot": {
+      "worldId": "eldyrwild",
+      "campaignId": "longmont-c2",
+      "revisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "headRevisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "isHead": true,
+      "focus": {
+        "kind": "none",
+        "sessionId": null,
+        "campaignId": null
+      },
+      "admissibility": "gm",
+      "scopeMode": "campaign"
+    },
+    "requestSummary": {
+      "query_text": "refugees Mireward Lysandro",
+      "seed_node_ids": []
+    },
+    "matchedNodeIds": [],
+    "matchReasons": {},
+    "requestedNodeId": null,
+    "resolvedNodeId": null,
+    "nodes": [],
+    "relationships": [],
+    "attributes": [],
+    "sourceAnchors": [],
+    "coverage": {
+      "requestedSeedNodeIds": [],
+      "missingSeedNodeIds": [],
+      "resolvedRedirects": {},
+      "truncatedFields": [],
+      "missingEvidenceRefIds": [],
+      "unreadableAnchorIds": []
+    },
+    "trustBoundary": {
+      "canTrust": [
+        "Every returned node, relationship, attribute, and source anchor is admitted by one explicit DungeonMind revision plus the requested world/campaign/focus/admissibility context.",
+        "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+        "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+      ],
+      "cannotTrust": [
+        "Source content bytes are product-local presentation data verified against the DungeonMind source revision digest at read time.",
+        "Result truncation is reported explicitly; truncated views are never silently complete."
+      ]
+    },
+    "diagnostics": []
+  },
+  "meat creatures warehouse": {
+    "schema": "dmb_world_graph_retrieval_result_v1",
+    "operation": "search",
+    "outcome": "empty",
+    "snapshot": {
+      "worldId": "eldyrwild",
+      "campaignId": "longmont-c2",
+      "revisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "headRevisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "isHead": true,
+      "focus": {
+        "kind": "none",
+        "sessionId": null,
+        "campaignId": null
+      },
+      "admissibility": "gm",
+      "scopeMode": "campaign"
+    },
+    "requestSummary": {
+      "query_text": "meat creatures warehouse",
+      "seed_node_ids": []
+    },
+    "matchedNodeIds": [],
+    "matchReasons": {},
+    "requestedNodeId": null,
+    "resolvedNodeId": null,
+    "nodes": [],
+    "relationships": [],
+    "attributes": [],
+    "sourceAnchors": [],
+    "coverage": {
+      "requestedSeedNodeIds": [],
+      "missingSeedNodeIds": [],
+      "resolvedRedirects": {},
+      "truncatedFields": [],
+      "missingEvidenceRefIds": [],
+      "unreadableAnchorIds": []
+    },
+    "trustBoundary": {
+      "canTrust": [
+        "Every returned node, relationship, attribute, and source anchor is admitted by one explicit DungeonMind revision plus the requested world/campaign/focus/admissibility context.",
+        "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+        "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+      ],
+      "cannotTrust": [
+        "Source content bytes are product-local presentation data verified against the DungeonMind source revision digest at read time.",
+        "Result truncation is reported explicitly; truncated views are never silently complete."
+      ]
+    },
+    "diagnostics": []
+  },
+  "Orik Orric tripod Ironveil warehouse": {
+    "schema": "dmb_world_graph_retrieval_result_v1",
+    "operation": "search",
+    "outcome": "empty",
+    "snapshot": {
+      "worldId": "eldyrwild",
+      "campaignId": "longmont-c2",
+      "revisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "headRevisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "isHead": true,
+      "focus": {
+        "kind": "none",
+        "sessionId": null,
+        "campaignId": null
+      },
+      "admissibility": "gm",
+      "scopeMode": "campaign"
+    },
+    "requestSummary": {
+      "query_text": "Orik Orric tripod Ironveil warehouse",
+      "seed_node_ids": []
+    },
+    "matchedNodeIds": [],
+    "matchReasons": {},
+    "requestedNodeId": null,
+    "resolvedNodeId": null,
+    "nodes": [],
+    "relationships": [],
+    "attributes": [],
+    "sourceAnchors": [],
+    "coverage": {
+      "requestedSeedNodeIds": [],
+      "missingSeedNodeIds": [],
+      "resolvedRedirects": {},
+      "truncatedFields": [],
+      "missingEvidenceRefIds": [],
+      "unreadableAnchorIds": []
+    },
+    "trustBoundary": {
+      "canTrust": [
+        "Every returned node, relationship, attribute, and source anchor is admitted by one explicit DungeonMind revision plus the requested world/campaign/focus/admissibility context.",
+        "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+        "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+      ],
+      "cannotTrust": [
+        "Source content bytes are product-local presentation data verified against the DungeonMind source revision digest at read time.",
+        "Result truncation is reported explicitly; truncated views are never silently complete."
+      ]
+    },
+    "diagnostics": []
+  },
+  "Session 27 Ironveil warehouse wall collapse": {
+    "schema": "dmb_world_graph_retrieval_result_v1",
+    "operation": "search",
+    "outcome": "empty",
+    "snapshot": {
+      "worldId": "eldyrwild",
+      "campaignId": "longmont-c2",
+      "revisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "headRevisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "isHead": true,
+      "focus": {
+        "kind": "none",
+        "sessionId": null,
+        "campaignId": null
+      },
+      "admissibility": "gm",
+      "scopeMode": "campaign"
+    },
+    "requestSummary": {
+      "query_text": "Session 27 Ironveil warehouse wall collapse",
+      "seed_node_ids": []
+    },
+    "matchedNodeIds": [],
+    "matchReasons": {},
+    "requestedNodeId": null,
+    "resolvedNodeId": null,
+    "nodes": [],
+    "relationships": [],
+    "attributes": [],
+    "sourceAnchors": [],
+    "coverage": {
+      "requestedSeedNodeIds": [],
+      "missingSeedNodeIds": [],
+      "resolvedRedirects": {},
+      "truncatedFields": [],
+      "missingEvidenceRefIds": [],
+      "unreadableAnchorIds": []
+    },
+    "trustBoundary": {
+      "canTrust": [
+        "Every returned node, relationship, attribute, and source anchor is admitted by one explicit DungeonMind revision plus the requested world/campaign/focus/admissibility context.",
+        "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+        "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+      ],
+      "cannotTrust": [
+        "Source content bytes are product-local presentation data verified against the DungeonMind source revision digest at read time.",
+        "Result truncation is reported explicitly; truncated views are never silently complete."
+      ]
+    },
+    "diagnostics": []
+  },
+  "Who travels with the party end session 27": {
+    "schema": "dmb_world_graph_retrieval_result_v1",
+    "operation": "search",
+    "outcome": "empty",
+    "snapshot": {
+      "worldId": "eldyrwild",
+      "campaignId": "longmont-c2",
+      "revisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "headRevisionId": "rev:e244bf896445b9a5e80c0076368b78db",
+      "isHead": true,
+      "focus": {
+        "kind": "none",
+        "sessionId": null,
+        "campaignId": null
+      },
+      "admissibility": "gm",
+      "scopeMode": "campaign"
+    },
+    "requestSummary": {
+      "query_text": "Who travels with the party end session 27",
+      "seed_node_ids": []
+    },
+    "matchedNodeIds": [],
+    "matchReasons": {},
+    "requestedNodeId": null,
+    "resolvedNodeId": null,
+    "nodes": [],
+    "relationships": [],
+    "attributes": [],
+    "sourceAnchors": [],
+    "coverage": {
+      "requestedSeedNodeIds": [],
+      "missingSeedNodeIds": [],
+      "resolvedRedirects": {},
+      "truncatedFields": [],
+      "missingEvidenceRefIds": [],
+      "unreadableAnchorIds": []
+    },
+    "trustBoundary": {
+      "canTrust": [
+        "Every returned node, relationship, attribute, and source anchor is admitted by one explicit DungeonMind revision plus the requested world/campaign/focus/admissibility context.",
+        "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+        "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+      ],
+      "cannotTrust": [
+        "Source content bytes are product-local presentation data verified against the DungeonMind source revision digest at read time.",
+        "Result truncation is reported explicitly; truncated views are never silently complete."
+      ]
+    },
+    "diagnostics": []
+  }
+}

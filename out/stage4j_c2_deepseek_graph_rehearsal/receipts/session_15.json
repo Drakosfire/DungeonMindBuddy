@@ -1,0 +1,19 @@
+{
+  "diagnostics": [],
+  "experiment_auto_confirm": true,
+  "failure_kind": null,
+  "generated_at": "2026-09-13T20:14:57Z",
+  "model_id": "deepseek/deepseek-v4.1-flash",
+  "non_production": true,
+  "ok": true,
+  "output_dir": "out/stage4j_c2_deepseek_graph_rehearsal/session_15",
+  "promote_error": "DungeonMind v6 materialization rejected the finalized review",
+  "promote_generated_at": "2026-09-13T21:02:45Z",
+  "promote_ok": false,
+  "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 15 - Ride Out Mossford Ale.md",
+  "run_id": "49b92641-57a6-4508-9792-62abad1b0c06",
+  "run_status": "reviewable",
+  "schema": "dmb_stage4j_c2_extract_receipt_v0",
+  "session": 15,
+  "session_id": "session-15"
+}

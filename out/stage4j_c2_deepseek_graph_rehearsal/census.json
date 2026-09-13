@@ -1,0 +1,126 @@
+{
+  "campaign_id": "longmont-c2",
+  "campaign_number": 2,
+  "category_passes_per_session_estimate": 7,
+  "dry_run": false,
+  "estimated_category_pass_requests": 189,
+  "generated_at": "2026-09-13T19:44:40Z",
+  "missing": [],
+  "missing_count": 0,
+  "present": [
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
+      "session": 1
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md",
+      "session": 2
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 03 - Storms Torbin and Shepherd.md",
+      "session": 3
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 04 - Wolf Manor Mage Duel.md",
+      "session": 4
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 05 - Lysandra Tea Guardhouse.md",
+      "session": 5
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 06 - Barn Fleshborn Shepherd Wake.md",
+      "session": 6
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 07 - Portals Tentacles Barn.md",
+      "session": 7
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 08 - Dustwalker Cellar Barin Party.md",
+      "session": 8
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 09 - Costume Contest Temple Aspitome.md",
+      "session": 9
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 10 - Festival Crafting Elementals.md",
+      "session": 10
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 11 - Coliseum Finals Tealeaf Tea.md",
+      "session": 11
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 12 - Dustwalker Globe Duel.md",
+      "session": 12
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 13 - Council Curfew Swamp March.md",
+      "session": 13
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 14 - Supplies Wolf Crypt Letter.md",
+      "session": 14
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 15 - Ride Out Mossford Ale.md",
+      "session": 15
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 16 - Thinking Tree Sneaking Forest.md",
+      "session": 16
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md",
+      "session": 17
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 18 - Wyvern Mother Fallen Spine.md",
+      "session": 18
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 19 - Mossford Plans Stuart Inn.md",
+      "session": 19
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md",
+      "session": 20
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+      "session": 21
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "session": 22
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+      "session": 23
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 24 - Mireward Gate Battle.md",
+      "session": 24
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 25 - Mireward Gate Battle II.md",
+      "session": 25
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 26 - Thrin Pulled Underground Wall Breach.md",
+      "session": 26
+    },
+    {
+      "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 27 - Ironveil Warehouse Wall Collapse.md",
+      "session": 27
+    }
+  ],
+  "present_count": 27,
+  "schema": "dmb_stage4j_c2_census_v0",
+  "session_range": [
+    1,
+    27
+  ]
+}

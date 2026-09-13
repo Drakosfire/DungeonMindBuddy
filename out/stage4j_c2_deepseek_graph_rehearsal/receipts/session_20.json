@@ -1,0 +1,19 @@
+{
+  "diagnostics": [],
+  "experiment_auto_confirm": true,
+  "failure_kind": null,
+  "generated_at": "2026-09-13T20:46:09Z",
+  "model_id": "deepseek/deepseek-v4.1-flash",
+  "non_production": true,
+  "ok": true,
+  "output_dir": "out/stage4j_c2_deepseek_graph_rehearsal/session_20",
+  "promote_error": "DungeonMind v6 materialization rejected the finalized review",
+  "promote_generated_at": "2026-09-13T21:03:11Z",
+  "promote_ok": false,
+  "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md",
+  "run_id": "5c78d8bc-3aef-4ed5-b4b4-9ec6c89d9fdb",
+  "run_status": "reviewable",
+  "schema": "dmb_stage4j_c2_extract_receipt_v0",
+  "session": 20,
+  "session_id": "session-20"
+}
