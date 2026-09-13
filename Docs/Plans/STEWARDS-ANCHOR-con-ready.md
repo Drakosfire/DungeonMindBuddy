@@ -4,9 +4,9 @@
 **Line of work:** `CON-READY`
 **Updated:** 2026-09-12
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor base:** `main` `4af440b2cc4102972ad6212590885248e58375c1` (after PR #706 merge)
+**Re-anchor base:** `main` `0aa77bf791efa00cb51f45f3c7acd273ac3f351f` (after PR #709 merge)
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
-**Current forcing function:** DOGFOOD-CONTINUITY **Stage 4G / P1a.1 campaign-memory temporal intent** — **ACTIVE** ([`HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md)). PR #708 merged at `444b3996` with accepted head `8da461e2` after 2 review cycles. Stage 4G adds seven model-free temporal requirements pinned to that benchmark while keeping identity and temporal intent explicitly unscored. No extraction improvement has been accepted; Stage 7A1 remains queued and Stage 4 remains NOT DONE.
+**Current forcing function:** DOGFOOD-CONTINUITY **Stage 4H / P1b gold-backed Sol campaign-memory baseline characterization** — **ACTIVE** ([`HANDOFF-DOGFOOD-CONTINUITY-stage4h-campaign-memory-baseline-characterization-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4h-campaign-memory-baseline-characterization-v1.md)). PR #709 merged at `0aa77bf7` with accepted head `236ea6c5` after 2 review cycles. Stage 4H measures `gpt-5.6-sol` against the frozen seven-source benchmark while leaving production model policy unchanged and keeping identity and temporal intent explicitly unscored. No extraction improvement has been accepted; Stage 7A1 remains queued and Stage 4 remains NOT DONE.
 **Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
 **Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
 **Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
@@ -64,7 +64,8 @@ PR #702           MERGED — Agent artwork + UI-03 responsive secondary context;
 STAGE 4D / P0b1  DONE — PR #706 `4af440b2`; accepted head `97df142c`; 2 review cycles; paid smoke PASS
 STAGE 4E / P0b2a DONE — PR #707 `4227f97d`; accepted head `4ca2c12c`; 2 review cycles; 3-repetition live gate PASS
 STAGE 4F / P1a   DONE — PR #708 `444b3996`; accepted head `8da461e2`; 2 review cycles
-CURRENT           Stage 4G/P1a.1 campaign-memory temporal intent; Stage 4 NOT DONE
+STAGE 4G / P1a.1 DONE — PR #709 `0aa77bf7`; accepted head `236ea6c5`; 2 review cycles
+CURRENT           Stage 4H/P1b unchanged-pipeline baseline characterization; Stage 4 NOT DONE
 
 PLAY STRUCTURE
 BF1 / PR #628    DONE — Beat-first v2 grammar/index/manifest

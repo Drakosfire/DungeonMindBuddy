@@ -477,6 +477,7 @@ def chunk_document(
     min_chars: int = 50,
     corpus_source_path: str | None = None,
     commit_sha: str | None = None,
+    normalize_legacy_frontmatter: bool = False,
 ) -> list[dict[str, Any]]:
     """Create evidence units from a source document using heading-based chunking.
 
@@ -486,7 +487,9 @@ def chunk_document(
     otherwise it defaults to ``docx_path.name``.
     """
     markdown = _load_markdown(Path(docx_path))
-    metadata, body = parse_document_frontmatter(markdown)
+    metadata, body = parse_document_frontmatter(
+        markdown, normalize_legacy=normalize_legacy_frontmatter
+    )
     (
         resolved_document_id,
         resolved_document_title,

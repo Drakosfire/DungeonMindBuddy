@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
 import sys
 from collections import Counter
@@ -217,7 +218,7 @@ def _build_escalation_decision(
 _PRICING_PER_1M: dict[str, dict[str, float]] = {
     "gpt-5.6-luna": {"input": 0.20, "cached_input": 0.02, "output": 1.20},
     "gpt-5.6-terra": {"input": 2.00, "cached_input": 0.20, "output": 12.00},
-    "gpt-5.6-sol": {"input": 5.00, "cached_input": 0.50, "output": 30.00},
+    "gpt-5.6-sol": {"input": 4.00, "cached_input": 0.40, "output": 20.00},
     "gpt-5.4-nano": {"input": 0.20, "cached_input": 0.02, "output": 1.25},
     "gpt-5.4-mini": {"input": 0.75, "cached_input": 0.075, "output": 4.50},
     "gpt-5.4-pro": {"input": 30.00, "cached_input": 30.00, "output": 180.00},
@@ -237,6 +238,12 @@ _PRICING_PER_1M: dict[str, dict[str, float]] = {
     "o4-mini": {"input": 1.10, "cached_input": 0.275, "output": 4.40},
     "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
     "o3": {"input": 2.00, "cached_input": 0.50, "output": 8.00},
+}
+
+_FLEX_PRICING_PER_1M: dict[str, dict[str, float]] = {
+    "gpt-5.6-luna": {"input": 0.10, "cached_input": 0.01, "output": 0.60},
+    "gpt-5.6-terra": {"input": 1.00, "cached_input": 0.10, "output": 6.00},
+    "gpt-5.6-sol": {"input": 2.00, "cached_input": 0.20, "output": 10.00},
 }
 
 
@@ -379,9 +386,23 @@ def _aggregate_batch_report(
         and r.get("entities_delta", -1) == 0
         and r.get("evidence_delta", -1) == 0
     )
+    source_timings = []
+    for result in results:
+        source_path = result.get("path")
+        run_row = _latest_completed_run_for_path(store_dir, Path(str(source_path))) if source_path else None
+        source_timings.append({
+            "source_path": str(source_path or ""),
+            "status": "completed" if run_row else result.get("status", "failed"),
+            "duration_ms": int((run_row or {}).get("duration_ms", 0) or 0),
+        })
 
     model_name = _dominant_model_name(llm_rows)
-    rates = _pricing_rates_for_model(model_name)
+    service_tier = str(summary.get("service_tier") or "standard")
+    rates = (
+        _FLEX_PRICING_PER_1M.get(model_name, _pricing_rates_for_model(model_name))
+        if service_tier == "flex"
+        else _pricing_rates_for_model(model_name)
+    )
     est_cost = (
         uncached_input * rates["input"] + total_cached * rates["cached_input"] + total_output * rates["output"]
     ) / 1_000_000
@@ -396,11 +417,17 @@ def _aggregate_batch_report(
 
     return {
         "generated_at": _utc_now_iso(),
+        "normalization": {
+            "legacy_frontmatter": bool(
+                summary.get("normalize_legacy_frontmatter", False)
+            )
+        },
         "run_window": {
             "started_at": started,
             "ended_at": ended_at,
             "elapsed_seconds": round(elapsed_sec, 3),
         },
+        "source_timings": source_timings,
         "files": {
             "total": file_total,
             "succeeded": succeeded,
@@ -421,6 +448,9 @@ def _aggregate_batch_report(
         },
         "cost_estimate": {
             "model_name": model_name or "(unknown)",
+            "service_tier": service_tier,
+            "pricing_as_of": "2026-09-12",
+            "pricing_source": "OpenAI pricing page supplied with Stage 4H",
             "input_cost_per_1m": rates["input"],
             "cached_input_cost_per_1m": rates["cached_input"],
             "output_cost_per_1m": rates["output"],
@@ -525,6 +555,13 @@ def main() -> int:
         default=5,
         help="Evidence units per LLM call during ingest (passed to each ingest; default 5)",
     )
+    parser.add_argument("--structured-generation-model", default="")
+    parser.add_argument("--openai-service-tier", choices=["flex"], default=None)
+    parser.add_argument(
+        "--normalize-legacy-frontmatter",
+        action="store_true",
+        help="Explicitly normalize legacy metadata without changing source bytes.",
+    )
     parser.add_argument(
         "--enforce-cheap-pass",
         action="store_true",
@@ -616,6 +653,8 @@ def main() -> int:
         "corpus_root": str(corpus_root),
         "file_count": len(paths),
         "use_openai_batch_api": bool(args.use_batch_api),
+        "service_tier": args.openai_service_tier or "standard",
+        "normalize_legacy_frontmatter": bool(args.normalize_legacy_frontmatter),
         "results": [],
     }
     decisions: list[dict[str, Any]] = []
@@ -624,6 +663,8 @@ def main() -> int:
     policy_path = ROOT.parent / "MODEL_POLICY.json"
     original_policy: dict[str, Any] | None = None
     policy_restored = False
+    original_model_override = os.environ.get("DMB_STRUCTURED_GENERATION_MODEL_OVERRIDE")
+    original_service_tier = os.environ.get("DMB_OPENAI_SERVICE_TIER")
 
     with log_path.open("a", encoding="utf-8") as logf:
         logf.write(f"\n=== batch_ingest start {started} files={len(paths)} ===\n")
@@ -632,6 +673,10 @@ def main() -> int:
         sys.stdout = tee  # type: ignore[assignment]
 
         try:
+            if args.structured_generation_model:
+                os.environ["DMB_STRUCTURED_GENERATION_MODEL_OVERRIDE"] = args.structured_generation_model
+            if args.openai_service_tier:
+                os.environ["DMB_OPENAI_SERVICE_TIER"] = args.openai_service_tier
             if policy_path.exists():
                 original_policy = _load_model_policy(policy_path)
             if args.enforce_cheap_pass and policy_path.exists():
@@ -683,6 +728,8 @@ def main() -> int:
                 entities_before = len(cli.store.entities)
                 evidence_before = len(cli.store.evidence_units)
                 line = f"ingest {shlex.quote(str(path))} --batch-size {args.batch_size}"
+                if args.normalize_legacy_frontmatter:
+                    line += " --normalize-legacy-frontmatter"
                 if args.force:
                     line += " --force"
                 if args.use_batch_api:
@@ -742,6 +789,8 @@ def main() -> int:
                         line = (
                             f"ingest {shlex.quote(str(path))} --force --batch-size {args.batch_size}"
                         )
+                        if args.normalize_legacy_frontmatter:
+                            line += " --normalize-legacy-frontmatter"
                         if args.use_batch_api:
                             line += " --use-openai-batch-api"
                         before = _latest_completed_run_for_path(store_dir, path)
@@ -765,6 +814,11 @@ def main() -> int:
             if original_policy is not None and policy_path.exists():
                 _save_model_policy(policy_path, original_policy)
                 policy_restored = True
+            for key, original in (("DMB_STRUCTURED_GENERATION_MODEL_OVERRIDE", original_model_override), ("DMB_OPENAI_SERVICE_TIER", original_service_tier)):
+                if original is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = original
             sys.stdout = old_stdout
 
         ended = datetime.now(timezone.utc).isoformat()

@@ -160,7 +160,8 @@ PR #705 Stage 4C comparison MERGED (`29c50b985091f590d2d6212b10cd79dcc8be5288`; 
 PR #706 Stage 4D/P0b1 MERGED (`4af440b2cc4102972ad6212590885248e58375c1`; accepted head `97df142cfee328c689a32ced19cfe2a9755f1b98`; 2 review cycles); exact-merge paid one-source smoke PASS on 2026-09-12 (`comparable=true`, `$0.8686`)
 PR #707 Stage 4E/P0b2a MERGED (`4227f97da35e384e995263d5c6a62d9711333488`; accepted head `4ca2c12c3ad15e6e6c18b0fab8fb5acb2a76ebcc`; 2 review cycles); exact-merge 3-repetition paid gate PASS (`3/3 comparable`, stable identity, `$2.7019`)
 PR #708 Stage 4F/P1a MERGED (`444b39963286667400c827b8765f8246763b8701`; accepted head `8da461e21b69291d9f61b1d7309cb883a9dc06e5`; 2 review cycles); seven-source campaign-memory benchmark authority frozen
-CURRENT — Stage 4G/P1a.1 campaign-memory temporal intent; Stage 4 remains NOT DONE
+PR #709 Stage 4G/P1a.1 MERGED (`0aa77bf791efa00cb51f45f3c7acd273ac3f351f`; accepted head `236ea6c5d1486ccf7012ed6b1ea8f33f4b3af457`; 2 review cycles); seven temporal requirements frozen and explicitly unscored
+CURRENT — Stage 4H/P1b gold-backed `gpt-5.6-sol` campaign-memory baseline characterization; production policy unchanged; Stage 4 remains NOT DONE
 Stage 7A1 Agent-on-Ingest remains DESIGN READY / QUEUED behind the UI series
 ```
 

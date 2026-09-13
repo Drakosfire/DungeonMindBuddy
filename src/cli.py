@@ -631,6 +631,7 @@ class DungeonBuddyCLI:
             help="Evidence units per LLM call for entity/fact extraction (default 5)",
         )
         parser.add_argument("--no-frontmatter", action="store_true")
+        parser.add_argument("--normalize-legacy-frontmatter", action="store_true")
         parser.add_argument("--force", action="store_true")
         parser.add_argument(
             "--use-openai-batch-api",
@@ -663,7 +664,10 @@ class DungeonBuddyCLI:
 
         if source_path.suffix.lower() == ".md":
             try:
-                metadata, body = load_document_frontmatter(source_path)
+                metadata, body = load_document_frontmatter(
+                    source_path,
+                    normalize_legacy=parsed.normalize_legacy_frontmatter,
+                )
             except FrontmatterError as exc:
                 print(f"Error: invalid frontmatter: {exc}")
                 self._record_event(
@@ -894,6 +898,7 @@ class DungeonBuddyCLI:
                 source_class=source_class,
                 min_chars=parsed.chunk_min_chars,
                 corpus_source_path=corpus_source_path,
+                normalize_legacy_frontmatter=parsed.normalize_legacy_frontmatter,
             )
             chunk_ms = int((time.perf_counter() - t0) * 1000)
             self._record_event(

@@ -62,6 +62,7 @@ def test_active_consumer_model_parity_with_e1b_baseline(monkeypatch) -> None:
     monkeypatch.delenv("LIVE_TURN_CLASSIFIER_MODEL", raising=False)
     monkeypatch.delenv("NPC_INTENT_CLASSIFIER_MODEL", raising=False)
     monkeypatch.delenv("DMB_WIKI_COMPILE_MODEL", raising=False)
+    monkeypatch.delenv("DMB_STRUCTURED_GENERATION_MODEL_OVERRIDE", raising=False)
 
     from apps.live_control_server.services.agent_graph_policy import (
         resolve_agent_graph_openai_inference,
@@ -101,6 +102,15 @@ def test_active_consumer_model_parity_with_e1b_baseline(monkeypatch) -> None:
     assert load_fact_model() == "gpt-5.3-codex"
     assert _load_fast_smart_model_id() == "gpt-5.3-codex"
     assert _live_query_model(ROOT) == "gpt-5.3-chat-latest"
+
+
+def test_ingestion_experiment_model_override_is_shared(monkeypatch) -> None:
+    from src.ingestion.entity_extractor import _load_fast_smart_model_id
+    from src.ingestion.fact_extractor import _load_model_id as load_fact_model
+
+    monkeypatch.setenv("DMB_STRUCTURED_GENERATION_MODEL_OVERRIDE", "gpt-5.6-sol")
+    assert _load_fast_smart_model_id() == "gpt-5.6-sol"
+    assert load_fact_model() == "gpt-5.6-sol"
 
 
 def _point_policy_at(monkeypatch, path: Path) -> None:

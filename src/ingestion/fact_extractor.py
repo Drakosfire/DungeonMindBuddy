@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import json
 import logging
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -224,6 +225,7 @@ class AsyncOpenAIResponsesFactClient:
                     {"role": "user", "content": user_prompt},
                 ],
                 text_format=FactExtractionResult,
+                **({"service_tier": "flex"} if os.environ.get("DMB_OPENAI_SERVICE_TIER") == "flex" else {}),
             )
         ).response
         parsed = getattr(response, "output_parsed", None)
@@ -253,6 +255,7 @@ class AsyncOpenAIResponsesFactClient:
                     {"role": "user", "content": user_prompt},
                 ],
                 text_format=BatchedFactExtractionResult,
+                **({"service_tier": "flex"} if os.environ.get("DMB_OPENAI_SERVICE_TIER") == "flex" else {}),
             )
         ).response
         parsed = getattr(response, "output_parsed", None)
@@ -284,6 +287,9 @@ def _now_utc_iso() -> str:
 
 
 def _load_model_id() -> str:
+    override = os.environ.get("DMB_STRUCTURED_GENERATION_MODEL_OVERRIDE", "").strip()
+    if override:
+        return override
     from src.model_policy import load_buddy_model_policy
 
     payload = load_buddy_model_policy(strict=True)
