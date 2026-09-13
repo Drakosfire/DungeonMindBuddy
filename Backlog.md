@@ -147,6 +147,62 @@ PR #694 removed full-document loads among the primary React surfaces and the pos
 
 ---
 
+# IDEA
+
+## [IDEA] Make ingestion reasoning effort an explicit experiment/runtime input — captured 2026-09-12
+**Context:** Stage 4H campaign-memory baseline planning exposed that `MODEL_POLICY.json` selects the structured-generation model, but the entity/fact ingestion path cannot pin or report a Responses API reasoning-effort setting.
+**Insight:** Model identity alone is not a complete inference contract for GPT-5.6 experiments. A Luna `medium`, `high`, or `xhigh` run must carry the requested and observed reasoning effort through execution manifests, model calls, receipts, pricing/telemetry, and comparison identity; otherwise results can be mislabeled or compared dishonestly.
+**Action:** Design one bounded plumbing slice that adds a fail-closed reasoning-effort input at the shared entity/fact inference boundary, records it in `model_calls.jsonl` and experiment contracts, verifies provider compatibility, and adds drift/adversarial tests without silently changing the production default.
+**Surfaces when:** running Luna extraction experiments, changing the ingestion model, comparing reasoning-effort ablations, or revising Stage 4H/P2 experiment contracts.
+**Refs:** `MODEL_POLICY.json`, `src/ingestion/entity_extractor.py`, `src/ingestion/fact_extractor.py`, `tools/batch_ingest_corpus.py`, `extraction_lab/run_campaign_memory_baseline.py`, PR #710
+
+## [DOING] Campaign 2 DeepSeek-none rehearsal for Session 28 prep — captured 2026-09-13
+**Owner:** DOGFOOD-CONTINUITY / Stage 4J experimental notebook  
+**Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4j-c2-deepseek-graph-rehearsal-v1.md`  
+**Branch:** `dogfood-continuity/stage4j-c2-deepseek-graph-rehearsal`  
+**Context:** Stage 4I.2 selected DeepSeek-none as the leading cheap extractor; seven-source human rating sheet unfinished; operator wants product-shaped evaluation.
+**Insight:** The meaningful next question is whether a Campaign 2 ingest with DeepSeek-none yields a World good enough to prep Session 28, not another benchmark percentage. That tests extraction, scale, identity fragmentation, authority, temporal accumulation, graph publication, projection, and GM workflow together.
+**Action:** (1) Corpus prerequisite PR #712: Session 26/27 `observed_session_recap` from table memory — never LLM-fabricated. Staging notes live at `_ingest_staging/session_{26,27}_raw_notes.md`. (2) Freeze a human-authored Campaign 2 manifest excluding `_archive`/`_normalized`/`_breadcrumbed`/`_session_memory`/`_ingest_staging` plus a small external allowlist. (3) Zero-cost census then one DeepSeek-none arm (json_object + local Pydantic + bounded resend). (4) Keep raw extraction untouched; add deterministic reconciled candidate graph. (5) Publish only to an isolated DungeonMind rehearsal env. (6) Prep Session 28 from the graph. Close #710 as historical; freeze #711 as model/context selection.
+**Surfaces when:** Stage 4J, full-corpus ingestion, Session 28 prep, DeepSeek production choice, closing #710/#711, Campaign 2 source manifest, isolated World rehearsal.
+**Refs:** PR #712; PR #711 (frozen); `extraction_lab/campaign_memory_stage4i2_three_arm_quality_compare.md`; `_ingest_staging/session_26_raw_notes.md`; `_ingest_staging/session_27_raw_notes.md`; Session 25 recap shape
+
+## [IDEA] Score and store facts by payload identity, not only by temporal subject — captured 2026-09-12
+**Context:** Stage 4H Sol/Flex salvage of PR #710. Both stable `keyword_mismatch` failures still had the gold payload in the store: Karsemine’s poison/fire resistances on Tripod Creatures; “siege pressure” on Mireward rather than scored Mireward Reach.
+**Insight:** Fact recall of 0.6 was an attachment/identity miss, not missing memory. The lossy-compression hypothesis is not the main story for these two fails. Compounding issues that the same run proved: planning scaffolds were projected to CANON/seed_prep; entity extraction cost more than fact extraction; 76 scaffold evidence units dominated dollars; spelling-drift duplicate entities (Karsemin, Baergorm, Lysandro, Orik/Orric) are common in a 7-file slice.
+**Action:** When designing the next campaign-memory slice after #710, treat (1) subject/alias resolution, (2) bounded frontmatter so `planning_document` cannot become `seed_reference`, and (3) evidence-unit budget on large planning files as deterministic levers before another paid model screen.
+**Surfaces when:** scoring campaign-memory fact anchors, debugging `keyword_mismatch`, ingesting Mireward/place scaffolds, comparing Stage 4H/4I characterization, or planning identity resolution / frontmatter follow-ups.
+**Refs:** `out/stage4h-sol-flex-6a61b63d/SALVAGE.md`, `out/stage4h-sol-flex-6a61b63d/ANCHOR-CARDS.txt`, PR #710, `evals/campaign_memory_development/gold/fact_anchors.json`, `src/ingestion/frontmatter.py`
+
+## [IDEA] Post-complete-ingest gold review/annotate as an async agent job
+**Kind:** PRODUCT / AGENT WORKFLOW / INFRA  
+**Owner:** Ingest Graph Review + Agent Interaction; World writes remain DungeonMind  
+**Captured:** 2026-09-12  
+**Last verified:** 2026-09-12 @ `origin/main` `444b3996` (PR #708 Stage 4F merged); this checkout is still at `92a50db8` (#702)  
+**Trigger:** A complete C1/C2 (or later full-corpus) ingestion exists that can be compared against gold; operator wants a review+annotate pass rather than another extraction-tuning loop.
+
+**Problem:** After ingestion, gold is how we notice missing campaign memory, but the current gold-review path is read-only compare (`graph_gold_review.py` vs S1/S22/S23/Mirathorn fixtures; Stage 4F added a separate campaign-memory development gold). There is no productized annotator that can add the missing nodes and edges. The July 2026 Graph Object Authoring surface is paused; `GraphReviewAuthorNode*` is leftover prototype chrome, not a governed write path. A GM-driven highlight→create-node path is a related interactive idea (below); this item is the **batch** pass: review gold against the ingested graph, then annotate new nodes/edges. Doing that as a blocking chat turn or blocking ingest request will not survive corpus-scale work, so the workflow needs to be an async background agent job.
+
+**Queue posture (not a slice yet):** Demand here is one operator, long LLM jobs, restart-safe status. That is a solved queue problem. Do **not** revive `live_play` `job_queue.jsonl` (session pane projection, not a worker). Prefer a durable APP-STATE job table with `queued | running | succeeded | failed | cancelled`, idempotent job identity, and a worker that can outlive the request. Postgres `SKIP LOCKED`, RQ/Redis, or an equivalent small worker are all sufficient; the queue is not the design risk. The hard parts are: job identity and replay, proposing vs publishing, DungeonMind-governed writes (Buddy must not regain graph publication), human confirmation before World mutation, and not treating gold or agent proposals as World truth.
+
+**Slice when promoted:** Split before READY. Independently useful first capabilities are likely (1) annotator can create **nodes and edges** on the governed write/proposal path, (2) a durable async job substrate for Agent/ingest work, (3) one background review+annotate workflow that consumes gold-vs-live misses and emits reviewable proposals. Do not bundle those. Do not ship the paused authoring surface or Author Node drawer as-is. Stage 4F P1b characterization, P4 full-corpus rehearsal, and P5 governed publication remain named successors of the experiment program, not this ticket.
+
+**Refs:** `evals/campaign_memory_development/` (PR #708); `apps/live_control_server/services/graph_gold_review.py`; `Docs/Plans/ROADMAP-graph-object-authoring-surface.md`; `Docs/Design/DESIGN-graph-object-authoring-surface.md`; `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorNodeDrawer.tsx`; root IDEA “Highlight recap text…”; Stage 4F P4/P5; BLOCKED “authored-worldbuilding elevation through DungeonMind authority”.
+
+## [IDEA] Highlight recap text to create a World object or run an Agent workflow
+**Kind:** PRODUCT / DESIGN  
+**Owner:** Ingest Graph Review + Agent Interaction  
+**Captured:** 2026-09-11  
+**Last verified:** 2026-09-11 @ `#700` merge `5810a253` (post-merge Human STOP)  
+**Trigger:** Ingest Tools on a loaded historical recap is empty; GM wants to select prose and act.
+
+**Problem:** Tools on C2S25 Graph Review is an empty Peek. A prototype Author Node drawer still exists (`GraphReviewAuthorNodeDrawer`, `GraphReviewAuthorNodePanel`, `GraphReviewAuthorNodeHost`) but is not a populated Ingest tool on this path (tests hide it while exact-run review is primary). The wanted product is: highlight a span in the recap → create a node manually, or highlight → run an Agent workflow. Do not ship the old drawer as-is.
+
+**Slice when promoted:** One independently useful path (manual create **or** Agent workflow), consuming the current selection as context. World writes stay on the governed DungeonMind path; do not invent Buddy graph publication. Rebuild rather than revive the prototype chrome.
+
+**Refs:** `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorNodeDrawer.tsx`; Captured UI Goals 5 and 8; UI-01 Peek as the likely host; 7A1 remains Ask-on-this-recap, not this create-node path.
+
+---
+
 # Delegated workstreams — pointers only, no root status
 
 The rows below preserve discoverability for capabilities removed from root without creating a second status owner.
