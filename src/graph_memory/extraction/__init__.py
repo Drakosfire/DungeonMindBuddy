@@ -9,4 +9,8 @@ from .category_candidate_graph_extractor import (
     extract_category_candidate_graph,
     resolve_category_graph_model,
 )
+from .deepseek_category_graph_pass_client import (
+    DEFAULT_DEEPSEEK_MODEL,
+    DeepSeekCategoryGraphPassClient,
+)
 from .category_candidate_graph_schema import category_pass_text_format, schema_for_pass
