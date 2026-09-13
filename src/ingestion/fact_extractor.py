@@ -14,7 +14,12 @@ import blake3
 from pydantic import BaseModel, Field
 
 from src.contracts.schema_validation import validate_many
-from src.ingestion.entity_extractor import UsageStats, _usage_dict_from_openai_response
+from src.ingestion.entity_extractor import (
+    UsageStats,
+    _experiment_request_kwargs,
+    _usage_dict_from_openai_response,
+)
+from src.ingestion.extraction_context import context_cache_suffix, prepend_document_context
 from src.llm.api_client import DungeonMindApiClient
 
 _PROMPT_ID = "phase_c_pass2_fact_extraction_v3_prompt_cache"
@@ -100,6 +105,12 @@ class ExtractedFact(BaseModel):
     value: FactValueOutput
 
 
+class PayloadLeanExtractedFact(BaseModel):
+    subject_entity_id: str
+    attribute: AttributeType
+    value: FactValueOutput
+
+
 class FactExtractionResult(BaseModel):
     facts: list[ExtractedFact] = Field(default_factory=list)
 
@@ -113,6 +124,59 @@ class UnitFactResult(BaseModel):
 
 class BatchedFactExtractionResult(BaseModel):
     results: list[UnitFactResult] = Field(default_factory=list)
+
+
+class PayloadLeanFactExtractionResult(BaseModel):
+    facts: list[PayloadLeanExtractedFact] = Field(default_factory=list)
+
+
+class PayloadLeanUnitFactResult(BaseModel):
+    unit_index: int = Field(ge=0)
+    facts: list[PayloadLeanExtractedFact] = Field(default_factory=list)
+
+
+class PayloadLeanBatchedFactExtractionResult(BaseModel):
+    results: list[PayloadLeanUnitFactResult] = Field(default_factory=list)
+
+
+def _payload_lean_enabled() -> bool:
+    return os.environ.get("DMB_FACT_EXTRACTION_CONTRACT", "").strip() == "payload_lean_v1"
+
+
+def _fact_text_format(*, batched: bool) -> type[BaseModel]:
+    if _payload_lean_enabled():
+        return PayloadLeanBatchedFactExtractionResult if batched else PayloadLeanFactExtractionResult
+    return BatchedFactExtractionResult if batched else FactExtractionResult
+
+
+def _standardize_fact_payload(parsed: Any, *, batched: bool) -> dict[str, Any]:
+    payload = parsed.model_dump() if isinstance(parsed, BaseModel) else parsed
+    if _payload_lean_enabled():
+        rows = payload.get("results", []) if batched else [payload]
+        for row in rows:
+            for fact in row.get("facts", []):
+                value = fact.get("value") or {}
+                label = (
+                    value.get("label", "")
+                    if isinstance(value, dict)
+                    else getattr(value, "label", "")
+                )
+                fact["fact_id"] = _compute_fact_id(
+                    str(fact.get("subject_entity_id", "")),
+                    str(fact.get("attribute", "")),
+                    str(label or ""),
+                )
+    model = BatchedFactExtractionResult if batched else FactExtractionResult
+    return model.model_validate(payload).model_dump()
+
+
+def _attach_usage(result: dict[str, Any], response: Any) -> dict[str, Any]:
+    usage = _usage_dict_from_openai_response(response)
+    usage["parsed_output_bytes"] = len(
+        json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    )
+    result["_usage"] = usage
+    return result
 
 
 class OpenAIResponsesFactClient:
@@ -149,17 +213,13 @@ class OpenAIResponsesFactClient:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            text_format=FactExtractionResult,
+            text_format=_fact_text_format(batched=False),
+            **_experiment_request_kwargs(),
         ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
-        if isinstance(parsed, FactExtractionResult):
-            result = parsed.model_dump()
-        else:
-            result = FactExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return _attach_usage(_standardize_fact_payload(parsed, batched=False), response)
 
     def extract_facts_batched(
         self,
@@ -176,17 +236,13 @@ class OpenAIResponsesFactClient:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            text_format=BatchedFactExtractionResult,
+            text_format=_fact_text_format(batched=True),
+            **_experiment_request_kwargs(),
         ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
-        if isinstance(parsed, BatchedFactExtractionResult):
-            result = parsed.model_dump()
-        else:
-            result = BatchedFactExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return _attach_usage(_standardize_fact_payload(parsed, batched=True), response)
 
 
 class AsyncOpenAIResponsesFactClient:
@@ -224,19 +280,14 @@ class AsyncOpenAIResponsesFactClient:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                text_format=FactExtractionResult,
-                **({"service_tier": "flex"} if os.environ.get("DMB_OPENAI_SERVICE_TIER") == "flex" else {}),
+                text_format=_fact_text_format(batched=False),
+                **_experiment_request_kwargs(),
             )
         ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
-        if isinstance(parsed, FactExtractionResult):
-            result = parsed.model_dump()
-        else:
-            result = FactExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return _attach_usage(_standardize_fact_payload(parsed, batched=False), response)
 
     async def extract_facts_batched(
         self,
@@ -254,19 +305,14 @@ class AsyncOpenAIResponsesFactClient:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                text_format=BatchedFactExtractionResult,
-                **({"service_tier": "flex"} if os.environ.get("DMB_OPENAI_SERVICE_TIER") == "flex" else {}),
+                text_format=_fact_text_format(batched=True),
+                **_experiment_request_kwargs(),
             )
         ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
-        if isinstance(parsed, BatchedFactExtractionResult):
-            result = parsed.model_dump()
-        else:
-            result = BatchedFactExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return _attach_usage(_standardize_fact_payload(parsed, batched=True), response)
 
     async def aclose(self) -> None:
         closer = getattr(self._client, "aclose", None)
@@ -531,7 +577,8 @@ def _resolve_subject_entity_id(
 
 def _cache_key(unit: dict[str, Any], model_id: str, entity_fp: str) -> str:
     text_fp = blake3.blake3(str(unit.get("text", "")).encode("utf-8")).hexdigest()
-    payload = f"{text_fp}|{_PROMPT_ID}|{model_id}|{entity_fp}"
+    contract = "payload_lean_v1" if _payload_lean_enabled() else "default"
+    payload = f"{text_fp}|{_PROMPT_ID}|{contract}|{model_id}|{entity_fp}|{context_cache_suffix()}"
     return blake3.blake3(payload.encode("utf-8")).hexdigest()
 
 
@@ -539,8 +586,30 @@ def _cache_path(cache_dir: Path, key: str) -> Path:
     return cache_dir / f"{key}.json"
 
 
-def _build_fact_system_prompt() -> str:
+def _build_fact_system_prompt(contract: str | None = None) -> str:
     """Static fact-extraction instructions; sized for OpenAI prefix caching."""
+    lean = contract == "payload_lean_v1" or (contract is None and _payload_lean_enabled())
+    payload_rule = (
+        "DECISIVE PAYLOAD RULE:\n"
+        "- When the source states the concrete result of a discovery, investigation, conclusion, "
+        "diagnosis, revelation, tactical observation, or active threat, preserve the answer itself.\n"
+        "- Do not replace a stated payload with the mere fact that learning, discovery, or danger occurred.\n"
+        "- Preserve direct source-supported operational truth such as an active siege, attack, or refugee "
+        "pressure rather than only nearby symptoms.\n"
+        "- Remain concise and do not infer an unstated payload.\n\n"
+        if lean
+        else ""
+    )
+    fact_id_guidance = (
+        ""
+        if lean
+        else (
+            "FACT ID HINTS:\n"
+            "Prefer fact_id shaped like 'fact_<entity_suffix>_<attribute>_<short_descriptor>' using stable slugs.\n\n"
+            "EXTRACTED FACT SCHEMA:\n"
+            "- fact_id: string, unique per fact.\n"
+        )
+    )
     return (
         "You are a fact extraction agent for a TTRPG worldbuilding system.\n\n"
         "TASK: For each entity listed in the user message, extract what the evidence unit text "
@@ -582,11 +651,10 @@ def _build_fact_system_prompt() -> str:
         "- normalized: machine-friendly snake_case slug (e.g. 'trade_hub:brewing:crafts'); null if N/A.\n"
         "- For entity_ref, entity_id must match a provided entity when possible.\n"
         "- For set, values must be distinct strings.\n\n"
-        "FACT ID HINTS:\n"
-        "Prefer fact_id shaped like 'fact_<entity_suffix>_<attribute>_<short_descriptor>' using stable slugs.\n\n"
-        "EXTRACTED FACT SCHEMA:\n"
-        "- fact_id: string, unique per fact.\n"
-        "- subject_entity_id: must equal an entity_id from the user list.\n"
+        + payload_rule
+        + ("EXTRACTED FACT SCHEMA:\n" if lean else "")
+        + fact_id_guidance
+        + "- subject_entity_id: must equal an entity_id from the user list.\n"
         "- attribute: one enum value above.\n"
         "- value: object with kind, label, normalized, optional entity_id, values, interpretation_level, strength.\n\n"
         "QUALITY BAR:\n"
@@ -672,7 +740,7 @@ def _build_batched_fact_user_prompt(
     joined = "\n\n".join(sections)
     n = len(units_with_entities)
     last = n - 1 if n else 0
-    return (
+    return prepend_document_context(
         "Process each evidence unit below. Return JSON with shape "
         '{"results": [{"unit_index": <int>, "facts": [...]}, ...]} only (no markdown fences). '
         "Include exactly one results entry per section. For each entry, unit_index must be the integer "
@@ -808,7 +876,7 @@ def _deduplicate_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(seen.values())
 
 
-def _pop_usage_from_fact_payload(payload: Any) -> tuple[dict[str, Any], dict[str, int]]:
+def _pop_usage_from_fact_payload(payload: Any) -> tuple[dict[str, Any], dict[str, Any]]:
     if not isinstance(payload, dict):
         raise TypeError("extract_facts payload must be a dict")
     raw = payload.pop("_usage", None) or {}
@@ -816,6 +884,8 @@ def _pop_usage_from_fact_payload(payload: Any) -> tuple[dict[str, Any], dict[str
         "input_tokens": int(raw.get("input_tokens", 0) or 0),
         "output_tokens": int(raw.get("output_tokens", 0) or 0),
         "cached_tokens": int(raw.get("cached_tokens", 0) or 0),
+        "reasoning_tokens": raw.get("reasoning_tokens"),
+        "parsed_output_bytes": int(raw.get("parsed_output_bytes", 0) or 0),
     }
     return payload, usage
 
@@ -898,13 +968,15 @@ async def extract_facts_batch(
 
     fact_system_prompt = _build_fact_system_prompt()
 
-    def _usage_for_call(udict: dict[str, int]) -> UsageStats:
+    def _usage_for_call(udict: dict[str, Any]) -> UsageStats:
         billed = openai_client is not None
         return UsageStats(
             input_tokens=udict.get("input_tokens", 0),
             output_tokens=udict.get("output_tokens", 0),
             cached_tokens=udict.get("cached_tokens", 0),
             api_calls=1 if billed else 0,
+            reasoning_tokens=udict.get("reasoning_tokens"),
+            parsed_output_bytes=udict.get("parsed_output_bytes", 0),
         )
 
     slot_results: list[FactExtractionResult | None] = [None] * len(evidence_units)

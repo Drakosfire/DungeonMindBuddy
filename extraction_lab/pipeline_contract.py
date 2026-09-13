@@ -43,6 +43,7 @@ def compute_pipeline_contract(
     batch_size: int | None = None,
     filter_version: str | None = None,
     pipeline_code_sha: str | None = None,
+    extraction_context_mode: str | None = None,
 ) -> dict[str, Any]:
     contract: dict[str, Any] = {
         "contract_version": 1,
@@ -67,6 +68,8 @@ def compute_pipeline_contract(
         contract["filter_version"] = filter_version
     if pipeline_code_sha:
         contract["pipeline_code_sha"] = pipeline_code_sha
+    if extraction_context_mode:
+        contract["extraction_context_mode"] = extraction_context_mode
     return contract
 
 

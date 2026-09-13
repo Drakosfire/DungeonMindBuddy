@@ -317,6 +317,15 @@ def _aggregate_batch_report(
     total_input = sum(_usage_int(mc, "input_tokens") for mc in llm_rows)
     total_output = sum(_usage_int(mc, "output_tokens") for mc in llm_rows)
     total_cached = sum(_usage_int(mc, "cached_tokens") for mc in llm_rows)
+    reasoning_values = [
+        (mc.get("usage") or {}).get("reasoning_tokens") for mc in llm_rows
+    ]
+    total_reasoning = (
+        sum(int(value) for value in reasoning_values)
+        if reasoning_values and all(value is not None for value in reasoning_values)
+        else None
+    )
+    parsed_output_bytes = sum(_usage_int(mc, "parsed_output_bytes") for mc in llm_rows)
     uncached_input = sum(
         max(0, _usage_int(mc, "input_tokens") - _usage_int(mc, "cached_tokens")) for mc in llm_rows
     )
@@ -444,7 +453,14 @@ def _aggregate_batch_report(
             "input_tokens": total_input,
             "output_tokens": total_output,
             "cached_tokens": total_cached,
+            "cached_input_tokens": total_cached,
+            "uncached_input_tokens": uncached_input,
             "cache_rate": round(cache_rate, 6),
+            "reasoning_tokens": total_reasoning,
+            "visible_output_tokens": (
+                total_output - total_reasoning if total_reasoning is not None else None
+            ),
+            "parsed_output_bytes": parsed_output_bytes,
         },
         "cost_estimate": {
             "model_name": model_name or "(unknown)",
@@ -557,6 +573,14 @@ def main() -> int:
     )
     parser.add_argument("--structured-generation-model", default="")
     parser.add_argument("--openai-service-tier", choices=["flex"], default=None)
+    parser.add_argument("--fact-contract", choices=["payload_lean_v1"], default=None)
+    parser.add_argument("--reasoning-effort", choices=["medium"], default=None)
+    parser.add_argument(
+        "--extraction-context-mode",
+        choices=["evidence_unit", "whole_document"],
+        default="evidence_unit",
+        help="Experiment-only model context; persisted evidence remains paragraph anchored.",
+    )
     parser.add_argument(
         "--normalize-legacy-frontmatter",
         action="store_true",
@@ -655,6 +679,9 @@ def main() -> int:
         "use_openai_batch_api": bool(args.use_batch_api),
         "service_tier": args.openai_service_tier or "standard",
         "normalize_legacy_frontmatter": bool(args.normalize_legacy_frontmatter),
+        "fact_contract": args.fact_contract or "default",
+        "reasoning_effort": args.reasoning_effort,
+        "extraction_context_mode": args.extraction_context_mode,
         "results": [],
     }
     decisions: list[dict[str, Any]] = []
@@ -665,6 +692,10 @@ def main() -> int:
     policy_restored = False
     original_model_override = os.environ.get("DMB_STRUCTURED_GENERATION_MODEL_OVERRIDE")
     original_service_tier = os.environ.get("DMB_OPENAI_SERVICE_TIER")
+    original_fact_contract = os.environ.get("DMB_FACT_EXTRACTION_CONTRACT")
+    original_reasoning_effort = os.environ.get("DMB_OPENAI_REASONING_EFFORT")
+    original_context_mode = os.environ.get("DMB_EXTRACTION_CONTEXT_MODE")
+    original_document_path = os.environ.get("DMB_EXTRACTION_DOCUMENT_PATH")
 
     with log_path.open("a", encoding="utf-8") as logf:
         logf.write(f"\n=== batch_ingest start {started} files={len(paths)} ===\n")
@@ -677,6 +708,11 @@ def main() -> int:
                 os.environ["DMB_STRUCTURED_GENERATION_MODEL_OVERRIDE"] = args.structured_generation_model
             if args.openai_service_tier:
                 os.environ["DMB_OPENAI_SERVICE_TIER"] = args.openai_service_tier
+            if args.fact_contract:
+                os.environ["DMB_FACT_EXTRACTION_CONTRACT"] = args.fact_contract
+            if args.reasoning_effort:
+                os.environ["DMB_OPENAI_REASONING_EFFORT"] = args.reasoning_effort
+            os.environ["DMB_EXTRACTION_CONTEXT_MODE"] = args.extraction_context_mode
             if policy_path.exists():
                 original_policy = _load_model_policy(policy_path)
             if args.enforce_cheap_pass and policy_path.exists():
@@ -724,6 +760,7 @@ def main() -> int:
                     continue
 
                 print(f"\n[{i}/{len(paths)}] ingest {rel}", flush=True)
+                os.environ["DMB_EXTRACTION_DOCUMENT_PATH"] = str(path.resolve())
                 facts_before = len(cli.store.facts)
                 entities_before = len(cli.store.entities)
                 evidence_before = len(cli.store.evidence_units)
@@ -814,7 +851,14 @@ def main() -> int:
             if original_policy is not None and policy_path.exists():
                 _save_model_policy(policy_path, original_policy)
                 policy_restored = True
-            for key, original in (("DMB_STRUCTURED_GENERATION_MODEL_OVERRIDE", original_model_override), ("DMB_OPENAI_SERVICE_TIER", original_service_tier)):
+            for key, original in (
+                ("DMB_STRUCTURED_GENERATION_MODEL_OVERRIDE", original_model_override),
+                ("DMB_OPENAI_SERVICE_TIER", original_service_tier),
+                ("DMB_FACT_EXTRACTION_CONTRACT", original_fact_contract),
+                ("DMB_OPENAI_REASONING_EFFORT", original_reasoning_effort),
+                ("DMB_EXTRACTION_CONTEXT_MODE", original_context_mode),
+                ("DMB_EXTRACTION_DOCUMENT_PATH", original_document_path),
+            ):
                 if original is None:
                     os.environ.pop(key, None)
                 else:
