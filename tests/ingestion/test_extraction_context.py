@@ -44,3 +44,16 @@ def test_whole_document_fails_closed_without_source_path(monkeypatch) -> None:
         assert "requires DMB_EXTRACTION_DOCUMENT_PATH" in str(exc)
     else:
         raise AssertionError("whole_document mode must fail closed without an exact source")
+
+
+def test_whole_document_accepts_legacy_frontmatter_but_keeps_exact_body(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "legacy.md"
+    source.write_text(
+        "---\ntitle: Legacy\nsubject_class: npc\n---\n# Body\n\nExact prose.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("DMB_EXTRACTION_CONTEXT_MODE", "whole_document")
+    monkeypatch.setenv("DMB_EXTRACTION_DOCUMENT_PATH", str(source))
+    assert active_document_context() == ("whole_document", "# Body\n\nExact prose.\n")

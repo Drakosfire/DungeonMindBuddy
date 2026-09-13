@@ -6,7 +6,21 @@ from pathlib import Path
 import blake3
 
 from src.ingestion.docx_converter import docx_to_markdown, markdown_passthrough
-from src.ingestion.frontmatter import parse_document_frontmatter
+from src.ingestion.frontmatter import FrontmatterValidationError, parse_document_frontmatter
+
+
+def _body_without_requiring_valid_metadata(markdown: str) -> str:
+    try:
+        metadata, body = parse_document_frontmatter(markdown)
+    except FrontmatterValidationError:
+        lines = markdown.splitlines(keepends=True)
+        if not lines or lines[0].strip() != "---":
+            raise
+        for index, line in enumerate(lines[1:], start=1):
+            if line.strip() == "---":
+                return "".join(lines[index + 1 :])
+        raise ValueError("unterminated legacy frontmatter") from None
+    return body if metadata is not None else markdown
 
 
 def active_document_context() -> tuple[str, str | None]:
@@ -22,8 +36,7 @@ def active_document_context() -> tuple[str, str | None]:
     if not path.is_file():
         raise ValueError(f"whole_document extraction context path is not a file: {path}")
     markdown = markdown_passthrough(path) if path.suffix.lower() == ".md" else docx_to_markdown(path)
-    metadata, body = parse_document_frontmatter(markdown)
-    return mode, body if metadata is not None else markdown
+    return mode, _body_without_requiring_valid_metadata(markdown)
 
 
 def context_cache_suffix() -> str:
