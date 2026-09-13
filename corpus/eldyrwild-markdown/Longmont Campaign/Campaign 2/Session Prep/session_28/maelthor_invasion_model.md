@@ -5,579 +5,637 @@ canon_layer: campaign
 campaign_id: longmont-c2
 temporal_scope: campaign_stateful
 session: 28
-origin_session: null
+origin_session: 0
 last_updated_session: 27
 source_class: planning_document
-table_note: "GM-only working synthesis. Separates table-established evidence from inference. Do not promote hypotheses to world canon without an explicit GM decision."
+table_note: "GM-only living synthesis. Separates played evidence, locked GM truth, inference, and open questions. Do not expose hidden Maelthor / Meat Mind truth as party knowledge until revealed in play."
 ---
 
 # Session 28 — Maelthor invasion model
 
 ## Purpose
 
-This is a **living GM planning document** for understanding the entity called **Maelthor**, the Shepherd / Shepherd's Flock phenomenon, and the flesh invasion as Campaign 2 moves into Session 28.
+This is the living GM model for **Maelthor**, **the Shepherd**, the Shepherd's Flock, the flesh corruption, and the Campaign 2 endgame.
 
-It is intentionally **not** a closed lore answer. The campaign has accumulated enough repeated behavior to support a coherent model, but several identity and cosmology questions remain deliberately unresolved.
+Use four labels:
 
-Use three confidence levels throughout:
-
-- **ESTABLISHED** — directly supported by played campaign material or already-authored world/campaign reference.
-- **INFERENCE** — a synthesis that explains multiple established observations, but has not been revealed as fact.
-- **OPEN** — undecided GM truth, contradictory source state, or a question the campaign has not answered.
+- **ESTABLISHED** — directly supported by played campaign material or existing reference material.
+- **GM LOCK** — campaign truth fixed during Session 28 planning, even if the players do not know it yet.
+- **INFERENCE** — a useful explanation that fits the evidence but is not fixed truth.
+- **OPEN** — intentionally undecided.
 
 ---
 
-## Critical player-knowledge boundary
+# 0. Critical player-knowledge boundary
 
-### Meat Mind
+## Meat Mind
 
 **GM term:** `Meat Mind`
 
-**ESTABLISHED GM state:** A large underlying intelligence / organism is now part of the GM model for the Mireward assault.
+**GM LOCK:** The Mireward assault is being coordinated by a large local flesh intelligence / cognitive structure that the GM currently calls a **Meat Mind**.
 
-**Player/party knowledge:** The party has **not** seen, identified, named, or become consciously aware of the Meat Mind.
+**Party knowledge:** The party has **not** seen, identified, named, or become consciously aware of the Meat Mind.
 
-**Bonogo continuity correction:** Bonogo does **not** remember seeing the thing. Do not treat any fleeting GM-side framing or prior planning description as character knowledge.
+**Bonogo continuity correction:** Bonogo does **not** remember seeing it. Do not convert GM framing from prior planning into character knowledge.
 
-This distinction matters. Session 28 may reveal evidence of coordination, intelligence, subterranean command, or a larger organism without requiring the party to begin with the answer.
-
----
-
-## Source state
-
-The normalized `main` corpus currently contains Campaign 2 session recaps through **Session 25**. Sessions **26–27** are part of the current live campaign context used during this planning session but are not yet represented as standalone recap files on `main`.
-
-Therefore:
-
-- claims from Sessions 1–25 can be linked directly to repository corpus sources;
-- Sessions 26–27 observations should be treated as **played table truth from the active planning context**, but their final repository provenance still needs to be committed/promoted;
-- this file should be updated with exact Session 26–27 source paths once those recaps are present in the corpus.
-
-This source gap should not be papered over by promoting planning inference as canon.
+The party may discover evidence of coordination before they understand its source.
 
 ---
 
-# 1. What the campaign establishes
+# 1. Source state
 
-## 1.1 The Shepherds' theology is not automatically cosmological truth
+The repository corpus on `main` currently contains standalone Campaign 2 recaps through **Session 25**. Sessions **26–27** are played table truth available in the active planning context, but their standalone recap provenance still needs to be committed to the corpus.
 
-**ESTABLISHED:** Early Shepherd material says the cult follows a mysterious entity called **Maelthor**. The cult believes Maelthor is a guardian of ancient otherworldly wisdom and power, promises ascension / transcendence, and can be resurrected or awakened through their work.
+The original swamp settlement still appears **unnamed** in the corpus. Existing material refers to a human swamp / fen settlement without providing a stable proper name. Leave it unnamed until deliberately authored.
 
-The same body of material ties the Shepherds to:
-
-- corrupted / twisted meat;
-- ritual sacrifice;
-- human-supremacist ideology;
-- physical and behavioral transformation;
-- a belief that humanity will become something greater.
-
-**Important:** These are **cult beliefs and explanations**. The campaign has never proven that Maelthor actually intends to reward humanity, that the cult understands the entity correctly, or even that its use of words like *ascension* describes the phenomenon accurately.
-
-Primary early source:
-
-- `Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md`
-
----
-
-## 1.2 Corruption operates through multiple channels
-
-**ESTABLISHED:** Maelthor / Shepherd-associated corruption is not limited to one spell, one creature type, or one transmission vector.
-
-Observed vectors include:
-
-- **consumption** of extraplanar / corrupted meat;
-- **music and repeated hymn structures**;
-- **psychic contact, dreams, voices, or compulsions**;
-- **physical exposure to corrupted flesh and ritual spaces**;
-- **transformation of already-living people into flesh entities**;
-- **cult ritual participation**;
-- possible **environmental / storm-linked exposure** (relationship not yet proven).
-
-Oily / glassy eyes recur as a visible sign of partial corruption or altered cognition.
-
-The important pattern is not simply infection. The corruption changes both **mind and body**, often while preserving enough cognition for subjects to walk, cooperate, sing, obey, conceal, or participate before total transformation.
-
----
-
-## 1.3 Music behaves like synchronization infrastructure
-
-**ESTABLISHED:** Shepherd music repeatedly accompanies mass charm, coordinated behavior, ritual action, altered consciousness, and movement toward cult objectives.
-
-Dustwalker is the clearest recurring interface:
-
-- performances can affect crowds;
-- Shepherd language and ritual phrases propagate through song;
-- music appears alongside meat, ritual transformation, and spatial / planar anomalies;
-- `Maelthor` has been used as ritual language / password material.
-
-**INFERENCE:** The music may do more than "charm" victims in the ordinary magical sense. It may synchronize attention, cognition, nervous systems, ritual timing, or participation in a larger distributed process.
-
-Relevant corpus anchors include:
-
-- `Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md`
-- `Elderwyld/Shephards Flock/NPCs/dustwalker/`
-- Campaign 2 session recaps covering Dustwalker / Crimson Chorus / barn incidents.
-
----
-
-## 1.4 Individual bodies are disposable or reproducible interfaces
-
-**ESTABLISHED:** Dustwalker cannot be understood as a normal singular mortal body.
-
-The campaign has observed him in apparently incompatible simultaneous states / locations, and multiple bodies resolve into the same corrupted meat residue when destroyed.
-
-The campaign ledger already records the working rule:
-
-> Dustwalker is an interface, not a man.
-
-**INFERENCE:** Whatever consciousness, instruction set, ritual identity, or external will produces Dustwalker can instantiate more than one usable body. Killing an instance therefore removes a local interface without necessarily harming the underlying source.
-
-Relevant references:
-
-- `Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_2.md`
-- `Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_Campaign2.md`
-- `Elderwyld/Shephards Flock/NPCs/dustwalker/`
-
----
-
-## 1.5 Flesh forms connected systems, not merely monsters
-
-**ESTABLISHED:** The Mirathorn flesh events demonstrate coordinated biological architecture.
-
-Observed characteristics include:
-
-- flesh spreading through spaces as structure;
-- tendrils physically connecting components;
-- central masses being restored or supported by connected parts;
-- cultists / victims becoming incorporated into larger bodies;
-- recognizable people persisting as components inside flesh structures;
-- smaller entities emerging from or participating in a shared organism;
-- vulnerable internal structures whose damage causes system-wide reactions.
-
-**Strong implication:** The flesh can operate as **networked tissue**. Individual monsters may be limbs, organs, temporary tools, or local embodiments of a larger system rather than independent organisms.
-
----
-
-## 1.6 The phenomenon favors transformation over conventional summoning
-
-**ESTABLISHED:** Much of what the party has fought did not simply step through a portal as a finished outsider.
-
-Humans transform.
-
-Bodies merge.
-
-Corrupted matter becomes active tissue.
-
-Architecture becomes biological.
-
-Existing living systems are repurposed.
-
-The campaign ledger explicitly notes a major distinction: flesh entities are often **contained / transformed rather than summoned**.
-
-This is one of the strongest constraints on how to imagine the invasion.
-
----
-
-## 1.7 The Shepherd may be distributed cognition
-
-**ESTABLISHED:** When questioned after death, Wolf described the Shepherd as effectively present **"everywhere" / "in all the minds of the people"** and described a future state in which people gather, erupt into something new, are consumed, and the Shepherd rises from below.
-
-At the time this could be read as cult prophecy.
-
-Later events make a more literal reading plausible.
-
-**INFERENCE:** The Shepherd may be:
-
-- a persona projected into corrupted minds;
-- a distributed intelligence emerging across corrupted minds;
-- Maelthor's cognition expressed through mortal neural tissue;
-- a separate intermediary intelligence;
-- a religious interpretation of collective psychic integration.
-
-Do **not** yet collapse `Maelthor` and `the Shepherd` into the same entity without a GM decision.
-
----
-
-## 1.8 Environmental corruption is suggestive but not proven
-
-**ESTABLISHED:** Strange magical storms recur through the campaign and are repeatedly experienced as wrong / evil. The migrating forest reacted negatively to abnormal "shiny rain." Later flesh-corruption events and altered behavior also occur against this broader environmental backdrop.
-
-**OPEN:** The campaign has not established that Maelthor causes the storms.
-
-Possible relationships include:
-
-- Maelthor causes them;
-- the storms weaken reality and Maelthor exploits them;
-- both are consequences of the same external instability;
-- the storms are unrelated but narratively adjacent;
-- the storms are a symptom of pressure on the Aspitome / boundary of reality.
-
-Keep this unresolved until deliberately answered.
-
----
-
-## 1.9 The Mireward assault is increasingly purposeful
-
-**ESTABLISHED through Sessions 25–27 live play:** The northern assault shows strategic behavior rather than random predation.
-
-Repeated behavior includes:
-
-- subterranean movement;
-- attacks on structural supports / siege defenses;
-- use of previously corrupted refugees as internal instability;
-- coordinated pressure at multiple points;
-- repeated attempts to **take Thrin rather than simply kill him**;
-- psychic contact involving Thrin;
-- a stated desire to **consume the walking forest**.
-
-**INFERENCE:** Mireward is not merely experiencing a wave of hungry aberrations. Something is selecting targets, adapting tactics, and pursuing information / biomass / capability with strategic intent.
-
----
-
-# 2. Identity questions that remain open
-
-Do not silently resolve any of these.
-
-## 2.1 Is Maelthor the ancient Other that consumed reality?
-
-**OPEN.**
-
-Elderwyld cosmology establishes an ancient catastrophe in which something beyond the known planes ultimately consumed gods, demons, devils, and most of reality.
-
-The campaign has **not** established that Maelthor is that same entity.
-
-Possible answers:
-
-- Maelthor **is** the ancient Other;
-- Maelthor is a fragment / child / organ / survivor of it;
-- Maelthor is another entity from the same exterior unreality;
-- Maelthor predates or survived the catastrophe independently;
-- Maelthor is something that evolved after reality contracted;
-- the similarity is misleading.
-
-This is a campaign-scale cosmological decision, not a Session 28 assumption.
-
-## 2.2 Is Maelthor the Shepherd?
-
-**OPEN.**
-
-Possible models:
-
-- same entity, different name;
-- Shepherd = projected persona of Maelthor;
-- Shepherd = mortal / former-mortal intermediary;
-- Shepherd = emergent hive personality;
-- Shepherd = cult-created interpretation of otherwise alien contact;
-- Shepherd = separate intelligence serving Maelthor.
-
-## 2.3 Is Maelthor a god, demon, aberration, organism, place, or process?
-
-**OPEN.**
-
-The existing ledger explicitly leaves entity classification unresolved.
-
-Avoid prematurely forcing Maelthor into ordinary D&D cosmology if the campaign evidence supports something stranger.
-
----
-
-# 3. Current working synthesis — incarnation through assimilation
-
-## Working thesis
-
-**INFERENCE:** Maelthor is not conducting a conventional invasion in which an external army crosses a boundary, conquers territory, and installs a ruler.
-
-A stronger model is:
-
-> **Maelthor must convert reality into a substrate in which Maelthor can exist.**
-
-Under this model, Maelthor does not simply enter Lundeyll.
-
-It makes parts of Lundeyll increasingly **compatible with itself**.
-
-### The flesh is therefore not merely an army
-
-It may be a form of **metaphysical terraforming**.
-
-Instead of changing oxygen, temperature, or chemistry, the process changes:
-
-- biology;
-- cognition;
-- identity boundaries;
-- magical structure;
-- spatial / planar stability;
-- relationships between individual organisms.
-
-### Interpreting existing phenomena under this model
-
-| Observed phenomenon | Possible functional role |
-|---|---|
-| Corrupted meat | Compatibility / conversion vector |
-| Oily or glassy eyes | Partial cognitive integration |
-| Shepherd hymns | Synchronization / command / network protocol |
-| Cult organization | Logistics, recruitment, willing hosts, concealment |
-| Fleshborn | Rewritten bodies suited to the new substrate |
-| Dustwalker | Reusable communication / ritual interface |
-| Dark seeds / internal nodes | Anchor, control, memory, or nervous-system structures |
-| Mirathorn flesh mass | Local organ / colony / processing structure |
-| Meat Mind | Local cognition / strategic brain for a mature flesh colony |
-| "Shepherd" | Possible personality formed or projected through connected minds |
-
-This table is **not canon**. It is a model to test against future play.
-
----
-
-# 4. What "ascension" may actually mean
-
-**INFERENCE:** The Shepherds may not be lying about transformation. They may be wrong about what is preserved.
-
-A corrupted person could experience:
-
-- shared minds;
-- loss of loneliness;
-- reduced fear of individual death;
-- continuity of memory after bodily destruction;
-- connection to a larger intelligence;
-- physical freedom from ordinary body boundaries;
-- overwhelming communion interpreted as divine presence.
-
-That could honestly feel like **transcendence**.
-
-The horror is that Maelthor's definition of continuity may not preserve the individual person in any meaningful sense.
-
-Possible thematic formulation:
-
-> The cult may be correct that humanity becomes something new. They are wrong about how much of humanity survives the becoming.
-
-This keeps the cult philosophically more interesting than "evil god lied to racists" while preserving the campaign's body-horror stakes.
-
----
-
-# 5. Why the migrating forest matters
-
-## Established observations
-
-**ESTABLISHED:** The migrating forest is already an enormous coordinated living system.
-
-It:
-
-- moves as a whole;
-- responds to environmental threats;
-- has unusual distributed ecological behavior;
-- supports / produces agents such as Thrin;
-- carries memory / witness concepts through Thrin and related forest structures;
-- has already reacted negatively to the strange rain / corruption environment.
-
-**ESTABLISHED through live Session 27 context:** Something wants Thrin and specifically wants to **consume the walking forest**.
-
-## Working interpretation
-
-**INFERENCE:** From Maelthor's perspective, the forest may not merely be biomass. It may be **architecture**.
-
-Maelthor's flesh repeatedly attempts to solve a problem of linking individual organisms into larger coordinated structures.
-
-The forest appears to have already solved a similar problem naturally or magically at enormous scale.
-
-Possible reasons Maelthor wants it:
-
-1. **Biomass** — simply enough living matter to accelerate incarnation.
-2. **Network architecture** — root / fungal / magical coordination mechanisms useful for scaling distributed flesh.
-3. **Memory** — the forest may retain observations, history, or environmental knowledge unavailable elsewhere.
-4. **Mobility** — a mature distributed organism capable of physically relocating at continental scale.
-5. **Reality adaptation** — the forest may possess mechanisms for surviving the unstable edge of reality.
-6. **Thrin's witness structure** — a small accessible sample of whatever makes the forest's distributed cognition / memory function.
-7. **Combination of the above.**
-
-This may explain why Thrin is repeatedly targeted for **capture** rather than simple destruction.
-
----
-
-# 6. The Meat Mind
-
-## GM-only working concept
-
-**INFERENCE / new Session 28 planning term:** A **Meat Mind** is a mature local cognitive organ within the broader flesh phenomenon.
-
-It should not necessarily be "Maelthor itself."
-
-Potential functions:
-
-- coordinate local flesh organisms;
-- process information gathered by corrupted people;
-- adapt tactics;
-- generate / direct psychic signals;
-- decide which biological structures to produce;
-- maintain a regional flesh network;
-- communicate with other Meat Minds or with an external Maelthor;
-- function as an increasingly independent local incarnation.
-
-### Important design question
-
-Does a Meat Mind have **selfhood**?
-
-Possibilities:
-
-- **Terminal:** no selfhood; merely a remote nervous ganglion for Maelthor.
-- **Shard:** contains a partial instance of Maelthor.
-- **Child:** begins as a node but develops a local personality.
-- **Consensus:** emerges from the minds it has absorbed.
-- **Interpreter:** translates an incomprehensible external intelligence into goals that local flesh can execute.
-
-This choice will strongly affect whether destroying one is equivalent to killing a monster, destroying infrastructure, amputating Maelthor, or killing a newly born intelligence.
-
-### Party-facing rule
-
-Until revealed in play, **Meat Mind is GM vocabulary only**.
-
-The party may observe consequences before understanding the cause:
-
-- coordinated retreats;
-- creatures changing tactics simultaneously;
-- psychic pulses;
-- multiple bodies reacting to one injury;
-- creatures prioritizing Thrin;
-- subterranean movement that implies command;
-- flesh responding as if a single organism were making decisions.
-
----
-
-# 7. Working hierarchy of Maelthor's goals
-
-This is currently the strongest useful model, not established truth.
-
-## Immediate goals
-
-- acquire biomass;
-- acquire minds / information;
-- preserve and expand local corruption networks;
-- prevent useful resistance from stabilizing;
-- capture unusual biological / magical systems such as Thrin;
-- establish or protect Meat Mind-level cognition.
-
-## Regional goals
-
-- create stable flesh colonies able to operate without constant cult mediation;
-- convert roads, settlements, underground routes, food systems, populations, and terrain into connected infrastructure;
-- discover and assimilate systems that improve scale or resilience;
-- potentially consume / copy the migrating forest.
-
-## Strategic goals
-
-- create enough compatible matter, minds, and magical structure that Maelthor can sustain increasingly complete local incarnation;
-- reduce dependence on portals, individual cultists, or singular avatars;
-- turn isolated local nodes into a resilient distributed network.
-
-## Ultimate goal
-
-**Working thesis:**
-
-> Make Lundeyll capable of being Maelthor.
-
-Under this model, "Maelthor's return" is not necessarily a single monster arriving through a final portal.
-
-The successful end state may be one in which enough of reality has been assimilated that asking **"Where is Maelthor?"** no longer has a meaningful local answer.
-
-The answer would be: **everywhere the network has become itself.**
-
----
-
-# 8. The missing piece — what constrains Maelthor?
-
-This is probably the next major GM decision because it determines why the invasion has unfolded gradually rather than succeeding already.
-
-## Open constraint candidates
-
-### A. Aspitome incompatibility
-
-The Aspitome stabilizes Lundeyll in a form fundamentally hostile or incompatible with Maelthor. Maelthor must locally rewrite reality before it can persist.
-
-### B. Distance / boundary attenuation
-
-Maelthor exists beyond or outside stabilized reality and can only exert weak influence across the boundary until local anchors become strong enough.
-
-### C. Lack of biological cognition
-
-Maelthor may have enormous power but require mortal / biological nervous systems to perceive, think, or act meaningfully inside Lundeyll.
-
-### D. Lack of stable biomass
-
-The entity may need sufficient converted living material before it can maintain larger structures or consciousness.
-
-### E. Ancient containment
-
-Something in the world — Aspitome, Nameless Goddess, pre-Aspitome wards, old towers, forgotten gods, or another surviving system — may actively constrain it.
-
-### F. The Fen is a breach condition
-
-The northern swamp may contain a specific weakness, scar, ruin, ancient rift, or reality condition that gives Maelthor its best foothold.
-
-### G. Competing external forces
-
-Maelthor may not be alone outside reality. Expansion may expose it to rivals, predators, or unstable conditions that limit direct action.
-
-### H. It is still learning how Lundeyll works
-
-The invasion may genuinely be experimental. Cultists, meat, Dustwalker, Mirathorn masses, and now Meat Minds could represent iterative solutions rather than a fully understood plan.
-
-These are not mutually exclusive.
-
----
-
-# 9. Session 28 questions this model should help answer
-
-Do not answer these automatically. Use them to drive prep.
-
-1. What does the Mireward Meat Mind want **right now**?
-2. Why is Thrin valuable enough to repeatedly capture rather than kill?
-3. What information can the Meat Mind plausibly possess about the migrating forest?
-4. Is the Mireward operation controlled from the swamp, locally autonomous, or both?
-5. What would cause the Meat Mind to retreat, sacrifice troops, or abandon Mireward?
-6. What does destroying a local flesh node actually accomplish?
-7. What evidence can the party discover that suggests coordinated intelligence without revealing the whole answer?
-8. What does the Shepherd's Flock understand correctly about Maelthor, and what have they disastrously misinterpreted?
-9. What prevents Maelthor from converting everything immediately?
-10. Is "consume the forest" hunger, strategy, reproduction, learning, or incarnation?
-
----
-
-# 10. Continuity / terminology guardrails
-
-- Spell the entity **Maelthor** unless a deliberate alias / pronunciation variant is authored.
-- Do not assume **Maelthor = Shepherd**.
-- Do not assume **Maelthor = the ancient Other that consumed reality**.
-- Do not describe the Meat Mind as something the party has seen or named.
-- Bonogo does **not** remember seeing the Meat Mind.
-- Do not automatically treat the cult's promises of ascension as objective truth.
-- Prefer transformation / assimilation explanations where they fit observed behavior; conventional summoning should require specific evidence.
-- Keep storms linked only as a **possible** part of the phenomenon until causality is authored.
-- Session 26–27 evidence is valid live campaign context but needs repository source promotion.
-
----
-
-# 11. Repository references to revisit
-
-Current high-value corpus sources:
+Important high-value source anchors include:
 
 - `Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md`
 - `Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_2.md`
 - `Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_Campaign2.md`
-- `Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md`
 - `Elderwyld/Shephards Flock/The cult of the Great  Shephard.md`
 - `Elderwyld/Shephards Flock/NPCs/dustwalker/`
 - `Elderwyld/Migrating Forest/`
-- `Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md`
-- `Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md`
-- `Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md`
-- `Longmont Campaign/Campaign 2/Session Recaps/Session 25 - Mireward Gate Battle II.md`
+- Campaign 2 recaps 17–25
+- live Session 26–27 context pending corpus promotion
 
-TODO after recap promotion:
+---
 
-- add exact Session 26 recap path;
-- add exact Session 27 recap path;
-- annotate the Thrin capture / walking-forest statements with precise source anchors;
-- decide whether the Meat Mind eventually deserves a world-reference object or remains GM planning until discovered.
+# 2. The campaign began with the consequences of Maelthor
+
+## Session 0 / character-origin spine
+
+**GM LOCK:** The Maelthor story predates the first played adventure.
+
+At campaign creation, **three player characters already carried versions of the same fantasy trope**:
+
+> Someone razed my town; now I have to find my way through what remains.
+
+The campaign did not initially frame those losses as pieces of one alien expansion process. In hindsight, they are among the earliest visible consequences of Maelthor's growth beyond the swamp settlement.
+
+The exact three PC backstory mappings should be recovered from the original character material before this becomes a more specific continuity statement. Do not invent which three in this file without source confirmation.
+
+This matters structurally: the campaign has always been downstream of Maelthor, even before the party knew the name.
+
+---
+
+# 3. Maelthor — core GM truth
+
+## 3.1 What Maelthor is like
+
+**GM LOCK:** Maelthor is profoundly **alien**.
+
+It should not be modeled primarily as a demon lord, political conqueror, racist god, or human-style mastermind.
+
+Its behavior is closer to:
+
+- a virus;
+- an invasive organism;
+- a spreading biological process;
+- an alien ecology learning how to survive in a new substrate;
+- a distributed intelligence whose most basic imperative is **grow, incorporate, adapt, continue**.
+
+From the perspective of people in Elderwyld, Maelthor is unquestionably horrific and evil in effect. It destroys autonomy, bodies, communities, and ecosystems.
+
+But **GM LOCK:** Maelthor does not need to understand itself as evil. It is not motivated by hatred of dwarves, elves, goblins, humans, or civilization. It is **growing**.
+
+That distinction should remain visible in its behavior.
+
+## 3.2 Human supremacy is not Maelthor's native ideology
+
+**GM LOCK:** The racist / human-supremacist ideology of the Shepherd's Flock is a **human interpretive and organizational layer**, not Maelthor's fundamental worldview.
+
+Maelthor learned humanity through humans.
+
+The Shepherd and the first converted settlement supplied concepts Maelthor could use:
+
+- in-group / out-group;
+- authority;
+- obedience;
+- grievance;
+- conversion;
+- purity;
+- hierarchy;
+- religious devotion;
+- organized violence.
+
+The resulting cult therefore looks ideological from the outside even though the deeper process is biological / psychic assimilation.
+
+This also leaves room for human prejudice to genuinely contaminate or steer the larger Maelthor intelligence rather than merely being a disguise invented by it.
+
+---
+
+# 4. The Shepherd — first human bridge to Maelthor
+
+## 4.1 First contact
+
+**GM LOCK:** The original Shepherd was a **human from the swamp settlement**.
+
+At some undefined point before the campaign, the person who became the Shepherd encountered or connected with Maelthor.
+
+Do **not** define yet:
+
+- the Shepherd's original name;
+- the exact date;
+- whether first contact was accidental or sought;
+- the exact ritual / location / object involved;
+- what Maelthor initially looked or felt like;
+- whether either side understood the contact.
+
+The important truth is simply:
+
+> A human mind touched Maelthor, and the relationship persisted.
+
+## 4.2 The first cultist was a process, not an instant conversion
+
+**GM LOCK:** The Shepherd did not become a fully formed cult leader in one moment.
+
+The transformation was **slow**.
+
+Over an undefined period:
+
+1. The Shepherd made contact with Maelthor.
+2. Maelthor learned through that human mind.
+3. The Shepherd changed physically, psychologically, spiritually, or all three.
+4. The Shepherd became the first true cultist / intermediary.
+5. Other humans in the settlement were exposed and converted.
+6. Maelthor learned how to manipulate, organize, transform, and consume human beings at larger scale.
+
+This is the original answer to **why Maelthor was slow**.
+
+It was not merely waiting behind a magical hit-point barrier.
+
+It was **learning how to be here**.
+
+---
+
+# 5. The unnamed human swamp settlement — first successful colony
+
+## 5.1 Conversion of the settlement
+
+**GM LOCK:** Over time the Shepherd converted the entire human swamp settlement.
+
+From outside, this increasingly looked like an isolated, xenophobic, racist human cult.
+
+Inside, something more fundamental was happening:
+
+> The settlement was Maelthor's first large-scale laboratory for learning how human bodies, minds, relationships, beliefs, and social structures could be converted into usable substrate.
+
+The people did not merely become worshippers. The community itself became part of the experiment.
+
+Possible stages include, without requiring exact chronology yet:
+
+- shared dreams / voices;
+- altered diet and corrupted meat;
+- social isolation;
+- intensified human-supremacist doctrine;
+- ritualized obedience;
+- physical mutation;
+- increasingly collective thought;
+- conversion of homes / cellars / wells / tunnels into flesh infrastructure;
+- eventual collapse of the distinction between settlement and organism.
+
+## 5.2 Why no one stopped it
+
+**GM LOCK:** The settlement became so aggressively human-supremacist and hostile to outsiders that **people largely stopped visiting**.
+
+That social isolation concealed the biological transformation.
+
+From the outside, the settlement could be dismissed as:
+
+- unpleasant racists;
+- an insular swamp cult;
+- dangerous zealots best avoided;
+- somebody else's problem.
+
+This becomes an important campaign tragedy: prejudice and isolation created a believable explanation for why nobody looked closely while the settlement ceased to be a normal town.
+
+## 5.3 Current state
+
+**GM LOCK:** The original settlement is now effectively gone.
+
+In its place is a **biological-horror / Lovecraftian dungeon**: a settlement transformed into flesh architecture, tunnels, pits, organs, organisms, cult remnants, and Maelthor-grown structures.
+
+The surface may still preserve enough settlement geometry to make the transformation legible and upsetting: streets that became channels, houses swallowed by tissue, a meeting hall turned organ chamber, wells becoming throats, foundations incorporated into ribs or cartilage.
+
+Deeper down it becomes less recognizable as human construction at all.
+
+---
+
+# 6. Early outward expansion — the razed towns
+
+**GM LOCK:** The razing of surrounding towns was not originally a sophisticated territorial war plan.
+
+It was closer to **mindless or semi-directed exploration of additional resources**.
+
+Maelthor, mediated through the Shepherd and the converted settlement, was testing:
+
+- new bodies;
+- new populations;
+- new species;
+- new environments;
+- new biomass;
+- new magical conditions;
+- new ways of spreading influence.
+
+The Shepherd's human ideology shaped *who* was targeted and how the violence was rationalized, but the deeper Maelthor impulse was exploratory consumption and growth.
+
+Those attacks produced the campaign's Session 0 refugee / survivor backstories.
+
+## 6.1 Growth and consolidation
+
+**GM LOCK:** Once those settlements were razed and resources acquired, Maelthor had enough material and experience to **grow and consolidate**.
+
+The expansion therefore moves through phases rather than constant outward conquest:
+
+1. contact;
+2. learning;
+3. conversion;
+4. experimentation;
+5. resource acquisition;
+6. consolidation;
+7. more capable outward growth.
+
+This viral / ecological rhythm explains apparent pauses without requiring Maelthor to be inactive.
+
+---
+
+# 7. The campaign's observed mechanisms
+
+These remain important evidence for the model.
+
+## 7.1 Corrupted meat
+
+**ESTABLISHED:** Corrupted / extraplanar meat changes bodies and minds.
+
+**GM LOCK:** The meat is materially connected to Maelthor's breach into this plane. It is not just magically tainted local livestock.
+
+The meat is part of Maelthor's method for putting **foreign biological reality into local bodies**.
+
+## 7.2 Music and cognition
+
+**ESTABLISHED:** Shepherd music repeatedly accompanies mass charm, coordinated behavior, ritual action, altered consciousness, and movement toward cult goals.
+
+**INFERENCE:** Music is likely a synchronization mechanism — a way to align minds, bodies, ritual timing, or network participation.
+
+## 7.3 Oily / glassy eyes
+
+**ESTABLISHED:** Oily / glassy eyes recur as a sign of altered cognition and corruption.
+
+**INFERENCE:** They mark partial integration into Maelthor's psychic / biological network rather than a single disease stage with a fixed timer.
+
+## 7.4 Flesh architecture
+
+**ESTABLISHED:** Flesh can form connected systems rather than only individual monsters. Cultists and victims can be incorporated into larger structures; tendrils connect components; damage to internal nodes can propagate through the whole.
+
+**GM LOCK:** This is the terrestrial expression of Maelthor learning to create **living infrastructure** inside Elderwyld.
+
+## 7.5 Dustwalker and reusable bodies
+
+**ESTABLISHED:** Dustwalker behaves as a reproducible / distributed interface rather than a singular mortal body.
+
+**INFERENCE:** He is one of Maelthor's successful experiments in creating reusable local communication / ritual avatars.
+
+---
+
+# 8. Campaign 1 — the Mirathorn assault
+
+## 8.1 The Shepherd shaped the attack
+
+**GM LOCK:** The assault on Mirathorn at the end of Campaign 1 was meaningfully shaped by **the Shepherd's influence on the Maelthor mind**.
+
+This was not simply Maelthor following a neutral biological gradient toward food.
+
+The human intermediary had become influential enough that human ideology, resentment, strategy, and desire could steer the larger organism toward a civic target.
+
+This is an important precedent:
+
+> Maelthor changes the humans it consumes, but the consumed humans can also change Maelthor.
+
+That makes assimilation two-directional in information even when it is catastrophically unequal in power.
+
+## 8.2 The avatar
+
+**GM LOCK:** The Mirathorn campaign culminated in the successful creation / emergence of a Maelthor-linked **avatar**.
+
+The process was interrupted before it could mature properly.
+
+The resulting avatar was therefore weak enough for the party to kill.
+
+**Important:** Killing that avatar did **not** kill Maelthor.
+
+It destroyed a local incarnation produced by the Mirathorn operation.
+
+The Campaign 1 victory was real: the party prevented a much stronger incarnation and disrupted that expansion front. But the underlying colony and breach remained.
+
+---
+
+# 9. Campaign 2 — from cult operation to biological invasion
+
+Campaign 2 increasingly reveals the deeper system that Campaign 1 could still plausibly interpret as "a racist cult with eldritch magic."
+
+The progression includes:
+
+- corrupted meat pipelines;
+- distributed / reproducible agents such as Dustwalker;
+- Fleshborn transformations;
+- connected meat architecture;
+- psychic influence;
+- storms and environmental effects;
+- refugee infection;
+- subterranean siege organisms;
+- increasingly coordinated local flesh behavior;
+- the emerging **Meat Mind** concept;
+- strategic interest in Thrin and the migrating forest.
+
+The cult has not disappeared, but it is no longer sufficient as the explanation.
+
+**GM LOCK:** The party is moving closer to seeing the underlying ecology / intelligence rather than only its human religious interface.
+
+---
+
+# 10. Terraforming / substrate conversion
+
+## Working model
+
+**GM LOCK at campaign-direction level:** `terraforming` is the right conceptual model, even if that word never appears in-world.
+
+Maelthor is converting pieces of Elderwyld into conditions in which more Maelthor can exist.
+
+This includes conversion of:
+
+- flesh;
+- minds;
+- social structures;
+- food systems;
+- architecture;
+- underground space;
+- weather / atmosphere;
+- magic;
+- eventually whole ecosystems.
+
+The goal is not necessarily to replace every object with literal meat. The deeper goal is **compatibility**.
+
+A place is successfully terraformed when Maelthor can grow, perceive, coordinate, reproduce, and exert influence there with less dependence on the original human cult machinery.
+
+### Useful functional model
+
+| Phenomenon | Function in the growth system |
+|---|---|
+| Shepherd | First human bridge / teacher / vector |
+| Cult | Social replication and logistics |
+| Racist ideology | Human organizational shell; Shepherd-derived targeting logic |
+| Corrupted meat | Biological conversion vector and imported substrate |
+| Songs / hymns | Synchronization and cognitive coordination |
+| Glassy eyes | Partial psychic / biological integration |
+| Fleshborn | Converted mobile bodies |
+| Dustwalker | Reusable local interface / ritual vector |
+| Flesh masses | Local biological infrastructure |
+| Meat Mind | Local cognition / adaptive coordination |
+| Storm effects | Environmental influence made possible through the breach |
+| Rifts / breach | Direct contact with Maelthor's outside reality |
+
+---
+
+# 11. The breach beneath the original settlement
+
+## 11.1 The hole
+
+**GM LOCK:** Deep beneath the transformed human settlement, Maelthor has managed to **rip a hole into this plane / stabilized reality**.
+
+This is the deepest physical truth of the current infection.
+
+Maelthor has not crossed through bodily in full.
+
+But it has gotten **tentacles / portions of itself** through the breach.
+
+The breach is therefore simultaneously:
+
+- wound;
+- portal;
+- root;
+- feeding tube;
+- sensory connection;
+- source of foreign biomass;
+- point of environmental influence.
+
+## 11.2 Source of the meat
+
+**GM LOCK:** The breach is where the campaign's corrupted meat ultimately comes from.
+
+Some local flesh may be grown from converted Elderwyld organisms, but the infection has access to genuinely foreign Maelthor matter through this opening.
+
+That gives the repeated statement that the meat is "from another plane" a literal physical basis.
+
+## 11.3 Weather influence
+
+**GM LOCK:** The breach is also how Maelthor has become able to affect the weather.
+
+The magical storms are therefore part of the invasion ecology rather than an unrelated phenomenon.
+
+The exact mechanism can remain undefined for now. Possibilities include:
+
+- alien atmospheric leakage;
+- magic / pressure gradients around the wound in reality;
+- Maelthor deliberately extending sensory / conversion influence through rain;
+- the local plane reacting defensively or chaotically to the breach.
+
+The causal link is fixed; the pseudo-physics are not.
+
+## 11.4 Why the process remains incremental
+
+The key constraint is now less "Maelthor lacks enough magical power" and more:
+
+> **Maelthor entered this reality through an extremely narrow channel and had to learn, through living hosts, how to build itself outward from that foothold.**
+
+The breach expands its possibilities, but local adaptation remains necessary.
+
+Maelthor is more dangerous now because it has had years of data, biomass, converted minds, social experimentation, and multiple generations of biological tools.
+
+---
+
+# 12. The migrating forest
+
+**ESTABLISHED:** The migrating forest is already an enormous coordinated living system that moves, responds to threats, maintains unusual ecological organization, and produces / supports agents such as Thrin.
+
+**ESTABLISHED from live Session 27 context:** Something wants Thrin and wants to **consume the walking forest**.
+
+**INFERENCE:** Maelthor may recognize the forest as far more than food.
+
+The forest is a ready-made solution to problems Maelthor has been solving experimentally:
+
+- distributed living coordination;
+- enormous biomass;
+- memory across a nonhuman network;
+- mobility;
+- environmental sensing;
+- survival near unstable reality;
+- coordination without ordinary centralized anatomy.
+
+Thrin may be valuable as a sample, interface, memory carrier, or key to understanding that system.
+
+Do not reduce Maelthor's interest to a single answer yet. `Consume` can simultaneously mean **eat, learn, copy, incorporate, and become**.
+
+---
+
+# 13. The Meat Mind
+
+## GM-only working concept
+
+**GM LOCK:** A Meat Mind is currently the best model for a **local cognitive organ** of a mature Maelthor flesh colony.
+
+It is not necessarily Maelthor itself.
+
+Likely functions:
+
+- coordinate local organisms;
+- absorb and process information;
+- adapt tactics;
+- issue psychic signals;
+- decide what biological tools to grow;
+- maintain a regional network;
+- communicate toward the deeper colony / breach;
+- translate Maelthor's alien growth imperative into locally useful action.
+
+### OPEN: degree of selfhood
+
+Possible models remain:
+
+- remote ganglion;
+- partial shard of Maelthor;
+- emergent child intelligence;
+- consensus of absorbed minds;
+- interpreter between Maelthor and local reality.
+
+Do not lock this simply because `Meat Mind` is a convenient GM term.
+
+---
+
+# 14. Campaign 2 endgame direction
+
+**GM LOCK:** Campaign 2 is approaching its culmination in a **dungeon dive into the original human swamp settlement**.
+
+The dungeon should reveal the history spatially rather than through one exposition dump.
+
+The party descends through layers of the infection until they reach the **heart of the colony / breach zone deep beneath the former settlement**.
+
+Somewhere below is the hole Maelthor has ripped into reality, with parts of the alien entity physically intruding into Elderwyld.
+
+This is the source region for:
+
+- the imported meat;
+- the deepest flesh growth;
+- the strongest psychic influence;
+- the environmental / weather corruption;
+- the oldest converted human settlement;
+- the clearest evidence of the Shepherd's long relationship with Maelthor.
+
+### Dungeon history as geography
+
+A strong organizing principle is that deeper levels correspond to earlier and more complete stages of conversion:
+
+1. **Abandoned racist settlement shell** — recognizable streets / buildings, signs outsiders simply stopped coming.
+2. **Cult settlement** — shrines, communal spaces, indoctrination, human ideology still legible.
+3. **Conversion zone** — homes and people becoming biological infrastructure.
+4. **Mature flesh colony** — human architecture losing relevance.
+5. **Old growth / original experiments** — strange obsolete forms from Maelthor learning how humans work.
+6. **Shepherd contact region** — traces of the first sustained connection.
+7. **Breach / heart** — alien matter entering directly through the wound in reality.
+
+This is a planning structure, not a fixed room list.
+
+---
+
+# 15. Campaign-scale causal spine
+
+Current GM truth in chronological form:
+
+1. **A human in an unnamed swamp settlement encounters Maelthor.**
+2. The connection persists and slowly changes both the human and Maelthor's understanding of humanity.
+3. That human becomes **the Shepherd**, the first cultist / intermediary.
+4. The Shepherd converts the settlement.
+5. Maelthor learns how to infect, consume, organize, and transform humans at community scale.
+6. The settlement's increasing racism and isolation cause outsiders to avoid it, hiding the deeper transformation.
+7. The colony begins exploring outward, razing settlements and acquiring new biological / magical resources.
+8. Those attacks create the survivor histories present in the party from Session 0.
+9. Maelthor grows and consolidates rather than simply expanding continuously.
+10. The Shepherd's human desires increasingly influence the alien network.
+11. That influence helps drive the **Campaign 1 assault on Mirathorn**.
+12. The cult successfully creates a Maelthor avatar, but the party interrupts the process and kills the weakened incarnation.
+13. Maelthor survives and continues learning / growing through the original colony and its expanding biological network.
+14. Campaign 2 exposes more of the underlying flesh ecology: meat pipelines, transformations, distributed bodies, connected architecture, psychic systems, and strategic organisms.
+15. The breach beneath the original settlement allows foreign meat / tentacles into Elderwyld and enables increasing environmental effects, including the storms.
+16. Maelthor now encounters the migrating forest, an enormous pre-existing distributed living system, and becomes interested in consuming / learning / incorporating it.
+17. Mireward becomes the current clash point, with a local Meat Mind coordinating a sophisticated siege and repeated attempts to take Thrin.
+18. The campaign is moving toward the original settlement and ultimately the breach beneath it.
+
+---
+
+# 16. Open GM questions worth preserving
+
+These are now the useful unknowns, rather than re-opening truths fixed above.
+
+## Shepherd
+
+- What was the Shepherd's original name?
+- Is the original human consciousness still meaningfully present?
+- Is the Shepherd alive, absorbed, distributed, or transformed into a special organ / avatar?
+- How much of Maelthor's present behavior still carries the Shepherd's human prejudices?
+- Could other absorbed minds eventually influence Maelthor in comparable ways?
+
+## First contact
+
+- What did the Shepherd actually encounter?
+- Why was contact possible at that specific place?
+- Did the breach already exist in microscopic / unstable form, or did the long relationship eventually create it?
+- Was contact accident, curiosity, desperation, worship, or something else?
+
+## Meat Minds
+
+- How autonomous are they?
+- Can they disagree with each other?
+- Do they inherit personalities / biases from consumed minds?
+- Does killing one teach Maelthor anything?
+- Can a Meat Mind survive being disconnected from the deeper network?
+
+## Breach
+
+- What happens if the party closes it?
+- Does closure kill only imported Maelthor tissue, or starve every local colony?
+- Can Maelthor reopen it elsewhere after learning how?
+- Is the Aspitome actively resisting the hole?
+- Is the breach growing because Maelthor pushes, because Elderwyld's edge is unstable, or both?
+
+## Endgame
+
+- What exactly constitutes victory at the end of Campaign 2?
+- Close the hole?
+- Destroy the oldest colony?
+- Sever the Shepherd / Maelthor bridge?
+- Prevent assimilation of the migrating forest?
+- Some combination?
+
+---
+
+# 17. Continuity / terminology guardrails
+
+- Spell the entity **Maelthor** unless deliberately authoring an alias.
+- **Maelthor and the Shepherd are distinct:** Maelthor is the alien entity; the Shepherd is the first human intermediary / cultist.
+- Human supremacy belongs primarily to the **human Shepherd/cult layer**, not Maelthor's native motivations.
+- Maelthor is alien and viral / ecological in behavior: **growth, incorporation, adaptation**.
+- The original human swamp settlement is currently **unnamed**.
+- The settlement is now a mature flesh-horror dungeon / colony.
+- A direct breach exists deep beneath it; Maelthor has physical portions / tentacles through the hole.
+- The breach is the ultimate source of imported meat and enables Maelthor's weather effects.
+- The Campaign 1 Mirathorn avatar was a **local incarnation**, not Maelthor's whole being.
+- The Mirathorn attack was materially shaped by the Shepherd's influence on the larger Maelthor network.
+- The party has **not** identified or seen the Meat Mind.
+- Bonogo does **not** remember seeing the Meat Mind.
+- `terraforming` is useful GM vocabulary for substrate conversion; it need not be an in-world term.
+- Session 26–27 play evidence still needs exact repository recap provenance.
 
 ---
 
 ## Current planning thesis in one paragraph
 
-Maelthor may be best understood not as a conventional extraplanar conqueror but as an intelligence that cannot yet fully exist inside Lundeyll and therefore converts living matter, minds, magic, and eventually environments into compatible substrate. Corrupted meat, songs, glassy eyes, Fleshborn, reusable avatars, connected flesh architecture, and emerging Meat Minds can all be interpreted as parts of that conversion process. The Shepherds call the outcome ascension; the more disturbing possibility is that they are witnessing real continuity and communion while misunderstanding what happens to individual identity. The migrating forest is strategically important because it is already an enormous distributed living system, making Thrin and his witness-memory connection potentially valuable as both information and architecture. The next major unresolved question is **what constrains Maelthor enough that this conversion must proceed incrementally at all**.
+Maelthor is an alien, virus-like intelligence whose fundamental behavior is growth rather than human-style conquest. Its foothold in Elderwyld began when a human in an isolated swamp settlement made sustained contact with it. Through that person—the first Shepherd—Maelthor slowly learned human bodies, minds, beliefs, hierarchy, prejudice, and organization, eventually converting the entire settlement into its first mature colony. The Shepherd's human supremacy became an ideological shell around a deeper process of assimilation and sometimes steered the larger Maelthor network, most dramatically in the failed Campaign 1 assault on Mirathorn and its interrupted avatar. Beneath the original settlement, Maelthor has since torn a physical breach into reality, pushed portions of itself through, imported the flesh that seeds the infection, and gained enough purchase to influence the weather. Its expansion is best understood as biological and metaphysical terraforming: converting local reality into substrate in which more Maelthor can live. Campaign 2 is moving toward a descent through the remains of that first settlement and ultimately to the breach at the heart of the infection.
