@@ -35,6 +35,17 @@ def test_contracts_equal_detects_required_field_change() -> None:
     assert not contracts_equal(baseline, changed)
 
 
+def test_pipeline_contract_records_extraction_context_mode() -> None:
+    contract = compute_pipeline_contract(
+        store_sha256="store123",
+        corpus_source_sha256="source123",
+        entity_model="gpt-5.6-luna",
+        fact_model="gpt-5.6-luna",
+        extraction_context_mode="whole_document",
+    )
+    assert contract["extraction_context_mode"] == "whole_document"
+
+
 def test_hash_fields_are_hex_and_non_empty() -> None:
     taxonomy_hash = compute_taxonomy_hash()
     blocklist_hash = compute_heuristic_blocklist_hash()

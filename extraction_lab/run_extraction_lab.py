@@ -132,6 +132,7 @@ def run_extraction_lab(
     filter_version: str | None = None,
     pipeline_code_sha: str | None = None,
     corpus_source_root: Path | None = None,
+    extraction_context_mode: str | None = None,
 ) -> Path:
     started_at = _utc_now_iso()
     entities, facts = _load_store_payloads(store_path)
@@ -150,6 +151,7 @@ def run_extraction_lab(
         batch_size=batch_size,
         filter_version=filter_version,
         pipeline_code_sha=pipeline_code_sha,
+        extraction_context_mode=extraction_context_mode,
     )
 
     all_entity_anchors = load_entity_anchors(entity_anchor_path)
@@ -216,6 +218,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--filter-version", type=str, default="")
     parser.add_argument("--pipeline-code-sha", type=str, default="")
     parser.add_argument(
+        "--extraction-context-mode",
+        choices=["evidence_unit", "whole_document"],
+        default="",
+    )
+    parser.add_argument(
         "--corpus-source-root",
         type=Path,
         default=None,
@@ -241,6 +248,7 @@ def main() -> int:
         filter_version=args.filter_version or None,
         pipeline_code_sha=args.pipeline_code_sha or None,
         corpus_source_root=args.corpus_source_root,
+        extraction_context_mode=args.extraction_context_mode or None,
     )
     print(f"Extraction Lab run artifacts written to {run_dir}")
     return 0
