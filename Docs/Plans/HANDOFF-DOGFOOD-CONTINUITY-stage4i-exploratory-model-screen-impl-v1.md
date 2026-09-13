@@ -658,3 +658,121 @@ full-corpus disposable rehearsal
 ```
 
 Do not implement any successor in this PR.
+
+## §21 Characterization record — paid execution
+
+**Status:** paid screen completed; evidence-only record  
+**Execution SHA:** `9e0fb271b554433ef3d669d424d388954b2b9bd7`  
+**Stacked base:** `34cc1ded9e98082491a00612ae030b33d2479105` (PR #710, still unmerged)  
+**This lane must not merge to main while #710 remains unresolved.**  
+**Single-run directional only.** No stability, routing, or whole-corpus quality claim.
+
+### Pins
+
+```text
+repository_sha: 9e0fb271b554433ef3d669d424d388954b2b9bd7
+benchmark_id: c2-mireward-campaign-memory-dev-v1
+corpus_fingerprint: 925ad24a54d888e2f1d3673919d126767b39cdeaf885c07057bfb5da346ba8c1
+gold_fingerprint: de072c175cc00a1dc7ed672cdaca317ee0f8cb381a8186e9cfc53a5885a4cd23
+temporal_intent_fingerprint: ed3596e4fd7d75029534c19e5017f4905840347356bf5323b30c365f906c56c4
+prompt_sha256: 6a70e6c4f4d961ce72a273e1a4994f397ef7047bade68acede0125ffcf992df0
+schema_sha256: aaa7fb3e4e16da36d22e90f8c46a4f1d3e149dd6e361add13a9b5530e639ba46
+default_prompt_sha256: 9f724157a4763aad85acab980f8476d411e05e3fc4e2e6b779facff78e01b19e
+compatibility: --normalize-legacy-frontmatter
+reasoning_effort: medium
+service_tier: flex
+batch_size: 5
+fact_contract: payload_lean_v1
+```
+
+### Output-field audit
+
+Only `fact_id` left model responsibility (`DERIVED_DETERMINISTIC`). Persistence still recomputes a stable ID from subject + attribute + label. All other fact fields retained as `SEMANTIC_REQUIRED` or `AUTHORITY_SENSITIVE`. Entity output unchanged.
+
+### Full-corpus census (zero API)
+
+```text
+markdown sources: 434
+raw bytes: 2,437,735
+parseable: 282
+compatibility-normalized: 138
+rejected: 152 (FrontmatterValidationError 97, FrontmatterParseError 28, ValueError 27)
+silent skips: 0
+evidence units (parseable): 5,336
+expected entity calls @5: 1,996
+expected fact calls @5: 1,178
+seven-source evidence units: 130 (all 7 parseable; 4 needed compatibility)
+scale factor: 41.05×
+```
+
+Rejected sources are bucketed, not skipped. Projections below cover the parseable 282-file workload, not the 152 failures.
+
+### Paid comparison
+
+Raw stores remain outside the repository (`/tmp/stage4i-screen-9e0fb271`).
+
+```text
+MODEL | ENTITY | FACT | KARSEMINE | MIREWARD | VISIBLE OUT | REASONING | CACHE | COST | TIME
+Luna  | 6/6    | 2/5  | payload on tripod, Karsemine flattened | siege phrase on Mireward not Reach | 129,483 | 66,844 (34%) | 0.56 | $0.13 | 528s
+Terra | 6/6    | 3/5  | payload on tripod, Karsemine flattened | siege phrase on Mireward not Reach | 112,917 | 49,370 (30%) | 0.55 | $1.10 | 347s
+Sol   | 6/6    | 3/5  | payload on Karsemine event_outcome     | meat-monster flank on Mireward    | 130,981 | 99,734 (43%) | 0.54 | $2.56 | 562s
+```
+
+Fact-anchor misses:
+
+```text
+Luna:  brin_refugee_leadership, karsemine_fire_weakness_discovery, mireward_siege_pressure
+Terra: karsemine_fire_weakness_discovery, mireward_siege_pressure
+Sol:   brin_refugee_leadership, mireward_siege_pressure
+```
+
+All three used 84 API calls. Total paid spend: **$3.79**. Budget ceiling $8 not reached.
+
+### Full-corpus cost projections (planning math)
+
+```text
+Luna  $0.13 × 41.05 ≈ $5.34
+Terra $1.10 × 41.05 ≈ $45.13
+Sol   $2.56 × 41.05 ≈ $105.14
+```
+
+Caveats: single-run; seven-source mix ≠ all classes; 152 parse failures excluded; cache/output density will vary.
+
+### Human preregistration witnesses (evaluator-only)
+
+Preregistration read from immutable commit `8839ca08…`; none of its target language entered prompts, enrichment, or scoring.
+
+| Witness | Luna | Terra | Sol |
+|---|---|---|---|
+| Brin one actor | PRESENT_GOOD (1 entity) | IDENTITY_FRAGMENTED (Brin Holloway + Brin) | PRESENT_GOOD (1 entity) |
+| Cook from Edge | PRESENT_GOOD | PRESENT_GOOD | PRESENT_GOOD |
+| Refugee leadership through S25 | PRESENT_GOOD (role facts S23+S25; scorer miss on keyword) | PRESENT_GOOD (scored pass) | PRESENT_GOOD (role facts; scorer miss) |
+| S25 quarantine/housing | PRESENT_GOOD (warehouse, eye split, sleep potion) | PRESENT_GOOD | PRESENT_GOOD |
+| Orik/Orric one identity | IDENTITY_FRAGMENTED (Orik Tane, Orik, Mayor Orric Tane) | IDENTITY_FRAGMENTED | IDENTITY_FRAGMENTED |
+| Mayor role, no invented S23 start | PRESENT_GOOD; no “became mayor” | PRESENT_GOOD; none | PRESENT_GOOD; none |
+| S23 tripod poison/fire | PRESENT_GOOD on tripod; PRESENT_FLATTENED on Karsemine | PRESENT_GOOD on tripod; PRESENT_FLATTENED on Karsemine | PRESENT_GOOD on Karsemine + tripod |
+| S24 golem immune poison/charm + fire | PRESENT_GOOD on golem | PRESENT_GOOD on golem | PRESENT_GOOD on golem |
+| Payloads not conflated | PRESENT_GOOD (distinct S23/S24 rows) | PRESENT_GOOD | PRESENT_GOOD |
+| North Gate end vs S25 pressure | TEMPORAL_SHAPE_WRONG (end not explicit); S25 pressure PRESENT_GOOD | same | same |
+| Thrin underground unresolved | PRESENT_GOOD | PRESENT_GOOD | ABSENT as underground pull; search-for-Thrin present |
+| Hesta sleep-potion help | PRESENT_GOOD | PRESENT_GOOD | PRESENT_GOOD |
+| Scaffold vs played authority | PRESENT_GOOD (seed_prep vs observed_recap distinguishable) | PRESENT_GOOD | PRESENT_GOOD |
+
+### H1–H8
+
+| Hypothesis | Disposition | Note |
+|---|---|---|
+| H1 lossy compression, not noticing | SUPPORTED DIRECTIONALLY | Concrete poison/fire payloads exist in all three stores. Luna/Terra still emit the flattened “learned weaknesses” sentence on Karsemine; Sol attributes the payload to Karsemine. |
+| H2 semantic contract > model size on five facts | FALSIFIED | No model hit 5/5. Sol/Terra 3/5, Luna 2/5. The candidate did not repair both #710 misses across sizes. |
+| H3 Luna close in quality, far in price | SUPPORTED DIRECTIONALLY | Qualitative memory is close; scored recall is 2/5 vs 3/5. Luna is ~8× cheaper than Terra and ~20× cheaper than Sol on this run. |
+| H4 Orik/Orric stays split | SUPPORTED DIRECTIONALLY | All three kept separate Orik/Orric identities. |
+| H5 Brin easy positive control | SUPPORTED DIRECTIONALLY | Luna/Sol coalesced; Terra kept a second `Brin` alias entity. Not a serious regression. |
+| H6 temporal inspectable, not complete | SUPPORTED DIRECTIONALLY | Session tags and S23/S24/S25 facts exist; North Gate battle-end vs broader S25 threat is not a clean stored distinction. |
+| H7 paying for unneeded model-owned fields | WEAKENED | Only `fact_id` proven removable. Visible structured output still dominates Luna/Terra tokens. |
+| H8 reasoning may dwarf JSON trimming | MIXED | Reasoning is 30–43% of output tokens, highest on Sol (43%). Material lever, not the only one. Visible JSON remains large. |
+
+### Recommended next slice (from this evidence, still false here)
+
+`replicate Luna candidate 3×` is the leading cheap follow-up: the payloads are already in the Luna store, spend is $0.13/run, and one run cannot prove whether Karsemine-attribution flattening is stable.
+
+Independent later slices, not this PR: `score/fix Orik/Orric identity`; `resolve source-authority/frontmatter semantics` for the 152 census failures; `isolate semantic-payload vs lean-output` only if Luna replication shows the remaining miss is prompt-attribution rather than noise.
