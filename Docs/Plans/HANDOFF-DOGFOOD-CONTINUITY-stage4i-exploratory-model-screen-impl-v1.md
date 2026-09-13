@@ -18,12 +18,55 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: execute Stage 4I exploratory Luna/Terra/Sol ingestion screen
 
 **Created:** 2026-09-12  
-**Status:** ACTIVE — implementation + paid reconnaissance  
+**Status:** ACTIVE — rebriefed after initial reconnaissance; whole-document ablation next
 **Canonical handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4i-exploratory-model-screen-impl-v1.md`  
 **Branch:** `dogfood-continuity/stage4i-exploratory-model-screen-impl`  
 **Stacked base:** `34cc1ded9e98082491a00612ae030b33d2479105` — exact current head of PR #710 at dispatch  
 **Target PR title:** `DOGFOOD-CONTINUITY: screen Luna, Terra, and Sol for campaign-memory ingestion`  
 **Direction:** DESIGN → CODE → PAID SCREEN → REVIEW
+
+### 2026-09-12 operator rebrief — this section supersedes conflicting model/context clauses below
+
+The initial Luna/Terra/Sol reconnaissance is retained as historical evidence, but it exposed an
+uncontrolled assumption: the extraction model receives paragraph evidence units rather than the
+whole authored document. Repository history contains no controlled ingestion-quality experiment
+showing that paragraph-local extraction beats whole-document semantic context. The operator has
+therefore changed the next experiment contract:
+
+```text
+Phase A — context ablation, Luna only
+  current evidence-unit context × 1
+  exact whole-document semantic context × 1
+
+Phase B — model screen on the selected context contract
+  gpt-5.6-luna × 1
+  deepseek/deepseek-v4.1-flash × 1
+```
+
+Terra and Sol are dropped from future paid arms. There is no automatic escalation. Phase B must
+not run until Phase A is scored and the human selects the context contract. The old three-model
+results remain directional historical evidence and must not be rewritten as this ablation.
+
+Whole-document means: preserve the existing paragraph evidence units and exact source anchors for
+provenance, while supplying the exact frontmatter-stripped Markdown body as shared semantic context
+to entity and fact extraction. Outputs remain attributed to individual evidence units. In short:
+**reason globally, cite locally**.
+
+The experiment-only context seam must default to `evidence_unit`; production behavior cannot change
+implicitly. Context mode and document-context bytes are part of cache identity, execution receipts,
+and pipeline provenance. Documents exceeding a provider/model context limit fail closed for this
+ablation; they are not silently chunked or truncated.
+
+This rebrief extends the §10 write lease to:
+
+- `src/ingestion/chunker.py` — expose exact normalized document body without changing evidence units;
+- `src/cli.py` — thread an explicit experiment-only extraction-context mode;
+- focused CLI/chunker tests required to prove default preservation and exact-body handling.
+
+DeepSeek provider plumbing is a separate boundary inside this experimental lane. If the existing
+OpenAI-compatible client cannot execute `deepseek/deepseek-v4.1-flash` with equivalent structured
+output, Flex/service-tier, and reasoning telemetry, stop after Phase A and rebrief that provider
+adapter rather than disguising unequal executions as a model comparison.
 
 > Repository law: `AGENTS.md`. Steward process: `Docs/Process/STEWARD-CYCLE.md`. This lane is intentionally stacked on held PR #710 because Stage 4I needs the experiment-only Sol/Flex/model override and legacy-source compatibility infrastructure #710 introduced. Do not merge this lane directly to `main` until #710 is dispositioned or equivalent prerequisite changes are landed separately.
 

@@ -19,6 +19,7 @@ from src.ingestion.entity_extractor import (
     _experiment_request_kwargs,
     _usage_dict_from_openai_response,
 )
+from src.ingestion.extraction_context import context_cache_suffix, prepend_document_context
 from src.llm.api_client import DungeonMindApiClient
 
 _PROMPT_ID = "phase_c_pass2_fact_extraction_v3_prompt_cache"
@@ -577,7 +578,7 @@ def _resolve_subject_entity_id(
 def _cache_key(unit: dict[str, Any], model_id: str, entity_fp: str) -> str:
     text_fp = blake3.blake3(str(unit.get("text", "")).encode("utf-8")).hexdigest()
     contract = "payload_lean_v1" if _payload_lean_enabled() else "default"
-    payload = f"{text_fp}|{_PROMPT_ID}|{contract}|{model_id}|{entity_fp}"
+    payload = f"{text_fp}|{_PROMPT_ID}|{contract}|{model_id}|{entity_fp}|{context_cache_suffix()}"
     return blake3.blake3(payload.encode("utf-8")).hexdigest()
 
 
@@ -739,7 +740,7 @@ def _build_batched_fact_user_prompt(
     joined = "\n\n".join(sections)
     n = len(units_with_entities)
     last = n - 1 if n else 0
-    return (
+    return prepend_document_context(
         "Process each evidence unit below. Return JSON with shape "
         '{"results": [{"unit_index": <int>, "facts": [...]}, ...]} only (no markdown fences). '
         "Include exactly one results entry per section. For each entry, unit_index must be the integer "

@@ -576,6 +576,12 @@ def main() -> int:
     parser.add_argument("--fact-contract", choices=["payload_lean_v1"], default=None)
     parser.add_argument("--reasoning-effort", choices=["medium"], default=None)
     parser.add_argument(
+        "--extraction-context-mode",
+        choices=["evidence_unit", "whole_document"],
+        default="evidence_unit",
+        help="Experiment-only model context; persisted evidence remains paragraph anchored.",
+    )
+    parser.add_argument(
         "--normalize-legacy-frontmatter",
         action="store_true",
         help="Explicitly normalize legacy metadata without changing source bytes.",
@@ -675,6 +681,7 @@ def main() -> int:
         "normalize_legacy_frontmatter": bool(args.normalize_legacy_frontmatter),
         "fact_contract": args.fact_contract or "default",
         "reasoning_effort": args.reasoning_effort,
+        "extraction_context_mode": args.extraction_context_mode,
         "results": [],
     }
     decisions: list[dict[str, Any]] = []
@@ -687,6 +694,8 @@ def main() -> int:
     original_service_tier = os.environ.get("DMB_OPENAI_SERVICE_TIER")
     original_fact_contract = os.environ.get("DMB_FACT_EXTRACTION_CONTRACT")
     original_reasoning_effort = os.environ.get("DMB_OPENAI_REASONING_EFFORT")
+    original_context_mode = os.environ.get("DMB_EXTRACTION_CONTEXT_MODE")
+    original_document_path = os.environ.get("DMB_EXTRACTION_DOCUMENT_PATH")
 
     with log_path.open("a", encoding="utf-8") as logf:
         logf.write(f"\n=== batch_ingest start {started} files={len(paths)} ===\n")
@@ -703,6 +712,7 @@ def main() -> int:
                 os.environ["DMB_FACT_EXTRACTION_CONTRACT"] = args.fact_contract
             if args.reasoning_effort:
                 os.environ["DMB_OPENAI_REASONING_EFFORT"] = args.reasoning_effort
+            os.environ["DMB_EXTRACTION_CONTEXT_MODE"] = args.extraction_context_mode
             if policy_path.exists():
                 original_policy = _load_model_policy(policy_path)
             if args.enforce_cheap_pass and policy_path.exists():
@@ -750,6 +760,7 @@ def main() -> int:
                     continue
 
                 print(f"\n[{i}/{len(paths)}] ingest {rel}", flush=True)
+                os.environ["DMB_EXTRACTION_DOCUMENT_PATH"] = str(path.resolve())
                 facts_before = len(cli.store.facts)
                 entities_before = len(cli.store.entities)
                 evidence_before = len(cli.store.evidence_units)
@@ -845,6 +856,8 @@ def main() -> int:
                 ("DMB_OPENAI_SERVICE_TIER", original_service_tier),
                 ("DMB_FACT_EXTRACTION_CONTRACT", original_fact_contract),
                 ("DMB_OPENAI_REASONING_EFFORT", original_reasoning_effort),
+                ("DMB_EXTRACTION_CONTEXT_MODE", original_context_mode),
+                ("DMB_EXTRACTION_DOCUMENT_PATH", original_document_path),
             ):
                 if original is None:
                     os.environ.pop(key, None)

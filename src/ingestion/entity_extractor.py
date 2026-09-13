@@ -20,6 +20,7 @@ from src.contracts.entity_taxonomy import (
     normalize_semantic_facets,
 )
 from src.contracts.schema_validation import list_validation_failures, validate_many
+from src.ingestion.extraction_context import context_cache_suffix, prepend_document_context
 from src.llm.api_client import DungeonMindApiClient
 from src.store import FactStore
 
@@ -757,7 +758,7 @@ def _heuristic_extract_entities(text: str) -> EntityExtractionResult:
 
 def _cache_key(unit: dict[str, Any], model_id: str, source_profile: str = "worldbuilding") -> str:
     text_fp = blake3.blake3(str(unit.get("text", "")).encode("utf-8")).hexdigest()
-    payload = f"{text_fp}|{_PROMPT_ID}|{model_id}|{source_profile}"
+    payload = f"{text_fp}|{_PROMPT_ID}|{model_id}|{source_profile}|{context_cache_suffix()}"
     return blake3.blake3(payload.encode("utf-8")).hexdigest()
 
 
@@ -898,7 +899,7 @@ def _build_batched_entity_user_prompt(
     joined = "\n\n".join(sections)
     n = len(units)
     last = n - 1 if n else 0
-    return (
+    return prepend_document_context(
         "Process each evidence unit below. Return JSON with shape "
         '{"results": [{"unit_index": <int>, "entities": [...]}, ...]} only (no markdown fences). '
         "Include exactly one results entry per section. For each entry, unit_index must be the integer "
