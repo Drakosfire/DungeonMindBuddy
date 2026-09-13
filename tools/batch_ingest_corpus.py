@@ -31,6 +31,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.cli import DungeonBuddyCLI, compute_ingest_key_for_path  # noqa: E402
+from src.ingestion.entity_extractor import _percentile  # noqa: E402
+from src.llm.experiment_provider import ensure_experiment_secrets  # noqa: E402
 
 
 class Tee:
@@ -238,6 +240,7 @@ _PRICING_PER_1M: dict[str, dict[str, float]] = {
     "o4-mini": {"input": 1.10, "cached_input": 0.275, "output": 4.40},
     "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
     "o3": {"input": 2.00, "cached_input": 0.50, "output": 8.00},
+    "deepseek/deepseek-v4.1-flash": {"input": 0.15, "cached_input": 0.003, "output": 0.60},
 }
 
 _FLEX_PRICING_PER_1M: dict[str, dict[str, float]] = {
@@ -349,6 +352,26 @@ def _aggregate_batch_report(
     total_model_ms = entity_ms + fact_ms
     elapsed_sec = _elapsed_seconds(started, summary.get("ended_at") or ended)
     overhead_ms = max(0, int(round(elapsed_sec * 1000)) - total_model_ms)
+    request_elapsed: list[float] = []
+    provider_costs: list[float] = []
+    observed_providers: list[str] = []
+    observed_models: list[str] = []
+    for mc in llm_rows:
+        usage = mc.get("usage") or {}
+        if not isinstance(usage, dict):
+            continue
+        samples = usage.get("request_elapsed_ms") or []
+        if isinstance(samples, list):
+            request_elapsed.extend(float(item) for item in samples)
+        cost = usage.get("provider_cost_usd")
+        if cost is not None:
+            provider_costs.append(float(cost))
+        providers = usage.get("observed_providers") or []
+        if isinstance(providers, list):
+            observed_providers.extend(str(item) for item in providers if item)
+        models = usage.get("observed_models") or []
+        if isinstance(models, list):
+            observed_models.extend(str(item) for item in models if item)
 
     event_records_total = sum(int(mc.get("event_records_count", 0) or 0) for mc in entity_calls)
     claims_total = sum(int(mc.get("claims_count", 0) or 0) for mc in entity_calls)
@@ -421,6 +444,13 @@ def _aggregate_batch_report(
     without_cache_cost = (total_input * rates["input"] + total_output * rates["output"]) / 1_000_000
     savings_usd = max(0.0, without_cache_cost - est_cost)
     savings_pct = (100.0 * savings_usd / without_cache_cost) if without_cache_cost > 0 else 0.0
+    measured_cost = sum(provider_costs) if provider_costs and len(provider_costs) == len(llm_rows) else None
+    reported_cost = measured_cost if measured_cost is not None else est_cost
+    pricing_source = (
+        "OpenRouter generation cost metadata"
+        if measured_cost is not None
+        else "OpenAI pricing page supplied with Stage 4H / OpenRouter catalog fallback"
+    )
 
     ended_at = str(summary.get("ended_at") or ended)
 
@@ -465,17 +495,26 @@ def _aggregate_batch_report(
         "cost_estimate": {
             "model_name": model_name or "(unknown)",
             "service_tier": service_tier,
+            "extraction_provider": summary.get("extraction_provider") or "openai",
+            "extraction_transport": summary.get("extraction_transport") or "responses",
+            "openrouter_provider_pin": summary.get("openrouter_provider_pin"),
             "pricing_as_of": "2026-09-12",
-            "pricing_source": "OpenAI pricing page supplied with Stage 4H",
+            "pricing_source": pricing_source,
             "input_cost_per_1m": rates["input"],
             "cached_input_cost_per_1m": rates["cached_input"],
             "output_cost_per_1m": rates["output"],
-            "estimated_cost_usd": round(est_cost, 4),
+            "estimated_cost_usd": round(float(reported_cost), 4),
+            "calculator_cost_usd": round(est_cost, 4),
+            "provider_measured_cost_usd": (
+                round(measured_cost, 4) if measured_cost is not None else None
+            ),
             "without_caching_cost_usd": round(without_cache_cost, 4),
             "savings_pct": round(savings_pct, 2),
             "openai_batch_discount_applied": uses_openai_batch,
             "openai_batch_pricing_multiplier": 0.5 if uses_openai_batch else 1.0,
             "estimated_cost_before_openai_batch_usd": round(est_cost_before_openai_batch, 4),
+            "observed_providers": sorted(set(observed_providers)),
+            "observed_models": sorted(set(observed_models)),
         },
         "local_cache": {
             "entity_hits": entity_hits,
@@ -489,6 +528,10 @@ def _aggregate_batch_report(
             "fact_extraction_ms": fact_ms,
             "total_model_ms": total_model_ms,
             "overhead_ms": overhead_ms,
+            "request_elapsed_count": len(request_elapsed),
+            "request_elapsed_p50_ms": _percentile(request_elapsed, 50),
+            "request_elapsed_p95_ms": _percentile(request_elapsed, 95),
+            "request_elapsed_max_ms": max(request_elapsed) if request_elapsed else None,
         },
         "entity_class_distribution": dict(sorted(class_dist.items(), key=lambda x: (-x[1], x[0]))),
         "recap": {
@@ -572,9 +615,33 @@ def main() -> int:
         help="Evidence units per LLM call during ingest (passed to each ingest; default 5)",
     )
     parser.add_argument("--structured-generation-model", default="")
-    parser.add_argument("--openai-service-tier", choices=["flex"], default=None)
+    parser.add_argument(
+        "--openai-service-tier",
+        choices=["flex", "standard"],
+        default=None,
+    )
     parser.add_argument("--fact-contract", choices=["payload_lean_v1"], default=None)
-    parser.add_argument("--reasoning-effort", choices=["medium"], default=None)
+    parser.add_argument(
+        "--reasoning-effort",
+        choices=["none", "low", "medium", "high", "xhigh", "max"],
+        default=None,
+    )
+    parser.add_argument(
+        "--extraction-provider",
+        choices=["openai", "openrouter"],
+        default="openai",
+    )
+    parser.add_argument("--openrouter-provider-pin", default="")
+    parser.add_argument(
+        "--openrouter-allow-fallbacks",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--extraction-transport",
+        choices=["responses", "chat_completions"],
+        default="responses",
+    )
     parser.add_argument(
         "--extraction-context-mode",
         choices=["evidence_unit", "whole_document"],
@@ -640,6 +707,7 @@ def main() -> int:
         help="Use OpenAI Batch API for each ingest (~50%% cost vs realtime; async, up to 24h per batch job)",
     )
     args = parser.parse_args()
+    ensure_experiment_secrets(ROOT, os.environ)
 
     corpus_root = args.corpus_root.resolve()
     if not corpus_root.is_dir():
@@ -682,6 +750,10 @@ def main() -> int:
         "fact_contract": args.fact_contract or "default",
         "reasoning_effort": args.reasoning_effort,
         "extraction_context_mode": args.extraction_context_mode,
+        "extraction_provider": args.extraction_provider,
+        "extraction_transport": args.extraction_transport,
+        "openrouter_provider_pin": args.openrouter_provider_pin or None,
+        "openrouter_allow_fallbacks": bool(args.openrouter_allow_fallbacks),
         "results": [],
     }
     decisions: list[dict[str, Any]] = []
@@ -696,6 +768,11 @@ def main() -> int:
     original_reasoning_effort = os.environ.get("DMB_OPENAI_REASONING_EFFORT")
     original_context_mode = os.environ.get("DMB_EXTRACTION_CONTEXT_MODE")
     original_document_path = os.environ.get("DMB_EXTRACTION_DOCUMENT_PATH")
+    original_extraction_provider = os.environ.get("DMB_EXTRACTION_PROVIDER")
+    original_openrouter_pin = os.environ.get("DMB_OPENROUTER_PROVIDER_PIN")
+    original_openrouter_fallbacks = os.environ.get("DMB_OPENROUTER_ALLOW_FALLBACKS")
+    original_extraction_transport = os.environ.get("DMB_EXTRACTION_TRANSPORT")
+    original_openai_key = os.environ.get("OPENAI_API_KEY")
 
     with log_path.open("a", encoding="utf-8") as logf:
         logf.write(f"\n=== batch_ingest start {started} files={len(paths)} ===\n")
@@ -713,6 +790,19 @@ def main() -> int:
             if args.reasoning_effort:
                 os.environ["DMB_OPENAI_REASONING_EFFORT"] = args.reasoning_effort
             os.environ["DMB_EXTRACTION_CONTEXT_MODE"] = args.extraction_context_mode
+            os.environ["DMB_EXTRACTION_PROVIDER"] = args.extraction_provider
+            os.environ["DMB_EXTRACTION_TRANSPORT"] = args.extraction_transport
+            if args.openrouter_provider_pin:
+                os.environ["DMB_OPENROUTER_PROVIDER_PIN"] = args.openrouter_provider_pin
+            os.environ["DMB_OPENROUTER_ALLOW_FALLBACKS"] = (
+                "1" if args.openrouter_allow_fallbacks else "0"
+            )
+            if args.extraction_provider == "openrouter" and not str(
+                os.environ.get("OPENAI_API_KEY") or ""
+            ).strip():
+                openrouter_key = str(os.environ.get("DUNGEONBUDDY_OPENROUTER") or "").strip()
+                if openrouter_key:
+                    os.environ["OPENAI_API_KEY"] = openrouter_key
             if policy_path.exists():
                 original_policy = _load_model_policy(policy_path)
             if args.enforce_cheap_pass and policy_path.exists():
@@ -858,6 +948,11 @@ def main() -> int:
                 ("DMB_OPENAI_REASONING_EFFORT", original_reasoning_effort),
                 ("DMB_EXTRACTION_CONTEXT_MODE", original_context_mode),
                 ("DMB_EXTRACTION_DOCUMENT_PATH", original_document_path),
+                ("DMB_EXTRACTION_PROVIDER", original_extraction_provider),
+                ("DMB_OPENROUTER_PROVIDER_PIN", original_openrouter_pin),
+                ("DMB_OPENROUTER_ALLOW_FALLBACKS", original_openrouter_fallbacks),
+                ("DMB_EXTRACTION_TRANSPORT", original_extraction_transport),
+                ("OPENAI_API_KEY", original_openai_key),
             ):
                 if original is None:
                     os.environ.pop(key, None)

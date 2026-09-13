@@ -133,3 +133,13 @@ def test_experiment_request_kwargs_set_equivalent_flex_and_medium_reasoning(monk
     monkeypatch.delenv("DMB_OPENAI_SERVICE_TIER", raising=False)
     monkeypatch.delenv("DMB_OPENAI_REASONING_EFFORT", raising=False)
     assert _experiment_request_kwargs() == {}
+
+
+def test_openrouter_none_is_disabled_reasoning_not_medium(monkeypatch) -> None:
+    monkeypatch.setenv("DMB_EXTRACTION_PROVIDER", "openrouter")
+    monkeypatch.setenv("DMB_OPENROUTER_PROVIDER_PIN", "DeepSeek")
+    monkeypatch.setenv("DMB_OPENAI_REASONING_EFFORT", "none")
+    kwargs = _experiment_request_kwargs()
+    assert kwargs["reasoning"] == {"enabled": False}
+    assert kwargs["extra_body"]["provider"]["allow_fallbacks"] is False
+    assert kwargs["extra_body"]["provider"]["order"] == ["DeepSeek"]

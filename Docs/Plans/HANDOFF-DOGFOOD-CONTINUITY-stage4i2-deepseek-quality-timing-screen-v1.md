@@ -15,7 +15,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: Stage 4I.2 DeepSeek quality + timing screen
 
 **Created:** 2026-09-12  
-**Status:** READY TO EXECUTE ON PR #711  
+**Status:** EXECUTING ON PR #711 — OpenRouter seam implemented; operator waived the $3 ceiling and expanded this notebook run to the full reasoning-effort matrix  
 **PR / branch:** `#711` / `dogfood-continuity/stage4i-exploratory-model-screen-impl`  
 **Dispatch base:** `2eb373757e1a74e48a8e60e072c655a0d3538924`  
 **Flow:** DOGFOOD-CONTINUITY / ingestion convergence  
@@ -112,6 +112,25 @@ same benchmark authorities
 > **Which cheap execution gives the GM the highest-quality campaign-memory objects and prose at acceptable end-to-end latency and corpus-scale cost?**
 
 Mechanical anchor recall remains useful but is no longer sufficient as the quality verdict.
+
+### 2026-09-13 operator amendment — full reasoning ablation, budget waived
+
+The original three-arm contract remains the comparison nucleus. For this notebook run the operator waived the $3 ceiling and required the full reasoning-effort matrix on the same frozen whole-document topology:
+
+```text
+DeepSeek V4.1 Flash / OpenRouter / DeepSeek pinned / no fallback:
+  none, low, high, max
+
+GPT-5.6 Luna / OpenAI / Standard:
+  none, low, medium, high, xhigh, max
+
+GPT-5.6 Luna / OpenAI / Flex:
+  none, low, medium, high, xhigh, max
+```
+
+DeepSeek cannot honor Luna `medium`; OpenRouter `none` disables reasoning (`reasoning.enabled: false`). Mark reasoning-contract non-equivalence in receipts. Do not invent a fake medium. Topology stays 84 requests/arm. Fail/partial paid attempts remain in spend and call totals.
+
+Runner: `extraction_lab/run_campaign_memory_stage4i2_screen.py`
 
 ---
 
@@ -496,7 +515,7 @@ projected parseable-corpus cost using the existing 5,336-EU census
 
 Do not project the 152 currently rejected Markdown sources as though they were successfully ingestible. Report parseable-corpus projection and unresolved-source coverage separately.
 
-Hard paid budget for this slice: **$3 total additional spend**. Expected spend should be far below this. Stop before a call that would knowingly cross the ceiling.
+Hard paid budget for this slice was originally **$3 total additional spend**. The operator waived that ceiling for this notebook run on 2026-09-13. The runner still fail-closes at `$1000` only as a runaway guard, not as an optimization target. Record actual spend including failed/partial attempts.
 
 ---
 
@@ -557,6 +576,13 @@ focused tests for touched paths
 
 Bounded discovery exception: at most **two additional runtime paths** under `src/llm/**` / `src/ingestion/**` if they are the actual owner of request timing/provider construction. Record why.
 
+Used:
+
+```text
+src/llm/experiment_provider.py
+  why: actual owner of OpenAI vs OpenRouter client construction, OpenRouter pin/no-fallback extra_body, reasoning-none mapping, and Responses vs Chat Completions transport selection
+```
+
 Do not modify:
 
 ```text
@@ -594,7 +620,7 @@ At minimum prove:
 14. missing provider reasoning/cache metrics remain null/unknown rather than zero by invention;
 15. quality-packet generation makes no evaluator/model API calls;
 16. local reconciliation/composition diagnostics do not mutate raw stores;
-17. budget guard stops before $3 additional spend;
+17. budget guard records the operator waiver; runaway ceiling remains $1000, not the original $3;
 18. repository/source/eval authority pins are revalidated before and after every paid arm.
 
 Run all focused tests, relevant `tests/extraction_lab`, scoped Ruff, and `git diff --check` before money is spent.

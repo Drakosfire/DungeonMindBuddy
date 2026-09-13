@@ -147,6 +147,17 @@ PR #694 removed full-document loads among the primary React surfaces and the pos
 
 ---
 
+# IDEA
+
+## [IDEA] Measure ingestion prompt amplification and provider throughput — captured 2026-09-12
+**Context:** Stage 4I Luna paragraph-versus-whole-document context ablation on the seven-source campaign-memory benchmark; PR #711.
+**Insight:** Unique corpus size, system/schema prompt size, document-context repetition, two-pass request topology, cached versus uncached input, service tier, provider latency, reasoning volume, and visible-output generation all contribute differently to ingestion time and cost. Aggregate input tokens and “model time” currently hide those relationships; the 68,383-character cohort generated 254K paragraph-mode or 566K whole-document input tokens across 84 calls, while the larger-input whole-document arm still completed faster on Flex.
+**Action:** Design instrumentation and an analysis artifact that records unique source characters/tokens, static system/schema tokens, dynamic entity-context tokens, document-context tokens, evidence-unit tokens, amplification ratio, request count/concurrency, per-call queue/TTFT/processing time when available, cached/uncached input, reasoning/visible output, wall time, throughput, provider/model, and service tier. Use it to compare realtime/Flex and Luna/DeepSeek without treating aggregate concurrent tokens-per-second as single-request decoder speed.
+**Surfaces when:** ingestion experiments, provider/model comparisons, full-corpus cost projections, request-topology changes, whole-document context, Flex latency, or batch/realtime decisions are being designed or reviewed.
+**Refs:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4i-exploratory-model-screen-impl-v1.md`; `tools/batch_ingest_corpus.py`; `src/ingestion/extraction_context.py`; PR #711.
+
+---
+
 # Delegated workstreams — pointers only, no root status
 
 The rows below preserve discoverability for capabilities removed from root without creating a second status owner.

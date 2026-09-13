@@ -18,9 +18,19 @@ from src.ingestion.entity_extractor import (
     UsageStats,
     _experiment_request_kwargs,
     _usage_dict_from_openai_response,
+    usage_stats_from_call_dict,
 )
 from src.ingestion.extraction_context import context_cache_suffix, prepend_document_context
 from src.llm.api_client import DungeonMindApiClient
+from src.llm.experiment_provider import (
+    build_async_openai_client,
+    build_sync_openai_client,
+    parsed_output_from_response,
+    provider_cost_usd_from_response,
+    routing_identity_from_response,
+    structured_parse,
+    structured_parse_async,
+)
 
 _PROMPT_ID = "phase_c_pass2_fact_extraction_v3_prompt_cache"
 
@@ -170,13 +180,91 @@ def _standardize_fact_payload(parsed: Any, *, batched: bool) -> dict[str, Any]:
     return model.model_validate(payload).model_dump()
 
 
-def _attach_usage(result: dict[str, Any], response: Any) -> dict[str, Any]:
+def _attach_usage(
+    result: dict[str, Any],
+    response: Any,
+    *,
+    elapsed_ms: float | None = None,
+) -> dict[str, Any]:
     usage = _usage_dict_from_openai_response(response)
     usage["parsed_output_bytes"] = len(
         json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     )
+    if elapsed_ms is not None:
+        usage["elapsed_ms"] = elapsed_ms
+        usage["request_elapsed_ms"] = [float(elapsed_ms)]
+    cost = provider_cost_usd_from_response(response)
+    if cost is not None:
+        usage["provider_cost_usd"] = cost
+    identity = routing_identity_from_response(response)
+    if identity:
+        usage["routing"] = identity
+        if isinstance(identity.get("provider"), str):
+            usage["observed_providers"] = [identity["provider"]]
+        if isinstance(identity.get("model"), str):
+            usage["observed_models"] = [identity["model"]]
     result["_usage"] = usage
     return result
+
+
+def _structured_fact_result(
+    api_client: DungeonMindApiClient,
+    *,
+    action: str,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    batched: bool,
+) -> dict[str, Any]:
+    call = structured_parse(
+        api_client,
+        action=action,
+        model=model,
+        input=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        text_format=_fact_text_format(batched=batched),
+        **_experiment_request_kwargs(),
+    )
+    parsed = parsed_output_from_response(call.response)
+    if parsed is None:
+        raise ValueError("OpenAI response parse did not return output_parsed.")
+    return _attach_usage(
+        _standardize_fact_payload(parsed, batched=batched),
+        call.response,
+        elapsed_ms=call.elapsed_ms,
+    )
+
+
+async def _structured_fact_result_async(
+    api_client: DungeonMindApiClient,
+    *,
+    action: str,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    batched: bool,
+) -> dict[str, Any]:
+    call = await structured_parse_async(
+        api_client,
+        action=action,
+        model=model,
+        input=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        text_format=_fact_text_format(batched=batched),
+        **_experiment_request_kwargs(),
+    )
+    parsed = parsed_output_from_response(call.response)
+    if parsed is None:
+        raise ValueError("OpenAI response parse did not return output_parsed.")
+    return _attach_usage(
+        _standardize_fact_payload(parsed, batched=batched),
+        call.response,
+        elapsed_ms=call.elapsed_ms,
+    )
 
 
 class OpenAIResponsesFactClient:
@@ -188,12 +276,11 @@ class OpenAIResponsesFactClient:
             self._api_client = DungeonMindApiClient.wrap(self._client)
             return
         try:
-            from openai import OpenAI  # type: ignore[import-untyped]
-        except Exception as exc:  # pragma: no cover
+            self._client = build_sync_openai_client(api_key=api_key)
+        except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "OpenAI SDK is required for OpenAIResponsesFactClient. Install 'openai'."
             ) from exc
-        self._client = OpenAI(api_key=api_key)
         self._api_client = DungeonMindApiClient.wrap(self._client)
 
     def extract_facts(
@@ -206,20 +293,14 @@ class OpenAIResponsesFactClient:
         entities: list[dict[str, Any]],
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = self._api_client.responses_parse(
+        return _structured_fact_result(
+            self._api_client,
             action="fact_extractor.extract",
             model=model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            text_format=_fact_text_format(batched=False),
-            **_experiment_request_kwargs(),
-        ).response
-        parsed = getattr(response, "output_parsed", None)
-        if parsed is None:
-            raise ValueError("OpenAI response parse did not return output_parsed.")
-        return _attach_usage(_standardize_fact_payload(parsed, batched=False), response)
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            batched=False,
+        )
 
     def extract_facts_batched(
         self,
@@ -229,20 +310,14 @@ class OpenAIResponsesFactClient:
         user_prompt: str,
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = self._api_client.responses_parse(
+        return _structured_fact_result(
+            self._api_client,
             action="fact_extractor.extract_batched",
             model=model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            text_format=_fact_text_format(batched=True),
-            **_experiment_request_kwargs(),
-        ).response
-        parsed = getattr(response, "output_parsed", None)
-        if parsed is None:
-            raise ValueError("OpenAI response parse did not return output_parsed.")
-        return _attach_usage(_standardize_fact_payload(parsed, batched=True), response)
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            batched=True,
+        )
 
 
 class AsyncOpenAIResponsesFactClient:
@@ -254,12 +329,11 @@ class AsyncOpenAIResponsesFactClient:
             self._api_client = DungeonMindApiClient.wrap(self._client)
             return
         try:
-            from openai import AsyncOpenAI  # type: ignore[import-untyped]
-        except Exception as exc:  # pragma: no cover
+            self._client = build_async_openai_client(api_key=api_key)
+        except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "OpenAI SDK is required for AsyncOpenAIResponsesFactClient. Install 'openai'."
             ) from exc
-        self._client = AsyncOpenAI(api_key=api_key)
         self._api_client = DungeonMindApiClient.wrap(self._client)
 
     async def extract_facts(
@@ -272,22 +346,14 @@ class AsyncOpenAIResponsesFactClient:
         entities: list[dict[str, Any]],
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = (
-            await self._api_client.responses_parse_async(
-                action="fact_extractor.extract_async",
-                model=model,
-                input=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                text_format=_fact_text_format(batched=False),
-                **_experiment_request_kwargs(),
-            )
-        ).response
-        parsed = getattr(response, "output_parsed", None)
-        if parsed is None:
-            raise ValueError("OpenAI response parse did not return output_parsed.")
-        return _attach_usage(_standardize_fact_payload(parsed, batched=False), response)
+        return await _structured_fact_result_async(
+            self._api_client,
+            action="fact_extractor.extract_async",
+            model=model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            batched=False,
+        )
 
     async def extract_facts_batched(
         self,
@@ -297,22 +363,14 @@ class AsyncOpenAIResponsesFactClient:
         user_prompt: str,
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = (
-            await self._api_client.responses_parse_async(
-                action="fact_extractor.extract_batched_async",
-                model=model,
-                input=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                text_format=_fact_text_format(batched=True),
-                **_experiment_request_kwargs(),
-            )
-        ).response
-        parsed = getattr(response, "output_parsed", None)
-        if parsed is None:
-            raise ValueError("OpenAI response parse did not return output_parsed.")
-        return _attach_usage(_standardize_fact_payload(parsed, batched=True), response)
+        return await _structured_fact_result_async(
+            self._api_client,
+            action="fact_extractor.extract_batched_async",
+            model=model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            batched=True,
+        )
 
     async def aclose(self) -> None:
         closer = getattr(self._client, "aclose", None)
@@ -969,15 +1027,7 @@ async def extract_facts_batch(
     fact_system_prompt = _build_fact_system_prompt()
 
     def _usage_for_call(udict: dict[str, Any]) -> UsageStats:
-        billed = openai_client is not None
-        return UsageStats(
-            input_tokens=udict.get("input_tokens", 0),
-            output_tokens=udict.get("output_tokens", 0),
-            cached_tokens=udict.get("cached_tokens", 0),
-            api_calls=1 if billed else 0,
-            reasoning_tokens=udict.get("reasoning_tokens"),
-            parsed_output_bytes=udict.get("parsed_output_bytes", 0),
-        )
+        return usage_stats_from_call_dict(udict, billed=openai_client is not None)
 
     slot_results: list[FactExtractionResult | None] = [None] * len(evidence_units)
     misses: list[tuple[int, dict[str, Any], list[dict[str, Any]], str]] = []

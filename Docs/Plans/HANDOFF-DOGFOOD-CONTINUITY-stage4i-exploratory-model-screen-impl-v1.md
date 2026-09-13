@@ -885,3 +885,46 @@ Phase B remains blocked on an equivalent DeepSeek provider adapter. The current 
 are OpenAI Responses clients; no repository evidence proves that `deepseek/deepseek-v4.1-flash`
 can receive the same structured schema, reasoning contract, service tier, and telemetry through
 that seam. Do not label unequal provider executions a controlled model comparison.
+
+### Timing and token-amplification audit
+
+The context-ablation work paid for four execution attempts, not two:
+
+| Attempt | Result | API calls | Input | Output | Wall | Model-stage | Cost |
+|---|---|---:|---:|---:|---:|---:|---:|
+| initial evidence-unit | completed 7/7; superseded head | 84 | 248,799 | 201,691 | 620.480s | 608.329s | `$0.1337` |
+| initial whole-document | failed infrastructure; 3/7 | 42 | 118,674 | 80,103 | 138.972s | 134.114s | `$0.0532` |
+| repaired evidence-unit | completed 7/7; comparison control | 84 | 254,231 | 201,889 | 385.438s | 374.456s | `$0.1337` |
+| repaired whole-document | completed 7/7; comparison candidate | 84 | 566,197 | 173,196 | 333.430s | 323.340s | `$0.1475` |
+
+Total paid attempts: 4. Complete seven-source runs: 3. Valid same-head comparison runs: 2.
+Total API calls: 294. Total estimated spend: `$0.4681`. This corrects the earlier `$0.33`
+statement, which omitted the first completed evidence-unit run.
+
+The unique seven-source cohort is only 68,383 UTF-8 text characters / 11,193 whitespace words,
+approximately 17K–20K tokens depending on tokenizer. The 566K whole-document input count is
+cumulative API traffic, not corpus size. Both passes retransmit instructions/schema/dynamic entity
+context; whole-document mode additionally retransmits each source document for every associated
+entity/fact batch. Relative to the repaired control it added 311,966 input tokens.
+
+Aggregate wall-clock throughput for the valid pair:
+
+| Throughput | Evidence-unit | Whole-document |
+|---|---:|---:|
+| input tokens / wall second | 660 | 1,698 |
+| output tokens / wall second | 524 | 519 |
+| visible output tokens / wall second | 349 | 367 |
+| input + output / wall second | 1,183 | 2,217 |
+
+These are concurrent pipeline throughput figures, not single-request decoding speed. Flex queueing,
+up to eight concurrent calls, input prefill, cached-input treatment, reasoning, and visible output
+are combined. The whole-document arm processed 2.23× the input yet completed 13.5% faster in this
+single pair, so neither input volume nor Flex alone explains elapsed time. Per-call queue/TTFT and
+provider processing telemetry is required before attributing the difference causally.
+
+No DeepSeek run exists. Repository and `/tmp` evidence contains no DeepSeek receipt, model-call log,
+store, or benchmark result; only the planned `deepseek/deepseek-v4.1-flash` contract exists. Luna
+versus DeepSeek latency, throughput, cost, and quality therefore remain wholly unmeasured. Phase B
+must compare provider/model **and** disclose service tier/request topology; it cannot quietly compare
+OpenAI Flex against an unspecified DeepSeek delivery mode as though model identity were the only
+changed variable.

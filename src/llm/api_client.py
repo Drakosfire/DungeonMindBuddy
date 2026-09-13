@@ -82,3 +82,27 @@ class DungeonMindApiClient:
             elapsed_ms=(time.perf_counter() - t0) * 1000.0,
             response=response,
         )
+
+    def chat_completions_parse(self, *, action: str, **kwargs: Any) -> ApiCallResult:
+        t0 = time.perf_counter()
+        parse = getattr(self._raw_client.chat.completions, "parse", None)
+        if not callable(parse):
+            raise RuntimeError("chat.completions.parse is required for chat_completions transport")
+        response = parse(**kwargs)
+        return ApiCallResult(
+            action=action,
+            elapsed_ms=(time.perf_counter() - t0) * 1000.0,
+            response=response,
+        )
+
+    async def chat_completions_parse_async(self, *, action: str, **kwargs: Any) -> ApiCallResult:
+        t0 = time.perf_counter()
+        parse = getattr(self._raw_client.chat.completions, "parse", None)
+        if not callable(parse):
+            raise RuntimeError("chat.completions.parse is required for chat_completions transport")
+        response = await parse(**kwargs)
+        return ApiCallResult(
+            action=action,
+            elapsed_ms=(time.perf_counter() - t0) * 1000.0,
+            response=response,
+        )
