@@ -84,7 +84,7 @@ GitHub #711 was stuck at `90b940a2f2badf5235a31e74b79491c50aa78cf4` (handoff dis
 ```text
 OpenRouter seam predecessor:  d63a688c6bf9ce3d21323f6243cd7f3cf42db209
 Previous GitHub HEAD:         90b940a2f2badf5235a31e74b79491c50aa78cf4
-json_object overlay:          the commit that lands this subsection
+json_object overlay:          ba00decccf599a231db6f7577a5073ba4b98f369
 ```
 
 Actual DeepSeek transport (discovered; not the intended Responses JSON Schema path):
