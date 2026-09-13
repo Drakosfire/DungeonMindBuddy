@@ -819,3 +819,69 @@ Preregistration read from immutable commit `8839ca08…`; none of its target lan
 `replicate Luna candidate 3×` is the leading cheap follow-up: the payloads are already in the Luna store, spend is $0.13/run, and one run cannot prove whether Karsemine-attribution flattening is stable.
 
 Independent later slices, not this PR: `score/fix Orik/Orric identity`; `resolve source-authority/frontmatter semantics` for the 152 census failures; `isolate semantic-payload vs lean-output` only if Luna replication shows the remaining miss is prompt-attribution rather than noise.
+
+## 2026-09-12 Luna context ablation handback
+
+Implementation head for paid extraction: `1e63d6130bb0aa9c6e85e7886da3f0bb3283e514`.
+Provenance-stamping analysis head: `f91829cc91bcb9e17982af79b75fdf5d6d83b1af`.
+
+The first whole-document attempt stopped after 3/7 sources because the context loader
+revalidated raw legacy frontmatter instead of using the compatibility treatment already applied
+by ingestion. It spent approximately `$0.05`; it is failed infrastructure evidence and is excluded
+from comparison. Commit `1e63d613` repaired this by mechanically removing the frontmatter envelope
+while preserving exact Markdown body bytes. Both compared arms then completed 7/7 on that head.
+
+| Measure | Evidence-unit control | Whole-document semantic context |
+|---|---:|---:|
+| Model / tier / reasoning | Luna / Flex / medium | Luna / Flex / medium |
+| Evidence units persisted | 130 | 130 |
+| Entity anchors | 6/6 | 6/6 |
+| Mechanical fact anchors | 4/5 | 3/5 |
+| Persisted entities | 133 | 119 |
+| Persisted facts | 702 | 674 |
+| API calls | 84 | 84 |
+| Input tokens | 254K | 566K |
+| Output tokens | 202K | 173K |
+| Estimated cost | `$0.13` | `$0.15` |
+| Model time | 374.5s | 323.3s |
+
+The apparent 4/5 → 3/5 regression is not a trustworthy semantic regression. Whole-document output
+contains two clean Brin facts, `A cook from Edge` and `Leader of the survivors from Edge`. The
+leadership anchor accepts `survivor leader` but not the semantically equivalent inverse wording.
+The evidence-unit arm happened to combine both concepts into one longer fact containing the exact
+accepted phrase `clear leader`.
+
+Both arms mechanically miss Mireward pressure. The whole-document store nevertheless contains
+materially stronger table context on the correct Mireward subject, including:
+
+```text
+Mireward Reach is undergoing a new refugee influx and becoming more crowded this month.
+Mireward Reach is experiencing a crisis of capacity and fen displacement.
+A refugee crush breaks the town's working mix all at once.
+The approaching meat-monster flank is depicted as wrong, stitched meat...
+```
+
+The anchor accepts exact phrases such as `refugee pressure`, `under siege`, or
+`meat-monster flank`; the last fact is categorized as portrayal rather than the allowed
+operational/event attributes. The scored miss therefore exposes scorer/representation sensitivity,
+not absent campaign memory.
+
+Both arms recover Karsemine's concrete weak-to-fire discovery. Both retain the cross-document
+Orik/Orric split; whole-document context cannot reconcile identities across separate documents.
+
+### Disposition
+
+Select **whole-document semantic context** as the leading contract for the Luna-vs-DeepSeek screen.
+It preserved local evidence anchors, produced cleaner decomposed Brin facts, exposed substantially
+richer Mireward context, reduced entity/fact volume, cost only `$0.02` more in this single run, and
+did not increase observed model time. This is directional one-run evidence, not stability proof.
+
+Before treating exact anchor recall as model-selection authority, add a scorer test for semantically
+equivalent subject-predicate wording (`leader of the survivors` versus `survivor leader`) and review
+whether the Mireward requirement is one compound fact or multiple independently scored expectations.
+Do not edit gold to mirror this output. Orik/Orric remains separate identity-reconciliation work.
+
+Phase B remains blocked on an equivalent DeepSeek provider adapter. The current ingestion clients
+are OpenAI Responses clients; no repository evidence proves that `deepseek/deepseek-v4.1-flash`
+can receive the same structured schema, reasoning contract, service tier, and telemetry through
+that seam. Do not label unequal provider executions a controlled model comparison.
