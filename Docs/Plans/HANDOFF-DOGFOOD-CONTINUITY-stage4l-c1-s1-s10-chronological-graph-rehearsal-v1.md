@@ -507,6 +507,11 @@ Sessions 1–10 cohort and the provider/model/profile specified by this handoff;
 it does not authorize unrelated corpus material, another provider/model, or a
 production publication target.
 
+On 2026-09-14, the user further clarified that this approval covers execution
+of the full frozen Stage 4L plan without repeated prompts, including a necessary
+same-session rerun when instrumentation must be corrected to make experiment
+evidence valid, provided execution remains within those bounds.
+
 No other path is implicitly leased.
 
 ---
