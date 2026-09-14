@@ -1,0 +1,243 @@
+{
+  "metadata": {
+    "pr": "#714",
+    "exact_head": "236ecb3ee050fb981c1710b2c813e20de8252853",
+    "world_revision_id": "rev:c839ca5587f06dda2eb485dad1e50fe6",
+    "model_calls": 0,
+    "sessions": "1-10",
+    "total_extracted_relationships": 276,
+    "published_relationships": 150,
+    "unpublished_relationships": 126,
+    "truthfully_published_relationships": 141,
+    "lossy_published_relationships": 9
+  },
+  "funnel": {
+    "extracted": 276,
+    "endpoint_ids_present": 276,
+    "endpoints_resolve_to_world_objects": 197,
+    "endpoint_identity_quality": 182,
+    "predicate_semantically_mapped": 249,
+    "endpoint_kinds_known": 272,
+    "predicate_accepts_endpoint_kinds": 219,
+    "truthfully_publishable": 252,
+    "published": 150
+  },
+  "rejection_categories": {
+    "endpoint_identity_unresolved_or_wrong": 62,
+    "endpoint_kind_missing_or_weak": 33,
+    "ontology_endpoint_contract_too_narrow": 13,
+    "extraction_semantically_bad": 9,
+    "predicate_unmapped": 9
+  },
+  "diagnostic_reasons": {
+    "pc_cross_kind_collision_blocked_by_identity_gate": 62,
+    "weak_mystery_typing_replaces_concrete_entity": 23,
+    "duplicate_node_reconciliation_as_edge:same_as": 6,
+    "beast_goat_typed_as_npc_instead_of_creature": 5,
+    "presence_in_or_on_item_unsupported": 4,
+    "unmapped_organization_kind_needs_faction_or_group": 4,
+    "attends_participates_in_rejects_social_gatherings": 3,
+    "unmapped_predicate:mission_targets": 3,
+    "unmapped_predicate:mission_focus": 3,
+    "works_with_rejects_location_endpoint": 3,
+    "unmapped_predicate:controls_comms_with": 2,
+    "duplicate_node_reconciliation_as_edge:identified_as": 1,
+    "carries_rejects_item_carrying_item": 1,
+    "plant_branch_typed_as_item_to_creature": 1,
+    "landlord_hospitality_misclassified_as_holds": 1,
+    "located_in_rejects_event_needs_occurs_at": 1,
+    "guard_captain_commands_physical_gate": 1,
+    "unmapped_predicate:reports_threat_in": 1,
+    "leads_to_rejects_item_portal_or_trapdoor": 1
+  },
+  "top_rejection_signatures": [
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "possesses",
+      "subject_kind": "player_character",
+      "object_kind": "item",
+      "count": 8
+    },
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "attacks",
+      "subject_kind": "player_character",
+      "object_kind": "npc",
+      "count": 8
+    },
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "carries",
+      "subject_kind": "player_character",
+      "object_kind": "item",
+      "count": 6
+    },
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "present_at",
+      "subject_kind": "player_character",
+      "object_kind": "location",
+      "count": 4
+    },
+    {
+      "reason": "duplicate_node_reconciliation_as_edge:same_as",
+      "predicate": "same_as",
+      "subject_kind": "item",
+      "object_kind": "mystery",
+      "count": 4
+    },
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "attacks",
+      "subject_kind": "player_character",
+      "object_kind": "player_character",
+      "count": 3
+    },
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "works_with",
+      "subject_kind": "player_character",
+      "object_kind": "npc",
+      "count": 3
+    },
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "attacks",
+      "subject_kind": "npc",
+      "object_kind": "player_character",
+      "count": 3
+    },
+    {
+      "reason": "works_with_rejects_location_endpoint",
+      "predicate": "works_with",
+      "subject_kind": "npc",
+      "object_kind": "location",
+      "count": 3
+    },
+    {
+      "reason": "weak_mystery_typing_replaces_concrete_entity",
+      "predicate": "causes",
+      "subject_kind": "player_character",
+      "object_kind": "mystery",
+      "count": 3
+    },
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "cooperates_with",
+      "subject_kind": "player_character",
+      "object_kind": "player_character",
+      "count": 3
+    },
+    {
+      "reason": "unmapped_organization_kind_needs_faction_or_group",
+      "predicate": "member_of",
+      "subject_kind": "npc",
+      "object_kind": "organization",
+      "count": 3
+    },
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "owns",
+      "subject_kind": "player_character",
+      "object_kind": "item",
+      "count": 2
+    },
+    {
+      "reason": "presence_in_or_on_item_unsupported",
+      "predicate": "present_at",
+      "subject_kind": "player_character",
+      "object_kind": "item",
+      "count": 2
+    },
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "attacks",
+      "subject_kind": "creature",
+      "object_kind": "player_character",
+      "count": 2
+    },
+    {
+      "reason": "weak_mystery_typing_replaces_concrete_entity",
+      "predicate": "part_of",
+      "subject_kind": "creature",
+      "object_kind": "mystery",
+      "count": 2
+    },
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "knows_about",
+      "subject_kind": "player_character",
+      "object_kind": "npc",
+      "count": 2
+    },
+    {
+      "reason": "pc_cross_kind_collision_blocked_by_identity_gate",
+      "predicate": "causes",
+      "subject_kind": "player_character",
+      "object_kind": "player_character",
+      "count": 2
+    },
+    {
+      "reason": "weak_mystery_typing_replaces_concrete_entity",
+      "predicate": "knows_about",
+      "subject_kind": "player_character",
+      "object_kind": "mystery",
+      "count": 2
+    },
+    {
+      "reason": "duplicate_node_reconciliation_as_edge:identified_as",
+      "predicate": "identified_as",
+      "subject_kind": "item",
+      "object_kind": "mystery",
+      "count": 1
+    },
+    {
+      "reason": "weak_mystery_typing_replaces_concrete_entity",
+      "predicate": "attacks",
+      "subject_kind": "mystery",
+      "object_kind": "group",
+      "count": 1
+    },
+    {
+      "reason": "weak_mystery_typing_replaces_concrete_entity",
+      "predicate": "participates_in",
+      "subject_kind": "mystery",
+      "object_kind": "mystery",
+      "count": 1
+    },
+    {
+      "reason": "weak_mystery_typing_replaces_concrete_entity",
+      "predicate": "present_at",
+      "subject_kind": "item",
+      "object_kind": "mystery",
+      "count": 1
+    },
+    {
+      "reason": "weak_mystery_typing_replaces_concrete_entity",
+      "predicate": "part_of",
+      "subject_kind": "location",
+      "object_kind": "mystery",
+      "count": 1
+    },
+    {
+      "reason": "weak_mystery_typing_replaces_concrete_entity",
+      "predicate": "located_in",
+      "subject_kind": "item",
+      "object_kind": "mystery",
+      "count": 1
+    }
+  ],
+  "bottleneck_quantification": {
+    "total_extracted": 276,
+    "worthy_source_supported": 261,
+    "worthy_published": 150,
+    "blocked_by_identity_resolution": 62,
+    "blocked_by_endpoint_typing": 33,
+    "blocked_by_ontology_endpoint_contract": 13,
+    "blocked_by_predicate_vocabulary": 9,
+    "correctly_rejected_bad_extraction": 9,
+    "published_relying_on_lossy_coercions": 9,
+    "truthful_publication_rate_excluding_lossy": 0.5109,
+    "percentage_of_loss_involving_weak_or_mystery_typing": 0.2619
+  }
+}
