@@ -12,6 +12,7 @@ This module must be importable without ``world_graph_writes``,
 
 from __future__ import annotations
 
+import copy
 from datetime import UTC, datetime
 from typing import Any
 
@@ -74,8 +75,9 @@ def _store_artifact_v2(
     )
     from dungeonmind.contracts.vocabulary import Visibility
 
-    domain_key = str(artifact.source_domain)
-    domain = _map_source_domain(domain_key) or SourceDomain.OTHER
+    buddy_domain_key = str(artifact.source_domain)
+    domain = _map_source_domain(buddy_domain_key) or SourceDomain.OTHER
+    domain_key = domain.value
     workspace_ref = None
     if artifact.workspace_document_id is not None:
         workspace_ref = WorkspaceDocumentRefV1(
@@ -296,16 +298,25 @@ def _map_buddy_source(
     if not locator:
         locator = f"object://{dm_revision_id}"
     created_at = _revision_created_at(artifact)
+    campaign_id = (
+        str(getattr(artifact, "campaign_id", None) or "").strip() or request.campaign_id
+    )
+    world_id = (
+        str(getattr(artifact, "world_id", None) or "").strip() or request.world_id
+    )
+    if hasattr(artifact, "model_copy"):
+        scoped_artifact = artifact.model_copy(
+            update={"world_id": world_id, "campaign_id": campaign_id}
+        )
+    else:
+        scoped_artifact = copy.copy(artifact)
+        scoped_artifact.world_id = world_id
+        scoped_artifact.campaign_id = campaign_id
     dm_artifact = _store_artifact_v2(
-        artifact,
+        scoped_artifact,
         current_revision_id=dm_revision_id,
         uri=locator,
     )
-    campaign_id = (
-        str(getattr(artifact, "campaign_id", None) or "").strip()
-        or request.campaign_id
-    )
-    world_id = str(getattr(artifact, "world_id", None) or "").strip() or request.world_id
     dm_artifact = dm_artifact.model_copy(
         update={
             "world_id": world_id,

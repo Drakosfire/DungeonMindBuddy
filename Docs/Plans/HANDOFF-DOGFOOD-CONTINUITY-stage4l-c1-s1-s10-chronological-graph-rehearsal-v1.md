@@ -490,6 +490,14 @@ Decision rule:
   record the reason in the handoff before or with the first edit.
 ```
 
+**Bounded-discovery record (implementation):**
+
+- `apps/live_control_server/integrations/dungeonmind/world_graph_source_admission_adapter.py` — the existing owner must apply the requested World scope before validating a recap artifact and persist DungeonMind's canonical `session_recap` domain key.
+- `apps/live_control_server/integrations/dungeonmind/world_graph_writes.py` — the existing governed-publication owner must rehydrate sealed `source_extraction` evidence from the admitted recap pair instead of beginning with an empty evidence view.
+- `src/graph_memory/extract_identity_gate.py` — the existing identity-aware publication owner is the narrowest seam that can preserve a resolved `corpus_ref.type=pc` without globally redefining `character`.
+
+These are three of the maximum four additional runtime paths. They directly own §4.4/§5 and are covered by focused fail-closed tests.
+
 No other path is implicitly leased.
 
 ---

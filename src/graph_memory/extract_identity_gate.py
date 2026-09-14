@@ -36,7 +36,9 @@ from apps.live_control_server.models.world_graph_contribution_models import (
 from apps.live_control_server.models.world_graph_contributions import (
     create_graph_contribution,
 )
-from apps.live_control_server.models.world_graph_identity_models import IdentityCandidate
+from apps.live_control_server.models.world_graph_identity_models import (
+    IdentityCandidate,
+)
 from apps.live_control_server.models.world_graph_mutation_context import (
     WorldGraphMutationContext,
     endpoint_available,
@@ -216,18 +218,27 @@ def _infer_object_kind(
 ) -> str:
     """Pick Kernel object_kind so same-kind exact match can attach (e.g. pc:caelynn)."""
     base = kernel_kind_for_node_type(node.node_type)
+    corpus_ref = node.corpus_ref
+    if corpus_ref is not None and str(corpus_ref.type).strip().lower() == "pc":
+        return "pc"
     label = (node.label or "").strip().lower()
     if not label:
         return base
     raw_type = (node.node_type or "").strip().lower()
     if raw_type in {"character", "pc", "npc"}:
         for obj in context.objects.values():
-            terms = {obj.label.strip().lower(), *[a.strip().lower() for a in obj.aliases]}
+            terms = {
+                obj.label.strip().lower(),
+                *[a.strip().lower() for a in obj.aliases],
+            }
             if label in terms and obj.kind in {"pc", "npc"}:
                 return obj.kind
     if raw_type in {"collective", "organization", "party"}:
         for obj in context.objects.values():
-            terms = {obj.label.strip().lower(), *[a.strip().lower() for a in obj.aliases]}
+            terms = {
+                obj.label.strip().lower(),
+                *[a.strip().lower() for a in obj.aliases],
+            }
             if label in terms and obj.kind in {"party", "faction"}:
                 return obj.kind
     return base
@@ -279,11 +290,7 @@ def gate_candidate_graph_against_head(
     parent_revision_id = mutation_context.revision_id
 
     allow = set(node_ids) if node_ids is not None else None
-    nodes = [
-        node
-        for node in preview.nodes
-        if allow is None or node.node_id in allow
-    ]
+    nodes = [node for node in preview.nodes if allow is None or node.node_id in allow]
     if not nodes:
         raise CandidateGraphMappingError("candidate graph has no nodes to gate")
 
@@ -706,12 +713,12 @@ def build_accepted_contribution_from_proposals(
                 )
         filtered.append(assertion)
 
-    meta = dict(contribution_meta) if contribution_meta is not None else (
-        contribution_meta_from_contribution(gate.contribution)
+    meta = (
+        dict(contribution_meta)
+        if contribution_meta is not None
+        else (contribution_meta_from_contribution(gate.contribution))
     )
-    selection_digest = compute_selection_digest(
-        [a.assertion_id for a in filtered]
-    )
+    selection_digest = compute_selection_digest([a.assertion_id for a in filtered])
     return create_graph_contribution(
         world_id=gate.world_id,
         source_kind=str(meta["source_kind"]),  # type: ignore[arg-type]
@@ -729,19 +736,13 @@ def build_accepted_contribution_from_proposals(
             f"accepted_for_merge:{len(filtered)}",
             f"parent_revision_id:{gate.parent_revision_id}",
             f"selection_digest:{selection_digest}",
-            *(
-                [f"proposal_digest:{proposal_digest}"]
-                if proposal_digest
-                else []
-            ),
+            *([f"proposal_digest:{proposal_digest}"] if proposal_digest else []),
         ],
     )
 
 
 def build_accepted_contribution_from_multi_slice_proposals(
-    slice_selections: Sequence[
-        tuple[IdentityGateResult, Sequence[str] | None, str]
-    ],
+    slice_selections: Sequence[tuple[IdentityGateResult, Sequence[str] | None, str]],
     *,
     mutation_context: WorldGraphMutationContext | None = None,
     root: Path | None = None,
@@ -878,7 +879,11 @@ def build_accepted_contribution_from_multi_slice_proposals(
         for _slice_id, gate, _selected in active
     ]
     meta = next(
-        (m for m in slice_metas if str(m.get("source_kind") or "") == "source_extraction"),
+        (
+            m
+            for m in slice_metas
+            if str(m.get("source_kind") or "") == "source_extraction"
+        ),
         slice_metas[-1],
     )
 
@@ -902,10 +907,6 @@ def build_accepted_contribution_from_multi_slice_proposals(
             f"parent_revision_id:{parent_revision_id}",
             f"selection_digest:{selection_digest}",
             *diagnostics,
-            *(
-                [f"proposal_digest:{proposal_digest}"]
-                if proposal_digest
-                else []
-            ),
+            *([f"proposal_digest:{proposal_digest}"] if proposal_digest else []),
         ],
     )

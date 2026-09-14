@@ -5,7 +5,7 @@ workflow reads graph facts from DungeonMind, seals public DungeonMind parent
 revision IDs, and publishes DungeonMind children without opening, hydrating,
 replaying, or rebuilding Buddy's World Graph.
 
-This module must not import ``graph_memory.kernel`` runtime, 
+This module must not import ``graph_memory.kernel`` runtime,
 ``graph_memory.world_supergraph``, or ``graph_memory.union_supergraph``.
 Buddy contribution/proposal value models remain the product contract.
 """
@@ -143,6 +143,92 @@ def _graph_review_evidence_view(
     return _EmptyEvidenceView(evidence=records)
 
 
+def _source_extraction_evidence_view(
+    contribution: Any,
+    *,
+    pair_to_dm: dict[tuple[str, str], str],
+    sources: Any | None = None,
+) -> _EmptyEvidenceView:
+    """Rehydrate sealed extraction evidence against admitted recap authority."""
+    records: dict[str, Any] = {}
+    assertions = [
+        *list(getattr(contribution, "accepted_assertions", None) or []),
+        *list(getattr(contribution, "candidate_assertions", None) or []),
+        *list(getattr(contribution, "rejected_assertions", None) or []),
+    ]
+    for assertion in assertions:
+        artifact_id = str(getattr(assertion, "source_artifact_id", "") or "")
+        token = str(getattr(assertion, "source_revision_id", "") or "")
+        dm_revision_id = pair_to_dm.get((artifact_id, token))
+        if not dm_revision_id:
+            raise WorldGraphWriteError(
+                "source extraction references a source pair that was not admitted",
+                code="governed_write_inexpressible",
+                details={
+                    "source_artifact_id": artifact_id,
+                    "source_revision_id": token,
+                },
+            )
+        locator = None
+        if sources is not None:
+            revision = sources.get_revision(dm_revision_id)
+            if revision is not None:
+                locator = str(getattr(revision, "locator", None) or "") or None
+        value = getattr(assertion, "value", None)
+        embedded = value.get("evidence") if isinstance(value, dict) else None
+        embedded_by_id = {
+            str(item.get("evidence_ref_id") or ""): item
+            for item in (embedded or [])
+            if isinstance(item, dict) and str(item.get("evidence_ref_id") or "")
+        }
+        for evidence_id in list(getattr(assertion, "evidence_ref_ids", None) or []):
+            evidence_key = str(evidence_id)
+            item = embedded_by_id.get(evidence_key)
+            if item is None:
+                raise WorldGraphWriteError(
+                    "source extraction evidence is missing its sealed embedded record",
+                    code="governed_write_inexpressible",
+                    details={
+                        "assertion_id": assertion.assertion_id,
+                        "evidence_ref_id": evidence_key,
+                    },
+                )
+            if str(item.get("source_artifact_id") or "") != artifact_id:
+                raise WorldGraphWriteError(
+                    "source extraction evidence disagrees with its admitted artifact",
+                    code="governed_write_inexpressible",
+                    details={
+                        "assertion_id": assertion.assertion_id,
+                        "evidence_ref_id": evidence_key,
+                    },
+                )
+            domain = str(item.get("source_domain") or "").strip()
+            if domain not in {"recap", "session_recap"}:
+                raise WorldGraphWriteError(
+                    "source extraction evidence is not an admitted recap",
+                    code="governed_write_inexpressible",
+                    details={"evidence_ref_id": evidence_key, "source_domain": domain},
+                )
+            span = str(item.get("source_span_ref_id") or "").strip()
+            if not span:
+                raise WorldGraphWriteError(
+                    "source extraction evidence is missing its source span",
+                    code="governed_write_inexpressible",
+                    details={"evidence_ref_id": evidence_key},
+                )
+            records[evidence_key] = _BuddyEvidenceRecord(
+                evidence_ref_id=evidence_key,
+                source_artifact_id=artifact_id,
+                source_domain="recap",
+                evidence_role="support",
+                can_open_source=bool(locator),
+                can_highlight_span=False,
+                locator=locator,
+                uri=locator,
+            )
+    return _EmptyEvidenceView(evidence=records)
+
+
 def _open_repository_bundle(database_url: str) -> Any:
     try:
         from dungeonmind.infrastructure.postgres import (
@@ -224,11 +310,13 @@ def _context_with_dungeonmind_identity(
 ) -> WorldGraphMutationContext:
     redirects: dict[str, str] = {}
     records: tuple[Any, ...] = ()
-    ledger_records = tuple(_dump_identity_decision(item) for item in dungeonmind_decisions or ())
+    ledger_records = tuple(
+        _dump_identity_decision(item) for item in dungeonmind_decisions or ()
+    )
     if dungeonmind_decisions:
         try:
-            redirects, extra_alias_owners, records = identity_facts_from_dungeonmind_decisions(
-                dungeonmind_decisions
+            redirects, extra_alias_owners, records = (
+                identity_facts_from_dungeonmind_decisions(dungeonmind_decisions)
             )
         except Exception as exc:
             raise WorldGraphWriteError(
@@ -287,7 +375,9 @@ def _dump_identity_decision(raw: Any) -> dict[str, Any]:
                 rewrites.append(
                     {
                         "alias_key": str(getattr(rewrite, "alias_key", "") or ""),
-                        "prior_owner_node_id": getattr(rewrite, "prior_owner_node_id", None),
+                        "prior_owner_node_id": getattr(
+                            rewrite, "prior_owner_node_id", None
+                        ),
                         "new_owner_node_id": str(
                             getattr(rewrite, "new_owner_node_id", "") or ""
                         ),
@@ -471,7 +561,9 @@ def mutation_context_from_native_projection(
     for obj in graph.objects.values():
         canon = ""
         meta = getattr(obj, "existence_assertion_metadata", None)
-        raw_canon = str(getattr(meta, "canon_state", "") or "") if meta is not None else ""
+        raw_canon = (
+            str(getattr(meta, "canon_state", "") or "") if meta is not None else ""
+        )
         if raw_canon == "provisional":
             canon = "noncanonical_provisional"
         elif raw_canon == "retracted":
@@ -524,8 +616,14 @@ def mutation_context_from_revision_payload(
         object_id = str(raw.get("object_id") or "").strip()
         if not object_id:
             continue
-        meta = raw.get("assertion_metadata") or raw.get("existence_assertion_metadata") or {}
-        raw_canon = str((meta or {}).get("canon_state") or "") if isinstance(meta, dict) else ""
+        meta = (
+            raw.get("assertion_metadata")
+            or raw.get("existence_assertion_metadata")
+            or {}
+        )
+        raw_canon = (
+            str((meta or {}).get("canon_state") or "") if isinstance(meta, dict) else ""
+        )
         if raw_canon == "provisional":
             canon = "noncanonical_provisional"
         elif raw_canon == "retracted":
@@ -543,7 +641,9 @@ def mutation_context_from_revision_payload(
         )
     alias_owners: dict[str, tuple[str, ...]] = {}
     alias_owners = _register_object_alias_owners(objects, alias_owners)
-    revision_id = str(getattr(getattr(stored, "revision", None), "revision_id", "") or "")
+    revision_id = str(
+        getattr(getattr(stored, "revision", None), "revision_id", "") or ""
+    )
     return _context_with_dungeonmind_identity(
         world_id=world_id,
         revision_id=revision_id,
@@ -641,7 +741,9 @@ def _derive_confirm_operation_id(
     return f"reviewop:{digest[:32]}"
 
 
-def derive_threat_review_operation_id(*, world_id: str, authority_operation_id: str) -> str:
+def derive_threat_review_operation_id(
+    *, world_id: str, authority_operation_id: str
+) -> str:
     """Map a Buddy authority operation id onto DungeonMind's reviewop contract.
 
     Threat product identity stays the sealed contribution/operation id. DungeonMind
@@ -840,9 +942,7 @@ def load_authority_mutation_context(
     graph_context = mutation_context_from_revision_payload(
         stored,
         world_id=world_id,
-        head_revision_id=str(
-            getattr(head, "head_revision_id", "") or revision_id
-        ),
+        head_revision_id=str(getattr(head, "head_revision_id", "") or revision_id),
         dungeonmind_decisions=None,
     )
     sealed_decisions = [
@@ -1170,8 +1270,13 @@ def _build_v2_candidate(
     from dungeonmind.contracts.contribution import AcceptanceState, ContributionStatus
 
     evidence_view: Any = _EmptyEvidenceView()
-    if getattr(contribution, "source_kind", None) == "graph_review_authored_assertion":
+    source_kind = getattr(contribution, "source_kind", None)
+    if source_kind == "graph_review_authored_assertion":
         evidence_view = _graph_review_evidence_view(
+            contribution, pair_to_dm=pair_to_dm, sources=sources
+        )
+    elif source_kind == "source_extraction":
+        evidence_view = _source_extraction_evidence_view(
             contribution, pair_to_dm=pair_to_dm, sources=sources
         )
     mapped = _map_contributions(evidence_view, [contribution], pair_to_dm)
@@ -1973,7 +2078,10 @@ def confirm_extract_promote_via_dungeonmind(
             code="governed_write_failed",
             details={"world_id": world_id, "revision_id": child_id},
         )
-    if str(getattr(child.revision, "parent_revision_id", "") or "") != parent_revision_id:
+    if (
+        str(getattr(child.revision, "parent_revision_id", "") or "")
+        != parent_revision_id
+    ):
         # Some revision envelopes name parent via a different field; treat
         # successful publication + matching head as the CAS proof.
         logger.info(

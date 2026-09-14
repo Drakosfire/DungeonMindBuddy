@@ -46,7 +46,9 @@ LEGACY_GRAPH_ENGINE_PREFIXES = (
 )
 
 
-def _buddy_artifact(*, artifact_id: str, world_id: str = WORLD_ID, campaign_id: str = CAMPAIGN_ID):
+def _buddy_artifact(
+    *, artifact_id: str, world_id: str = WORLD_ID, campaign_id: str = CAMPAIGN_ID
+):
     return SimpleNamespace(
         source_artifact_id=artifact_id,
         source_domain="worldbuilding",
@@ -68,7 +70,9 @@ def _buddy_artifact(*, artifact_id: str, world_id: str = WORLD_ID, campaign_id: 
     )
 
 
-def _request(*, artifact_id: str, token: str = TOKEN) -> WorldGraphSourceAdmissionRequest:
+def _request(
+    *, artifact_id: str, token: str = TOKEN
+) -> WorldGraphSourceAdmissionRequest:
     return WorldGraphSourceAdmissionRequest(
         world_id=WORLD_ID,
         campaign_id=CAMPAIGN_ID,
@@ -98,6 +102,34 @@ def test_prove_or_admit_writes_missing_pair_and_is_idempotent() -> None:
     assert sources.get_artifact(ARTIFACT_A) is not None
 
 
+def test_prove_or_admit_scopes_and_canonicalizes_recap_before_validation() -> None:
+    sources = InMemorySourceRepository()
+    artifact = _buddy_artifact(
+        artifact_id="artifact:recap:c1:session-1",
+        world_id=None,
+        campaign_id="longmont-c1",
+    )
+    artifact.source_domain = "recap"
+    artifact.session_id = "session-1"
+    request = WorldGraphSourceAdmissionRequest(
+        world_id="eldyrwild",
+        campaign_id="longmont-c1",
+        source_artifact=artifact,
+        source_revision_token=TOKEN,
+        source_uri=artifact.uri,
+    )
+
+    admitted = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources
+    ).prove_or_admit(request)
+
+    stored = sources.get_artifact(admitted.source_artifact_id)
+    assert stored.world_id == "eldyrwild"
+    assert stored.campaign_id == "longmont-c1"
+    assert stored.session_id == "session-1"
+    assert stored.source_domain_key == "session_recap"
+
+
 def test_prove_or_admit_collision_seals_as_token_suffix() -> None:
     sources = InMemorySourceRepository()
     adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
@@ -106,7 +138,9 @@ def test_prove_or_admit_collision_seals_as_token_suffix() -> None:
     second = adapter.prove_or_admit(_request(artifact_id=ARTIFACT_B))
     assert second.source_revision_id == f"{TOKEN}::{ARTIFACT_B}"
     assert sources.get_revision(TOKEN).source_artifact_id == ARTIFACT_A
-    assert sources.get_revision(second.source_revision_id).source_artifact_id == ARTIFACT_B
+    assert (
+        sources.get_revision(second.source_revision_id).source_artifact_id == ARTIFACT_B
+    )
     proven = adapter.prove(
         world_id=WORLD_ID,
         source_artifact_id=ARTIFACT_B,
@@ -133,7 +167,9 @@ def test_prove_or_admit_fingerprint_conflict_fails_closed() -> None:
 
 
 def test_prove_missing_pair_fails_closed() -> None:
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=InMemorySourceRepository())
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=InMemorySourceRepository()
+    )
     with pytest.raises(WorldGraphSourceAdmissionError) as exc:
         adapter.prove(
             world_id=WORLD_ID,
@@ -144,7 +180,9 @@ def test_prove_missing_pair_fails_closed() -> None:
     assert exc.value.code == "source_not_admitted"
 
 
-def test_source_admission_adapter_has_no_legacy_graph_engine_or_writes_imports() -> None:
+def test_source_admission_adapter_has_no_legacy_graph_engine_or_writes_imports() -> (
+    None
+):
     tree = ast.parse(ADAPTER_PATH.read_text(encoding="utf-8"))
     imported: list[str] = []
     for node in ast.walk(tree):

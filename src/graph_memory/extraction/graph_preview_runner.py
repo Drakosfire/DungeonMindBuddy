@@ -61,6 +61,7 @@ class ProductionExtractionRequest:
     context_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_node_vocabulary_packet: bool = False
     enable_edge_vocabulary_packet: bool = False
+    extra_known_entities: tuple[Any, ...] | None = None
 
 
 @dataclass
@@ -74,6 +75,8 @@ class ProductionExtractionResult:
     model_id: str | None = None
     profile_id: str | None = None
     profile_version: str | None = None
+    pass_telemetry: Mapping[str, Any] | None = None
+    total_cost_usd: float = 0.0
 
 
 def _now_iso() -> str:
@@ -102,7 +105,9 @@ def _repo_uri(repo_root: Path, path: Path) -> str:
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def _component(
@@ -123,7 +128,9 @@ def _create_draft_run(
     diagnostics: ExtractionRunDiagnostics | None = None,
     lineage: dict[str, Any] | None = None,
 ) -> ExtractionRun:
-    from apps.live_control_server.services.graph_run_registry import create_extraction_run
+    from apps.live_control_server.services.graph_run_registry import (
+        create_extraction_run,
+    )
 
     return create_extraction_run(
         repo_root,
@@ -248,7 +255,9 @@ def run_production_extraction(
             request.repo_root,
             source,
             profile_id=f"{request.profile_id}@{request.profile_version}",
-            diagnostics=ExtractionRunDiagnostics(messages=[str(exc)], errors=[str(exc)]),
+            diagnostics=ExtractionRunDiagnostics(
+                messages=[str(exc)], errors=[str(exc)]
+            ),
             lineage={"failure_kind": "profile"},
         )
         failed = _fail_run(
@@ -339,6 +348,7 @@ def run_production_extraction(
             if request.enable_edge_vocabulary_packet
             else None
         ),
+        extra_known_entities=request.extra_known_entities,
     )
 
     try:
@@ -538,10 +548,7 @@ def run_production_extraction(
                 if str(err).strip()
             ]
         except Exception as exc:  # noqa: BLE001 — fail closed around profile callables
-            message = (
-                "profile post-extraction validator raised "
-                f"{type(exc).__name__}"
-            )
+            message = f"profile post-extraction validator raised {type(exc).__name__}"
             failed = _fail_run(
                 request.repo_root,
                 extracted,
@@ -632,4 +639,6 @@ def run_production_extraction(
         model_id=model_id,
         profile_id=profile.profile_id,
         profile_version=profile.profile_version,
+        pass_telemetry=extraction.pass_telemetry,
+        total_cost_usd=extraction.total_cost_usd,
     )
