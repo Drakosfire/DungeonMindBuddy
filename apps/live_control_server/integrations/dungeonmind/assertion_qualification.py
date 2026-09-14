@@ -21,6 +21,8 @@ _BUDDY_TO_DM_KIND: dict[str, str] = {
     "threat": "dnd5e:threat",
     "npc": "dnd5e:npc",
     "pc": "dnd5e:player_character",
+    "player_character": "dnd5e:player_character",
+    "character": "dnd5e:npc",
     "creature": "dnd5e:creature",
     "location": "dnd5e:location",
     "faction": "dnd5e:faction",
@@ -36,6 +38,9 @@ _BUDDY_TO_DM_KIND_V5: dict[str, str] = {
     **_BUDDY_TO_DM_KIND,
     "thread": "dnd5e:thread",
 }
+# Direct pass-through for already-qualified DungeonMind vocabulary terms
+for _dm_kind in tuple(_BUDDY_TO_DM_KIND_V5.values()):
+    _BUDDY_TO_DM_KIND_V5[_dm_kind] = _dm_kind
 
 # Direct Buddy predicate → dnd5e:<same> (no generic f"dnd5e:{pred}" fallback).
 _DIRECT_PREDICATE_MAP: frozenset[str] = frozenset(
@@ -78,30 +83,41 @@ _DIRECT_PREDICATE_MAP: frozenset[str] = frozenset(
 
 _RENAME_PREDICATE_MAP: dict[str, str] = {
     "appeared_in": "dnd5e:present_at",
+    "attends": "dnd5e:participates_in",
+    "coordinates_with": "dnd5e:cooperates_with",
+    "defends_weakened_location": "dnd5e:protects",
+    "governs": "dnd5e:owns",
+    "hires": "dnd5e:commands",
     "linked_to": "dnd5e:associated_with",
     "occurred_at": "dnd5e:occurs_at",
+    "part_of_group": "dnd5e:member_of",
     "participated_in": "dnd5e:participates_in",
     "path_to": "dnd5e:leads_to",
+    "refers_to": "dnd5e:associated_with",
+    "reports_to": "dnd5e:serves",
     "results_in": "dnd5e:causes",
     "routes_to": "dnd5e:leads_to",
     "sublocation_of": "dnd5e:part_of",
+    "west_of": "dnd5e:near",
     "within": "dnd5e:located_in",
 }
 
-# Buddy pred → (dm_term, reverse_endpoints). Only belongs_to uses reverse.
+# Buddy pred → (dm_term, reverse_endpoints).
 _REVERSE_ENDPOINT_PREDICATE_MAP: dict[str, tuple[str, bool]] = {
     "belongs_to": ("dnd5e:owns", True),
+    "caused_by": ("dnd5e:causes", True),
+    "child_of": ("dnd5e:parent_of", True),
+    "contained_by": ("dnd5e:contains", True),
 }
 
 _INTENTIONALLY_UNRESOLVED_PREDICATES: frozenset[str] = frozenset(
     {
         "carries_report_to",
         "controls_comms_with",
-        "defends_weakened_location",
         "identified_as",
+        "mission_focus",
         "mission_targets",
         "objective_of",
-        "part_of_group",
         "reports_threat_in",
         "same_as",
     }
@@ -209,3 +225,35 @@ def edge_has_reverse_direction_qualifier_v4(
     if not patterns:
         return False
     return any(pattern.search(edge_id) for pattern in patterns)
+
+
+def check_edge_expressible(
+    buddy_predicate: str,
+    subject_kind: str | None,
+    object_kind: str | None,
+    *,
+    vocabulary: Any = None,
+    buddy_to_dm_kind: Mapping[str, str] = CURRENT_V5_TARGET.buddy_to_dm_kind,
+) -> tuple[bool, str | None]:
+    """Check if an edge predicate and endpoint kinds are expressible in DungeonMind.
+
+    Returns (True, dm_predicate) if expressible, or (False, rejection_reason).
+    """
+    mapping = resolve_buddy_predicate_mapping_v4(buddy_predicate)
+    if mapping is None or not mapping[0]:
+        return False, "unmapped_predicate"
+    dm_predicate, reverse_endpoints = mapping
+    if vocabulary is None:
+        vocabulary = CURRENT_V5_TARGET.world_object_loader()
+    allowed = predicate_allowed_endpoints(dm_predicate, vocabulary)
+    if allowed is None:
+        return False, "vocabulary_missing_predicate"
+    subject_kinds, object_kinds = allowed
+    src_dm = buddy_to_dm_kind.get(subject_kind or "")
+    tgt_dm = buddy_to_dm_kind.get(object_kind or "")
+    admit_src, admit_tgt = (tgt_dm, src_dm) if reverse_endpoints else (src_dm, tgt_dm)
+    if admit_src is None or admit_tgt is None:
+        return False, "endpoint_kind_unmapped"
+    if admit_src not in subject_kinds or admit_tgt not in object_kinds:
+        return False, "endpoint_kind_not_admitted"
+    return True, dm_predicate

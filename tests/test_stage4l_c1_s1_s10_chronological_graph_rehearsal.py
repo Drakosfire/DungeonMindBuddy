@@ -157,7 +157,9 @@ def _paid_receipt_stub(
 def test_candidate_path_exact_run_does_not_glob_fallback(tmp_path: Path) -> None:
     session_dir = tmp_path / "session_01"
     (session_dir / "wrong-run").mkdir(parents=True)
-    (session_dir / "wrong-run" / "candidate_graph.json").write_text("{}", encoding="utf-8")
+    (session_dir / "wrong-run" / "candidate_graph.json").write_text(
+        "{}", encoding="utf-8"
+    )
     with pytest.raises(stage4l.Stage4LError, match="durable candidate missing"):
         stage4l._candidate_path(tmp_path, 1, "expected-run", exact_run=True)
 
@@ -283,7 +285,9 @@ def test_replay_writes_sidecar_and_does_not_overwrite_paid(
             "review_package": {"ok": True},
         },
     )
-    monkeypatch.setattr(stage4l, "DeepSeekCategoryGraphPassClient", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        stage4l, "DeepSeekCategoryGraphPassClient", lambda *_a, **_k: None
+    )
 
     result = stage4l.run_session(
         1,
@@ -359,3 +363,95 @@ def test_manifest_records_source_candidate_context_and_lineage(tmp_path: Path) -
         assert row[key]
     assert row["lineage"] == "paid"
     assert (tmp_path / "MANIFEST.json").is_file()
+
+
+def test_endpoint_kinds_map_pc_and_npc_mappings():
+    context = SimpleNamespace(
+        objects={
+            "obj:existing_pc": SimpleNamespace(kind="player_character"),
+            "obj:existing_npc": SimpleNamespace(kind="npc"),
+        }
+    )
+    cand = {
+        "nodes": [
+            {"id": "node:stafl", "label": "Stafl", "type": "character"},
+            {"id": "node:pippa", "label": "Pippa", "type": "character"},
+            {"id": "node:cave", "label": "The Cave", "type": "location"},
+        ]
+    }
+    mapping = stage4l._endpoint_kinds_map(context, cand)
+    assert mapping["obj:existing_pc"] == "player_character"
+    assert mapping["obj:existing_npc"] == "npc"
+    assert mapping["node:stafl"] == "pc"
+    assert mapping["node:pippa"] == "npc"
+    assert mapping["node:cave"] == "location"
+
+
+def test_select_publishable_filters_expressible_edges():
+    items = [
+        {
+            "slice_qualified_id": "slice:node1",
+            "assertion_id": "a1",
+            "kind": "node",
+            "selectable": True,
+        },
+        {
+            "slice_qualified_id": "slice:edge_valid",
+            "assertion_id": "a2",
+            "kind": "edge",
+            "selectable": True,
+        },
+        {
+            "slice_qualified_id": "slice:edge_invalid_pred",
+            "assertion_id": "a3",
+            "kind": "edge",
+            "selectable": True,
+        },
+        {
+            "slice_qualified_id": "slice:edge_invalid_endpoints",
+            "assertion_id": "a4",
+            "kind": "edge",
+            "selectable": True,
+        },
+    ]
+    sealed_package = {
+        "effect": {
+            "accepted_proposals": [
+                {
+                    "assertion_id": "a2",
+                    "predicate": "located_in",
+                    "subject_node_id": "s:npc",
+                    "target_node_id": "t:loc",
+                },
+                {
+                    "assertion_id": "a3",
+                    "predicate": "same_as",
+                    "subject_node_id": "s:npc",
+                    "target_node_id": "t:npc",
+                },
+                {
+                    "assertion_id": "a4",
+                    "predicate": "attacks",
+                    "subject_node_id": "s:loc",
+                    "target_node_id": "t:loc",
+                },
+            ]
+        }
+    }
+    endpoint_kinds = {
+        "s:npc": "npc",
+        "t:loc": "location",
+        "s:loc": "location",
+        "t:npc": "npc",
+    }
+    selected, published_edges, dropped = stage4l._select_publishable(
+        items, sealed_package=sealed_package, endpoint_kinds=endpoint_kinds
+    )
+    assert "slice:node1" in selected
+    assert "slice:edge_valid" in selected
+    assert "slice:edge_invalid_pred" not in selected
+    assert "slice:edge_invalid_endpoints" not in selected
+    assert published_edges == ["slice:edge_valid"]
+    assert len(dropped) == 2
+    assert dropped[0] == ("slice:edge_invalid_pred", "unmapped_predicate")
+    assert dropped[1] == ("slice:edge_invalid_endpoints", "endpoint_kind_not_admitted")

@@ -803,3 +803,21 @@ Review `5200762502` required three evidence-contract seals before treating #714 
 1. The 16-question C1 QA / Agent benchmark is deferred until relationships publish. No model rerun.
 2. Paid receipts are immutable; replay writes sidecars; resume/replay fail closed on source digest, candidate digest, prior World revision, and context fingerprint.
 3. `MANIFEST.json` is the compact PR-reviewable fingerprint set for the ten paid sessions.
+
+### §15.1 Successor execution: Relationship Predicate Publication Replay
+
+The relationship predicate publication slice has executed via zero-model chronological replay using the sealed candidate graphs from `MANIFEST.json`:
+
+```text
+Replay authority: out/stage4l_c1_s1_s10_chronological_graph_rehearsal/MANIFEST.json
+Model calls: 0 (DeepSeek was not invoked)
+Inference cost: $0.00
+Database: isolated rehearsal (:54329)
+Head revision: rev:c839ca5587f06dda2eb485dad1e50fe6
+Relationships published: 150 / 276 (54.3%, up from 2.5% in initial Stage 4L)
+Distinct relationship predicates published: 28 types
+PC kind stability: 6/6 roster PCs remain player_character
+Rechain manifest: out/stage4l_c1_s1_s10_chronological_graph_rehearsal/rechain/MANIFEST.json
+Rechain report: out/stage4l_c1_s1_s10_chronological_graph_rehearsal/rechain/REPORT.md
+Status: SUCCESS — Relationship publication resolved; world graph traversable; ready for C1 QA benchmark
+```

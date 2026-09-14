@@ -1,0 +1,293 @@
+{
+  "authoritative_s10_revision_id": "rev:c839ca5587f06dda2eb485dad1e50fe6",
+  "campaign_id": "longmont-c1",
+  "cost_usd": 0.0,
+  "generated_at": "2026-09-14T18:27:58Z",
+  "model_calls": 0,
+  "relationship_publication_rate": "54.3%",
+  "schema": "dmb_stage4l_rechain_manifest_v1",
+  "sessions": [
+    {
+      "candidate_edges": 31,
+      "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_01/5f3f15ae-34d7-4aaf-a179-2ffa22262fc2/candidate_graph.json",
+      "candidate_nodes": 33,
+      "candidate_sha256": "de0adfae0ae6f359ebbd2d6777b67080620794a384b46b78c71c71bcbd8ecf1d",
+      "committed_revision_id": "rev:bbb258ba35321c30fda2c2f81d5b1360",
+      "cost_usd": 0.0,
+      "edge_funnel": {
+        "admitted_predicates": 30,
+        "canonical_endpoints": 31,
+        "extracted": 31,
+        "publishable": 25,
+        "published": 25
+      },
+      "generated_at": "2026-09-14T18:27:23Z",
+      "lineage": "zero_model_relationship_replay",
+      "model_calls": 0,
+      "parent_revision_id": "rev:d5c54ab8569139e400f0cce9ede4e60d",
+      "publication_mode": "edge_selective",
+      "schema": "dmb_stage4l_rechain_receipt_v1",
+      "session": 1,
+      "source": {
+        "bytes": 2917,
+        "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "sha256": "8e4c8600c194cf41641cdeb8c78d9ab20aec3c9b4c65cdb02170e20ecd9545cc"
+      },
+      "wall_seconds": 3.218
+    },
+    {
+      "candidate_edges": 7,
+      "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_02/afafaf05-05a6-403d-a321-eda1bc8c009d/candidate_graph.json",
+      "candidate_nodes": 12,
+      "candidate_sha256": "1b104e3b0129d1b25b34e5ef8add464da5fab1758d57a25e874535460b05c47b",
+      "committed_revision_id": "rev:c60ac9c4d73c38b606efdba30d2fa777",
+      "cost_usd": 0.0,
+      "edge_funnel": {
+        "admitted_predicates": 7,
+        "canonical_endpoints": 7,
+        "extracted": 7,
+        "publishable": 7,
+        "published": 7
+      },
+      "generated_at": "2026-09-14T18:27:25Z",
+      "lineage": "zero_model_relationship_replay",
+      "model_calls": 0,
+      "parent_revision_id": "rev:bbb258ba35321c30fda2c2f81d5b1360",
+      "publication_mode": "all",
+      "schema": "dmb_stage4l_rechain_receipt_v1",
+      "session": 2,
+      "source": {
+        "bytes": 1548,
+        "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+        "sha256": "12aac2b0f386248deb4928a4b629d207338bd48c3c52dd69355e1235f4a11355"
+      },
+      "wall_seconds": 2.222
+    },
+    {
+      "candidate_edges": 37,
+      "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_03/e86cacb6-c8c8-463e-890c-6c5c7b39f6f5/candidate_graph.json",
+      "candidate_nodes": 34,
+      "candidate_sha256": "c7dac6f601d8fd17b1bd326267f5dc3752f8cc1db4058f1a5c3e2d5a96d7f8fa",
+      "committed_revision_id": "rev:3d242762b43fbbc939c24198b0075263",
+      "cost_usd": 0.0,
+      "edge_funnel": {
+        "admitted_predicates": 34,
+        "canonical_endpoints": 37,
+        "extracted": 37,
+        "publishable": 12,
+        "published": 12
+      },
+      "generated_at": "2026-09-14T18:27:28Z",
+      "lineage": "zero_model_relationship_replay",
+      "model_calls": 0,
+      "parent_revision_id": "rev:c60ac9c4d73c38b606efdba30d2fa777",
+      "publication_mode": "edge_selective",
+      "schema": "dmb_stage4l_rechain_receipt_v1",
+      "session": 3,
+      "source": {
+        "bytes": 5439,
+        "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "sha256": "f8b6c8bb7b7be185fb4372df708f7e5ef5c6fde4152c84e5b56b24cf71ab3a4d"
+      },
+      "wall_seconds": 3.078
+    },
+    {
+      "candidate_edges": 39,
+      "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_04/2deb6609-bbc7-4e68-a6b3-7e028ff75ea9/candidate_graph.json",
+      "candidate_nodes": 34,
+      "candidate_sha256": "523649022de9f7c1eeca177f830cb35f0ef8c207042960d88241fd073a42d42c",
+      "committed_revision_id": "rev:14c03eb14f24ef11ba82b4923d9b6e3a",
+      "cost_usd": 0.0,
+      "edge_funnel": {
+        "admitted_predicates": 36,
+        "canonical_endpoints": 39,
+        "extracted": 39,
+        "publishable": 22,
+        "published": 22
+      },
+      "generated_at": "2026-09-14T18:27:32Z",
+      "lineage": "zero_model_relationship_replay",
+      "model_calls": 0,
+      "parent_revision_id": "rev:3d242762b43fbbc939c24198b0075263",
+      "publication_mode": "edge_selective",
+      "schema": "dmb_stage4l_rechain_receipt_v1",
+      "session": 4,
+      "source": {
+        "bytes": 3766,
+        "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+        "sha256": "ed4a7535fe903a3740dcd01c4f779adfffbf410e7ebd803736f4ac92f6d69e76"
+      },
+      "wall_seconds": 3.694
+    },
+    {
+      "candidate_edges": 27,
+      "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_05/cfc93f9b-1b38-4501-a3d7-ad4012cb45f6/candidate_graph.json",
+      "candidate_nodes": 31,
+      "candidate_sha256": "caa79bf0745c47b95cc20062e9159181d1fcc027d7c1f37838355519808c8e1b",
+      "committed_revision_id": "rev:cdfefa51ebffc4d75d0a0cfc2dd08023",
+      "cost_usd": 0.0,
+      "edge_funnel": {
+        "admitted_predicates": 25,
+        "canonical_endpoints": 27,
+        "extracted": 27,
+        "publishable": 14,
+        "published": 14
+      },
+      "generated_at": "2026-09-14T18:27:36Z",
+      "lineage": "zero_model_relationship_replay",
+      "model_calls": 0,
+      "parent_revision_id": "rev:14c03eb14f24ef11ba82b4923d9b6e3a",
+      "publication_mode": "edge_selective",
+      "schema": "dmb_stage4l_rechain_receipt_v1",
+      "session": 5,
+      "source": {
+        "bytes": 3569,
+        "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
+        "sha256": "2e5ad974e07d071a2f545d0503b3d09e9d4d1c211ad7fd6c048f69c05a0b351b"
+      },
+      "wall_seconds": 3.862
+    },
+    {
+      "candidate_edges": 36,
+      "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_06/401d0159-6247-450c-a0a6-3c9842e99670/candidate_graph.json",
+      "candidate_nodes": 39,
+      "candidate_sha256": "b43d6e728db2c3e325436a55d7db0e8e7eee94131de7de7ab5d61397cdae5f78",
+      "committed_revision_id": "rev:3fa1e0c0ac5678bafe5934165a9f2222",
+      "cost_usd": 0.0,
+      "edge_funnel": {
+        "admitted_predicates": 36,
+        "canonical_endpoints": 36,
+        "extracted": 36,
+        "publishable": 26,
+        "published": 26
+      },
+      "generated_at": "2026-09-14T18:27:40Z",
+      "lineage": "zero_model_relationship_replay",
+      "model_calls": 0,
+      "parent_revision_id": "rev:cdfefa51ebffc4d75d0a0cfc2dd08023",
+      "publication_mode": "edge_selective",
+      "schema": "dmb_stage4l_rechain_receipt_v1",
+      "session": 6,
+      "source": {
+        "bytes": 4481,
+        "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+        "sha256": "a6849dbc9bad2045f728d7514deae3fb99fca38495281dfa126806d7087b5bf8"
+      },
+      "wall_seconds": 4.324
+    },
+    {
+      "candidate_edges": 32,
+      "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_07/ec299031-7c58-4cdd-b4ca-b4b5246e5025/candidate_graph.json",
+      "candidate_nodes": 36,
+      "candidate_sha256": "99b7576abe371140263098861508c9c5fd2c3a1bee4d6d850ed45b7ff8650069",
+      "committed_revision_id": "rev:70314e4ef04796e2b68604016e79ce21",
+      "cost_usd": 0.0,
+      "edge_funnel": {
+        "admitted_predicates": 29,
+        "canonical_endpoints": 32,
+        "extracted": 32,
+        "publishable": 12,
+        "published": 12
+      },
+      "generated_at": "2026-09-14T18:27:44Z",
+      "lineage": "zero_model_relationship_replay",
+      "model_calls": 0,
+      "parent_revision_id": "rev:3fa1e0c0ac5678bafe5934165a9f2222",
+      "publication_mode": "edge_selective",
+      "schema": "dmb_stage4l_rechain_receipt_v1",
+      "session": 7,
+      "source": {
+        "bytes": 5502,
+        "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+        "sha256": "cca895ea6c64d72d248cf40e50de48ad3f710d3681237a749cc689efad9ec365"
+      },
+      "wall_seconds": 4.248
+    },
+    {
+      "candidate_edges": 29,
+      "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_08/9c8a8088-2a53-4bb5-97a1-df4fed10bbc7/candidate_graph.json",
+      "candidate_nodes": 38,
+      "candidate_sha256": "e2b065c81bb4f59fc097f98c30dc91a67f294fadb88d3664bb35915230a96ca1",
+      "committed_revision_id": "rev:2d8d5d260c4378de416678eeabfd8743",
+      "cost_usd": 0.0,
+      "edge_funnel": {
+        "admitted_predicates": 27,
+        "canonical_endpoints": 29,
+        "extracted": 29,
+        "publishable": 21,
+        "published": 21
+      },
+      "generated_at": "2026-09-14T18:27:49Z",
+      "lineage": "zero_model_relationship_replay",
+      "model_calls": 0,
+      "parent_revision_id": "rev:70314e4ef04796e2b68604016e79ce21",
+      "publication_mode": "edge_selective",
+      "schema": "dmb_stage4l_rechain_receipt_v1",
+      "session": 8,
+      "source": {
+        "bytes": 6172,
+        "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+        "sha256": "a5a1a534941b01c3a5b422a9b0f0504d309c6eb06da2a485454c027f265c7ac1"
+      },
+      "wall_seconds": 4.479
+    },
+    {
+      "candidate_edges": 22,
+      "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_09/a0cd5aed-e001-472e-a8bd-dce4369b4787/candidate_graph.json",
+      "candidate_nodes": 46,
+      "candidate_sha256": "922d7c1ab92f081150e4990218a4937b22a757e6a7216e2ec27a4cabccb17311",
+      "committed_revision_id": "rev:a6affcce886175b0df4b00ea743fa916",
+      "cost_usd": 0.0,
+      "edge_funnel": {
+        "admitted_predicates": 21,
+        "canonical_endpoints": 22,
+        "extracted": 22,
+        "publishable": 5,
+        "published": 5
+      },
+      "generated_at": "2026-09-14T18:27:54Z",
+      "lineage": "zero_model_relationship_replay",
+      "model_calls": 0,
+      "parent_revision_id": "rev:2d8d5d260c4378de416678eeabfd8743",
+      "publication_mode": "edge_selective",
+      "schema": "dmb_stage4l_rechain_receipt_v1",
+      "session": 9,
+      "source": {
+        "bytes": 6294,
+        "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "sha256": "ee4c45abbc94269adf0c5d3de90d92b27c4d77f46fa3a8e8259ae9327e8a31f7"
+      },
+      "wall_seconds": 5.067
+    },
+    {
+      "candidate_edges": 16,
+      "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_10/7ebb65da-4355-4101-84e7-1251b731acba/candidate_graph.json",
+      "candidate_nodes": 28,
+      "candidate_sha256": "c9d131d6e10eb3d3f21fc192733cf8af9d6819e746c66fd71c9e6ed3a373f0fd",
+      "committed_revision_id": "rev:c839ca5587f06dda2eb485dad1e50fe6",
+      "cost_usd": 0.0,
+      "edge_funnel": {
+        "admitted_predicates": 15,
+        "canonical_endpoints": 16,
+        "extracted": 16,
+        "publishable": 6,
+        "published": 6
+      },
+      "generated_at": "2026-09-14T18:27:58Z",
+      "lineage": "zero_model_relationship_replay",
+      "model_calls": 0,
+      "parent_revision_id": "rev:a6affcce886175b0df4b00ea743fa916",
+      "publication_mode": "edge_selective",
+      "schema": "dmb_stage4l_rechain_receipt_v1",
+      "session": 10,
+      "source": {
+        "bytes": 3368,
+        "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "sha256": "202289dc3d5e49ded12d81b7c53e2f746201fe398e2ff61e5b97572feaea211c"
+      },
+      "wall_seconds": 3.854
+    }
+  ],
+  "total_relationships_extracted": 276,
+  "total_relationships_published": 150
+}
