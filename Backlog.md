@@ -219,6 +219,34 @@ The forcing product question behind all of them is:
 
 **Scope guardrail:** Preserve native Decision CAS/persistence, Inspect vs Make Current, exact object identity, collapsible rails, and Scene-centered current-moment semantics. Do **not** merge or revive `ofConks*` adventure code, prep-HTML hosting, branch enums, hardcoded media maps, or packet-specific product surfaces.
 
+#### Dogfood seed — pasted Runbook Markdown → native Play projection (2026-09-14)
+
+Session 28 prep confirmed that the existing authoring/runtime seams already form a useful bridge:
+
+```text
+external/agent-authored dmb-playable-element:v2 Markdown
+→ paste into a real Runbook opened through Plan
+→ SemanticMarkdownPaste / native TipTap structure
+→ Save to Markdown / exact committed WorkRevision
+→ /play Start exact Run
+→ Run UUID + pinned Runbook revision + content SHA
+→ sealed v2 reference manifest
+→ native v2 admission
+→ Play Current Moment cockpit
+```
+
+This should remain the preferred interoperability direction: an external planning agent can hand back constrained Playable Markdown and the GM can paste/edit it as the exact Runbook rather than creating a derivative Plan→Play export.
+
+The same dogfood exposed three concrete Play residuals worth preserving for the next time Play interaction work is pulled:
+
+1. **Semantic blocks are authored but flattened in Play.** Plan preserves `READ-ALOUD`, `GM-NOTE`, `RULES`, and `WARNING` semantics, while the current v2 Play projection reduces Beat/Scene content to `title + bodyText`. A future Play slice should render those existing semantics rather than invent a second authoring grammar.
+2. **Session-wide / persistent pressure has no native table home.** Material such as “capture Thrin alive,” “Meatwings maintain network sight,” or other rules true across several Scenes survives in the Runbook but is awkward when it lives outside a Beat and invisible to Current Moment. Revisit a lightweight persistent-pressure / active-instruction presentation before adding another bespoke block type.
+3. **Beat-to-Beat table navigation is missing.** Current Play can inspect and Make Current Scenes only within the current Beat. The durable Runtime already carries `current_beat_id`; today advancing to another authored Beat requires a manual progress-API workaround. A future interaction slice should add truthful cross-Beat orientation/navigation without weakening exact Run binding or CAS semantics.
+
+**When revisiting:** dogfood a real multi-Beat Runbook first. Preserve exact Runbook revision binding, explicit Runtime mutation, Inspect-vs-Make-Current semantics, and existing playable IDs. Treat Combat integration as a neighboring Play concern, not a reason to encode combat state into Runbook prose.
+
+This is deliberately **non-status design input**, not an immediate successor to the current continuity/corpus work.
+
 ### Goal 4 — Present World objects for table use first and inspection second
 
 **Outcome:** A complete surface-neutral World object remains exact underneath, while the default Play/object presentation leads with what helps the GM use it now.
