@@ -8,7 +8,7 @@
     "pc ≡ player_character identity kind normalization"
   ],
   "worldbuilding": "DEFER",
-  "status": "both_arms_complete_candidates_not_published",
+  "status": "both_arms_sealed_publication_blocked_on_governed_recap_genesis",
   "arms": {
     "openai-gpt-5.4-mini": {
       "provider": "openai",
@@ -28,6 +28,7 @@
     "census_markdown": "CENSUS.md",
     "worldbuilding_readiness": "worldbuilding/READINESS.md",
     "openai_arm": "openai-gpt-5.4-mini/",
-    "deepseek_arm": "deepseek-v4.1-flash/"
+    "deepseek_arm": "deepseek-v4.1-flash/",
+    "publication_provisioning": "publication/PROVISIONING.md"
   }
 }
