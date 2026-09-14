@@ -1,0 +1,64 @@
+{
+  "schema": "dmb_graph_benchmark_gold_catalog_v1",
+  "version": "1.0",
+  "migration_revision": "bbb4f07df0ec0103e0563e2ff440b7ee10afe0d4",
+  "migration_mode": "non_destructive_snapshot",
+  "canonical_root": "evals/graph_benchmark_gold",
+  "legacy_compatibility_note": "Existing loaders under evals/graph_memory_layer still point at legacy fixture paths. Canonical snapshots are byte-identical copies; loader migration is intentionally deferred.",
+  "candidate_graph_fixtures": [
+    {
+      "fixture_id": "graph-memory:session-1-candidate-graph-gold:v1",
+      "scope": {"world_id": "eldyrwild", "campaign_id": "longmont-c1", "session": 1},
+      "legacy_graph": "evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json",
+      "legacy_manifest": "evals/graph_memory_layer/examples/session_1_candidate_graph_gold/session_1_candidate_graph_gold_manifest.json",
+      "canonical_graph": "evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/candidate_graph_gold.json",
+      "canonical_source_manifest": "evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/source_manifest.json",
+      "graph_git_blob_sha": "cdb0930083946c9230851182587d41c96781b2fa",
+      "manifest_git_blob_sha": "71cd7230785fa314dd18863c5f736ee94081e3a8",
+      "counts": {"nodes": 27, "edges": 30, "beats": 5, "proposed_writes": 2, "ignored_items": 3, "deferred_items": 3}
+    },
+    {
+      "fixture_id": "graph-memory:session-22-candidate-graph-gold:v0",
+      "scope": {"world_id": "eldyrwild", "campaign_id": "longmont-c2", "session": 22},
+      "legacy_graph": "evals/graph_memory_layer/examples/session_22_candidate_graph_gold/candidate_graph_gold.json",
+      "legacy_manifest": "evals/graph_memory_layer/examples/session_22_candidate_graph_gold/session_22_candidate_graph_gold_manifest.json",
+      "canonical_graph": "evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-22/candidate_graph_gold.json",
+      "canonical_source_manifest": "evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-22/source_manifest.json",
+      "graph_git_blob_sha": "a60c2c36f443be2ca24d9114f143c3763d2f9fe8",
+      "manifest_git_blob_sha": "01b3820696a0daf1f2040616f1d30f7a6c87f04e",
+      "counts": {"nodes": 25, "edges": 16, "beats": 10, "proposed_writes": 12, "ignored_items": 3, "deferred_items": 6}
+    },
+    {
+      "fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+      "scope": {"world_id": "eldyrwild", "campaign_id": "longmont-c2", "session": 23},
+      "legacy_graph": "evals/graph_memory_layer/examples/session_23_candidate_graph_gold/candidate_graph_gold.json",
+      "legacy_manifest": "evals/graph_memory_layer/examples/session_23_candidate_graph_gold/session_23_candidate_graph_gold_manifest.json",
+      "canonical_graph": "evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-23/candidate_graph_gold.json",
+      "canonical_source_manifest": "evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-23/source_manifest.json",
+      "graph_git_blob_sha": "4ae8e02f20f97461c80ed022f0dce296d3265378",
+      "manifest_git_blob_sha": "2bb0af28c189dcab148ede75bbe451f569097f58",
+      "counts": {"nodes": 42, "edges": 21, "beats": 14, "proposed_writes": 16, "ignored_items": 3, "deferred_items": 6}
+    },
+    {
+      "fixture_id": "graph-memory:mirathorn-city-candidate-graph-gold:v0",
+      "scope": {"world_id": "eldyrwild", "campaign_id": null, "session": null, "subject": "Mirathorn city world document"},
+      "legacy_graph": "evals/graph_memory_layer/examples/mirathorn_city_candidate_graph_gold/candidate_graph_gold.json",
+      "legacy_manifest": "evals/graph_memory_layer/examples/mirathorn_city_candidate_graph_gold/mirathorn_city_candidate_graph_gold_manifest.json",
+      "canonical_graph": "evals/graph_benchmark_gold/candidate_graph/world/eldyrwild/mirathorn-city/candidate_graph_gold.json",
+      "canonical_source_manifest": "evals/graph_benchmark_gold/candidate_graph/world/eldyrwild/mirathorn-city/source_manifest.json",
+      "graph_git_blob_sha": "ab24015a1dfccb47c6e46f5a0ef7803e67b11402",
+      "manifest_git_blob_sha": "6171ed6a62cb379abef2924e4598ab744b0c7138",
+      "counts": {"nodes": 28, "edges": 26, "beats": 0, "proposed_writes": 2, "ignored_items": 1, "deferred_items": 3}
+    }
+  ],
+  "qa_suites": [
+    {
+      "benchmark_id": "longmont-c1-sessions-01-10-graph-query-v1",
+      "path": "evals/graph_benchmark_gold/qa/longmont-c1/sessions-01-10-v1.md",
+      "campaign_id": "longmont-c1",
+      "session_window": {"start": 1, "end": 10},
+      "question_count": 16,
+      "emphasis": "later-session connectivity, temporal continuity, authority, multi-hop retrieval and synthesis"
+    }
+  ]
+}
