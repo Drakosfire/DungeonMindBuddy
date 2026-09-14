@@ -1,0 +1,112 @@
+{
+  "schema": "dmb_known_entity_mention_sidecar_v0",
+  "version": "0.1",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-5",
+  "registry_relpath": "Longmont Campaign/Campaign 1/_party_registry.json",
+  "roster_session_key": "1",
+  "roster_carry_forward": true,
+  "mentions": [
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:1-12",
+      "start_offset": 35,
+      "end_offset": 43,
+      "surface_text": "Hempholm",
+      "canonical_entity_id": "candidate:hempholm",
+      "entity_slug": "candidate:hempholm",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Hempholm",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:1-12",
+      "start_offset": 267,
+      "end_offset": 275,
+      "surface_text": "Hempholm",
+      "canonical_entity_id": "candidate:hempholm",
+      "entity_slug": "candidate:hempholm",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Hempholm",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:16-16",
+      "start_offset": 13,
+      "end_offset": 23,
+      "surface_text": "caretakers",
+      "canonical_entity_id": "candidate:caretakers",
+      "entity_slug": "candidate:caretakers",
+      "entity_kind": "group",
+      "match_method": "canonical",
+      "display_name": "Caretakers",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+      "start_offset": 567,
+      "end_offset": 577,
+      "surface_text": "caretakers",
+      "canonical_entity_id": "candidate:caretakers",
+      "entity_slug": "candidate:caretakers",
+      "entity_kind": "group",
+      "match_method": "canonical",
+      "display_name": "Caretakers",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+      "start_offset": 323,
+      "end_offset": 333,
+      "surface_text": "caretakers",
+      "canonical_entity_id": "candidate:caretakers",
+      "entity_slug": "candidate:caretakers",
+      "entity_kind": "group",
+      "match_method": "canonical",
+      "display_name": "Caretakers",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+      "start_offset": 424,
+      "end_offset": 428,
+      "surface_text": "Jove",
+      "canonical_entity_id": "candidate:jove",
+      "entity_slug": "candidate:jove",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Jove",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+      "start_offset": 556,
+      "end_offset": 565,
+      "surface_text": "Mirathorn",
+      "canonical_entity_id": "candidate:mirathorn",
+      "entity_slug": "candidate:mirathorn",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Mirathorn",
+      "registry_version": "0.1"
+    }
+  ],
+  "ambiguous_surfaces": [
+    "Baergrom",
+    "Caelynn",
+    "Stafl",
+    "Bonogo",
+    "Ephanna"
+  ],
+  "diagnostics": {
+    "spans_scanned": 21,
+    "mention_count": 7,
+    "entity_count": 77,
+    "ambiguous_term_count": 6,
+    "registry_warnings": [
+      "roster_carry_forward: session_pc_rosters['5'] using '1'",
+      "roster_carry_forward: session '5' using roster from '1'"
+    ]
+  }
+}

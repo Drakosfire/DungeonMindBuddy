@@ -1,0 +1,2052 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-5:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-5",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-5:2e5ad974e07d"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "character:guardian",
+      "label": "The Guardian",
+      "node_type": "character",
+      "description": "An enormous metal spike-armed insect-like root and metal creature that guarded the heart of the tree in the underground root layer; it assaulted the party, downed Baergrom, and was ultimately destroyed after growing and exploding with metal thorns.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "they found the heart of the tree and it\u2019s Guardian."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "anchor_quotes": [
+            "The enormous metal spike armed insect like root and metal creature immediately began to assault the invaders."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "anchor_quotes": [
+            "the Guardian became truly agitated and began growing and exploding with metal thorns"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:grandma_thistlebloom",
+      "label": "Grandma Thistlebloom",
+      "node_type": "character",
+      "description": "An elderly figure who was killed during the assault; her death was described as a heartbreaking loss, and she is the grandmother of Annie Thistlebloom.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "anchor_quotes": [
+            "One grandmother was killed during the assault"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "the heartbreaking loss of Grandma Thistlebloom, RIP and the orphaning of little Annie Thistlebloom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:annie_thistlebloom",
+      "label": "Annie Thistlebloom",
+      "node_type": "character",
+      "description": "A child orphaned by the death of Grandma Thistlebloom.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "the orphaning of little Annie Thistlebloom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:bill_the_belly",
+      "label": "Bill the Belly",
+      "node_type": "character",
+      "description": "An innkeeper or proprietor at the Shacks who readily provided the party with a free room and much-needed rest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "Bill the Belly was more than ready to give them a room for free and some much needed rest."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:riciberga",
+      "label": "Riciberga",
+      "node_type": "character",
+      "description": "The town blacksmith, sober and hungover, who drunkenly worked all night to haphazardly shape metal thorns for Bonogo's leather armor.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "anchor_quotes": [
+            "Bonogo march straight to Riciberga the now very sober and hungover blacksmith."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:mark_jove",
+      "label": "Mark Jove",
+      "node_type": "character",
+      "description": "A person the group approached to discuss taking on his son as a ward, slave, snack, or clerk, with promises to take the son to Mirathorn for an education.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "anchor_quotes": [
+            "the group approach Mark Jove to discuss taking on his son as a ward, or slave, or snack, or maybe clerk"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:hempholm_surface",
+      "label": "Hempholm (Surface)",
+      "node_type": "location",
+      "description": "The surface settlement of Hempholm, site of the party's battle against the caretakers and the death of Grandma Thistlebloom.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:1-12",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:1-12",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:1-12",
+          "anchor_quotes": [
+            "Underneath Hempholm"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:16-16",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:16-16",
+          "anchor_quotes": [
+            "Defeated the caretakers on the surface."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:underground_root_layer",
+      "label": "Underground Root Layer",
+      "node_type": "location",
+      "description": "A vast subterranean network of tunnels and caverns beneath Hempholm, featuring glowing mushrooms, metal tree sap, and the heart of the tree guarded by a metal-and-root creature.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:22-22",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:22-22",
+          "anchor_quotes": [
+            "Explored the underground root layer"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "anchor_quotes": [
+            "they began to explore the tunnels"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "they found the heart of the tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:the_shacks",
+      "label": "The Shacks",
+      "node_type": "location",
+      "description": "A lodging area where Bill the Belly provided the party with free rooms and rest after their initial foray into the tunnels.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "Heading over to the Shacks"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:shephards",
+      "label": "Shephards",
+      "node_type": "faction",
+      "description": "A faction or group encountered when the party travels to the city and is stuck outside the gates; they are listed among the next beats.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:38-38",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:38-38",
+          "anchor_quotes": [
+            "Traveling to the city, stuck outside the gates, the Shephards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:cultists",
+      "label": "Cultists",
+      "node_type": "faction",
+      "description": "A cultist faction expected at the festival's BBQ contest, listed among upcoming events.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:40-40",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:40-40",
+          "anchor_quotes": [
+            "the cultists at the BBQ contest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:spiked_leather_armor",
+      "label": "Spiked Leather Armor",
+      "node_type": "item",
+      "description": "A suit of leather armor adorned with organic metal thorns, crafted overnight by the blacksmith Riciberga. It is awkward and misshapen but considered perfect by the party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:20-20",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:20-20",
+          "anchor_quotes": [
+            "got spiked leather armor"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "anchor_quotes": [
+            "haphazardly shaping metals thorns to add to his leather armor",
+            "Thorns of organic metal sticking out in all directions."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:glowing_mushrooms",
+      "label": "Glowing Mushrooms",
+      "node_type": "item",
+      "description": "Luminous fungi of unknown name or purpose found in the underground tunnels. Caelynn collected many pounds of them.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:26-26",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:26-26",
+          "anchor_quotes": [
+            "Found glowing mushrooms"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "began collecting a glowing mushroom of unknown name or purpose, and collected many, many pounds of them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:precious_metal_tree_sap",
+      "label": "Precious Metal Tree Sap",
+      "node_type": "item",
+      "description": "A lump of valuable sap discovered in a branch of the underground tunnels. The party divided 50 gold worth, with Bonogo keeping 25 and Ephanna sharing the rest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:24-24",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:24-24",
+          "anchor_quotes": [
+            "Found precious metal tree sap"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "found a lump or precious metal tree sap in a branch of the tunnels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:potato",
+      "label": "Potato",
+      "node_type": "item",
+      "description": "An ordinary-looking potato recovered from the glowing sack at the heart of the tree after the Guardian was defeated.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:34-34",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:34-34",
+          "anchor_quotes": [
+            "Gather a bunch of gold and the potato"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "anchor_quotes": [
+            "revealed a ordinary appearing potato"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:glowing_sack",
+      "label": "Glowing Sack",
+      "node_type": "item",
+      "description": "A luminous sac at the heart of the tree that, when burst open, oozed precious metal and contained the potato.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "anchor_quotes": [
+            "busted open the glowing sack of the heart of the tree which oozed precious metal and revealed a ordinary appearing potato"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:gold",
+      "label": "Gold",
+      "node_type": "item",
+      "description": "A quantity of gold gathered by the party, likely from the dungeon or as loot.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:34-34",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:34-34",
+          "anchor_quotes": [
+            "Gather a bunch of gold"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:caretakers_are_still_present_in_tunnels",
+      "label": "Caretakers still present in tunnels",
+      "node_type": "mystery",
+      "description": "The party heard themselves surrounded by chittering and skittering caretakers while exploring the tunnels, but the caretakers seemed to have learned their lesson and left the party alone. Their continued presence after the surface assault is unresolved.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "anchor_quotes": [
+            "They could hear they were surround by chittering and skittering caretakers, who seemed to have learned their lesson and left them be."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:glowing_mushroom_unknown_name_or_purpose",
+      "label": "Glowing mushroom of unknown name or purpose",
+      "node_type": "mystery",
+      "description": "Caelynn collected many pounds of a glowing mushroom with unknown name or purpose while exploring the tunnels.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "Caelynn became fascinated and began collecting a glowing mushroom of unknown name or purpose, and collected many, many pounds of them."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:heart_of_the_tree_guardian",
+      "label": "Guardian of the heart of the tree",
+      "node_type": "mystery",
+      "description": "The party reached the heart of the tree and its Guardian, an enormous metal spike armed insect-like root and metal creature. Its nature and connection to the tree remain unexplained.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "Finally making their way through, they found the heart of the tree and it\u2019s Guardian."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "anchor_quotes": [
+            "The enormous metal spike armed insect like root and metal creature immediately began to assault the invaders."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:glowing_sack_and_potato",
+      "label": "Glowing sack and ordinary potato",
+      "node_type": "mystery",
+      "description": "Busting open the glowing sack of the heart of the tree revealed precious metal ooze and an ordinary appearing potato, whose significance is unclear.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "anchor_quotes": [
+            "Examining the room, they busted open the glowing sack of the heart of the tree which oozed precious metal and revealed a ordinary appearing potato."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:mark_jove_ambiguous_request",
+      "label": "Mark Jove's ambiguous request",
+      "node_type": "mystery",
+      "description": "The group approached Mark Jove to discuss taking on his son as a ward, or slave, or snack, or maybe clerk; it was unclear. Promises were made to take him to Mirathorn and get him an education.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "anchor_quotes": [
+            "After collecting their loot, the group approach Mark Jove to discuss taking on his son as a ward, or slave, or snack, or maybe clerk. It was unclear."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:grandma_thistlebloom_death_and_annies_orphaning",
+      "label": "Grandma Thistlebloom's death and Annie's orphaning",
+      "node_type": "mystery",
+      "description": "The night's celebration turned to fire and horror, culminating in the heartbreaking loss of Grandma Thistlebloom and the orphaning of little Annie Thistlebloom.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "After a night that started with sweet drunken celebration that became fire, and horror that culminated in the heartbreaking loss of Grandma Thistlebloom, RIP and the orphaning of little Annie Thistlebloom."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:unexplored_tunnel_mouth_problem",
+      "label": "Unexplored tunnel mouth deemed a problem for another day",
+      "node_type": "mystery",
+      "description": "The group did just enough exploration of the mouth of a tunnel to convince them that it was a problem for another day.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "The group poked their noses and tossed a torch to do just enough exploration of the mouth of a tunnel to convince them that it was a problem for another day."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:shockwave_caelynn_incident",
+      "label": "Caelynn's shockwave incident",
+      "node_type": "mystery",
+      "description": "Caelynn's shockwave cleared caretakers but also downed Baergrom and threw him and the Guardian against the wall; the exact effects and aftermath are unclear.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:30-30",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:30-30",
+          "anchor_quotes": [
+            "Baergrom went down, then was blasted by shockwave by Caelynn failing two death saves. Brought back by Stafl"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "anchor_quotes": [
+            "Caelynn  who had charged in to get space and was surrounded, used a shockwave to clear the space of caretakers."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:underground_root_layer_located_in_hempholm_surface",
+      "from_node_id": "location:underground_root_layer",
+      "to_node_id": "location:hempholm_surface",
+      "label": "underground root layer is beneath Hempholm",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:1-12",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:1-12",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:1-12",
+          "anchor_quotes": [
+            "Underneath Hempholm"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:22-22",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:22-22",
+          "anchor_quotes": [
+            "Explored the underground root layer"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:the_shacks_located_in_hempholm_surface",
+      "from_node_id": "location:the_shacks",
+      "to_node_id": "location:hempholm_surface",
+      "label": "the Shacks are near Hempholm",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "Heading over to the Shacks"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:guardian_guards_heart_of_the_tree_guardian",
+      "from_node_id": "character:guardian",
+      "to_node_id": "mystery:heart_of_the_tree_guardian",
+      "label": "Guardian is the guardian of the heart of the tree",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "they found the heart of the tree and it\u2019s Guardian."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:guardian_present_at_underground_root_layer",
+      "from_node_id": "character:guardian",
+      "to_node_id": "location:underground_root_layer",
+      "label": "Guardian is present in the underground root layer",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "anchor_quotes": [
+            "The enormous metal spike armed insect like root and metal creature immediately began to assault the invaders."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "they found the heart of the tree and it\u2019s Guardian."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:grandma_thistlebloom_killed_in_hempholm_assault",
+      "from_node_id": "character:grandma_thistlebloom",
+      "to_node_id": "location:hempholm_surface",
+      "label": "Grandma Thistlebloom killed on the surface of Hempholm",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "anchor_quotes": [
+            "One grandmother was killed during the assault"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "the heartbreaking loss of Grandma Thistlebloom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:annie_thistlebloom_child_of_grandma_thistlebloom",
+      "from_node_id": "character:annie_thistlebloom",
+      "to_node_id": "character:grandma_thistlebloom",
+      "label": "Annie is the grandchild of Grandma Thistlebloom",
+      "relationship_type": "child_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "the orphaning of little Annie Thistlebloom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:thistlebloom_death_mystery_refers_to_grandma",
+      "from_node_id": "mystery:grandma_thistlebloom_death_and_annies_orphaning",
+      "to_node_id": "character:grandma_thistlebloom",
+      "label": "mystery concerns Grandma Thistlebloom's death",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "the heartbreaking loss of Grandma Thistlebloom, RIP"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:bill_the_belly_present_at_the_shacks",
+      "from_node_id": "character:bill_the_belly",
+      "to_node_id": "location:the_shacks",
+      "label": "Bill the Belly is at the Shacks",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "Heading over to the Shacks, Bill the Belly was more than ready to give them a room for free and some much needed rest."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:riciberga_owns_spiked_leather_armor",
+      "from_node_id": "character:riciberga",
+      "to_node_id": "item:spiked_leather_armor",
+      "label": "Riciberga crafted the spiked leather armor",
+      "relationship_type": "holds",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "anchor_quotes": [
+            "haphazardly shaping metals thorns to add to his leather armor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glowing_mushrooms_found_in_underground_root_layer",
+      "from_node_id": "item:glowing_mushrooms",
+      "to_node_id": "location:underground_root_layer",
+      "label": "Glowing mushrooms found in the tunnels",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:26-26",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:26-26",
+          "anchor_quotes": [
+            "Found glowing mushrooms"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "began collecting a glowing mushroom of unknown name or purpose"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glowing_mushroom_mystery_refers_to_glowing_mushrooms",
+      "from_node_id": "mystery:glowing_mushroom_unknown_name_or_purpose",
+      "to_node_id": "item:glowing_mushrooms",
+      "label": "mystery concerns the unknown glowing mushroom",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "began collecting a glowing mushroom of unknown name or purpose"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:precious_metal_tree_sap_found_in_underground_root_layer",
+      "from_node_id": "item:precious_metal_tree_sap",
+      "to_node_id": "location:underground_root_layer",
+      "label": "Precious metal tree sap found in the tunnels",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "found a lump or precious metal tree sap in a branch of the tunnels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:potato_contained_within_glowing_sack",
+      "from_node_id": "item:potato",
+      "to_node_id": "item:glowing_sack",
+      "label": "Potato revealed inside the glowing sack",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "anchor_quotes": [
+            "busted open the glowing sack of the heart of the tree which oozed precious metal and revealed a ordinary appearing potato"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glowing_sack_part_of_underground_root_layer",
+      "from_node_id": "item:glowing_sack",
+      "to_node_id": "location:underground_root_layer",
+      "label": "Glowing sack at the heart of the tree in the tunnels",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "anchor_quotes": [
+            "Examining the room, they busted open the glowing sack of the heart of the tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glowing_sack_and_potato_mystery_refers_to_potato",
+      "from_node_id": "mystery:glowing_sack_and_potato",
+      "to_node_id": "item:potato",
+      "label": "mystery concerns the ordinary potato",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "anchor_quotes": [
+            "revealed a ordinary appearing potato"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:mark_jove_parent_of_son",
+      "from_node_id": "character:mark_jove",
+      "to_node_id": "mystery:mark_jove_ambiguous_request",
+      "label": "Mark Jove's son is subject of the ambiguous request",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "anchor_quotes": [
+            "the group approach Mark Jove to discuss taking on his son as a ward, or slave, or snack, or maybe clerk"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:heart_of_tree_guardian_mystery_located_in_underground_root_layer",
+      "from_node_id": "mystery:heart_of_the_tree_guardian",
+      "to_node_id": "location:underground_root_layer",
+      "label": "heart of the tree and its Guardian found in the tunnels",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "Finally making their way through, they found the heart of the tree and it\u2019s Guardian."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:unexplored_tunnel_mouth_refers_to_underground_root_layer",
+      "from_node_id": "mystery:unexplored_tunnel_mouth_problem",
+      "to_node_id": "location:underground_root_layer",
+      "label": "unexplored tunnel mouth belongs to the underground root layer",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "do just enough exploration of the mouth of a tunnel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Surface Victory and Loss",
+      "summary": "The party defeats the caretakers on the surface, though one grandmother is killed during the assault.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:16-16",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:16-16",
+          "anchor_quotes": [
+            "Defeated the caretakers on the surface."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "anchor_quotes": [
+            "One grandmother was killed during the assault"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Rest and Rewards",
+      "summary": "After the battle, the group takes a long rest and obtains spiked leather armor.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:20-20",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:20-20",
+          "anchor_quotes": [
+            "Got a long rest, got spiked leather armor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Journey into the Root Layer",
+      "summary": "The group explores the underground root layer, discovering precious metal tree sap and glowing mushrooms.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:22-22",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:22-22",
+          "anchor_quotes": [
+            "Explored the underground root layer"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:24-24",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:24-24",
+          "anchor_quotes": [
+            "Found precious metal tree sap"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:26-26",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:26-26",
+          "anchor_quotes": [
+            "Found glowing mushrooms"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Battle with the Guardian",
+      "summary": "The party fights the Guardian; Baergrom falls, Caelynn's shockwave devastates both caretakers and the Guardian, and Stafl revives Baergrom.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:28-28",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:28-28",
+          "anchor_quotes": [
+            "Fought the Guardian"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:30-30",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:30-30",
+          "anchor_quotes": [
+            "Baergrom went down, then was blasted by shockwave by Caelynn failing two death saves. Brought back by Stafl"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:32-32",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:32-32",
+          "anchor_quotes": [
+            "Caelynn\u2019s shockwave annihilated the caaretakers."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Loot and Next Steps",
+      "summary": "The group gathers gold and a potato, and plans to travel to the city, the festival, and confront cultists at a BBQ contest.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:34-34",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:34-34",
+          "anchor_quotes": [
+            "Gather a bunch of gold and the potato"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:38-38",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:38-38",
+          "anchor_quotes": [
+            "Traveling to the city, stuck outside the gates, the Shephards"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:40-40",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:40-40",
+          "anchor_quotes": [
+            "Looking Ahead : Getting into the city, the festival, the cultists at the BBQ contest. The Wolf."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Recap: Aftermath and Descent",
+      "summary": "Recap of the loss of Grandma Thistlebloom and Annie's orphaning, followed by a rest at the Shacks and the next day's exploration of the tunnels, where caretakers leave them alone.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:44-44",
+          "anchor_quotes": [
+            "After a night that started with sweet drunken celebration that became fire, and horror that culminated in the heartbreaking loss of Grandma Thistlebloom, RIP and the orphaning of little Annie Thistlebloom.",
+            "Heading over to the Shacks, Bill the Belly was more than ready to give them a room for free and some much needed rest."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:46-46",
+          "anchor_quotes": [
+            "Bright and early the next morn, Bonogo march straight to Riciberga the now very sober and hungover blacksmith.",
+            "They could hear they were surround by chittering and skittering caretakers, who seemed to have learned their lesson and left them be."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Discovery of Treasures",
+      "summary": "Caelynn collects glowing mushrooms; Ephanna and Bonogo find precious metal tree sap; they reach the heart of the tree and its Guardian.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:48-48",
+          "anchor_quotes": [
+            "Caelynn became fascinated and began collecting a glowing mushroom of unknown name or purpose, and collected many, many pounds of them.",
+            "Ephanna and Bonogo found a lump or precious metal tree sap in a branch of the tunnels.",
+            "Finally making their way through, they found the heart of the tree and it\u2019s Guardian."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-8",
+      "order": 8,
+      "title": "Guardian's Assault and Final Stand",
+      "summary": "The Guardian attacks, downing Baergrom; Caelynn uses a shockwave to clear caretakers; Stafl heals Baergrom; the Guardian explodes with thorns and is defeated; the party finds a potato and discusses taking Jove's son to Mirathorn.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:50-50",
+          "anchor_quotes": [
+            "The enormous metal spike armed insect like root and metal creature immediately began to assault the invaders.",
+            "Bottlenecked in the tunnels, Caelynn  who had charged in to get space and was surrounded, used a shockwave to clear the space of caretakers.",
+            "Stafl rushed to Baergrom with some quick healing touch."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:52-53",
+          "anchor_quotes": [
+            "the Guardian became truly agitated and began growing and exploding with metal thorns, that weakened it and the party.",
+            "With a final burst of effort ____ took down the metal and root nightmare.",
+            "Examining the room, they busted open the glowing sack of the heart of the tree which oozed precious metal and revealed a ordinary appearing potato.",
+            "After collecting their loot, the group approach Mark Jove to discuss taking on his son as a ward, or slave, or snack, or maybe clerk.",
+            "There were promises to take him to Mirathorn and get him an education."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:travel_to_city_shephards",
+      "label": "Traveling to the city, stuck outside the gates, the Shephards",
+      "reason": "Listed under 'Next Beats' as a future direction; not an observed mystery, clue, or unresolved phenomenon within the current session play.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:38-38",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:38-38",
+          "anchor_quotes": [
+            "Traveling to the city, stuck outside the gates, the Shephards"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:looking_ahead_city_festival_cultists_wolf",
+      "label": "Looking Ahead: Getting into the city, the festival, the cultists at the BBQ contest, The Wolf",
+      "reason": "Explicitly labeled 'Looking Ahead'; points to anticipated future events rather than an observed mystery in the session recap.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:40-40",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:40-40",
+          "anchor_quotes": [
+            "Looking Ahead : Getting into the city, the festival, the cultists at the BBQ contest. The Wolf."
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:defeated_caretakers_on_surface",
+      "label": "Defeated the caretakers on the surface",
+      "reason": "Major beat describing a resolved combat outcome; better handled as an event or beat edge rather than a mystery observation node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:16-16",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:16-16",
+          "anchor_quotes": [
+            "Defeated the caretakers on the surface."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Extract as an event node linked to the caretakers entity and session timeline."
+    },
+    {
+      "item_id": "deferred:grandmother_killed_during_assault",
+      "label": "Grandmother killed during the assault",
+      "reason": "Major beat describing a resolved casualty; better handled as an event or NPC fate edge rather than a mystery node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "label": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d:span:2e5ad974e07d:18-18",
+          "anchor_quotes": [
+            "One grandmother was killed during the assault"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Link to the Thistlebloom family or the assault event in the campaign timeline."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

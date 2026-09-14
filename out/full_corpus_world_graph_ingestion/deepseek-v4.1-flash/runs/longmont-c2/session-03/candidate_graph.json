@@ -1,0 +1,2170 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-3:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-3",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-3:7080c5f78d97"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:zilla",
+      "label": "Zilla",
+      "node_type": "character",
+      "description": "One of the three Mages in the city; unsettled by the magical storms and tells Caelynn that storms have been happening daily for weeks with no known source. Becomes more concerned when told the group encountered them in other towns; agrees with the other Mages that the storms carry a sense of evil.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "anchor_quotes": [
+            "Zilla tells Caelynn that storms had been happening every day for weeks and no one knew where the magical storms came from",
+            "Zilla becomes even more concerned when Caelynn shares that the group encountered these storms in other towns"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:ethel",
+      "label": "Ethel",
+      "node_type": "character",
+      "description": "Elderly woman the party previously saved from a giant monster; now on the same floor as Torbin at the Inn. Originally from Hempholm, where she was a seamstress. She recalls guards arriving at her house, then waking to see Caelynn, and suffering terrible dreams of a dark space with oily swirls, giant tentacles, the repeated name Maelthor, and the face of The Shepherd.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "anchor_quotes": [
+            "he shares a floor with Ethel, the elderly woman they saved from the giant monster"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "anchor_quotes": [
+            "She was a seamstress in the town and all she remembers from the last time she was there was guards arriving at her house",
+            "A name that is repeated over and over again, Maelthor. And finally a face - The Shepherd."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:maelthor",
+      "label": "Maelthor",
+      "node_type": "character",
+      "description": "Name repeated over and over again in Ethel's terrible dreams of a dark space with oily swirls and giant tentacles; identity otherwise unknown.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "anchor_quotes": [
+            "A name that is repeated over and over again, Maelthor."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:winna",
+      "label": "Winna",
+      "node_type": "character",
+      "description": "Person Karsemine has feelings for; Karsemine asks Stafl whether she should pursue a relationship with her.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "anchor_quotes": [
+            "She tells him about her feelings for Winna and asks whether or not she should try to pursue a relationship."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:sargent-dunberry",
+      "label": "Sargent Dunberry",
+      "node_type": "character",
+      "description": "Guard sergeant who retrieves badges for the adventurers from a back room, magically imprints each present member's face on their badge, drones on about the rules for wearing them, and hands over three blank badges for the rest of the party. Explains the badges work for two weeks before resetting.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "anchor_quotes": [
+            "Sargent Dunberry goes into a back room and returns with badges for each of the adventurers.",
+            "He hands the group the remaining 3 blank badges to scan when the party is all back together. The badges work for 2 weeks before they reset and have to be brought back."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:hilda-logsplitter",
+      "label": "Hilda Logsplitter",
+      "node_type": "character",
+      "description": "Woman running the Axe Me Anything axe-throwing booth at the festival. Enthusiastically pulls the group in to play, heckles and razzes the throwers, and keeps a box piled high with the \"rare\" commemorative spoons.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "anchor_quotes": [
+            "Hilda Logsplitter enthusiastically pulls the group in to try their luck at the simple game."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "anchor_quotes": [
+            "As she gets closer she can see it is piled high with the \u201crare\u201d spoons."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:mayor",
+      "label": "The Mayor",
+      "node_type": "character",
+      "description": "Mayor of Mirathorn; set aside the location of Wolf's Manor for the adventurers after the city's losses during the Cult activity.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "anchor_quotes": [
+            "This location was set aside for the adventures by the Mayor, however it will need some work."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:candidate:goblins",
+      "label": "Group of Goblins",
+      "node_type": "group",
+      "description": "A group of goblins among the teams set up for the festival Bake-off in the Market Plaza.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "anchor_quotes": [
+            "There are teams set up including a group of goblins"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:magical-sprite-bottle",
+      "label": "Magical Sprite Trapped in a Bottle",
+      "node_type": "item",
+      "description": "Caelynn's item, identified by Stafl as a magical sprite trapped inside a bottle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "anchor_quotes": [
+            "Stafl identifies Caelynn\u2019s item as a magical Sprite trapped in a bottle"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:cursed-idol",
+      "label": "Cursed Idol",
+      "node_type": "item",
+      "description": "Karsemine's cursed idol, possibly the cause of the group's nightmares.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "anchor_quotes": [
+            "Karsemine has a cursed idol - possibly giving the group nightmares"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:raven-figurine",
+      "label": "Raven Figurine",
+      "node_type": "item",
+      "description": "Baergrom's raven figurine that can briefly transform into an actual raven.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "anchor_quotes": [
+            "Baergrom has a raven figurine that can briefly transform into an actual raven"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:26-26",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:26-26",
+          "anchor_quotes": [
+            "Baergrom uses his new raven figurine to send out a description of her"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:cursed-invitation",
+      "label": "Cursed Invitation",
+      "node_type": "item",
+      "description": "Bonogo's beautifully crafted but cursed invitation; opening and reading it cursed him, though Ephanna's Remove Curse freed him while the curse remained on the object.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "anchor_quotes": [
+            "Bonogo has a beautifully crafted, but cursed, invitation",
+            "After opening and reading the invitation Bonogo is now Cursed",
+            "the curse was removed, but not from the object"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:magical-slate",
+      "label": "Magical Slate",
+      "node_type": "item",
+      "description": "A magical slate picked up by Ephanna that revealed the mages believe Torbin was poisoned or magically cursed.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "anchor_quotes": [
+            "Ephanna picks up a magical slate revealing that the mages believe he was poisoned or magically cursed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:mysterious-letter",
+      "label": "Mysterious Letter",
+      "node_type": "item",
+      "description": "A letter Bonogo has been carrying; Grobnok has no further details but notes it is very expensive paper only available at the Gilded Fold.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "anchor_quotes": [
+            "Bonogo asks Grobnok about the mysterious letter he has been carrying",
+            "can tell that it is very expensive paper",
+            "The only place in the city that would have that is the Gilded Fold"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:wolf-manor-deed",
+      "label": "Deed to Wolf's Manor",
+      "node_type": "item",
+      "description": "A document given to the party by Captain Lysandra granting them the deed to Wolf's Manor as a home base inside Mirathorn.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "anchor_quotes": [
+            "It is the deed to Wolf\u2019s Manor",
+            "now the adventures have a home base inside Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:deputy-badges",
+      "label": "Adventurer Deputy Badges",
+      "node_type": "item",
+      "description": "Magical badges issued by Sargent Dunberry that display the wearer's face when scanned; they function for 2 weeks before resetting.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "anchor_quotes": [
+            "returns with badges for each of the adventurers",
+            "magically the face appears on the front of the badge",
+            "The badges work for 2 weeks before they reset"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:magical-stone-ovens",
+      "label": "Large Magical Stone Ovens",
+      "node_type": "item",
+      "description": "Large magical stone ovens set up in tents around the Market Plaza for the festival Bake-off.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "anchor_quotes": [
+            "huge tents set up all around the square with large magical stone ovens"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:mayor-marks",
+      "label": "Mayor Marks",
+      "node_type": "item",
+      "description": "Festival tokens used as currency and gambling stakes at the festival games.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:40-40",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:40-40",
+          "anchor_quotes": [
+            "He has the chance to gamble his 10 magic Mayor Marks - the festival tokens"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:commemorative-spoon",
+      "label": "Commemorative Spoon",
+      "node_type": "item",
+      "description": "An 'extremely rare' commemorative spoon with Bonogo's name on it, offered as a prize at the Axe Me Anything booth; Karsemine stole one for Bonogo from a box piled high with them.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:40-40",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:40-40",
+          "anchor_quotes": [
+            "an \u201cextremely rare\u201d commemorative spoon with his name on it"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "anchor_quotes": [
+            "it is piled high with the \u201crare\u201d spoons",
+            "she deftly uses her tail to steal a spoon for Bonogo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:mystery:magical-storms-evil",
+      "label": "Magical Storms Carry a Sense of Evil",
+      "node_type": "mystery",
+      "description": "Storms have been occurring daily for weeks, their origin unknown, and they appear in multiple towns. The Mages are unsettled and agree the storms carry a sense of evil.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "anchor_quotes": [
+            "storms had been happening every day for weeks and no one knew where the magical storms came from",
+            "the storms carry a sense of evil"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:mystery:maelthor-name",
+      "label": "The Repeated Name Maelthor",
+      "node_type": "mystery",
+      "description": "Ethel recalls a name repeated over and over in her terrible dreams: Maelthor, alongside a dark space, oily swirls, giant tentacles, and a perverted connection, culminating in the face of The Shepherd.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "anchor_quotes": [
+            "A name that is repeated over and over again, Maelthor. And finally a face - The Shepherd."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:mystery:shepherd-deputization",
+      "label": "Deputized to Track Down The Shepherd",
+      "node_type": "mystery",
+      "description": "Captain Lysandra, short-staffed and unable to follow up on the cultist bard Dustwalker or other singers, reluctantly deputizes the adventurers to track down The Shepherd. The city guard has been exploring all the underground tunnels.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:32-32",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:32-32",
+          "anchor_quotes": [
+            "she reluctantly agrees to \u201cdeputize\u201d the adventures to handle tracking down the Shepherd",
+            "the city guard has been exploring all the underground tunnels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:mystery:curse-removed-not-from-object",
+      "label": "Curse Not Removed from Object",
+      "node_type": "mystery",
+      "description": "After Bonogo opened and read a beautifully crafted but cursed invitation, he became Cursed. Ephanna cast Remove Curse, removing the curse from Bonogo but not from the object.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "anchor_quotes": [
+            "Bonogo has a beautifully crafted, but cursed, invitation",
+            "the curse was removed, but not from the object"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:mystery:torbin-poisoned-or-cursed",
+      "label": "Torbin Poisoned or Magically Cursed",
+      "node_type": "mystery",
+      "description": "Ephanna picked up a magical slate revealing that the mages believe Torbin was poisoned or magically cursed. She cast Remove Curse, causing an immediate improvement; he fell into a deep sleep and will make a full recovery.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "anchor_quotes": [
+            "the mages believe he was poisoned or magically cursed",
+            "immediate improvement in Torbin. He goes into a deep sleep and they can tell that he will now make a full recovery"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:clue:gilded-fold-paper",
+      "label": "Gilded Fold Source of Mysterious Letter Paper",
+      "node_type": "mystery",
+      "description": "Grobnok, asked about the mysterious letter Bonogo carries, has no details but recognizes the very expensive paper. The only place in the city with such paper is the Gilded Fold.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "anchor_quotes": [
+            "Grobnok doesn\u2019t have any other details about the letter, but can tell that it is very expensive paper",
+            "The only place in the city that would have that is the Gilded Fold"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:clue:campaign-activity-land-grants",
+      "label": "Land Grants After Cult Activity Losses",
+      "node_type": "mystery",
+      "description": "After the losses the city suffered during the Cult activity, many people from Outtown have been given land inside the city. Wolf's Manor was set aside for the adventurers by the Mayor, though it needs work.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "anchor_quotes": [
+            "After the losses the city suffered during the Cult activity, lots of people from Outtown have been given land inside the city",
+            "This location was set aside for the adventures by the Mayor, however it will need some work"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:event:deputy-badges-two-weeks",
+      "label": "Deputy Badges Work for Two Weeks",
+      "node_type": "mystery",
+      "description": "Sargent Dunberry issues badges to the present adventurers, magically imprinting their faces, and hands over three blank badges for absent members. Badges work for 2 weeks before they reset and must be returned.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "anchor_quotes": [
+            "He hands the group the remaining 3 blank badges to scan when the party is all back together",
+            "The badges work for 2 weeks before they reset and have to be brought back"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:thread:caelynn-secret-person-search",
+      "label": "Caelynn Searching for a Secret Person",
+      "node_type": "mystery",
+      "description": "Caelynn has been looking for someone for a while and privately asks Lysandra for help tracking them down, giving a detailed description without revealing the relationship. Lysandra will work through her contacts and access old records.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:30-30",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:30-30",
+          "anchor_quotes": [
+            "she has been looking for someone for a while and could use her help tracking them down if they are in the city",
+            "She gives a very detailed description, despite not revealing the relationship to this person"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:mystery:ethel-hempholm-guards",
+      "label": "Ethel's Missing Memories and Guards from Hempholm",
+      "node_type": "mystery",
+      "description": "Ethel is from Hempholm and knew Torbin there. She was a seamstress and all she remembers last from the town is guards arriving at her house; she next remembers waking to see Caelynn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "anchor_quotes": [
+            "It is revealed that she is from Hempholm and that she knows Torbin as well",
+            "all she remembers from the last time she was there was guards arriving at her house"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:zilla-aware-of-storms",
+      "from_node_id": "candidate:zilla",
+      "to_node_id": "candidate:mystery:magical-storms-evil",
+      "label": "Zilla is aware of the magical storms and their evil nature",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "anchor_quotes": [
+            "Zilla tells Caelynn that storms had been happening every day for weeks and no one knew where the magical storms came from",
+            "Zilla becomes even more concerned when Caelynn shares that the group encountered these storms in other towns"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:ethel-aware-of-maelthor",
+      "from_node_id": "candidate:ethel",
+      "to_node_id": "candidate:maelthor",
+      "label": "Ethel recalls the name Maelthor from her dreams",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "anchor_quotes": [
+            "A name that is repeated over and over again, Maelthor."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:ethel-mystery-hempholm-guards",
+      "from_node_id": "candidate:ethel",
+      "to_node_id": "candidate:mystery:ethel-hempholm-guards",
+      "label": "Ethel's memory of guards from Hempholm",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "anchor_quotes": [
+            "all she remembers from the last time she was there was guards arriving at her house"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:dunberry-issues-badges",
+      "from_node_id": "candidate:sargent-dunberry",
+      "to_node_id": "item:deputy-badges",
+      "label": "Sargent Dunberry issues deputy badges to the adventurers",
+      "relationship_type": "holds",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "anchor_quotes": [
+            "Sargent Dunberry goes into a back room and returns with badges for each of the adventurers."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:dunberry-deputy-badges-two-weeks",
+      "from_node_id": "candidate:sargent-dunberry",
+      "to_node_id": "candidate:event:deputy-badges-two-weeks",
+      "label": "Sargent Dunberry explains badges work for two weeks",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "anchor_quotes": [
+            "The badges work for 2 weeks before they reset and have to be brought back."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:hilda-runs-axe-booth",
+      "from_node_id": "candidate:hilda-logsplitter",
+      "to_node_id": "item:commemorative-spoon",
+      "label": "Hilda Logsplitter keeps the box of commemorative spoons",
+      "relationship_type": "holds",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "anchor_quotes": [
+            "it is piled high with the \u201crare\u201d spoons"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:mayor-grants-wolf-manor",
+      "from_node_id": "candidate:mayor",
+      "to_node_id": "item:wolf-manor-deed",
+      "label": "The Mayor set aside Wolf's Manor for the adventurers",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "anchor_quotes": [
+            "This location was set aside for the adventures by the Mayor, however it will need some work"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:mayor-land-grants",
+      "from_node_id": "candidate:mayor",
+      "to_node_id": "candidate:clue:campaign-activity-land-grants",
+      "label": "The Mayor's land grants after Cult activity losses",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "anchor_quotes": [
+            "lots of people from Outtown have been given land inside the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:goblins-participate-bakeoff",
+      "from_node_id": "group:candidate:goblins",
+      "to_node_id": "item:magical-stone-ovens",
+      "label": "Goblins participate in the Bake-off using the stone ovens",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "anchor_quotes": [
+            "There are teams set up including a group of goblins"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:cursed-invitation-curse-remains",
+      "from_node_id": "item:cursed-invitation",
+      "to_node_id": "candidate:mystery:curse-removed-not-from-object",
+      "label": "The curse remains on the invitation",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "anchor_quotes": [
+            "the curse was removed, but not from the object"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:magical-slate-reveals-torbin-condition",
+      "from_node_id": "item:magical-slate",
+      "to_node_id": "candidate:mystery:torbin-poisoned-or-cursed",
+      "label": "The magical slate reveals Torbin's condition",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "anchor_quotes": [
+            "revealing that the mages believe he was poisoned or magically cursed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:gilded-fold-supplies-letter-paper",
+      "from_node_id": "candidate:clue:gilded-fold-paper",
+      "to_node_id": "item:mysterious-letter",
+      "label": "Gilded Fold is the only source of the letter's expensive paper",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "anchor_quotes": [
+            "The only place in the city that would have that is the Gilded Fold"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Caelynn Warns the Mages About the Storms",
+      "summary": "Before returning to the inn, Caelynn speaks with the three Mages about the magical storms. The Mages, unsettled, reveal the storms have occurred daily for weeks with no known source and agree the storms carry a sense of evil.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "anchor_quotes": [
+            "Before the group heads back to the Inn Caelynn wanted to speak to the Mages about the storms",
+            "storms had been happening every day for weeks and no one knew where the magical storms came from",
+            "the storms carry a sense of evil"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Item Identifications and Torbin's Recovery",
+      "summary": "At the inn, Stafl identifies the party's magic items. Bonogo is cursed by an invitation but Ephanna removes the curse. The group visits Torbin, who is poisoned or cursed, and Ephanna's Remove Curse allows him to begin a full recovery.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:18-18",
+          "anchor_quotes": [
+            "Stafl asks if anyone else has an item that they would like him to Identify",
+            "Bonogo is now Cursed, however Ephanna quickly casts Remove Curse",
+            "they agree to check on Torbin",
+            "Ephanna again casts Remove Curse and they can all see an immediate improvement in Torbin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Ethel's Account from Hempholm",
+      "summary": "Caelynn greets Ethel, who recognizes Bonogo and reveals she is from Hempholm and knows Torbin. She recalls guards arriving at her home, terrible dreams with oily swirls and giant tentacles, the name Maelthor, and the face of The Shepherd.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "anchor_quotes": [
+            "Caelynn discovers that Ethel is in the next room and goes in to greet her",
+            "It is revealed that she is from Hempholm and that she knows Torbin as well",
+            "a dark space with oily swirls",
+            "giant tentacles wrapping around her",
+            "Maelthor",
+            "And finally a face - The Shepherd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "The Bake-off and Grobnok's Letter Clue",
+      "summary": "At the festival bake-off, Bonogo appoints himself a judge with Grobnok's help but gets sick. Grobnok can tell Bonogo's mysterious letter is on expensive paper only available at the Gilded Fold.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "anchor_quotes": [
+            "First up is the Bake-off in the Market Plaza",
+            "Grobnok tells the other judges that he was added as guest judge",
+            "he ends up getting sick all over the table",
+            "it is very expensive paper",
+            "The only place in the city that would have that is the Gilded Fold"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Karsemine Seeks Stafl's Advice",
+      "summary": "Karsemine asks Stafl for advice about her feelings for Winna and whether to pursue a relationship; Stafl, taken aback, only mumbles about moving on.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "anchor_quotes": [
+            "Karsemine asks Stafl for advice on something personal",
+            "She tells him about her feelings for Winna",
+            "all he can manage to get out is a mumble about moving on"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Searching for Lysandra at the Guardhouses",
+      "summary": "Caelynn, Ephanna, and Baergrom search for Lysandra by visiting guardhouses and using Baergrom's raven figurine, eventually heading to the guardhouse across from the Copper and Quartz Inn.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:26-26",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:26-26",
+          "anchor_quotes": [
+            "Caelynn makes finding Lysandra her next priority",
+            "Caelynn and Ephanna come up with a plan to start asking at guard houses",
+            "Baergrom uses his new raven figurine",
+            "across from the Copper and Quartz Inn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Deed to Wolf's Manor Granted",
+      "summary": "They find Captain Lysnadra, who is thrilled to see the heroes. She gives them the deed to Wolf's Manor, set aside by the Mayor as a home base in Mirathorn after losses to the Cult.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "anchor_quotes": [
+            "They find Captain Lysnadra and her group of guards",
+            "It is the deed to Wolf\u2019s Manor",
+            "lots of people from Outtown have been given land inside the city",
+            "This location was set aside for the adventures by the Mayor",
+            "Now the adventures have a home base inside Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-8",
+      "order": 8,
+      "title": "Caelynn Enlists Lysandra to Find Someone",
+      "summary": "Caelynn privately asks Lysandra to help track down someone in the city, giving a detailed description without revealing the relationship; Lysandra agrees to work through her contacts and old records.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:30-30",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:30-30",
+          "anchor_quotes": [
+            "Caelynn then pulls Lysandra aside",
+            "could use her help tracking them down if they are in the city",
+            "despite not revealing the relationship to this person",
+            "She will work through her contacts in the city and use her position to access old records"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-9",
+      "order": 9,
+      "title": "Deputized to Hunt The Shepherd",
+      "summary": "Baergrom asks about The Shepherd; Lysandra explains the city guard has explored the underground tunnels and is too short-staffed to follow up on the bard Dustwalker. She deputizes the adventurers to track down The Shepherd.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:32-32",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:32-32",
+          "anchor_quotes": [
+            "Baergrom asks her about the most pressing issue - The Shepherd",
+            "the city guard has been exploring all the underground tunnels",
+            "Ephanna then asks about the cultist bard Dustwalker",
+            "reluctantly agrees to \u201cdeputize\u201d the adventures to handle tracking down the Shepherd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-10",
+      "order": 10,
+      "title": "Deputy Badges Issued",
+      "summary": "Sargent Dunberry returns with badges for the adventurers, magically imprinting their faces. He hands over remaining blank badges and explains they work for two weeks before resetting.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "anchor_quotes": [
+            "Sargent Dunberry goes into a back room and returns with badges for each of the adventurers",
+            "magically the face appears on the front of the badge",
+            "The badges work for 2 weeks before they reset and have to be brought back"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-11",
+      "order": 11,
+      "title": "Festival Axe Throwing Booth",
+      "summary": "The group is drawn to the Axe Me Anything axe throwing booth run by Hilda Logsplitter. Karsemine, Baergrom, Bonogo, and Ephanna play while Stafl bets on the throwers.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "anchor_quotes": [
+            "The group is immediately drawn to Axe Me Anything, an axe throwing booth",
+            "Hilda Logsplitter enthusiastically pulls the group in to try their luck",
+            "Kasemine, Baergrom, Bonogo and Ephanna all agree to play, while Stafl settles for betting"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-12",
+      "order": 12,
+      "title": "Karsemine and Ephanna Throw Axes",
+      "summary": "Karsemine throws at council officials targets and Ephanna at mythical creatures; both hit their first two throws but miss the final one.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:38-38",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:38-38",
+          "anchor_quotes": [
+            "traditional targets, city council targets and mythical creatures",
+            "Kasemine chooses to throw at the council \u201cofficials\u201d targets",
+            "Ephanna is next to throw the axes, this time against the mythical creatures",
+            "the last throw flies over the top of the last target"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-13",
+      "order": 13,
+      "title": "Bonogo's Advanced Axe Round",
+      "summary": "Bonogo takes on the council targets, makes an incredible throw to reach the advanced round, and gambles his Mayor Marks for a commemorative spoon but fails to earn it.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:40-40",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:40-40",
+          "anchor_quotes": [
+            "Next is Bonogo - determined to hit all three targets",
+            "hits the third target, earning cheers from the crowd and a chance to head to the advanced round",
+            "He has the chance to gamble his 10 magic Mayor Marks",
+            "\u201cextremely rare\u201d commemorative spoon with his name on it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-14",
+      "order": 14,
+      "title": "Karsemine Steals a Spoon for Bonogo",
+      "summary": "Karsemine notices a box of the rare spoons by Hilda, distracts her, and uses her tail to steal one for Bonogo, delighting him.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:42-42",
+          "anchor_quotes": [
+            "As Karsemine is watching Bonogo she notices a box over where Hilda is standing",
+            "piled high with the \u201crare\u201d spoons",
+            "she deftly uses her tail to steal a spoon for Bonogo",
+            "the big grin on Bonogo\u2019s face"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-15",
+      "order": 15,
+      "title": "Baergrom's Axe Attempt",
+      "summary": "Baergrom confidently throws at the mythical creatures, hits all three initial targets, but in the advanced round his last two throws sail wide and he earns no spoon.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:44-44",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:44-44",
+          "anchor_quotes": [
+            "Last up is Baergrom who is confident that he can hit all the targets",
+            "He decides on the mythical creatures",
+            "he decides to gamble his tokens for the advanced round",
+            "No spoon for Baergrom either"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-16",
+      "order": 16,
+      "title": "Afternoon Festival Events",
+      "summary": "With morning activities over, the party plans to join the afternoon events: more fights at the Coliseum of the Storm and more Magic Duels at the Arcane Arena.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:46-46",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:46-46",
+          "anchor_quotes": [
+            "the party decides to participate in the afternoon events",
+            "another round of fights at the Coliseum of the Storm and another round of Magic Duels at the Arcane Arena"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "candidate:event:bakeoff-festival-antics",
+      "label": "Bake-off Festival Antics",
+      "reason": "Comedic festival play; no unresolved thread or clues except existing entities (Grobnok, Bonogo, letter paper) which are handled elsewhere.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "anchor_quotes": [
+            "First up is the Bake-off in the Market Plaza"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "candidate:event:axe-throwing-minigame",
+      "label": "Axe Throwing Booth Games",
+      "reason": "Minigame outcome with no unresolved mystery or narrative hook; purely session texture.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "anchor_quotes": [
+            "The group is immediately drawn to Axe Me Anything, an axe throwing booth"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "candidate:event:karsemine-stafl-personal-advice",
+      "label": "Karsemine's Personal Advice from Stafl",
+      "reason": "Personal character beat with no plot mystery or actionable thread.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "anchor_quotes": [
+            "Karsemine asks Stafl for advice on something personal"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "candidate:entity:hilda-logsplitter",
+      "label": "Hilda Logsplitter",
+      "reason": "NEW NAMED NPC introduced running the axe throwing booth; likely local festival NPC but not in known entity list; needs registry resolution as a party-adjacent character with no current mystery role.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:36-36",
+          "anchor_quotes": [
+            "Hilda Logsplitter enthusiastically pulls the group in to try their luck at the simple game"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Hilda Logsplitter in NPC registry; defer node creation until she recurs or gains a thread role."
+    },
+    {
+      "item_id": "candidate:entity:sargent-dunberry",
+      "label": "Sargent Dunberry",
+      "reason": "NEW NAMED NPC introduced issuing deputy badges; appears as a City Guard functionary with a clear narrative role but not listed among known entities.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:34-34",
+          "anchor_quotes": [
+            "Sargent Dunberry goes into a back room and returns with badges for each of the adventurers"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Sargent Dunberry in NPC registry with affiliation City Guard."
+    },
+    {
+      "item_id": "candidate:entity:zilla",
+      "label": "Zilla",
+      "reason": "NEW NAMED NPC (one of the Mages) who speaks with Caelynn about the storms; not in known entities and may be a mage faction member.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:16-16",
+          "anchor_quotes": [
+            "Zilla tells Caelynn that storms had been happening every day for weeks"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Zilla as NPC within the Mages faction."
+    },
+    {
+      "item_id": "candidate:entity:lysandra",
+      "label": "Captain Lysandra",
+      "reason": "Named NPC referenced as Captain who provides the deed and deputizes the party; spelling varies (Lysnadra, Lysndra, Lysandra) and she is not in the known entity list, so canonicalization is needed before node creation.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "anchor_quotes": [
+            "They find Captain Lysnadra and her group of guards, excited and happy to see the heroes of the city"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:30-30",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:30-30",
+          "anchor_quotes": [
+            "Caelynn then pulls Lysandra aside"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Canonicalize spelling (Lysandra vs Lysnadra/Lysndra) and register as City Guard NPC."
+    },
+    {
+      "item_id": "candidate:entity:ethel",
+      "label": "Ethel",
+      "reason": "Elderly woman saved from the giant monster, now revealed to be from Hempholm with memory gaps and disturbing dreams (Maelthor, The Shepherd); she has rich mystery-adjacent content but is not in the known entity list.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "anchor_quotes": [
+            "Caelynn discovers that Ethel is in the next room and goes in to greet her",
+            "It is revealed that she is from Hempholm"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Ethel as NPC; then link her to the Maelthor/Shepherd mystery node."
+    },
+    {
+      "item_id": "candidate:entity:winna",
+      "label": "Winna",
+      "reason": "Mentioned only as the object of Karsemine's feelings; no identifying details or scene presence, likely an existing or minor NPC requiring registry lookup rather than a new node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:24-24",
+          "anchor_quotes": [
+            "She tells him about her feelings for Winna and asks whether or not she should try to pursue a relationship"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Check existing NPC registries for Winna; add as relationship entity if absent."
+    },
+    {
+      "item_id": "candidate:entity:gilded-fold-place",
+      "label": "Gilded Fold",
+      "reason": "A place in the city specializing in expensive paper, surfaced via Grobnok's identification of the mysterious letter paper; name needs location canonicalization before node creation.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:22-22",
+          "anchor_quotes": [
+            "The only place in the city that would have that is the Gilded Fold"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Gilded Fold as a location candidate and resolve whether it is a shop or district."
+    },
+    {
+      "item_id": "candidate:location:coliseum-of-the-storm",
+      "label": "Coliseum of the Storm",
+      "reason": "Named venue for afternoon fight events; may be a major location but is only mentioned once and not in known entity list.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:46-46",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:46-46",
+          "anchor_quotes": [
+            "another round of fights at the Coliseum of the Storm"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Coliseum of the Storm as location candidate if it recurs."
+    },
+    {
+      "item_id": "candidate:entity:cloth-map-or-town-names",
+      "label": "Town Names: Outtown, Mirathorn, Hempholm",
+      "reason": "Multiple place name mentions within a few lines require geo-registry normalization (e.g., Mirathorn vs the city, Outtown as a district?) before edges or nodes are committed.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:28-28",
+          "anchor_quotes": [
+            "lots of people from Outtown have been given land inside the city",
+            "Now the adventures have a home base inside Mirathorn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "label": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-3:7080c5f78d97:span:7080c5f78d97:20-20",
+          "anchor_quotes": [
+            "she is from Hempholm"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Normalize location taxonomy for Mirathorn, Outtown, and Hempholm in the location registry."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

@@ -1,0 +1,1696 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-19:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-19",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-19:c5a033c25e53"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:maude",
+      "label": "Old Maude",
+      "node_type": "character",
+      "description": "Proprietor of the Mossford Inn, referred to as Grandma. She pours herself a drink with Bonogo and recounts the town's history, including having seen the moving forest before and previous disasters.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "greeted by the proprietor: Old Maude",
+            "Grandma also pours herself a drink",
+            "Bonogo listens to Grandma tell the history of the town",
+            "She has seen the forest moving before"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:stuart",
+      "label": "Stuart",
+      "node_type": "character",
+      "description": "A small halfling boy, shy and often picked on by other children. He runs errands for Stafl and Bonogo, and reveals he is bullied mostly by Stacey.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "This boy, a small halfling",
+            "often picked on by the other children",
+            "tells him that Bonogo is supposed to buy him breakfast"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "the boy asks Grandma if he can eat too",
+            "She tells Stuart he can have whatever he wants",
+            "Stuart tells him it is mostly the girl from before, Stacey"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "anchor_quotes": [
+            "Bonogo takes Stuart\u2019s hand again",
+            "tells Stuart that they are going to go pay Stacey a visit"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:stacey",
+      "label": "Stacey",
+      "node_type": "character",
+      "description": "A girl who is identified as the main bully of Stuart. Bonogo plans to pay her a visit.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "Stuart tells him it is mostly the girl from before, Stacey"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "anchor_quotes": [
+            "tells Stuart that they are going to go pay Stacey a visit"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:sheriff",
+      "label": "The Sheriff",
+      "node_type": "character",
+      "description": "The dark skinned, graying human Sheriff. He is skeptical of the group's plan and accompanies Stafl across the river only to supervise the travelers.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "anchor_quotes": [
+            "the dark skinned, graying human Sheriff are speaking with Stafl",
+            "the Sheriff is not quite as keen on this plan or the group running it"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "anchor_quotes": [
+            "Stafl heads across the river with the Sheriff",
+            "The Sheriff agrees to come along, but only because he doesn\u2019t believe this plan will work"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:cooking-meat-child",
+      "label": "The cheeky child",
+      "node_type": "character",
+      "description": "A child whom Stafl gives 5 gold to get meat for Bonogo; she misunderstands or cheekily just thanks him and runs off with the gold.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "finds a child and gives her 5 gold",
+            "she just thanks Stafl and runs off with the gold"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:mossford-inn",
+      "label": "Mossford Inn",
+      "node_type": "location",
+      "description": "The inn in Mossford where Bonogo goes to eat. It has a front porch where several old people sit, an interior where the proprietor Old Maude (Grandma) serves drinks, and is the setting for Bonogo's conversations with Stuart and Grandma about the history of the town.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "Back at the Mossford Inn, Bonogo is just walking up to the front with the halfling boy.",
+            "He is greeted by several old people sitting on the front porch",
+            "They are the only people Bonogo encounters as he enters the Inn and is greeted by the proprietor: Old Maude."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "He then pockets the gold before continuing on to the Mossford Inn."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:forest",
+      "label": "The Forest",
+      "node_type": "location",
+      "description": "The forest outside Mossford where the Vanguard trees stand. Ephanna, Karsemine, Caelynn and Thrin travel there to test their magic, creating 'dead ground' and observing the tendrils in front of the vanguard trees. It is also where the red gnat swarm pours out of the trees.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "Ephanna, Karsemine and Caelynn decide to head out to the forest to test their magic.",
+            "Ephanna, Karesmine, Caelynn and Thrin run back to the forest, and when they are close Karesmine is able to point out the tendrils feeling along the ground in front of the vanguard trees."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "anchor_quotes": [
+            "Ephanna, Karesmine, Caelynn and Thrin, now standing near the tree line, decide to test out their spells to create \u201cdead ground\u201d"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "anchor_quotes": [
+            "Then, a massive swarm of red insects pour out of the trees, heading straight for the group of \u201cattackers\u201d."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:storage-buildings",
+      "label": "Storage Buildings",
+      "node_type": "location",
+      "description": "Storage buildings south of town across the river, where the mayor sends farmers to gather oil and salt for the plan against the forest.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "The mayor is happy to send farmers to the storage buildings to gather oil and salt"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:storm",
+      "label": "Storm Building to the Northeast",
+      "node_type": "item",
+      "description": "A very large storm building to the northeast and tracking southwest, cooling the air. The mayor reports terrible storms in the last two weeks, making it a pressing secondary concern for the group.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "anchor_quotes": [
+            "a very large storm building to the northeast"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:supplies",
+      "label": "Supplies (Oil and Salt)",
+      "node_type": "item",
+      "description": "Oil in barrels and salt in wagons gathered from the town's storage buildings at Stafl's request, intended for a ditch-and-line plan to divert the forest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "anchor_quotes": [
+            "leave the oil in barrels along the ditch and the salt in the wagons"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:dead-ground",
+      "label": "Dead Ground (Spell-Treated Unnatural Ground)",
+      "node_type": "item",
+      "description": "Patches of ground made unnatural by spells \u2014 Ray of Frost, Bonfire, lit oil, and Sorcerous Burst \u2014 tested to repel the vanguard trees. The cold-based Sorcerous Burst produced the clearest turning reaction.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "anchor_quotes": [
+            "create \u201cdead ground\u201d, places where the trees will feel the unnatural ground and should turn away"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:red-gnats",
+      "label": "Swarm of Red Gnats",
+      "node_type": "item",
+      "description": "A massive swarm of red insects (red gnats) that poured out of the trees toward the group. Resistant to all types of physical damage; Eldritch Blast and arrows eventually did damage as bodies fell to the ground.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "anchor_quotes": [
+            "a massive swarm of red insects pour out of the trees"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:approaching-storm",
+      "label": "Approaching storm from the northeast",
+      "node_type": "mystery",
+      "description": "A very large storm is building to the northeast and tracking southwest toward town; the air is already cooling. The mayor reports terrible storms in the last two weeks and is worried about another problem tied to this one.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "anchor_quotes": [
+            "She can see a very large storm building to the northeast and tracking southwest",
+            "they had terrible storms in the last two weeks"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:vanguard-trees-moving",
+      "label": "The forest and Vanguard trees are moving",
+      "node_type": "mystery",
+      "description": "The forest is creeping forward, led by the Vanguard trees planted every 50 trees out front of the forest. Old Maude says she has seen the forest moving before, and tendrils are felt feeling along the ground in front of the vanguard trees.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "are the trees slightly out front of the forest spread out every 50 trees",
+            "the tendrils feeling along the ground in front of the vanguard trees"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "She has seen the forest moving before"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:thrin-hiding-tree-speech",
+      "label": "Thrin appears to be hiding something about speaking to the trees",
+      "node_type": "mystery",
+      "description": "When Caelynn asks Thrin if he can speak to the trees, he looks very uncomfortable and replies 'no', clearly hiding something.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "asks Thrin if he is able to speak to the trees",
+            "He looks very uncomfortable and replies \u201cno\u201d; clearly hiding something"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "clue:dead-ground-cold-works",
+      "label": "Cold damage creates effective 'dead ground' against the trees",
+      "node_type": "clue",
+      "description": "Tests of Ray of Frost, Bonfire, and burning oil only made the trees divert slightly, but Caelynn's Sorcerous Burst creating a 30-foot area of cold damage clearly made the tree and forest turn to go around it.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "anchor_quotes": [
+            "places where the trees will feel the unnatural ground and should turn away",
+            "casts a 30 foot area of cold damage",
+            "They can clearly see the tree and forest turn to go around this time"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:eldritch-blast-turns-forest",
+      "label": "Eldritch Blast redirects the vanguard tree, triggering forest-wide ripple",
+      "node_type": "event",
+      "description": "Ephanna cast Eldritch Blast at an angle to push the vanguard tree in a new direction; the trees turned further and a ripple ran through the forest until the farthest-back trees completely stopped.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "anchor_quotes": [
+            "casts Eldritch Blast in an attempt to push the vanguard tree in a new direction",
+            "a ripple through the forest as the other trees all begin to shift until the ones farthest back completely stop"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:red-gnat-swarm-attack",
+      "label": "Massive swarm of red gnats pours out and pursues the group",
+      "node_type": "event",
+      "description": "After the forest shifted, a massive swarm of red insects (red gnats) poured out of the trees heading straight for the group. Thrin panicked and missed with an arrow. The swarm is resistant to all types of physical damage; Eldritch Blast, Hunter's Mark, and arrows did damage, and the group fled but the swarm continued to pursue.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "anchor_quotes": [
+            "a massive swarm of red insects pour out of the trees, heading straight for the group of \u201cattackers\u201d",
+            "the group can see they are red gnats",
+            "the swarm is resistant to all types of physical damage",
+            "the swarm continues to pursue them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:supplies-and-diversion-plan",
+      "label": "Plan to divert the trees and gather town supplies",
+      "node_type": "thread",
+      "description": "The group plans to ask Thrin about the Vanguard trees and how to divert them while the rest get townsfolk to gather supplies. Stafl relays the plan to the mayor and requests supplies be delivered across the river south of town; the mayor agrees to send farmers for oil and salt, but the Sheriff is skeptical and comes along only to supervise.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "anchor_quotes": [
+            "they will ask Thrin about the Vanguard trees and how to divert them while the rest of the group gets the townsfolk to gather supplies"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "requests supplies to be gathered and delivered across the river to the south of town",
+            "happy to send farmers to the storage buildings to gather oil and salt"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "anchor_quotes": [
+            "leave the oil in barrels along the ditch and the salt in the wagons"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:karsemine-wounded-from-the-mother",
+      "label": "Karsemine still low from the last battle with the Mother",
+      "node_type": "thread",
+      "description": "During the gnat fight, Ephanna used Misty Step and granted temporary health to Karsemine, who was still very low from the last battle with the Mother.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "anchor_quotes": [
+            "also grant temporary health to Karsemine, who was still very low from the last battle with the Mother"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:sheriff-distrust",
+      "label": "The Sheriff distrusts the group's plan and oversight",
+      "node_type": "mystery",
+      "description": "The Sheriff is not keen on the plan or the group running it, agreeing to accompany them only because he doesn't believe the plan will work and thinks he needs to supervise these travelers.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "the Sheriff is not quite as keen on this plan or the group running it"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "anchor_quotes": [
+            "only because he doesn\u2019t believe this plan will work and thinks he needs to supervise these travelers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:old-maude-history",
+      "label": "Old Maude's town history and past disasters",
+      "node_type": "mystery",
+      "description": "Old Maude, the Mossford Inn proprietor, tells Bonogo the history of the town and says she has seen the forest moving before and seen enough 'disasters' to be unconcerned by this one.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "Bonogo listens to Grandma tell the history of the town",
+            "has seen the forest moving before and has seen enough \u201cdisasters\u201d to be concerned at all by this one"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:bonogo-and-stuart",
+      "label": "Bonogo takes the halfling boy Stuart under his wing",
+      "node_type": "thread",
+      "description": "Bonogo pickpockets back the gold from the halfling boy, orders food and drink for him, learns he is bullied mostly by Stacey, gives him darts to carry, and later takes Stuart's hand to go pay Stacey a visit.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "Stuart tells him it is mostly the girl from before, Stacey",
+            "Bonogo gives him a few of his darts to carry"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "anchor_quotes": [
+            "they are going to go pay Stacey a visit"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:maude-part-of-mossford-inn",
+      "from_node_id": "candidate:maude",
+      "to_node_id": "location:mossford-inn",
+      "label": "Old Maude is the proprietor of the Mossford Inn",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "greeted by the proprietor: Old Maude"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:stuart-present-at-inn",
+      "from_node_id": "candidate:stuart",
+      "to_node_id": "location:mossford-inn",
+      "label": "Stuart is at the Mossford Inn with Bonogo",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "Back at the Mossford Inn, Bonogo is just walking up to the front with the halfling boy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:maude-knows-forest-moving",
+      "from_node_id": "candidate:maude",
+      "to_node_id": "mystery:vanguard-trees-moving",
+      "label": "Old Maude has seen the forest moving before",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "She has seen the forest moving before"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:maude-narrates-town-history",
+      "from_node_id": "candidate:maude",
+      "to_node_id": "mystery:old-maude-history",
+      "label": "Old Maude tells the history of the town to Bonogo",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "Bonogo listens to Grandma tell the history of the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:stacey-bullies-stuart",
+      "from_node_id": "candidate:stacey",
+      "to_node_id": "candidate:stuart",
+      "label": "Stacey is the main bully of Stuart",
+      "relationship_type": "threatens",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "Stuart tells him it is mostly the girl from before, Stacey"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:sheriff-distrusts-plan",
+      "from_node_id": "candidate:sheriff",
+      "to_node_id": "thread:supplies-and-diversion-plan",
+      "label": "The Sheriff doesn't believe Stafl's plan will work",
+      "relationship_type": "suspects",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "anchor_quotes": [
+            "only because he doesn\u2019t believe this plan will work and thinks he needs to supervise these travelers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:supplies-gathered-storage-buildings",
+      "from_node_id": "candidate:supplies",
+      "to_node_id": "location:storage-buildings",
+      "label": "Oil and salt are gathered from the storage buildings",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "The mayor is happy to send farmers to the storage buildings to gather oil and salt"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:dead-ground-created-in-forest",
+      "from_node_id": "candidate:dead-ground",
+      "to_node_id": "location:forest",
+      "label": "Dead ground is created near the tree line",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "anchor_quotes": [
+            "now standing near the tree line, decide to test out their spells to create \u201cdead ground\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:eldritch-blast-results-ripple",
+      "from_node_id": "event:eldritch-blast-turns-forest",
+      "to_node_id": "mystery:vanguard-trees-moving",
+      "label": "The blast causes a ripple of the forest shifting back",
+      "relationship_type": "results_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "anchor_quotes": [
+            "a ripple through the forest as the other trees all begin to shift until the ones farthest back completely stop"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:red-gnats-attack-group",
+      "from_node_id": "candidate:red-gnats",
+      "to_node_id": "event:red-gnat-swarm-attack",
+      "label": "Red gnat swarm pours out and pursues the group",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "anchor_quotes": [
+            "a massive swarm of red insects pour out of the trees, heading straight for the group of \u201cattackers\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:red-gnats-immune-physical",
+      "from_node_id": "candidate:red-gnats",
+      "to_node_id": "event:red-gnat-swarm-attack",
+      "label": "Swarm is resistant to all physical damage",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "anchor_quotes": [
+            "She tells the others that the swarm is resistant to all types of physical damage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:stuart-bullied-by-other-children",
+      "from_node_id": "candidate:stuart",
+      "to_node_id": "candidate:stacey",
+      "label": "Stuart is often picked on by the other children",
+      "relationship_type": "suspects",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "often picked on by the other children"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat:session-19:01",
+      "order": 1,
+      "title": "Storm Approach and Vanguard Tree Plan",
+      "summary": "Caelynn spots a large storm building to the northeast and tracking southwest as the redscale Dragonborn Mayor and graying human Sheriff speak with Stafl. The mayor reports terrible storms over the last two weeks, and the group plans to ask Thrin about the Vanguard trees while others gather supplies.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "anchor_quotes": [
+            "The redscale Dragonborn Mayor and the dark skinned, graying human Sheriff are speaking with Stafl when Caelynn investigates the sky.",
+            "they will ask Thrin about the Vanguard trees and how to divert them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-19:02",
+      "order": 2,
+      "title": "Gold, Children, and the Trip to the Mossford Inn",
+      "summary": "Stafl pays a child 5 gold to fetch meat for Bonogo, but she runs off with it. A second child, a small halfling boy, intercepts Bonogo, claiming Bonogo owes him breakfast; Bonogo pickpockets the gold back with a magic trick and continues to the Mossford Inn.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "finds a child and gives her 5 gold to run ahead and get the meat for Bonogo",
+            "she just thanks Stafl and runs off with the gold",
+            "He shows the boy a \u201cmagic trick\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-19:03",
+      "order": 3,
+      "title": "The Plan Shared, Supplies Requested, a Suspicious Thrin",
+      "summary": "Stafl relays the plan to the mayor and requests supplies be delivered across the river south of town; the mayor agrees to send farmers for oil and salt, while the Sheriff remains skeptical. Ephanna, Karsemine, Caelynn, and Thrin head to the forest and find tendrils feeling along the ground in front of the vanguard trees. Thrin uncomfortably denies being able to speak to trees.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "Stafl relays the plan to the mayor and requests supplies to be gathered and delivered across the river to the south of town.",
+            "the Sheriff is not quite as keen on this plan",
+            "Karesmine is able to point out the tendrils feeling along the ground in front of the vanguard trees",
+            "asks Thrin if he is able to speak to the trees"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-19:04",
+      "order": 4,
+      "title": "Bonogo and Stuart at the Inn with Old Maude",
+      "summary": "At the Mossford Inn, Bonogo is greeted by old people on the porch and proprietor Old Maude. He orders meat and ale and sits with the boy, Stuart, who cannot pay after his coins vanished. Bonogo pays with Stafl's stolen money, drinks and listens to Grandma's town history, then sends Stuart to find Stafl for more gold and gives him darts for protection against bullies.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:18-18",
+          "anchor_quotes": [
+            "Back at the Mossford Inn",
+            "he enters the Inn and is greeted by the proprietor: Old Maude",
+            "instructs him to run to find Stafl and get more gold",
+            "Bonogo gives him a few of his darts to carry"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-19:05",
+      "order": 5,
+      "title": "Stafl Crosses the River as the Casters Test Dead Ground",
+      "summary": "Stafl crosses the river with the Sheriff to meet the workers and directs them to dig holes while keeping oil in barrels and salt in wagons; the Sheriff comes only to supervise. The halfling boy returns and Stafl gives him two more gold. Near the tree line, Ephanna, Karsemine, Caelynn, and Thrin test spells to create dead ground, with Caelynn's 30-foot Sorcerous Burst cold effect finally causing the forest to turn aside.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "anchor_quotes": [
+            "Stafl heads across the river with the Sheriff",
+            "leave the oil in barrels along the ditch and the salt in the wagons",
+            "They can clearly see the tree and forest turn to go around this time."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-19:06",
+      "order": 6,
+      "title": "Eldritch Blast, Red Gnats, and Battle",
+      "summary": "Ephanna casts Eldritch Blast to push the vanguard tree in a new direction, causing a ripple through the forest until the farthest trees stop. A massive swarm of red gnats pours from the trees. Thrin panics and misses with an arrow; the group fights with Eldritch Blast, Misty Step, Sorcerous Burst, and Hunter's Mark, learning the swarm resists physical damage. Karsemine and Thrin land hits, and the group attempts to flee as the swarm pursues.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "anchor_quotes": [
+            "casts Eldritch Blast in an attempt to push the vanguard tree in a new direction",
+            "a massive swarm of red insects pour out of the trees",
+            "the swarm is resistant to all types of physical damage",
+            "the swarm continues to pursue them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-19:07",
+      "order": 7,
+      "title": "Bonogo and Stuart Set Out to Visit Stacey",
+      "summary": "Back at the Inn, Bonogo takes Stuart's hand and tells him they are going to go pay Stacey a visit.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "anchor_quotes": [
+            "Back at the Inn, Bonogo takes Stuart\u2019s hand again as they walk back outside",
+            "they are going to go pay Stacey a visit"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:bonogo-meat-inn-distraction",
+      "label": "Bonogo wandering off to the Inn for food",
+      "reason": "Colorful character beat, not a mystery/clue/thread requiring tracking; Bonogo and the Inn are already covered by the Bonogo/Stuart thread node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "anchor_quotes": [
+            "Bonogo smells the tantalizing smell of cooking meat coming from the Inn nearby"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:gold-child-antics",
+      "label": "Children running off with Stafl's gold",
+      "reason": "Minor comic beat with no lasting consequence beyond the Bonogo/Stuart thread already captured.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "she just thanks Stafl and runs off with the gold"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:spell-testing-partial",
+      "label": "Inconclusive spell tests (Ray of Frost, Bonfire, burning oil)",
+      "reason": "Superseded by the successful cold-damage 'dead ground' clue; no separate tracking needed.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:20-20",
+          "anchor_quotes": [
+            "Caelynn starts with a Ray of Frost spell and the feelers move up and around the affected area and continue on"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:stacey-confrontation",
+      "label": "Bonogo and Stuart set off to confront Stacey",
+      "reason": "Session ends mid-scene at the final line; the outcome of the Stacey visit is unresolved and not extractable from this recap.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:24-24",
+          "anchor_quotes": [
+            "they are going to go pay Stacey a visit"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Resolve in a later session recap or play transcript."
+    },
+    {
+      "item_id": "deferred:fate-of-gnat-swarm",
+      "label": "Outcome of the red gnat swarm pursuit",
+      "reason": "The recap ends with the swarm still pursuing the fleeing group; no resolution given.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:22-22",
+          "anchor_quotes": [
+            "the swarm continues to pursue them"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track in next session for the fight's resolution."
+    },
+    {
+      "item_id": "deferred:thrin-secret-tree-speech",
+      "label": "What Thrin is hiding about tree speech",
+      "reason": "Thrin's evasion is flagged but no explanation is given in this packet; needs follow-up to determine the mystery's nature.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:16-16",
+          "anchor_quotes": [
+            "He looks very uncomfortable and replies \u201cno\u201d; clearly hiding something"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Investigate Thrin's connection to the trees in a future session."
+    },
+    {
+      "item_id": "deferred:storm-cause-and-forest-link",
+      "label": "Cause of the storm and its link to the moving forest",
+      "reason": "The mayor notes another problem with the storm and recent terrible storms; causation and the forest/storm relationship are not explained in this packet.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "label": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-19:c5a033c25e53:span:c5a033c25e53:14-14",
+          "anchor_quotes": [
+            "The mayor is worried about another problem with the storm; telling the group that they had terrible storms in the last two weeks"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Gather further clues on the storm's origin and any link to the forest migration."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

@@ -1,0 +1,910 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-24:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-24",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-24:7fe085121d65"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "mystery:mireward-gate-battle-24",
+      "label": "Battle at the Mireward Gate",
+      "node_type": "mystery",
+      "description": "The party defends the wall against a wave of hybrid monsters, tripods, meatwings, and giant sewer monsters; the battle ends with the party victorious but leaves unanswered questions about the creatures' origin and the refugees' fate.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "anchor_quotes": [
+            "The disgusting hybrid monsters continue their march toward the wall"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "anchor_quotes": [
+            "Finally Thrin finishes off the writhing creature, ending the battle."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "With the battle over and full night upon them, the group must decide what to do next."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:meatwings-mind-control",
+      "label": "Meatwings' Compulsion to Consume",
+      "node_type": "mystery",
+      "description": "The meatwings emit a wafting smell that compels multiple party members to move toward and consume the monsters, bypassing normal combat tactics and creating a dangerous compulsion effect.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "anchor_quotes": [
+            "Ephanna and Bonogo both fail to resist the effect of the meatwings and are now compelled to only move to the monsters and consume them."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "anchor_quotes": [
+            "The rest of the group create a wafting smell of meat, enchanting Thrin, Karsemin, Ephanna, Bonogo, Caelynn and Baergrom. Again they are compelled to find and eat the monsters, but cannot attack them directly."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:golem-weakness-immunity",
+      "label": "Golem's Fire Weakness and Poison/Charm Immunity",
+      "node_type": "mystery",
+      "description": "Through Hunter's Mark, Karsemine learns that the golem is immune to poison and charm but vulnerable to fire, a crucial tactical discovery that shapes the party's attacks.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "anchor_quotes": [
+            "She then transfers her Hunter\u2019s Mark to the golem and learns it is immune to poison and charm, but weak to fire."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:refugees-of-edge",
+      "label": "Refugees from Edge",
+      "node_type": "mystery",
+      "description": "The fate and safe placement of refugees from Edge is an unresolved logistical concern following the battle, requiring the party to split up and make a plan.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "Something needs to be done with the refugees from Edge, while some members need a much needed rest to regain spells."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:grobnok-communication",
+      "label": "Grobnok Contact and Frustration",
+      "node_type": "mystery",
+      "description": "Caelynn contacts Grobnok to report on Edge and Mireward Reach; he is frustrated, and a rockie-talkie connection with Lysandra is attempted but incomplete, with a promised callback the next day.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "anchor_quotes": [
+            "Caelynn makes a quick call to Grobnok.",
+            "She attempts to get Grobnok\u2019s rockie-talkie connected with Lysandra\u2019s, but this will take some time."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:sewer-monster-poison-spray",
+      "label": "Sewer Monster's Poison Spray",
+      "node_type": "mystery",
+      "description": "A giant sewer monster, when killed, sprays poison on Baergrom, Thrin and Karsemine, adding a lingering hazard.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "anchor_quotes": [
+            "in killing it sprays poison on Baergrom, Thrin and herself."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:magical-darkness-cube",
+      "label": "Magical Dark Cube",
+      "node_type": "mystery",
+      "description": "A magically dark cube contains Ogonob and hampers both the party and enemies; its nature and origin are not explained.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "anchor_quotes": [
+            "One of them reaches the magically dark cube with Ogonob inside",
+            "Ogonob then uses Misty Step to get within striking range"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "anchor_quotes": [
+            "The other sewer monster moves in to attack Ogonob through the magical darkness, but misses."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:sewer-monster-identification",
+      "label": "Giant Sewer Monsters",
+      "node_type": "mystery",
+      "description": "The giant sewer monsters are unidentified creatures that split up, climb walls, and ooze sticky gel; their connection to the sewer environment is noted but not fully explained.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "anchor_quotes": [
+            "the giant sewer monsters split up and head in different directions, but both continue toward the wall."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "anchor_quotes": [
+            "both monsters ooze out a sticky gel that now makes it difficult to move away from the creatures."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:captain-lysandra-ironveil",
+      "label": "Captain Lysandra Ironveil",
+      "node_type": "character",
+      "description": "In this session, Lysandra acts as a tactical commander on the battlefield. She recharges her Commanding Shout to direct Bonogo, Karesmine, and Baergrom to attack. She also removes the charm affecting Caelynn, freeing her to cast Magic Missile. Later, seeing the party has the advantage, she recharges her Commanding Shout again and directs Bonogo, Baergrom, and Karsemine to attack. After the battle, Caelynn attempts to connect Grobnok's rockie-talkie with Lysandra's, though this will take some time.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "anchor_quotes": [
+            "Lysandra recharges her Commanding Shout and commands Bonogo, Karesmine and Baergrom to all attack",
+            "Lysnadra then removes the charm affecting Caelynn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "anchor_quotes": [
+            "She recharges her Commanding Shout and directs Bonogo, Baergrom and Karsemine to attack"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "anchor_quotes": [
+            "She attempts to get Grobnok\u2019s rockie-talkie connected with Lysandra\u2019s"
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "captain_lysandra_ironveil",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Captain Lysandra Ironveil",
+        "Captain"
+      ],
+      "session_actions": [
+        "Recharges her Commanding Shout and commands Bonogo, Karesmine and Baergrom to attack",
+        "Removes the charm affecting Caelynn",
+        "Recharges Commanding Shout again to direct Bonogo, Baergrom and Karsemine to attack",
+        "Her rockie-talkie is to be connected with Grobnok's"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:lysandra-participates-mireward-gate-battle-24",
+      "from_node_id": "node:captain-lysandra-ironveil",
+      "to_node_id": "mystery:mireward-gate-battle-24",
+      "label": "Lysandra fights in the gate battle",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "anchor_quotes": [
+            "Lysnadra then removes the charm affecting Caelynn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "anchor_quotes": [
+            "Lysandra can see that they have the advantage now and can push for a final assault on the remaining monsters."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:golem-weakness-immunity-linked-to-mireward-gate-battle-24",
+      "from_node_id": "mystery:golem-weakness-immunity",
+      "to_node_id": "mystery:mireward-gate-battle-24",
+      "label": "The golem's weakness discovery shapes the battle's tactics",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "anchor_quotes": [
+            "She then transfers her Hunter\u2019s Mark to the golem and learns it is immune to poison and charm, but weak to fire."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:sewer-monster-poison-spray-part-of-mireward-gate-battle-24",
+      "from_node_id": "mystery:sewer-monster-poison-spray",
+      "to_node_id": "mystery:mireward-gate-battle-24",
+      "label": "The sewer monster's poison spray is a battle hazard",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "anchor_quotes": [
+            "in killing it sprays poison on Baergrom, Thrin and herself"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "predicate_validation:relationship_family_mismatch"
+      ]
+    },
+    {
+      "edge_id": "edge:meatwings-mind-control-part-of-mireward-gate-battle-24",
+      "from_node_id": "mystery:meatwings-mind-control",
+      "to_node_id": "mystery:mireward-gate-battle-24",
+      "label": "The meatwings' compulsion effect is part of the gate battle",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "anchor_quotes": [
+            "Again they are compelled to find and eat the monsters, but cannot attack them directly."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "predicate_validation:relationship_family_mismatch"
+      ]
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-001",
+      "order": 1,
+      "title": "Monsters Press the Wall; Ogonob and Karsemine Engage",
+      "summary": "Hybrid monsters advance toward the wall but cannot reach it. One attacks Ogonob inside the magical darkness cube, hitting him three times. Karsemine launches a Firebolt at the tripod monster, igniting gases. Ephanna and Bonogo are compelled by meatwings to move toward the monsters; Ephanna resists enough to attack the hybrid attacking Ogonob with Eldritch Blasts, destroying it. Ogonob uses Misty Step to reach the tripod but misses.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "anchor_quotes": [
+            "The disgusting hybrid monsters continue their march toward the wall, but unable to reach it yet.",
+            "One of them reaches the magically dark cube with Ogonob inside and lashes out with a tentacle, managing to hit Ogonob three times",
+            "Karsemine launches a Firebolt at the tripod monster, dealing massive damage igniting the many escaping gases.",
+            "Ephanna and Bonogo both fail to resist the effect of the meatwings and are now compelled to only move to the monsters and consume them.",
+            "With two powerful Eldritch Blasts the monster is destroyed",
+            "Ogonob then uses Misty Step to get within striking range of the tripod, but misses the attack."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-002",
+      "order": 2,
+      "title": "Sewer Monsters Split; Baergrom Switches to Short Bow",
+      "summary": "Bonogo uses Steady Aim to pin the hybrid with an arrow, but it rises. Thrin panics and misses. The giant sewer monsters split up and continue toward the wall. Baergrom's crossbow jams, so he discards it, grabs a short bow, and lodges an arrow in the hybrid's head.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "anchor_quotes": [
+            "Bonogo uses his Steady Aim ability and lines up a powerful shot at the hybrid.",
+            "Thrin tries to steady himself, but just starts to let panic set in and misses both of his shots at the monster.",
+            "the giant sewer monsters split up and head in different directions, but both continue toward the wall.",
+            "Baergrom readies himself and takes aim with his crossbow, only for it to jam.",
+            "he throws the crossbow down and grabs a short bow, loads an arrow and fires at the hybrid monster, lodging an arrow in its head."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-003",
+      "order": 3,
+      "title": "Tripod Awakens; Meatwings Charm the Group",
+      "summary": "A tripod creature attacks Ogonob, who lands a glancing blow in return. Another tripod remains asleep under Stafl's spell. Meatwings fly toward the wall; one kills itself to awaken the sleeping tripod. The meatwings' smell enchants Thrin, Karsemine, Ephanna, Bonogo, Caelynn and Baergrom, compelling them to seek out and eat the monsters without directly attacking. Two meatwings attack Ephanna and two attack Caelynn.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "anchor_quotes": [
+            "One of the tripod creatures lashes out at Ogonob now that they are in range, hitting them all three times before continuing on to the wall.",
+            "Before the monster can get far Ogonob reacts with an attack, landing a glancing blow.",
+            "The other tripod creature continues to be asleep; under the influence of Stafl\u2019s spell.",
+            "It slams itself into the creature, killing itself, but awakening the monster.",
+            "The rest of the group create a wafting smell of meat, enchanting Thrin, Karsemin, Ephanna, Bonogo, Caelynn and Baergrom.",
+            "Two of the meatwings attack Ephanna and two attack Caelynn."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-004",
+      "order": 4,
+      "title": "Stafl Inspires and Confuses; Lysandra Commands Attacks",
+      "summary": "Stafl casts Bardic Inspiration on Ephanna and Enemies Abound on the golem, but the golem ignores it and dashes to the wall. Lysandra recharges Commanding Shout, directing Bonogo, Karsemine and Baergrom to attack. Bonogo and Baergrom strike meatwings; Karsemine damages the tripod with her short bow. Lysandra removes Caelynn's charm, and Caelynn casts Magic Missile, heavily damaging two meatwings and exploding a third.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "anchor_quotes": [
+            "Stafl jumps up from being prone and casts Bardic Inspiration on Ephanna then casts Enemies Abound on the golem, attempting to confuse and have it attack its own allies.",
+            "The golem ignores everything around it and dashes to the wall, ready to start to break it down.",
+            "Lysandra recharges her Commanding Shout and commands Bonogo, Karesmine and Baergrom to all attack.",
+            "Baergrom deals a decent blow with his bow, while Bonogo uses his dagger to slice one to pieces.",
+            "Karsemine attacks the tripod, dealing damage with her short bow.",
+            "Caelynn, who then uses a level 2 version of her spell Magic Missile, heavily damaging two meatwings and exploding a third."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-005",
+      "order": 5,
+      "title": "Hybrid Reaches the Wall; Golem Slain",
+      "summary": "A hybrid reaches the wall and begins chipping its foundation. Karsemine kills the tripod with a Firebolt, transfers Hunter's Mark to the golem, and learns it is immune to poison and charm but weak to fire. Ephanna hits the golem with Eldritch Blast. Ogonob destroys a meatwing, Bonogo throws a dagger to knock the golem prone, and Thrin's arrow causes the golem to collapse.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "anchor_quotes": [
+            "One of the hybrid creatures finally reaches the wall just below Bonogo and near Ephanna, where it begins to attack the wall, slowly chipping away the foundation.",
+            "Karsemine again attacks the tripod monster with a Firebolt, this time fully igniting the flesh, causing it to burst into flames and die.",
+            "She then transfers her Hunter\u2019s Mark to the golem and learns it is immune to poison and charm, but weak to fire.",
+            "So Ephanna uses Eldritch Blast twice on the golem, dealing big damage",
+            "Bonogo uses Steady Aim and throws a dagger at its leg, dealing damage and causing the monster to fall prone.",
+            "Thrin takes aim and fires an arrow at the prone golem, and just as the arrow lands, whatever energy was holding the creature together finally collapses."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-006",
+      "order": 6,
+      "title": "Sewer Monster Scales the Wall; Bonogo Kills It",
+      "summary": "A giant sewer monster slides up the wall and reaches the top near Lysandra, Thrin and Caelynn. The other attacks Ogonob through the magical darkness but misses. Both ooze a sticky gel that hinders movement. Baergrom uses Bait and Switch to move Thrin to safety, strikes with his warhammer, and uses Commander's Strike to direct Bonogo, who kills the sewer monster with a dagger throw.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "anchor_quotes": [
+            "until one of the giant sewer monsters finally reaches the wall.",
+            "It uses its length to slide up the wall and reach the top, then pulls the rest of its body up and on top, right in the middle of Lysandra, Thrin and Caelynn.",
+            "The other sewer monster moves in to attack Ogonob through the magical darkness, but misses.",
+            "both monsters ooze out a sticky gel that now makes it difficult to move away from the creatures.",
+            "Baergom uses his Bait and Switch ability, moving Thrin out of harm's way and boosting his own defence in the process, then uses his warhammer to deal a thunderous blow.",
+            "Bonogo chooses the sewer monster attacking Ogonob and with a well thrown dagger, skewers and kills the monster."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-007",
+      "order": 7,
+      "title": "Tripod Impales Ephanna; Stafl Sleeps It",
+      "summary": "The remaining tripod launches a spike that impales Ephanna and pulls her in, causing her to lose track of the creature. Stafl casts Sleep on the monster, using Luck when it almost breaks free. Lysandra recharges Commanding Shout and directs Bonogo, Baergrom and Karsemine to attack. Bonogo hits the hybrid in darkness; Karsemine kills the sewer monster but sprays poison on Baergrom, Thrin and herself. Caelynn holds her attack.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "anchor_quotes": [
+            "The remaining tripod creature turns its attention to Ephanna, loading up its third leg again, but this time launching a massive spike, impaling Ephanna and pulling them toward the disgusting monster.",
+            "Stafl casts Sleep on the monster, who almost breaks out of the spell until Stafl uses Luck.",
+            "Lysandra can see that they have the advantage now and can push for a final assault on the remaining monsters.",
+            "She recharges her Commanding Shout and directs Bonogo, Baergrom and Karsemine to attack.",
+            "an arrow from Karsemine flies past, impaling the monster, but in killing it sprays poison on Baergrom, Thrin and herself."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-008",
+      "order": 8,
+      "title": "Karsemine Kills the Last Hybrid",
+      "summary": "The remaining hybrid attacks Ephanna despite being blinded by magical darkness, hitting with a second strike for necrotic damage. Karsemine moves to the edge of the wall and, after missing once and hitting Ephanna, lands a killing blow on the monster. Ephanna and Ogonob join Caelynn in holding their attacks until the team coordinates against the sleeping tripod.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:28-28",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:28-28",
+          "anchor_quotes": [
+            "The remaining hybrid moves in to attack Ephanna, but is still blinded by the magical darkness.",
+            "It swings wildly and misses the first attack, but hits with the second, dealing necrotic damage.",
+            "Karsemine moves to the edge of the wall and takes aim at the hybrid monster.",
+            "Her first arrow sails past the creature, hitting Ephanna instead.",
+            "She adjusts her aim and shoots again, this time landing a killing blow on the monster.",
+            "With one monster left on the battlefield, both Ephanna and Ogonob join Caelynn in holding their attack until the team coordinates an attack on the sleeping tripod."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-009",
+      "order": 9,
+      "title": "Team Finishes the Sleeping Tripod",
+      "summary": "Bonogo initiates the assault with a critical hit and two more attacks. Caelynn, Ephanna and Ogonob all attack, piling on damage with Magic Missile and Eldritch Blast. Thrin lands the final blow, ending the battle.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "anchor_quotes": [
+            "Bonogo readies the team, then takes the first attack.",
+            "He deals critical damage on the incapacitated creature, dealing massive damage in his first attack before following it quickly with two more attacks.",
+            "Caelynn\u2019s Magic Missile and Ephanna\u2019s Eldritch Blast pile on the damage.",
+            "Finally Thrin finishes off the writhing creature, ending the battle."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-010",
+      "order": 10,
+      "title": "Aftermath: Piles Sucked Away; Group Splits",
+      "summary": "Karsemine and Ephanna try to burn remaining piles of meat, but the piles turn to goo and are sucked into the ground. With the battle over and night fallen, the group decides to split: Ephanna, Stafl and Baergorm will watch at the wall above the gate and rest; the others will go to the town to check on it and plan for the refugees from Edge.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "Karsemine and Ephanna decide the first thing they should do is burn as many remaining piles of meat as they can.",
+            "as soon as they cast Firebolt and Bonfire the remaining piles turn to goo and are sucked into the ground.",
+            "Something needs to be done with the refugees from Edge, while some members need a much needed rest to regain spells.",
+            "Ephanna, Stafl and Baergorm will stand watch at the wall above the gate, taking a short rest and recovering.",
+            "The others will go check on the town and create a plan for the refugees."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-011",
+      "order": 11,
+      "title": "Caelynn Contacts Grobnok",
+      "summary": "Before leaving, Caelynn calls Grobnok, who answers after muffled noise. She tells him about both Edge and Mireward Reach. He is frustrated at not being able to plan and act. She tries to connect Grobnok's rockie-talkie with Lysandra's, but it will take time. He will call back the next day.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "anchor_quotes": [
+            "Caelynn makes a quick call to Grobnok.",
+            "she tells him about both Edge and Mireward Reach.",
+            "He is very frustrated, not used to not being able to make a plan and get things done.",
+            "She attempts to get Grobnok\u2019s rockie-talkie connected with Lysandra\u2019s, but this will take some time.",
+            "He will call them back the next day to check in."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

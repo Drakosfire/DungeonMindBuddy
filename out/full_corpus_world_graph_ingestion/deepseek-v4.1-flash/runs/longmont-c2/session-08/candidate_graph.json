@@ -1,0 +1,962 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-8:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-8",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-8:f62cfae78793"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:sorin-holdrom",
+      "label": "Sorin Holdrom",
+      "node_type": "character",
+      "description": "Identity revealed to be the Dustwalker; a former Academy member kicked out for extremist ideas and for creating the rips in space. Discovered via a file in the guardhouse.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "she discovers a file on someone named Sorin Holdrom",
+            "discovering the identity of Dustwalker",
+            "he was kicked out of the Academy for extremist ideas and creation of the rips in space"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:mountain-iron-vale-gate",
+      "label": "Mountain Iron Vale Gate",
+      "node_type": "location",
+      "description": "Location the group returned to, where Lysandra coordinated guards to care for the goblin children and the fire, and where a guardhouse file on Sorin Holdrom was discovered.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "The group makes their way back to the Mountain Iron Vale Gate and Lysandra begins to coordinate guards to take care of the children and the fire burning."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:academy",
+      "label": "Academy",
+      "node_type": "location",
+      "description": "An institution from which the Dustwalker, revealed as Sorin Holdrom, was kicked out for extremist ideas and creation of the rips in space. The group decided to take him back there to hold him in a cell.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "She also discovers he was kicked out of the Academy for extremist ideas and creation of the rips in space. The group decides to take him back to the Academy to hold him there in a cell."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "She also discovers he was kicked out of the Academy for extremist ideas and creation of the rips in space.",
+            "The group decides to take him back to the Academy to hold him there in a cell."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:space-rip",
+      "label": "Rip in Space",
+      "node_type": "location",
+      "description": "Tear-like portals in space targeted during combat; one was destroyed by Karsemine, severing monstrous arms, and another was closed by Caelynn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "Karsemine turns her attacks on the nearby rip in space.",
+            "While remaining prone, Bonogo uses Steady Aim with his crossbow to attack the nearest space rip, dealing massive damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:mountain-iron-vale-guards",
+      "label": "Mountain Iron Vale Guards",
+      "node_type": "group",
+      "description": "Guards at the Mountain Iron Vale Gate whom Lysandra coordinates to take care of the goblin children and the fire burning; a guardhouse there holds files.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "The group makes their way back to the Mountain Iron Vale Gate and Lysandra begins to coordinate guards to take care of the children and the fire burning.",
+            "In the guardhouse she discovers a file on someone named Sorin Holdrom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:healing-word-scroll",
+      "label": "Healing Word",
+      "node_type": "item",
+      "description": "A healing magical effect Stafl uses to save Caelynn from death during the battle at the space rip.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "casts Healing Word on Caelynn, thus saving her from death"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:sorcerers-burst",
+      "label": "Sorcerer's Burst",
+      "node_type": "item",
+      "description": "A magical burst Caelynn uses to close a space rip and sever the monstrous arms.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "Caeylynn uses Sorcerer\u2019s Burst on the same space rip, closing it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:potion-of-greater-healing",
+      "label": "Potion of Greater Healing",
+      "node_type": "item",
+      "description": "A potion Karsemine drinks to recover during the fight.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "Karsemine drinks a Potion of Greater Healing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:sitar",
+      "label": "Dustwalker's Sitar",
+      "node_type": "item",
+      "description": "A custom sitar taken from the Dustwalker, created in Mirathorn, originally bronze but now stained red with hand-carved runes.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "Identify the sitar he took from the Dustwalker",
+            "It appears to be a custom sitar created in the Mirathorn",
+            "now stained red with runes hand carved by Dustwalker"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:magical-restraints",
+      "label": "Magical Restraints",
+      "node_type": "item",
+      "description": "Magical bindings Zilla Cinderbranch places on Dustwalker before locking him in a room.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "She places magical restraints on Dustwalker and locks him in a room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:space-rips",
+      "label": "Rips in Space",
+      "node_type": "mystery",
+      "description": "Tears in space that the Dustwalker created; some are destroyed by severing monstrous arms, but the origin and remaining rips are unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "turns her attacks on the nearby rip in space",
+            "she destroys the portal and severs the arms",
+            "attack the nearest space rip",
+            "closing it and again severing the monstrous arms"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "creation of the rips in space"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:dustwalker-identity",
+      "label": "Dustwalker's Identity",
+      "node_type": "mystery",
+      "description": "The Dustwalker is revealed to be Sorin Holdrom, kicked out of the Academy for extremist ideas and creation of the rips in space.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "discovers a file on someone named Sorin Holdrom, discovering the identity of Dustwalker",
+            "he was kicked out of the Academy for extremist ideas and creation of the rips in space"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:custom-sitar",
+      "label": "Custom Sitar from Mirathorn",
+      "node_type": "mystery",
+      "description": "A sitar taken from the Dustwalker, identified as custom-made in Mirathorn, now stained red with hand-carved runes.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "It appears to be a custom sitar created in the Mirathorn",
+            "Originally bronze in color, now stained red with runes hand carved by Dustwalker"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "unresolved:winna-knowledge",
+      "label": "Winna's Uncertain Knowledge of Dustwalker",
+      "node_type": "mystery",
+      "description": "Winna knows who Dustwalker is but does not understand why he is dangerous; this uncertainty may hide further information.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "She knows who Dustwalker is, but is not sure why he is dangerous"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:dustwalker-captured",
+      "label": "Dustwalker Captured and Restrained",
+      "node_type": "mystery",
+      "description": "After combat, the group ties up the Dustwalker, brings him to town, and Zilla Cinderbranch places magical restraints on him and locks him in a room.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "Bonogo ties him up with the chain and the group decides to take him back to town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "She places magical restraints on Dustwalker and locks him in a room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:001",
+      "from_node_id": "mystery:dustwalker-identity",
+      "to_node_id": "candidate:sorin-holdrom",
+      "label": "Dustwalker's identity revealed as Sorin Holdrom",
+      "relationship_type": "identified_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "she discovers a file on someone named Sorin Holdrom, discovering the identity of Dustwalker"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:002",
+      "from_node_id": "candidate:sorin-holdrom",
+      "to_node_id": "location:academy",
+      "label": "Sorin Holdrom was kicked out of the Academy",
+      "relationship_type": "displaced_from",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "he was kicked out of the Academy for extremist ideas and creation of the rips in space"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:003",
+      "from_node_id": "candidate:sorin-holdrom",
+      "to_node_id": "mystery:space-rips",
+      "label": "Sorin Holdrom created the rips in space",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "he was kicked out of the Academy for extremist ideas and creation of the rips in space"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:004",
+      "from_node_id": "mystery:space-rips",
+      "to_node_id": "location:space-rip",
+      "label": "Space rip is a manifestation of the rips in space",
+      "relationship_type": "is_a",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "turns her attacks on the nearby rip in space"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:028",
+      "from_node_id": "mystery:custom-sitar",
+      "to_node_id": "object:sitar",
+      "label": "Custom sitar from Mirathorn identified as Dustwalker's sitar",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "It appears to be a custom sitar created in the Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:029",
+      "from_node_id": "event:dustwalker-captured",
+      "to_node_id": "location:academy",
+      "label": "Group decides to take Dustwalker back to the Academy",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "The group decides to take him back to the Academy to hold him there in a cell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Saving Caelynn and tearing down the portals",
+      "summary": "Stafl heals Caelynn from death, Karsemine destroys a space rip and severs the arms, and Ephanna kills a monster threatening Bonogo with Eldritch Blast while using Misty Step and Charming a monster.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "casts Healing Word on Caelynn, thus saving her from death",
+            "Karsemine turns her attacks on the nearby rip in space",
+            "she destroys the portal and severs the arms",
+            "hits it with two Eldritch Blast attacks, killing the monster and freeing Bonogo",
+            "after using Misty Step and Charming one of the monsters"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Bonogo snipes the rip and Caelynn talks down the priest",
+      "summary": "Bonogo fires his crossbow from prone, Caelynn closes a space rip with Sorcerer's Burst and persuades the priest, Baergrom attacks with sword and shield, and the Dustwalker remains prone laughing.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "uses Steady Aim with his crossbow to attack the nearest space rip",
+            "uses Sorcerer\u2019s Burst on the same space rip, closing it and again severing the monstrous arms",
+            "convinces him not to attack us",
+            "Baergrom attacks multiple times with his sword and shield",
+            "the Dustwalker fails both saves and remains prone with laughter"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Ending combat and the identity of the Dustwalker",
+      "summary": "The party finishes the remaining monsters, Bonogo kills the priest with a dagger quip, and they tie up the Dustwalker. Back at the guardhouse, Lysandra finds a file identifying the Dustwalker as Sorin Holdrom, expelled from the Academy for creating the space rips.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "Karsemine drinks a Potion of Greater Healing then finishes off the monster",
+            "Bonogo attacks and kills the priest, with a dagger through the eye and a witty quip",
+            "Bonogo ties him up with the chain and the group decides to take him back to town",
+            "bringing the goblin children along",
+            "In the guardhouse she discovers a file on someone named Sorin Holdrom",
+            "he was kicked out of the Academy for extremist ideas and creation of the rips in space"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Winna, Zilla Cinderbranch, and the Mirathorn sitar",
+      "summary": "Winna greets the group and fetches help; Stafl identifies the sitar taken from the Dustwalker, found stained red from its original bronze and carved with runes. Zilla Cinderbranch restrains the Dustwalker and locks him in a room with Winna guarding.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "The group is greeted by Winna again, unhappy to see another problem again",
+            "Stafl takes the opportunity to Identify the sitar he took from the Dustwalker",
+            "It appears to be a custom sitar created in the Mirathorn",
+            "now stained red with runes hand carved by Dustwalker",
+            "Winna returns with Zilla Cinderbranch",
+            "She places magical restraints on Dustwalker and locks him in a room",
+            "Winna is placed in charge of the door"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Celebration at Copper and Quartz",
+      "summary": "The group heads to Copper and Quartz for the night, finding a packed party with a drunk Barin urging Stafl to sing. Stafl performs a song about the downfall of the Dustwalker; Karsemine takes caffeinated tea back to Winna while the rest rest upstairs.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "The group decides to head to Copper and Quartz for the night",
+            "They are greeted by a very drunk Barin who insists that Stafl keep the party going with some songs",
+            "Stafl sings a song about the downfall of the Dustwalker",
+            "Karsemine asks for some caffeinated tea and runs it back to Winna",
+            "the rest of the party head upstairs to take a long rest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [
+    {
+      "item_id": "deferred:academy-involvement",
+      "label": "Academy's Role and Response",
+      "reason": "The group decides to take Dustwalker to the Academy, but the Academy's reaction, policies, or connection to Sorin Holdrom are not yet revealed.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "The group decides to take him back to the Academy to hold him there in a cell"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Roleplay the arrival at the Academy and the response of its authorities."
+    },
+    {
+      "item_id": "deferred:goblin-children-fate",
+      "label": "Goblin Children Aftermath",
+      "reason": "The goblin children were brought back to town and left with guards; their long-term care or significance is unresolved.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "bringing the goblin children along",
+            "Lysandra begins to coordinate guards to take care of the children and the fire burning"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Follow up on the children's situation in a future session."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "schema": "dmb_known_entity_mention_sidecar_v0",
+  "version": "0.1",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-3",
+  "registry_relpath": "Longmont Campaign/Campaign 1/_party_registry.json",
+  "roster_session_key": "1",
+  "roster_carry_forward": true,
+  "mentions": [
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:1-12",
+      "start_offset": 28,
+      "end_offset": 40,
+      "surface_text": "Stone Bridge",
+      "canonical_entity_id": "candidate:stone-bridge",
+      "entity_slug": "candidate:stone-bridge",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Stone Bridge",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:1-12",
+      "start_offset": 263,
+      "end_offset": 275,
+      "surface_text": "Stone Bridge",
+      "canonical_entity_id": "candidate:stone-bridge",
+      "entity_slug": "candidate:stone-bridge",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Stone Bridge",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:23-23",
+      "start_offset": 31,
+      "end_offset": 38,
+      "surface_text": "Grishna",
+      "canonical_entity_id": "candidate:grishna",
+      "entity_slug": "candidate:grishna",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Grishna",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+      "start_offset": 161,
+      "end_offset": 173,
+      "surface_text": "Stone Bridge",
+      "canonical_entity_id": "candidate:stone-bridge",
+      "entity_slug": "candidate:stone-bridge",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Stone Bridge",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+      "start_offset": 8,
+      "end_offset": 20,
+      "surface_text": "Stone Bridge",
+      "canonical_entity_id": "candidate:stone-bridge",
+      "entity_slug": "candidate:stone-bridge",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Stone Bridge",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+      "start_offset": 188,
+      "end_offset": 195,
+      "surface_text": "Grishna",
+      "canonical_entity_id": "candidate:grishna",
+      "entity_slug": "candidate:grishna",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Grishna",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+      "start_offset": 249,
+      "end_offset": 256,
+      "surface_text": "Grishna",
+      "canonical_entity_id": "candidate:grishna",
+      "entity_slug": "candidate:grishna",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Grishna",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+      "start_offset": 244,
+      "end_offset": 256,
+      "surface_text": "Stone Bridge",
+      "canonical_entity_id": "candidate:stone-bridge",
+      "entity_slug": "candidate:stone-bridge",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Stone Bridge",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+      "start_offset": 532,
+      "end_offset": 544,
+      "surface_text": "Stone Bridge",
+      "canonical_entity_id": "candidate:stone-bridge",
+      "entity_slug": "candidate:stone-bridge",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Stone Bridge",
+      "registry_version": "0.1"
+    }
+  ],
+  "ambiguous_surfaces": [
+    "Stafl",
+    "Ephanna",
+    "Caelynn",
+    "Baergrom",
+    "Bonogo",
+    "Karsemine"
+  ],
+  "diagnostics": {
+    "spans_scanned": 22,
+    "mention_count": 9,
+    "entity_count": 42,
+    "ambiguous_term_count": 6,
+    "registry_warnings": [
+      "roster_carry_forward: session_pc_rosters['3'] using '1'",
+      "roster_carry_forward: session '3' using roster from '1'"
+    ]
+  }
+}

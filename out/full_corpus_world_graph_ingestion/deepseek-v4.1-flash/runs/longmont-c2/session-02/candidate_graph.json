@@ -1,0 +1,2149 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-2:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-2",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-2:8a4080ac9537"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:gorrun-the-ironhide",
+      "label": "Gorrun the Ironhide",
+      "node_type": "character",
+      "description": "A massive and imposing Minotaur Brute and member of the Steel Fangs arena team.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "a massive and imposing Minotaur Brute known as Gorrun the Ironhide"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:seraphine-bladewind-dlorien",
+      "label": "Seraphine \"Bladewind\" D\u2019Lorien",
+      "node_type": "character",
+      "description": "A lithe Elven Duelist and member of the Steel Fangs.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "a lithe Eleven Duelist named Seraphine \"Bladewind\" D\u2019Lorien"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:rurik-stonebreaker-thorne",
+      "label": "Rurik \"Stonebreaker\" Thorne",
+      "node_type": "character",
+      "description": "A gruff and no-nonsense Dwarven Shieldmaster and member of the Steel Fangs.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "a gruff and no-nonsense Dwarven Shieldmaster named Rurik \"Stonebreaker\" Thorne"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:valera-stormstrike",
+      "label": "Valera Stormstrike",
+      "node_type": "character",
+      "description": "A mysterious and striking Tiefling Spear-Dancer and member of the Steel Fangs.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "the mysterious and striking Tiefling Spear-Dancer called Valera Stormstrike"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:laughing-yorrik-grent",
+      "label": "\"Laughing\" Yorrik Grent",
+      "node_type": "character",
+      "description": "A renowned Human Pit Fighter and member of the Steel Fangs.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "the renowned Human Pit Fighter \"Laughing\" Yorrik Grent"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:morvian-the-ashen",
+      "label": "Morvian the Ashen",
+      "node_type": "character",
+      "description": "A formidable Half-Orc Monk and member of the Steel Fangs.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "a formidable Half-Orc Monk called Morvian the Ashen"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:zilla-cinderbranch",
+      "label": "Zilla Cinderbranch",
+      "node_type": "character",
+      "description": "The Necromancer at Stormspire Academy who helps Karsemine with a note clarifying that Winna Mossglade is not in trouble.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "anchor_quotes": [
+            "Inside she finds Zilla Cinderbranch, the Necromancer, with her face buried in some notes."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "anchor_quotes": [
+            "she asks Zilla for a note explaining the situation"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:winna-mossglade",
+      "label": "Winna Mossglade",
+      "node_type": "character",
+      "description": "A strict rule follower who believed she was in trouble; she gets help from Karsemine and later joins the group for drinks.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "anchor_quotes": [
+            "helping Winna Mossglade get out of the trouble"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "anchor_quotes": [
+            "she discovers that Winna is not in any trouble at all"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:dustwalker",
+      "label": "Dustwalker",
+      "node_type": "character",
+      "description": "A Human Bard who performs a melancholy song called \u201cThe Shepard Eyes\u201d that unsettles the crowd; the group later plans to track him down for answers.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:38-38",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:38-38",
+          "anchor_quotes": [
+            "up next is a Human Bard - Dustwalker"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "anchor_quotes": [
+            "The Bard begins to play a melancholy song titled \u201cThe Shepard Eyes."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:glimmering-globe",
+      "label": "The Glimmering Globe",
+      "node_type": "location",
+      "description": "A beautiful, flower-shaped building at the edge of Lake Mirathorn, described as a masterpiece of Artificer craftsmanship, used as a bardic showcase and drinking venue during the festival.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "anchor_quotes": [
+            "Situated at the edge of Lake Mirathorn, the Glimmering Globe is a masterpiece in Artificer craftsmanship.",
+            "they can already hear the steady murmur of voices"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:34-34",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:34-34",
+          "anchor_quotes": [
+            "watch the Bardic Showcase at the glorious Glimmering Globe"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:glimmering-globe",
+      "label": "The Glimmering Globe",
+      "node_type": "item",
+      "description": "A masterpiece of Artificer craftsmanship situated at the edge of Lake Mirathorn; a beautiful, flower-shaped building hosting the Bardic Showcase.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "anchor_quotes": [
+            "the Glimmering Globe is a masterpiece in Artificer craftsmanship"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:lake-mirathorn",
+      "label": "Lake Mirathorn",
+      "node_type": "location",
+      "description": "A lake at the edge of which the Glimmering Globe sits; the site of the festival's closing Fireworks Display.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "anchor_quotes": [
+            "Situated at the edge of Lake Mirathorn, the Glimmering Globe is a masterpiece in Artificer craftsmanship."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "anchor_quotes": [
+            "the final event of the day - the Fireworks Display over Lake Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:arena-fighting-circle",
+      "label": "The Fighting Circle",
+      "node_type": "location",
+      "description": "The wrestling ring within the arena where one-on-one matches are fought; its magically enhanced ground randomly shifts between rounds, throwing off the fighters.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "anchor_quotes": [
+            "Between rounds the magically enhanced arena will randomly shift, throwing off the fighters and changing up the battle."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:26-26",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:26-26",
+          "anchor_quotes": [
+            "Bonogo walks to the edge of the ring, carrying the pit fighter with him."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:zilla-office",
+      "label": "Zilla's Office at Stormspire Academy",
+      "node_type": "location",
+      "description": "An office within the near-empty Stormspire Academy lit by a light that Karsemine discovers, where Zilla Cinderbranch is found buried in notes.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "anchor_quotes": [
+            "The first thing that she notices is how empty Stormspire Academy is. She discovers light coming from an office."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "anchor_quotes": [
+            "Inside she finds Zilla Cinderbranch, the Necromancer, with her face buried in some notes."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:steel-fangs",
+      "label": "The Steel Fangs",
+      "node_type": "group",
+      "description": "A feared and seasoned arena team of six members known for unorthodox tactics and fierce arena presence, encountered as the challengers in the Arcane Arena wrestling qualifying round.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "The Steel Fangs consist of 6 members"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:14-14",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:14-14",
+          "anchor_quotes": [
+            "a feared and seasoned team known for their unorthodox tactics and fierce arena presence"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:stormspire-academy-mages",
+      "label": "Stormspire Academy Mages",
+      "node_type": "organization",
+      "description": "A trio of mages who step in during the fireworks display to cast complicated spells dispelling the magical storm in a circle around the city.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "anchor_quotes": [
+            "a trio of mages step in to cast complicated spells to dispel the storm in a circle around the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:ogono-b-fey-copy",
+      "label": "Ogonob",
+      "node_type": "item",
+      "description": "A fey duplicate of Bonogo created by Ephanna's Summon Fey spell; affectionately named 'Ogonob' and entered into the arena wrestling matches, where it was ultimately eliminated alongside the Dwarven Shieldmaster.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:14-14",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:14-14",
+          "anchor_quotes": [
+            "Ephanna casts Summon Fey and creates a nice copy of Bonogo - affectionately called \u201cOgonob\u201d"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "anchor_quotes": [
+            "Next up is \u201cOgonob\u201d, Ephanna\u2019s fey."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:zilla-note",
+      "label": "Zilla's Note",
+      "node_type": "item",
+      "description": "A written note from Zilla Cinderbranch explaining that Winna Mossglade is not in trouble and should relax and enjoy the festival; requested by Karsemine so she would not return empty handed.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "anchor_quotes": [
+            "Instead she asks Zilla for a note explaining the situation - she is not in trouble and should relax and enjoy the festival."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:ether-foam-ale",
+      "label": "Ether Foam Ale",
+      "node_type": "item",
+      "description": "A drink served at the Glimmering Globe; everyone gets their Ether Foam Ale from a very busy Pippa before heading to a table near the stage.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "anchor_quotes": [
+            "Everyone gets their Ether Foam Ale from a very busy Pippa"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:shepard-eyes-song",
+      "label": "\"The Shepard Eyes\"",
+      "node_type": "item",
+      "description": "A melancholy song performed by the Human Bard Dustwalker at the Bardic Showcase; several humans in the crowd sang along, leaving the crowd completely silent and chilled by the lyrics.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "anchor_quotes": [
+            "The Bard begins to play a melancholy song titled \u201cThe Shepard Eyes."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:staf-bugbear-song",
+      "label": "Stafl's Bugbear Song",
+      "node_type": "item",
+      "description": "A rousing original song about the Bugbear performed by Stafl at the Bardic Showcase, with Bonogo pulled up on stage; the crowd went wild and cheered for more.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:38-38",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:38-38",
+          "anchor_quotes": [
+            "begins a rousing original song about the Bugbear"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:storm-dispel-spells",
+      "label": "Storm-Dispelling Mage Magic",
+      "node_type": "item",
+      "description": "Complicated spells cast by a trio of mages to dispel the magical storm in a circle around the city, allowing the fireworks display to resume and the crowd to stay dry.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "anchor_quotes": [
+            "a trio of mages step in to cast complicated spells to dispel the storm in a circle around the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:the-shepherd-song",
+      "label": "The Shepherd Eyes Song",
+      "node_type": "mystery",
+      "description": "A human bard named Dustwalker performs a melancholy, unsettling song titled 'The Shepherd Eyes' at the Glimmering Globe. Several other humans in the crowd stand and sing along, and the crowd falls completely silent and chilled by the lyrics. Stafl hurriedly ushers the bard off stage. The group later agrees they must track down Dustwalker and get answers about the Shepherd.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "anchor_quotes": [
+            "The Bard begins to play a melancholy song titled \u201cThe Shepard Eyes.",
+            "Several other humans stand up in the crowd and begin to sing along to the slow and unsettling song.",
+            "the crowd is completely silent, chilled by the lyrics.",
+            "Stafl, seeing the murder in the eyes of the crowd, quickly jumps into action and ushers the bard off the stage."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "anchor_quotes": [
+            "they need to track down that bard, Dustwalker, and get some answers about the Shepard."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:recurring-magical-storm",
+      "label": "Recurring Magical Storm",
+      "node_type": "mystery",
+      "description": "A sudden change in the wind brings yet another terrible storm to the fireworks display over Lake Mirathorn. Caelynn checks whether it is the same magical storm as before, explaining that the group has encountered storms just like this twice before. A trio of mages dispels the storm in a circle around the city.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "anchor_quotes": [
+            "a sudden change in the wind brought in yet another terrible storm.",
+            "Caelynn quickly checked to see if the storm was the same magical storm as before - explaining to Winna about how the group encountered storms just like this twice before.",
+            "a trio of mages step in to cast complicated spells to dispel the storm in a circle around the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:shifting-arena-sandstorm",
+      "label": "Magically Shifting Arena Ground",
+      "node_type": "mystery",
+      "description": "Between rounds in the Arcane Arena, the magically enhanced ground randomly shifts, shaking and heaving, throwing fighters off balance and changing the battle. This phenomenon repeatedly affects matches, causing eliminations and upsets.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "anchor_quotes": [
+            "Just then the ground begins to shake.",
+            "Between rounds the magically enhanced arena will randomly shift, throwing off the fighters and changing up the battle."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "anchor_quotes": [
+            "the ground heaves up and changes, throwing off both competitors as they are locked in battle."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:26-26",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:26-26",
+          "anchor_quotes": [
+            "Then the ground begins to change and throws both fighters off balance."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:28-28",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:28-28",
+          "anchor_quotes": [
+            "Again the ground shakes and morphs and sends both competitors sprawling, neither one able to keep their feet."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:winna-mossglade-trouble",
+      "label": "Winna Mossglade\u2019s Perceived Trouble",
+      "node_type": "mystery",
+      "description": "Karsemine goes on a mission to help Winna Mossglade, who believed she was in trouble. At Stormspire Academy, the Necromancer Zilla Cinderbranch reveals that Winna is not in trouble at all; she is a strict rule follower who only thought she was in trouble. Zilla provides a note to reassure her.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "anchor_quotes": [
+            "Karsemine was on an important mission - helping Winna Mossglade get out of the trouble.",
+            "The first thing that she notices is how empty Stormspire Academy is."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "anchor_quotes": [
+            "Inside she finds Zilla Cinderbranch, the Necromancer, with her face buried in some notes.",
+            "she discovers that Winna is not in any trouble at all.",
+            "she is a strict rule follower and that she only thought she was in trouble."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-steel-fangs-part-of-group",
+      "from_node_id": "candidate:gorrun-the-ironhide",
+      "to_node_id": "candidate:steel-fangs",
+      "label": "Gorrun the Ironhide is a member of the Steel Fangs",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "The Steel Fangs consist of 6 members",
+            "a massive and imposing Minotaur Brute known as Gorrun the Ironhide"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-seraphine-member-of-steel-fangs",
+      "from_node_id": "candidate:seraphine-bladewind-dlorien",
+      "to_node_id": "candidate:steel-fangs",
+      "label": "Seraphine \"Bladewind\" D'Lorien is a member of the Steel Fangs",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "The Steel Fangs consist of 6 members",
+            "a lithe Eleven Duelist named Seraphine \"Bladewind\" D\u2019Lorien"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-rurik-member-of-steel-fangs",
+      "from_node_id": "candidate:rurik-stonebreaker-thorne",
+      "to_node_id": "candidate:steel-fangs",
+      "label": "Rurik \"Stonebreaker\" Thorne is a member of the Steel Fangs",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "The Steel Fangs consist of 6 members",
+            "a gruff and no-nonsense Dwarven Shieldmaster named Rurik \"Stonebreaker\" Thorne"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-valera-member-of-steel-fangs",
+      "from_node_id": "candidate:valera-stormstrike",
+      "to_node_id": "candidate:steel-fangs",
+      "label": "Valera Stormstrike is a member of the Steel Fangs",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "The Steel Fangs consist of 6 members",
+            "the mysterious and striking Tiefling Spear-Dancer called Valera Stormstrike"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-yorrik-member-of-steel-fangs",
+      "from_node_id": "candidate:laughing-yorrik-grent",
+      "to_node_id": "candidate:steel-fangs",
+      "label": "\"Laughing\" Yorrik Grent is a member of the Steel Fangs",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "The Steel Fangs consist of 6 members",
+            "the renowned Human Pit Fighter \"Laughing\" Yorrik Grent"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-morvian-member-of-steel-fangs",
+      "from_node_id": "candidate:morvian-the-ashen",
+      "to_node_id": "candidate:steel-fangs",
+      "label": "Morvian the Ashen is a member of the Steel Fangs",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "The Steel Fangs consist of 6 members",
+            "a formidable Half-Orc Monk called Morvian the Ashen"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-glimmering-globe-at-lake-mirathorn",
+      "from_node_id": "candidate:glimmering-globe",
+      "to_node_id": "candidate:lake-mirathorn",
+      "label": "The Glimmering Globe is situated at the edge of Lake Mirathorn",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "anchor_quotes": [
+            "Situated at the edge of Lake Mirathorn, the Glimmering Globe is a masterpiece in Artificer craftsmanship."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-ogonob-fights-rurik",
+      "from_node_id": "item:ogono-b-fey-copy",
+      "to_node_id": "candidate:rurik-stonebreaker-thorne",
+      "label": "Ogonob fought the Dwarven Shieldmaster to a double elimination",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "anchor_quotes": [
+            "They are facing a very difficult challenger - the Dwarven Shieldmaster.",
+            "Both competitors land outside the ring, thus being eliminated."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-dustwalker-performs-shepard-eyes",
+      "from_node_id": "candidate:dustwalker",
+      "to_node_id": "item:shepard-eyes-song",
+      "label": "Dustwalker performed \"The Shepard Eyes\"",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "anchor_quotes": [
+            "The Bard begins to play a melancholy song titled \u201cThe Shepard Eyes."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-shepard-eyes-song-part-of-shepherd-mystery",
+      "from_node_id": "item:shepard-eyes-song",
+      "to_node_id": "mystery:the-shepherd-song",
+      "label": "\"The Shepard Eyes\" song is part of the Shepherd mystery",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "anchor_quotes": [
+            "they need to track down that bard, Dustwalker, and get some answers about the Shepard."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-storm-dispel-spells-part-of-recuring-storm-mystery",
+      "from_node_id": "item:storm-dispel-spells",
+      "to_node_id": "mystery:recurring-magical-storm",
+      "label": "Storm-dispelling mage magic relates to the recurring magical storm",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "anchor_quotes": [
+            "a trio of mages step in to cast complicated spells to dispel the storm in a circle around the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-mages-dispel-storm",
+      "from_node_id": "candidate:stormspire-academy-mages",
+      "to_node_id": "mystery:recurring-magical-storm",
+      "label": "Stormspire Academy mages dispelled the magical storm",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "anchor_quotes": [
+            "a trio of mages step in to cast complicated spells to dispel the storm in a circle around the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-karsemine-associated-winna-trouble",
+      "from_node_id": "mystery:winna-mossglade-trouble",
+      "to_node_id": "candidate:winna-mossglade",
+      "label": "Winna Mossglade's perceived trouble is the mystery Karsemine investigates",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "anchor_quotes": [
+            "she discovers that Winna is not in any trouble at all.",
+            "she is a strict rule follower and that she only thought she was in trouble."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-zilla-provides-note",
+      "from_node_id": "candidate:zilla-cinderbranch",
+      "to_node_id": "item:zilla-note",
+      "label": "Zilla Cinderbranch provided a note explaining the situation",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "anchor_quotes": [
+            "she asks Zilla for a note explaining the situation - she is not in trouble and should relax and enjoy the festival."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-zilla-note-refers-winna",
+      "from_node_id": "item:zilla-note",
+      "to_node_id": "candidate:winna-mossglade",
+      "label": "Zilla's note refers to Winna Mossglade",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "anchor_quotes": [
+            "she asks Zilla for a note explaining the situation - she is not in trouble and should relax and enjoy the festival."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Ephanna summons Ogonob and the wrestling match begins",
+      "summary": "Ephanna and Stafl take seats in the stands; Ephanna casts Summon Fey to create a copy of Bonogo called Ogonob. Bonogo, Baergrom, and Ogonob enter the arena for a one-on-one wrestling match against the Steel Fangs.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:14-14",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:14-14",
+          "anchor_quotes": [
+            "Ephanna and Stafl took their seats in the stands",
+            "Ephanna casts Summon Fey and creates a nice copy of Bonogo - affectionately called \u201cOgonob\u201d",
+            "Bonogo, Baergrom and \u201cOgonob\u201d enter the arena to face their first challenge: a one-on-one wrestling match"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "The Steel Fangs challengers are introduced",
+      "summary": "The Steel Fangs, a feared and seasoned team, are introduced as six members: Gorrun the Ironhide, Seraphine \"Bladewind\" D\u2019Lorien, Rurik \"Stonebreaker\" Thorne, Valera Stormstrike, \"Laughing\" Yorrik Grent, and Morvian the Ashen.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "The Steel Fangs consist of 6 members",
+            "a massive and imposing Minotaur Brute known as Gorrun the Ironhide",
+            "a lithe Eleven Duelist named Seraphine \"Bladewind\" D\u2019Lorien",
+            "a gruff and no-nonsense Dwarven Shieldmaster named Rurik \"Stonebreaker\" Thorne",
+            "the mysterious and striking Tiefling Spear-Dancer called Valera Stormstrike",
+            "the renowned Human Pit Fighter \"Laughing\" Yorrik Grent",
+            "a formidable Half-Orc Monk called Morvian the Ashen"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Baergrom defeats the Minotaur",
+      "summary": "Baergrom faces a massive Minotaur in a lopsided first match. After initially being flipped, Baergrom executes an aerial maneuver, grabbing the horns and throwing the Minotaur out of the ring, aided by Stafl's luck. The crowd erupts in applause.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:18-18",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:18-18",
+          "anchor_quotes": [
+            "Baergrom rushes forward intent on grabbing the Minotaur by the horns and throwing him off balance",
+            "the Minotaur flips Baergrom up and over his head",
+            "Baergrom executed an aerial maneuver, grabbing the horns then using the momentum to throw the large Minotaur out of the ring",
+            "Stafl had used a little of his luck to help turn the momentum",
+            "The crowd erupts in thunderous applause"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Bonogo defeats the Elven Duelist",
+      "summary": "Bonogo faces Bladewind. After a missed sand throw and a grapple exchange, the arena shifts. Bonogo makes a dexterity save, shoves and punches the Elf out of the ring.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "anchor_quotes": [
+            "Bonogo grabs some sand and throws it into the face of the Elf, but misses on his grapple",
+            "the ground begins to shake",
+            "Bonogo makes a dexterity save while the Elf is thrown off balance",
+            "Bonogo uses a shove, then a punch, throwing the Elf out of the ring and out of the competition"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Ogonob eliminated in a double ring-out",
+      "summary": "Ogonob faces the Dwarven Shieldmaster. During a stalemate, the ground heaves and both competitors fall outside the ring, eliminating them both.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:22-22",
+          "anchor_quotes": [
+            "Next up is \u201cOgonob\u201d, Ephanna\u2019s fey",
+            "The dwarf hunkers down, as if with a shield, then launches at Ogonob pushing them back to the edge of the fighting circle",
+            "the ground heaves up and changes, throwing off both competitors as they are locked in battle",
+            "Both competitors land outside the ring, thus being eliminated"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Baergrom defeats Valera Stormstrike",
+      "summary": "Baergrom faces Valera Stormstrike. After exchanging strikes, Baergrom uses her momentum to lift and throw her over his head and out of the ring for another victory.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:24-24",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:24-24",
+          "anchor_quotes": [
+            "Baergrom lines up across from Valera Stormstrike - an acrobatic looking Tiefling",
+            "Baergrom uses her momentum to lift and throw her over his head",
+            "throws Valera clear out of the ring for another victory"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Bonogo defeats the Human Pit Fighter",
+      "summary": "Bonogo faces Yorrik Grent. After dodging sand and a tackle, the ground shifts. Bonogo carries Yorrik to the edge, slams his head and knee-strikes him out of the tournament.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:26-26",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:26-26",
+          "anchor_quotes": [
+            "First Bonogo vs the Human Pit Fighter",
+            "the pit fighter tries to throw sand at Bonogo and rush to tackle",
+            "Bonogo is able to dodge both attacks and then land a punch",
+            "the ground begins to change and throws both fighters off balance",
+            "Bonogo walks to the edge of the ring, carrying the pit fighter with him",
+            "gets his head slammed against the ground and then followed up with a well placed knee strike sending the pit fighter out of the tournament"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-8",
+      "order": 8,
+      "title": "Baergrom defeats the Half-Orc Monk",
+      "summary": "In the final match, Baergrom faces Morvian the Ashen. After the ground shakes, Baergrom reacts first, shoving the monk out of the ring to end the qualifying round.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:28-28",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:28-28",
+          "anchor_quotes": [
+            "the last match is about to begin - Baergrom vs the Half-Orc Monk Morvian the Ashen",
+            "Baergrom starts throwing punches then shoves the monk back",
+            "the ground shakes and morphs and sends both competitors sprawling",
+            "Baergrom is first to react, jumping up and then with a mighty shove, pushes the monk out of the ring, ending the qualifying round"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-9",
+      "order": 9,
+      "title": "Karsemine investigates at Stormspire Academy",
+      "summary": "Karsemine goes on a mission to help Winna Mossglade, noticing how empty Stormspire Academy is. She discovers light from an office and finds Zilla Cinderbranch, the Necromancer, who reveals Winna is not in trouble.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:30-30",
+          "anchor_quotes": [
+            "Karsemine was on an important mission - helping Winna Mossglade get out of the trouble",
+            "she notices is how empty Stormspire Academy is",
+            "She discovers light coming from an office"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:32-32",
+          "anchor_quotes": [
+            "Inside she finds Zilla Cinderbranch, the Necromancer, with her face buried in some notes",
+            "she discovers that Winna is not in any trouble at all",
+            "Instead she asks Zilla for a note explaining the situation"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-10",
+      "order": 10,
+      "title": "Caelynn and Karsemine bring Winna to the Glimmering Globe",
+      "summary": "Karsemine runs into Caelynn, explains the situation, and they return to the Arcane Arena to clear things up with Winna. They convince her to join the group for a drink and the Bardic Showcase at the Glimmering Globe.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:34-34",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:34-34",
+          "anchor_quotes": [
+            "Just as Kasemine was leaving she ran into Caelynn who had come to help",
+            "Winna agrees to join the group for a drink and watch the Bardic Showcase at the glorious Glimmering Globe"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-11",
+      "order": 11,
+      "title": "The group gathers at the Glimmering Globe",
+      "summary": "At the Glimmering Globe by Lake Mirathorn, Karsemine, Caelynn, and Winna meet Ephanna, Bonogo, and Baergrom. They get drinks from Pippa, and Winna meets Bubbles. They all head to a table near the stage.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:36-36",
+          "anchor_quotes": [
+            "Situated at the edge of Lake Mirathorn, the Glimmering Globe is a masterpiece in Artificer craftsmanship",
+            "They find Ephanna, Bonogo and Baergrom already grabbing drinks from a familiar smiling face - Pippa",
+            "Winna squeals with delight when Caelynn takes her to Bubbles",
+            "they all head for a table together at the front near the stage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-12",
+      "order": 12,
+      "title": "Stafl performs a rousing song about the Bugbear",
+      "summary": "Stafl jumps on stage out of turn, pulls Bonogo up, and performs an original song about the Bugbear. The crowd loves it, but his turn ends and the next performer is a Human Bard named Dustwalker.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:38-38",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:38-38",
+          "anchor_quotes": [
+            "Stafl appears on stage while seeming to direct people and reassure them - clearly he just jumped up on stage out of turn",
+            "pulling Bonogo up on stage, begins a rousing original song about the Bugbear",
+            "up next is a Human Bard - Dustwalker"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-13",
+      "order": 13,
+      "title": "Dustwalker's unsettling performance",
+      "summary": "Dustwalker plays a melancholy song titled \"The Shepard Eyes\". Other humans sing along, and the crowd is left silent and chilled. Stafl ushers the bard off stage, and a last band plays an upbeat drinking song.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "anchor_quotes": [
+            "The Bard begins to play a melancholy song titled \u201cThe Shepard Eyes",
+            "Several other humans stand up in the crowd and begin to sing along to the slow and unsettling song",
+            "the crowd is completely silent, chilled by the lyrics",
+            "Stafl, seeing the murder in the eyes of the crowd, quickly jumps into action and ushers the bard off the stage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-14",
+      "order": 14,
+      "title": "Fireworks and a magical storm dispelled",
+      "summary": "The Fireworks Display over Lake Mirathorn is interrupted by a magical storm. Caelynn examines it, noting it's like previous storms. A trio of mages dispels the storm around the city, allowing the fireworks to continue. Zilla notices Willa with Karsemine and Caelynn and nods approvingly.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "anchor_quotes": [
+            "a sudden change in the wind brought in yet another terrible storm",
+            "Caelynn quickly checked to see if the storm was the same magical storm as before",
+            "a trio of mages step in to cast complicated spells to dispel the storm in a circle around the city allowing the fireworks to resume",
+            "Zilla notices Willa sitting and having drinks with Karsemine and Caelynn - giving a smile and nod of approval"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-15",
+      "order": 15,
+      "title": "Decision to continue the festival and track down Dustwalker",
+      "summary": "As the day ends, the group agrees to continue with the festival the next day. They also agree they need to track down the bard Dustwalker to get answers about the Shepard.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "anchor_quotes": [
+            "they agree to continue with the festival the next day",
+            "they need to track down that bard, Dustwalker, and get some answers about the Shepard"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:steel-fangs-roster",
+      "label": "The Steel Fangs roster",
+      "reason": "The six members of the opposing arena team are named competitors, not mysteries, clues, warnings, events, unresolved phenomena, or threads. They are incidental combatants in the wrestling match and better handled as NPC nodes, not observation nodes.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:16-16",
+          "anchor_quotes": [
+            "The Steel Fangs consist of 6 members: a massive and imposing Minotaur Brute known as Gorrun the Ironhide, a lithe Eleven Duelist named Seraphine \"Bladewind\" D\u2019Lorien, a gruff and no-nonsense Dwarven Shieldmaster named Rurik \"Stonebreaker\" Thorne, the mysterious and striking Tiefling Spear-Dancer called Valera Stormstrike, the renowned Human Pit Fighter \"Laughing\" Yorrik Grent, and a formidable Half-Orc Monk called Morvian the Ashen."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:individual-wrestling-matches",
+      "label": "Individual wrestling match outcomes",
+      "reason": "The play-by-play results of each one-on-one match (Baergrom vs Minotaur, Bonogo vs Bladewind, Ogonob vs Shieldmaster, etc.) are resolved combat events of the qualifying round. They are not mysteries, unresolved phenomena, or threads, and are better represented as beats or relationship edges.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:18-18",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:18-18",
+          "anchor_quotes": [
+            "Baergrom executed an aerial maneuver, grabbing the horns then using the momentum to throw the large Minotaur out of the ring."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:20-20",
+          "anchor_quotes": [
+            "Bonogo uses a shove, then a punch, throwing the Elf out of the ring and out of the competition."
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:dustwalker-identity",
+      "label": "Dustwalker the Bard\u2019s identity and motives",
+      "reason": "The recap only states the group intends to track down Dustwalker for answers about the Shepherd. No concrete information about who Dustwalker is, what the Shepherd is, or what the song\u2019s significance is was revealed on-screen.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "anchor_quotes": [
+            "they need to track down that bard, Dustwalker, and get some answers about the Shepard."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track down Dustwalker in a future session and ask about the Shepherd; record what is learned."
+    },
+    {
+      "item_id": "deferred:shepherd-identity",
+      "label": "The Shepherd entity",
+      "reason": "The song title 'The Shepard Eyes' and the group\u2019s desire for answers imply a person or entity called the Shepherd, but no details about who or what the Shepherd is have been established in this recap.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "anchor_quotes": [
+            "The Bard begins to play a melancholy song titled \u201cThe Shepard Eyes."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:44-44",
+          "anchor_quotes": [
+            "get some answers about the Shepard."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Investigate the Shepherd via Dustwalker, local lore, or further clues."
+    },
+    {
+      "item_id": "deferred:human-singers-in-crowd",
+      "label": "Humans who sang along to the unsettling song",
+      "reason": "Several other humans stood up in the crowd and sang along to 'The Shepherd Eyes'. Their identity, affiliation, and why they knew the song is unresolved but not yet investigated.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:40-40",
+          "anchor_quotes": [
+            "Several other humans stand up in the crowd and begin to sing along to the slow and unsettling song."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Determine if the singing humans are connected to the Shepherd or a larger cult/organization."
+    },
+    {
+      "item_id": "deferred:storm-source",
+      "label": "Source of the recurring magical storm",
+      "reason": "The storm is described as the same magical storm encountered twice before, and a trio of mages dispels it locally, but its origin, purpose, and relation to the group\u2019s prior encounters remain unexplained.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "label": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-2:8a4080ac9537:span:8a4080ac9537:42-42",
+          "anchor_quotes": [
+            "Caelynn quickly checked to see if the storm was the same magical storm as before - explaining to Winna about how the group encountered storms just like this twice before."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Investigate the recurring magical storm and why it targets the group or the area during festivals."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

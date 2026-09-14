@@ -1,0 +1,2116 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-13:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-13",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-13:55b65ec5dcec"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:mossglade",
+      "label": "Mossglade",
+      "node_type": "character",
+      "description": "Half-Elf Head Clerk at Stormspire Academy who greets the party with impatience, tells them about the 'study room' for rest and recharge, and mentions that Torbin is in the infirmary under Professor Tealeaf's care.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "anchor_quotes": [
+            "The group approaches the desk of a Half-Elf: Head Clerk Mossglade.",
+            "With a huff of impatience she asks how she can help."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "Mossglade also tells the group about the \u201cstudy room\u201d",
+            "She also tells the group that Torbin is in the infirmary under Professor Tealeaf\u2019s care."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:professor-cinderbranch",
+      "label": "Professor Cinderbranch",
+      "node_type": "character",
+      "description": "Professor at Stormspire Academy who is very interested in the events that led to Wolf's head ending up with the group, departs with them, then leaves the ritual room just before Draven locks the door; the party later explains the ambush to her.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "anchor_quotes": [
+            "Professor Cinderbranch is very interested in the events that led to Wolf\u2019s head ending up with the group."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "After the ritual Professor Cinderbranch leaves the room, just as Draven closes and locks the door."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "After explaining to Cinderbranch what happened, the group finds the ritual room empty, a bad sign of what is to come."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:professor-tealeaf",
+      "label": "Professor Tealeaf",
+      "node_type": "character",
+      "description": "Professor at Stormspire Academy caring for Torbin in the infirmary; has been unable to help Torbin and unable to work on potions, so leaves to work on potions in the next room.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "Torbin is in the infirmary under Professor Tealeaf\u2019s care."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "anchor_quotes": [
+            "Ephanna and Baergrom discover that Tealeaf has been unable to help Torbin and has not been able to help work on potions. They decide to stay with Torbin while Tealeaf goes into the next room to work on potions."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:draven",
+      "label": "Draven",
+      "node_type": "character",
+      "description": "Necromancer who performs the Speak with Dead ritual on Wolf's head; after the ritual he locks the door, monologues about cooking and eating Stafl and Bonogo while casting Fear, and is put to sleep by Stafl's spell and killed by Bonogo's massive sneak attack.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "anchor_quotes": [
+            "The rest of the group meet with the Necromancer.",
+            "Instead of casting a spell they decide to perform a ritual."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "just as Draven closes and locks the door"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "anchor_quotes": [
+            "Draven begins to monologue about cooking and eating Stafl and Bonogo as he casts Fear on Bonogo.",
+            "Stafl counters with a radiant burst and casts Sleep on Draven, who falls asleep. Bonogo sneak attacks the sleeping necromancer and deals massive damage resulting in a killing blow."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:lira",
+      "label": "Lira",
+      "node_type": "character",
+      "description": "Named by Wolf during the Speak with Dead ritual as the one who will finish the plot against the city before she dies.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "anchor_quotes": [
+            "Everyone operates in small groups so the number is not known, but Lira will finish the plot before she dies."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:sewer-meat-monster",
+      "label": "Sewer Meat Monster",
+      "node_type": "character",
+      "description": "A large and disgusting monster brought into the ritual room by two Elite Guards; it moves to the center of the room, oozes goo in a 10 foot radius, and bites Bonogo as he is being poisoned.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "Suddenly one of the walls opens up and 2 Elite Guards enter with a large and disgusting Sewer Meat Monster. The disgusting monster moves to the center of the room and oozes goo in a 10 foot radius."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "anchor_quotes": [
+            "Just as he is being poisoned, the Sewer Monster bites Bonogo, dealing more damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:sewer-meat-monster",
+      "label": "Sewer Meat Monster",
+      "node_type": "item",
+      "description": "A large and disgusting monster made of sewer meat that enters the ritual room, oozes goo, and bites Bonogo.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "2 Elite Guards enter with a large and disgusting Sewer Meat Monster",
+            "The disgusting monster moves to the center of the room"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "anchor_quotes": [
+            "the Sewer Monster bites Bonogo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:sewer-meat-monster",
+      "label": "Sewer Meat Monster",
+      "node_type": "mystery",
+      "description": "A large and disgusting monster that emerged with Elite Guards during the ritual, oozing goo in a 10-foot radius and biting Bonogo.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "Suddenly one of the walls opens up and 2 Elite Guards enter with a large and disgusting Sewer Meat Monster. The disgusting monster moves to the center of the room and oozes goo in a 10 foot radius."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "anchor_quotes": [
+            "Just as he is being poisoned, the Sewer Monster bites Bonogo, dealing more damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:mages",
+      "label": "The Mages",
+      "node_type": "character",
+      "description": "Mages at Stormspire Academy who burn up the tainted meat dumped on the street and who help the party stock up on items before they head down the tunnel.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "the tainted meat is burned up by one of the mages."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "With the help of the Mages the party can stock up on items before they head down the tunnel to see what awaits\u2026"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:stormspire-academy-study-room",
+      "label": "Study Room",
+      "node_type": "location",
+      "description": "A room at Stormspire Academy that Mossglade tells the group about; a place the group can use to rest and recharge, where they take a magical short rest during ritual setup.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "Mossglade also tells the group about the \u201cstudy room\u201d, a place the group can use to rest and recharge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "anchor_quotes": [
+            "the group meets in the \u201cStudy Room\u201d for a magical short rest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:stormspire-academy-infirmary",
+      "label": "Infirmary",
+      "node_type": "location",
+      "description": "Location within Stormspire Academy where Torbin is under Professor Tealeaf's care; Ephanna and Baergrom go there to check on Torbin and Ephanna stays with him.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "Torbin is in the infirmary under Professor Tealeaf\u2019s care"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "anchor_quotes": [
+            "head to the Infirmary to check on Torbin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:stormspire-academy-basement-morgue",
+      "label": "Basement Morgue",
+      "node_type": "location",
+      "description": "A basement morgue at Stormspire Academy where the head of Wolf lies in the center and the Speak with Dead ritual is performed.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "anchor_quotes": [
+            "Stafl and Bonogo enter a basement morgue and find the head of Wolf in the center and the ritual about to begin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:council-chambers",
+      "label": "Council Chambers",
+      "node_type": "location",
+      "description": "The disheveled Council Chambers the group steps outside of; guards alerted to Rune alarms stop them there.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "they step outside the disheveled Council Chambers"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "Council Chambers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:the-street",
+      "label": "The Street",
+      "node_type": "location",
+      "description": "A busy street outside the Council Chambers where the group encounters a covert ops group demanding to know if they carry meat.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "When they enter the street outside they find it busy with activity"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "dump out hundreds of pounds of meat on the street"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:candidate:covert-ops-groups",
+      "label": "Covert Ops Groups",
+      "node_type": "faction",
+      "description": "Multiple covert operations groups operating in the city, laying claim to items and conducting inspections, such as checking for meat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "anchor_quotes": [
+            "covert ops groups"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "covert ops groups"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:candidate:necromancer",
+      "label": "The Necromancer",
+      "node_type": "faction",
+      "description": "A mysterious necromancer who performs a ritual to speak with the dead Wolf, later revealed to be Draven.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "anchor_quotes": [
+            "Necromancer"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "anchor_quotes": [
+            "Necromancer"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:candidate:mages-stormspire",
+      "label": "Mages of Stormspire Academy",
+      "node_type": "faction",
+      "description": "The collective of mages at Stormspire Academy who assist the party, including burning tainted meat and providing items.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "the mages"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "the Mages"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:wolf-head",
+      "label": "Wolf's Head",
+      "node_type": "item",
+      "description": "The severed head of the Wolf, removed by Bonogo to carry to Stormspire Academy for a Speak with Dead ritual.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "removes the Wolf\u2019s head"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "anchor_quotes": [
+            "find the head of Wolf in the center"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:mothers-pan-flute",
+      "label": "Mother's Pan Flute",
+      "node_type": "item",
+      "description": "Caelynn's pan flute, inherited from her mother, which she plays during a magical short rest in the Study Room.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "anchor_quotes": [
+            "Caelynn plays a wonderful song on her mother\u2019s pan flute."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:caelynn-meat",
+      "label": "Caelynn's Meat",
+      "node_type": "item",
+      "description": "A piece of meat that escaped from Caelynn's bag in the Academy; the group later splits up to hunt for it.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "anchor_quotes": [
+            "a piece of meat from Caelynn\u2019s bag escaped and is now on the loose"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:tainted-meat",
+      "label": "Tainted Meat",
+      "node_type": "item",
+      "description": "Hundreds of pounds of corrupt meat carried by Bonogo and Baergrom, dumped on the street and later burned by a mage.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "dump out hundreds of pounds of meat on the street",
+            "the tainted meat is burned up by one of the mages"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:corrupted-meat-plot",
+      "label": "The Corrupted Meat Plot Against the City",
+      "node_type": "mystery",
+      "description": "A plot against the city involving corrupted meat, storage strongholds hidden in walls, guardhouses, and underground, and people working in small groups. Wolf hints it cannot be stopped and that the number of conspirators is unknown.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "anchor_quotes": [
+            "Corrupted invasion from the sewers"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "anchor_quotes": [
+            "Where are the strongholds for the meat storage? Hidden in the walls, the guardhouses and underground."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "anchor_quotes": [
+            "How many are working on this plot against the city? Everyone operates in small groups so the number is not known, but Lira will finish the plot before she dies."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:wolf-speak-with-dead-answers",
+      "label": "Wolf's Speak with Dead Answers",
+      "node_type": "mystery",
+      "description": "The group performed a Speak with Dead ritual on Wolf's head, learning that Bonogo killed Wolf, the strongholds are hidden in walls, guardhouses, and underground, Lira will finish the plot before she dies, the Shepherd is everywhere in people's minds, and the plan will erupt as something new, led by the Shepherd, with the sign being the break of dawn.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "anchor_quotes": [
+            "As with all Speak with Dead spells they are granted 5 questions."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:50-50",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:50-50",
+          "anchor_quotes": [
+            "1: Tell us what killed you. He nods towards Bonogo."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "anchor_quotes": [
+            "2: Where are the strongholds for the meat storage? Hidden in the walls, the guardhouses and underground."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "anchor_quotes": [
+            "3: How many are working on this plot against the city? Everyone operates in small groups so the number is not known, but Lira will finish the plot before she dies."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "anchor_quotes": [
+            "4: Where is the Shepherd? Everywhere! In all the minds of the people."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "anchor_quotes": [
+            "Fifth question asked by the Necromancer: What is the plan and how will we know when it is complete? There is no stopping it! They are gathering now and will soon erupt as something new, led by the Shepherd. All will die and be consumed. You will know at the break of dawn as the Shepherd rises from below."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:going-into-the-sewer-tunnel",
+      "label": "Going into the Sewer Tunnel",
+      "node_type": "mystery",
+      "description": "After the ritual room was found empty, the party plans to stock up on items and head down the tunnel to see what awaits.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "After explaining to Cinderbranch what happened, the group finds the ritual room empty, a bad sign of what is to come. With the help of the Mages the party can stock up on items before they head down the tunnel to see what awaits\u2026"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:draven-attack",
+      "label": "Draven's Betrayal and Attack",
+      "node_type": "mystery",
+      "description": "After the ritual, Professor Cinderbranch leaves, Draven locks the door, and Elite Guards with a Sewer Meat Monster enter. Draven monologues about cooking and eating Stafl and Bonogo, casts Fear on Bonogo, and is killed by Bonogo after being put to sleep by Stafl.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "After the ritual Professor Cinderbranch leaves the room, just as Draven closes and locks the door."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "anchor_quotes": [
+            "Draven begins to monologue about cooking and eating Stafl and Bonogo as he casts Fear on Bonogo. Luckily Stafl helps and forces the spell to miss. One Elite Guard attacks Stafl and deals damage as well as poisoning him. Stafl counters with a radiant burst and casts Sleep on Draven, who falls asleep. Bonogo sneak attacks the sleeping necromancer and deals massive damage resulting in a killing blow."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:wolf-head-and-ritual-room",
+      "label": "Wolf's Head and the Empty Ritual Room",
+      "node_type": "mystery",
+      "description": "The party took Wolf's head to the Stormspire Academy, where the Necromancer performed a ritual. Later the ritual room was found empty, a bad sign of what is to come.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "The group has decided the best course of action is to take the Wolf to Stormspire Academy and see if someone can help cast Speak with Dead so they can learn more about the plans Wolf had."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "After explaining to Cinderbranch what happened, the group finds the ritual room empty, a bad sign of what is to come."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:lira-will-finish-plot",
+      "label": "Lira Will Finish the Plot Before She Dies",
+      "node_type": "mystery",
+      "description": "Wolf's answer indicates that Lira will finish the plot before she dies.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "anchor_quotes": [
+            "How many are working on this plot against the city? Everyone operates in small groups so the number is not known, but Lira will finish the plot before she dies."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:escapee-meat",
+      "label": "Escaped Meat in the Academy",
+      "node_type": "mystery",
+      "description": "A piece of meat from Caelynn's bag escaped and is loose in the Academy, prompting a hunt by Caelynn, Baergrom, and Karsemine.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "anchor_quotes": [
+            "When the group meets up again outside the room they discover that a piece of meat from Caelynn\u2019s bag escaped and is now on the loose in the Academy. Again the group decides it is best to split up and take care of two things at once. Stafl and Bonogo will go meet the Necromancer for the ritual while Caelynn, Baergrom and Karsemine will hunt for the meat. Ephanna will stay with Torbin."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:rune-alarms",
+      "label": "Rune Alarms",
+      "node_type": "mystery",
+      "description": "Guards outside the Council Chambers were alerted by Rune alarms, but Thalia explained the situation and set them on alert for anyone with oily eyes.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "But as soon as they step outside the disheveled Council Chambers they are stopped by guards who were alerted to the Rune alarms. Luckily Thalia is there to explain the situation and set the guard on alert for anyone with oily eyes."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:draven-a.k.a-necromancer",
+      "from_node_id": "candidate:draven",
+      "to_node_id": "faction:candidate:necromancer",
+      "label": "Draven is the Necromancer",
+      "relationship_type": "identified_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "just as Draven closes and locks the door"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "anchor_quotes": [
+            "Bonogo sneak attacks the sleeping necromancer and deals massive damage resulting in a killing blow."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lira-pursues-plot",
+      "from_node_id": "candidate:lira",
+      "to_node_id": "mystery:corrupted-meat-plot",
+      "label": "Lira will finish the plot against the city",
+      "relationship_type": "pursues",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "anchor_quotes": [
+            "but Lira will finish the plot before she dies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wolf-head-present-morgue",
+      "from_node_id": "item:wolf-head",
+      "to_node_id": "location:stormspire-academy-basement-morgue",
+      "label": "Wolf's head is in the basement morgue during the ritual",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "anchor_quotes": [
+            "Stafl and Bonogo enter a basement morgue and find the head of Wolf in the center"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:mages-burned-tainted-meat",
+      "from_node_id": "faction:candidate:mages-stormspire",
+      "to_node_id": "item:tainted-meat",
+      "label": "The mages burn up the tainted meat",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "the tainted meat is burned up by one of the mages."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:covert-ops-hold-street",
+      "from_node_id": "faction:candidate:covert-ops-groups",
+      "to_node_id": "location:the-street",
+      "label": "Covert ops groups operate on the street",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "Suddenly one of the covert ops groups shines a light on the group, demanding we tell them if we carry any meat with us."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-01",
+      "order": 1,
+      "title": "Torbin and the Sewer Invasion",
+      "summary": "The session recap lists Torbin, Speak with Dead, and a corrupted invasion from the sewers as major beats.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:16-16",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:16-16",
+          "anchor_quotes": [
+            "Torbin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "anchor_quotes": [
+            "Corrupted invasion from the sewers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-02",
+      "order": 2,
+      "title": "Custom Items Reward",
+      "summary": "The players will be rewarded with custom items ideal for each PC, leftover from covert ops groups.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "anchor_quotes": [
+            "The players will be rewarded for asking for help with custom items."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-03",
+      "order": 3,
+      "title": "Torbin's Head to Stormspire",
+      "summary": "The group decides to take Wolf to Stormspire Academy for Speak with Dead; guards stop them but Thalia explains; Bonogo removes Wolf's head.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "The group has decided the best course of action is to take the Wolf to Stormspire Academy and see if someone can help cast Speak with Dead"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-04",
+      "order": 4,
+      "title": "Meat Dumped on Street",
+      "summary": "Covert ops groups demand to know if the group carries meat; Bonogo and Baergrom dump hundreds of pounds of meat, which is burned by a mage.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "After Bonogo and Baergrom dump out hundreds of pounds of meat on the street the guards are quick to jump into action."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-05",
+      "order": 5,
+      "title": "Arrival at Stormspire Academy",
+      "summary": "The group arrives at Stormspire Academy, bustling with activity; they meet Head Clerk Mossglade, and Professor Cinderbranch is interested in Wolf's head.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "anchor_quotes": [
+            "The group arrives at the Stormspire Academy and finds it bustling with activity."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-06",
+      "order": 6,
+      "title": "Mossglade's Information",
+      "summary": "Mossglade tells the group about the study room and that Torbin is in the infirmary under Professor Tealeaf's care.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "Mossglade also tells the group about the \u201cstudy room\u201d, a place the group can use to rest and recharge. She also tells the group that Torbin is in the infirmary under Professor Tealeaf\u2019s care."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-07",
+      "order": 7,
+      "title": "Splitting Up to Torbin and Necromancer",
+      "summary": "The group splits: Ephanna and Baergrom check on Torbin; Karsemine, Bonogo, Stafl, and Caelynn meet with the Necromancer.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "anchor_quotes": [
+            "Ephanna and Baergrom decide to go check on Torbin, while Karsemine, Bonogo, Stafl, and Caelynn meet with the Necromancer."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-08",
+      "order": 8,
+      "title": "Ephanna and Baergrom with Torbin",
+      "summary": "Tealeaf has been unable to help Torbin; Ephanna and Baergrom stay with Torbin while Tealeaf works on potions.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "anchor_quotes": [
+            "Ephanna and Baergrom discover that Tealeaf has been unable to help Torbin and has not been able to help work on potions."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-09",
+      "order": 9,
+      "title": "Necromancer Ritual Preparation",
+      "summary": "The Necromancer becomes interested in Wolf's head and decides to perform a ritual; the group takes a magical short rest in the Study Room.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "anchor_quotes": [
+            "The rest of the group meet with the Necromancer. When shown the head of Wolf they become very interested in helping. Instead of casting a spell they decide to perform a ritual."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-10",
+      "order": 10,
+      "title": "Escaped Meat and Another Split",
+      "summary": "A piece of meat escapes in the Academy; the group splits: Stafl and Bonogo meet the Necromancer, Caelynn, Baergrom, and Karsemine hunt the meat; Ephanna stays with Torbin.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "anchor_quotes": [
+            "When the group meets up again outside the room they discover that a piece of meat from Caelynn\u2019s bag escaped and is now on the loose in the Academy."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-11",
+      "order": 11,
+      "title": "Ritual in the Morgue and First Questions",
+      "summary": "Stafl and Bonogo enter a basement morgue where the ritual begins; they have 4 questions after giving one to the Necromancer. First question: what killed you? Wolf nods toward Bonogo.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "anchor_quotes": [
+            "Stafl and Bonogo enter a basement morgue and find the head of Wolf in the center and the ritual about to begin."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:50-50",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:50-50",
+          "anchor_quotes": [
+            "1: Tell us what killed you. He nods towards Bonogo."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-12",
+      "order": 12,
+      "title": "Meat Storage and Plotters",
+      "summary": "Wolf reveals meat storage is hidden in walls, guardhouses, and underground; the number of plotters is unknown, but Lira will finish the plot before she dies.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "anchor_quotes": [
+            "2: Where are the strongholds for the meat storage? Hidden in the walls, the guardhouses and underground."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "anchor_quotes": [
+            "3: How many are working on this plot against the city? Everyone operates in small groups so the number is not known, but Lira will finish the plot before she dies."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-13",
+      "order": 13,
+      "title": "The Shepherd and the Plan",
+      "summary": "Wolf says the Shepherd is everywhere, in all minds; the plan cannot be stopped, they will erupt led by the Shepherd, all will die and be consumed, and the Shepherd rises from below at dawn.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "anchor_quotes": [
+            "4: Where is the Shepherd? Everywhere! In all the minds of the people."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "anchor_quotes": [
+            "Fifth question asked by the Necromancer: What is the plan and how will we know when it is complete? There is no stopping it! They are gathering now and will soon erupt as something new, led by the Shepherd. All will die and be consumed. You will know at the break of dawn as the Shepherd rises from below."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-14",
+      "order": 14,
+      "title": "Ambush and Draven's Monologue",
+      "summary": "After the ritual, Draven locks the door; Elite Guards and a Sewer Meat Monster enter. Draven monologues and casts Fear on Bonogo, but Stafl helps deflect it.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "After the ritual Professor Cinderbranch leaves the room, just as Draven closes and locks the door. Suddenly one of the walls opens up and 2 Elite Guards enter with a large and disgusting Sewer Meat Monster."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "anchor_quotes": [
+            "Draven begins to monologue about cooking and eating Stafl and Bonogo as he casts Fear on Bonogo."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-15",
+      "order": 15,
+      "title": "Combat in the Morgue",
+      "summary": "Stafl counterattacks and puts Draven to sleep; Bonogo kills the sleeping necromancer. Remaining enemies attack; Bonogo and Stafl take damage and poison.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "anchor_quotes": [
+            "Stafl counters with a radiant burst and casts Sleep on Draven, who falls asleep. Bonogo sneak attacks the sleeping necromancer and deals massive damage resulting in a killing blow."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:64-64",
+          "anchor_quotes": [
+            "With his bonus attack Bonogo then strikes out at Elite Guard 2, but misses. That guard then attacks and hits Bonogo, poisoning him as well. Just as he is being poisoned, the Sewer Monster bites Bonogo, dealing more damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-16",
+      "order": 16,
+      "title": "Escape and Killing the Guard",
+      "summary": "Stafl runs for the door, yells for help, and casts Sleep on remaining enemies; Bonogo also runs but attacks the sleeping guard, killing him.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:66-66",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:66-66",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:66-66",
+          "anchor_quotes": [
+            "As soon as he is outside the door he yells for help then casts Sleep on the remaining enemies. Bonogo also runs for the door, but takes the opportunity to attack the sleeping guard, dealing massive damage and racking up another kill."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-17",
+      "order": 17,
+      "title": "Empty Ritual Room and Descent",
+      "summary": "The group finds the ritual room empty; with Mages' help they stock up on items before heading down the tunnel.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "After explaining to Cinderbranch what happened, the group finds the ritual room empty, a bad sign of what is to come. With the help of the Mages the party can stock up on items before they head down the tunnel to see what awaits\u2026"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:party-pc-mentions",
+      "label": "Ambiguous PC name mentions",
+      "reason": "Party anchors are deterministic and ambiguous surfaces are explicitly ignored; not session-novel nodes.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:known-entities",
+      "label": "Known entity mentions already resolved",
+      "reason": "Entities like Torbin, the Shepherd, the Sewer, Elite Guard, etc. are in the known entity mentions list and should not be recreated as observation_nodes.",
+      "evidence_refs": [],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:torbin-condition",
+      "label": "Torbin's condition and Tealeaf's inability to help",
+      "reason": "Details about Torbin's status are incomplete; Tealeaf couldn't help and wasn't able to work on potions. May need further investigation.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "She also tells the group that Torbin is in the infirmary under Professor Tealeaf\u2019s care."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "anchor_quotes": [
+            "Ephanna and Baergrom discover that Tealeaf has been unable to help Torbin and has not been able to help work on potions."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Check on Torbin in a future session or investigate his condition further."
+    },
+    {
+      "item_id": "deferred:mossglade-custom-items",
+      "label": "Rewards for asking for help",
+      "reason": "The players will be rewarded with custom items from Mossglade, but the exact items are not specified yet.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "anchor_quotes": [
+            "The players will be rewarded for asking for help with custom items."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Determine specific custom items in a future session."
+    },
+    {
+      "item_id": "deferred:professor-cinderbranch",
+      "label": "Professor Cinderbranch's role and knowledge",
+      "reason": "Cinderbranch is interested in Wolf's head, but his full involvement and knowledge of the plot remain unclear.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "anchor_quotes": [
+            "Professor Cinderbranch is very interested in the events that led to Wolf\u2019s head ending up with the group."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "After explaining to Cinderbranch what happened, the group finds the ritual room empty, a bad sign of what is to come."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Explore Cinderbranch's motives and knowledge in future sessions."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

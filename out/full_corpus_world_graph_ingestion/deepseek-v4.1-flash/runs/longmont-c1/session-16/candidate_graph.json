@@ -1,0 +1,1471 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-16:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-16",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-16:e8b8399abc94"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:idris",
+      "label": "Idris",
+      "node_type": "character",
+      "description": "A captain fighting with the party; charges forward to slash the Meat Pile, attacks the tendril and centipede, and is saved by Caelynn's Feather Fall after falling.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "anchor_quotes": [
+            "Idris, the Captain, charges forward and slashes the Meat Pile"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "anchor_quotes": [
+            "Idris falls off the creature, likely receiving major damage, but is saved by Caelynn casting Feather Fall"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:meat-pile",
+      "label": "Meat Pile",
+      "node_type": "character",
+      "description": "An enormous fleshy creature in the center of the room that spawns meatlings, meat flies, and a giant centipede-like appendage; it also speaks with the voice of the Wolf begging for release.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "anchor_quotes": [
+            "a voice coming from the Meat Pile, the disgusting head of the Wolf appears begging for someone to release him as the Meat Pile spews out more meatlings"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "anchor_quotes": [
+            "the meat pile spawns a giant disgusting centipede-like appendage that slowly starts to climb up the side of the room towards the ceiling"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "creature:meatlings",
+      "label": "Meatlings",
+      "node_type": "character",
+      "description": "Small spawn of the Meat Pile that attack the party; many are incinerated, killed, or put to sleep.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "anchor_quotes": [
+            "the meatlings are incinerated and the enormous Meat Pile in the center is now on fire"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "anchor_quotes": [
+            "Ephanna casts Shatter on the large tendril and kills several meatlings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "creature:meat-flies",
+      "label": "Meat Flies",
+      "node_type": "character",
+      "description": "Flying spawn of the Meat Pile that attack the party; several are killed and others put to sleep, with one transforming into a meat mound.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "anchor_quotes": [
+            "the remaining meat flies all attack at once against him"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "anchor_quotes": [
+            "One of the meat flies that was still active ends its transformation and turns into a meat mound and attacks Karsemine for big damage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "creature:centipede",
+      "label": "Centipede-like Appendage",
+      "node_type": "character",
+      "description": "A giant disgusting centipede-like appendage spawned by the Meat Pile that climbs toward the ceiling, threatening the townspeople above.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "anchor_quotes": [
+            "the meat pile spawns a giant disgusting centipede-like appendage"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "anchor_quotes": [
+            "Will the heroes stop the centipede in time to save the city?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:cultist-leader",
+      "label": "Cultist Leader",
+      "node_type": "character",
+      "description": "Enemy leader targeted by Stafl's Sleep spell; the Cultist Leaders perish in Ephanna's Fireball.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:18-19",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:18-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:18-19",
+          "anchor_quotes": [
+            "Stafl decides the best action is to cast Sleep on the Cultist Leader"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "anchor_quotes": [
+            "The Cultist Leaders perish"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:cultist-guard",
+      "label": "Cultist Guard",
+      "node_type": "character",
+      "description": "An enemy guard who leaps across to the central platform and hits Bonogo with two attacks; also grabs Ephanna and pulls them onto the meat pile.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "anchor_quotes": [
+            "One of the Cultist Guards makes an incredible leap across to the central platform, preparing to attack"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:39-39",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:39-39",
+          "anchor_quotes": [
+            "The Guard grabs Ephanna and pulls them on to the meat pile, but misses their attack"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:peacemaker-fiddle",
+      "label": "Peacemaker Fiddle",
+      "node_type": "item",
+      "description": "A brand-new item used by Stafl in Session 16. Casting Song of Shattering with it killed the remaining Elite Guard and injured all of the Cultists.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "anchor_quotes": [
+            "Stafl decides to use his brand new item: the Peacemaker Fiddle",
+            "Casting Song of Shattering kills the remaining Elite Guard and injures all of the Cultists"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:baergrom-shield",
+      "label": "Baergrom's Shield",
+      "node_type": "item",
+      "description": "A magical shield used by Baergrom in Session 16. It can be planted to provide temporary health to the team within range, provides temporary healing for the team again as a reusable ability, and can be used to intercept attacks, such as blocking the meat creature's tendrils from hitting Ephanna.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "anchor_quotes": [
+            "Baergrom moves to the center of the platform and uses his new item, planting his shield and providing temporary health to the team within range"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "anchor_quotes": [
+            "Baergrom uses his shield\u2019s ability, providing temporary healing for the team again"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "anchor_quotes": [
+            "Baergrom intercepts the attack with his shield"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:meat-pile-energy-absorption",
+      "label": "Meat Pile Absorbs Tendril Energy and Regenerates",
+      "node_type": "mystery",
+      "description": "The central Meat Pile regenerates and spawns new creatures when energy pulses down the tendrils; fire damage is undone. The source and nature of this regeneration are unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "anchor_quotes": [
+            "the tendrils squirm, and then begin to swell with energy",
+            "The energy is passed down to the Meat Pile",
+            "The flames go out and it now looks as if it never took any damage at all"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:wolf-head-voice",
+      "label": "Wolf Head Voice Begging for Release",
+      "node_type": "mystery",
+      "description": "A voice from the Meat Pile, appearing as the disgusting head of the Wolf, begs to be released. The identity and condition of the wolf are unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "anchor_quotes": [
+            "a voice coming from the Meat Pile, the disgusting head of the Wolf",
+            "begging for someone to release him"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:zora-tendril-drag",
+      "label": "Zora Being Dragged Toward the Wall by Tendrils",
+      "node_type": "mystery",
+      "description": "Zora is pulled toward the wall by tendrils despite rescue attempts by Stafl and Karsemine. Her ultimate fate remains unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "anchor_quotes": [
+            "they continue to pull her towards the wall"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "anchor_quotes": [
+            "Seeing that Zora could not be saved by Stafl",
+            "Karsemine rushes to her rescue and slices through the tendrils"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:giant-centipede-appendage",
+      "label": "Giant Centipede Appendage Climbing Toward Ceiling",
+      "node_type": "mystery",
+      "description": "The Meat Pile spawns a giant disgusting centipede-like appendage that climbs toward the ceiling, threatening the townspeople above.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "anchor_quotes": [
+            "the meat pile spawns a giant disgusting centipede-like appendage",
+            "slowly starts to climb up the side of the room towards the ceiling"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "anchor_quotes": [
+            "Will the heroes stop the centipede in time to save the city?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:grate-weakening",
+      "label": "Weakened and Broken Grate on Center Platform",
+      "node_type": "mystery",
+      "description": "The grate is damaged by spells and becomes a hazard; Idris falls through the broken grate and barely hangs on.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "anchor_quotes": [
+            "the spell damages and weakens the grate",
+            "hearing an ominous creak in the grate"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "anchor_quotes": [
+            "takes a step on the broken grate and falls through, barely hanging on"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:cultist-tunnel-reinforcements",
+      "label": "Cultist Reinforcements Arriving from Tunnels",
+      "node_type": "mystery",
+      "description": "Cultists repeatedly arrive from tunnels during the battle, indicating unknown tunnel routes and ongoing enemy reinforcements.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "anchor_quotes": [
+            "Stafl is stabbed in the back by a group of Cultists that have made their way down the tunnel"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "anchor_quotes": [
+            "More Cultists arrive from another tunnel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:meat-fly-transformation",
+      "label": "Meat Flies Transforming into Meat Mounds",
+      "node_type": "mystery",
+      "description": "An active meat fly transforms into a meat mound and attacks, showing ongoing mutation and an unresolved lifecycle of the meat creatures.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "anchor_quotes": [
+            "One of the meat flies that was still active ends its transformation and turns into a meat mound"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:tendril-priority-threat",
+      "label": "Tendrils as Top Priority Threat",
+      "node_type": "mystery",
+      "description": "The tendrils are identified as the key threat; destroying them stops energy flow to the Meat Pile, but the ultimate source remains unknown.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "anchor_quotes": [
+            "Realising that the tendrils are the top priority"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:39-39",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:39-39",
+          "anchor_quotes": [
+            "destroying the last tendril"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:battle-outcome-uncertain",
+      "label": "Uncertain Battle Outcome and City Threat",
+      "node_type": "mystery",
+      "description": "The recap ends with the battle's outcome unresolved, raising the question of whether the heroes can stop the centipede in time to save the city.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "anchor_quotes": [
+            "Which way will it end?",
+            "Will the heroes stop the centipede in time to save the city?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "e4",
+      "from_node_id": "creature:meatlings",
+      "to_node_id": "npc:meat-pile",
+      "label": "Meatlings spawned by the Meat Pile",
+      "relationship_type": "caused_by",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "anchor_quotes": [
+            "the Meat Pile spews out more meatlings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e5",
+      "from_node_id": "creature:meat-flies",
+      "to_node_id": "npc:meat-pile",
+      "label": "Meat Flies spawned by the Meat Pile",
+      "relationship_type": "caused_by",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "anchor_quotes": [
+            "Again the meat swells and spawns a group of Meat Flies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e6",
+      "from_node_id": "creature:centipede",
+      "to_node_id": "npc:meat-pile",
+      "label": "Centipede appendage spawned by the Meat Pile",
+      "relationship_type": "caused_by",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "anchor_quotes": [
+            "the meat pile spawns a giant disgusting centipede-like appendage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e28",
+      "from_node_id": "mystery:wolf-head-voice",
+      "to_node_id": "npc:meat-pile",
+      "label": "Wolf head voice comes from the Meat Pile",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "anchor_quotes": [
+            "a voice coming from the Meat Pile, the disgusting head of the Wolf appears begging for someone to release him"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e29",
+      "from_node_id": "mystery:tendril-priority-threat",
+      "to_node_id": "npc:meat-pile",
+      "label": "Tendrils are the top priority threat",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "anchor_quotes": [
+            "Realising that the tendrils are the top priority"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e32",
+      "from_node_id": "mystery:meat-fly-transformation",
+      "to_node_id": "creature:meat-flies",
+      "label": "Meat fly transforms into a meat mound",
+      "relationship_type": "results_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "anchor_quotes": [
+            "One of the meat flies that was still active ends its transformation and turns into a meat mound"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e33",
+      "from_node_id": "mystery:meat-pile-energy-absorption",
+      "to_node_id": "npc:meat-pile",
+      "label": "Meat Pile regenerates from tendril energy",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "anchor_quotes": [
+            "the tendrils squirm, and then begin to swell with energy",
+            "The energy is passed down to the Meat Pile",
+            "The flames go out and it now looks as if it never took any damage at all"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-s16-recap-battle-opening",
+      "order": 1,
+      "title": "Battle opens: Sleep on Cultist Leader and Elite Guard attacks",
+      "summary": "The group is deep in battle. Stafl casts Sleep on the Cultist Leader while both Elite Guards attack party members \u2014 Karsemine is sprayed with corruption and the prone Baergrom takes a critical hit. Meatlings fail follow-up hits and plummet into the depths.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:18-19",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:18-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:18-19",
+          "anchor_quotes": [
+            "The group finds themselves deep into the battle.",
+            "Stafl decides the best action is to cast Sleep on the Cultist Leader.",
+            "Both Elite Guards attack members of the party.",
+            "Karsemine is attacked first and sprayed with corruption."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-fireball-and-center-room",
+      "order": 2,
+      "title": "Fireball in the center room kills Cultist Leaders and ignites the Meat Pile",
+      "summary": "Ephanna casts Fireball in the center of the room for massive damage, killing the Cultist Leaders and incinerating the meatlings while the Meat Pile catches fire. Baergrom shoves an Elite Guard over the side, Zora casts Magic Missile on remaining meatlings and the Elite Guard, and Idris charges the Meat Pile.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:21-21",
+          "anchor_quotes": [
+            "Ephanna sees another perfect opportunity for Fireball and again casts it in the center of the room, dealing massive damage.",
+            "The Cultist Leaders perish, the meatlings are incinerated and the enormous Meat Pile in the center is now on fire.",
+            "Zora, the mage, casts Magic Missile on each of the remaining meatlings and the remaining Elite Guard"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-meat-pile-regenerates",
+      "order": 3,
+      "title": "Meat Pile regenerates and the Wolf's voice begs for release",
+      "summary": "The room quakes, tendrils swell with energy, and the Meat Pile's flames go out as it appears undamaged. Stalf tries to pull Zora back from the tendrils but they continue dragging her toward the wall. A voice from the Meat Pile \u2014 the disgusting head of the Wolf \u2014 begs to be released as more meatlings spew out.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:23-23",
+          "anchor_quotes": [
+            "The energy is passed down to the Meat Pile.",
+            "The flames go out and it now looks as if it never took any damage at all.",
+            "Then a voice coming from the Meat Pile, the disgusting head of the Wolf appears begging for someone to release him as the Meat Pile spews out more meatlings."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-cultists-from-the-tunnel",
+      "order": 4,
+      "title": "Cultists ambush from the tunnel and Stafl uses the Peacemaker Fiddle",
+      "summary": "Bonogo damages an Elite Guard and Caelynn finishes him with Magic Missile while killing a meatling. A group of Cultists emerges from the tunnel and stabs Stafl in the back; Karsemine rescues Zora by slicing through the tendrils. Stafl then uses his Peacemaker Fiddle to cast Song of Shattering, killing the remaining Elite Guard and injuring all the Cultists.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "anchor_quotes": [
+            "Suddenly, without warning, Stafl is stabbed in the back by a group of Cultists that have made their way down the tunnel.",
+            "Karsemine rushes to her rescue and slices through the tendrils.",
+            "Casting Song of Shattering kills the remaining Elite Guard and injures all of the Cultists."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-push-back-the-enemy",
+      "order": 5,
+      "title": "Party pushes back the enemy with Shatter and Shield abilities",
+      "summary": "Ephanna casts Shatter on the large tendril, killing meatlings but weakening the grate. Baergrom plants his shield in the center of the platform for temporary health, Idris advances on the large tendril amid an ominous creak, and Zora severs the tendril with Magic Missile.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:27-27",
+          "anchor_quotes": [
+            "Ephanna casts Shatter on the large tendril and kills several meatlings.",
+            "However, the spell damages and weakens the grate.",
+            "Zora follows up the attack with Magic Missile, severing the tendril in a spray of goo."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-meat-flies-and-cultists-destroyed",
+      "order": 6,
+      "title": "Tendrils prioritized as Meat Flies and Cultists are destroyed",
+      "summary": "The ground shakes and pulses spawn Meat Flies from the Meat Pile. Bonogo kills one, Caelynn Thunderwaves the Cultist group to death, and Karsemine attacks another large tendril with both swords after the group realizes the tendrils are the top priority.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:29-29",
+          "anchor_quotes": [
+            "Again the meat swells and spawns a group of Meat Flies.",
+            "Caelynn casts Thunderwave on the group of Cultists, killing them all.",
+            "Realising that the tendrils are the top priority Karsemine rushes over to another large tendril and uses both swords to deal major damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-more-cultists-and-meat-fly-swarm",
+      "order": 7,
+      "title": "More Cultists arrive; meat flies swarm Bonogo",
+      "summary": "More Cultists arrive from another tunnel but are stopped by Stafl's Sleep. After Bonogo kills a meat fly, the remaining meat flies all attack him at once; he dodges all but one and takes minor damage. Baergrom uses his shield's ability to provide temporary healing again.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:31-31",
+          "anchor_quotes": [
+            "More Cultists arrive from another tunnel, but don\u2019t get very far into the room before Stafl casts Sleep.",
+            "the remaining meat flies all attack at once against him.",
+            "Baergrom uses his shield\u2019s ability, providing temporary healing for the team again."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-idris-falls-through-grate",
+      "order": 8,
+      "title": "Idris falls through the broken grate; Cultist Guard leaps onto the platform",
+      "summary": "Ephanna's Eldritch Blast and Zora's Magic Missile damage the tendril. Idris steps on the broken grate and falls through, barely hanging on. A Cultist Guard leaps to the central platform, Baergrom intercepts tendril attacks on Ephanna with his shield, and the Cultist Guard hits Bonogo twice for significant damage.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "anchor_quotes": [
+            "Idris moves around the center platform to make an attack, but takes a step on the broken grate and falls through, barely hanging on.",
+            "One of the Cultist Guards makes an incredible leap across to the central platform, preparing to attack.",
+            "The Cultist Guard hits Bonogo with two attacks dealing a significant amount of damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-snowball-and-horde-breaker",
+      "order": 9,
+      "title": "Caelynn's Snowball and Karsemine's Horde Breaker thin the Cultists",
+      "summary": "Caelynn casts Snowball on the sleeping Cultist group, killing two instantly, and Karsemine leaps in with Horde Breaker to kill more. Baergrom uses Commander's Strike to have Bonogo deal massive damage to the Meat Pile while Idris climbs back up and Zora casts Magic Missile on the tendril again.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:35-35",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:35-35",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:35-35",
+          "anchor_quotes": [
+            "Caelynn casts Snowball on the sleeping Cultist group, killing 2 of them instantly.",
+            "Karsemine then leaps to the remaining Cultists and uses Horde Breaker to kill a few more.",
+            "Baergrom lifts up his shield and then uses Commander\u2019s Strike to have Bonogo deal massive damage to the meat pile."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-giant-centipede-appears",
+      "order": 10,
+      "title": "Meat Pile spawns a giant centipede-like appendage climbing toward the ceiling",
+      "summary": "The meat pile spawns a giant, disgusting centipede-like appendage that slowly climbs the side of the room toward the ceiling. Only the ceiling and the adventurers separate the townspeople above from this horrible creature.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:37-37",
+          "anchor_quotes": [
+            "the meat pile spawns a giant disgusting centipede-like appendage that slowly starts to climb up the side of the room towards the ceiling.",
+            "The only thing separating the townspeople above and this horrible creature is the ceiling and the group of adventures."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-epshanna-pulled-onto-meat-pile",
+      "order": 11,
+      "title": "Bonogo and Caelynn strike the centipede; Ephanna is pulled onto the meat pile",
+      "summary": "Bonogo leaps onto the creature with his dagger and Caelynn's Snowball damages and slows it while destroying the last tendril. The Guard grabs Ephanna and pulls them onto the meat pile but misses the attack. Karsemine kills both meat flies with Horde Breaker, and Stafl uses a potion then his final spell slot for one more Sleep.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:39-39",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:39-39",
+          "anchor_quotes": [
+            "Bonogo leaps onto the creature, slicing with his dagger.",
+            "The Guard grabs Ephanna and pulls them on to the meat pile, but misses their attack.",
+            "Stafl uses a potion to heal some damage and then uses his final spell slot to cast one more Sleep spell on the remaining meat flies and meatlings."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-centipede-climbs-toward-ceiling",
+      "order": 12,
+      "title": "Centipede climbs toward the ceiling as Idris is saved by Feather Fall",
+      "summary": "A meat fly transforms into a meat mound and hits Karsemine hard while Ephanna is pulled in further. Baergrom lands a critical hit and follows with Action Surge, Idris and Zora attack but cannot stop the centipede's advance, Bonogo lands a massive opportunity attack, and Idris falls off \u2014 saved by Caelynn's Feather Fall.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:41-41",
+          "anchor_quotes": [
+            "One of the meat flies that was still active ends its transformation and turns into a meat mound and attacks Karsemine for big damage.",
+            "Because it begins to move Bonogo gets in an opportunity attack for massive damage.",
+            "Idris falls off the creature, likely receiving major damage, but is saved by Caelynn casting Feather Fall."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-s16-cliffhanger-save-the-city",
+      "order": 13,
+      "title": "Back-and-forth battle leaves the city's fate in question",
+      "summary": "The recap closes on the battle's see-saw nature and poses the question of whether the heroes will stop the centipede in time to save the city.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "anchor_quotes": [
+            "This battle has been really back and forth, up and down.",
+            "Will the heroes stop the centipede in time to save the city?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:pc-names",
+      "label": "PC Names (Karsemine, Baergrom, Stafl, Ephanna, Caelynn, Bonogo)",
+      "reason": "Ambiguous surfaces ignored per packet instructions; already resolved PC anchors.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:known-entities",
+      "label": "Already Resolved Known Entity Mentions (Zora, Cultists, Elite Guard, etc.)",
+      "reason": "These are canonical entity mentions provided in the packet; not session-novel nodes. They should be enriched via edges/evidence only.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:combat-routine",
+      "label": "Routine Combat Actions and Damage Descriptions",
+      "reason": "Not mysteries, clues, or unresolved threads. Generic battle narration without novel entity or unresolved phenomenon.",
+      "evidence_refs": [],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:center-platform-entity",
+      "label": "Center Platform Location",
+      "reason": "Location mentioned but not developed as a mystery; may warrant a location node in a different pass. Source packet provides canonical entity ID candidate:center-platform.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:33-33",
+          "anchor_quotes": [
+            "Idris moves around the center platform"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Extract as location node with edges to battle events."
+    },
+    {
+      "item_id": "deferred:tunnel-location",
+      "label": "Tunnel Location",
+      "reason": "Tunnels mentioned but not developed as a mystery; may warrant a location node. Source packet provides canonical entity ID candidate:tunnel.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:25-25",
+          "anchor_quotes": [
+            "made their way down the tunnel"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Extract as location node with edges to cultist reinforcements."
+    },
+    {
+      "item_id": "deferred:city-faction",
+      "label": "The City Faction",
+      "reason": "The city is mentioned as threatened but not developed; may warrant a faction node. Source packet provides canonical entity ID candidate:city.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "label": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-16:e8b8399abc94:span:e8b8399abc94:43-43",
+          "anchor_quotes": [
+            "stop the centipede in time to save the city"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Extract as faction node with edges to battle stakes."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

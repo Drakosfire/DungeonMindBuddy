@@ -1,0 +1,2430 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-5:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-5",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-5:40a1bbd868a3"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "character:lysandra",
+      "label": "Lysandra",
+      "node_type": "character",
+      "description": "A trusted contact of the party who appears anxious and exhausted, dressed unusually in casual clothes rather than her military outfit. She recruits the group to infiltrate a guards-only, humans-only music festival at a guardhouse to discover what is really happening, and later succumbs to nerves and changes back into her armor.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "she is approached by Lysandra",
+            "She is dressed in very casual looking clothes, a stark contrast from her usual military outfit",
+            "She reveals that she needs help from the group again as there is no one else she can trust",
+            "she needs help infiltrating a guardhouse to determine what is actually happening"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Caelynn is beyond excited to see her friend Lysandra, but immediately senses that something is off",
+            "It seems that not only is Lysandra anxious she looks exhausted",
+            "she has not been able to get any rest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "who decided her disguise was terrible and changed back into her armor",
+            "Lysandra seems to think things look ok so far"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:elowyn-vireleaf",
+      "label": "Elowyn Vireleaf",
+      "node_type": "character",
+      "description": "A very enthusiastic elf who leads the Herbal Tea Workshop at the Evergreen Apothecary, teaching about local leaves and brewing. She is impressed by the party's brewing skill and asks one visitor to attempt the difficult Stormbark Tea.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "greeted by a very enthusiastic elf named Elowyn Vireleaf",
+            "She will be leading the workshop and explaining all about the leaves in the surrounding area and how to get the most out of any brew"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "brews a pretty nice tea, impressing Vireleaf",
+            "really impressing Vireleaf",
+            "she asks for her to brew a tea that even she has been struggling to make - Stormbark Tea"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:bramblewood",
+      "label": "Bramblewood",
+      "node_type": "character",
+      "description": "Vireleaf's apprentice at the Evergreen Apothecary, who is very impressed with a party member's skill with the mortar and pestle and offers her some \"special\" mushrooms.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Vireleaf\u2019s apprentice Bramblewood is very impressed with her skills with the mortar and pestle",
+            "offers her some \u201cspecial\u201d mushrooms to take"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:volen",
+      "label": "Volen",
+      "node_type": "character",
+      "description": "A snooty elf who owns the paper shop known as the Gilded Fold in the Artisans Quarter. He demands Bonogo leave, dismisses the cursed letter as a prank, but eventually inspects it and sells Bonogo enchanted paper, revealing the paper's unnamed client and the tiefling Merella he worked with.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the owner, a snooty Elf named Volen, demands that Bonogo leave",
+            "Volen again dismisses Bonogo, becoming more agitated about the disrespect to his paper",
+            "Unable to resist, Volen takes a closer look at the letter",
+            "he sells Bonogo some paper and reveals that the paper is enchanted to resist burning"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:merella",
+      "label": "Merella",
+      "node_type": "character",
+      "description": "A tiefling whom Volen worked with on the cursed letter, described as an anonymous elf's contact in a land far away over the desert.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "he made this paper for an anonymous elf in a land far away over the desert",
+            "the name of the tiefling he worked with on the letter is named Merella"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:glinter",
+      "label": "Glinter",
+      "node_type": "character",
+      "description": "The director who meets the group at the outdoor amphitheater for the Unity Dance rehearsal at Community Hall, explaining that the dance reenacts the battle for the city of Mirathorn.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "they are met by the director - Glinter",
+            "They explain that the dance is a reenactment of the battle for the city of Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:evergreen-apothecary",
+      "label": "Evergreen Apothecary",
+      "node_type": "location",
+      "description": "A shop with a courtyard where the Herbal Tea Workshop is held; tables of leaves, steaming pots, and mortars and pestles are set up, and the owner/workshop leader is Elowyn Vireleaf.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "headed over to the Evergreen Apothecary for the Herbal Tea Workshop",
+            "enter the courtyard of the Evergreen Apothecary",
+            "There are numerous tables set up around the courtyard with bowls of leaves and pots of steaming water."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:artisans-quarter",
+      "label": "Artisans Quarter",
+      "node_type": "location",
+      "description": "The fancy part of town that contains the Gilded Fold paper shop; it is noted as uncommon for Bugbears to be seen there.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the paper shop in the Artisans Quarter",
+            "it is not very common for Bugbears to be seen in this fancy part of town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:gilded-fold",
+      "label": "Gilded Fold",
+      "node_type": "location",
+      "description": "A paper shop in the Artisans Quarter, marked by a sculpture of an origami phoenix over a scroll above the door; its owner is the Elf Volen.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "leaves the manor in search of the Gilded Fold - the paper shop in the Artisans Quarter",
+            "the sculpture of the origami phoenix over a scroll above the door as he enters the shop"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:community-hall",
+      "label": "Community Hall",
+      "node_type": "location",
+      "description": "Site of the Unity Dance rehearsal, featuring an outdoor amphitheater where the group rehearses a reenactment of the battle for the city of Mirathorn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "head to Community Hall for the Unity Dance rehearsal",
+            "As the group enters the outdoor amphitheater"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:wolf-s-manor",
+      "label": "Wolf's Manor",
+      "node_type": "location",
+      "description": "A manor to which the group returns; suggested as a place for Lysandra to rest while the group plans, and where the group's disguises are prepared and Bonogo departs from in search of the Gilded Fold.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "everyone head back to Wolf\u2019s Manor and then Lysandra can get some rest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "Bonogo leaves the manor in search of the Gilded Fold",
+            "Back at the manor, Ephanna is helping Karsemine and Baergrom with human-looking disguises"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:library",
+      "label": "the library",
+      "node_type": "location",
+      "description": "A library the group heads to for a short rest after testing their disguises.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "The group then heads to the library for a short rest."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:guardhouse-rooftop",
+      "label": "guardhouse rooftop",
+      "node_type": "location",
+      "description": "The rooftop of the guardhouse where the party is held; an elegant setup with food and drink booths and the Dustwalker performing in the center.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "head for the party on the rooftop",
+            "The rooftop is an elegant setup and features more food and drink booths. In the center the Dustwalker is performing."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:gilded-fold-letter",
+      "label": "Cursed Letter",
+      "node_type": "item",
+      "description": "A cursed letter Bonogo brings to the Gilded Fold paper shop, seeking answers. The shop owner Volen recognizes it as something he made by hand for an anonymous elf in a land far away over the desert; the paper is enchanted to resist burning, and the tiefling who worked on the letter is named Merella.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "he hopes to find answers about his cursed letter",
+            "Bonogo informs him that the letter is cursed",
+            "It is clearly something he made by hand",
+            "the paper is enchanted to resist burning",
+            "the name of the tiefling he worked with on the letter is named Merella"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:blank-badge",
+      "label": "Blank Badge of the City Guard",
+      "node_type": "item",
+      "description": "A blank badge of the city guard produced by Bonogo at the Gilded Fold; it knocks over a stack of pristine paper and momentarily stuns the shop owner Volen.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "Bonogo produces the blank badge of the city guard - knocking over a stack of pristine paper"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:traveling-tea-set",
+      "label": "Traveling Tea Set",
+      "node_type": "item",
+      "description": "A traveling tea set purchased by Caelynn after her successful brewing at the Evergreen Apothecary workshop.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Caelynn is so happy with her new brewing skills that she purchases a traveling tea set"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:special-mushrooms",
+      "label": "\"Special\" Mushrooms",
+      "node_type": "item",
+      "description": "A supply of 'special' mushrooms offered to Karsemine by Bramblewood, Vireleaf's apprentice, after being impressed with her skill using the mortar and pestle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "offers her some \u201cspecial\u201d mushrooms to take"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:blue-cap-mushrooms",
+      "label": "Blue Cap Mushrooms",
+      "node_type": "item",
+      "description": "Mushrooms picked by Karsemine at the Evergreen Apothecary to brew a tea that impresses Vireleaf.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "She picks Blue Cap mushrooms and brews a pretty nice tea"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:rattle-leaf",
+      "label": "Rattle Leaf",
+      "node_type": "item",
+      "description": "A leaf used by Karsemine for her second tea attempt at the Evergreen Apothecary; with extra care she brews a wonderful tea.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "this time using Rattle Leaf, and, taking extra time and care, brews a wonderful tea"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:stormbark-tea",
+      "label": "Stormbark Tea",
+      "node_type": "item",
+      "description": "A difficult tea Vireleaf has struggled to make; Caelynn brews it perfectly, smelling of light char and cedar, and earns Vireleaf's friendship.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "she asks for her to brew a tea that even she has been struggling to make - Stormbark Tea",
+            "Again Caelynn makes a perfect tea, smelling of light char and cedar"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:mortar-and-pestle",
+      "label": "Mortar and Pestle",
+      "node_type": "item",
+      "description": "Grinding equipment provided at each Evergreen Apothecary workshop table; Karsemine's skill with it impresses Vireleaf's apprentice Bramblewood.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "Each table is also equipped with a mortar and pestle with which to grind up their leaves"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Vireleaf\u2019s apprentice Bramblewood is very impressed with her skills with the mortar and pestle"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:origami-phoenix-sculpture",
+      "label": "Origami Phoenix Sculpture",
+      "node_type": "item",
+      "description": "A sculpture of an origami phoenix over a scroll, mounted above the door of the Gilded Fold paper shop.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "Bonogo spares a glance for the sculpture of the origami phoenix over a scroll above the door as he enters the shop"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:paper-and-dried-boar-meat",
+      "label": "Paper and Dried Boar Meat",
+      "node_type": "item",
+      "description": "Paper and dried boar meat exchanged by Bonogo to Volen in return for paper and information about the enchanted letter.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "In exchange for gold and some dried boar meat, he sells Bonogo some paper"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:human-disguises",
+      "label": "Human-Looking Disguises",
+      "node_type": "item",
+      "description": "Disguises crafted by Ephanna to help Karsemine and Baergrom pass as humans for the guardhouse infiltration; tested with Stafl, they are convincing.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "Ephanna is helping Karsemine and Baergrom with human-looking disguises to help get into the guardhouse later that evening",
+            "Ephanna creates a great disguise for Baergrom as well",
+            "They test it out with Stafl and he can hardly tell that neither one is human"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:insight-tea",
+      "label": "Insight-Increasing Tea",
+      "node_type": "item",
+      "description": "Tea brewed by Caelynn at the guardhouse entrance to increase Insight for Lysandra, Stafl, and Ephanna before the infiltration.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "Caelynn brews some tea to increase Insight for Lysandra",
+            "Stafl, and Ephanna"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:lysandras-armor",
+      "label": "Lysandra's Armor",
+      "node_type": "item",
+      "description": "Lysandra changes back into her armor after deciding her disguise was terrible, before the group heads to the guardhouse.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "who decided her disguise was terrible and changed back into her armor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:guards-only-human-festival",
+      "label": "Guards-only, humans-only music festival at the guardhouses",
+      "node_type": "mystery",
+      "description": "Lysandra reveals that during the festivals each guardhouse hosts a music festival, but this time it is for guards only \u2014 something that has not happened before \u2014 and to make matters worse, only humans are invited. She asks the group to infiltrate a guardhouse to determine what is actually happening.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "during the festivals each guardhouse hosts a music festival, however this time it is for guards only - something that has not happened before",
+            "only humans are invited",
+            "she needs help infiltrating a guardhouse to determine what is actually happening"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:lysandra-exhaustion-no-rest",
+      "label": "Lysandra's unexplained exhaustion and inability to rest",
+      "node_type": "mystery",
+      "description": "Caelynn senses something is off with Lysandra, who looks exhausted beyond her usual anxiety. Lysandra explains that she has not been able to get any rest, and the group takes her back to Wolf's Manor to sleep while they plan.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "immediately senses that something is off",
+            "Lysandra anxious she looks exhausted",
+            "she has not been able to get any rest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:bonogo-cursed-letter-origin",
+      "label": "Bonogo's cursed letter and its unknown anonymous elf commissioner",
+      "node_type": "mystery",
+      "description": "Bonogo seeks answers about his cursed letter at the Gilded Fold. Volen, the owner, admits he made the paper by hand for an anonymous elf in a land far away over the desert, that the paper is enchanted to resist burning, and that the tiefling he worked with on the letter is named Merella. The letter's purpose and the anonymous elf remain unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "he hopes to find answers about his cursed letter",
+            "he made this paper for an anonymous elf in a land far away over the desert",
+            "the paper is enchanted to resist burning and the name of the tiefling he worked with on the letter is named Merella"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:bonogo-blank-guard-badge",
+      "label": "Bonogo's blank badge of the city guard",
+      "node_type": "mystery",
+      "description": "Bonogo produces a blank badge of the city guard to pressure Volen at the Gilded Fold, but the badge has no visible markings and its origin or authority is unexplained.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "Bonogo produces the blank badge of the city guard"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:lysandra-disguise-failure",
+      "label": "Lysandra changes back into her armor after her disguise is deemed terrible",
+      "node_type": "mystery",
+      "description": "During infiltration preparations, Lysandra decides her disguise was terrible and changes back into her armor before the group heads to the guardhouse, raising questions about whether her presence will compromise the plan.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "who decided her disguise was terrible and changed back into her armor",
+            "they all head to the guardhouse"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:bonogo-invisible-rooftop-prowl",
+      "label": "Bonogo searches the rooftop for money holdings while invisible",
+      "node_type": "mystery",
+      "description": "Bonogo approaches the guardhouse rooftop while invisible and looks for places where the money is kept at the booths, but finds no easy targets and circles back to the group as they decide on their next plan.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "Bonogo, who chose to approach the rooftop while invisible, looks for places where the money is kept",
+            "Seeing no easy targets he circles back to the group"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:caelynn-stormbark-tea-secret",
+      "label": "Stormbark Tea that Vireleaf struggled to make",
+      "node_type": "mystery",
+      "description": "Vireleaf asks Caelynn to brew Stormbark Tea, a tea she has been struggling to make. Caelynn succeeds, producing a perfect tea smelling of light char and cedar, and gains the ability to extract bonuses from brewed teas \u2014 leaving the nature of the recipe or the struggle unexplained.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "she asks for her to brew a tea that even she has been struggling to make - Stormbark Tea",
+            "smelling of light char and cedar",
+            "Caelynn gains the ability to extract bonuses from brewed teas"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:bramblewood-special-mushrooms",
+      "label": "Bramblewood offers Karsemine some \"special\" mushrooms",
+      "node_type": "mystery",
+      "description": "Vireleaf's apprentice Bramblewood, impressed by Karsemine's mortar and pestle skills, offers her some \"special\" mushrooms whose nature or effect is not explained.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Vireleaf\u2019s apprentice Bramblewood is very impressed with her skills",
+            "offers her some \u201cspecial\u201d mushrooms to take"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:lysandra_joins_walk_to_evergreen_apothecary",
+      "from_node_id": "character:lysandra",
+      "to_node_id": "location:evergreen-apothecary",
+      "label": "joins the walk to the Evergreen Apothecary",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "Lysandra decides to join them on their walk to the Apothecary"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra_reveals_guardhouse_infiltration",
+      "from_node_id": "character:lysandra",
+      "to_node_id": "mystery:guards-only-human-festival",
+      "label": "reveals need to infiltrate guardhouse over guards-only humans-only festival",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "she needs help infiltrating a guardhouse to determine what is actually happening"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra_exhausted_no_rest",
+      "from_node_id": "character:lysandra",
+      "to_node_id": "mystery:lysandra-exhaustion-no-rest",
+      "label": "is exhausted and unable to get any rest",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Lysandra anxious she looks exhausted",
+            "she has not been able to get any rest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra_changes_back_into_armor",
+      "from_node_id": "character:lysandra",
+      "to_node_id": "item:lysandras-armor",
+      "label": "changes back into her armor",
+      "relationship_type": "holds",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "who decided her disguise was terrible and changed back into her armor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:elowyn-vireleaf_leads_workshop",
+      "from_node_id": "character:elowyn-vireleaf",
+      "to_node_id": "location:evergreen-apothecary",
+      "label": "leads the Herbal Tea Workshop at the Evergreen Apothecary",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "She will be leading the workshop"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:bramblewood_apprentice_of_vireleaf",
+      "from_node_id": "character:bramblewood",
+      "to_node_id": "character:elowyn-vireleaf",
+      "label": "is the apprentice of Vireleaf",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Vireleaf\u2019s apprentice Bramblewood"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:bramblewood_offers_special_mushrooms",
+      "from_node_id": "character:bramblewood",
+      "to_node_id": "item:special-mushrooms",
+      "label": "offers special mushrooms",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "offers her some \u201cspecial\u201d mushrooms to take"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:bramblewood_impressed_by_mortar_skill",
+      "from_node_id": "character:bramblewood",
+      "to_node_id": "item:mortar-and-pestle",
+      "label": "impressed with skill using the mortar and pestle",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Vireleaf\u2019s apprentice Bramblewood is very impressed with her skills with the mortar and pestle"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:gilded_fold_located_in_artisans_quarter",
+      "from_node_id": "location:gilded-fold",
+      "to_node_id": "location:artisans-quarter",
+      "label": "is located in the Artisans Quarter",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the paper shop in the Artisans Quarter"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:volen_owns_gilded_fold",
+      "from_node_id": "character:volen",
+      "to_node_id": "location:gilded-fold",
+      "label": "owns the Gilded Fold paper shop",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the owner, a snooty Elf named Volen"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:volen_worked_on_cursed_letter",
+      "from_node_id": "character:volen",
+      "to_node_id": "item:gilded-fold-letter",
+      "label": "made the paper of the cursed letter",
+      "relationship_type": "holds",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "It is clearly something he made by hand"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:merella_worked_with_volen",
+      "from_node_id": "character:merella",
+      "to_node_id": "character:volen",
+      "label": "worked with Volen on the letter",
+      "relationship_type": "works_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the name of the tiefling he worked with on the letter is named Merella"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:merella_associated_cursed_letter",
+      "from_node_id": "character:merella",
+      "to_node_id": "item:gilded-fold-letter",
+      "label": "worked on the letter",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the name of the tiefling he worked with on the letter is named Merella"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glinter_directs_unity_dance",
+      "from_node_id": "character:glinter",
+      "to_node_id": "location:community-hall",
+      "label": "directs the Unity Dance rehearsal",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "they are met by the director - Glinter"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:insight_tea_serves_lysandra_stafl_ephanna",
+      "from_node_id": "item:insight-tea",
+      "to_node_id": "character:lysandra",
+      "label": "given to Lysandra",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "Caelynn brews some tea to increase Insight for Lysandra"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:cursed_letter_originates_anonymous_elf",
+      "from_node_id": "mystery:bonogo-cursed-letter-origin",
+      "to_node_id": "character:merella",
+      "label": "letter involved tiefling Merella",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the name of the tiefling he worked with on the letter is named Merella"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra_disguise_failure_mystery",
+      "from_node_id": "character:lysandra",
+      "to_node_id": "mystery:lysandra-disguise-failure",
+      "label": "discards disguise and changes back into armor",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "who decided her disguise was terrible and changed back into her armor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:stormbark_tea_mystery_tied_to_vireleaf",
+      "from_node_id": "character:elowyn-vireleaf",
+      "to_node_id": "mystery:caelynn-stormbark-tea-secret",
+      "label": "struggled to make Stormbark Tea",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "she asks for her to brew a tea that even she has been struggling to make - Stormbark Tea"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:special_mushrooms_mystery_tied_to_bramblewood",
+      "from_node_id": "character:bramblewood",
+      "to_node_id": "mystery:bramblewood-special-mushrooms",
+      "label": "offers special mushrooms",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "offers her some \u201cspecial\u201d mushrooms to take"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:origami_phoenix_at_gilded_fold",
+      "from_node_id": "item:origami-phoenix-sculpture",
+      "to_node_id": "location:gilded-fold",
+      "label": "is mounted above the door of the Gilded Fold",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the sculpture of the origami phoenix over a scroll above the door as he enters the shop"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:bonogo_missing_contact_from_volen",
+      "from_node_id": "character:volen",
+      "to_node_id": "character:merella",
+      "label": "reveals Merella as the tiefling he worked with",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "reveals that the paper is enchanted to resist burning and the name of the tiefling he worked with on the letter is named Merella"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:city_guard_badge_produces_paper_spill",
+      "from_node_id": "item:blank-badge",
+      "to_node_id": "item:paper-and-dried-boar-meat",
+      "label": "badge knocks over a stack of pristine paper",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "Bonogo produces the blank badge of the city guard - knocking over a stack of pristine paper in the process"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:volen_sells_paper_to_bonogo",
+      "from_node_id": "character:volen",
+      "to_node_id": "item:paper-and-dried-boar-meat",
+      "label": "sells paper in exchange for gold and dried boar meat",
+      "relationship_type": "holds",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "In exchange for gold and some dried boar meat, he sells Bonogo some paper"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:evergreen_apothecary_holds_workshop",
+      "from_node_id": "location:evergreen-apothecary",
+      "to_node_id": "item:mortar-and-pestle",
+      "label": "workshop tables are equipped with mortar and pestle",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "Each table is also equipped with a mortar and pestle with which to grind up their leaves"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Fighters exit arena and are approached by Lysandra",
+      "summary": "The fighters leave the arena to applause. Outside, Ephanna, Bonogo, Stafl and Baergrom are approached by Lysandra, who is dressed casually and seems anxious. The group almost mistakes her for someone else. She learns they are heading to the Evergreen Apothecary for the Herbal Tea Workshop to meet Caelynn and Karsemine, and decides to join them.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "The fighters exit the arena to thunderous applause from the crowd. As Ephanna, Bonogo, Stafl and Baergrom are outside they are approached by Lysandra. The group almost mistakes her for someone else.",
+            "The small group tells her that they are headed over to the Evergreen Apothecary for the Herbal Tea Workshop to catch up with Caelynn and Karsemine."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Lysandra reveals guardhouse infiltration request",
+      "summary": "While walking to the tea workshop, Lysandra reveals she needs the group's help and that she trusts no one else. She explains that each guardhouse is hosting a music festival for guards only, a first, and that only humans are invited. She needs help infiltrating a guardhouse to discover what is really happening.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "She reveals that she needs help from the group again as there is no one else she can trust. She explains that during the festivals each guardhouse hosts a music festival, however this time it is for guards only - something that has not happened before. And to make matters worse, only humans are invited. She explains that she needs help infiltrating a guardhouse to determine what is actually happening."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Caelynn and Karsemine arrive at apothecary tea workshop",
+      "summary": "Caelynn and Karsemine enter the Evergreen Apothecary courtyard and are greeted by enthusiastic elf Elowyn Vireleaf, who leads the workshop on leaves and brewing. The courtyard is set with tables, bowls of leaves, steaming water, mortars and pestles.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "Caelynn and Karsemine enter the courtyard of the Evergreen Apothecary and are greeted by a very enthusiastic elf named Elowyn Vireleaf. She will be leading the workshop and explaining all about the leaves in the surrounding area and how to get the most out of any brew."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Karsemine and Caelynn impress Vireleaf with tea brewing",
+      "summary": "Karsemine brews Blue Cap mushroom tea and impresses Vireleaf. Caelynn then brews perfect tea, including the difficult Stormbark Tea, making another friend and gaining the ability to extract bonuses from brewed teas. Karsemine later brews Rattle Leaf tea and is offered special mushrooms by apprentice Bramblewood. Caelynn buys a traveling tea set.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Karesmine is first to pick her leaves and brew her own tea. She picks Blue Cap mushrooms and brews a pretty nice tea, impressing Vireleaf. Caelynn chooses her leaves, and after watching Karsemine, brews the perfect tea, really impressing Vireleaf.",
+            "Again Caelynn makes a perfect tea, smelling of light char and cedar, and in the process makes another friend. They exchange tips about teas and leaves from various areas and Caelynn gains the ability to extract bonuses from brewed teas.",
+            "Karsemine decides to try her luck again with a different tea, this time using Rattle Leaf, and, taking extra time and care, brews a wonderful tea. Vireleaf\u2019s apprentice Bramblewood is very impressed with her skills with the mortar and pestle and offers her some \u201cspecial\u201d mushrooms to take. Caelynn is so happy with her new brewing skills that she purchases a traveling tea set."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Lysandra's exhaustion and group plans at Wolf's Manor",
+      "summary": "Caelynn reunites with Lysandra and senses she is anxious and exhausted. Lysandra says she has been unable to rest. Baergrom suggests returning to Wolf's Manor so Lysandra can rest while the group plans about the guardhouses. Stafl asks Lysandra for a rough layout of the guard tower and the group begins forming a plan.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Caelynn is beyond excited to see her friend Lysandra, but immediately senses that something is off. It seems that not only is Lysandra anxious she looks exhausted. She further explains that she has not been able to get any rest. That\u2019s when Baergrom suggests that everyone head back to Wolf\u2019s Manor and then Lysandra can get some rest while the group decides what to do about the guardhouses. While everyone is taking a much needed rest Stafl asks Lysandra for a rough layout of the guard tower and then the group begins to form a plan."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Bonogo investigates cursed letter at Gilded Fold",
+      "summary": "Bonogo leaves the manor to find the Gilded Fold paper shop in the Artisans Quarter, hoping for answers about his cursed letter. He notices side-glances as a Bugbear in a fancy area. The owner Volen initially demands he leave, but after Bonogo shows a blank city guard badge and mentions the letter is cursed and valuable, Volen examines it. He reveals he made the paper for an anonymous elf from a land over the desert, sells Bonogo enchanted burn-resistant paper and dried boar meat for gold, and names the tiefling collaborator as Merella.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "Meanwhile, Bonogo leaves the manor in search of the Gilded Fold - the paper shop in the Artisans Quarter. This is where he hopes to find answers about his cursed letter.",
+            "In exchange for gold and some dried boar meat, he sells Bonogo some paper and reveals that the paper is enchanted to resist burning and the name of the tiefling he worked with on the letter is named Merella."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Ephanna creates human disguises for guardhouse infiltration",
+      "summary": "Back at the manor, Ephanna helps Karsemine and Baergrom with human-looking disguises for the guardhouse that evening. Ephanna's experience helps Karsemine blend in perfectly, and she creates a great disguise for Baergrom too. Stafl tests them and can hardly tell neither is human. The group then heads to the library for a short rest.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "Back at the manor, Ephanna is helping Karsemine and Baergrom with human-looking disguises to help get into the guardhouse later that evening. Ephanna has a lot of experience helping Karsemine blend in to many different places so her disguise looks perfect. Though not nearly as good as Karesmine\u2019s, Ephanna creates a great disguise for Baergrom as well. They test it out with Stafl and he can hardly tell that neither one is human. The group then heads to the library for a short rest."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-8",
+      "order": 8,
+      "title": "Group joins Unity Dance rehearsal at Community Hall",
+      "summary": "With time before the guardhouse music festival, Caelynn encourages the group to go to Community Hall for the Unity Dance rehearsal. At the outdoor amphitheater they meet director Glinter, who joyfully welcomes new members and explains the dance reenacts the battle for the city of Mirathorn. Caelynn joins first, with backup singing from Ephanna and Stafl. Karsemine and Baergrom use the opportunity to test their human disguises and blend in.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "Seeing that there is time before the music festival at the guardhouse, Caelynn enthusiastically encourages the group to head to Community Hall for the Unity Dance rehearsal.",
+            "They explain that the dance is a reenactment of the battle for the city of Mirathorn. Caelynn is the first to join in, followed by some backup singing from Ephanna and Stafl. Karsemine and Baergrom use this opportunity to see if they pass as humans - blending right in."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-9",
+      "order": 9,
+      "title": "Group infiltrates guardhouse festival with tea-enhanced insight",
+      "summary": "The group retrieves Lysandra, who changed back into armor after her disguise failed. At the guardhouse entrance, Caelynn brews tea to boost Insight for nervous Lysandra, Stafl and Ephanna. The group passes the initial human check and moves to the rooftop party, passing floors of mingling, eating and drinking. The rooftop is elegant with food and drink booths; the Dustwalker performs in the center. Lysandra thinks things look ok so far. Invisible Bonogo searches the booths for money but finds no easy targets and rejoins the group as they decide their next move.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "The group is ready to get Lysandra, who decided her disguise was terrible and changed back into her armor, and they all head to the guardhouse. At the entrance to the guardhouse the group takes a moment while Caelynn brews some tea to increase Insight for Lysandra (who is looking very nervous), Stafl, and Ephanna. The group easily pass the initial check as humans and head for the party on the rooftop, passing several floors where people are mingling, eating and drinking. The rooftop is an elegant setup and features more food and drink booths. In the center the Dustwalker is performing. After an initial check, Lysandra seems to think things look ok so far. Bonogo, who chose to approach the rooftop while invisible, looks for places where the money is kept at the booths. Seeing no easy targets he circles back to the group who are now deciding what their next plan of action is."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [
+    {
+      "item_id": "deferred:wolf-manor",
+      "label": "Wolf's Manor as a recurring party base",
+      "reason": "No canonical entity id registered for Wolf's Manor; the recap uses it only as a rest location and planning site in this session.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Baergrom suggests that everyone head back to Wolf\u2019s Manor"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Check party registry for an existing Wolf's Manor location anchor before creating a new one."
+    },
+    {
+      "item_id": "deferred:gilded-fold",
+      "label": "The Gilded Fold paper shop in the Artisans Quarter",
+      "reason": "Location introduced organically in the session but not present in the known entity mentions; may merit an anchor later.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the Gilded Fold - the paper shop in the Artisans Quarter"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register the Gilded Fold if it recurs or becomes a key location."
+    },
+    {
+      "item_id": "deferred:evergreen-apothecary",
+      "label": "Evergreen Apothecary and its Herbal Tea Workshop",
+      "reason": "Location and event introduced in the session but not in known entity mentions; tied to the tea-brewing beats rather than a mystery.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "they are headed over to the Evergreen Apothecary for the Herbal Tea Workshop"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Evergreen Apothecary as a location anchor if the party returns."
+    },
+    {
+      "item_id": "deferred:volen-gilded-fold-owner",
+      "label": "Volen, snooty Elf owner of the Gilded Fold",
+      "reason": "Named NPC introduced in-session without a canonical entity id; may be added to the party registry.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the owner, a snooty Elf named Volen"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Volen as an NPC anchor if he reappears."
+    },
+    {
+      "item_id": "deferred:elowyn-vireleaf",
+      "label": "Elowyn Vireleaf, workshop leader at the Evergreen Apothecary",
+      "reason": "Named NPC introduced in-session without a canonical entity id; relevant to Caelynn and Karsemine's brewing thread.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "greeted by a very enthusiastic elf named Elowyn Vireleaf"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Elowyn Vireleaf as an NPC anchor."
+    },
+    {
+      "item_id": "deferred:bramblewood-apprentice",
+      "label": "Bramblewood, Vireleaf's apprentice",
+      "reason": "Named NPC introduced in-session without a canonical entity id; tied to the special mushrooms beat.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Vireleaf\u2019s apprentice Bramblewood"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Bramblewood as an NPC anchor if the special mushrooms thread develops."
+    },
+    {
+      "item_id": "deferred:glinter-unity-dance-director",
+      "label": "Glinter, director of the Unity Dance rehearsal",
+      "reason": "Named NPC introduced in-session without a canonical entity id; connected to the Mirathorn reenactment event.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "they are met by the director - Glinter"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Glinter as an NPC anchor if the dance or Community Hall recurs."
+    },
+    {
+      "item_id": "deferred:merella-tiefling",
+      "label": "Merella, tiefling who worked on the cursed letter",
+      "reason": "Newly revealed name tied to Bonogo's cursed letter mystery; no canonical entity id yet.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the name of the tiefling he worked with on the letter is named Merella"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Merella as an NPC anchor and link to Bonogo's cursed letter thread."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

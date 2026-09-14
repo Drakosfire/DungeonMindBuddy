@@ -1,0 +1,77 @@
+{
+  "schema": "dmb_known_entity_mention_sidecar_v0",
+  "version": "0.1",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-4",
+  "registry_relpath": "Longmont Campaign/Campaign 1/_party_registry.json",
+  "roster_session_key": "1",
+  "roster_carry_forward": true,
+  "mentions": [
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:32-32",
+      "start_offset": 28,
+      "end_offset": 37,
+      "surface_text": "Mirathorn",
+      "canonical_entity_id": "candidate:mirathorn",
+      "entity_slug": "candidate:mirathorn",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Mirathorn",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:34-34",
+      "start_offset": 45,
+      "end_offset": 54,
+      "surface_text": "Mirathorn",
+      "canonical_entity_id": "candidate:mirathorn",
+      "entity_slug": "candidate:mirathorn",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Mirathorn",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+      "start_offset": 56,
+      "end_offset": 68,
+      "surface_text": "Stone Bridge",
+      "canonical_entity_id": "candidate:stone-bridge",
+      "entity_slug": "candidate:stone-bridge",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Stone Bridge",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+      "start_offset": 131,
+      "end_offset": 140,
+      "surface_text": "Mirathorn",
+      "canonical_entity_id": "candidate:mirathorn",
+      "entity_slug": "candidate:mirathorn",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Mirathorn",
+      "registry_version": "0.1"
+    }
+  ],
+  "ambiguous_surfaces": [
+    "Karsemine",
+    "Baergrom",
+    "Ephanna",
+    "Bonogo",
+    "Stafl",
+    "Caelynn"
+  ],
+  "diagnostics": {
+    "spans_scanned": 16,
+    "mention_count": 4,
+    "entity_count": 64,
+    "ambiguous_term_count": 6,
+    "registry_warnings": [
+      "roster_carry_forward: session_pc_rosters['4'] using '1'",
+      "roster_carry_forward: session '4' using roster from '1'"
+    ]
+  }
+}

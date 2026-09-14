@@ -1,0 +1,2230 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-9:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-9",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-9:ee4c45abbc94"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:barin",
+      "label": "Barin",
+      "node_type": "character",
+      "description": "Proprietor of the Copper and Quartz Inn and a member of the city council, activated by the players as the cultist meat crisis unfolds.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "anchor_quotes": [
+            "Barin the proprietor of the Copper and Quartz Inn who is also on the city council"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:grobnok",
+      "label": "Grobnok",
+      "node_type": "character",
+      "description": "A goblin owner of the Grit and Grime and a member of the city council, activated by the players during the meat crisis.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "anchor_quotes": [
+            "Grobnok the Goblin owner of the Grit and Grime who is also on the city council"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:the-wolf",
+      "label": "The Wolf",
+      "node_type": "character",
+      "description": "Second in command of the guard and secretly a cultist; alerted to the party. The leader of the Guard is unaware the Wolf is manipulating them.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "anchor_quotes": [
+            "The Wolf who is the second in command of the guard and a cultist is also alerted to the party",
+            "The leader of the Guard has no idea they are being manipulated by the Wolf, they are innocent but ensorceled to be ignorant"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:lesandra",
+      "label": "Lesandra",
+      "node_type": "character",
+      "description": "An ally in the battle who pulls a torch from Bonogo's pack, casts Leadership, and is later dispatched with a scroll to the Mages College at Stormspire Academy.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:68-68",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:68-68",
+          "anchor_quotes": [
+            "Lesandra, barely able to fight back, pulls a torch from Bonogo\u2019s pack and casts Leadership on him"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "Lesandra is dispatched with one of the scrolls, heading to the Mages College at Stormspire Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:corrupted-meat-mound",
+      "label": "Corrupted Meat Mound",
+      "node_type": "character",
+      "description": "A large disgusting meat creature killed by Bonogo in the battle; its severed chunks birth smaller Corrupted Meat Piles.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "anchor_quotes": [
+            "he kills one of large disgusting meat creatures - a Corrupted Meat Mound"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "anchor_quotes": [
+            "Caelynn is forming a spell to cast Snowball it splashes against the Meat Mound and both Meat Pilese"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:corrupted-meat-pile",
+      "label": "Corrupted Meat Pile",
+      "node_type": "character",
+      "description": "Smaller meat creatures that break off from the Corrupted Meat Mound when damaged; they crawl toward racks of meat and disappear inside.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "anchor_quotes": [
+            "a chunk of meat falls off to the ground to form a smaller creature - a Corrupted Meat Pile",
+            "It quickly crawls toward the nearest rack of meat and disappears inside"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "anchor_quotes": [
+            "no new Meat Piles break off"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:captain-fairfield",
+      "label": "Captain Fairfield",
+      "node_type": "character",
+      "description": "Named by the cultists as the person they work for, uncovered when Stafl and Karsemine confront them in disguise.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "anchor_quotes": [
+            "The cultists are working for Captain Fairfield"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:captain-blart",
+      "label": "Captain Blart",
+      "node_type": "character",
+      "description": "Named by the cultists as coordinating the meat distribution at the central office.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "anchor_quotes": [
+            "Captain Blart is coordinating the meat distribution at the central office"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:candidate:grit-and-grime",
+      "label": "Grit and Grime",
+      "node_type": "location",
+      "description": "An inn/establishment in the city owned by Grobnok the Goblin, who also sits on the city council; the party rests here and a runner is sent here to summon them to the council.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "anchor_quotes": [
+            "Grobnok the Goblin owner of the Grit and Grime"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:44-44",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:44-44",
+          "anchor_quotes": [
+            "A runner is sent to the Grit and Grime where the players are resting."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:candidate:mages-college",
+      "label": "Mages College",
+      "node_type": "location",
+      "description": "A college of mages located at Stormspire Academy, where Lesandra is dispatched with one of the strange scrolls.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "heading to the Mages College at Stormspire Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:candidate:prison",
+      "label": "Prison",
+      "node_type": "location",
+      "description": "An underground prison reached via tunnels, packed with humans and cultists leading another feasting ritual; Bonogo and Karsemine bar its door to protect the prisoners.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "anchor_quotes": [
+            "They arrive at a prison packed with humans and cultists leading another feasting ritual."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:candidate:junction",
+      "label": "Junction",
+      "node_type": "location",
+      "description": "An underground junction where meat is being packed and loaded into carts amid a crowd of workers, guards and carts; the party sneaks past using Minor Illusion.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "anchor_quotes": [
+            "At the next junction the party finds where meat is being packedand loaded into carts."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "anchor_quotes": [
+            "Caelynn casts Minor Illusion to have the tunnel appear normal as the party sneaks past."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:candidate:central-office",
+      "label": "Central Office",
+      "node_type": "location",
+      "description": "Underground location where Captain Blart is coordinating the meat distribution.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "anchor_quotes": [
+            "Captain Blart is coordinating the meat distribution at the central office"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:candidate:mountain-gate",
+      "label": "Mountain Gate",
+      "node_type": "location",
+      "description": "One of two possible paths the party must choose between at the end of the session, alongside the Docks.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "anchor_quotes": [
+            "to the Mountain Gate or to the Docks"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:candidate:docks",
+      "label": "Docks",
+      "node_type": "location",
+      "description": "One of two possible paths the party must choose between at the end of the session, alongside the Mountain Gate.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "anchor_quotes": [
+            "to the Mountain Gate or to the Docks"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:candidate:underground-tunnels",
+      "label": "Underground Tunnels",
+      "node_type": "location",
+      "description": "A network of tunnels beneath the city, riddled with traps, connecting the inner room to a prison and onward to a junction where meat is packed; the party navigates them.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "anchor_quotes": [
+            "Bonogo takes point and directs the party around tunnel after tunnel of traps."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:22-22",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:22-22",
+          "anchor_quotes": [
+            "## Explore tunnels"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "searching the room reveals a second underground entrance"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:city-guard-leadership",
+      "label": "City Guard Leadership",
+      "node_type": "organization",
+      "description": "The leadership of the city guard, which is unaware it is being manipulated by the Wolf (second in command) and is ensorceled to remain ignorant and magically resistant to believing anything is wrong with the Guard.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "anchor_quotes": [
+            "The leader of the Guard has no idea they are being manipulated by the Wolf, they are innocent but ensorceled to be ignorant. They will be magically resistant to believing anything is wrong with the Guard."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:32-32",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:32-32",
+          "anchor_quotes": [
+            "How the city guard starts to deal with corruption of the guard."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:wizards-college",
+      "label": "The Wizard's College",
+      "node_type": "organization",
+      "description": "An institution of wizards that the players activated, which reacts to the corrupted meat, possesses a spell to detect the meat, and may convene the city council; Lesandra is dispatched to the Mages College at Stormspire Academy.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "anchor_quotes": [
+            "The players have explicitly activated the wizards college"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:34-34",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:34-34",
+          "anchor_quotes": [
+            "How the wizard's college reacts to the meat."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:48-48",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:48-48",
+          "anchor_quotes": [
+            "The wizards have a spell to detect the meat."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:42-42",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:42-42",
+          "anchor_quotes": [
+            "So maybe the wizards convene the city council."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:cultist-distribution-network",
+      "label": "Cultist Meat Distribution Network",
+      "node_type": "faction",
+      "description": "The cultists packing and loading corrupted meat into carts, with workers, guards and carts at the junction; they work for Captain Fairfield, with Captain Blart coordinating meat distribution at the central office and the rioter Lyra leading the distribution project.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "anchor_quotes": [
+            "Where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts.",
+            "The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:50-50",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:50-50",
+          "anchor_quotes": [
+            "The players become one of many covert ops teams to find the meat, capture or disable cultists."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:covert-ops-teams",
+      "label": "Covert Ops Teams",
+      "node_type": "group",
+      "description": "Multiple covert operations teams, of which the players become one, tasked with finding the corrupted meat and capturing or disabling cultists.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:50-50",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:50-50",
+          "anchor_quotes": [
+            "The players become one of many covert ops teams to find the meat, capture or disable cultists."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:corrupted-meat",
+      "label": "Corrupted Meat",
+      "node_type": "item",
+      "description": "A corrupting substance distributed by cultists, already spread to places and central to the city-wide BBQ threat.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:26-26",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:26-26",
+          "anchor_quotes": [
+            "There is real pressure to deal with the cultist meat, it's already been distributed to places."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:torch",
+      "label": "Torch",
+      "node_type": "item",
+      "description": "A torch pulled from Bonogo's pack and used to ignite oil on the meat rack during the battle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:68-68",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:68-68",
+          "anchor_quotes": [
+            "pulls a torch from Bonogo\u2019s pack"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:72-72",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:72-72",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:72-72",
+          "anchor_quotes": [
+            "tosses the torch to start a blaze"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:strange-scroll",
+      "label": "Scroll in a strange language",
+      "node_type": "item",
+      "description": "A scroll found while looting cultists, written in something like Abyssal; a copy was sent to the Mages College at Stormspire Academy.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "a scroll in a strange language"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "written in something like Abyssal"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:detect-meat-spell",
+      "label": "Spell to detect the meat",
+      "node_type": "item",
+      "description": "A wizard spell capable of detecting the corrupted meat, mentioned as a potential tool for the city's response.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:48-48",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:48-48",
+          "anchor_quotes": [
+            "The wizards have a spell to detect the meat."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:lockpicking-opportunities",
+      "label": "High difficulty locks",
+      "node_type": "item",
+      "description": "Anticipated high-difficulty locks for the party to pick during the next session's covert operations.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:52-52",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:52-52",
+          "anchor_quotes": [
+            "opportunities for lock picking of a high difficulty"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:corrupted-meat-distribution",
+      "label": "Corrupted Meat Distribution",
+      "node_type": "mystery",
+      "description": "Cultist-corrupted meat has already been distributed across the city, and a citywide BBQ begins in the morning; the party must prevent mass corruption.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:26-26",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:26-26",
+          "anchor_quotes": [
+            "There is real pressure to deal with the cultist meat, it's already been distributed to places. There is a city wide BBQ that starts in the morning."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:wolf-guard-corruption",
+      "label": "The Wolf's Guard Corruption",
+      "node_type": "mystery",
+      "description": "The Wolf, second-in-command of the guard, is a cultist; the innocent guard leader is ensorcelled to be ignorant and magically resistant to believing anything is wrong with the Guard.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "anchor_quotes": [
+            "The Wolf who is the second in command of the guard and a cultist is also alerted to the party. The leader of the Guard has no idea they are being manipulated by the Wolf, they are innocent but ensorceled to be ignorant. They will be magically resistant to believing anything is wrong with the Guard."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:32-32",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:32-32",
+          "anchor_quotes": [
+            "How the city guard starts to deal with corruption of the guard."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:torbin-meat-corruption",
+      "label": "Torbin's Affliction by the Meat",
+      "node_type": "mystery",
+      "description": "Torbin has been affected by the corrupted meat; the nature and extent of the effect is unresolved.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:36-36",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:36-36",
+          "anchor_quotes": [
+            "How Torbin has been affected by the meat."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:second-underground-entrance",
+      "label": "Second Underground Entrance",
+      "node_type": "mystery",
+      "description": "Looting the cultists and searching the room reveals a second underground entrance in addition to the already-known tunnels.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:abyssal-scroll",
+      "label": "Abyssal Scroll",
+      "node_type": "mystery",
+      "description": "A scroll in a strange language was found; Caelynn identifies it as something like Abyssal from other planes than this one. Its contents and purpose are unknown.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language. Caelynn\u2019s aptitude with languages allow her to know it is written in something like Abyssal from other planes than this one."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:prison-feasting-ritual",
+      "label": "Prison Feasting Ritual",
+      "node_type": "mystery",
+      "description": "The party finds a prison packed with humans and cultists leading another feasting ritual; the fate of the prisoners and the purpose of the ritual remain unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "anchor_quotes": [
+            "They arrive at a prison packed with humans and cultists leading another feasting ritual."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:cultist-operatives",
+      "label": "Cultist Operative Network",
+      "node_type": "mystery",
+      "description": "Disguised cultists reveal they work for Captain Fairfield, that Captain Blart coordinates meat distribution at the central office, and that rioter Lyra leads the distribution project.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "anchor_quotes": [
+            "The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:path-decision-mountain-gate-docks",
+      "label": "Fork: Mountain Gate or Docks",
+      "node_type": "mystery",
+      "description": "After sneaking past the junction via Caelynn's Minor Illusion, the party must decide whether to head toward the Mountain Gate or the Docks.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "anchor_quotes": [
+            "Now the party must decide which path to take next: to the Mountain Gate or to the Docks."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:meat-regen-weakness",
+      "label": "Meat Regeneration and Frost Weakness",
+      "node_type": "mystery",
+      "description": "Meat creatures spawn new piles when cut by normal damage and release poison clouds, but Caelynn's ice magic prevents new piles; the full mechanics and reason remain unclear.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "anchor_quotes": [
+            "Caelynn notices when attacking with the spell, no new Meat Piles break off. All other damage gushes a poisonous cloud."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:grobnok-owner-grit-and-grime",
+      "from_node_id": "candidate:grobnok",
+      "to_node_id": "location:candidate:grit-and-grime",
+      "label": "owner of",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "anchor_quotes": [
+            "Grobnok the Goblin owner of the Grit and Grime"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:the-wolf-manipulates-city-guard-leadership",
+      "from_node_id": "candidate:the-wolf",
+      "to_node_id": "candidate:city-guard-leadership",
+      "label": "manipulates",
+      "relationship_type": "controls_comms_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "anchor_quotes": [
+            "The leader of the Guard has no idea they are being manipulated by the Wolf"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:city-guard-leadership-unaware-of-wolf-corruption",
+      "from_node_id": "candidate:city-guard-leadership",
+      "to_node_id": "mystery:wolf-guard-corruption",
+      "label": "unaware of",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:28-28",
+          "anchor_quotes": [
+            "The leader of the Guard has no idea they are being manipulated by the Wolf"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wizards-college-reacts-to-corrupted-meat",
+      "from_node_id": "candidate:wizards-college",
+      "to_node_id": "item:corrupted-meat",
+      "label": "reacts to",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:34-34",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:34-34",
+          "anchor_quotes": [
+            "How the wizard's college reacts to the meat."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wizards-college-holds-detect-meat-spell",
+      "from_node_id": "candidate:wizards-college",
+      "to_node_id": "item:detect-meat-spell",
+      "label": "holds",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:48-48",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:48-48",
+          "anchor_quotes": [
+            "The wizards have a spell to detect the meat."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lesandra-travels-to-mages-college",
+      "from_node_id": "candidate:lesandra",
+      "to_node_id": "location:candidate:mages-college",
+      "label": "travels to",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "Lesandra is dispatched with one of the scrolls, heading to the Mages College at Stormspire Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lesandra-carries-strange-scroll",
+      "from_node_id": "candidate:lesandra",
+      "to_node_id": "item:strange-scroll",
+      "label": "carries",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "Lesandra is dispatched with one of the scrolls"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:corrupted-meat-mound-causes-corrupted-meat-pile",
+      "from_node_id": "candidate:corrupted-meat-mound",
+      "to_node_id": "candidate:corrupted-meat-pile",
+      "label": "causes spawning of",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "anchor_quotes": [
+            "a chunk of meat falls off to the ground to form a smaller creature - a Corrupted Meat Pile"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:corrupted-meat-pile-participates-in-meat-regen-weakness",
+      "from_node_id": "candidate:corrupted-meat-pile",
+      "to_node_id": "mystery:meat-regen-weakness",
+      "label": "subject of",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:64-64",
+          "anchor_quotes": [
+            "no new Meat Piles break off"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:captain-blart-coordinates-central-office",
+      "from_node_id": "candidate:captain-blart",
+      "to_node_id": "location:candidate:central-office",
+      "label": "coordinates distribution at",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "anchor_quotes": [
+            "Captain Blart is coordinating the meat distribution at the central office"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:cultist-distribution-network-distributes-corrupted-meat",
+      "from_node_id": "candidate:cultist-distribution-network",
+      "to_node_id": "item:corrupted-meat",
+      "label": "distributes",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "anchor_quotes": [
+            "meat is being packedand loaded into carts"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:prison-located-in-underground-tunnels",
+      "from_node_id": "location:candidate:prison",
+      "to_node_id": "location:candidate:underground-tunnels",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "anchor_quotes": [
+            "Bonogo takes point and directs the party around tunnel after tunnel of traps. They arrive at a prison"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:junction-located-in-underground-tunnels",
+      "from_node_id": "location:candidate:junction",
+      "to_node_id": "location:candidate:underground-tunnels",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "anchor_quotes": [
+            "At the next junction the party finds where meat is being packedand loaded into carts."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:covert-ops-teams-knows-about-corrupted-meat-distribution",
+      "from_node_id": "candidate:covert-ops-teams",
+      "to_node_id": "mystery:corrupted-meat-distribution",
+      "label": "mission focus",
+      "relationship_type": "mission_focus",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:50-50",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:50-50",
+          "anchor_quotes": [
+            "The players become one of many covert ops teams to find the meat, capture or disable cultists."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:abyssal-scroll-linked-to-cultist-operatives",
+      "from_node_id": "mystery:abyssal-scroll",
+      "to_node_id": "mystery:cultist-operatives",
+      "label": "linked to",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:second-underground-entrance-part-of-underground-tunnels",
+      "from_node_id": "mystery:second-underground-entrance",
+      "to_node_id": "location:candidate:underground-tunnels",
+      "label": "part of",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "Looting the cultists and searching the room reveals a second underground entrance"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:path-decision-includes-mountain-gate-and-docks",
+      "from_node_id": "mystery:path-decision-mountain-gate-docks",
+      "to_node_id": "location:candidate:mountain-gate",
+      "label": "includes path to",
+      "relationship_type": "path_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "anchor_quotes": [
+            "Now the party must decide which path to take next: to the Mountain Gate or to the Docks."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:path-decision-includes-docks",
+      "from_node_id": "mystery:path-decision-mountain-gate-docks",
+      "to_node_id": "location:candidate:docks",
+      "label": "includes path to",
+      "relationship_type": "path_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "anchor_quotes": [
+            "Now the party must decide which path to take next: to the Mountain Gate or to the Docks."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:prison-feasting-ritual-linked-to-prison",
+      "from_node_id": "mystery:prison-feasting-ritual",
+      "to_node_id": "location:candidate:prison",
+      "label": "linked to",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "anchor_quotes": [
+            "They arrive at a prison packed with humans and cultists leading another feasting ritual."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:high-difficulty-locks-part-of-covert-ops",
+      "from_node_id": "item:lockpicking-opportunities",
+      "to_node_id": "candidate:covert-ops-teams",
+      "label": "associated with",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:52-52",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:52-52",
+          "anchor_quotes": [
+            "I want there to be opportunities for lock picking of a high difficulty."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat:session-9:meat-monsters-fight",
+      "order": 1,
+      "title": "Battle with the Corrupted Meat Mounds",
+      "summary": "A fierce battle against corrupted meat creatures; attackers hack off chunks that become smaller Meat Piles, while poison clouds and fire spread, until the meat finally stills.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:62-62",
+          "anchor_quotes": [
+            "A fierce battle begins. Bonogo is first to strike, and he makes sure it counts."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:74-74",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:74-74",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:74-74",
+          "anchor_quotes": [
+            "Finally, surround by smoke and clouds of poisonous ichor, the meat all seems to have stilled."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-9:cultist-loot-and-scroll",
+      "order": 2,
+      "title": "Looting the Cultists and the Strange Scroll",
+      "summary": "After the battle, looting the cultists and searching the room uncovers a second underground entrance and a scroll in an Abyssal-like language; Lesandra is sent with it to the Mages College at Stormspire Academy.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:76-76",
+          "anchor_quotes": [
+            "Lesandra is dispatched with one of the scrolls, heading to the Mages College at Stormspire Academy."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-9:tunnel-traps-and-prison",
+      "order": 3,
+      "title": "Through the Trapped Tunnels to the Prison",
+      "summary": "Bonogo leads the party around tunnel after tunnel of traps to a prison packed with humans and cultists leading a feasting ritual; Bonogo and Karsemine sneak in, take out the three cultists, and bar the door to protect the prisoners.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "anchor_quotes": [
+            "Bonogo takes point and directs the party around tunnel after tunnel of traps."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:78-78",
+          "anchor_quotes": [
+            "Bonogo and Karsemine sneak in, and take out the three cultists, and bar the door hoping to protect the prisoners for a time."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-9:meat-packing-junction",
+      "order": 4,
+      "title": "Meat Packing at the Junction and Cultist Interrogation",
+      "summary": "At a junction the party finds meat being packed and loaded into carts among workers and guards, then confront disguised cultists who reveal they work for Captain Fairfield with Captain Blart coordinating distribution, while the rioter Lyra leads the distribution project nearby.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "anchor_quotes": [
+            "At the next junction the party finds where meat is being packedand loaded into carts."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:80-80",
+          "anchor_quotes": [
+            "The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-9:illusion-and-path-choice",
+      "order": 5,
+      "title": "Minor Illusion Past the Junction, Choosing the Next Path",
+      "summary": "After deliberation about the junction, Caelynn casts Minor Illusion to make the tunnel appear normal and the party sneaks past, then must decide between the Mountain Gate or the Docks.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "anchor_quotes": [
+            "Caelynn casts Minor Illusion to have the tunnel appear normal as the party sneaks past."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:82-82",
+          "anchor_quotes": [
+            "Now the party must decide which path to take next: to the Mountain Gate or to the Docks."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:party-names",
+      "label": "Party member names",
+      "reason": "Ambiguous surfaces (Bonogo, Stafl, Caelynn, Baergrom, Ephanna, Karsemine) are flagged as ignored per deterministic party anchors; not extracted as session-novel nodes.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:generic-fight",
+      "label": "Generic fight beat",
+      "reason": "The 'Fight' beat is too generic to constitute a distinct mystery, clue, warning, event, or thread.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:16-16",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:16-16",
+          "anchor_quotes": [
+            "Fight"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:generic-explore-tunnels",
+      "label": "Generic explore tunnels beat",
+      "reason": "The 'Explore tunnels' beat is a next-step signpost without an unresolved phenomenon, clue, or warning content.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:22-22",
+          "label": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94:span:ee4c45abbc94:22-22",
+          "anchor_quotes": [
+            "Explore tunnels"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

@@ -1,0 +1,1977 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-11:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-11",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-11:3bf37710bb26"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:headmaster-tinkerbright",
+      "label": "Headmaster Tinkerbright",
+      "node_type": "character",
+      "description": "Headmaster Tinkerbright heads the Wizard\u2019s College and presents a plan to magically lock down the city and use a rune to find the corrupted meat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:39-39",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:39-39",
+          "anchor_quotes": [
+            "Headmaster Tinkerbright - Head of the Wizard\u2019s College"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "anchor_quotes": [
+            "Headmaster Tinkerbright will be first to present his plan. He plans to magically lock the city down and use a rune to find the corrupted meat."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:thalia-ashenvale",
+      "label": "Commander Thalia Ashenvale",
+      "node_type": "character",
+      "description": "Commander Thalia Ashenvale commands the Guard and, after consulting with Wolf, argues the problem is overblown; she later comes to realize the true severity of the situation.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:41-41",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:41-41",
+          "anchor_quotes": [
+            "Commander Thalia Ashenvale - Commander of the Guard"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:63-63",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:63-63",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:63-63",
+          "anchor_quotes": [
+            "Thalia believes, after consulting with Wolf, that this \u201cproblem\u201d is overblown and that any issues should be handled by the guards."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "anchor_quotes": [
+            "Ephanna finally convinces Thalia to look at the eyes of all the guards. She now realizes how dire the situation truly is."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:torrin-flamescale",
+      "label": "Torrin Flamescale",
+      "node_type": "character",
+      "description": "Torrin Flamescale is the Master Smith and Representative of the Guilds on the Council, proposing to alert the entire city to find the meat and the Cultists.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:43-43",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:43-43",
+          "anchor_quotes": [
+            "Torrin Flamescale - Master Smith and Representative of the Guilds"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:65-65",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:65-65",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:65-65",
+          "anchor_quotes": [
+            "Torrin\u2019s plan is to alert the entire city and get everyone involved in finding the meat and the Cultists."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:merril-tealeaf",
+      "label": "Merril Tealeaf",
+      "node_type": "character",
+      "description": "Merril Tealeaf leads the Agricultural Union and proposes a plan involving purification for all members of the city; the party later convinces the Headmaster to combine plans with Merril.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:45-45",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:45-45",
+          "anchor_quotes": [
+            "Merril Tealeaf - Leader of the Agricultural Union"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:61-61",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:61-61",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:61-61",
+          "anchor_quotes": [
+            "Merril proposes a plant that involves purification to all members of the city."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:rurik-stonehammer",
+      "label": "Rurik Stonehammer",
+      "node_type": "character",
+      "description": "Rurik Stonehammer is the Chief Architect on the Council, proposing to activate the city defenses and lock everything down until all tainted meat is found and burned.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:47-47",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:47-47",
+          "anchor_quotes": [
+            "Rurik Stonehammer - Chief Architect"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:67-67",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:67-67",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:67-67",
+          "anchor_quotes": [
+            "Rurik has a plan to activate the city defenses and lock everything down until all the meat can be found and burned."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:council-headquarters",
+      "label": "Council Headquarters",
+      "node_type": "location",
+      "description": "The seat of the town Council, located in the very center of town in the original and oldest part of town, originally built as a defensive position of old stone; contains a large circular room where Council members meet.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "anchor_quotes": [
+            "The Council headquarters are in the very center of town. This is the original and oldest part of town and was originally a defensive position made of old stone.",
+            "a large circular room where they meet the other Council members"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:center-of-town",
+      "label": "Center of Town",
+      "node_type": "location",
+      "description": "The original and oldest part of the town, a defensive position made of old stone, in which the Council headquarters sits.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "anchor_quotes": [
+            "The Council headquarters are in the very center of town. This is the original and oldest part of town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:grit-and-grime",
+      "label": "Grit & Grime",
+      "node_type": "location",
+      "description": "Establishment owned by Grobnok; the party takes a one hour rest here during the early morning hours.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:26-27",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:26-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:26-27",
+          "anchor_quotes": [
+            "The party takes a one hour rest at the Grit & Grime."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:wizards-college",
+      "label": "Wizard's College",
+      "node_type": "location",
+      "description": "Institution headed by Headmaster Tinkerbright; Torbin is taken here after Stafl casts Sleep on him.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:39-39",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:39-39",
+          "anchor_quotes": [
+            "Headmaster Tinkerbright - Head of the Wizard\u2019s College"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:71-71",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:71-71",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:71-71",
+          "anchor_quotes": [
+            "he is taken to the Wizard college"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "anchor_quotes": [
+            "Headmaster Tinkerbright will be first to present his plan."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:guardhouses",
+      "label": "Guardhouses",
+      "node_type": "location",
+      "description": "Guard facilities located around the city; Barin proposes visiting each guardhouse to use magic runes to locate and dispose of the corrupted meat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:57-57",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:57-57",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:57-57",
+          "anchor_quotes": [
+            "going to each guardhouse and using magic runes to locate and dispose of the meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:tunnels",
+      "label": "Tunnels",
+      "node_type": "location",
+      "description": "A zone slated for future exploration, listed among the next beats.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:22-22",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:22-22",
+          "anchor_quotes": [
+            "## Explore tunnels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:candidate:guard",
+      "label": "The Guard",
+      "node_type": "faction",
+      "description": "City guard force led by Commander Thalia Ashenvale, with 8 guards, 2 elite guards, and Wolf stationed in the Council chamber; most guards' eyes show an oily sheen, and their commander initially dismisses the tainted-meat problem as overblown.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "anchor_quotes": [
+            "There are 8 guards, 2 elite guards, and standing at Thalia\u2019s shoulder is Wolf.",
+            "discovers all have an oily sheen to their eyes"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:63-63",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:63-63",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:63-63",
+          "anchor_quotes": [
+            "any issues should be handled by the guards"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:41-41",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:41-41",
+          "anchor_quotes": [
+            "Commander Thalia Ashenvale - Commander of the Guard"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:candidate:guilds",
+      "label": "The Guilds",
+      "node_type": "faction",
+      "description": "Collective of city guilds represented on the Council by Master Smith Torrin Flamescale.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:43-43",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:43-43",
+          "anchor_quotes": [
+            "Master Smith and Representative of the Guilds"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:candidate:agricultural-union",
+      "label": "Agricultural Union",
+      "node_type": "faction",
+      "description": "Organization led by Merril Tealeaf and represented on the Council; Merril proposes an agricultural-themed plan involving purification of all city members.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:45-45",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:45-45",
+          "anchor_quotes": [
+            "Merril Tealeaf - Leader of the Agricultural Union"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:61-61",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:61-61",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:61-61",
+          "anchor_quotes": [
+            "Merril proposes a plant that involves purification to all members of the city."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:paper-bird-summons",
+      "label": "Paper Bird Summons",
+      "node_type": "item",
+      "description": "A small magical paper bird that flew around Grobnok's head, carrying a summons for an emergency council meeting.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "anchor_quotes": [
+            "a small paper bird flies around Grobnok\u2019s head",
+            "The paper is a summons for an emergency council meeting"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:magic-rune",
+      "label": "Magic Rune",
+      "node_type": "item",
+      "description": "A rune proposed to magically locate the corrupted meat; a key element of the combined plan to covertly find the tainted meat and the Cultists.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "anchor_quotes": [
+            "use a rune to find the corrupted meat"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:57-57",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:57-57",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:57-57",
+          "anchor_quotes": [
+            "using magic runes to locate and dispose of the meat"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "anchor_quotes": [
+            "use the magic runes to locate the meat and the Cultists"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:poitions-from-merril",
+      "label": "Potions from Merril",
+      "node_type": "item",
+      "description": "Potions supplied by Merril, used to purify anyone affected by the corrupted meat while at the festival.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "anchor_quotes": [
+            "use the potions from Merril to purify anyone while at the festival"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:dagger",
+      "label": "Dagger",
+      "node_type": "item",
+      "description": "A dagger used by Bonogo to attack Wolf from behind in a flash, dealing major damage.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "anchor_quotes": [
+            "with a flash of a dagger, Bonogo attacks Wolf from behind"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:oily-sheen-eyes",
+      "label": "Oily Sheen in Guards' Eyes",
+      "node_type": "mystery",
+      "description": "All 8 guards and 2 elite guards, including Wolf, have an oily sheen to their eyes, suggesting corruption or mind control. Thalia does not share this condition.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "anchor_quotes": [
+            "oily sheen to their eyes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:torbin-shepherd-whispers",
+      "label": "Torbin's Compulsion: 'The Shepherd Must Rise'",
+      "node_type": "mystery",
+      "description": "Torbin bursts in screaming phrases about being called and the Shepherd rising, suggesting an external compulsion or cult influence.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:71-71",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:71-71",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:71-71",
+          "anchor_quotes": [
+            "They are calling me",
+            "The Shepherd must rise"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:council-emergency-meeting",
+      "label": "Emergency Council Meeting Called by Paper Bird",
+      "node_type": "event",
+      "description": "A small paper bird summons Grobnok to an emergency council meeting at 2:30am, where the party is brought along.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "anchor_quotes": [
+            "a small paper bird flies around Grobnok\u2019s head"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:plan-vote-compromise",
+      "label": "Party's Covert Plan Wins Council Vote",
+      "node_type": "event",
+      "description": "The party combines plans from Tinkerbright and Merril, gaining votes from Barin and Grobnok, to convince the Mayor to use magic runes covertly and purification potions at the festival.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "anchor_quotes": [
+            "using a covert approach they will use the magic runes to locate the meat and the Cultists",
+            "use the potions from Merril to purify anyone while at the festival"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:bonogo-attacks-wolf",
+      "label": "Bonogo Ambushes Wolf",
+      "node_type": "event",
+      "description": "With a flash of a dagger, Bonogo attacks Wolf from behind as part of a plan involving Thalia, Caelynn, and Stafl.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "anchor_quotes": [
+            "Bonogo attacks Wolf from behind, dealing major damage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:ephemeral-tunnel-exploration",
+      "label": "Upcoming Tunnel Exploration",
+      "node_type": "event",
+      "description": "The next beats indicate an exploration of tunnels, possibly related to the cultists or the city's defenses.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:22-22",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:22-22",
+          "anchor_quotes": [
+            "Explore tunnels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:tinkerbright-heads-wizards-college",
+      "from_node_id": "candidate:headmaster-tinkerbright",
+      "to_node_id": "location:wizards-college",
+      "label": "heads",
+      "relationship_type": "governs",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:39-39",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:39-39",
+          "anchor_quotes": [
+            "Headmaster Tinkerbright - Head of the Wizard\u2019s College"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:thalia-commands-guard",
+      "from_node_id": "candidate:thalia-ashenvale",
+      "to_node_id": "faction:candidate:guard",
+      "label": "commands",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:41-41",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:41-41",
+          "anchor_quotes": [
+            "Commander Thalia Ashenvale - Commander of the Guard"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:torrin-represents-guilds",
+      "from_node_id": "candidate:torrin-flamescale",
+      "to_node_id": "faction:candidate:guilds",
+      "label": "represents the guilds",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:43-43",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:43-43",
+          "anchor_quotes": [
+            "Master Smith and Representative of the Guilds"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:merril-leads-agricultural-union",
+      "from_node_id": "candidate:merril-tealeaf",
+      "to_node_id": "faction:candidate:agricultural-union",
+      "label": "leads",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:45-45",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:45-45",
+          "anchor_quotes": [
+            "Merril Tealeaf - Leader of the Agricultural Union"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:council-hq-located-in-center-of-town",
+      "from_node_id": "location:council-headquarters",
+      "to_node_id": "location:center-of-town",
+      "label": "located in the center of town",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "anchor_quotes": [
+            "The Council headquarters are in the very center of town."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:paper-bird-announces-council-meeting",
+      "from_node_id": "item:paper-bird-summons",
+      "to_node_id": "event:council-emergency-meeting",
+      "label": "announces emergency meeting",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "anchor_quotes": [
+            "The paper is a summons for an emergency council meeting"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:council-meeting-held-at-hq",
+      "from_node_id": "event:council-emergency-meeting",
+      "to_node_id": "location:council-headquarters",
+      "label": "held at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "anchor_quotes": [
+            "The Council headquarters are in the very center of town."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:merril-supplies-potions",
+      "from_node_id": "candidate:merril-tealeaf",
+      "to_node_id": "item:poitions-from-merril",
+      "label": "supplies potions",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "anchor_quotes": [
+            "use the potions from Merril to purify anyone while at the festival"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:guard-afflicted-oily-sheen",
+      "from_node_id": "faction:candidate:guard",
+      "to_node_id": "mystery:oily-sheen-eyes",
+      "label": "guards show oily sheen",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "anchor_quotes": [
+            "discovers all have an oily sheen to their eyes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:thalia-unaffected-oily-sheen",
+      "from_node_id": "candidate:thalia-ashenvale",
+      "to_node_id": "mystery:oily-sheen-eyes",
+      "label": "does not share the condition",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "anchor_quotes": [
+            "However, they see that Thalia does not."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:torrin-present-at-council-hq",
+      "from_node_id": "candidate:torrin-flamescale",
+      "to_node_id": "location:council-headquarters",
+      "label": "attends at headquarters",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "anchor_quotes": [
+            "where they meet the other Council members"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:merril-present-at-council-hq",
+      "from_node_id": "candidate:merril-tealeaf",
+      "to_node_id": "location:council-headquarters",
+      "label": "attends at headquarters",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "anchor_quotes": [
+            "where they meet the other Council members"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:rurik-present-at-council-hq",
+      "from_node_id": "candidate:rurik-stonehammer",
+      "to_node_id": "location:council-headquarters",
+      "label": "attends at headquarters",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "anchor_quotes": [
+            "where they meet the other Council members"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:thalia-present-at-council-hq",
+      "from_node_id": "candidate:thalia-ashenvale",
+      "to_node_id": "location:council-headquarters",
+      "label": "attends at headquarters",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "anchor_quotes": [
+            "where they meet the other Council members"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:tinkerbright-present-at-council-hq",
+      "from_node_id": "candidate:headmaster-tinkerbright",
+      "to_node_id": "location:council-headquarters",
+      "label": "attends at headquarters",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "anchor_quotes": [
+            "where they meet the other Council members"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:tinkerbright-cooperates-with-merril",
+      "from_node_id": "candidate:headmaster-tinkerbright",
+      "to_node_id": "candidate:merril-tealeaf",
+      "label": "combines plans with Merril",
+      "relationship_type": "cooperates_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "anchor_quotes": [
+            "They meet with the Headmaster and convince him to combine plans with Merril."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat:session-11-opening-recap",
+      "order": 1,
+      "title": "Midnight Recap and One-Hour Rest at the Grit & Grime",
+      "summary": "The session opens at 2:30am with the party resting for one hour at the Grit & Grime before a 9am BBQ, with exhaustion set to hit at 6am.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:26-27",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:26-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:26-27",
+          "anchor_quotes": [
+            "currently it is 2:30am",
+            "The party takes a one hour rest at the Grit & Grime."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-paper-bird-summons",
+      "order": 2,
+      "title": "Paper Bird Summons Grobnok to Emergency Council Meeting",
+      "summary": "A small paper bird flies around Grobnok's head carrying a summons for an emergency council meeting, and Grobnok decides to bring the adventuring party along.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:29-29",
+          "anchor_quotes": [
+            "a small paper bird flies around Grobnok\u2019s head",
+            "a summons for an emergency council meeting",
+            "Grobnok decides it is best to take the adventuring party with him"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-council-headquarters-arrival",
+      "order": 3,
+      "title": "Party Enters Council Headquarters and Meets Council Members",
+      "summary": "The party is taken into the Council headquarters in the center of town, the oldest part of the city, and enters a large circular room to meet the other Council members.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:31-31",
+          "anchor_quotes": [
+            "The Council headquarters are in the very center of town.",
+            "a large circular room where they meet the other Council members"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-council-roster",
+      "order": 4,
+      "title": "Council Roster Introduced",
+      "summary": "The Council members are introduced: Elara Swiftwind as Mayor, Barin Coppergleam of the Copper and Quartz Inn, Grobnok FuckFight of the Grit and Grime, Headmaster Tinkerbright, Commander Thalia Ashenvale, Torrin Flamescale, Merril Tealeaf, and Rurik Stonehammer.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:33-33",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:33-33",
+          "anchor_quotes": [
+            "Elara Swiftwind - Mayor"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:35-35",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:35-35",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:35-35",
+          "anchor_quotes": [
+            "Barin Coppergleam - Proprietor of the Copper and Quartz Inn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:37-37",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:37-37",
+          "anchor_quotes": [
+            "Grobnok FuckFight - Owner of the Grit and Grime"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-guards-oily-eyes",
+      "order": 5,
+      "title": "Party Observes Oily Sheen in Guards' Eyes, Not Thalia's",
+      "summary": "The party notices a ring of guards along the wall\u20148 guards, 2 elite guards, and Wolf at Thalia's shoulder\u2014and discovers all have an oily sheen to their eyes except Thalia.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:49-49",
+          "anchor_quotes": [
+            "There are 8 guards, 2 elite guards, and standing at Thalia\u2019s shoulder is Wolf",
+            "all have an oily sheen to their eyes",
+            "they see that Thalia does not"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-elara-opens-meeting",
+      "order": 6,
+      "title": "Elara Opens Meeting and Explains Voting Procedure",
+      "summary": "Mayor Elara begins the meeting by asking Stafl (as Tans) about what the party has encountered in the city, then lays out how a plan will be chosen: each Council member presents a plan, voting rounds eliminate zero-vote plans, and a plan needs 60% to be chosen.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:51-51",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:51-51",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:51-51",
+          "anchor_quotes": [
+            "Elara, the Mayor, begins the meeting",
+            "Elara lays out the proceedings for how a plan will be chosen"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:53-53",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:53-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:53-53",
+          "anchor_quotes": [
+            "When one plan has 60% of the votes it will be chosen as the plan to move forward."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-tinkerbright-plan",
+      "order": 7,
+      "title": "Headmaster Tinkerbright Proposes Magical Lockdown and Rune",
+      "summary": "Headmaster Tinkerbright presents first, planning to magically lock the city down and use a rune to find the corrupted meat.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:55-55",
+          "anchor_quotes": [
+            "He plans to magically lock the city down and use a rune to find the corrupted meat."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-barin-plan",
+      "order": 8,
+      "title": "Barin Proposes Covert Guardhouse Operation",
+      "summary": "Barin proposes a covert operation going to each guardhouse and using magic runes to locate and dispose of the meat.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:57-57",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:57-57",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:57-57",
+          "anchor_quotes": [
+            "Barin proposes a much more covert operation going to each guardhouse",
+            "using magic runes to locate and dispose of the meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-grobnok-plan",
+      "order": 9,
+      "title": "Grobnok Proposes Guerrilla Goblins Search",
+      "summary": "Grobnok's plan uses guerrilla tactics and goblins to search out anyone involved and look for stored meat.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:59-59",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:59-59",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:59-59",
+          "anchor_quotes": [
+            "Grobnok\u2019s plan is to use guerilla tactics and use the goblins to search out anyone who may be involved"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-merril-plan",
+      "order": 10,
+      "title": "Merril Proposes City-Wide Purification Plant",
+      "summary": "Merril proposes a plant involving purification to all members of the city.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:61-61",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:61-61",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:61-61",
+          "anchor_quotes": [
+            "Merril proposes a plant that involves purification to all members of the city."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-thalia-plan",
+      "order": 11,
+      "title": "Thalia Downplays Threat After Consulting Wolf",
+      "summary": "Thalia, after consulting with Wolf, believes the problem is overblown and that guards should handle any issues.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:63-63",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:63-63",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:63-63",
+          "anchor_quotes": [
+            "Thalia believes, after consulting with Wolf, that this \u201cproblem\u201d is overblown",
+            "any issues should be handled by the guards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-torrin-plan",
+      "order": 12,
+      "title": "Torrin Proposes Alerting the Entire City",
+      "summary": "Torrin's plan is to alert the entire city and get everyone involved in finding the meat and the Cultists.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:65-65",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:65-65",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:65-65",
+          "anchor_quotes": [
+            "Torrin\u2019s plan is to alert the entire city and get everyone involved in finding the meat and the Cultists."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-rurik-plan",
+      "order": 13,
+      "title": "Rurik Proposes Activating City Defenses and Lockdown",
+      "summary": "Rurik has a plan to activate the city defenses and lock everything down until all the meat can be found and burned.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:67-67",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:67-67",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:67-67",
+          "anchor_quotes": [
+            "Rurik has a plan to activate the city defenses and lock everything down",
+            "until all the meat can be found and burned"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-party-coalition-plan",
+      "order": 14,
+      "title": "Party Coalition Plan Combines Runes and Purification Potions",
+      "summary": "The party crafts their own plan, convincing the Headmaster to combine plans with Merril and securing votes from Barin and Grobnok to convince the Mayor; they will covertly use magic runes to locate meat and Cultists, then use Merril's potions to purify anyone at the festival.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:69-69",
+          "anchor_quotes": [
+            "They meet with the Headmaster and convince him to combine plans with Merril.",
+            "Then with the votes from Barin and Grobnok they have enough to convince the Mayor",
+            "they will use the magic runes to locate the meat and the Cultists",
+            "use the potions from Merril to purify anyone while at the festival"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-torbin-shepherd-outburst",
+      "order": 15,
+      "title": "Torbin Bursts In Crying 'The Shepherd Must Rise'",
+      "summary": "Just as the plan is finalized, the Bartender from the Copper and Quartz bursts through the door carrying a screaming Torbin, who cries out phrases about being called and the Shepherd rising; Stafl casts Sleep on Torbin and he is taken to the Wizard college.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:71-71",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:71-71",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:71-71",
+          "anchor_quotes": [
+            "the Bartender from the Copper and Quartz bursts through the door carrying a screaming Torbin",
+            "\u201cThey are calling me\u201d, \u201cI need to go\u201d and \u201cThe Shepherd must rise\u201d",
+            "Stafl quickly casts Sleep on Torbin and he is taken to the Wizard college"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-thalia-realization-and-wolf-attack",
+      "order": 16,
+      "title": "Thalia Confronted with Truth; Bonogo Ambushes Wolf",
+      "summary": "After the commotion, Ephanna convinces Thalia to look at the guards' eyes, revealing how dire the situation is; Ephanna ushers council members out as Caelynn talks with Thalia, and Stafl distracts Wolf while Bonogo attacks Wolf from behind with a dagger, dealing major damage.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:73-73",
+          "anchor_quotes": [
+            "Ephanna finally convinces Thalia to look at the eyes of all the guards",
+            "She now realizes how dire the situation truly is",
+            "with a flash of a dagger, Bonogo attacks Wolf from behind, dealing major damage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-11-fight-looms",
+      "order": 17,
+      "title": "Group Braces for a Big Fight",
+      "summary": "With the attack on Wolf underway, the group is now in for a big fight.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:75-75",
+          "label": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:75-75",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-11:3bf37710bb26:span:3bf37710bb26:75-75",
+          "anchor_quotes": [
+            "Now the group is in for a big fight\u2026"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

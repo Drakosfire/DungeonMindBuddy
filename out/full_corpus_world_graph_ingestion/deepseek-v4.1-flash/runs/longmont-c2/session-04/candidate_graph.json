@@ -1,0 +1,2060 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-4:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-4",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-4:0263725f40f8"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:hagan",
+      "label": "Hagan",
+      "node_type": "character",
+      "description": "Fearsome Human Barbarian Druid who fights the team of Bonogo, Baergrom and Ogonob in a magical Tavern Brawl at the Colosseum of the Storm; transforms into a giant bear and is eventually knocked out.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "anchor_quotes": [
+            "they face off against a fearsome Human Barbarian Druid in a magical Tavern Brawl"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "anchor_quotes": [
+            "forcing Hagan to transform back into a human"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:gimble",
+      "label": "Gimble",
+      "node_type": "character",
+      "description": "Seasoned spellcaster who duels Ephanna in the Mage's Duel, casting Charm Person, Magic Missile, Shocking Touch, Shape Water and Gust.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:22-22",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:22-22",
+          "anchor_quotes": [
+            "paired against what looks like a very seasoned spellcaster named Gimble"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "anchor_quotes": [
+            "Gimble quickly cast Shape Water then propelled the water forward"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:drow-illusionist",
+      "label": "Drow Illusionist",
+      "node_type": "character",
+      "description": "Illusionist opponent Caelynn faces in the Mage's Duel, casting Hold Person, Gust, Mage Hand and other spells.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:22-22",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:22-22",
+          "anchor_quotes": [
+            "facing off against a Drow Illusionist"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "anchor_quotes": [
+            "The Drow casts Gust to try and push the pebble into Caelynn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:nameless-mage",
+      "label": "Nameless Mage",
+      "node_type": "character",
+      "description": "Unnamed mage defeated by a chair in the third match of the Mage's Duel, then the chair wins again in the last duel.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "anchor_quotes": [
+            "a chair beat a nameless mage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:wolf-manor",
+      "label": "Wolf Manor",
+      "node_type": "location",
+      "description": "A very rundown and ivy-covered manor in the outer ring, featuring a crypt, large garden, and a three-story manor with a conservatory, library, and master bedroom.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "the group decides to head to Wolf Manor to check out the house they have been given",
+            "a very rundown and ivy covered manor"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "the conservatory - a huge glass room with tarnished metal shutters",
+            "Meanwhile, Bonogo is in search of the master bedroom."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "The next room the group discovers is the library.",
+            "find the servants stairs leading up to the attic",
+            "discovering a storage room that leads into the kitchen"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:wolf-manor",
+      "label": "Wolf Manor",
+      "node_type": "item",
+      "description": "Rundown ivy-covered manor given to the party; features collapsed oak front doors with Wolf family emblem, tarnished statues, crypt, garden, and multiple dusty rooms.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "head to Wolf Manor to check out the house they have been given",
+            "a very rundown and ivy covered manor",
+            "the huge oak front doors, each featuring the emblem of the Wolf family"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:inner-city-ring",
+      "label": "Inner City Ring",
+      "node_type": "location",
+      "description": "The inner ring of the city, containing the Academy and the Council Headquarters.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "Outside the inner city ring, where you would find the Academy and the Council Headquarters"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:outer-city-ring",
+      "label": "Outer City Ring",
+      "node_type": "location",
+      "description": "An outer ring featuring a series of hills, originally a defensive position, now with very nice and old houses.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "is an outer ring featuring a series of hills",
+            "the outer ring now consists of very nice - and very old - houses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:the-shepherds-flock",
+      "label": "The Shepherd and his \u201cFlock\u201d",
+      "node_type": "faction",
+      "description": "Group led by the Shepherd; Stafl busked on the street hoping to gain intel on the Shepherd and his \u201cFlock\u201d.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "anchor_quotes": [
+            "Stafl begins busking on the street, hoping to gain some intel on the Shepherd and his \u201cFlock\u201d."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:shepherd-flock-intel",
+      "label": "The Shepherd and His Flock",
+      "node_type": "mystery",
+      "description": "Stafl busks on the street hoping to gain intel on the Shepherd and his 'Flock', an unresolved target of investigation.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "anchor_quotes": [
+            "hoping to gain some intel on the Shepherd and his \u201cFlock\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:wolf-family",
+      "label": "Wolf Family",
+      "node_type": "faction",
+      "description": "Old noble family whose rundown ivy-covered manor, crypt, garden, and emblem-bearing doors the group inherits; a ring featuring the Wolf sigil was found there.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "each featuring the emblem of the Wolf family",
+            "the group decides to head to Wolf Manor to check out the house they have been given"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "Karsemine sifts through the books until she finds one on the history of the manor and Wolf family."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:mage-duel-judges",
+      "label": "The Judges",
+      "node_type": "faction",
+      "description": "Panel officiating the Mage\u2019s Duel, awarding points each round for attacks landed and creative style.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "Judges will award points each round for attacks landed and for creative style."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "anchor_quotes": [
+            "The crowd, and the judges, go wild."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:conservatory-telescope",
+      "label": "Tarnished Telescope",
+      "node_type": "item",
+      "description": "Telescope in the conservatory, brought into view by a weathered crank; capped and revealed nothing useful at noon.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "A very old and weathered crank",
+            "turns a telescope into view",
+            "With a cap on the end of the telescope"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:conservatory-shutters-crank",
+      "label": "Weathered Crank",
+      "node_type": "item",
+      "description": "Old crank in the conservatory used by Caelynn, Karesemine, and Baergrom to open the tarnished metal shutters.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "A very old and weathered crank",
+            "opens the shutters"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:wolf-lockbox",
+      "label": "Lockbox",
+      "node_type": "item",
+      "description": "Lockbox found under the master bedroom bed; picked open to reveal a diary, old papers, a Wolf sigil ring, and family notes. Bonogo took the box.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "he finds a lockbox under the bed",
+            "discovers a diary, some old papers, an old ring featuring the Wolf sigil, and family notes",
+            "Bonogo takes the lockbox"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:wolf-diary",
+      "label": "Diary",
+      "node_type": "item",
+      "description": "Diary found inside the lockbox in the Wolf Manor master bedroom.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "discovers a diary, some old papers, an old ring featuring the Wolf sigil, and family notes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:wolf-sigil-ring",
+      "label": "Wolf Sigil Ring",
+      "node_type": "item",
+      "description": "Old ring bearing the Wolf sigil, found in the lockbox.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "an old ring featuring the Wolf sigil"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:manor-history-book",
+      "label": "Book on Manor and Wolf Family History",
+      "node_type": "item",
+      "description": "Book sifted from the library shelves by Karsemine detailing the history of the manor and the Wolf family.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "Karsemine sifts through the books until she finds one on the history of the manor and Wolf family"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:hidden-door-servants-stairs",
+      "label": "Hidden Door and Servants Stairs",
+      "node_type": "item",
+      "description": "Concealed door set off to the side of the library parlor, revealing servants stairs to the attic.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "The group does discover a \u201chidden\u201d door set off to the side and find the servants stairs leading up to the attic."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:dumbwaiter",
+      "label": "Dumbwaiter",
+      "node_type": "item",
+      "description": "Small lift in Wolf Manor that Bonogo rides down to the first floor, discovering a storage room leading to the kitchen.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "Bonogo rides the dumbwaiter back down to the first floor, discovering a storage room that leads into the kitchen."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:mage-duel-pebble",
+      "label": "Magical Pebble",
+      "node_type": "item",
+      "description": "Small pebble moved by spells during the second round of the Mage's Duel; Caelynn and Ephanna used it to hit opponents.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "anchor_quotes": [
+            "they had to use spells to push a small pebble and hit their opponent to score points",
+            "Caelynn casts Warding Wind and floats toward the opponent, hitting them with the pebble",
+            "the Fey teleports with the pebble behind Gimble and lands a hit"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:levitating-stone",
+      "label": "Erratic Levitating Stone",
+      "node_type": "item",
+      "description": "Stone used in the final round of the Mage's Duel, requiring stabilization.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "The final round is to stabilize an erratic levitating stone"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:tavern-brawl-arena",
+      "label": "Magical Tavern Brawl Arena",
+      "node_type": "item",
+      "description": "Arena in the Colosseum of the Storm transformed into a tavern for the second combat trial; includes tables, chairs, barstools, glasses, and darts.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "anchor_quotes": [
+            "a magical Tavern Brawl",
+            "the arena has been magically transformed into a tavern, complete with all the items normally found in a tavern - tables, chairs, barstools, glasses, and darts"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:darts",
+      "label": "Darts",
+      "node_type": "item",
+      "description": "Darts from the dart board used by Bonogo as thrown weapons in the tavern brawl.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "anchor_quotes": [
+            "grabs a dart from the dart board",
+            "throws the dart directly at Hagan\u2019s head"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "anchor_quotes": [
+            "Bonogo grabs a handful of darts and starts throwing."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:barstool-shield-club",
+      "label": "Barstool Shield and Club",
+      "node_type": "item",
+      "description": "Barstool broken by Baergrom to create a makeshift shield and club during the tavern brawl.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "anchor_quotes": [
+            "Baergrom grabs a barstool and breaks it to create a makeshift shield and club"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:broken-bottle-dagger",
+      "label": "Broken Bottle Dagger",
+      "node_type": "item",
+      "description": "Bottle broken by Bonogo and later Baergrom to serve as a makeshift dagger in the tavern brawl.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "anchor_quotes": [
+            "Bonogo then grabs a bottle from the bar. He breaks it then slashes at the bear",
+            "Baergrom also breaks a bottle into a makeshift dagger and attacks with both weapons"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "object:food-items",
+      "label": "Session Food Items",
+      "node_type": "item",
+      "description": "Real-world food enjoyed during the session: orange/cranberry scones, ham and potato soup, shepherd's bread, cheese and crackers, kettle chips, and cupcakes.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "anchor_quotes": [
+            "orange/cranberry scones, ham and potato soup, shepherd's bread, some cheese and crackers, kettle chips and cupcakes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:missing-guards",
+      "label": "Missing Guards Still Cause Unease",
+      "node_type": "mystery",
+      "description": "The guard explains that everyone in the city is still on edge about all the missing guards, an unresolved city-wide concern.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "everyone is still on edge about all the missing guards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:wolf-manor-lockbox-diary",
+      "label": "Wolf Manor Lockbox Diary and Papers",
+      "node_type": "mystery",
+      "description": "Bonogo finds a lockbox under the bed containing a diary, old papers, an old ring with the Wolf sigil, and family notes; their contents remain unexamined.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "discovers a diary, some old papers, an old ring featuring the Wolf sigil, and family notes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:wolf-manor-history-book",
+      "label": "Book on Wolf Family and Manor History",
+      "node_type": "mystery",
+      "description": "Karsemine finds a book on the history of the manor and Wolf family among the library, potentially holding unexplored lore.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "Karsemine sifts through the books until she finds one on the history of the manor and Wolf family"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:telescope-capped-secret",
+      "label": "Capped Telescope in Conservatory",
+      "node_type": "mystery",
+      "description": "The conservatory telescope has a cap on the end and near noon reveals nothing useful, suggesting a hidden purpose or timing-based function.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "With a cap on the end of the telescope, and it being close to noon, the telescope does not reveal anything useful"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-005",
+      "from_node_id": "object:wolf-diary",
+      "to_node_id": "object:wolf-lockbox",
+      "label": "diary found inside lockbox",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "discovers a diary, some old papers, an old ring featuring the Wolf sigil, and family notes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-006",
+      "from_node_id": "object:wolf-sigil-ring",
+      "to_node_id": "object:wolf-lockbox",
+      "label": "ring found inside lockbox",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "an old ring featuring the Wolf sigil"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-007",
+      "from_node_id": "object:wolf-sigil-ring",
+      "to_node_id": "faction:wolf-family",
+      "label": "ring bears Wolf family sigil",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "an old ring featuring the Wolf sigil"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-008",
+      "from_node_id": "faction:wolf-family",
+      "to_node_id": "location:wolf-manor",
+      "label": "Wolf family seat of manor",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "each featuring the emblem of the Wolf family"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "Karsemine sifts through the books until she finds one on the history of the manor and Wolf family"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-009",
+      "from_node_id": "location:wolf-manor",
+      "to_node_id": "location:outer-city-ring",
+      "label": "Wolf Manor in outer ring",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "the outer ring now consists of very nice - and very old - houses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-012",
+      "from_node_id": "location:wolf-manor",
+      "to_node_id": "object:wolf-manor",
+      "label": "Wolf Manor is the group's house",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "head to Wolf Manor to check out the house they have been given"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-015",
+      "from_node_id": "object:conservatory-telescope",
+      "to_node_id": "location:wolf-manor",
+      "label": "telescope in the conservatory",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "the conservatory - a huge glass room with tarnished metal shutters"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-016",
+      "from_node_id": "mystery:telescope-capped-secret",
+      "to_node_id": "object:conservatory-telescope",
+      "label": "capped telescope mystery",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "With a cap on the end of the telescope, and it being close to noon, the telescope does not reveal anything useful"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-018",
+      "from_node_id": "object:manor-history-book",
+      "to_node_id": "faction:wolf-family",
+      "label": "book about Wolf family",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "Karsemine sifts through the books until she finds one on the history of the manor and Wolf family"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-019",
+      "from_node_id": "object:hidden-door-servants-stairs",
+      "to_node_id": "location:wolf-manor",
+      "label": "hidden door and stairs within manor",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "The group does discover a \u201chidden\u201d door set off to the side and find the servants stairs leading up to the attic"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-020",
+      "from_node_id": "object:dumbwaiter",
+      "to_node_id": "location:wolf-manor",
+      "label": "dumbwaiter within manor",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "Bonogo rides the dumbwaiter back down to the first floor, discovering a storage room that leads into the kitchen"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-022",
+      "from_node_id": "mystery:shepherd-flock-intel",
+      "to_node_id": "faction:the-shepherds-flock",
+      "label": "intel target is Shepherd's Flock",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "anchor_quotes": [
+            "hoping to gain some intel on the Shepherd and his \u201cFlock\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-034",
+      "from_node_id": "candidate:hagan",
+      "to_node_id": "object:tavern-brawl-arena",
+      "label": "Hagan fights in tavern brawl arena",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "anchor_quotes": [
+            "they face off against a fearsome Human Barbarian Druid in a magical Tavern Brawl"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-035",
+      "from_node_id": "faction:mage-duel-judges",
+      "to_node_id": "object:mage-duel-pebble",
+      "label": "judges award points during pebble round",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "Judges will award points each round for attacks landed and for creative style"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-036",
+      "from_node_id": "candidate:nameless-mage",
+      "to_node_id": "object:levitating-stone",
+      "label": "nameless mage competed against chair",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "anchor_quotes": [
+            "a chair beat a nameless mage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-041",
+      "from_node_id": "object:conservatory-shutters-crank",
+      "to_node_id": "object:conservatory-telescope",
+      "label": "crank opens shutters revealing telescope",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "opens the shutters and turns a telescope into view"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-042",
+      "from_node_id": "mystery:wolf-manor-lockbox-diary",
+      "to_node_id": "object:wolf-lockbox",
+      "label": "lockbox contents mystery",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "discovers a diary, some old papers, an old ring featuring the Wolf sigil, and family notes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-046",
+      "from_node_id": "object:tavern-brawl-arena",
+      "to_node_id": "object:barstool-shield-club",
+      "label": "barstool from tavern arena",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "anchor_quotes": [
+            "complete with all the items normally found in a tavern - tables, chairs, barstools, glasses, and darts"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Stafl Busks for Intel and Gold on the Street",
+      "summary": "As the group heads toward the Acrobatics Extravaganza at the Glimmering Globe near noon, Stafl busks on the street to gather intel on the Shepherd and his Flock, earning 33 gold. Karsemine is disappointed to learn the event is a show, not a competition, until Ephanna convinces her to sneak in and participate. The other two find the back door open and meet Winna again, exasperated by their rule-bending.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:14-14",
+          "anchor_quotes": [
+            "Stafl begins busking on the street, hoping to gain some intel on the Shepherd and his \u201cFlock\u201d",
+            "Earning 33 gold in the process",
+            "Karsemine is very excited to participate, until she finds out that it is not a competition, but a show",
+            "they are greeted yet again by a familiar face behind a desk - Winna"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Forged Performer List Discovered by Wet Ink",
+      "summary": "While Karsemine performs acrobatic feats to distract Winna, Ephanna forges Karsemine\u2019s name onto the performer list. Winna initially feels relief that the name is listed, but notices the still-wet ink and kicks them out. A guard then confronts Stafl about busking without a permit; the group presents their badges, and the guard recognizes them as Questionable Company, saviors of the city, mentioning that everyone remains on edge about the missing guards.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "Winna notices the name on the list and is momentarily relieved that her name is on the list",
+            "Winna notices that the ink is still wet, proving that it was added",
+            "That\u2019s when a guard approaches Stafl. The guard is not happy about him performing without a permit",
+            "He immediately recognizes the group as the saviours of the city and explains that everyone is still on edge about all the missing guards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "The Group Explores Wolf Manor",
+      "summary": "The group travels to the rundown, ivy-covered Wolf Manor in the outer ring of hills near the Council Headquarters. The manor features collapsed outer sections, broken gates, tarnished statues, a crypt, and a garden. Inside they find three doors, only the first two unlocked. Caelynn begins searching for the conservatory.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "the group decides to head to Wolf Manor to check out the house they have been given",
+            "a very rundown and ivy covered manor",
+            "When they enter the manor they find 3 doors, but only the first two are unlocked. Caelynn is on a mission to find the door to the conservatory"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Caelynn Finds the Conservatory; Bonogo Ransacks the Master Bedroom",
+      "summary": "Caelynn climbs to the third floor and discovers the conservatory, where an old crank opens the shutters to reveal a telescope, though a cap and the near-noon sun render it useless. Meanwhile, Bonogo picks a locked door to find a dusty master bedroom with family paintings, ransacks it, and discovers a lockbox under the bed containing a diary, old papers, a signet ring, and family notes.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:18-18",
+          "anchor_quotes": [
+            "On the third floor she finds the conservatory - a huge glass room with tarnished metal shutters",
+            "With a cap on the end of the telescope, and it being close to noon, the telescope does not reveal anything useful",
+            "Bonogo is in search of the master bedroom",
+            "he finds a lockbox under the bed. Again he picks the lock and discovers a diary, some old papers, an old ring featuring the Wolf sigil, and family notes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Library and Attic Search; Cleanup via Unseen Servant",
+      "summary": "The group finds the library with a wall of books. Bonogo pulls all the books down looking for a secret lever, making a mess, while Karsemine finds a book on the manor\u2019s history. They discover a hidden servants\u2019 stair to the attic and a storage room via the dumbwaiter. Ephanna casts Unseen Servant to begin cleaning the manor as they leave.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "The next room the group discovers is the library",
+            "Bonogo rides the dumbwaiter back down to the first floor, discovering a storage room that leads into the kitchen",
+            "On their way out Ephanna casts Unseen Servant and assigns them the task of cleaning up as much of the manor as they can"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Mage\u2019s Duel Second Phase Begins",
+      "summary": "The group returns to the festival for the next round of the Mage\u2019s Duel. Stafl gives Bardic Inspiration to Ephanna and Caelynn. The phase consists of three rounds: a 1-on-1 duel to land two hits or disable the opponent, a 1-on-1 using spells to move a magical stone and hit the opponent, and a final round to stabilize an erratic levitating stone.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:20-20",
+          "anchor_quotes": [
+            "Now it is perfect timing to head back to the festival and get ready for the next round of the Mage\u2019s Duel",
+            "Stafl strums a little tune and gives some Bardic Inspiration to Ephanna and Caelynn",
+            "The first round is a 1 on 1 duel to land 2 hits or disable the opponent",
+            "The final round is to stabilize an erratic levitating stone"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Caelynn Defeats Drow Illusionist; Ephanna Loses to Gimble",
+      "summary": "Caelynn faces a Drow Illusionist and wins with Magic Missile, Counter Spell, and Thunderwave, scoring 7 to 2. Ephanna duels the seasoned caster Gimble; despite Bardic Inspiration helping resist Charm Person, Ephanna misses Witchbolt and Create Bonfire, losing 4 to 6.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:22-22",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:22-22",
+          "anchor_quotes": [
+            "Caelynn is up first - facing off against a Drow Illusionist",
+            "Caelynn easily wins the opening round with a score of 7 points to 2 points",
+            "Ephanna is up next - paired against what looks like a very seasoned spellcaster named Gimble",
+            "Ephanna loses the first round 4 points to 6 points"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-8",
+      "order": 8,
+      "title": "Second Match: Caelynn and Ephanna Both Win with Style",
+      "summary": "In the second match, Caelynn uses Dust Devil and Warding Wind to push the pebble and hit the Drow, winning 15 to 3. Ephanna summons a Fey that teleports the pebble behind Gimble and casts Darkness, then drops the pebble from above for a big win and maximum style points. The chair also wins its duel again.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:24-24",
+          "anchor_quotes": [
+            "Caelynn then casts Dust Devil in front of the stone and sends it flying at her opponent, landing a hit and major style points",
+            "She easily wins the round 15 points to 3 points",
+            "Ephanna conjures a Fey and the Fey teleports with the pebble behind Gimble and lands a hit",
+            "the judges award maximum style points and a big win for Ephanna"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-9",
+      "order": 9,
+      "title": "Combat Trials: Tavern Brawl Against Hagan",
+      "summary": "The team of Bonogo, Baergrom, and Ogonob faces a Human Barbarian Druid named Hagan in a magically transformed tavern arena. Hagan shoulder-charges Bonogo, who responds with darts and sneak attacks. Ogonob lands punches, triggering Hagan\u2019s transformation into a giant bear. Baergrom lands three of four punches, but the bear swipes Bonogo and uses the bar for cover.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:26-26",
+          "anchor_quotes": [
+            "the team - composed of Bonogo, Baergrom and Ogonob - face off against a fearsome Human Barbarian Druid in a magical Tavern Brawl",
+            "As soon as the fight starts Hagan rushes forward with a shoulder charge, smashes into Bonogo and knocks him prone",
+            "Ogonob flies into the fight with a series of punches, all landing for a great amount of damage, but triggering Hagan\u2019s transformation into a giant bear",
+            "The bear then jumps over to the other side of the bar to use it as cover"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-10",
+      "order": 10,
+      "title": "Bottles, Clubs, and Darts End the Brawl",
+      "summary": "Bonogo throws darts and later uses a broken bottle to slash the bear. Baergrom creates a makeshift shield and club from a barstool, then breaks a bottle into a dagger to attack. Ogonob lands a devastating final punch, bouncing Hagan\u2019s head off the floorboards and ending the fight. The recap closes with a list of delicious food items enjoyed.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:28-28",
+          "anchor_quotes": [
+            "Bonogo grabs a handful of darts and starts throwing",
+            "Baergrom grabs a barstool and breaks it to create a makeshift shield and club",
+            "Baergrom also breaks a bottle into a makeshift dagger and attacks with both weapons",
+            "Ogonob jumps on Hagan landing a devastating punch, bouncing Hagan\u2019s head off the floorboards and ending the fight"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [
+    {
+      "item_id": "deferred:missing-guards-investigation",
+      "label": "Investigate the missing guards",
+      "reason": "The city remains on edge about missing guards; no active leads or specific evidence presented in this session.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "label": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-4:0263725f40f8:span:0263725f40f8:16-16",
+          "anchor_quotes": [
+            "everyone is still on edge about all the missing guards"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Gather more information from city officials or witnesses in a future session."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

@@ -1,0 +1,3213 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-6:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-6",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-6:c4fe6d1592e9"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:cultist-priest",
+      "label": "Cultist Priest",
+      "node_type": "character",
+      "description": "Robed cultist leader inside the barn who speaks to the humans, begins a chant joined by the crowd, calls for an impure sacrifice, and raises a dagger to strike the twin goblin children before being incapacitated by Stafl's Hideous Laughter.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "The priest at the front of the barn begins to speak and each of the humans, including Lysandra, start eating the meat."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "With a final decree, the Cultist demands that someone impure is needed for a sacrifice and raises a dagger to strike down the goblin children.",
+            "Stafl, reacting quickly, casts Hideous Laughter on the priest and he falls to the ground laughing hysterically."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:cult-priest:longmont-c2:session-6",
+      "label": "Cultist Priest",
+      "node_type": "faction",
+      "description": "The priest leading the barn ritual. He begins to speak to the seated humans, chants joined by the crowd and the Dustwalker's music, demands an impure sacrifice, and raises a dagger to strike the goblin children before being incapacitated by Stafl's Hideous Laughter.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "The priest at the front of the barn begins to speak",
+            "the Cultist priest begins to chant, joined by each human in the crowd",
+            "the Cultist demands that someone impure is needed for a sacrifice and raises a dagger to strike down the goblin children"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "anchor_quotes": [
+            "Bonogo makes for the barn doors behind the priest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:cultist-sentry",
+      "label": "Stern Cultist Sentry",
+      "node_type": "character",
+      "description": "Stern-looking human in full Cultist garb who guards the dead-end tunnel entrance, demands the password, smiles when given the name Maelthor, and invites the group in while describing the evening's events and ritual.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "And standing there is a stern looking human in full Cultist garb demanding a password.",
+            "Quickly the group remembers the name \u201cMaelthor\u201d and the Cultist cracks a huge smile and invites them in - telling them all about the events of the evening: drinks, steaks to eat, music and at the end - a ritual."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:merchant-cultists",
+      "label": "Oily-Eyed Merchants",
+      "node_type": "character",
+      "description": "Group of about three merchants standing behind the Dustwalker at the party, with oily eyes, who chant along with the music and refuse drinks offered by Stafl.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "Ephanna, also still invisible, moves closer to what looks like a group or 3 merchants standing behind the Dustwalker.",
+            "Ephanna is able to see their oily eyes as they begin to chant along with the music."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:fleshborn",
+      "label": "Fleshborn",
+      "node_type": "creature",
+      "description": "Six cultists who explode and morph into hideous tentacled, toothy monsters in the barn; they absorb humans, attack Caelynn, Baergrom, Lysandra and Stafl with tentacles, grappling and dealing necrotic and psychic damage.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "As he finishes 6 Cultists sitting near the group explode and morph into hideous creatures with giant tentacles and large mouths filled with teeth - they become Fleshborn."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "anchor_quotes": [
+            "one of the horrible flesh monsters lashes out with a savage tentacle attack on Caelynn, Baergrom and one of the random humans that was nearby."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "anchor_quotes": [
+            "The monster leaps into the air and lands an attack with its long tentacles dealing psychic damage and pulling Stafl back to the ground."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:fleshborn:longmont-c2:session-6",
+      "label": "Fleshborn",
+      "node_type": "group",
+      "description": "Monstrous creatures that Cultists morph into, with giant tentacles and large mouths filled with teeth. They attack with savage tentacle strikes, grapple and absorb humans, and are tough enough to require major damage to hurt.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "6 Cultists sitting near the group explode and morph into hideous creatures with giant tentacles and large mouths filled with teeth - they become Fleshborn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "anchor_quotes": [
+            "one of the horrible flesh monsters lashes out with a savage tentacle attack",
+            "the human is pulled into the monster\u2019s body and absorbed"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "anchor_quotes": [
+            "The flesh monsters team up to attack the remaining humans and Lysandra",
+            "the humans are killed and absorbed just as before"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "anchor_quotes": [
+            "The flesh monsters corner Lysandra and Caelynn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:goblin-twins",
+      "label": "Twin Goblin Children",
+      "node_type": "character",
+      "description": "Twin goblin children brought into the barn in a cart by two robed Cultists and intended as the impure sacrifice until Stafl interrupts the priest with Hideous Laughter.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "Two robed Cultists walk down the center aisle with a cart - twin goblin children inside.",
+            "With a final decree, the Cultist demands that someone impure is needed for a sacrifice and raises a dagger to strike down the goblin children."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:rooftop",
+      "label": "Rooftop",
+      "node_type": "location",
+      "description": "A rooftop gathering space at the guardhouse where the Dustwalker performs and the party is held; scene of the initial antidote plan and the Charmed crowd.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "seeps into every inch of the rooftop",
+            "get the antidote to all the people at the party"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "Almost every person on the rooftop grabs a drink"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:basement",
+      "label": "Basement",
+      "node_type": "location",
+      "description": "The basement of the guardhouse, reached by descending stairs, from which the group enters the tunnels beneath the city.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "follow the large crowd headed down the stairs to the basement"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:back-alley",
+      "label": "Back Alley",
+      "node_type": "location",
+      "description": "The back alley behind the guardhouse where Baergrom takes the supposedly empty keg and discovers the still-invisible Bonogo.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "volunteers to take the \u201cempty\u201d keg down to the back alley"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:dead-end",
+      "label": "Tunnel Dead End",
+      "node_type": "location",
+      "description": "The point where the tunnel terminates at a dead end, guarded by a stern human in full Cultist garb who demands the password 'Maelthor'.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "the tunnel finally ends at what looks like a dead end",
+            "standing there is a stern looking human in full Cultist garb demanding a password"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:field",
+      "label": "Field Outside the City",
+      "node_type": "location",
+      "description": "A field outside the city containing a pond of float goats and a huge barn with spiral doors and gates, where roughly 30 cultist humans gather for a ritual.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "the tunnel opens up right into a field outside the city",
+            "complete with a pond of float goats and a huge barn with spiral doors and gates",
+            "heads for the far end of the field"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:barn",
+      "label": "Barn with Spiral Doors and Gates",
+      "node_type": "location",
+      "description": "A huge barn in the field outside the city, with spiral doors and gates, where the cult ritual and sacrifice are conducted and where the party fights the Fleshborn; it is set ablaze during the battle.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "a huge barn with spiral doors and gates",
+            "Bonogo sneaks up to a corner of the barn and pours out oil, then lights it on fire"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "The priest at the front of the barn begins to speak"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "anchor_quotes": [
+            "flutters up to the center of the barn",
+            "the barn is on fire and to make a run for it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:gates",
+      "label": "Spiral Gates",
+      "node_type": "location",
+      "description": "Spiral gates referenced as the destination the Charmed guards must seek, where the password 'Maelthor' is spoken; associated with the barn's spiral doors and gates.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "They must seek the spiral gates and speak the password: Maelthor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:cult:longmont-c2:session-6",
+      "label": "Cultists (Spiral Gate Cult)",
+      "node_type": "faction",
+      "description": "A cult operating through hidden tunnels leading out of the city, guarding a barn with spiral doors and gates outside the city. Members wear full Cultist garb and demand the password 'Maelthor'. They lure people with the Dustwalker's charmed music, gather roughly 30 humans, perform rituals involving eating meat and sacrificing the 'impure', and can transform into Fleshborn tentacled monsters. Led by a Cultist priest, they chant 'Dark Wispers' and act in coordinated groups.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "standing there is a stern looking human in full Cultist garb demanding a password",
+            "the Cultist cracks a huge smile and invites them in",
+            "a total of about 30 humans"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "Two robed Cultists walk down the center aisle with a cart - twin goblin children inside",
+            "the Cultist demands that someone impure is needed for a sacrifice",
+            "6 Cultists sitting near the group explode and morph into hideous creatures with giant tentacles and large mouths filled with teeth - they become Fleshborn",
+            "Other Cultists begin forming up around the party"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "anchor_quotes": [
+            "the Cultists outside move in and slam the doors shut",
+            "killing several Cultists"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "anchor_quotes": [
+            "The Cultists begin another round of Dark Wispers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:guards:longmont-c2:session-6",
+      "label": "Guardhouse Guards",
+      "node_type": "group",
+      "description": "The guards at the party at the guardhouse on the rooftop. They are at risk of transforming into monsters from the Dustwalker's mind-invading music, and the most are compelled by the charm song 'Shephard's Wake' to follow the large group to their 'meeting' at the spiral gates.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "something needs to be done to keep the guards from transforming into monsters"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "all the guards on the roof join in"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "compelled to follow the large group of guards to their \u201cmeeting\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:merchants:longmont-c2:session-6",
+      "label": "Three Merchants",
+      "node_type": "group",
+      "description": "A group of three merchants standing behind the Dustwalker. Ephanna observes their oily eyes as they chant along with the music, and they flatly refuse drinks offered by Stafl.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "moves closer to what looks like a group or 3 merchants standing behind the Dustwalker",
+            "Ephanna is able to see their oily eyes as they begin to chant along with the music",
+            "Stafl tries to bring them drinks, but they flat out refuse"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:slinkstone",
+      "label": "Slinkstone",
+      "node_type": "item",
+      "description": "A magical stone used by Bonogo to teleport; touching it allowed him to disappear and reappear inside the beer keg as part of his antidote-distribution plan.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "touching his Slinkstone he disappears only to appear again inside the keg!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:hearthwarden-shield",
+      "label": "Hearthwarden Shield",
+      "node_type": "item",
+      "description": "Baergrom's trusty shield, used to bash a flesh monster and knock it prone during the barn fight.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "anchor_quotes": [
+            "Baergrom draws his longsword and trusty Hearthwarden Shield"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:antidote",
+      "label": "Antidote",
+      "node_type": "item",
+      "description": "A substance meant to counteract the Dustwalker's mental influence; Bonogo distributed it through the beer keg, and Caelynn poured it into a drink to free Lysandra from the Charm.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "They must get the antidote to all the people at the party and the best way is through the beer"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "pours in the antidote for Lysandra"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:dustwalker_music_mind_invasion",
+      "label": "Dustwalker's music invades minds and enchants listeners",
+      "node_type": "mystery",
+      "description": "The Dustwalker's music seeps into every inch of the rooftop and invades the mind; parchments appear promising enlightenment to true believers, and guards' eyes show they are being transformed into monsters.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "The Dustwalker\u2019s music not only seeps into every inch of the rooftop, it also seems to invade the mind.",
+            "Little parchments begin floating around proclaiming that any true believer should stick around after the party for a chance to be enlightened.",
+            "It is clear by looking at all the eyes that something needs to be done to keep the guards from transforming into monsters."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:shepherds_wake_charm",
+      "label": "\"Shephard's Wake\" song is a Charm spell",
+      "node_type": "mystery",
+      "description": "\"Shephard's Wake\" is revealed to be no ordinary song but a Charm; Stafl is caught in the spell and compelled to follow the guards to a meeting, and Lysandra is also caught up.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "Immediately Stafl and Ephanna can tell that this is no ordinary song, it\u2019s a Charm.",
+            "Stafl is caught in the spell and is compelled to follow the large group of guards to their \u201cmeeting\u201d.",
+            "Caelynn notices that Lysandra is also caught up in the spell."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:spiral_gate_password_maelthor",
+      "label": "Spiral gates and password \"Maelthor\"",
+      "node_type": "mystery",
+      "description": "Charmed guards must seek the spiral gates and speak the password \"Maelthor\"; later, at a dead end, a Cultist demands a password and the group remembers \"Maelthor\".",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "They must seek the spiral gates and speak the password: Maelthor."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "Quickly the group remembers the name \u201cMaelthor\u201d and the Cultist cracks a huge smile and invites them in"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:tunnel_to_field_outside_city",
+      "label": "Tunnels lead outside the city to a field and barn",
+      "node_type": "mystery",
+      "description": "The narrow tunnels branch with dark paths and slowly lead out of the city, ending at a dead end with a Cultist, then opening into a field outside the city with a pond of float goats and a huge barn with spiral doors and gates.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "Baergrom notices that the tunnels are slowly leading out of the city.",
+            "Then the tunnel opens up right into a field outside the city - complete with a pond of float goats and a huge barn with spiral doors and gates."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:ritual_and_goblin_sacrifice",
+      "label": "Cult ritual and planned sacrifice of twin goblin children",
+      "node_type": "mystery",
+      "description": "The Cultist priest describes events of the evening ending in a ritual; inside the barn, two robed Cultists bring a cart with twin goblin children, and the priest demands someone impure for a sacrifice and raises a dagger.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "telling them all about the events of the evening: drinks, steaks to eat, music and at the end - a ritual."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "Two robed Cultists walk down the center aisle with a cart - twin goblin children inside.",
+            "the Cultist demands that someone impure is needed for a sacrifice and raises a dagger to strike down the goblin children."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:fleshborn_transformation",
+      "label": "Cultists transform into Fleshborn tentacle monsters",
+      "node_type": "mystery",
+      "description": "As the Dustwalker finishes his monologue, six Cultists sitting near the group explode and morph into hideous creatures with giant tentacles and large mouths filled with teeth \u2014 they become Fleshborn.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "As he finishes 6 Cultists sitting near the group explode and morph into hideous creatures with giant tentacles and large mouths filled with teeth - they become Fleshborn.",
+            "Other Cultists begin forming up around the party, while the rest of the room goes into a panic as time starts to stutter."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:dustwalker_trap_monologue",
+      "label": "Dustwalker's trap monologue",
+      "node_type": "mystery",
+      "description": "The Dustwalker reveals he knew the Questionable Company was at the guardhouse party, knew they would follow the cultists to the barn, and that they would fall into his trap.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "he knew the Questionable Company was at the party at the guardhouse, he knew that we would follow the cultists to the barn, he knew they would fall right into his trap."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:time_stutter",
+      "label": "Time stutters during the barn confrontation",
+      "node_type": "mystery",
+      "description": "As the other Cultists form up around the party, the rest of the room goes into a panic as time starts to stutter.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "while the rest of the room goes into a panic as time starts to stutter."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:dark_wispers_chant",
+      "label": "Cultists perform Dark Wispers chant",
+      "node_type": "mystery",
+      "description": "The Cultists begin another round of Dark Wispers, which luckily has no effect on the party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "anchor_quotes": [
+            "The Cultists begin another round of Dark Wispers, luckily but still have no effect."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:barn_fire_spreading",
+      "label": "Barn fire grows and spreads",
+      "node_type": "mystery",
+      "description": "Bonogo pours oil and lights a fire in the barn corner; outside, the fire begins to grow, moving up the walls and spreading in every direction.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "Bonogo sneaks up to a corner of the barn and pours out oil, then lights it on fire."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "anchor_quotes": [
+            "Outside, the fire begins to grow - moving up the walls of the barn and spreading out in every direction."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:hideous_laughter_interrupts_sacrifice",
+      "label": "Stafl's Hideous Laughter interrupts the sacrifice",
+      "node_type": "mystery",
+      "description": "As the priest raises a dagger to sacrifice the goblin children, Stafl casts Hideous Laughter, causing the priest to fall to the ground laughing hysterically.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "Stafl, reacting quickly, casts Hideous Laughter on the priest and he falls to the ground laughing hysterically."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:lysdandra_charm_broken",
+      "label": "Caelynn breaks Lysandra's Charm",
+      "node_type": "mystery",
+      "description": "Caelynn pours the antidote into a drink for Lysandra and uses Shocking Grasp to knock her out of the Charmed effect, after which Lysandra comes to.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "Alarmed, Caelynn hurries to grab something to drink and pours in the antidote for Lysandra, then uses Shocking Grasp to knock her out of the Charmed effect."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:antidote_delivery_beer_keg",
+      "label": "Antidote delivered through the beer keg",
+      "node_type": "mystery",
+      "description": "Bonogo's plan uses a dart to puncture the beer keg, then uses a file to widen the hole; he touches his Slinkstone and disappears inside the keg to deliver the antidote through the beer.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "They must get the antidote to all the people at the party and the best way is through the beer.",
+            "he hands Stafl a dart and instructs him to miss the dartboard and hit the beer keg instead"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:slinkstone_teleport",
+      "label": "Slinkstone teleportation",
+      "node_type": "mystery",
+      "description": "Bonogo touches his Slinkstone and disappears only to appear again inside the keg.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "touching his Slinkstone he disappears only to appear again inside the keg!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:beer_stops_flowing",
+      "label": "Beer stops flowing after Bonogo enters keg",
+      "node_type": "mystery",
+      "description": "Stafl pieces together where Bonogo went when he saw the beer stop flowing, knowing the antidote was only going to be from this keg.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "only pieced it together when he saw the beer stop flowing."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:oily_eyes_merchants_chanting",
+      "label": "Merchants with oily eyes chant along",
+      "node_type": "mystery",
+      "description": "Ephanna moves closer to a group of 3 merchants behind the Dustwalker and sees their oily eyes as they begin to chant along with the music.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "Ephanna is able to see their oily eyes as they begin to chant along with the music."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:bugbear_aftertaste",
+      "label": "Bugbear aftertaste in the beer",
+      "node_type": "mystery",
+      "description": "The antidote-laced beer has an interesting Bugbear aftertaste.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "along with an interesting Bugbear aftertaste"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:baergrom_volunteers_keg",
+      "label": "Baergrom volunteers to take the \"empty\" keg",
+      "node_type": "mystery",
+      "description": "Baergrom seemingly out of kindness volunteers to take the \"empty\" keg down to the back alley, where he finds only beer but a strong smell of wet \"something\" indicating Bonogo is still invisible.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "Baergrom, seemingly out of the kindness of his heart, volunteers to take the \u201cempty\u201d keg down to the back alley.",
+            "When he removes the top he only finds beer, but a strong smell of wet \u201csomething\u201d tells him that Bonogo is still invisible."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:bonogo_hides_dark_branch",
+      "label": "Bonogo hides in a dark tunnel branch",
+      "node_type": "mystery",
+      "description": "Bonogo pops out of thin air as his Invisibility ends, but uses one of the dark branches and successfully hides from the cult group.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "Bonogo pops out of thin air, the Invisibility spell that was cast on him abruptly ending.",
+            "he uses one of the dark branches and successfully hides from the rest of the cult group."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:karsemine_trips_stafl",
+      "label": "Karsemine trips Stafl to break the Charm",
+      "node_type": "mystery",
+      "description": "Karsemine, determined to remove the Charm on Stafl, trips him as a form of attack, but did not expect to leave him with a bloody nose.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "Karsemin, determined to remove the Charm on Stafl, trips him as a form of attack, however she did not expect to leave him with a bloody nose."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:bonogo_fire_and_door",
+      "label": "Bonogo starts fire and slams barn doors",
+      "node_type": "mystery",
+      "description": "Bonogo sneaks to a corner of the barn, pours oil and lights it on fire; later he pushes the cart back into the barn and slams the doors shut.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "Bonogo sneaks up to a corner of the barn and pours out oil, then lights it on fire."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "anchor_quotes": [
+            "he pushes the cart back into the barn and then slams the doors shut."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:stafl_song_of_shattering",
+      "label": "Stafl plays Song of Shattering",
+      "node_type": "mystery",
+      "description": "Stafl reveals his wings, flies to the center of the barn, pulls out the Peacemaker Fiddle, and plays the Song of Shattering, damaging and disorienting every Cultist and monster in the barn.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "anchor_quotes": [
+            "With a huge burst of light, Stafl reveals his wings, flies up to the center of the barn and pulls out the Peacemaker Fiddle and plays the Song of Shattering.",
+            "Every Cultist and monster in the barn takes damage and becomes disoriented."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:caelynn_lightning_bolt",
+      "label": "Caelynn's Lightning Bolt blasts the barn",
+      "node_type": "mystery",
+      "description": "Caelynn floats back into position and unleashes a devastating Lightning Bolt from one end of the barn to the other, killing several Cultists, dealing major damage to the Fleshborn, huge damage to the Dustwalker, and blowing a hole out the other end of the barn.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "anchor_quotes": [
+            "Caelynn floats back into position and then unleashes a devastating Lightning Bolt in a line from one end of the barn to the other",
+            "blowing a hole out the other end of the barn."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:flesh_monsters_absorb_humans",
+      "label": "Flesh monsters kill and absorb humans",
+      "node_type": "mystery",
+      "description": "A flesh monster lashes out with a tentacle attack; the human is struck, killed, pulled into the monster's body, and absorbed. Later the flesh monsters team up to attack the remaining humans and Lysandra; the humans are killed and absorbed.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "anchor_quotes": [
+            "the human is pulled into the monster\u2019s body and absorbed."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "anchor_quotes": [
+            "the humans are killed and absorbed just as before."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:baergrom_locked_out",
+      "label": "Baergrom and Ephanna locked out of the barn",
+      "node_type": "mystery",
+      "description": "Just as Baergrom exits the barn, Cultists outside move in and slam the doors shut, locking Baergrom and Ephanna out and everyone else in.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "anchor_quotes": [
+            "the Cultists outside move in and slam the doors shut, locking Baergrom and Ephanna out and everyone else in."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:caelynn_and_lysdandra_grappled",
+      "label": "Caelynn and Lysandra grappled by flesh monsters",
+      "node_type": "mystery",
+      "description": "The flesh monsters corner Lysandra and Caelynn; in her weakened state Caelynn is grappled, and another monster also grapples Lysandra. Both are running dangerously low on health.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "anchor_quotes": [
+            "The flesh monsters corner Lysandra and Caelynn, attacking both for major damage and, in her weakened state, Caelynn is grappled.",
+            "Another monster attacks the pair, this time also grappling Lysandra."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:stafl_pulled_from_air",
+      "label": "Stafl pulled from the air by tentacles",
+      "node_type": "mystery",
+      "description": "The remaining monster leaps into the air and lands an attack with its long tentacles on Stafl, dealing psychic damage and pulling him back to the ground.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "anchor_quotes": [
+            "The monster leaps into the air and lands an attack with its long tentacles dealing psychic damage and pulling Stafl back to the ground."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "e:cult-priest:member-of-cult",
+      "from_node_id": "candidate:cultist-priest",
+      "to_node_id": "obs:cult:longmont-c2:session-6",
+      "label": "Cultist Priest is part of the Spiral Gate Cult",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "the Cultist priest begins to chant, joined by each human in the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:cult-priest:leads-cultists",
+      "from_node_id": "candidate:cultist-priest",
+      "to_node_id": "obs:cult:longmont-c2:session-6",
+      "label": "Cultist Priest leads the cult ritual",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "The priest at the front of the barn begins to speak",
+            "the Cultist priest begins to chant, joined by each human in the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:cult-priest:threatens-goblin-twins",
+      "from_node_id": "candidate:cultist-priest",
+      "to_node_id": "candidate:goblin-twins",
+      "label": "Cultist Priest threatens the twin goblin children with sacrifice",
+      "relationship_type": "threatens",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "the Cultist demands that someone impure is needed for a sacrifice and raises a dagger to strike down the goblin children"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:cult-priest:present-in-barn",
+      "from_node_id": "candidate:cultist-priest",
+      "to_node_id": "location:barn",
+      "label": "Cultist Priest is present in the barn",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "The priest at the front of the barn begins to speak"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:cultist-sentry:member-of-cult",
+      "from_node_id": "candidate:cultist-sentry",
+      "to_node_id": "obs:cult:longmont-c2:session-6",
+      "label": "Stern Cultist Sentry is part of the cult",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "standing there is a stern looking human in full Cultist garb demanding a password"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:cultist-sentry:present-at-dead-end",
+      "from_node_id": "candidate:cultist-sentry",
+      "to_node_id": "location:dead-end",
+      "label": "Cultist Sentry stands guard at the tunnel dead end",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "the tunnel finally ends at what looks like a dead end",
+            "standing there is a stern looking human in full Cultist garb demanding a password"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:merchant-cultists:present-at-rooftop",
+      "from_node_id": "candidate:merchant-cultists",
+      "to_node_id": "location:rooftop",
+      "label": "Oily-eyed merchants are present on the rooftop",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "moves closer to what looks like a group or 3 merchants standing behind the Dustwalker"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:merchant-cultists:belong-to-cult",
+      "from_node_id": "candidate:merchant-cultists",
+      "to_node_id": "obs:cult:longmont-c2:session-6",
+      "label": "Oily-eyed merchants chant along with the cult music",
+      "relationship_type": "belongs_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "Ephanna is able to see their oily eyes as they begin to chant along with the music"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:fleshborn:member-of-cult",
+      "from_node_id": "candidate:fleshborn",
+      "to_node_id": "obs:cult:longmont-c2:session-6",
+      "label": "Fleshborn are transformed cultists",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "As he finishes 6 Cultists sitting near the group explode and morph into hideous creatures with giant tentacles and large mouths filled with teeth - they become Fleshborn."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:fleshborn:located-in-barn",
+      "from_node_id": "candidate:fleshborn",
+      "to_node_id": "location:barn",
+      "label": "Fleshborn are inside the barn",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "anchor_quotes": [
+            "Every Cultist and monster in the barn takes damage and becomes disoriented"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:barn-part-of-field",
+      "from_node_id": "location:barn",
+      "to_node_id": "location:field",
+      "label": "Barn is part of the field outside the city",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "the tunnel opens up right into a field outside the city - complete with a pond of float goats and a huge barn with spiral doors and gates"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:gates-part-of-barn",
+      "from_node_id": "location:gates",
+      "to_node_id": "location:barn",
+      "label": "Spiral gates are part of the barn",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "a huge barn with spiral doors and gates"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:basement-sublocation-of-guardhouse",
+      "from_node_id": "location:basement",
+      "to_node_id": "location:rooftop",
+      "label": "Basement is reached from the guardhouse party upstairs",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "follow the large crowd headed down the stairs to the basement"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:back-alley-near-rooftop",
+      "from_node_id": "location:back-alley",
+      "to_node_id": "location:rooftop",
+      "label": "Back alley is near the guardhouse rooftop party",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "volunteers to take the \u201cempty\u201d keg down to the back alley"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:dead-end-routes-to-field",
+      "from_node_id": "location:dead-end",
+      "to_node_id": "location:field",
+      "label": "Tunnel dead end opens into the field outside the city",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "Then the tunnel opens up right into a field outside the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:basement-routes-to-tunnel",
+      "from_node_id": "location:basement",
+      "to_node_id": "location:dead-end",
+      "label": "Basement leads into the tunnels toward the dead end",
+      "relationship_type": "path_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "follow the large crowd headed down the stairs to the basement"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "Caelynn and Ephanna are following a group with Stafl and Lysandra down into the tunnels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:together-cult-tunnels-out-of-city",
+      "from_node_id": "location:field",
+      "to_node_id": "obs:cult:longmont-c2:session-6",
+      "label": "Tunnels lead out of the city to the cult's field gathering",
+      "relationship_type": "location_hierarchy",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "Baergrom notices that the tunnels are slowly leading out of the city.",
+            "Then the tunnel opens up right into a field outside the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "predicate_validation:unknown_relationship_type"
+      ]
+    },
+    {
+      "edge_id": "e:cult-governs-tunnels",
+      "from_node_id": "obs:cult:longmont-c2:session-6",
+      "to_node_id": "location:dead-end",
+      "label": "Cult guards the tunnel dead end",
+      "relationship_type": "governs",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "standing there is a stern looking human in full Cultist garb demanding a password"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:cult-holds-barn",
+      "from_node_id": "obs:cult:longmont-c2:session-6",
+      "to_node_id": "location:barn",
+      "label": "Cult uses the barn for its ritual",
+      "relationship_type": "holds",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "telling them all about the events of the evening: drinks, steaks to eat, music and at the end - a ritual"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "anchor_quotes": [
+            "he pushes the cart back into the barn and then slams the doors shut"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:guards-follow-charm-to-cult-meeting",
+      "from_node_id": "obs:guards:longmont-c2:session-6",
+      "to_node_id": "location:gates",
+      "label": "Charmed guards are compelled to seek the spiral gates",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "They must seek the spiral gates and speak the password: Maelthor"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "compelled to follow the large group of guards to their \u201cmeeting\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:guards-displaced-from-rooftop",
+      "from_node_id": "obs:guards:longmont-c2:session-6",
+      "to_node_id": "location:rooftop",
+      "label": "Guards leave the rooftop party under the charm",
+      "relationship_type": "displaced_from",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "follow the large crowd headed down the stairs to the basement"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:cult-priest-participates-in-ritual",
+      "from_node_id": "candidate:cultist-priest",
+      "to_node_id": "mystery:ritual_and_goblin_sacrifice",
+      "label": "Cultist Priest conducts the ritual and sacrifice",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "the Cultist demands that someone impure is needed for a sacrifice"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e:cult-participates-in-fleshborn-transformation",
+      "from_node_id": "obs:cult:longmont-c2:session-6",
+      "to_node_id": "mystery:fleshborn_transformation",
+      "label": "Cultists transform into Fleshborn",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "6 Cultists sitting near the group explode and morph into hideous creatures with giant tentacles and large mouths filled with teeth - they become Fleshborn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Bonogo's antidote-in-the-beer plan",
+      "summary": "The Dustwalker's music invades minds and floating parchments urge believers to stay for enlightenment; guards risk transforming. Bonogo is chosen to get the antidote to partiers via the beer, and executes a plan: Stafl darts the keg to make a hole, Bonogo widens it with a file, then uses his Slinkstone to teleport inside the keg.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "The Dustwalker\u2019s music not only seeps into every inch of the rooftop, it also seems to invade the mind.",
+            "They must get the antidote to all the people at the party and the best way is through the beer.",
+            "he hands Stafl a dart and instructs him to miss the dartboard and hit the beer keg instead",
+            "touching his Slinkstone he disappears only to appear again inside the keg!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Antidote delivered and the Charm song begins",
+      "summary": "Stafl realizes the antidote came from the keg and shouts the next round is on him; nearly everyone drinks as the Dustwalker plays. Ephanna spots three merchants with oily eyes chanting, Stafl's offered drinks are refused, Caelynn gets her poster signed, and the Dustwalker plays \"Shephard's Wake\" while guards join in.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "he shouts to the crowd that the next round was on him.",
+            "Ephanna is able to see their oily eyes as they begin to chant along with the music.",
+            "Caelynn is able to get her poster signed just before the Dustwalker reminds the crowd that after this final song they can seek the Truth.",
+            "He begins to play \u201cShephard\u2019s Wake\u201d and all the guards on the roof join in."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Charm takes hold; party follows into the tunnels",
+      "summary": "Stafl and Ephanna recognize the song as a Charm. Stafl and Lysandra are compelled toward the spiral gates with password Maelthor; the party follows the crowd to the basement. Baergrom takes the empty keg to the alley, revealing Bonogo still invisible after shaking off beer, and Karsemine reports Caelynn and Ephanna following the group with Stafl and Lysandra into the tunnels.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "Immediately Stafl and Ephanna can tell that this is no ordinary song, it\u2019s a Charm.",
+            "They must seek the spiral gates and speak the password: Maelthor.",
+            "When he removes the top he only finds beer, but a strong smell of wet \u201csomething\u201d tells him that Bonogo is still invisible.",
+            "Karsemine runs up to inform them that Caelynn and Ephanna are following a group with Stafl and Lysandra down into the tunnels."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Through the tunnels to the field and barn",
+      "summary": "The tunnels lead out of the city; Ephanna recasts Invisibility, Bonogo reappears and hides down a dark branch. At the dead end a stern Cultist demands a password; Maelthor grants entry. The tunnel opens onto a field with a float-goat pond and a barn with spiral doors and gates, about 30 humans gathered. Karsemine trips Stafl to break the Charm, bloodying his nose. Bonogo sneaks to the field's far end and lights oil at the barn corner as everyone files inside; Ephanna smells smoke.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "Baergrom notices that the tunnels are slowly leading out of the city.",
+            "Quickly the group remembers the name \u201cMaelthor\u201d and the Cultist cracks a huge smile and invites them in",
+            "Then the tunnel opens up right into a field outside the city - complete with a pond of float goats and a huge barn with spiral doors and gates.",
+            "Bonogo sneaks up to a corner of the barn and pours out oil, then lights it on fire."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Barn ritual interrupted; Fleshborn ambush",
+      "summary": "Inside the barn the priest speaks and humans eat the meat. Caelynn doses Lysandra with antidote and Shocking Grasps her free of the Charm. The priest chants with the crowd and the Dustwalker's music; two robed Cultists wheel in a cart with twin goblin children for a sacrifice. Stafl casts Hideous Laughter on the priest. The Dustwalker monologues that he knew the Questionable Company was at the guardhouse, would follow to the barn, and fall into his trap. Six Cultists explode into tentacled Fleshborn, Cultists surround the party, the room panics, and time stutters.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "then uses Shocking Grasp to knock her out of the Charmed effect.",
+            "Two robed Cultists walk down the center aisle with a cart - twin goblin children inside.",
+            "Stafl, reacting quickly, casts Hideous Laughter on the priest and he falls to the ground laughing hysterically.",
+            "he knew the Questionable Company was at the party at the guardhouse, he knew that we would follow the cultists to the barn, he knew they would fall right into his trap.",
+            "they become Fleshborn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Battle in the burning barn",
+      "summary": "Karsemine Hunter's Marks and Fire Bolts the Dustwalker. Stafl reveals wings, flies up, and plays the Song of Shattering on the Peacemaker Fiddle, damaging and disorienting enemies. Bonogo pushes the cart back in and slams the doors; Ephanna warns the barn is on fire and misses an Eldritch Blast. A Fleshborn tentacle hits Caelynn with necrotic damage and absorbs a human; Cultists chant at Lysandra but the Charm fails.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:24-25",
+          "anchor_quotes": [
+            "Karsemine uses Hunter\u2019s Mark on Dustwalker then hits him with a Fire Bolt.",
+            "Stafl reveals his wings, flies up to the center of the barn and pulls out the Peacemaker Fiddle and plays the Song of Shattering.",
+            "Ephanna yells to the rest of the Questionable Company that the barn is on fire and to make a run for it.",
+            "one of the horrible flesh monsters lashes out with a savage tentacle attack on Caelynn, Baergrom and one of the random humans that was nearby."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Caelynn and Baergrom counter; doors locked",
+      "summary": "Caelynn unleashes a Lightning Bolt that kills Cultists, damages Fleshborn and the Dustwalker, and blows a hole in the barn. Baergrom strikes a monster four times, knocks it prone, uses Evasive Footwork, and exits\u2014only for outside Cultists to slam and lock the doors, trapping Baergrom and Ephanna outside and the rest in. Flesh monsters kill and absorb the remaining humans; Lysandra withstands the damage and runs for the locked doors with Caelynn.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:27-27",
+          "anchor_quotes": [
+            "Caelynn floats back into position and then unleashes a devastating Lightning Bolt in a line from one end of the barn to the other - killing several Cultists, dealing major damage to the Fleshborn, dealing huge damage to the Dustwalker and blowing a hole out the other end of the barn.",
+            "Baergrom draws his longsword and trusty Hearthwarden Shield and quickly strikes a monster four times before bashing it with his shield and knocking it prone.",
+            "Just as Baergrom exits the barn the Cultists outside move in and slam the doors shut, locking Baergrom and Ephanna out and everyone else in.",
+            "Lysandra turns and makes a run for the doors with Caelynn, but finds them locked."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-8",
+      "order": 8,
+      "title": "Dustwalker's new song; desperate straits",
+      "summary": "The Dustwalker plays a new song building to something big. Flesh monsters corner and grapple Caelynn and Lysandra, both dangerously low. A remaining monster leaps and strikes the floating Stafl with psychic damage, pulling him to the ground. Cultists' Dark Whispers again have no effect. Outside the fire grows up the barn walls and spreads.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:29-29",
+          "anchor_quotes": [
+            "Grinning, the Dustwalker begins to play a new song, clearly building up to something big.",
+            "The flesh monsters corner Lysandra and Caelynn, attacking both for major damage and, in her weakened state, Caelynn is grappled.",
+            "The monster leaps into the air and lands an attack with its long tentacles dealing psychic damage and pulling Stafl back to the ground.",
+            "Outside, the fire begins to grow - moving up the walls of the barn and spreading out in every direction."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:dustwalker",
+      "label": "Dustwalker",
+      "reason": "Known entity mention already registered; do not recreate as observation node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "The Dustwalker\u2019s music not only seeps into every inch of the rooftop, it also seems to invade the mind."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:bonogo",
+      "label": "Bonogo",
+      "reason": "Known entity mention already registered; do not recreate as observation node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "Bonogo comes up with a plan."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:stafl",
+      "label": "Stafl",
+      "reason": "Known entity mention already registered; do not recreate as observation node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "Stafl is trying to figure out what just happened."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:caelynn",
+      "label": "Caelynn",
+      "reason": "Known entity mention already registered; do not recreate as observation node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "Caelynn is able to get her poster signed just before the Dustwalker reminds the crowd that after this final song they can seek the Truth."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:ephanna",
+      "label": "Ephanna",
+      "reason": "Known entity mention already registered; do not recreate as observation node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:16-16",
+          "anchor_quotes": [
+            "Ephanna, also still invisible, moves closer to what looks like a group or 3 merchants standing behind the Dustwalker."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:baergrom",
+      "label": "Baergrom",
+      "reason": "Known entity mention already registered; do not recreate as observation node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "Baergrom, seemingly out of the kindness of his heart, volunteers to take the \u201cempty\u201d keg down to the back alley."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:karsemine",
+      "label": "Karsemine",
+      "reason": "Known entity mention already registered; do not recreate as observation node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "Karsemine runs up to inform them that Caelynn and Ephanna are following a group with Stafl and Lysandra down into the tunnels."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:questionable-company",
+      "label": "Questionable Company",
+      "reason": "Known faction mention already registered; do not recreate as observation node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "The most likely, and in some ways most unlikely, member of the Questionable Company is chosen for this task - Bonogo."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:cultists",
+      "label": "Cultists",
+      "reason": "Known faction mention already registered; do not recreate as observation node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "And standing there is a stern looking human in full Cultist garb demanding a password."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:dustwalker_music",
+      "label": "Dustwalker's music",
+      "reason": "Item/entity already captured within mystery nodes; no standalone node needed.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "The Dustwalker\u2019s music not only seeps into every inch of the rooftop, it also seems to invade the mind."
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:maelthor_identity",
+      "label": "Maelthor's identity and significance as password",
+      "reason": "Maelthor is mentioned only as the password to the spiral gates; no further context about who or what Maelthor is is provided in this recap.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "They must seek the spiral gates and speak the password: Maelthor."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Search future sessions for Maelthor references and any lore establishing the name."
+    },
+    {
+      "item_id": "deferred:float_goats",
+      "label": "Pond of float goats",
+      "reason": "Mentioned only as environmental description outside the city; unclear if magical or mundane.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:20-20",
+          "anchor_quotes": [
+            "complete with a pond of float goats"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Check for later references to float goats or the field outside the city."
+    },
+    {
+      "item_id": "deferred:slinkstone",
+      "label": "Slinkstone",
+      "reason": "Magic item used by Bonogo for short-range teleportation; may warrant an item node but is tangential to the mystery pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:14-14",
+          "anchor_quotes": [
+            "touching his Slinkstone he disappears only to appear again inside the keg!"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Consider adding Slinkstone as an item node in a subsequent pass."
+    },
+    {
+      "item_id": "deferred:lysdandra",
+      "label": "Lysandra",
+      "reason": "Named character who is charmed and later grappled; may need an NPC anchor and detailed tracking.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:18-18",
+          "anchor_quotes": [
+            "Caelynn notices that Lysandra is also caught up in the spell."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Register Lysandra in the Party Registry or NPC list for future sessions."
+    },
+    {
+      "item_id": "deferred:cultist_priest",
+      "label": "Cultist priest",
+      "reason": "Unnamed but significant antagonist who leads the ritual; may need an anchor if recurring.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "label": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9:span:c4fe6d1592e9:22-22",
+          "anchor_quotes": [
+            "the Cultist priest begins to chant, joined by each human in the crowd, as well as music from the Dustwalker."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Resolve whether the Cultist priest is a named NPC or a generic role."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

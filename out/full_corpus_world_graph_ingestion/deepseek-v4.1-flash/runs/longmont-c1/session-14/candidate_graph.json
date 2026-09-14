@@ -1,0 +1,832 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-14:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-14",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-14:e10679f7fe09"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:half-orc-mercenary",
+      "label": "Half-Orc Mercenary",
+      "node_type": "character",
+      "description": "A Half-Orc found barely clinging to life among the remnants of a recent battle in the cylindrical room. Revived by Baergrom with a health potion. He describes a terrible battle with a monster that killed everyone; his group had gone down the tunnel but retreated to look for backup before being attacked. Before departing back up the tunnel to the Mage's tower, he warns the party: 'trust no one.'",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "anchor_quotes": [
+            "She discovers a Half-Orc barely clinging to life.",
+            "Baergrom uses a health potion to revive him, hoping to gather some information or even a new ally."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "anchor_quotes": [
+            "The Half-Orc is very relieved to see reinforcements, but he is visibly shaken.",
+            "He describes a terrible battle with a monster that killed everyone.",
+            "Before he goes back up the tunnel to the Mage\u2019s tower he has one final warning: trust no one."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:longmont-c1:session-14:room",
+      "label": "Large Cylindrical Room",
+      "node_type": "location",
+      "description": "Large cylindrical room at the end of the tunnel with old storage crates and supplies, rushing water, a stone bridge, an old wooden bridge near a giant fan, and remnants of a recent battle.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "anchor_quotes": [
+            "What they find at the end of the tunnel is a large cylindrical room with old storage crates and supplies scattered around and rotting.",
+            "There is a stone bridge over the water directly in front of them and an old wooden bridge near the fan."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "anchor_quotes": [
+            "Among the rotting crates and supplies they notice the remnants of a recent battle."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:longmont-c1:session-14:circular-room-2",
+      "label": "Large Circular Room",
+      "node_type": "location",
+      "description": "Large circular room beyond a locked door at the end of the tunnel, where meat is loaded into carts by cultists and guards; later the scene of a major battle.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "anchor_quotes": [
+            "Looking through the keyhole they can see a large circular room where meat is being loaded into carts by a line of cultists guarded by Elite Guards, several other guards and a couple of sewer meat monsters."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "anchor_quotes": [
+            "The spell lights up almost the entire room dealing major damage to all but two enemies.",
+            "the large pile of meat in the center catches on fire."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:longmont-c1:session-14:mage-tower",
+      "label": "Mage's Tower",
+      "node_type": "location",
+      "description": "Location the Half-Orc heads to after warning the party; likely nearby.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "anchor_quotes": [
+            "Before he goes back up the tunnel to the Mage\u2019s tower he has one final warning: trust no one."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:legendary-items-mossglade",
+      "label": "Legendary Items",
+      "node_type": "item",
+      "description": "A set of legendary old dusty items discovered by Head Clerk Mossglade and handed out to the party; each member picked one and found them incredible, boosting their confidence for the journey into the tunnels.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "anchor_quotes": [
+            "she does discover some old dusty items that may be useful"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "anchor_quotes": [
+            "The items are legendary",
+            "these new items are incredible"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:potions-scrolls-oils",
+      "label": "Potions, Scrolls and Oils",
+      "node_type": "item",
+      "description": "Valuable potions, scrolls and oils handed out by Head Clerk Mossglade to the party before they set out.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "anchor_quotes": [
+            "Mossglade hands out some valuable potions, scrolls and oils"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:karsemine-scimitars",
+      "label": "Karsemine's New Scimitars",
+      "node_type": "item",
+      "description": "Karsemine's pair of new scimitars that glow in the presence of humanoids, a detection only she can see, and are used to kill multiple enemies including Elite Guards.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "anchor_quotes": [
+            "Karsemine\u2019s new Scimitars begin to glow, something only she can see, indicating humanoids are present"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "anchor_quotes": [
+            "using her new scimitars, kills the first Elite Guard"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:lockpicking-tools",
+      "label": "Thieves' Tools",
+      "node_type": "item",
+      "description": "Lockpicking tools used by Bonogo and Karsemine to attempt to open the locked doors in the tunnels; Bonogo's own tools let him pick the first lock.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "anchor_quotes": [
+            "Using his skills and some tools, Bonogo picks the lock"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "anchor_quotes": [
+            "Karsemine also has thieves' tools"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:bridge-bomb",
+      "label": "Bridge Bomb",
+      "node_type": "item",
+      "description": "A bomb attached to the underside of the stone bridge, discovered by Ephanna's Sprite, which the group then searched for a tripwire to disarm.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "anchor_quotes": [
+            "warn of a bomb attached to the underside of the bridge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "anchor_quotes": [
+            "the Sprite continues to look for the tripwire, finding it halfway across the bridge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:mage-scroll",
+      "label": "Scroll from the Mages",
+      "node_type": "item",
+      "description": "One of the scrolls obtained from the Mages, used by Karsemine to cast Fireball into the cultist chamber.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "anchor_quotes": [
+            "using one of the scrolls from the Mages, casts Fireball"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:mages-scroll-fireball",
+      "from_node_id": "item:mage-scroll",
+      "to_node_id": "item:mage-scroll",
+      "label": "self",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "anchor_quotes": [
+            "using one of the scrolls from the Mages, casts Fireball"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat:session-14:recap-mossglade-items",
+      "order": 1,
+      "title": "Recap: Mossglade Distributes Items, Discovers Legendary Leftovers",
+      "summary": "Head Clerk Mossglade gathers with the party and hands out potions, scrolls, and oils, but discovers the promised items were given to covert ops teams. She finds old dusty legendary items instead, which the party picks from, feeling confident for their journey.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "anchor_quotes": [
+            "The party gathers together with Head Clerk Mossglade to gather some items. Mossglade hands out some valuable potions, scrolls and oils. Then she goes to look for the important items she promised the group. But bad news. She discovers that all the items have been given out to the covert ops teams that already left. However, she does discover some old dusty items that may be useful."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "anchor_quotes": [
+            "The items are legendary. After each of the party members looks over the items and picks one for themselves, they discover that these new items are incredible. With the new items, potions and scrolls the team feels confident in starting their journey into the tunnels."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:tunnel-entry-traps-locked-door",
+      "order": 2,
+      "title": "Entering the Dark Tunnel: First Trap and Locked Door",
+      "summary": "The group enters a dark tunnel. Bonogo and Ephanna's Sprite take the lead, find and avoid a floor trap, then Bonogo picks a locked door, allowing the group to continue into another long dark tunnel.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "anchor_quotes": [
+            "The group enters a dark tunnel. Bonogo and Ephanna\u2019s Sprite take the lead and look for traps. Before too long they encounter the first trap, a spot on the floor that can easily be avoided. Just past this trap Bonogo finds a locked door. Looking through the keyhole he is able to see another long dark tunnel beyond. Using his skills and some tools, Bonogo picks the lock and the group continues on."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:cylindrical-room-bridges-drums",
+      "order": 3,
+      "title": "A Cylindrical Room with Bridges, Water, and Distant Drums",
+      "summary": "At the end of the tunnel the party finds a large cylindrical room with rotting supplies and rushing water below. Two bridges cross the water, and they faintly hear drums and chanting without direction.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "anchor_quotes": [
+            "What they find at the end of the tunnel is a large cylindrical room with old storage crates and supplies scattered around and rotting. They can hear water below them rushing toward a giant fan at one end of the room. There is a stone bridge over the water directly in front of them and an old wooden bridge near the fan. Faintly, they can also hear drums and chanting, but they cannot pick out the direction."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:rescue-half-orc-battle-remnants",
+      "order": 4,
+      "title": "Remnants of Battle and the Rescue of a Dying Half-Orc",
+      "summary": "Among rotting crates the party finds remnants of a recent battle and glowing runes detecting corrupted meat. Karsemine's new Scimitars glow, leading her to a barely alive Half-Orc. Baergrom uses a health potion to revive him; the Half-Orc describes a terrible battle with a monster that killed everyone, mentions the Mage's tower, and warns 'trust no one'.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "anchor_quotes": [
+            "Among the rotting crates and supplies they notice the remnants of a recent battle. Everywhere they look they see glowing runes detecting corrupted meat. Karsemine\u2019s new Scimitars begin to glow, something only she can see, indicating humanoids are present. She discovers a Half-Orc barely clinging to life. Baergrom uses a health potion to revive him, hoping to gather some information or even a new ally."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:half-orc-warning-trust-no-one",
+      "order": 5,
+      "title": "The Half-Orc's Warning: Trust No One",
+      "summary": "The Half-Orc is relieved but shaken, describing a disastrous battle and retreat for backup before an attack. He warns the group 'trust no one' before heading back up the tunnel to the Mage's tower.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "anchor_quotes": [
+            "The Half-Orc is very relieved to see reinforcements, but he is visibly shaken. He describes a terrible battle with a monster that killed everyone. He tells the group that they had made their way down the tunnel, but had retreated to look for backup before they were attacked. Before he goes back up the tunnel to the Mage\u2019s tower he has one final warning: trust no one."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:ambush-bomb-guards-blobs-rats",
+      "order": 6,
+      "title": "Ambush: Bridge Bomb, Guards, Flesh Blobs, and Corrupted Sewer Rats",
+      "summary": "Ephanna searches bodies while the Sprite frantically warns of a bomb under the bridge. Two guards in full armor enter with flesh blobs, and four enormous corrupted sewer rats climb from the water on each side.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "anchor_quotes": [
+            "Ephanna begins searching the bodies for anything useful. The Sprite frantically returns to Ephanna to warn of a bomb attached to the underside of the bridge. As the group begins looking for the tripwire, the door on the opposite end of the bridge opens. Two guards in full armor enter with two flesh blobs following. Then four enormous corrupted sewer rats climb out of the water on each side of the party."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:battle-blobs-rats-guards-retreat",
+      "order": 7,
+      "title": "Battle with Blobs and Rats; Guards Retreat and Lock Door",
+      "summary": "The party fights blobs and rats: one blob misses Baergrom but hits Bonogo, Caelynn casts Magic Missile, Ephanna destroys a blob that explodes on a guard. Bonogo kills two rats and Karsemine and Baergrom kill others. The Sprite finds the tripwire halfway across the bridge, and the guards fail spear attacks and retreat through a door, locking it.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "anchor_quotes": [
+            "Immediately one of the blobs throws a glob of goo, missing Baergrom but hitting Bonogo for 1 acid damage. Stafl attempts a crossbow shot, but also misses. Caelynn then casts Magic Missile at each of the blobs. Next Ephanna casts Eldritch Blast on the blob dealing huge damage. As the blob is destroyed it explodes and deals 6 acid damage to the nearby guard."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "anchor_quotes": [
+            "Bonogo attacks the nearest 2 rats. He makes quick work of both rats. Karsemine and Baergrom attack the opposite group of rats. Karsemine slices up the first rat and Baergrom smashes the second rat right through the grate. Meanwhile, the Sprite continues to look for the tripwire, finding it halfway across the bridge. Both guards attempt to throw spears at Karsemine, but one is blocked by Baergrom and the other falls harmlessly into the water. Seeing the situation is not going their way, the guards quickly run back through the door and lock it behind them."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:chase-locked-door-kill-guard",
+      "order": 8,
+      "title": "Chase Through Locked Door; Guard Killed",
+      "summary": "The second blob is destroyed by Stafl and Ephanna. Bonogo fails to pick the locked door, but Karsemine rides Baergrom to reach and unlock it, casting Hunter's Mark on a guard. Stafl hits with crossbow, Caelynn misses frost attack, Ephanna hits with Eldritch Blast, and Bonogo finishes off the guard.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "anchor_quotes": [
+            "After a hit from Stafl\u2019s crossbow and another Eldritch Blast from Ephanna the second blob is destroyed. Bonogo is first to the locked door and tries again to pick the lock, but cannot manage to get open. Karsemine also has thieves' tools, but not enough movement to make it to the door before the guards get away. She is able to jump on Baergrom\u2019s back and then make the final movement to the door, and she is able to get the door unlocked and immediately casts Hunter\u2019s Mark on one of the guards. Stafl again gets a hit with the crossbow, but Caelynn misses a frost attack. Ephanna hits with another Eldritch Blast and Bonogo finishes off the guard."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:locked-door-cultists-elite-guards",
+      "order": 9,
+      "title": "Another Locked Door: Cultists, Elite Guards, and Meat Loading",
+      "summary": "At another locked door, the party hears drumming and chanting. Through the keyhole they see a large circular room where cultists guarded by Elite Guards, guards, and sewer meat monsters load meat into carts. Ephanna uses a lock spell after failed attempts, taking 9 damage.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "anchor_quotes": [
+            "Now the group finds themselves at another locked door at the end of the tunnel. Beyond the door they can hear loud drumming and chanting. Looking through the keyhole they can see a large circular room where meat is being loaded into carts by a line of cultists guarded by Elite Guards, several other guards and a couple of sewer meat monsters. After several different attempts at picking this lock with no success Ephanna uses his lock spell to unlock the door, but taking 9 damage in the process."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:fireball-opening-assault",
+      "order": 10,
+      "title": "Fireball Opens the Assault on the Meat Room",
+      "summary": "Karsemine opens the door and uses a scroll from the Mages to cast Fireball, damaging all but two enemies and killing all Cultists in the room. The meat pile catches fire. Caelynn casts Sorcerer's Burst, Stalf casts Sleep, and Ephanna casts Eldritch Blast on Elite Guards.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "anchor_quotes": [
+            "Now it's time for something big. Karsemine cracks open the door and, using one of the scrolls from the Mages, casts Fireball! The spell lights up almost the entire room dealing major damage to all but two enemies. Each of the Elite Guards take damage, the monsters take damage, all the Cultists in the room die and the large pile of meat in the center catches on fire. Immediately Caelynn casts Sorcerer\u2019s Burst and deals damage to an Elite Guard. Stalf then casts Sleep on the other Elite Guard while Ephanna casts Eldritch Blast on the third Elite Guard."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:karsemine-spears-grappled",
+      "order": 11,
+      "title": "Karsemine Hit by Spears and Grappled by Sewer Monster",
+      "summary": "Bonogo kills one sewer monster and damages another. Karsemine kills two Elite Guards with her new scimitars, then is hit by two spears from guards. She backs into a sewer monster, which misses once but then grapples and slams her to the ground.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "anchor_quotes": [
+            "Bonogo kills the sewer monster in one strike. With his bonus action he deals major damage to the second one, but causes a small chunk of meat to fall off. Karsemine, using her new scimitars, kills the first Elite Guard then kills the second one that was asleep. Then she is hit by a spear from one of the guards. Before she can even react, she is hit with a second spear thrown by another guard. Reeling from the damage she backs up into the remaining sewer monster. The first attack misses, but the second hits, and worse it grapples her and slams her to the ground."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:meat-monster-emerges-hellish-rebuke",
+      "order": 12,
+      "title": "Meat Monster Emerges; Hellish Rebuke and Meat Flies",
+      "summary": "As Karsemine is about to be thrown into the water she casts Hellish Rebuke on the monster. The central meat pile turns into a monster with flaming tentacles and releases Meat Flies. Baergrom throws a potion of healing to Karsemine and smashes a meat fly. The flies dig into corpses and one charms Baergrom.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "anchor_quotes": [
+            "Just as she is about to be thrown over the side and into the rushing water she casts Hellish Rebuke, covering the monster in hellfire. Things are starting to look up when suddenly the meat in the center platform turns into a monster; sending out flaming tentacles and releasing Meat Flies. Baergrom throws a potion of healing to Karsemine, then smashes one of the meat flies. The meat flies start digging into the corpses around the room, some attack Karsemine, and one Charms Baergrom."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-14:charm-break-magic-missile",
+      "order": 13,
+      "title": "Allies Charmed; Caelynn Uses Magic Missile to Break Charmed Effect",
+      "summary": "Caelynn, Ephanna, and Stafl attack the flies; Karsemine uses Horde Breaker on multiple flies. Bonogo attacks the flaming meat pile but becomes Charmed. Baergrom misses his attack on Karsemine due to the charm. Caelynn uses Magic Missile on both charmed allies to end the effect.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "anchor_quotes": [
+            "Caelynn casts Sorcerer\u2019s Burst, Ephanna casts Eldritch Blast, and Stafl lets loose another bolt from his crossbow on the flies. Karsemine uses her Horde Breaker skill and deals damage to multiple flies. Bonogo attacks the flaming meat pile, however he becomes Charmed. Luckily for Karsemine, Baergrom misses his attack on her. Caelynn, seeing the charmed allies, decides to attack both of them with Magic Missle to end the Charmed effect."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

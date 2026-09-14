@@ -1,0 +1,2446 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-1:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-1",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-1:8e4c8600c194"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "node:grishna",
+      "label": "Grishna",
+      "node_type": "character",
+      "description": "Half-orc proprietor of The River's Edge Pub in Stone Bridge, who shared directions to Glowkindle's brewery.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "The River's Edge Pub run by Grishna the Half-orc"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "anchor_quotes": [
+            "Grishna was quick to share that Glowkindle had been through"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:glowkindle",
+      "label": "Glowkindle",
+      "node_type": "character",
+      "description": "Local brewer of the Wizard's Tower Brewing Company who posted a help request for mercenaries to clear giant rats from his fermentation cellar excavation.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "the local brewer Glowkindle had posted a help request on the jobs board"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "Within they met Glowkindle who told them, a bit about the issue at hand."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:giant-rats",
+      "label": "Giant rats",
+      "node_type": "creature",
+      "description": "Giant rats that assaulted Glowkindle's excavation crew after they broke through a wall expanding the fermentation cellar; the party was hired to clear them out.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "Giant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:cat-owl",
+      "label": "Mysterious cat owl",
+      "node_type": "creature",
+      "description": "A mysterious cat owl that was tossed into the room to help during the fight against the giant rats.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "a mysterious cat owl being tossed into the room to help"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:longmont-c1:session-1:cat-owl",
+      "label": "Mysterious Cat Owl",
+      "node_type": "mystery",
+      "description": "During the rat fight, a mysterious cat owl was tossed into the room to help the party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "a mysterious cat owl being tossed into the room to help"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:flaming-magma-spider",
+      "label": "Flaming magma infused spider monstrosity",
+      "node_type": "creature",
+      "description": "A flaming magma infused spider monstrosity encountered by Karsemine in the shatter mages tower.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "Some kind of flaming magma infused spider monstrosity."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:longmont-c1:session-1:flaming-spider",
+      "label": "Flaming Magma Infused Spider Monstrosity",
+      "node_type": "mystery",
+      "description": "After clearing the rats, the party explored and found a beautifully tiled hallway, a trapped mosaic, a room of broken alchemical tools, and Karsemine made eye contact with a flaming magma infused spider monstrosity, another resident of the shattered mages tower.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "a trapped mosaic on the ground, a room full of broken alchemical tools",
+            "she made eye contact with another resident of the shatter mages tower. Some kind of flaming magma infused spider monstrosity."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:stone_bridge",
+      "label": "Stone Bridge",
+      "node_type": "location",
+      "description": "Small, little-known town outside of which the party found themselves after traveling as merchant guards. Known for the Stone Bridge over an unnamed river, its tavern The River's Edge Pub run by Grishna, and a job board where the local brewer Glowkindle posted a help request for mercenaries to clear out rats.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "anchor_quotes": [
+            "found themselves outside the town of Stone Bridge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "The town of Stone Bridge is known for very few things",
+            "It has the Stone Bridge over the river"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:river_s_edge_pub",
+      "label": "The River's Edge Pub",
+      "node_type": "location",
+      "description": "Tavern in the town of Stone Bridge run by Grishna the Half-orc; the party drank there to wash away the road, and Grishna shared directions to Glowkindle's brewery and the Wizard's Tower Brewing Co.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "it's tavern  The River's Edge Pub run by Grishna the Half-orc"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "anchor_quotes": [
+            "While doing some drinking at the Riv'ers Edge Pub to wash away the road"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:wizard_s_tower_brewing_co",
+      "label": "The Wizard's Tower Brewing Co",
+      "node_type": "location",
+      "description": "Brewery located up river, west at the big rock, along a clear trail from Stone Bridge. Bustling with brewing activity, its tap room lit by magical crystals and tended by a troupe of gnomes, with a fermentation cellar whose expansion broke through a wall and let in giant rats.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "anchor_quotes": [
+            "where the The Wizard's Tower Brewing Co was located",
+            "Up river, west at the big rock, walk till you see it"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "anchor_quotes": [
+            "led the group to the Wizard's Tower Brewing Company",
+            "the fine tap room lit by magical crystals"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "anchor_quotes": [
+            "where the The Wizard's Tower Brewing Co was located"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "anchor_quotes": [
+            "led the group to the Wizard's Tower Brewing Company",
+            "the troupe of gnomes busily brewing",
+            "the fine tap room lit by magical crystals, was empty except for the troupe of gnomes busily brewing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:giant_foot_boulder",
+      "label": "Giant Foot Boulder",
+      "node_type": "location",
+      "description": "Enormous boulder along the clear river trail, which resolved into the foot of a once enormous statue \u2014 a landmark on the route from Stone Bridge to the Wizard's Tower Brewing Co.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "anchor_quotes": [
+            "There was a clear trail along the river to an enormous boulder"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "anchor_quotes": [
+            "it resolved into what must have been the foot of a once enormous statue"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:shater_mages_tower_hallway",
+      "label": "Shater Mages Tower",
+      "node_type": "location",
+      "description": "The tower explored after the rat fight, containing a beautifully tiled hallway, a trapped mosaic on the ground, and a room full of broken alchemical tools; home to a flaming magma infused spider monstrosity.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "another resident of the shatter mages tower"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:stone_bridge_mercenaries",
+      "label": "Hired Mercenaries (band of mercenaries)",
+      "node_type": "group",
+      "description": "The party operated as merchant guards before being hired by the brewer Glowkindle to clear giant rats from his fermentation cellar.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "anchor_quotes": [
+            "as merchant guards"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "his need of a band of mercenaries to help clean up some rats"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "the team agreed to clear out the rats"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:gnome_brewers",
+      "label": "Gnome Brewing Troupe",
+      "node_type": "group",
+      "description": "A troupe of gnomes busily brewing at the Wizard's Tower Brewing Company.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "anchor_quotes": [
+            "the troupe of gnomes busily brewing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:glowkindle_excavation_crew",
+      "label": "Glowkindle's Excavation Crew",
+      "node_type": "group",
+      "description": "Glowkindle's crew expanding the fermentation cellar who were assaulted by giant rats after breaking through a wall.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "Giant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:firkin_of_ale",
+      "label": "Firkin of Ale",
+      "node_type": "item",
+      "description": "A firkin (small cask) of ale purchased by Bonogo at The River's Edge Pub for two gold pieces, which he carried on the hike to the Wizard's Tower Brewing Co.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "anchor_quotes": [
+            "bought a Firkin of ale for two gold"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:health_potions",
+      "label": "Health Potions",
+      "node_type": "item",
+      "description": "Potions consumed in quantity during the fight against the giant rats in Glowkindle's fermentation cellar.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "many, many, many health potions being downed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:job_board",
+      "label": "Job Board",
+      "node_type": "item",
+      "description": "Stone Bridge's local job board, where the brewer Glowkindle posted his help request for mercenaries to clear out rats.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "It did have a job board",
+            "posted a help request on the jobs board"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:magical_crystals",
+      "label": "Magical Crystals",
+      "node_type": "item",
+      "description": "Enchanted crystals lighting the tap room of the Wizard's Tower Brewing Company.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "anchor_quotes": [
+            "the fine tap room lit by magical crystals"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:trapped_mosaic",
+      "label": "Trapped Mosaic",
+      "node_type": "item",
+      "description": "A mosaic set into the floor of the shatter mages tower that was trapped, discovered by the party while exploring.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "a trapped mosaic on the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:broken_alchemical_tools",
+      "label": "Broken Alchemical Tools",
+      "node_type": "item",
+      "description": "A room within the shatter mages tower filled with broken alchemical tools, searched by Karsemine.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "a room full of broken alchemical tools"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:enormous_statue_foot",
+      "label": "Enormous Statue Foot",
+      "node_type": "item",
+      "description": "An enormous boulder along the river trail that resolved into what appeared to be the foot of a once enormous statue.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "anchor_quotes": [
+            "it resolved into what must have been the foot of a once enormous statue"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:longmont-c1:session-1:glowkindle-rats",
+      "label": "Giant Rats in Glowkindle's Cellar",
+      "node_type": "mystery",
+      "description": "Giant rats assaulted Glowkindle's excavation crew after they broke through a wall expanding the fermentation cellar at the Wizard's Tower Brewing Co. The party was hired for 25 gold each to clear them out.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "Giant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar.",
+            "For a healthy prize of 25 gold pieces each, the team agreed to clear out the rats."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:longmont-c1:session-1:giant-statue-foot",
+      "label": "Enormous Statue Foot Boulder",
+      "node_type": "mystery",
+      "description": "Along the river trail, the party encountered an enormous boulder that resolved into the foot of a once enormous statue \u2014 or perhaps a mad sculptor's dedication to a foot.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "anchor_quotes": [
+            "There was a clear trail along the river to an enormous boulder.",
+            "As the group approached it resolved into what must have been the foot of a once enormous statue. Or a mad sculptures dedication to someone's foot, probably the  former but who really knows with art anyway."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:longmont-c1:session-1:trapped-mosaic",
+      "label": "Trapped Mosaic on the Ground",
+      "node_type": "mystery",
+      "description": "The party found a beautifully tiled hallway and a trapped mosaic on the ground within the shattered mages tower.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "a beautifully tiled hallway, a trapped mosaic on the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:longmont-c1:session-1:river-name",
+      "label": "Unnamed River",
+      "node_type": "mystery",
+      "description": "The Stone Bridge spans a river whose name is not given in the text, marked as [River name].",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "It has the Stone Bridge over the river [River name]"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:baergrom",
+      "label": "Baergrom",
+      "node_type": "character",
+      "description": "Baergrom, a dwarf fighter, was one of the mish mash of traveling companions who had journeyed together as merchant guards before arriving outside the town of Stone Bridge.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "anchor_quotes": [
+            "Baergrom the Dwarf Fighter",
+            "found themselves outside the town of Stone Bridge"
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "baergrom",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Baergrom"
+      ],
+      "session_actions": [
+        "Traveled as a merchant guard with the mixed party",
+        "Arrived with the group outside the town of Stone Bridge"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    },
+    {
+      "node_id": "node:bonogo",
+      "label": "Bonogo",
+      "node_type": "character",
+      "description": "Bonogo, a bugbear rogue, was part of the group of merchant guards who reached Stone Bridge. At the Riv'ers Edge Pub he showed little awareness or care for the cost of things; greatly enjoying the beer, he bought a firkin of ale for two gold and quite enjoyed the hike to the brewery.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "anchor_quotes": [
+            "Bonogo the Bugbear Rogue",
+            "found themselves outside the town of Stone Bridge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "anchor_quotes": [
+            "Bonogo, having very little awareness or care for the cost of things, and greatly enjoying the beer, bought a Firkin of ale for two gold",
+            "He quite enjoyed the hike to the brewery"
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "bonogo",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Bonogo"
+      ],
+      "session_actions": [
+        "Drank at the Riv'ers Edge Pub",
+        "Bought a firkin of ale for two gold",
+        "Enjoyed the hike to the brewery"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    },
+    {
+      "node_id": "node:caelynn",
+      "label": "Caelynn",
+      "node_type": "character",
+      "description": "Caelynn, a half elf sorcerer, was among the mish mash of travelers who had worked as merchant guards together and found themselves outside the town of Stone Bridge.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "anchor_quotes": [
+            "Caelynn the Half Elf Sorcerer",
+            "found themselves outside the town of Stone Bridge"
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "caelynn",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Caelynn"
+      ],
+      "session_actions": [
+        "Traveled as a merchant guard with the mixed party",
+        "Arrived with the group outside the town of Stone Bridge"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    },
+    {
+      "node_id": "node:ephanna",
+      "label": "Ephanna",
+      "node_type": "character",
+      "description": "Ephanna, a kenku warlock, was one of the varied travelers who journeyed together as merchant guards and arrived outside the town of Stone Bridge.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "anchor_quotes": [
+            "Ephanna the Kenku Warlock",
+            "found themselves outside the town of Stone Bridge"
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "ephanna",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Ephanna"
+      ],
+      "session_actions": [
+        "Traveled as a merchant guard with the mixed party",
+        "Arrived with the group outside the town of Stone Bridge"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    },
+    {
+      "node_id": "node:karsemine",
+      "label": "Karsemine",
+      "node_type": "character",
+      "description": "Karsemine, a tiefling ranger, was part of the group that traveled together as merchant guards and reached Stone Bridge. After the team gained freedom to explore, they found a beautifully tiled hallway, a trapped mosaic on the ground, and a room of broken alchemical tools. Karsemine wisely searched the room and, eventually looking up, made eye contact with another resident of the shatter mages tower: some kind of flaming magma infused spider monstrosity.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "anchor_quotes": [
+            "Karsemine the Tiefling Ranger",
+            "found themselves outside the town of Stone Bridge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "As Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower",
+            "Some kind of flaming magma infused spider monstrosity"
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "karsemine",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Karsemine"
+      ],
+      "session_actions": [
+        "Traveled as a merchant guard with the mixed party",
+        "Wisely searched the room in the shatter mages tower",
+        "Looked up and made eye contact with a flaming magma infused spider monstrosity"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    },
+    {
+      "node_id": "node:stafl",
+      "label": "Stafl",
+      "node_type": "character",
+      "description": "Stafl, a 'human' bard, was one of the mish mash of travelers who had journeyed together as merchant guards before finding themselves outside the town of Stone Bridge.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "anchor_quotes": [
+            "Stafl the 'Human' Bard",
+            "found themselves outside the town of Stone Bridge"
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "stafl",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Stafl"
+      ],
+      "session_actions": [
+        "Traveled as a merchant guard with the mixed party",
+        "Arrived with the group outside the town of Stone Bridge"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:grishna:runs:river_s_edge_pub",
+      "from_node_id": "node:grishna",
+      "to_node_id": "node:river_s_edge_pub",
+      "label": "Grishna runs The River's Edge Pub",
+      "relationship_type": "governs",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "it's tavern  The River's Edge Pub run by Grishna the Half-orc"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:river_s_edge_pub:located_in:stone_bridge",
+      "from_node_id": "node:river_s_edge_pub",
+      "to_node_id": "node:stone_bridge",
+      "label": "The River's Edge Pub is in Stone Bridge",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:job_board:located_in:stone_bridge",
+      "from_node_id": "node:job_board",
+      "to_node_id": "node:stone_bridge",
+      "label": "The job board is in Stone Bridge",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "It did have a job board"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glowkindle:owns:wizard_s_tower_brewing_co",
+      "from_node_id": "node:glowkindle",
+      "to_node_id": "node:wizard_s_tower_brewing_co",
+      "label": "Glowkindle is the local brewer of the Wizard's Tower Brewing Co",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "the local brewer Glowkindle had posted a help request on the jobs board"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glowkindle:posts_on:job_board",
+      "from_node_id": "node:glowkindle",
+      "to_node_id": "node:job_board",
+      "label": "Glowkindle posted a help request on the job board",
+      "relationship_type": "holds",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "posted a help request on the jobs board"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wizard_s_tower_brewing_co:located_in:stone_bridge",
+      "from_node_id": "node:wizard_s_tower_brewing_co",
+      "to_node_id": "node:stone_bridge",
+      "label": "Wizard's Tower Brewing Co lies up river from Stone Bridge",
+      "relationship_type": "west_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "anchor_quotes": [
+            "Up river, west at the big rock, walk till you see it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wizard_s_tower_brewing_co:contains:gnome_brewers",
+      "from_node_id": "node:wizard_s_tower_brewing_co",
+      "to_node_id": "node:gnome_brewers",
+      "label": "The Wizard's Tower Brewing Co is worked by a troupe of gnomes",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "anchor_quotes": [
+            "the troupe of gnomes busily brewing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wizard_s_tower_brewing_co:contains:magical_crystals",
+      "from_node_id": "node:wizard_s_tower_brewing_co",
+      "to_node_id": "node:magical_crystals",
+      "label": "The tap room of the Wizard's Tower Brewing Co is lit by magical crystals",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "anchor_quotes": [
+            "the fine tap room lit by magical crystals"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glowkindle:commands:glowkindle_excavation_crew",
+      "from_node_id": "node:glowkindle",
+      "to_node_id": "node:glowkindle_excavation_crew",
+      "label": "Glowkindle's excavation crew",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "Giant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:giant-rats:attacks:glowkindle_excavation_crew",
+      "from_node_id": "node:giant-rats",
+      "to_node_id": "node:glowkindle_excavation_crew",
+      "label": "Giant rats assaulted Glowkindle's excavation crew",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "Giant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glowkindle:hires:stone_bridge_mercenaries",
+      "from_node_id": "node:glowkindle",
+      "to_node_id": "node:stone_bridge_mercenaries",
+      "label": "Glowkindle hired a band of mercenaries to clear the rats",
+      "relationship_type": "hires",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "his need of a band of mercenaries to help clean up some rats"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "the team agreed to clear out the rats"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:bonogo:owns:firkin_of_ale",
+      "from_node_id": "node:bonogo",
+      "to_node_id": "node:firkin_of_ale",
+      "label": "Bonogo bought a firkin of ale for two gold",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "anchor_quotes": [
+            "bought a Firkin of ale for two gold"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:bonogo:present_at:river_s_edge_pub",
+      "from_node_id": "node:bonogo",
+      "to_node_id": "node:river_s_edge_pub",
+      "label": "Bonogo drank at The River's Edge Pub",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "anchor_quotes": [
+            "While doing some drinking at the Riv'ers Edge Pub to wash away the road"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:giant_foot_boulder:located_in:stone_bridge",
+      "from_node_id": "node:giant_foot_boulder",
+      "to_node_id": "node:stone_bridge",
+      "label": "The giant foot boulder lies along the trail from Stone Bridge",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "anchor_quotes": [
+            "There was a clear trail along the river to an enormous boulder"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:stone_bridge:leads_to:wizard_s_tower_brewing_co",
+      "from_node_id": "node:stone_bridge",
+      "to_node_id": "node:wizard_s_tower_brewing_co",
+      "label": "The trail from Stone Bridge leads to the Wizard's Tower Brewing Co",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "anchor_quotes": [
+            "led the group to the Wizard's Tower Brewing Company"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:karsemine:knows_about:flaming-magma-spider",
+      "from_node_id": "node:karsemine",
+      "to_node_id": "node:flaming-magma-spider",
+      "label": "Karsemine made eye contact with the flaming magma infused spider monstrosity",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "she made eye contact with another resident of the shatter mages tower. Some kind of flaming magma infused spider monstrosity."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:flaming-magma-spider:located_in:shater_mages_tower_hallway",
+      "from_node_id": "node:flaming-magma-spider",
+      "to_node_id": "node:shater_mages_tower_hallway",
+      "label": "The spider monstrosity resides in the shatter mages tower",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "another resident of the shatter mages tower"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:trapped_mosaic:located_in:shater_mages_tower_hallway",
+      "from_node_id": "node:trapped_mosaic",
+      "to_node_id": "node:shater_mages_tower_hallway",
+      "label": "The trapped mosaic lies in the shatter mages tower",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "a trapped mosaic on the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:broken_alchemical_tools:located_in:shater_mages_tower_hallway",
+      "from_node_id": "node:broken_alchemical_tools",
+      "to_node_id": "node:shater_mages_tower_hallway",
+      "label": "Broken alchemical tools fill a room in the shatter mages tower",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "a room full of broken alchemical tools"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:enormous_statue_foot:located_in:giant_foot_boulder",
+      "from_node_id": "node:enormous_statue_foot",
+      "to_node_id": "node:giant_foot_boulder",
+      "label": "The enormous statue foot is the boulder on the trail",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "anchor_quotes": [
+            "it resolved into what must have been the foot of a once enormous statue"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:cat-owl:associated_with:glowkindle-rats-mystery",
+      "from_node_id": "node:cat-owl",
+      "to_node_id": "mystery:longmont-c1:session-1:glowkindle-rats",
+      "label": "The mysterious cat owl was tossed into the room to help during the rat fight",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "a mysterious cat owl being tossed into the room to help"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:giant-rats:located_in:wizard_s_tower_brewing_co",
+      "from_node_id": "node:giant-rats",
+      "to_node_id": "node:wizard_s_tower_brewing_co",
+      "label": "Giant rats invaded the fermentation cellar",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "Giant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat:longmont-c1:session-1:1",
+      "order": 1,
+      "title": "Party assembles; outside Stone Bridge",
+      "summary": "After traveling together as merchant guards, the party of six diverse adventurers arrives outside the town of Stone Bridge.",
+      "involved_node_ids": [
+        "node:baergrom",
+        "node:bonogo",
+        "node:caelynn",
+        "node:ephanna",
+        "node:karsemine",
+        "node:stafl"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "anchor_quotes": [
+            "After traveling together for some time together as merchant guards",
+            "found themselves outside the town of Stone Bridge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:longmont-c1:session-1:2",
+      "order": 2,
+      "title": "Stone Bridge and Glowkindle's job board request",
+      "summary": "Stone Bridge is a little-known town with a stone bridge over a river, a tavern called The River's Edge Pub run by Grishna the Half-orc, and a job board where local brewer Glowkindle posted a request for mercenaries to clear out rats.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "The town of Stone Bridge is known for very few things",
+            "The River's Edge Pub run by Grishna the Half-orc",
+            "local brewer Glowkindle had posted a help request on the jobs board",
+            "clean up some rats"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:longmont-c1:session-1:3",
+      "order": 3,
+      "title": "At the pub; directions to Wizard's Tower Brewing Co",
+      "summary": "At The River's Edge Pub, Grishna shared that Glowkindle had been through and told where The Wizard's Tower Brewing Co was located. Bonogo bought a firkin of ale for two gold and enjoyed the hike to the brewery.",
+      "involved_node_ids": [
+        "node:bonogo"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "anchor_quotes": [
+            "Grishna was quick to share that Glowkindle had been through",
+            "The Wizard's Tower Brewing Co was located",
+            "bought a Firkin of ale for two gold"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:longmont-c1:session-1:4",
+      "order": 4,
+      "title": "Journey along the river to a colossal statue foot",
+      "summary": "Grishna's directions proved sound as the group followed a clear trail along the river to an enormous boulder that resolved into what must have been the foot of a once enormous statue.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:20-20",
+          "anchor_quotes": [
+            "Grishna was true to her word, the directions were sound",
+            "the foot of a once enormous statue"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:longmont-c1:session-1:5",
+      "order": 5,
+      "title": "Arrival at the Wizard's Tower Brewing Company",
+      "summary": "After a few hours walk from the river, the group reached the Wizard's Tower Brewing Company, bustling with activity and smelling of brewing, with a fine tap room lit by magical crystals.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "anchor_quotes": [
+            "led the group to the Wizard's Tower Brewing Company",
+            "smelling of brewing, the fine tap room lit by magical crystals"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:longmont-c1:session-1:6",
+      "order": 6,
+      "title": "Glowkindle's rat quest and chaotic first combat",
+      "summary": "Glowkindle explained that giant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar. The team agreed to clear them for 25 gold each, leading to a fight where multiple folk went down, a mysterious cat owl was tossed into the room, and many health potions were consumed.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:24-24",
+          "anchor_quotes": [
+            "Giant rats had assaulted his excavation crew",
+            "For a healthy prize of 25 gold pieces each",
+            "a mysterious cat owl being tossed into the room",
+            "many, many, many health potions being downed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:longmont-c1:session-1:7",
+      "order": 7,
+      "title": "First combat unites the team",
+      "summary": "A fine first combat brought the team together.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:26-26",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:26-26",
+          "anchor_quotes": [
+            "A fine first combat to bring the team together!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:longmont-c1:session-1:8",
+      "order": 8,
+      "title": "Exploring the tower; Karsemine encounters a magma spider",
+      "summary": "Free to explore the tower, the team found a tiled hallway, a trapped mosaic, and a room full of broken alchemical tools. Karsemine searched the room and made eye contact with a flaming magma infused spider monstrosity.",
+      "involved_node_ids": [
+        "node:karsemine"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools",
+            "As Karsemine wisely searched the room",
+            "Some kind of flaming magma infused spider monstrosity"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:longmont-c1:session-1:traveler-intro",
+      "label": "Party Traveler Descriptions",
+      "reason": "Already captured as known entity mentions for the PCs; no new mystery or thread.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:14-14",
+          "anchor_quotes": [
+            "Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:longmont-c1:session-1:firkin-ale",
+      "label": "Bonogo's Firkin of Ale",
+      "reason": "Trivial flavor detail with no unresolved thread or mystery.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:18-18",
+          "anchor_quotes": [
+            "bought a Firkin of ale for two gold. He quite enjoyed the hike to the brewery."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:longmont-c1:session-1:combat-outcome",
+      "label": "Combat Outcome Summary",
+      "reason": "Generic recap statement, not a persistent mystery or thread.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:26-26",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:26-26",
+          "anchor_quotes": [
+            "A fine first combat to bring the team together!"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:longmont-c1:session-1:stone-bridge-town",
+      "label": "Town of Stone Bridge",
+      "reason": "Mentioned as the starting location; useful for location graph but not a mystery/clue in this pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:16-16",
+          "anchor_quotes": [
+            "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Create a location node for Stone Bridge in a future location-focused pass."
+    },
+    {
+      "item_id": "deferred:longmont-c1:session-1:wizards-tower-brewing",
+      "label": "The Wizard's Tower Brewing Co and Shattered Mages Tower",
+      "reason": "The brewery and the 'shatter mages tower' location may be important, but the primary mystery focus is on the rats and the spider; defer location graph extraction.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:22-22",
+          "anchor_quotes": [
+            "led the group to the Wizard's Tower Brewing Company"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "another resident of the shatter mages tower"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Create location nodes for the brewery and the shattered mages tower in a future location-focused pass."
+    },
+    {
+      "item_id": "deferred:longmont-c1:session-1:alchemical-tools-room",
+      "label": "Room Full of Broken Alchemical Tools",
+      "reason": "Potential clue or mystery but lacks detail to form a distinct node; may relate to the spider or tower.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "label": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-1:8e4c8600c194:span:8e4c8600c194:28-28",
+          "anchor_quotes": [
+            "a room full of broken alchemical tools"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Investigate whether the broken alchemical tools connect to the flaming spider or the tower's history."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

@@ -1,0 +1,2787 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-6:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-6",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-6:a6849dbc9bad"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:elara_swiftwind",
+      "label": "Elara Swiftwind",
+      "node_type": "character",
+      "description": "An individual the party met at 'the Fur place' during shopping in Mirathorn.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "anchor_quotes": [
+            "meet Elara Swiftwind at the Fur place"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:saladin",
+      "label": "Saladin",
+      "node_type": "character",
+      "description": "Owner of Saladin's Emporium in Hempholm, a garish wagon in the center of town. Described as a flamboyantly dressed elf with a weird bleeding statue (paint, a total fake according to Caelynn). Traveled with the party toward Mirathorn in a weird magical or mechanical wagon with no horses. Morwin, a bitchy old man, hated him.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "Saladin\u2019s Emporium, which had jack fucking shit",
+            "a flamboyantly dressed elf\u2019s desk with a weird bleeding statue"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "anchor_quotes": [
+            "Shopped with Saladin, sold stuff"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:22-22",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:22-22",
+          "anchor_quotes": [
+            "Traveled with Saladin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "traveling with Saladin and his weird magical or mechanical wagon with no horses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:morwin",
+      "label": "Morwin",
+      "node_type": "character",
+      "description": "A bitchy old man who runs Morwin's shop. Wouldn't shut up about how much he hated Saladin, until he sold the party a ton of goods.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "So they went to Morwin\u2019s which had a bitchy old man, who wouldn\u2019t shutup about how much he hated that Saladin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "anchor_quotes": [
+            "Bought standard goods from Morwin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:ly_sandra_ironveil",
+      "label": "Captain Lysandra Ironveil",
+      "node_type": "character",
+      "description": "A captain of the guard at the gate of Mirathorn. The party talked to her while observing the protest about the toll. She noted a headache and potential ass chewing if she has to close the gate, and excused herself to join the other guards. The party made friends with her, and Kaelyn was very into talking with them.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:40-40",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:40-40",
+          "anchor_quotes": [
+            "Talked to Captain Lysandra Ironveil"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "anchor_quotes": [
+            "They made friends with Lysandra, Kaelyn was very into talking with them"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "While they observe and chat with Captain Lysandra Ironveil, the crowd grows to around 50 people"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:the_ghost_child",
+      "label": "The Ghost Child",
+      "node_type": "character",
+      "description": "A spectral child who walks the road. Visited Bonogo during the watch on the way to Mirathorn. Karsemine confirmed it was spectral.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:26-26",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:26-26",
+          "anchor_quotes": [
+            "Bonogo woke up and saw a ghost child"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "Bongo was visited by a ghost child walking the road"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:outtown",
+      "label": "Outtown",
+      "node_type": "location",
+      "description": "A collection of shops, blacksmiths, breweries, tents, and temporary buildings that erupted outside Mirathorn in preparation for the Festival of Expansion; contains The Wizard Tower Brewery, Pippa, and Bubbles.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "Finally arriving at Outtown, the collection of shops, blacksmiths, breweries, tents, and temporary buildings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:saladins-emporium",
+      "label": "Saladin's Emporium",
+      "node_type": "location",
+      "description": "A huge but nearly empty shop in a garish wagon at the center of Hempholm, containing a flamboyantly dressed elf's desk with a fake bleeding statue and dubious knowledge for steep prices.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "Saladin\u2019s Emporium, which had jack fucking shit",
+            "It was huge inside, like a grocery store of empty shelves"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "first to the garish wagon in the center of Hempholm! Saladin\u2019s Emporium, which had jack fucking shit",
+            "like a grocery store of empty shelves"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "anchor_quotes": [
+            "Shopped with Saladin, sold stuff"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:morwins",
+      "label": "Morwin's",
+      "node_type": "location",
+      "description": "A shop the party visited in Hempholm, run by a bitchy old man who hated Saladin but sold the party a ton of goods.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "So they went to Morwin\u2019s which had a bitchy old man"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "So they went to Morwin\u2019s which had a bitchy old man, who wouldn\u2019t shutup about how much he hated that Saladin",
+            "Until he sold the party a ton of goods"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "anchor_quotes": [
+            "Bought standard goods from Morwin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:the-road-to-miraholm",
+      "label": "The Road to Miraholm",
+      "node_type": "location",
+      "description": "The travel route between Hempholm and the city, marked by a multi-day journey where the party camped and were visited by a ghost child walking the road.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:1-12",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:1-12",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:1-12",
+          "anchor_quotes": [
+            "title: \"Session 6 - The Road to Miraholm\""
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "Bongo was visited by a ghost child walking the road"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:the-wizard-tower-brewery",
+      "label": "The Wizard Tower Brewery",
+      "node_type": "location",
+      "description": "A brewery located among the shops of Outtown outside Mirathorn, where the party drank and caught up.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "Among them The Wizard Tower Brewery, Pippa and most importantly Bubbles!"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "Among them The Wizard Tower Brewery, Pippa and most importantly Bubbles"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:the-fur-place",
+      "label": "the Fur place",
+      "node_type": "location",
+      "description": "A shop or establishment in Mirathorn where the party shopped and met Elara Swiftwind.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "anchor_quotes": [
+            "Shopping, meet Elara Swiftwind at the Fur place"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:the-gate",
+      "label": "the gate",
+      "node_type": "location",
+      "description": "The city gate of Mirathorn where the party observed the beginning of a protest over the toll; guards stand tense and may close it.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "anchor_quotes": [
+            "Go to the gate, see the beginning of the protest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "The guards looking tense send a large contingent of troops out to disperse the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:mirathorn_city_guards",
+      "label": "Mirathorn City Guards",
+      "node_type": "faction",
+      "description": "The armed guard force of Mirathorn, seen at the city gate during the toll protest; they grow tense as the crowd swells and send a large contingent of troops out to disperse it.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "The guards looking tense send a large contingent of troops out to disperse the crowd",
+            "Excusing herself, the Captain walks to joining the other guards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:toll_protesters",
+      "label": "Toll Protesters",
+      "node_type": "group",
+      "description": "A gathering of townsfolk outside Mirathorn's gate passing out fliers and chanting about how unfair the toll is; the crowd grows to around 50 people.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "a group gathering, passing out fliers chanting about how unfair the toll is",
+            "the crowd grows to around 50 people"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "anchor_quotes": [
+            "see the beginning of the protest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:the_party_of_six",
+      "label": "The Party of Six",
+      "node_type": "group",
+      "description": "The collective group of six adventurers traveling together; they negotiate Torbin's ward contract, shop in Hempholm, travel to Mirathorn with Saladin, and observe the toll protest at the gate.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "anchor_quotes": [
+            "We last left the group of 6 having a sidebar to discuss if they were really taking on this kid Torbin as a ward"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "spreading the song of the party to all who would listen"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:outtown_merchants",
+      "label": "Outtown Traders and Tents",
+      "node_type": "group",
+      "description": "The collection of shops, blacksmiths, breweries, tents, and temporary buildings erupting out of Mirathorn in preparation for the Festival of Expansion.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "the collection of shops, blacksmiths, breweries, tents, and temporary buildings erupting out of the city in preparation for the Festival of Expansion"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session-6:saladins-wagon",
+      "label": "Saladin's Wagon",
+      "node_type": "item",
+      "description": "A weird magical or mechanical wagon with no horses, owned and traveled with by Saladin.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "his weird magical or mechanical wagon with no horses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session-6:bleeding-statue",
+      "label": "Bleeding Statue",
+      "node_type": "item",
+      "description": "A weird bleeding statue at Saladin's Emporium; Caelynn identified it as paint and a total fake.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "a weird bleeding statue, \u201cIt\u2019s paint, it\u2019s a total fake\u201d - Caelynn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session-6:fliers",
+      "label": "Fliers",
+      "node_type": "item",
+      "description": "Fliers passed out by a gathering crowd, chanting about how unfair the toll is.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "passing out fliers chanting about how unfair the toll is"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session-6:giant-waterwheel",
+      "label": "Giant Waterwheel",
+      "node_type": "item",
+      "description": "A giant waterwheel visible from miles away against the mountain outside Mirathorn.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "a giant waterwheel visible from miles away against the mountain"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session-6:candy",
+      "label": "Candy",
+      "node_type": "item",
+      "description": "Torbin spent all 10 of his gold on candy.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "spend all 10 of his gold (which is a lot of fucking money for a kid, like, his father\u2019s life savings) on candy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:session-6:torbin-ward-contract",
+      "label": "Torbin taken on as a ward",
+      "node_type": "mystery",
+      "description": "The party negotiated a contract to take Torbin on as a ward/clerk/student, exchanging education, safety, monthly visits for his father, and room and board; the details and future placement remain open.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "anchor_quotes": [
+            "they were really taking on this kid Torbin as a ward, or clerk, or slave or something",
+            "a contract was negotiated",
+            "In exchange for an education, staying alive, monthly visits for his pops, and guaranteed room and board they had a kiddo."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:session-6:ghost-child-on-road",
+      "label": "Ghost child seen on the road",
+      "node_type": "mystery",
+      "description": "During the watch on the road to Mirathorn, Bonogo was visited by a spectral child walking the road; Karsemine confirmed it was spectral. The event's meaning and connection to other happenings remain unexplained.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "Bongo was visited by a ghost child walking the road.",
+            "To confirm it wasn\u2019t food he woke up Karsemine, who confirmed it was spectral."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:session-6:runaway-horse-and-owner",
+      "label": "Runaway horse, dead horse, and escalation turned friendly",
+      "node_type": "mystery",
+      "description": "A runaway cart was stopped by Baergrom; Ephanna killed one of the horses, and Stafl turned an escalating confrontation with the horse's owner into a friendly outcome. The incident's consequences for the journey or the owner remain open.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "There was a runaway cart stopped by Baergrom.",
+            "A dead horse served for Bonogo by Ephanna.",
+            "An escalation turned friendly with the dead horse\u2019s owner by Stafl (I think)"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:session-6:toll-protest-and-gate-blockade",
+      "label": "Toll protest and gate blockade threat",
+      "node_type": "mystery",
+      "description": "A growing crowd of about 50 people protesting the toll gathers near the city gate; guards send troops to disperse them, and Captain Lysandra Ironveil anticipates trouble closing the gate. This could block the party from getting Torbin into the city.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "they find a group gathering, passing out fliers chanting about how unfair the toll is",
+            "the crowd grows to around 50 people",
+            "The guards looking tense send a large contingent of troops out to disperse the crowd."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:56-56",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:56-56",
+          "anchor_quotes": [
+            "Well shit, that could be a real blocker to getting Torbin inside and settled\u2026"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:session-6:unexplained-festival-of-expansion",
+      "label": "Festival of Expansion and Outtown gathering",
+      "node_type": "mystery",
+      "description": "Outtown outside Mirathorn is swelling with shops, tents, and temporary buildings for the Festival of Expansion; the festival's significance and any opportunities or dangers it brings are unresolved.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "Finally arriving at Outtown, the collection of shops, blacksmiths, breweries, tents, and temporary buildings erupting out of the city in preparation for the Festival of Expansion."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:session-6:elara-swiftwind-meeting",
+      "label": "Meeting Elara Swiftwind at the Fur place",
+      "node_type": "mystery",
+      "description": "The party met Elara Swiftwind while shopping at the Fur place; her role or purpose is not elaborated and may indicate a further thread.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "anchor_quotes": [
+            "## Shopping, meet Elara Swiftwind at the Fur place"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:session-6:pippa-bubbles-reunion",
+      "label": "Finding Pippa and Bubbles",
+      "node_type": "mystery",
+      "description": "The party found Pippa and Bubbles at the Wizard Tower Brewery in Outtown, drank and caught up; the relationship and any future implications are not fully explored.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "Among them The Wizard Tower Brewery, Pippa and most importantly Bubbles!"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:34-34",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:34-34",
+          "anchor_quotes": [
+            "## Find Pippa and Bubbles"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:session-6:meat-hint",
+      "label": "Hint needed about 'the meat'",
+      "node_type": "mystery",
+      "description": "The session notes indicate the party needs a hint to know about 'the meat,' implying an unresolved plot or clue involving meat that has not yet surfaced in play.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "anchor_quotes": [
+            "they need a hint to know about the meat."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:saladin-owns-emporium",
+      "from_node_id": "candidate:saladin",
+      "to_node_id": "location:saladins-emporium",
+      "label": "owns Saladin's Emporium",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "Saladin\u2019s Emporium, which had jack fucking shit"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:morwin-owns-morwins",
+      "from_node_id": "candidate:morwin",
+      "to_node_id": "location:morwins",
+      "label": "runs Morwin's shop",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "So they went to Morwin\u2019s which had a bitchy old man, who wouldn\u2019t shutup about how much he hated that Saladin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:morwin-distrusts-saladin",
+      "from_node_id": "candidate:morwin",
+      "to_node_id": "candidate:saladin",
+      "label": "hated Saladin",
+      "relationship_type": "distrusts",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "who wouldn\u2019t shutup about how much he hated that Saladin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:saladin-owns-wagon",
+      "from_node_id": "candidate:saladin",
+      "to_node_id": "item:session-6:saladins-wagon",
+      "label": "owns his wagon",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "traveling with Saladin and his weird magical or mechanical wagon with no horses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:saladin-possesses-bleeding-statue",
+      "from_node_id": "candidate:saladin",
+      "to_node_id": "item:session-6:bleeding-statue",
+      "label": "has bleeding statue at his emporium",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "a flamboyantly dressed elf\u2019s desk with a weird bleeding statue"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:saladin-travels-with-party",
+      "from_node_id": "candidate:saladin",
+      "to_node_id": "group:the_party_of_six",
+      "label": "traveled with the party",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:22-22",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:22-22",
+          "anchor_quotes": [
+            "## Traveled with Saladin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "traveling with Saladin and his weird magical or mechanical wagon with no horses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-trades-with-saladin",
+      "from_node_id": "group:the_party_of_six",
+      "to_node_id": "candidate:saladin",
+      "label": "shopped with Saladin",
+      "relationship_type": "works_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "anchor_quotes": [
+            "## Shopped with Saladin, sold stuff"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-buys-from-morwin",
+      "from_node_id": "group:the_party_of_six",
+      "to_node_id": "candidate:morwin",
+      "label": "bought standard goods from Morwin",
+      "relationship_type": "works_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "anchor_quotes": [
+            "## Bought standard goods from Morwin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "Until he sold the party a ton of goods"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:furchild-met-at-fur-place",
+      "from_node_id": "candidate:elara_swiftwind",
+      "to_node_id": "location:the-fur-place",
+      "label": "met at the Fur place",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "anchor_quotes": [
+            "meet Elara Swiftwind at the Fur place"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-met-elara",
+      "from_node_id": "group:the_party_of_six",
+      "to_node_id": "candidate:elara_swiftwind",
+      "label": "met Elara Swiftwind",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "anchor_quotes": [
+            "## Shopping, meet Elara Swiftwind at the Fur place"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:ghost-child-walks-road",
+      "from_node_id": "candidate:the_ghost_child",
+      "to_node_id": "location:the-road-to-miraholm",
+      "label": "walks the road",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "Bongo was visited by a ghost child walking the road"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:brewery-located-in-outtown",
+      "from_node_id": "location:the-wizard-tower-brewery",
+      "to_node_id": "location:outtown",
+      "label": "located in Outtown",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "Among them The Wizard Tower Brewery, Pippa and most importantly Bubbles!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-at-wizard-tower-brewery",
+      "from_node_id": "group:the_party_of_six",
+      "to_node_id": "location:the-wizard-tower-brewery",
+      "label": "drank and caught up at the brewery",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "After drinking, catching up, telling their tales, it was time for a bit of exploration, shopping and then to see about getting into the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-at-gate",
+      "from_node_id": "group:the_party_of_six",
+      "to_node_id": "location:the-gate",
+      "label": "went to the gate",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "anchor_quotes": [
+            "Go to the gate, see the beginning of the protest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-met-ly_sandra",
+      "from_node_id": "group:the_party_of_six",
+      "to_node_id": "candidate:ly_sandra_ironveil",
+      "label": "talked to Captain Lysandra Ironveil",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:40-40",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:40-40",
+          "anchor_quotes": [
+            "## Talked to Captain Lysandra Ironveil"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "anchor_quotes": [
+            "They made friends with Lysandra"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra-commands-guards",
+      "from_node_id": "candidate:ly_sandra_ironveil",
+      "to_node_id": "faction:mirathorn_city_guards",
+      "label": "captain of the guards",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "Excusing herself, the Captain walks to joining the other guards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra-command-of-gate",
+      "from_node_id": "candidate:ly_sandra_ironveil",
+      "to_node_id": "location:the-gate",
+      "label": "responsible for the gate",
+      "relationship_type": "reports_threat_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "complaining of what a headache and ass chewing she will get if she has to close the gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:guards-disperse-protesters",
+      "from_node_id": "faction:mirathorn_city_guards",
+      "to_node_id": "group:toll_protesters",
+      "label": "disperse the crowd",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "The guards looking tense send a large contingent of troops out to disperse the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:protesters-at-gate",
+      "from_node_id": "group:toll_protesters",
+      "to_node_id": "location:the-gate",
+      "label": "gathered near the gate",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "they find a group gathering, passing out fliers chanting about how unfair the toll is"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:protesters-pass-fliers",
+      "from_node_id": "group:toll_protesters",
+      "to_node_id": "item:session-6:fliers",
+      "label": "passing out fliers",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "passing out fliers chanting about how unfair the toll is"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-observes-protest",
+      "from_node_id": "group:the_party_of_six",
+      "to_node_id": "thread:session-6:toll-protest-and-gate-blockade",
+      "label": "observed the toll protest",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "While they observe and chat with Captain Lysandra Ironveil, the crowd grows to around 50 people"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:protest-blocks-torbin-entry",
+      "from_node_id": "thread:session-6:toll-protest-and-gate-blockade",
+      "to_node_id": "thread:session-6:torbin-ward-contract",
+      "label": "could block getting Torbin inside",
+      "relationship_type": "threatens",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:56-56",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:56-56",
+          "anchor_quotes": [
+            "that could be a real blocker to getting Torbin inside and settled"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-took-torbin-as-ward",
+      "from_node_id": "group:the_party_of_six",
+      "to_node_id": "thread:session-6:torbin-ward-contract",
+      "label": "negotiated ward contract for Torbin",
+      "relationship_type": "pursues",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "anchor_quotes": [
+            "they were really taking on this kid Torbin as a ward, or clerk, or slave or something",
+            "a contract was negotiated"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-travels-road",
+      "from_node_id": "group:the_party_of_six",
+      "to_node_id": "location:the-road-to-miraholm",
+      "label": "traveled the road",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "On to Mirathorn, it\u2019d be two days"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-thread-pippa-reunion",
+      "from_node_id": "group:the_party_of_six",
+      "to_node_id": "thread:session-6:pippa-bubbles-reunion",
+      "label": "found Pippa and Bubbles",
+      "relationship_type": "pursues",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:34-34",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:34-34",
+          "anchor_quotes": [
+            "## Find Pippa and Bubbles"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:outtown-linked-to-festival",
+      "from_node_id": "location:outtown",
+      "to_node_id": "thread:session-6:unexplained-festival-of-expansion",
+      "label": "swelling for the Festival of Expansion",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "temporary buildings erupting out of the city in preparation for the Festival of Expansion"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:outtown-merchants-at-outtown",
+      "from_node_id": "group:outtown_merchants",
+      "to_node_id": "location:outtown",
+      "label": "traders of Outtown",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "the collection of shops, blacksmiths, breweries, tents, and temporary buildings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:road-to-miraholm-leads-to-mirathorn",
+      "from_node_id": "location:the-road-to-miraholm",
+      "to_node_id": "location:outtown",
+      "label": "road arrives at Outtown",
+      "relationship_type": "routes_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "Finally arriving at Outtown"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat:negotiated-torbin-ward-contract",
+      "order": 1,
+      "title": "Negotiated Torbin's ward contract",
+      "summary": "The party discusses taking on Torbin as a ward or clerk, reasoning Hempholm is no place for an ambitious kid, and a contract is negotiated covering education, monthly visits for his father, and room and board.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:16-16",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:16-16",
+          "anchor_quotes": [
+            "Negotiated Torbin\u2019s ward contract"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+          "anchor_quotes": [
+            "a contract was negotiated",
+            "in exchange for an education, staying alive, monthly visits for his pops, and guaranteed room and board they had a kiddo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:shopping-with-saladin-sold-stuff",
+      "order": 2,
+      "title": "Shopped with Saladin, sold stuff",
+      "summary": "The party goes shopping, first visiting Saladin's Emporium in central Hempholm, which is huge but nearly empty, then Morwin's, where they sell goods and buy a large amount of supplies.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:18-18",
+          "anchor_quotes": [
+            "Shopped with Saladin, sold stuff"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "Next up had to be shopping, first to the garish wagon in the center of Hempholm!",
+            "Saladin\u2019s Emporium, which had jack fucking shit",
+            "So they went to Morwin\u2019s",
+            "Until he sold the party a ton of goods"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:bought-standard-goods-from-morwin",
+      "order": 3,
+      "title": "Bought standard goods from Morwin",
+      "summary": "The party purchases a ton of standard goods from Morwin's shop, a satisfying end to the shopping trip despite the shopkeeper's ranting about Saladin.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:20-20",
+          "anchor_quotes": [
+            "Bought standard goods from Morwin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+          "anchor_quotes": [
+            "who wouldn\u2019t shutup about how much he hated that Saladin",
+            "Until he sold the party a ton of goods. That was pretty satisfying."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:traveled-with-saladin",
+      "order": 4,
+      "title": "Traveled with Saladin toward Mirathorn",
+      "summary": "The party travels with Saladin and his odd wagon with no horses on the two-day journey to Mirathorn.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:22-22",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:22-22",
+          "anchor_quotes": [
+            "Traveled with Saladin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "On to Mirathorn, it\u2019d be two days",
+            "traveling with Saladin and his weird magical or mechanical wagon with no horses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:ephanna-summons-sprite",
+      "order": 5,
+      "title": "Ephanna summons a sprite only Torbin knows about",
+      "summary": "Ephanna summons a sprite, and no one other than Torbin is aware of it.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:24-24",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:24-24",
+          "anchor_quotes": [
+            "Ephanna summons a sprite, no one but Torbin knows"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:ghost-child-visitation",
+      "order": 6,
+      "title": "Bonogo sees a ghost child and wakes Karsemine",
+      "summary": "During the watch on the road, Bonogo is visited by a ghost child; he wakes Karsemine, who confirms the figure is spectral.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:26-26",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:26-26",
+          "anchor_quotes": [
+            "Bonogo woke up and saw a ghost child, woke up Karsemine"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "Bongo was visited by a ghost child walking the road",
+            "who confirmed it was spectral"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:runaway-horses-dead-horse",
+      "order": 7,
+      "title": "Runaway cart and a dead horse",
+      "summary": "A runaway cart is stopped by Baergrom, and Ephanna kills a horse, which serves as meat for Bonogo.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:28-28",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:28-28",
+          "anchor_quotes": [
+            "Runaway horses, Ephana kills one"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:30-30",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:30-30",
+          "anchor_quotes": [
+            "Baergrom stops the cart"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "There was a runaway cart stopped by Baergrom",
+            "A dead horse served for Bonogo by Ephanna"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:stafl-defuses-horse-death-trouble",
+      "order": 8,
+      "title": "Stafl defuses trouble over the dead horse",
+      "summary": "Stafl talks the group out of trouble with the dead horse's owner, turning the escalation friendly, and gives an epic performance spreading the party's song.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:32-32",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:32-32",
+          "anchor_quotes": [
+            "Stafl? Talks the group out of Ephanna horse killing trouble"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+          "anchor_quotes": [
+            "An escalation turned friendly with the dead horse\u2019s owner by Stafl",
+            "some pre festivities with an epic performance by Stafl"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:find-pippa-and-bubbles",
+      "order": 9,
+      "title": "Find Pippa and Bubbles",
+      "summary": "The party finds Pippa and Bubbles at Outtown among the Festival of Expansion preparations.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:34-34",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:34-34",
+          "anchor_quotes": [
+            "Find Pippa and Bubbles"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "Among them The Wizard Tower Brewery, Pippa and most importantly Bubbles!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:elara-swiftwind-at-fur-place",
+      "order": 10,
+      "title": "Shopping and meeting Elara Swiftwind",
+      "summary": "The party shops and meets Elara Swiftwind at the Fur place.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:36-36",
+          "anchor_quotes": [
+            "Shopping, meet Elara Swiftwind at the Fur place"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:arrival-at-outtown-and-mirathorn-outskirts",
+      "order": 11,
+      "title": "Approaching Mirathorn and Outtown",
+      "summary": "Approaching Mirathorn, the party passes the outskirts with a giant waterwheel, walls, herds, orchards and fields, arriving at Outtown full of shops and temporary buildings for the Festival of Expansion.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+          "anchor_quotes": [
+            "Approaching Mirathorn they passed the abundance of the outskirts",
+            "Finally arriving at Outtown",
+            "in preparation for the Festival of Expansion"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:torbin-spends-gold-on-candy",
+      "order": 12,
+      "title": "Torbin spends his gold on candy",
+      "summary": "Torbin immediately spends all 10 of his gold\u2014his father's life savings\u2014on candy before the party heads into the city.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "Torbin, immediately spend all 10 of his gold",
+            "on candy. So much candy!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:protest-begins-at-gate",
+      "order": 13,
+      "title": "Protest begins at the gate",
+      "summary": "At the gate, the party observes a growing protest against the toll, with fliers, a crowd of around 50 people, and tense guards sending troops to disperse them.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:38-38",
+          "anchor_quotes": [
+            "Go to the gate, see the beginning of the protest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "passing out fliers chanting about how unfair the toll is",
+            "the crowd grows to around 50 people",
+            "guard looking tense send a large contingent of troops out to disperse the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:talk-with-captain-lysandra",
+      "order": 14,
+      "title": "Talk with Captain Lysandra Ironveil",
+      "summary": "The party chats with Captain Lysandra Ironveil during the protest before she excuses herself to join the other guards.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:40-40",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:40-40",
+          "anchor_quotes": [
+            "Talked to Captain Lysandra Ironveil"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+          "anchor_quotes": [
+            "While they observe and chat with Captain Lysandra Ironveil",
+            "Excusing herself, the Captain walks to joining the other guards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:next-steps-torbin-safety-and-politics",
+      "order": 15,
+      "title": "Next steps: Torbin's safety and political hooks",
+      "summary": "The group needs to get Torbin somewhere safe amid the protest, with hints of politics, the meat mystery, and their new connection with Lysandra and Kaelyn.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:42-42",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:42-42",
+          "anchor_quotes": [
+            "They need to get Torbin somewhere safe"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "anchor_quotes": [
+            "Splash in some politics, they need a hint to know about the meat",
+            "They made friends with Lysandra"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:56-56",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:56-56",
+          "anchor_quotes": [
+            "that could be a real blocker to getting Torbin inside and settled"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:session-6:saladin-emporium",
+      "label": "Saladin's Emporium and Morwin's shopping",
+      "reason": "Routine shopping beats with no unresolved mystery, clue, warning, or ongoing thread; commercial interaction resolved in-session.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:session-6:torbin-candy-spending",
+      "label": "Torbin spends all his gold on candy",
+      "reason": "Colorful character moment with no lingering unresolved element or thread.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:session-6:stafl-performance",
+      "label": "Stafl's epic performance",
+      "reason": "Performance is a resolved social beat with no obvious unresolved mystery or thread.",
+      "evidence_refs": [],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:session-6:sprite-summon-secret",
+      "label": "Ephanna summons a sprite, only Torbin knows",
+      "reason": "Could become a secret or complication, but currently lacks evidence of a mystery, clue, warning, or unresolved phenomenon beyond the secrecy noted.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:24-24",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:24-24",
+          "anchor_quotes": [
+            "## Ephanna summons a sprite, no one but Torbin knows"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Revisit if the sprite or the secret causes later consequences in play."
+    },
+    {
+      "item_id": "deferred:session-6:splash-politics",
+      "label": "Splash in some politics (looking ahead)",
+      "reason": "Forward-looking prep note rather than a concrete existing mystery with anchors in play.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "label": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:44-44",
+          "anchor_quotes": [
+            "## Looking Ahead :Splash in some politics"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Develop into a concrete political thread once specific factions or events are introduced."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

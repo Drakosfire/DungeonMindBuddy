@@ -1,0 +1,1070 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-17:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-17",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "group:heroes-session-17",
+      "label": "Heroes / Party",
+      "node_type": "group",
+      "description": "The adventuring party fighting the centipede-like meat creature: Bonogo, Caelynn, Stafl, Karsemine, Ephanna, and Baergrom. They coordinate healing, spells, and attacks to sever the creature in two and end the final battle, then plan a long rest before the festival.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:28-28",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:28-28",
+          "anchor_quotes": [
+            "The party is dealing massive damage to the creature"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:34-34",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:34-34",
+          "anchor_quotes": [
+            "Ephanna attacks the creature with Eldritch Blast, severing it in two!"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "anchor_quotes": [
+            "looking down on the heroes below",
+            "the party works their way out of the hole"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:40-40",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:40-40",
+          "anchor_quotes": [
+            "the party begins to feel their exhaustion",
+            "Before the party can join in on the fun of the festival they all plan to have a nice long rest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:seed",
+      "label": "Seed",
+      "node_type": "item",
+      "description": "A small seed-like object found rattling inside the Wolf's head; it bears writhing small tentacles that wrap around the holder's hand and emanate dark energy as they try to burrow into skin. Stafl stabs it, triggering a lightning crack and screams from the meat creature.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "anchor_quotes": [
+            "Stafl shakes it until a seed falls out and lands in his hand",
+            "The small tentacles wrap themselves around his hand and he can feel dark energy emanating from it as it tries to burrow into his skin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "anchor_quotes": [
+            "After a quick debate about what to do with the seed Stafl decides to just stab it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:meat-goo",
+      "label": "Meat Goo",
+      "node_type": "item",
+      "description": "A goo that pools on the floor of the chamber; Caelynn collects a sample of it after dumping out some of her water.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "anchor_quotes": [
+            "She then dumps out some of her water and collects some of the goo that has pooled up on the floor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:storm-echo-of-stone-bridge",
+      "label": "The Storm Is Identical to the Stone Bridge Storm",
+      "node_type": "mystery",
+      "description": "Caelynn's Arcana check reveals the storm raging during the final battle is exactly like the storm from Stone Bridge where Bonogo and Bubbles were almost swept away, implying a recurring or deliberate supernatural storm phenomenon tied to the party's past.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "anchor_quotes": [
+            "water starts pouring in from every tunnel and every crack in the ceiling above",
+            "this storm is exactly like the storm they encountered in Stone Bridge when Bonogo and Bubbles were almost swept away"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:wolf-head-in-meat-creature",
+      "label": "The Wolf's Head Imprisoned in the Meat Creature",
+      "node_type": "mystery",
+      "description": "A head materializes from within the meat creature, revealed to be the Wolf, begging to be killed. Bonogo stabs it and hits something unexpectedly hard inside, suggesting the Wolf may be trapped within or controlling the creature.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "anchor_quotes": [
+            "a head materializes right in front of him",
+            "revealing itself to be the Wolf and begging to be killed"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "anchor_quotes": [
+            "stabs it right in the face with his dagger",
+            "feeling the blade easily slide in, but hitting something hard inside"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:seed-with-dark-energy",
+      "label": "The Seed That Emanates Dark Energy",
+      "node_type": "mystery",
+      "description": "Stafl extracts a seed from a protrusion within the meat creature. Small tentacles wrap around his hand and dark energy tries to burrow into his skin. When stabbed, it triggers lightning and screams from all connected meat.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "anchor_quotes": [
+            "He can hear something rattling around inside",
+            "a seed falls out and lands in his hand",
+            "he can feel dark energy emanating from it as it tries to burrow into his skin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "anchor_quotes": [
+            "There is an immediate crack of lightning and the entire space is filled with screams coming from all the meat connected in the room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:cultists-blood-heals-creature",
+      "label": "Cultists in a Trance Feed the Creature with Blood",
+      "node_type": "mystery",
+      "description": "A Cultist falls into a trance and walks to the center of the room, spilling blood onto the meat where it is absorbed and heals the large creature. This suggests a mind-control or ritual link between the Cultists and the creature.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "anchor_quotes": [
+            "One of the nearby Cultists begins to fall into a trance",
+            "they continue until they reach the center where they spill some of their blood onto the meat where it is absorbed and heals the large creature"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:creature-scape-into-ceiling",
+      "label": "The Meat Creature Escapes Through the Ceiling",
+      "node_type": "mystery",
+      "description": "After being severed in two, the top half of the creature rips open a hole in the ceiling and escapes, leaving the storm to fade and the remaining meat creatures to die. Its ultimate destination and whether it survived remain unknown.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "anchor_quotes": [
+            "the top half rips open a hole in the ceiling",
+            "the storm starts to fade, the rancid smell of meat dissipates, the remaining meat creatures die"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:glaze-disappears-from-cultists-eyes",
+      "label": "Glaze Disappears from the Cultists' Eyes",
+      "node_type": "mystery",
+      "description": "With the creature's defeat, the glaze disappears from the remaining Cultists' eyes, implying they were under some form of control or influence that is now broken.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "anchor_quotes": [
+            "the glaze disappears from the eyes of the remaining Cultists"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:lesandra-silence-order",
+      "label": "Lesandra Orders Silence About the Night's Events",
+      "node_type": "mystery",
+      "description": "After the battle, Lesandra appears at the front of the crowd of Cultists and orders everyone to keep quiet about the events of the night so the festival can continue as planned. Her authority and motives are unclear.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "anchor_quotes": [
+            "the group is made up of all Cultists, but they see Lesandra at the front",
+            "Lesandra orders everyone to keep quiet about the events of the night so the festival can continue as planned"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:shepherd-hunt-unresolved",
+      "label": "The Shepherd Still at Large",
+      "node_type": "mystery",
+      "description": "The recap explicitly states there are many loose ends, including whether the party will continue to hunt down the Shepherd, explore personal stories, or find a new adventure.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "anchor_quotes": [
+            "There are, however, many loose ends to still tie up",
+            "Will they continue to hunt down the Shepherd?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:dark-energy-pulses-and-heals",
+      "label": "Dark Energy Pulses Cure the Creature",
+      "node_type": "mystery",
+      "description": "Dark energy pulses through the room and along the centipede-like creature, curing a large portion of its damage. The source of this dark energy is unexplained.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "anchor_quotes": [
+            "Dark energy pulses through the room and along the creature, curing a large portion of damage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:fei-stories-vision",
+      "label": "Ephanna's Vision of Fey Stories",
+      "node_type": "mystery",
+      "description": "As the creature is severed, Ephanna's vision fills with Fey stories of heroes past. This unexplained vision may hint at a Fey connection or destiny.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "anchor_quotes": [
+            "Ephanna\u2019s vision fills with Fey stories of heroes past"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-0015",
+      "from_node_id": "candidate:seed",
+      "to_node_id": "mystery:dark-energy-pulses-and-heals",
+      "label": "The seed emanates dark energy",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "anchor_quotes": [
+            "he can feel dark energy emanating from it as it tries to burrow into his skin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-0030",
+      "from_node_id": "mystery:dark-energy-pulses-and-heals",
+      "to_node_id": "mystery:wolf-head-in-meat-creature",
+      "label": "Dark energy heals the creature as the Wolf's head appears",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "anchor_quotes": [
+            "Dark energy pulses through the room and along the creature, curing a large portion of damage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-01-centipede-vibrates-wolf-emerges",
+      "order": 1,
+      "title": "Centipede Writhing and the Wolf's Plea",
+      "summary": "The centipede-like creature vibrates and drags Ephanna into the giant pile on the center platform while Bonogo clings to it; a head materializes and reveals itself as the Wolf begging to be killed, and dark energy pulses heal the creature.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "anchor_quotes": [
+            "The centipede-like creature begins to vibrate, trying to shake off its adversaries.",
+            "until only Ephanna\u2019s head remains visible",
+            "revealing itself to be the Wolf and begging to be killed",
+            "Dark energy pulses through the room and along the creature, curing a large portion of damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-02-storm-and-flooding-tunnels",
+      "order": 2,
+      "title": "Storm Breaks and Water Pours In",
+      "summary": "A flash and smell of ozone precede water pouring in from every tunnel and ceiling crack; Caelynn identifies the storm as identical to the one at Stone Bridge where Bonogo and Bubbles were nearly swept away.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "anchor_quotes": [
+            "water starts pouring in from every tunnel and every crack in the ceiling above",
+            "this storm is exactly like the storm they encountered in Stone Bridge when Bonogo and Bubbles were almost swept away"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-03-bonogo-stabs-wolf-and-is-launched",
+      "order": 3,
+      "title": "Bonogo Stabs the Wolf and Is Launched Free",
+      "summary": "Bonogo stabs the Wolf's head with his dagger, hits something hard inside, and is launched 80 feet back by the centipede; Caelynn's Feather Fall saves him, and he cuts Ephanna free.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "anchor_quotes": [
+            "stabs it right in the face with his dagger",
+            "hitting something hard inside",
+            "launching Bonogo 80 feet back and over the rest of the battlefield",
+            "Caelynn casts Feather Fall, saving Bonogo from almost certain death"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-04-cultist-trance-and-blood-sacrifice",
+      "order": 4,
+      "title": "Cultist Falls into Trance and Sacrifices Blood",
+      "summary": "Caelynn slows the centipede with Ray of Frost and collects floor goo; a nearby Cultist enters a trance, reaches the center despite Stafl's hit, and spills blood onto the meat, healing the creature.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "anchor_quotes": [
+            "One of the nearby Cultists begins to fall into a trance",
+            "they spill some of their blood onto the meat where it is absorbed and heals the large creature"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-05-karsemine-attacks-tendril-and-meat-mounds",
+      "order": 5,
+      "title": "Karsemine Strikes the Tendril and Escapes Meat Mounds",
+      "summary": "Karsemine damages the tentacle, casts Zephyr Strike to escape being surrounded by Meat Mounds, and uses Horde Breaker on the nearest one.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:22-22",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:22-22",
+          "anchor_quotes": [
+            "Karesmine focuses her next attack on the tentacle",
+            "casting Zephyr Strike to escape being surrounded by Meat Mounds",
+            "she uses Horde Breaker on the nearest Meat Mound"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-06-stafl-retrieves-seed",
+      "order": 6,
+      "title": "Stafl Retrieves the Rattling Seed",
+      "summary": "Stafl taunts the Wolf's head, grabs the shifting protrusion, shakes a seed loose into his hand, and feels dark energy as small tentacles try to burrow into his skin.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "anchor_quotes": [
+            "Stafl is working on a plan to deal with the Wolf\u2019s head",
+            "Stafl shakes it until a seed falls out and lands in his hand",
+            "he can feel dark energy emanating from it as it tries to burrow into his skin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-07-stafl-stabs-seed-lightning-crack",
+      "order": 7,
+      "title": "Stafl Stabs the Seed, Creature Takes Critical Blow",
+      "summary": "After a quick debate, Stafl stabs the seed; a crack of lightning and screams from all the connected meat signal that the meat creature has taken a critical blow.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "anchor_quotes": [
+            "Stafl decides to just stab it",
+            "There is an immediate crack of lightning and the entire space is filled with screams",
+            "The meat creature appears to have taken a critical blow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-08-ephanna-tendril-severed-party-damage",
+      "order": 8,
+      "title": "Tendril Severed as Party Deals Massive Damage",
+      "summary": "A Meat Mound hits Ephanna, who Shatters it and drinks a Greater Healing Potion; Idris severs the tendril, shaking the room, and Baergrom's Commander's Strike with Bonogo misses before a Second Wind hit.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:28-28",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:28-28",
+          "anchor_quotes": [
+            "Ephanna casts Shatter on the Meat Mound",
+            "Ephanna then downs a Greater Healing Potion, recovering almost all hit points",
+            "Idris attacks the same tendril and finally severs it",
+            "Baergrom uses Commander\u2019s Strike with Bonogo, but the attack misses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-09-walls-grapple-karsemine-downed",
+      "order": 9,
+      "title": "Walls Grapple the Climbers; Karsemine Downed",
+      "summary": "Meat walls grapple Bonogo and Karsemine as they hang on; Karsemine dodges but is carried up, crushed, and downed out of reach as the creature nears the ceiling.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:30-30",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:30-30",
+          "anchor_quotes": [
+            "the walls of meat reach out and grapple them",
+            "the creature flips around and crushes Karsemine, downing her well above the reach of any of the party",
+            "the creature is very close to reaching the ceiling and breaking through"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-10-bonogo-rescues-karsemine-creature-faltering",
+      "order": 10,
+      "title": "Bonogo Rescues Karsemine; Creature on Last Leg",
+      "summary": "Caelynn casts Magic Missile on the wall holding Bonogo; Bonogo climbs to Karsemine and heals her with a potion, stabs the creature, and Karsemine and Stafl attack as the centipede nears collapse.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "anchor_quotes": [
+            "Caelynn casts Magic Missile on the wall holding Bonogo",
+            "healing her with a potion",
+            "Stafl sends a bolt from his crossbow",
+            "The centipede-like creature looks to be finally on its last leg"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-11-caelynn-downed-ephanna-severs-creature",
+      "order": 11,
+      "title": "Caelynn Downed; Ephanna Severs the Creature",
+      "summary": "A Meat Mound knocks Caelynn unconscious and Baergrom revives her with a potion; Ephanna's Eldritch Blast severs the creature in two.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:34-34",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:34-34",
+          "anchor_quotes": [
+            "The Meat Mound attacks Caelynn with both attacks, dealing a massive amount of damage and knocking her unconscious",
+            "Baergrom rushes to revive her with a potion",
+            "Ephanna attacks the creature with Eldritch Blast, severing it in two!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-12-final-battle-ends-cultists-freed",
+      "order": 12,
+      "title": "Final Battle Ends as Storm and Glamour Fade",
+      "summary": "As the creature's lower half crashes, the top half rips a hole in the ceiling; the storm fades, the meat smell dissipates, remaining meat creatures die, and the glaze leaves the Cultists' eyes, ending the final battle.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "anchor_quotes": [
+            "the storm starts to fade, the rancid smell of meat dissipates",
+            "the remaining meat creatures die",
+            "the glaze disappears from the eyes of the remaining Cultists",
+            "Thus ending the final battle!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-13-crowd-lesandra-orders-silence",
+      "order": 13,
+      "title": "Lesandra Orders Silence Before the Festival",
+      "summary": "A crowd of Cultists forms around the hole with Lesandra at the front; after the party climbs back to the street, Lesandra orders everyone to keep quiet about the night's events so the festival can continue.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "anchor_quotes": [
+            "the group is made up of all Cultists, but they see Lesandra at the front",
+            "Lesandra orders everyone to keep quiet about the events of the night so the festival can continue as planned"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-14-mood-shifts-party-rests",
+      "order": 14,
+      "title": "Mood Shifts to Celebration; Party Plans a Rest",
+      "summary": "The air changes from despair to celebration while the exhausted party plans a long rest before joining the festival fun.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:40-40",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:40-40",
+          "anchor_quotes": [
+            "The feeling in the air quickly changes from despair to celebration",
+            "they all plan to have a nice long rest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-15-loose-ends-and-shepherd-tease",
+      "order": 15,
+      "title": "Loose Ends: The Shepherd and Future Paths",
+      "summary": "Open questions remain about where the party heads next, whether they will continue hunting the Shepherd, explore personal stories, or find a new adventure.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "anchor_quotes": [
+            "many loose ends to still tie up",
+            "Will they continue to hunt down the Shepherd?",
+            "Or is there an entirely new adventure awaiting them?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:ambiguous-party-names",
+      "label": "Ambiguous PC name surfaces",
+      "reason": "These surfaces are marked ambiguous in the packet and correspond to known party members; they are not session-novel entities.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:known-entities",
+      "label": "Known entity mentions",
+      "reason": "Entities such as Bubbles, Center Platform, Cultists, Dagger, Lesandra, Meat Mounds, Potion, The Shepherd, Stone Bridge, The Street, Tunnel, Wolf are already registered as candidates and should be enriched via edges/evidence, not recreated as observation nodes.",
+      "evidence_refs": [],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:mechanics-details",
+      "label": "Detailed combat mechanics and spell effects",
+      "reason": "The recap includes many mechanical actions (spells, damage, checks) that are not narrative mysteries and may be better captured in a combat log or session transcript rather than graph memory.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "anchor_quotes": [
+            "Caelynn quickly casts Ray of Frost on the centipede, slowing its movement speed",
+            "She then dumps out some of her water and collects some of the goo that has pooled up on the floor"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Extract a separate combat beat or mechanics summary if needed."
+    },
+    {
+      "item_id": "deferred:ethel-rescue",
+      "label": "Ethel rescued from the water",
+      "reason": "Ethel is mentioned as being helped out of the water, but the entity is not in the known entity list and the event is incidental; may need a new entity node if Ethel becomes relevant.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "anchor_quotes": [
+            "The Sprite and Caelynn\u2019s charm friend even help Ethel out of the water"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Resolve or dismiss Ethel as an entity in a future pass."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

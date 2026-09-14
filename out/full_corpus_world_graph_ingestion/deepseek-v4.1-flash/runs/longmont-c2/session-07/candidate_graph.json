@@ -1,0 +1,2109 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-7:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-7",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-7:3944b26180b9"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:cultist",
+      "label": "Cultist",
+      "node_type": "character",
+      "description": "A cultist enemy encountered at the barn; attacks with a dagger and is killed during the fight.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "Outside Karsemine attacks the Cultist, but misses.",
+            "Both Stafl and Caelynn are attacked by Cultists with daggers."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "Back at the front of the barn the remaining Cultists attack Ephanna\u2019s Fey, but all miss."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:priest",
+      "label": "Priest",
+      "node_type": "character",
+      "description": "An enemy priest who moves between holes in the barn and casts Dark Whisper/Dark Wispers on Bonogo, dealing psychic damage.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "On the other end the priest moves to the other hole and uses Dark Whisper on Bonogo."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "The priest moves outside closer to Bonogo then casts Dark Wispers on him, dealing psychic damage."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "Ephanna moves closer to the Dustwalker, then fires an Eldritch Blast at the priest.",
+            "The priest and the monster both attack Bonogo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:goblin-children",
+      "label": "Goblin Children",
+      "node_type": "character",
+      "description": "Chained goblin children freed by Bonogo; they assist with locking doors, are grappled and nearly killed, and one is absorbed into a portal.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "Bonogo unchains the goblin children and then instructs them to use the chain to lock the doors."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "One other monster grapples through the opposite hole and grapples a goblin child and Bonogo, who is also prone."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "One of the goblin children is pulled into the portal and absorbed."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:goblin_children",
+      "label": "Goblin Children",
+      "node_type": "group",
+      "description": "A group of chained goblin children freed by Bonogo, instructed to lock the barn doors, who assist the party and one of whom is pulled into a portal and absorbed.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "Bonogo unchains the goblin children and then instructs them to use the chain to lock the doors."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "The Dustwalker then opens the barn doors and, after kicking over one of the goblin children, makes a run for it with Misty Step.",
+            "Bonogo attempts to get the goblin child to help free Caelynn, but they cannot get through the tentacles."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "The portals lash out again and this time grapple Baergrom and one of the goblin children.",
+            "One of the goblin children is pulled into the portal and absorbed."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:ephannas-fey",
+      "label": "Ephanna's Fey",
+      "node_type": "creature",
+      "description": "Ephanna's summoned fey ally that attacks cultists and monsters, using Misty Step and landing killing blows.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "On the other end of the barn Ephanna summons their Fey and then they both attack and kill a Cultist."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "Ephanna\u2019s Fey attacks and kills one of the Cultists before using Misty Step to attack a monster."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "Ephanna\u2019s fey uses Misty Step to get in range of one of the monsters and lands a killing blow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:ephanna_fey",
+      "label": "Ephanna's Fey",
+      "node_type": "group",
+      "description": "A summoned fey creature fighting alongside Ephanna, attacking and killing cultists and monsters, and using Misty Step to reposition in combat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "On the other end of the barn Ephanna summons their Fey and then they both attack and kill a Cultist."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "Back at the front of the barn the remaining Cultists attack Ephanna\u2019s Fey, but all miss."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "Ephanna\u2019s Fey attacks and kills one of the Cultists before using Misty Step to attack a monster."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "Ephanna\u2019s fey uses Misty Step to get in range of one of the monsters and lands a killing blow, while Baergrom uses his greataxe to attack multiple monsters."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:barn",
+      "label": "the barn",
+      "node_type": "location",
+      "description": "A barn with multiple holes in its walls, an open door, and a front section; site of a battle involving Cultists, Fleshborn, the Dustwalker, and a priest. Fire spreads inside and out along its side.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "Finding the hole in the side of the barn",
+            "On the other end of the barn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "The Dustwalker then opens the barn doors",
+            "Back at the front of the barn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:field",
+      "label": "the field",
+      "node_type": "location",
+      "description": "An open field outside the barn; Caelynn and Stafl teleport out into it, and fire spreads out into it from the barn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "out into the field"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "both out into the field and further up the side of the barn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:fleshborn_swarm",
+      "label": "Fleshborn Monsters",
+      "node_type": "group",
+      "description": "A collective of tentacled Fleshborn monsters that grapple and devour creatures through the holes and door of the barn, working alongside the cultists and the Dustwalker.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "The rest of the Fleshborn monsters all move closer to holes in the walls and the open door.",
+            "Another monster attempts to grapple through the hole and this time is able to grapple Lysandra and Baergrom, Karsemine escapes.",
+            "One other monster grapples through the opposite hole and grapples a goblin child and Bonogo, who is also prone."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "A monster grappling Lysandra uses Devour the Weak, pulling her into the monster\u2019s huge mouth and inflicting necrotic damage.",
+            "Then the monster holding Bonogo also uses Devour and deals a huge amount of necrotic damage."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "The priest and the monster both attack Bonogo, who is now very close to being knocked unconscious as well.",
+            "Another monster attacks Baergrom, this time dealing damage, while another monster misses an attack on Lysandra."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:thunder-step-teleport",
+      "label": "Thunder Step",
+      "node_type": "item",
+      "description": "Teleportation effect used by Caelynn to escape the barn; the thunderous boom damages Cultists and Fleshborn in a 10-foot range.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "Caelynn is going to teleport using Thunder Step",
+            "The thunderous boom left behind damages all the Cultists and Fleshborn within a 10 foot range."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:poisoned-short-bow",
+      "label": "Poisoned Short Bow",
+      "node_type": "item",
+      "description": "Bonogo's short bow equipped with poison, used to attack the Dustwalker.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "he then uses his short bow, equipped with poison, and attacks the Dustwalker"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:chain-door-lock",
+      "label": "Chain",
+      "node_type": "item",
+      "description": "Chain used by the goblin children, at Bonogo's instruction, to lock the barn doors.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "instructs them to use the chain to lock the doors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:dark-whisper",
+      "label": "Dark Whisper",
+      "node_type": "item",
+      "description": "Spell cast by the priest on Bonogo, dealing psychic damage.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "uses Dark Whisper on Bonogo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:vertical-portals",
+      "label": "Vertical Portals",
+      "node_type": "item",
+      "description": "Spell effect opened by the Dustwalker, creating vertical rips in space near Karsemine, Baergrom, Caelynn and Stafl; each spews giant tentacles that grapple targets. Caelynn later destroys the portal holding her with Magic Missile.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "opening vertical rips in space near Karsemine, Baergrom, Caelynn and Stafl",
+            "Each portal spews out giant tentacles, all attempting to grab anyone within range."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "Caelynn uses Magic Missile on the portal holding her, and destroys it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:magic-missile",
+      "label": "Magic Missile",
+      "node_type": "item",
+      "description": "Spell cast by Caelynn on the portal holding her, destroying it.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "Caelynn uses Magic Missile on the portal holding her, and destroys it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:eldritch-blast",
+      "label": "Eldritch Blast",
+      "node_type": "item",
+      "description": "Spell used by Ephanna and their Fey; one blast from Ephanna knocks Caelynn unconscious, another lands on the priest.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "Ephanna also uses Misty Step and then Eldritch Blast on the same monster to finish it off"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "fires an Eldritch Blast at the priest",
+            "The first blast misses the target and instead knocks Caelynn unconscious."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:misty-step",
+      "label": "Misty Step",
+      "node_type": "item",
+      "description": "Teleportation spell used by the Dustwalker to flee, and by Ephanna and their Fey to reposition in combat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "makes a run for it with Misty Step"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "before using Misty Step to attack a monster",
+            "Ephanna also uses Misty Step"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:baergrom-greataxe",
+      "label": "Great Axe",
+      "node_type": "item",
+      "description": "Baergrom's great axe, used to cleave multiple monsters and attack several enemies.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "Baergrom pulls out his great axe and uses cleave to hit multiple monsters as well"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "Baergrom uses his greataxe to attack multiple monsters"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:stafl-crossbow",
+      "label": "Crossbow",
+      "node_type": "item",
+      "description": "Stafl fires a shot from his crossbow at the portal before moving to the Dustwalker.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "Stafl fires a shot from his crossbow at the portal then moves to the Dustwalker"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:hideous-laughter",
+      "label": "Hideous Laughter",
+      "node_type": "item",
+      "description": "Spell used by Stafl on the Dustwalker to incapacitate him and attempt to break the portal spells; the Dustwalker fails the laughter save and remains prone.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "hits him with Hideous Laughter, hoping to incapacitate and break the spells for the portals"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "The Dustwalker is still poisoned and prone due to hideous laughter."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:dustwalker_portal_summoner",
+      "label": "Dustwalker's Portals Summoning Tentacles",
+      "node_type": "mystery",
+      "description": "A centerpiece mystery from Session 7: the Dustwalker finishes a spell and opens vertical rips in space near Karsemine, Baergrom, Caelynn, and Stafl. Each portal spews giant tentacles that attempt to grapple anyone within range, and the portals persist despite attempts to incapacitate the caster.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "The Dustwalker finally finishes his spell, opening vertical rips in space near Karsemine, Baergrom, Caelynn and Stafl.",
+            "Each portal spews out giant tentacles, all attempting to grab anyone within range."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "The portals lash out again and this time grapple Baergrom and one of the goblin children.",
+            "One of the goblin children is pulled into the portal and absorbed."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "unresolved:portals_remain_after_hideous_laughter",
+      "label": "Portals Remain Up Despite Hideous Laughter",
+      "node_type": "mystery",
+      "description": "Stafl chases the Dustwalker and hits him with Hideous Laughter, hoping to incapacitate and break the portal spells, but the portals remain active. The Dustwalker later fails both poison and laughter saves, yet the portals continue lashing out.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "Stafl is able to chase down the Dustwalker and hits him with Hideous Laughter, hoping to incapacitate and break the spells for the portals.",
+            "The portals remain up."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "The Dustwalker fails both the poison and laughter saves."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "phenomenon:goblin_child_absorbed_by_portal",
+      "label": "Goblin Child Absorbed by Portal",
+      "node_type": "mystery",
+      "description": "An unresolved, ominous phenomenon: during the portal assault, one of the goblin children is pulled into the portal and absorbed, indicating the portals do more than grapple. Its fate is unknown.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "One of the goblin children is pulled into the portal and absorbed."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:tentacle_portals_grapple_and_destroy",
+      "label": "Tentacle Portals Can Be Destroyed Individually",
+      "node_type": "mystery",
+      "description": "Caelynn destroys the portal holding her with Magic Missile, and Karsemine destroys the portal holding Baergrom after an all-out attack. This suggests the portals are individually targetable and destructible, an unresolved mechanic or clue.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "Caelynn uses Magic Missile on the portal holding her, and destroys it.",
+            "Karsemine then goes for an all out attack on the portal holding Baergrom. She attacks, uses Horde Breaker, attacks again then uses Nick and destroys it, freeing Baergrom."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:fire_spreading_out_of_control",
+      "label": "Fire Spreading Uncontrollably",
+      "node_type": "mystery",
+      "description": "A recurring environmental threat: fire begins to spread both into the field and up the side of the barn, then worsens; by the end of the recap it spreads up and out at an alarming pace.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "Once again the fire begins to spread, both out into the field and further up the side of the barn."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "Finally, the fire begins to spread up and out, now at an alarming pace."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:dark_whisper_psychic_attacks",
+      "label": "Dark Whisper / Dark Wispers Psychic Assaults",
+      "node_type": "mystery",
+      "description": "The enemy priest uses Dark Whisper and Dark Wispers against Bonogo, dealing psychic damage. The similar but inconsistently named spells may point to an ongoing enemy capability or a transcription clue.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "the priest moves to the other hole and uses Dark Whisper on Bonogo."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "The priest moves outside closer to Bonogo then casts Dark Wispers on him, dealing psychic damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:bonogo_dark_whisper_and_near_unconscious",
+      "label": "Bonogo Under Focus: Dark Whisper and Devour",
+      "node_type": "mystery",
+      "description": "Bonogo is targeted by the priest's Dark Whisper/Dark Wispers and then grappled and Devoured, bringing him very close to unconsciousness during the barn fight.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "the priest moves to the other hole and uses Dark Whisper on Bonogo."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "Then the monster holding Bonogo also uses Devour and deals a huge amount of necrotic damage."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "The priest and the monster both attack Bonogo, who is now very close to being knocked unconscious as well."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:caelynn_unconscious_and_death_save",
+      "label": "Caelynn Knocked Unconscious, Later Death Save",
+      "node_type": "mystery",
+      "description": "Caelynn is knocked unconscious and revived by Stafl's potion, later destroyed a portal, and eventually is knocked unconscious again by Ephanna's errant Eldritch Blast and begins death saving throws.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "throws a potion at Caelynn, knocking her unconscious and then reviving her all in one action."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "The first blast misses the target and instead knocks Caelynn unconscious.",
+            "Caelynn makes her first death saving throw."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:lysandra_devoured_necrotic_damage",
+      "label": "Lysandra Devoured for Necrotic Damage",
+      "node_type": "mystery",
+      "description": "A monster grappling Lysandra uses Devour the Weak, pulling her into its huge mouth and inflicting necrotic damage; grapple attempts against her continue afterward.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "A monster grappling Lysandra uses Devour the Weak, pulling her into the monster\u2019s huge mouth and inflicting necrotic damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:baergrom_rescues_lysandra_through_barn_wall",
+      "label": "Baergrom Cuts Lysandra Out Through Barn Wall",
+      "node_type": "mystery",
+      "description": "Baergrom rescues the trapped Lysandra by cutting through the barn wall, pulling her through and outside \u2014 evidence of ongoing structural chaos and character action within the fight.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "Baergrom chooses to rescue the trapped Lysandra by cutting a hole right through the barn wall.",
+            "He grabs her and pulls her through the hole and outside the barn."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:caelynn_thunder_step_choice",
+      "label": "Caelynn's Difficult Thunder Step Choice",
+      "node_type": "mystery",
+      "description": "Caelynn uses Thunder Step but faces a difficult decision: take either Stafl or Lysandra with her. She chooses Stafl; the thunderous boom damages nearby Cultists and Fleshborn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "Caelynn is going to teleport using Thunder Step but has a very difficult decision to make: she can either take Stafl or Lysandra with her.",
+            "She chooses Stalf and they teleport out of the hole by Bonogo and out into the field."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:fleshborn_tentacle_grapples",
+      "label": "Fleshborn Tentacle Grapples",
+      "node_type": "mystery",
+      "description": "Fleshborn monsters attack through holes with tentacles, grappling Lysandra and Baergrom, and later a goblin child and Bonogo. Their repeated grapple attempts and Devour ability pose a persistent threat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "Another monster attempts to grapple through the hole and this time is able to grapple Lysandra and Baergrom, Karsemine escapes.",
+            "One other monster grapples through the opposite hole and grapples a goblin child and Bonogo, who is also prone."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:stafl_potion_knockout_and_revive",
+      "label": "Stafl's Potion Knocks Out and Revives Caelynn",
+      "node_type": "mystery",
+      "description": "Stafl escapes a grapple, flies, and throws a potion that knocks Caelynn unconscious and then revives her all in one action \u2014 an unusual item effect worth tracking.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "Inside the barn Stafl escapes the grapple and flies back up again and then throws a potion at Caelynn, knocking her unconscious and then reviving her all in one action."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:dustwalker_escape_with_misty_step",
+      "label": "Dustwalker Escapes Through Barn Doors",
+      "node_type": "mystery",
+      "description": "The Dustwalker opens the barn doors, kicks over a goblin child, and makes a run for it with Misty Step, leaving the portals and broader fight unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "The Dustwalker then opens the barn doors and, after kicking over one of the goblin children, makes a run for it with Misty Step."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:cultists_attack_fey",
+      "from_node_id": "candidate:cultist",
+      "to_node_id": "group:ephanna_fey",
+      "label": "attacks",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "Back at the front of the barn the remaining Cultists attack Ephanna\u2019s Fey, but all miss."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:fey_attacks_cultist",
+      "from_node_id": "group:ephanna_fey",
+      "to_node_id": "candidate:cultist",
+      "label": "attacks and kills",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "On the other end of the barn Ephanna summons their Fey and then they both attack and kill a Cultist."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "Ephanna\u2019s Fey attacks and kills one of the Cultists before using Misty Step to attack a monster."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:fleshborn_grapples_goblin_child",
+      "from_node_id": "group:fleshborn_swarm",
+      "to_node_id": "group:goblin_children",
+      "label": "grapples",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "One other monster grapples through the opposite hole and grapples a goblin child and Bonogo, who is also prone."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:portals_grapple_baergrom_goblin",
+      "from_node_id": "item:vertical-portals",
+      "to_node_id": "group:goblin_children",
+      "label": "grapples and absorbs",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "The portals lash out again and this time grapple Baergrom and one of the goblin children.",
+            "One of the goblin children is pulled into the portal and absorbed."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:goblin_children_use_chain",
+      "from_node_id": "group:goblin_children",
+      "to_node_id": "item:chain-door-lock",
+      "label": "uses chain to lock doors",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "Bonogo unchains the goblin children and then instructs them to use the chain to lock the doors."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:priest_carries_dark_whisper",
+      "from_node_id": "candidate:priest",
+      "to_node_id": "item:dark-whisper",
+      "label": "casts Dark Whisper",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "On the other end the priest moves to the other hole and uses Dark Whisper on Bonogo."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:battle_located_in_barn",
+      "from_node_id": "group:fleshborn_swarm",
+      "to_node_id": "location:barn",
+      "label": "present in barn",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "The rest of the Fleshborn monsters all move closer to holes in the walls and the open door."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:priest_present_at_barn",
+      "from_node_id": "candidate:priest",
+      "to_node_id": "location:barn",
+      "label": "moves between holes in barn",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "On the other end the priest moves to the other hole"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:barn_located_in_field",
+      "from_node_id": "location:barn",
+      "to_node_id": "location:field",
+      "label": "barn adjacent to field",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "Once again the fire begins to spread, both out into the field and further up the side of the barn."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:portals_contain_tentacles",
+      "from_node_id": "item:vertical-portals",
+      "to_node_id": "mystery:tentacle_portals_grapple_and_destroy",
+      "label": "spews tentacles",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "Each portal spews out giant tentacles, all attempting to grab anyone within range."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:fire_threatens_barn_field",
+      "from_node_id": "event:fire_spreading_out_of_control",
+      "to_node_id": "location:barn",
+      "label": "fire threatens barn and field",
+      "relationship_type": "threatens",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "Once again the fire begins to spread, both out into the field and further up the side of the barn."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "Finally, the fire begins to spread up and out, now at an alarming pace."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:ephanna_fey_participates_in_battle",
+      "from_node_id": "group:ephanna_fey",
+      "to_node_id": "location:barn",
+      "label": "present in barn battle",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "Back at the front of the barn the remaining Cultists attack Ephanna\u2019s Fey, but all miss."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra_devoured_by_monster",
+      "from_node_id": "group:fleshborn_swarm",
+      "to_node_id": "event:lysandra_devoured_necrotic_damage",
+      "label": "devours Lysandra",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "A monster grappling Lysandra uses Devour the Weak, pulling her into the monster\u2019s huge mouth and inflicting necrotic damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat:session-7:3944b26180b9:01",
+      "order": 1,
+      "title": "Outside and inside the barn: opening skirmish",
+      "summary": "Karsemine finishes off a Cultist outside the barn while Stafl escapes a grapple, throws a potion at Caelynn (knocking her out then reviving her), and both Stafl and Caelynn are attacked by dagger-wielding Cultists. Bonogo frees the goblin children, has them chain the doors, shoots the Dustwalker with a poisoned short bow, and goes prone for cover. Ephanna summons their Fey and together they kill a Cultist. Caelynn teleports via Thunder Step, choosing to take Stafl, damaging nearby Cultists and Fleshborn. Baergrom cuts through the barn wall to rescue Lysandra.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:14-14",
+          "anchor_quotes": [
+            "Outside Karsemine attacks the Cultist, but misses.",
+            "throws a potion at Caelynn, knocking her unconscious and then reviving her all in one action",
+            "Both Stafl and Caelynn are attacked by Cultists with daggers.",
+            "Bonogo unchains the goblin children and then instructs them to use the chain to lock the doors.",
+            "attacks the Dustwalker. He then lays prone below the hole",
+            "Ephanna summons their Fey and then they both attack and kill a Cultist.",
+            "she can either take Stafl or Lysandra with her. She chooses Stalf",
+            "damages all the Cultists and Fleshborn within a 10 foot range",
+            "Baergrom chooses to rescue the trapped Lysandra by cutting a hole right through the barn wall."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-7:3944b26180b9:02",
+      "order": 2,
+      "title": "Fleshborn and portals: the Dustwalker's spell erupts",
+      "summary": "Fleshborn tentacles grapple through the holes, catching Lysandra, Baergrom, a goblin child, and Bonogo, though Karsemine escapes. The Dustwalker completes his spell, opening vertical rips in space near Karsemine, Baergrom, Caelynn, and Stafl; tentacles grab Karsemine and Caelynn fully while Stafl and Baergrom dodge. The Dustwalker kicks a goblin child and escapes with Misty Step. Lysandra attacks and inspires Baergrom; fire spreads; Karsemine breaks free of tentacles taking psychic damage; Stafl hits the Dustwalker with Hideous Laughter but the portals remain.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:16-16",
+          "anchor_quotes": [
+            "The Fleshborn inside attacks with its tentacles right through the hole",
+            "uses Dark Whisper on Bonogo",
+            "is able to grapple Lysandra and Baergrom, Karsemine escapes",
+            "The Dustwalker finally finishes his spell, opening vertical rips in space near Karsemine, Baergrom, Caelynn and Stafl.",
+            "Karsemine and Caelynn are completely wrapped up, including their face and head.",
+            "makes a run for it with Misty Step",
+            "Stafl is able to chase down the Dustwalker and hits him with Hideous Laughter, hoping to incapacitate and break the spells for the portals. The portals remain up.",
+            "Bonogo sneak attacks the tentacles holding Caelynn, but couldn\u2019t free her"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-7:3944b26180b9:03",
+      "order": 3,
+      "title": "Portal destruction and Devour the Weak",
+      "summary": "Ephanna's Fey kills a Cultist and Ephanna finishes a monster with Eldritch Blast. Baergrom uses Bait and Switch, Commander's Strike with Karsemine, Horde Breaker, and cleave. Caelynn destroys the portal holding her with Magic Missile. A monster uses Devour the Weak on Lysandra for necrotic damage; the priest casts Dark Wispers on Bonogo; the monster holding Bonogo also Devours him. Portals grapple Baergrom and a goblin child; the Dustwalker fails poison and laughter saves; monsters crit Karsemine; a goblin child is pulled into a portal and absorbed; Karsemine destroys the portal holding Baergrom.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:18-18",
+          "anchor_quotes": [
+            "Ephanna\u2019s Fey attacks and kills one of the Cultists",
+            "Baergrom uses Bait and Switch then Commander\u2019s Strike with Karsemine",
+            "Caelynn uses Magic Missile on the portal holding her, and destroys it.",
+            "A monster grappling Lysandra uses Devour the Weak",
+            "The priest moves outside closer to Bonogo then casts Dark Wispers on him, dealing psychic damage.",
+            "One of the goblin children is pulled into the portal and absorbed.",
+            "She attacks, uses Horde Breaker, attacks again then uses Nick and destroys it, freeing Baergrom."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:session-7:3944b26180b9:04",
+      "order": 4,
+      "title": "Escalation: Bonogo near unconscious, Caelynn down, fire spreads",
+      "summary": "Stafl fires his crossbow at the portal and moves to the Dustwalker; Bonogo still cannot escape the monster grappling him. Ephanna's first Eldritch Blast accidentally knocks Caelynn unconscious while the second hits the priest; Ephanna's fey lands a killing blow. Baergrom attacks multiple monsters with his greataxe; Caelynn makes her first death saving throw. The priest and a monster attack Bonogo, bringing him near unconsciousness; another monster damages Baergrom while missing Lysandra. The Dustwalker remains poisoned and prone from Hideous Laughter, Lysandra misses, and the fire spreads alarmingly.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "label": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-7:3944b26180b9:span:3944b26180b9:20-20",
+          "anchor_quotes": [
+            "Stafl fires a shot from his crossbow at the portal then moves to the Dustwalker.",
+            "Bonogo attacks the monster grappling him, attempting to escape, but cannot.",
+            "The first blast misses the target and instead knocks Caelynn unconscious.",
+            "Caelynn makes her first death saving throw.",
+            "The priest and the monster both attack Bonogo, who is now very close to being knocked unconscious as well.",
+            "The Dustwalker is still poisoned and prone due to hideous laughter.",
+            "Finally, the fire begins to spread up and out, now at an alarming pace."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

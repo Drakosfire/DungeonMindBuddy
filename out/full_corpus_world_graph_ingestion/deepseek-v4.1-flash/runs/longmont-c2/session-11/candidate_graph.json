@@ -1,0 +1,1125 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-11:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-11",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-11:a64c1f3075a0"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "obs:storm-elemental",
+      "label": "Storm Elemental",
+      "node_type": "creature",
+      "description": "An elemental combatant in the Coliseum Championship that cracks with lightning and splits into two identical forms, forms a whip of lightning, casts illusions on Bonogo, and is eventually beheaded by Ogonob's swift blow.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "anchor_quotes": [
+            "the elemental now cracks with lightning and separates into two identical forms. It forms a whip of lightning"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "anchor_quotes": [
+            "The elemental retaliates by casting some form of magic on Bonogo who now believes the ground is collapsing all around him."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:stone-elemental",
+      "label": "Stone Elemental",
+      "node_type": "creature",
+      "description": "An elemental combatant in the Coliseum Championship that misses Baergrom, later slams its hands together for huge damage, wildly swings its remaining arm to catch Ogonob for a devastating blow, and has one of its stone hands ripped off and smashed by Bonogo before being destroyed.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "anchor_quotes": [
+            "The Stone Elemental attempts to hit him back, but misses."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "anchor_quotes": [
+            "The Stone Elemental wildly swings its remaining arm and catches Ogonob for a devastating blow."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:hooded-figure",
+      "label": "Hooded Figure",
+      "node_type": "character",
+      "description": "A mysterious hooded figure spotted in the Coliseum stands by Bonogo; after the match Bonogo looks back to the seat where he saw the figure but finds it empty.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "Bonogo takes one final look back to the stands where he saw the hooded figure, but the seat is empty."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:spore-and-timber-owner",
+      "label": "Spore and Timber Owner",
+      "node_type": "character",
+      "description": "The owner of the Spore and Timber furniture store, a shop growing out of a giant stump selling beautiful, very expensive furniture; Caelynn convinces them to exchange mushrooms for a series of herb boxes.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "anchor_quotes": [
+            "She finds the Spore and Timber, a store growing right out of a giant stump. The store has beautiful, very expensive, furniture. Caelynn convinces the owner to exchange some of her mushrooms for a series of herb boxes."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:coliseum",
+      "label": "The Coliseum",
+      "node_type": "location",
+      "description": "Arena venue hosting the Coliseum Championship, where the terrain shifts during combat and whose stands spectators fill.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "anchor_quotes": [
+            "The Coliseum Championship Suddenly the terrain changes: a huge meteor crashes down into the arena, splashing smaller pieces all over the ground.",
+            "The teams make impressive dodges, but the ground is now covered in burning piles of rock."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:arena",
+      "label": "The Arena",
+      "node_type": "location",
+      "description": "The combat floor within the Coliseum where teams fight elementals and its terrain repeatedly changes.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "anchor_quotes": [
+            "The terrain of the arena changes again. Suddenly lava erupts out of the walls."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "As the group leaves the arena they can hear the next team starting."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:stromspire-academy",
+      "label": "Stromspire Academy",
+      "node_type": "organization",
+      "description": "An academy where Professor Tealeaf works and encourages Caelynn to enroll; associated with a professor who studied storms and plants.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "Caelynn heads back to the Stromspire Academy to find Professor Tealeaf",
+            "She encourages Caelynn to enroll at the academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:session-11:meteor-arena-terrain",
+      "label": "Meteor crashes into Coliseum arena and terrain keeps shifting",
+      "node_type": "event",
+      "description": "During the Coliseum Championship a huge meteor crashes down into the arena, scattering burning rock piles. The terrain continues to change mid-fight: a large hole opens under Bonogo, lava erupts from the walls, and a magnetic field manifests near Bonogo and Baergrom.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "anchor_quotes": [
+            "a huge meteor crashes down into the arena, splashing smaller pieces all over the ground",
+            "the ground is now covered in burning piles of rock"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "anchor_quotes": [
+            "a large hole opens up under Bonogo",
+            "Suddenly lava erupts out of the walls"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "A huge magnetic field manifests near Bonogo and Baergrom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:session-11:storm-elemental-splits",
+      "label": "Storm Elemental splits into two identical forms",
+      "node_type": "mystery",
+      "description": "Bonogo's arrow passes through the Storm Elemental yet deals damage; the elemental then cracks with lightning and separates into two identical forms, forms a lightning whip, and its lightning arcs from Ogonob to Bonogo.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "anchor_quotes": [
+            "the elemental now cracks with lightning and separates into two identical forms",
+            "It forms a whip of lightning and attacks Ogonob dealing massive lightning damage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:session-11:elemental-magic-failing",
+      "label": "Magic holding the Stone Elemental together begins to fail",
+      "node_type": "clue",
+      "description": "After Bonogo tears off and smashes a stone hand, the group can see the magic holding the elemental together starting to fail, and Bonogo's final barrage snuffs that magic out.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "anchor_quotes": [
+            "They can start to see that the magic holding the elemental together is starting to fail"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "snuffing out the magic and destroying it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:session-11:hooded-figure-empty-seat",
+      "label": "Hooded figure's seat now empty after match",
+      "node_type": "mystery",
+      "description": "Bonogo looks back to the stands where he earlier saw the hooded figure, but the seat is now empty.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "Bonogo takes one final look back to the stands where he saw the hooded figure, but the seat is empty"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:session-11:tealeaf-paralysis-potion",
+      "label": "Professor Tealeaf's mushroom paralysis potion",
+      "node_type": "clue",
+      "description": "At Stromspire Academy, Professor Tealeaf explains the potion she can make from her mushrooms: a potent paralysis potion that can also cause Fear, and she exchanges mushroom spores with Caelynn with instructions on growing them.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "a potent paralysis potion that can also cause Fear",
+            "They exchange mushroom spores and she instructs Caelynn on the best way to grow them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:session-11:departed-professor",
+      "label": "Professor who left 30 years ago obsessed with storms",
+      "node_type": "mystery",
+      "description": "Caelynn asks about the professor who left the academy; she learns he was obsessed with storms and their effect on plants, especially at high altitude, and he left about 30 years ago.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "he was obsessed with storms and their effect on plants, especially at high altitude",
+            "He left about 30 years ago"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:session-11:spore-and-timber",
+      "label": "Spore and Timber furniture store grows from a giant stump",
+      "node_type": "location",
+      "description": "Caelynn finds the Spore and Timber, a furniture store growing right out of a giant stump, selling beautiful but very expensive furniture; she trades mushrooms for herb boxes and will return for more.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "anchor_quotes": [
+            "She finds the Spore and Timber, a store growing right out of a giant stump",
+            "Caelynn convinces the owner to exchange some of her mushrooms for a series of herb boxes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "e1",
+      "from_node_id": "location:arena",
+      "to_node_id": "location:coliseum",
+      "label": "arena is part of the Coliseum",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "anchor_quotes": [
+            "a huge meteor crashes down into the arena"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e2",
+      "from_node_id": "obs:session-11:meteor-arena-terrain",
+      "to_node_id": "location:arena",
+      "label": "meteor event occurs in the arena",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "anchor_quotes": [
+            "a huge meteor crashes down into the arena"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e3",
+      "from_node_id": "obs:storm-elemental",
+      "to_node_id": "location:arena",
+      "label": "Storm Elemental fights in the arena",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "anchor_quotes": [
+            "Bonogo uses his short bow to attack the Storm Elemental"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e4",
+      "from_node_id": "obs:stone-elemental",
+      "to_node_id": "location:arena",
+      "label": "Stone Elemental fights in the arena",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "anchor_quotes": [
+            "Baergrom uses his action surge and swings his warhammer at the Stone Elemental"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e10",
+      "from_node_id": "obs:storm-elemental",
+      "to_node_id": "obs:session-11:storm-elemental-splits",
+      "label": "Storm Elemental splits into two identical forms",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "anchor_quotes": [
+            "the elemental now cracks with lightning and separates into two identical forms"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e11",
+      "from_node_id": "obs:session-11:elemental-magic-failing",
+      "to_node_id": "obs:stone-elemental",
+      "label": "failing magic belongs to Stone Elemental",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "anchor_quotes": [
+            "They can start to see that the magic holding the elemental together is starting to fail"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e12",
+      "from_node_id": "obs:hooded-figure",
+      "to_node_id": "location:coliseum",
+      "label": "hooded figure seen in the Coliseum stands",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "Bonogo takes one final look back to the stands where he saw the hooded figure, but the seat is empty."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e14",
+      "from_node_id": "obs:session-11:hooded-figure-empty-seat",
+      "to_node_id": "obs:hooded-figure",
+      "label": "empty seat is about the hooded figure",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "but the seat is empty"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e19",
+      "from_node_id": "obs:session-11:departed-professor",
+      "to_node_id": "candidate:stromspire-academy",
+      "label": "departed professor associated with academy",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "He left about 30 years ago"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e21",
+      "from_node_id": "obs:spore-and-timber-owner",
+      "to_node_id": "obs:session-11:spore-and-timber",
+      "label": "Spore and Timber owner works at the store",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "anchor_quotes": [
+            "Caelynn convinces the owner to exchange some of her mushrooms for a series of herb boxes."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Coliseum Championship Begins",
+      "summary": "The Coliseum Championship starts with a meteor crashing into the arena, creating burning rock piles. Bonogo attacks the Storm Elemental, which splits into two forms; it retaliates with lightning against Ogonob and Bonogo. Ogonob teleports and attacks with force damage, while Baergrom uses action surge and warhammer strikes on the Stone Elemental, which misses its counterattack.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:14-14",
+          "anchor_quotes": [
+            "The Coliseum Championship Suddenly the terrain changes: a huge meteor crashes down into the arena, splashing smaller pieces all over the ground.",
+            "Bonogo uses his short bow to attack the Storm Elemental.",
+            "Ogonob teleports behind the elemental then attacks using force damage.",
+            "Baergrom uses his action surge and swings his warhammer at the Stone Elemental 3 separate times, dealing a good amount of damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Second Terrain Shift and Storm Elemental Defeated",
+      "summary": "Terrain changes again: a hole opens under Bonogo, who is burned but climbs up and attacks with short sword and whip. The Storm Elemental casts a spell on Bonogo, making him believe the ground is collapsing. Lightning hits both Bonogo and Ogonob; Ogonob teleports and decapitates the Storm Elemental. Baergrom misses with his hammer, disengages, and recovers it. The Stone Elemental slams Baergrom but fails to crush him. Lava erupts from the walls. Bonogo and Ogonob damage the remaining elemental, which is visibly losing cohesion. Baergrom attacks multiple times; the elemental swings wildly and hits Ogonob, then both wink out of existence.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:16-16",
+          "anchor_quotes": [
+            "Again the ground changes, this time a large hole opens up under Bonogo and he is forced prone and burned.",
+            "Ogonob again teleports behind the elemental, then striking with a swift blow, removes the head of the Storm Elemental.",
+            "Baergrom takes the chance to swing his hammer again, only to miss completely and watch it fly out of his hands, landing somewhere off to his left.",
+            "The terrain of the arena changes again. Suddenly lava erupts out of the walls.",
+            "The Stone Elemental wildly swings its remaining arm and catches Ogonob for a devastating blow. They wink out of existence."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Final Terrain Change and Victory",
+      "summary": "A magnetic field manifests near Bonogo and Baergrom; Bonogo is pulled in and damaged, but Baergrom withstands it. Bonogo destroys the elemental, and the crowd cheers, with Karsemine leading the chant. The group leaves the arena, learning results will be announced the next day. Bonogo looks for the hooded figure but sees an empty seat. Meanwhile, Caelynn goes to the Academy to find Professor Tealeaf, who encourages her to enroll and teaches her about a paralysis potion made from mushrooms. Caelynn learns the professor who left was obsessed with storms and plants, and left about 30 years ago.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "The terrain changes one last time. A huge magnetic field manifests near Bonogo and Baergrom.",
+            "Bonogo unleashes a series of devastating attacks on the elemental, snuffing out the magic and destroying it.",
+            "The crowd erupts in cheers and Karsemine leads the familiar Bonogo chant.",
+            "Bonogo takes one final look back to the stands where he saw the hooded figure, but the seat is empty.",
+            "Meanwhile, Caelynn heads back to the Stromspire Academy to find Professor Tealeaf.",
+            "She encourages Caelynn to enroll at the academy, then explains the potion she can make from her mushrooms: a potent paralysis potion that can also cause Fear.",
+            "He left about 30 years ago."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Caelynn Sets Up Mushroom Garden and Tavern Celebration",
+      "summary": "Caelynn sets up a mushroom growing area in her room, then finds a furniture store called Spore and Timber. She trades mushrooms for herb boxes, sets them on her balcony, and goes to the inn. At the Copper and Quartz, Ephanna, Bonogo, and Baergrom rest, encounter Stafl, who gives a loud introduction, causing the crowd to go wild and drinks to be passed around.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "anchor_quotes": [
+            "She heads back to the manor and sets up a small area in her room for the mushrooms to grow, then heads into the city to find a proper furniture store.",
+            "She finds the Spore and Timber, a store growing right out of a giant stump.",
+            "She sets them up on her balcony at the manor then heads for the Inn.",
+            "Back at the Copper and Quartz, Ephanna, Bonogo and Baergrom are looking for a short rest, when they encounter Stafl.",
+            "He has been \"practicing\" all day (drinking) and launches into a loud introduction of the fighters to the tavern crowd."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ig:session-11:karsemine-chant",
+      "label": "Karsemine leads familiar Bonogo chant",
+      "reason": "Flavor/crowd color after the match; no unresolved thread or actionable clue.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "Karsemine leads the familiar Bonogo chant"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ig:session-11:stafl-tavern-intro",
+      "label": "Stafl drunkenly introduces the fighters at the Copper and Quartz",
+      "reason": "Tavern flavor scene of celebration; no new mystery or clue.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "anchor_quotes": [
+            "He has been \"practicing\" all day (drinking) and launches into a loud introduction of the fighters to the tavern crowd"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ig:session-11:results-next-day",
+      "label": "Tournament results announced the following day",
+      "reason": "Scheduling note rather than an unresolved mystery.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "They are informed that the results will be announced the following day"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "df:session-11:enroll-academy",
+      "label": "Professor Tealeaf encourages Caelynn to enroll at the academy",
+      "reason": "Personal invitation that may drive future downtime or faction ties; not yet resolved.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:18-18",
+          "anchor_quotes": [
+            "She encourages Caelynn to enroll at the academy"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track whether Caelynn follows up on enrolling at Stromspire Academy."
+    },
+    {
+      "item_id": "df:session-11:herb-boxes-return",
+      "label": "Caelynn will return to Spore and Timber for more herb boxes",
+      "reason": "Open-ended arrangement with the store owner that may recur.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "label": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0:span:a64c1f3075a0:20-20",
+          "anchor_quotes": [
+            "She will return for more in the future"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Note the mushroom-for-furniture trade as a possible recurring supply arrangement."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

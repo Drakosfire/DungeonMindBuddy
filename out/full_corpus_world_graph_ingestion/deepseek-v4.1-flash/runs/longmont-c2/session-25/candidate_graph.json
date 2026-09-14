@@ -1,0 +1,1352 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-25:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-25",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-25:a3513d738fe0"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:hester_bramblewood",
+      "label": "Hesta Bramblewood",
+      "node_type": "character",
+      "description": "A very old halfling woman and apothecary at the Crooked Retort in the Merchant's Crossroads. She is woken from sleep by the party, brews them tea, and initially takes her time despite their urgency. After Karsemine intimidates her, Hesta agrees to make sleep potions and provides five she has on hand.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "anchor_quotes": [
+            "a very, very old halfling woman finally answers the door",
+            "Hesta Bramblewood was fast asleep"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "She agrees to make the sleep potions",
+            "Hesta gives the group the five sleep potions she has on hand"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:brin",
+      "label": "Brin",
+      "node_type": "character",
+      "description": "The leader of the refugees from Edge. He separates the refugees into groups by clear or oily eyes, agrees with the plan to house them in the warehouse, and later informs the party that the infected are locked off.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "talking with the leader of the refugees, Brin",
+            "Brin has separated the people into two groups"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "Orik and Brin agree with the plan"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "meet Brin out front",
+            "He informs the group that they have locked off the area with people with the infection"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:orik",
+      "label": "Orik",
+      "node_type": "character",
+      "description": "The mayor of the town, who opens a side door and talks with Brin. He agrees with the plan to house refugees in the warehouse and later leaves to find help for Hesta.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "they find the mayor, Orik, opening a side door"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "Orik and Brin agree with the plan to house the refugees in the warehouse"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "After the mayor leaves to find some help"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:ironveil_warehouse",
+      "label": "Ironveil Warehouse",
+      "node_type": "faction",
+      "description": "A warehouse associated with Lysandro, used as a holding place for refugees entering the town.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "Lysandro suggests the Ironveil Warehouse as a good place to hold the 55 people entering the town."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:refugees_from_edge",
+      "label": "Refugees from Edge",
+      "node_type": "group",
+      "description": "A group of 55 people who fled from Edge and are entering the town; they are separated into those with clear eyes and those with oily faces.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "Karsemine, Caelynn, Bonogo and Lysandra head back through town toward the south gate, looking to help out with the refugees that fled from Edge."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:sleep-potion",
+      "label": "Sleep Potion",
+      "node_type": "item",
+      "description": "A potion that puts people to sleep, used to sedate refugees who might transform; Hesta Bramblewood brews more and provides five she has on hand.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "anchor_quotes": [
+            "make more of the potion for those who are going to transform",
+            "how the potion is made"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "use a sleeping potion to help keep the peace"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "she has on hand",
+            "the five sleep potions"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:crossbow-bolt",
+      "label": "Crossbow Bolt",
+      "node_type": "item",
+      "description": "A bolt for Stafl's crossbow, enchanted with light to illuminate the north road during the group's short rest.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "casts light on another crossbow bolt"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:bow",
+      "label": "Bow",
+      "node_type": "item",
+      "description": "Karsemine's bow, used to deal more damage to the remaining monster during the wall battle.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "Karsemine uses her bow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:brin-separation-clear-oily",
+      "label": "Brin separates refugees into clear-eyed and oily groups",
+      "node_type": "mystery",
+      "description": "Brin, leader of the refugees from Edge, has already separated the 55 arriving people into two groups \u2014 those with clear eyes and those who appear oily \u2014 knowing what to look for. The significance of the oily appearance and the transformation risk it implies is an unresolved mystery.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "Looking to help out with the refugees that fled from Edge",
+            "Already knowing what to look for, Brin has separated the people into two groups, those with clear eyes, and those that appear to be oily",
+            "each face shows clear relief to finally be behind the wall"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:oily-refugees-transform-sleep-potion",
+      "label": "Refugees with oily eyes may transform; sleeping potion plan",
+      "node_type": "mystery",
+      "description": "Karsemine and Caelynn plan to put the potentially transforming refugees to sleep to prevent monsters fighting inside the walls, and seek more of a potion for those who will transform. Orik and Brin modify the plan so the entire group is put to sleep, using sleeping potions to keep the peace. Whether the potion can be produced in time remains unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "anchor_quotes": [
+            "Really not wanting to have to fight any monsters inside the walls",
+            "Karsemine starts to come up with a plan to put them to sleep so they cannot transform",
+            "Caelynn also wants to see if anyone in town can make more of the potion for those who are going to transform"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "Orik and Brin agree with the plan to house the refugees in the warehouse and use a sleeping potion to help keep the peace",
+            "The only change they want to see is that everyone is put to sleep, making it easier to manage the entire group",
+            "They pick some of the older children to stand guard outside the warehouse doors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:tealeaf-potion-recipe-remote-contact",
+      "label": "Attempt to contact Professor Tealeaf for potion recipe",
+      "node_type": "mystery",
+      "description": "Caelynn calls Grobnok to try to reach Professor Tealeaf and learn how the potion is made, but it is the middle of the night and tracking her down will take time. The outcome of this contact is unresolved.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "anchor_quotes": [
+            "Caelynn makes a call to Grobnok, in an attempt to contact Professor Tealeaf, to find out how the potion is made",
+            "However, it is the middle of the night and it will take some time to track her down"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:thrin-scout-cutoff-crash",
+      "label": "Thrin's scout call cut off with crashing sound",
+      "node_type": "mystery",
+      "description": "Ephanna sends Thrin to scout north of the gate. While listening, Ephanna hears a shrill call abruptly cut off followed by a crashing sound. What happened to Thrin at that moment is unrevealed.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "anchor_quotes": [
+            "Ephanna entrusts Thrin to scout out the area, with directions to stay well hidden"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "anchor_quotes": [
+            "They hear a shrill call before it is abruptly cut off, followed by a crashing sound"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:hybrid-creatures-burrow-dragging-thrin",
+      "label": "Three hybrid creatures burrowing and dragging Thrin underground",
+      "node_type": "mystery",
+      "description": "Three new hybrid creatures are found wrapped around something, burrowing into the ground; Thrin is repeatedly grappled and pulled into the ground. By the end, Thrin is again pulled into the ground and fully disappears out of sight, leaving his fate unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "anchor_quotes": [
+            "the group is able to make out three new hybrid creatures wrapped around something and beginning to burrow into the ground"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "anchor_quotes": [
+            "Thrin attempts to break the grapple as he is being restrained and pulled down by the creatures"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "anchor_quotes": [
+            "Thrin once again is being pulled into the ground and then suddenly hears screaming coming from the west along the wall"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "Just before Bonogo is able to turn to help Thrin get up, Thrin is again pulled into the ground and fully disappears out of sight"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:hesta-reluctant-sleep-potions",
+      "label": "Hesta Bramblewood's reluctant brewing of five sleep potions",
+      "node_type": "mystery",
+      "description": "The group wakes the very old halfling apothecary Hesta Bramblewood, who is slow to help and brews tea; Karsemine's intimidation finally convinces her of the dire situation. She gives them five sleep potions she has on hand but agrees to make more only with lots of time and help. Bonogo whispers that maybe the situation is dire enough that no one wakes back up, so they will prioritize people with infected eyes \u2014 leaving unresolved whether the potions will be sufficient.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "anchor_quotes": [
+            "Hesta Bramblewood was fast asleep and is now wondering why they woke her up",
+            "Hesta takes her time and brews some tea, giving a cup to a reluctant Caelynn, who cautiously does not drink it"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "Karsemine decides to use a different approach and uses intimidation and finally convinces Hesta of the dire nature of their situation",
+            "She agrees to make the sleep potions, but will take lots of time without any help",
+            "After the mayor leaves to find some help, Hesta gives the group the five sleep potions she has on hand",
+            "Bonogo whispers to her that maybe the situation is dire enough that no one wakes back up from their sleep",
+            "So instead they will prioritize people with the infected eyes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:anti-mirathorn-festival",
+      "label": "Anti-Mirathorn festival interrupted by messenger",
+      "node_type": "mystery",
+      "description": "Stafl learns from town guards that the town was in the midst of an anti-establishment, anti-Mirathorn festival when the messenger on horseback raced into town. The nature and implications of this festival are unresolved.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "He discovers that the town was in the midst of a celebration when the messenger on the horse came racing into town",
+            "a sort of anti-establishment, anti-Mirathorn, festival"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:screaming-west-wall-moving-shapes",
+      "label": "Screaming from west along the wall and shaking ground",
+      "node_type": "mystery",
+      "description": "After the remaining monster is killed, Karsemine hears screaming from the west along the wall, feels the ground begin to shake, and sees town guards gesturing over the wall at dark shapes moving below. The source of the screaming and the dark shapes are unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "anchor_quotes": [
+            "then suddenly hears screaming coming from the west along the wall"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "she can feel the ground begin to shake and sees town guards gesturing over the wall where she can just make out dark shapes moving below"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:captain-lysandra-ironveil",
+      "label": "Captain Lysandra Ironveil",
+      "node_type": "character",
+      "description": "Lysandra returned to the south gate with Karsemine, Caelynn and Bonogo to assist the refugees fleeing from Edge, and suggested the Ironveil Warehouse as a place to hold the 55 newcomers. She joined the group in escorting the refugees into the warehouse and then headed for the Crooked Retort apothecary. During the fight at the wall, she used her Commanding Shout to direct allies into the attack, cast Leadership to boost Karsemine's next strike, and then moved toward the screaming she had heard west down the wall.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "Lysandro suggests the Ironveil Warehouse as a good place to hold the 55 people entering the town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "Caelynn, Karesmine, Bonogo and Lysandra head for the apothecary - the Crooked Retort"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "anchor_quotes": [
+            "Baergom boosts temporary HP for Stafl, Ephanna, Caelynn and Lysandra"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "Lysandra uses her Commanding Shout and directs Karsmine, Stafl and Caelynn to attack or move",
+            "Then Lysandra casts Leadership and gives Karsemine a boost to her next attack"
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "captain_lysandra_ironveil",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Captain Lysandra Ironveil",
+        "Captain"
+      ],
+      "session_actions": [
+        "Heads back through town toward the south gate with the party to help the refugees from Edge",
+        "Suggests the Ironveil Warehouse to house the 55 refugees entering town",
+        "With the refugees inside the warehouse, heads for the Crooked Retort apothecary",
+        "Receives temporary HP from Baergom during the wall fight",
+        "Uses Commanding Shout to direct Karsmine, Stafl and Caelynn to attack or move",
+        "Casts Leadership to give Karsemine a boost to her next attack",
+        "Moves down the length of the wall toward the screaming",
+        "Feels the ground begin to shake and sees town guards gesturing over the wall at dark shapes"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:brin-leads-refugees",
+      "from_node_id": "npc:brin",
+      "to_node_id": "group:refugees_from_edge",
+      "label": "Brin leads the refugees from Edge",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "talking with the leader of the refugees, Brin",
+            "Brin has separated the people into two groups"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:refugees-part-of-brin",
+      "from_node_id": "group:refugees_from_edge",
+      "to_node_id": "npc:brin",
+      "label": "Refugees follow Brin",
+      "relationship_type": "part_of_group",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "the leader of the refugees, Brin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:refugees-located-in-warehouse",
+      "from_node_id": "group:refugees_from_edge",
+      "to_node_id": "faction:ironveil_warehouse",
+      "label": "Refugees held in the Ironveil Warehouse",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "With the refugees safely inside the warehouse"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra-associated-with-warehouse",
+      "from_node_id": "node:captain-lysandra-ironveil",
+      "to_node_id": "faction:ironveil_warehouse",
+      "label": "Lysandra recommends the Ironveil Warehouse",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "Lysandro suggests the Ironveil Warehouse as a good place to hold the 55 people entering the town."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:hesta-owns-sleep-potions",
+      "from_node_id": "npc:hester_bramblewood",
+      "to_node_id": "item:sleep-potion",
+      "label": "Hesta holds five sleep potions",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "Hesta gives the group the five sleep potions she has on hand"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:brin-separation-details-oily-group",
+      "from_node_id": "mystery:brin-separation-clear-oily",
+      "to_node_id": "group:refugees_from_edge",
+      "label": "Brin separates the refugees into clear-eyed and oily groups",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "Already knowing what to look for, Brin has separated the people into two groups, those with clear eyes, and those that appear to be oily"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Refugees from Edge arrive at Mireward's south gate",
+      "summary": "Karsemine, Caelynn, Bonogo and Lysandra return through Mireward toward the south gate to assist refugees fleeing Edge. At the gate they find the mayor Orik and refugee leader Brin, who have separated arrivals into clear-eyed and oily-faced groups. Lysandro suggests the Ironveil Warehouse to house the 55 refugees.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "head back through town toward the south gate",
+            "refugees that fled from Edge",
+            "they find the mayor, Orik, opening a side door",
+            "those with clear eyes, and those that appear to be oily",
+            "clear relief to finally be behind the wall",
+            "Lysandro suggests the Ironveil Warehouse",
+            "55 people entering the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Planning a sleep potion strategy and contacting Professor Tealeaf",
+      "summary": "Karsemine develops a plan to put potential monster-transformers to sleep, while Caelynn seeks more of the potion. Lysandro points them to the local apothecary. Caelynn calls Grobnok to reach Professor Tealeaf and learn how the potion is made, but it is the middle of the night and tracking her down will take time.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "anchor_quotes": [
+            "plan to put them to sleep so they cannot transform",
+            "see if anyone in town can make more of the potion",
+            "Lysandro recommends the local apothecary",
+            "Caelynn makes a call to Grobnok, in an attempt to contact Professor Tealeaf",
+            "it is the middle of the night"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Warehouse secured and the group heads to the Crooked Retort",
+      "summary": "Orik and Brin agree to the warehouse plan and the sleeping potion, asking that the entire group be put to sleep. Older children are posted to guard the warehouse doors while the group departs for the apothecary, the Crooked Retort.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "Orik and Brin agree with the plan",
+            "house the refugees in the warehouse",
+            "use a sleeping potion to help keep the peace",
+            "everyone is put to sleep",
+            "older children to stand guard outside the warehouse doors",
+            "head for the apothecary - the Crooked Retort"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "North wall quiet; town celebration and Thrin sent to scout",
+      "summary": "Stafl lights a crossbow bolt to illuminate the north road during the short rest, then learns from town guards that an anti-establishment, anti-Mirathorn festival was underway when the messenger arrived. Ephanna sends Thrin to scout north of the gate, and Stafl plays a soothing tune while they wait.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "casts light on another crossbow bolt",
+            "illuminates a portion of the north road",
+            "anti-establishment, anti-Mirathorn, festival",
+            "entrusts Thrin to scout out the area",
+            "directions to stay well hidden",
+            "Stafl strums a soothing tune"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Hesta Bramblewood reluctantly receives the group at the Merchant's Crossroads",
+      "summary": "At the Merchant's Crossroads the group wakes the very old halfling Hesta Bramblewood. Karsemine tries explaining their saturated state, while Caelynn pressures her to act quickly. Hesta instead takes her time brewing tea, which a reluctant Caelynn declines to drink.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "anchor_quotes": [
+            "they head to the Merchant\u2019s Crossroads, looking for the apothecary",
+            "a very, very old halfling woman finally answers the door",
+            "Hesta Bramblewood was fast asleep",
+            "brews some tea",
+            "cautiously does not drink it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Hesta agrees to brew sleep potions; warehouse lockdown and return to the north wall",
+      "summary": "Karsemine intimidates Hesta into understanding the urgency, and Hesta agrees to make sleep potions but warns it will take time without help. The mayor departs to find help and the group receives five sleep potions. Bonogo privately suggests some may never wake, so the infected-eyed are prioritized. At the warehouse Brin reports the infected area is locked off, and the mayor praises Caelynn before the group returns to the north wall.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "uses intimidation and finally convinces Hesta",
+            "agrees to make the sleep potions",
+            "the five sleep potions she has on hand",
+            "they will prioritize people with the infected eyes",
+            "meet Brin out front",
+            "locked off the area with people with the infection",
+            "head back to the north wall"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Thrin's distress call; rescue party enters the field",
+      "summary": "Ephanna hears Thrin's shrill call cut off, followed by a crash. Baergrom raises his shield to boost the team's HP, and Karsemine, Bonogo and Ogonob go into the field under Pass without Trace while Stafl directs wall guards to fire illuminating arrows. They spot three hybrid creatures wrapping around something and beginning to burrow.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "anchor_quotes": [
+            "hear a shrill call before it is abruptly cut off",
+            "Baergrom immediately sets up his shield",
+            "casting Pass without Trace",
+            "venture out into the field in search of Thrin",
+            "fire arrows out into the field to provide light",
+            "three new hybrid creatures wrapped around something and beginning to burrow into the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-8",
+      "order": 8,
+      "title": "Battle in the field; Thrin breaks free and kills a monster",
+      "summary": "Thrin struggles against being dragged down but only lands a dagger swipe. Bonogo dashes in and throws two daggers, nearly killing one creature, and Thrin then slices through its tentacles to kill it. Ephanna lands a critical Eldritch Blast on the second monster, Caelynn follows with Snowball, and Ogonob uses Misty Step to appear behind and Charm the most damaged monster.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "anchor_quotes": [
+            "Thrin attempts to break the grapple",
+            "only manages a swipe with his dagger",
+            "throws a dagger at one, dealing a large amount of damage",
+            "slices clean through the tentacles and kills the first monster",
+            "Ephanna uses Eldritch Blast on the second monster, landing a critical hit",
+            "Ogonob uses Misty Step to appear behind the monsters and Charm the most damaged one"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-9",
+      "order": 9,
+      "title": "Second monster killed; third wounds Bonogo as screams rise from the west",
+      "summary": "Stafl shoots and kills the second monster with his crossbow. The third monster releases Thrin and charges Bonogo, landing a claw and bite that leave festering wounds, though Bonogo dodges its grapple. Thrin is pulled into the ground again as screaming is heard from the west along the wall, and Baergom boosts temporary HP for Stafl, Ephanna, Caelynn and Lysandra.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "anchor_quotes": [
+            "takes aim with his crossbow, landing a perfect shot and killing the second monster",
+            "creature attacks Bonogo with a claw attack and bite",
+            "leaving behind festering wounds",
+            "attempts to grapple Bonogo, but he dodges out of reach",
+            "hears screaming coming from the west along the wall",
+            "Baergom boosts temporary HP for Stafl, Ephanna, Caelynn and Lysandra"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-10",
+      "order": 10,
+      "title": "Lysandra's commands finish the last monster; Thrin vanishes below ground",
+      "summary": "Lysandra uses Commanding Shout and Leadership, directing Karsemine, Stafl and Caelynn to attack. Karsemine's Fire Bolt kills the remaining monster, and she moves along the wall toward the screaming as the ground shakes and dark shapes move below. Just before Bonogo can help Thrin up, Thrin is pulled into the ground and disappears from sight.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "Lysandra uses her Commanding Shout",
+            "Caylynn her crossbow, to deal more damage to the remaining monster",
+            "Lysandra casts Leadership",
+            "cast Fire Bolt on the monster, killing it by fully engulfing it in flames",
+            "feel the ground begin to shake",
+            "Thrin is again pulled into the ground and fully disappears out of sight"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

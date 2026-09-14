@@ -1,0 +1,209 @@
+{
+  "schema": "dmb_known_entity_mention_sidecar_v0",
+  "version": "0.1",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-6",
+  "registry_relpath": "Longmont Campaign/Campaign 1/_party_registry.json",
+  "roster_session_key": "1",
+  "roster_carry_forward": true,
+  "mentions": [
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:16-16",
+      "start_offset": 14,
+      "end_offset": 20,
+      "surface_text": "Torbin",
+      "canonical_entity_id": "candidate:torbin",
+      "entity_slug": "candidate:torbin",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Torbin",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:24-24",
+      "start_offset": 40,
+      "end_offset": 46,
+      "surface_text": "Torbin",
+      "canonical_entity_id": "candidate:torbin",
+      "entity_slug": "candidate:torbin",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Torbin",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:34-34",
+      "start_offset": 8,
+      "end_offset": 13,
+      "surface_text": "Pippa",
+      "canonical_entity_id": "candidate:pippa",
+      "entity_slug": "candidate:pippa",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Pippa",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:34-34",
+      "start_offset": 18,
+      "end_offset": 25,
+      "surface_text": "Bubbles",
+      "canonical_entity_id": "candidate:bubbles",
+      "entity_slug": "candidate:bubbles",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Bubbles",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:42-42",
+      "start_offset": 87,
+      "end_offset": 93,
+      "surface_text": "Torbin",
+      "canonical_entity_id": "candidate:torbin",
+      "entity_slug": "candidate:torbin",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Torbin",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+      "start_offset": 107,
+      "end_offset": 113,
+      "surface_text": "Torbin",
+      "canonical_entity_id": "candidate:torbin",
+      "entity_slug": "candidate:torbin",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Torbin",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:46-46",
+      "start_offset": 195,
+      "end_offset": 203,
+      "surface_text": "Hempholm",
+      "canonical_entity_id": "candidate:hempholm",
+      "entity_slug": "candidate:hempholm",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Hempholm",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:48-48",
+      "start_offset": 71,
+      "end_offset": 79,
+      "surface_text": "Hempholm",
+      "canonical_entity_id": "candidate:hempholm",
+      "entity_slug": "candidate:hempholm",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Hempholm",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:50-50",
+      "start_offset": 6,
+      "end_offset": 15,
+      "surface_text": "Mirathorn",
+      "canonical_entity_id": "candidate:mirathorn",
+      "entity_slug": "candidate:mirathorn",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Mirathorn",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+      "start_offset": 12,
+      "end_offset": 21,
+      "surface_text": "Mirathorn",
+      "canonical_entity_id": "candidate:mirathorn",
+      "entity_slug": "candidate:mirathorn",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Mirathorn",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+      "start_offset": 472,
+      "end_offset": 477,
+      "surface_text": "Pippa",
+      "canonical_entity_id": "candidate:pippa",
+      "entity_slug": "candidate:pippa",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Pippa",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:52-52",
+      "start_offset": 499,
+      "end_offset": 506,
+      "surface_text": "Bubbles",
+      "canonical_entity_id": "candidate:bubbles",
+      "entity_slug": "candidate:bubbles",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Bubbles",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+      "start_offset": 0,
+      "end_offset": 6,
+      "surface_text": "Torbin",
+      "canonical_entity_id": "candidate:torbin",
+      "entity_slug": "candidate:torbin",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Torbin",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:54-54",
+      "start_offset": 40,
+      "end_offset": 44,
+      "surface_text": "gold",
+      "canonical_entity_id": "candidate:gold",
+      "entity_slug": "candidate:gold",
+      "entity_kind": "item",
+      "match_method": "canonical",
+      "display_name": "Gold",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad:span:a6849dbc9bad:56-56",
+      "start_offset": 51,
+      "end_offset": 57,
+      "surface_text": "Torbin",
+      "canonical_entity_id": "candidate:torbin",
+      "entity_slug": "candidate:torbin",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Torbin",
+      "registry_version": "0.1"
+    }
+  ],
+  "ambiguous_surfaces": [
+    "Ephanna",
+    "Karsemine",
+    "Bonogo",
+    "Baergrom",
+    "Stafl",
+    "Caelynn"
+  ],
+  "diagnostics": {
+    "spans_scanned": 23,
+    "mention_count": 15,
+    "entity_count": 94,
+    "ambiguous_term_count": 6,
+    "registry_warnings": [
+      "roster_carry_forward: session_pc_rosters['6'] using '1'",
+      "roster_carry_forward: session '6' using roster from '1'"
+    ]
+  }
+}

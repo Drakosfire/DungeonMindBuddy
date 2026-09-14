@@ -1,0 +1,2373 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-14:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-14",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-14:99ea4cce27ac"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "character:old-gnome-guard",
+      "label": "Old Gnome Guard",
+      "node_type": "character",
+      "description": "An elderly gnome guard at the old guard station who gives a questioning look to Lysandra as the group enters, and later leads them down to the basement to see the bursar.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "anchor_quotes": [
+            "An old gnome gives a questioning look to Lysandra as the group enters the building."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "the grizzled old soldier, with beautiful flowing hair, takes the group down the steps into the basement to see the bursar"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:sergeant-fabio",
+      "label": "Sergeant Fabio",
+      "node_type": "character",
+      "description": "A sergeant at the old guard station whom Stafl demands speak with the Mayor to sort out the group's situation.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "anchor_quotes": [
+            "demands Sergeant Fabio speak with the Mayor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "character:plume",
+      "label": "Plume",
+      "node_type": "character",
+      "description": "An old man bustling around the basement storage room who brightens up seeing the group and agrees to prepare basic travel supplies for them.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "Plume, the old man bustling around the room, brightens up seeing the group enter the room.",
+            "He agrees to prepare the basic travel supplies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:guard-tower",
+      "label": "Old Guard Tower",
+      "node_type": "location",
+      "description": "An old guard tower/station used by the city guard, fairly busy with soldiers despite bad weather and late hour; the party goes there to stock up on supplies for their journey.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "anchor_quotes": [
+            "head for the old guard tower where they will be able to stock up on supplies for their journey",
+            "the old guard station is fairly busy with soldiers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:capital-wilds",
+      "label": "Wilds Outside the Capital",
+      "node_type": "location",
+      "description": "The wilderness region outside the capital, detailed on a very old scouting map Stafl finds in the library.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "He finds a very old scouting map that details the wilds outside of the capital."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:trophy-room",
+      "label": "Trophy Room",
+      "node_type": "location",
+      "description": "A room in Wolf Manor filled with dust and wild animal heads mounted on the walls, where Karsemine and Ephanna meet up.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "They meet up with Karsemine in the Trophy Room where they find lots of dust and wild animal heads mounted on the walls."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:kitchen",
+      "label": "Kitchen",
+      "node_type": "location",
+      "description": "A kitchen in Wolf Manor where the party finds old herbs for potions and gathers for a final check before leaving.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "They both make their way back to the kitchen, finding old herbs for potions."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "The group gathers back in the kitchen doing one last check before they are ready to leave."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:attic",
+      "label": "Attic",
+      "node_type": "location",
+      "description": "The attic of Wolf Manor containing old storage trunks and a hidden safe bearing the Wolf family seal.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "Next, they go up to the attic. Here they find old storage trunks and a safe hidden in the wall bearing the Wolf family seal."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:family-crypt",
+      "label": "Family Crypt",
+      "node_type": "location",
+      "description": "A very beautiful large family crypt at Wolf Manor containing rows of sarcophaguses, some holding skeletons, an iron amulet, and wolf pelts.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "Back in the crypt, Bonogo discovers a very beautiful large family crypt.",
+            "Upon seeing rows of sarcophaguses he starts prying them open, looking for anything of value."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:master-bedroom",
+      "label": "Master Bedroom",
+      "node_type": "location",
+      "description": "The master chamber of Wolf Manor where Ephanna finds a mysterious envelope addressed to Bonogo and later a hidden handle leading to a trap door.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "Ephanna does a quick check out the master chamber, but nothing immediately jumps out.",
+            "Heading back down, Ephanna goes back through the master bedroom and notices a beautiful envelope on the bed, addressed to Bonogo."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:childrens-room",
+      "label": "Children's Room",
+      "node_type": "location",
+      "description": "A children's room in Wolf Manor with old clothes, a locked chest, and strange symbols etched on the windows.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "Ephanna places the letter back on the bed and moves on to the children\u2019s room. Here they find some old clothes, a locked chest and, most notably, strange symbols etched on the windows."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:hidden-summoning-room",
+      "label": "Hidden Summoning Room",
+      "node_type": "location",
+      "description": "A hidden room beneath Wolf Manor accessed via a trap door; covered in strange symbols with a summoning circle on the floor, a collapsed wall leading to another room, and a tunnel heading toward the city.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "With a click the handle moves easily revealing a trap door to the basement.",
+            "The room is covered in the strange symbols and the floor is painted to create a summoning circle, the very same circle they have seen once before used by the Necromancer.",
+            "Despite a tunnel leading off toward the city, they all decide to lock the room back up and return to the Academy."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:living-slime",
+      "label": "Living Slime",
+      "node_type": "item",
+      "description": "A 'living slime' belonging to Bonogo, which he slips into the sewer.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "Bonogo slips his \u201cliving slime\u201d into the sewer"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:scouting-map",
+      "label": "Old Scouting Map",
+      "node_type": "item",
+      "description": "A very old scouting map detailing the wilds outside the capital, found by Stafl in the library.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "He finds a very old scouting map that details the wilds outside of the capital"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:healing-potion",
+      "label": "Dusty Old Bottle / Healing Potion",
+      "node_type": "item",
+      "description": "A dusty old bottle with an unknown liquid, found in an old trunk in the attic, identified by Caelynn as a healing potion.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "Inside the old trunk is a dusty old bottle with an unknown liquid inside. They take it to Caelynn to analyze and she can tell it is a healing potion."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:ring",
+      "label": "Ring",
+      "node_type": "item",
+      "description": "A ring found last time in the box under the master room bed; it disabled any traps in the crypt.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "The ring he found last time in the box under the master room bed disabled any traps."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:iron-amulet",
+      "label": "Iron Amulet",
+      "node_type": "item",
+      "description": "An iron amulet found in one of the sarcophaguses in the crypt.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "the next a skeleton and an iron amulet"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:letter-to-bonogo",
+      "label": "Letter to Bonogo",
+      "node_type": "item",
+      "description": "A beautiful envelope on the bed in the master bedroom, addressed to Bonogo, containing a scrawling message ending with 'I'll keep watching'.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "notices a beautiful envelope on the bed, addressed to Bonogo",
+            "find a scrawling message ending with \u201cI\u2019ll keep watching\u201d"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "Then reads the letter on the bed."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:constellation-orb",
+      "label": "Old Scratched Orb with Constellations",
+      "node_type": "item",
+      "description": "An old scratched-up orb with constellations on it, found in a locked chest in the children's room.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "an old scratched up orb with constellations on it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:wolf-carving",
+      "label": "Glimmering Carving of a Wolf Devouring Sheep",
+      "node_type": "item",
+      "description": "A glimmering carving found in a sarcophagus, depicting a wolf devouring a sheep.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "a glimmering carving of a wolf devouring sheep"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:copper-rings",
+      "label": "Two Copper Rings",
+      "node_type": "item",
+      "description": "Two copper rings found in the final sarcophagus.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "he finds two copper rings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:stone-tablet",
+      "label": "Faded Stone Tablet",
+      "node_type": "item",
+      "description": "A faded stone tablet found in the final sarcophagus.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "and a faded stone tablet"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:broken-compass",
+      "label": "Broken Compass",
+      "node_type": "item",
+      "description": "A broken compass found in the locked safe.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "a broken compass"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:wolf-head-key",
+      "label": "Wolf-Head Key",
+      "node_type": "item",
+      "description": "A key in the shape of a wolf, found in the locked safe; it unlocks the handle revealing a trap door to the basement.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "a key in the shape of a wolf",
+            "they remember the wolf-head key that Bonogo found. With a click the handle moves easily revealing a trap door to the basement"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:summoning-circle",
+      "label": "Summoning Circle",
+      "node_type": "item",
+      "description": "A summoning circle painted on the floor of the hidden room, the same circle used by the Necromancer.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "the floor is painted to create a summoning circle, the very same circle they have seen once before used by the Necromancer"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:wolf-manor-summoning-room",
+      "label": "Hidden Summoning Room Beneath Wolf Manor",
+      "node_type": "mystery",
+      "description": "Behind a magically locked handle (opened by a wolf-head key) lies a trap door to a secret basement room. The room is covered in the same strange symbols found etched on the children's room windows and its floor bears a summoning circle identical to one previously used by the Necromancer. It smells strongly of cooked meat and has a tunnel leading toward the city. The party locked it back up.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "Ephanna notices a very old and worn handle, but is unable to budge it.",
+            "they remember the wolf-head key that Bonogo found. With a click the handle moves easily revealing a trap door to the basement.",
+            "The room is covered in the strange symbols and the floor is painted to create a summoning circle, the very same circle they have seen once before used by the Necromancer.",
+            "Stafl, then Ephanna, each examine the room and discover the strong smell of cooked meat."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:strange-window-symbols",
+      "label": "Unidentified Symbols on Children's Room Windows",
+      "node_type": "mystery",
+      "description": "Strange symbols are etched on the windows of the children's room at Wolf Manor. Neither Ephanna nor Caelynn (the group's most multilingual member) can decipher them, though they appear close to Infernal. The same symbols appear in the hidden summoning room below.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "strange symbols etched on the windows",
+            "Unable to decipher the symbols, they write them down",
+            "she is unable to identify them as well, though they appear to be close to Infernal."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "The room is covered in the strange symbols"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:letter-ill-keep-watching",
+      "label": "Anonymous Watching Letter for Bonogo",
+      "node_type": "mystery",
+      "description": "A beautiful envelope on the master bedroom bed, addressed to Bonogo, contains a scrawling message ending with 'I'll keep watching.' Ephanna used Mage Hand to retrieve and read it, then placed it back on the bed.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "a beautiful envelope on the bed, addressed to Bonogo",
+            "a scrawling message ending with \u201cI\u2019ll keep watching\u201d.",
+            "Ephanna places the letter back on the bed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:wolf-family-crypt-secrets",
+      "label": "Sealed Sarcophagi and Wolf Family Crypt",
+      "node_type": "mystery",
+      "description": "Bonogo discovered a large family crypt with a rune trap disabled by a ring. He pried open sarcophagi, finding skeletons, an iron amulet, a child-sized empty one, wolf pelts, and a carving of a wolf devouring a sheep. The final sarcophagus held two copper rings and a faded stone tablet. Two sarcophagi required a pulley system to open.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "Bonogo discovers a very beautiful large family crypt.",
+            "there is a sudden flash of runes, but nothing else happens.",
+            "The ring he found last time in the box under the master room bed disabled any traps.",
+            "the next, child sized, is empty, and the last two he is unable to open by strength alone."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "He finds more skeletons with wolf pelts and a glimmering carving of a wolf devouring sheep.",
+            "In the final sarcophagus he finds two copper rings and a faded stone tablet."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:secret-tunnel-to-city",
+      "label": "Tunnel from Summoning Room Toward the City",
+      "node_type": "mystery",
+      "description": "A tunnel leads off from the hidden summoning room under Wolf Manor toward the city. The party decided to lock the room back up rather than explore it.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "Despite a tunnel leading off toward the city, they all decide to lock the room back up and return to the Academy."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:living-slime-in-sewer",
+      "label": "Bonogo's Living Slime Released into the Sewer",
+      "node_type": "mystery",
+      "description": "On the way out, Bonogo slips his 'living slime' into the sewer, an unresolved action with potential future consequences.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "On the way out Bonogo slips his \u201cliving slime\u201d into the sewer."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:corrupt-guards-coverup",
+      "label": "Concealed Truth About Corrupt Guards",
+      "node_type": "mystery",
+      "description": "Karsemine reveals to Winna what happened with her, Bonogo, and the guard, omitting that they attacked the guard and she knocked him out. Winna trusts her judgment despite the guards being corrupt. The full truth remains hidden from authorities.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "anchor_quotes": [
+            "Karsemine eventually reveals what really happened with her, Bonogo, and the guard (minus the fact that they attacked the guard and she knocked him out).",
+            "Winna trusts her judgment and believes that she did the right thing in the situation."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:wolf-constellations-orb",
+      "label": "Wolf Manor Constellations and Scratched Orb",
+      "node_type": "mystery",
+      "description": "Constellations in the hidden summoning room match those in the rooms upstairs as well as a scratched-up orb found in the children's chest. The orb, etched with constellations, may be connected to the symbols and the summoning circle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "an old scratched up orb with constellations on it."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "Karsemine discovers constellations that match the rooms upstairs as well as the orb Ephanna found."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:potion-order-payment-dispute",
+      "label": "Blizzy's Demanded Payment for Huge Potion Order",
+      "node_type": "mystery",
+      "description": "Blizzy argued with Winna about payment for a huge potion order. Stafl's Suggestion failed to convince Winna to pay, requiring request from Headmaster Tinkerbright. Stafl then persuaded Blizzy to leave the cart of potions with him. Payment remains unresolved.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "They find Blizzy arguing with Winna about payment for a huge potion order.",
+            "Stalf uses Suggestion on Winna, but fails to convince her to pay for the order; they would need to request the payment from Headmaster Tinkerbright."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:wolf-devouring-sheep-carving",
+      "label": "Carving of a Wolf Devouring a Sheep",
+      "node_type": "mystery",
+      "description": "A glimmering carving of a wolf devouring a sheep was found in the Wolf family crypt. Its significance and potential symbolism are unexplained.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "a glimmering carving of a wolf devouring sheep."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:broken-compass-wolf-key",
+      "label": "Broken Compass and Wolf-Shaped Key in Safe",
+      "node_type": "mystery",
+      "description": "Inside the locked safe Bonogo found 40 silver, a broken compass, and a key in the shape of a wolf. The wolf-head key was later used to open the hidden trap door. The purpose of the broken compass is unknown.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "he heads back to the locked safe and unlocks it to find 40 silver, a broken compass, and a key in the shape of a wolf."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:old-gnome-guard:guard-tower:located_in",
+      "from_node_id": "character:old-gnome-guard",
+      "to_node_id": "candidate:guard-tower",
+      "label": "Old Gnome Guard located in the old guard tower",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "anchor_quotes": [
+            "An old gnome gives a questioning look to Lysandra as the group enters the building"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:sergeant-fabio:guard-tower:located_in",
+      "from_node_id": "character:sergeant-fabio",
+      "to_node_id": "candidate:guard-tower",
+      "label": "Sergeant Fabio located at the old guard station",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "anchor_quotes": [
+            "demands Sergeant Fabio speak with the Mayor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:scouting-map:capital-wilds:refers_to",
+      "from_node_id": "item:scouting-map",
+      "to_node_id": "candidate:capital-wilds",
+      "label": "Scouting map details the wilds outside the capital",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "He finds a very old scouting map that details the wilds outside of the capital"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:healing-potion:attic:located_in",
+      "from_node_id": "item:healing-potion",
+      "to_node_id": "candidate:attic",
+      "label": "Dusty old bottle found in an old trunk in the attic",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "Inside the old trunk is a dusty old bottle with an unknown liquid inside"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:iron-amulet:family-crypt:located_in",
+      "from_node_id": "item:iron-amulet",
+      "to_node_id": "candidate:family-crypt",
+      "label": "Iron amulet found in a sarcophagus in the crypt",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "the next a skeleton and an iron amulet"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:letter-to-bonogo:master-bedroom:located_in",
+      "from_node_id": "item:letter-to-bonogo",
+      "to_node_id": "candidate:master-bedroom",
+      "label": "Letter found on the bed in the master bedroom",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "notices a beautiful envelope on the bed, addressed to Bonogo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:constellation-orb:childrens-room:located_in",
+      "from_node_id": "item:constellation-orb",
+      "to_node_id": "candidate:childrens-room",
+      "label": "Constellation orb found in a locked chest in the children's room",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "an old scratched up orb with constellations on it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wolf-carving:family-crypt:located_in",
+      "from_node_id": "item:wolf-carving",
+      "to_node_id": "candidate:family-crypt",
+      "label": "Wolf carving found in a sarcophagus in the crypt",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "a glimmering carving of a wolf devouring sheep"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:copper-rings:family-crypt:located_in",
+      "from_node_id": "item:copper-rings",
+      "to_node_id": "candidate:family-crypt",
+      "label": "Copper rings found in the final sarcophagus in the crypt",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "he finds two copper rings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:stone-tablet:family-crypt:located_in",
+      "from_node_id": "item:stone-tablet",
+      "to_node_id": "candidate:family-crypt",
+      "label": "Faded stone tablet found in the final sarcophagus in the crypt",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "and a faded stone tablet"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wolf-head-key:hidden-summoning-room:leads_to",
+      "from_node_id": "item:wolf-head-key",
+      "to_node_id": "candidate:hidden-summoning-room",
+      "label": "Wolf-head key reveals trap door to the hidden summoning room",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "they remember the wolf-head key that Bonogo found. With a click the handle moves easily revealing a trap door to the basement"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:window-symbols:childrens-room:located_in",
+      "from_node_id": "mystery:strange-window-symbols",
+      "to_node_id": "candidate:childrens-room",
+      "label": "Strange symbols etched on the children's room windows",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "strange symbols etched on the windows"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:window-symbols:wmsr:linked_to",
+      "from_node_id": "mystery:strange-window-symbols",
+      "to_node_id": "mystery:wolf-manor-summoning-room",
+      "label": "Same symbols appear in the hidden summoning room",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "The room is covered in the strange symbols"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wolf-constellations:constellation-orb:linked_to",
+      "from_node_id": "mystery:wolf-constellations-orb",
+      "to_node_id": "item:constellation-orb",
+      "label": "Constellations match the orb found in the children's chest",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "Karsemine discovers constellations that match the rooms upstairs as well as the orb Ephanna found"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wolf-carving-mystery:wolf-devouring-sheep-carving:same_as",
+      "from_node_id": "mystery:wolf-devouring-sheep-carving",
+      "to_node_id": "item:wolf-carving",
+      "label": "Carving of a wolf devouring a sheep",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "a glimmering carving of a wolf devouring sheep"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wolf-family-crypt-secrets:family-crypt:linked_to",
+      "from_node_id": "mystery:wolf-family-crypt-secrets",
+      "to_node_id": "candidate:family-crypt",
+      "label": "Sealed sarcophagi and crypt secrets",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "Bonogo discovers a very beautiful large family crypt"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:living-slime-mystery:living-slime:linked_to",
+      "from_node_id": "mystery:living-slime-in-sewer",
+      "to_node_id": "item:living-slime",
+      "label": "Living slime released into the sewer",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "On the way out Bonogo slips his \u201cliving slime\u201d into the sewer"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:broken-compass-mystery:broken-compass:linked_to",
+      "from_node_id": "mystery:broken-compass-wolf-key",
+      "to_node_id": "item:broken-compass",
+      "label": "Broken compass found in the locked safe",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "he heads back to the locked safe and unlocks it to find 40 silver, a broken compass, and a key in the shape of a wolf"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:broken-compass-mystery:wolf-head-key:linked_to",
+      "from_node_id": "mystery:broken-compass-wolf-key",
+      "to_node_id": "item:wolf-head-key",
+      "label": "Wolf-shaped key found in the locked safe",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "a key in the shape of a wolf"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Karsemine Returns to the Academy",
+      "summary": "Karsemine rushes to the Academy with Winna after fearing guard corruption. Winna, stressed, is short with the desk sorcerer. They learn that guards arrived shortly after Karsemine left. Karsemine reveals the truth about the incident with Bonogo and the guard, omitting that they attacked and knocked him out. Winna trusts her judgment, believes it was the right call, and despite being upset about the corruption claim, accepts that things are under control. Karsemine leaves her danger necklace with Winna and rejoins Questionable Company.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "anchor_quotes": [
+            "Karsemine is rushing to the Academy with Winna",
+            "fearing more corruption from the guards watching the Dustwalker",
+            "Winna is even more stressed out than usual",
+            "a group of guards came in shortly after Karsemine left",
+            "Karsemine eventually reveals what really happened with her, Bonogo, and the guard",
+            "minus the fact that they attacked the guard and she knocked him out",
+            "Winna trusts her judgment",
+            "Karsemine leaves her danger necklace with Winna",
+            "join up with the other members of Questionable Company"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "At the Old Guard Tower, Stafl Demands the Mayor",
+      "summary": "Led by Lysandra, the group goes to the old guard tower to stock supplies for their journey. The station is busy with soldiers despite bad weather and late hour. An old gnome eyes Lysandra suspiciously. Lysandra breaks down and guards surround the group. Stafl, seeing she cannot defend them, demands Sergeant Fabio speak with the Mayor to sort everything out.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "anchor_quotes": [
+            "head for the old guard tower",
+            "stock up on supplies for their journey",
+            "the old guard station is fairly busy with soldiers",
+            "An old gnome gives a questioning look to Lysandra",
+            "Lysandra begins to break down and the group is suddenly surrounded by guards",
+            "Stalf, seeing Lysandra is unable to defend the group, speaks up and demands Sergeant Fabio speak with the Mayor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Mayor Contacted and Basement Bursar",
+      "summary": "While Stafl contacts the Mayor with the sergeant, Ephanna and Karsemine help Lysandra recover. Once sorted, a grizzled soldier leads the group to the basement to see the bursar. The dusty, mostly empty shelves hold city-stored papers and items. Plume brightens and agrees to prepare basic travel supplies for the morning. The group returns to the Copper and Quartz Inn to rest.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "While Stafl is contacting the mayor with the sergeant, Ephanna and Karsemine help Lysandra recover",
+            "takes the group down the steps into the basement to see the bursar",
+            "dusty shelves, mostly empty",
+            "assorted items left by the city for storage",
+            "Plume, the old man bustling around the room, brightens up seeing the group enter the room",
+            "He agrees to prepare the basic travel supplies and will have them ready in the morning",
+            "The group then heads back to the Copper and Quartz Inn for a good night\u2019s rest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Morning Errands and Departure Prep",
+      "summary": "The morning begins with a request for barrels of ale for the trip; after convincing the barkeep, he agrees to ask Barin on the group's behalf. On the way out, Bonogo slips his living slime into the sewer. Ephanna wants to stop at the Academy to tell Torbin the group is leaving. They head back to Wolf Manor to finish things before the swamp trip.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "a request for some barrels of ale for the long trip",
+            "the barkeep finally agrees to ask Barin on the group\u2019s behalf",
+            "Bonogo slips his \u201cliving slime\u201d into the sewer",
+            "Ephanna wants to stop at the Academy to let Torbin know the group is leaving for a long trip",
+            "the group head back to Wolf Manor",
+            "before the start of the trip to the swamp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Exploring Wolf Manor: Map, Trophy Room, Attic",
+      "summary": "The group explores the decayed but sound Wolf Manor. Bonogo heads to the crypt. Stafl searches the library and finds an old scouting map of the wilds outside the capital. Ephanna checks the master chamber with nothing immediate. They meet Karsemine in the Trophy Room, thick with dust and mounted animal heads. They go to the kitchen, finding old herbs for potions. In the attic are old trunks and a safe with the Wolf family seal. Ephanna fails to pick the safe lock. In a trunk is a dusty bottle of unknown liquid, later identified by Caelynn as a healing potion.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "Despite the decaying look of the estate most of the structure is sound",
+            "Bonogo heads for the crypt",
+            "Stafl checks out the library",
+            "He finds a very old scouting map that details the wilds outside of the capital"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "Ephanna does a quick check out the master chamber",
+            "They meet up with Karsemine in the Trophy Room",
+            "lots of dust and wild animal heads mounted on the walls",
+            "finding old herbs for potions",
+            "they go up to the attic",
+            "a safe hidden in the wall bearing the Wolf family seal",
+            "Ephanna attempts to pick the lock, but is unable to",
+            "a dusty old bottle with an unknown liquid inside",
+            "They take it to Caelynn to analyze and she can tell it is a healing potion"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Crypt Discoveries and Hidden Letter",
+      "summary": "In the crypt, Bonogo finds a large, beautiful family crypt. He pries open the door, triggering a flash of runes, but nothing else happens\u2014the ring from the box under the master bed disabled the traps. He opens sarcophaguses: one holds a skeleton, another a skeleton and an iron amulet, a child-sized one is empty, and two others resist his strength, prompting a pulley plan. Back in the master bedroom, Ephanna finds a beautiful envelope addressed to Bonogo, opens it with Mage Hand, and reads a scrawling message ending 'I'll keep watching.' She replaces it. In the children\u2019s room, they find old clothes, a locked chest, and strange symbols on the windows. Unable to decipher them, they copy the symbols and pick the chest lock, finding old toys and a scratched orb with constellations. Caelynn cannot identify the symbols either, though they appear close to Infernal.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "Bonogo discovers a very beautiful large family crypt",
+            "He pries open the door and there is a sudden flash of runes",
+            "The ring he found last time in the box under the master room bed disabled any traps",
+            "The first holds just a skeleton, the next a skeleton and an iron amulet, the next, child sized, is empty, and the last two he is unable to open by strength alone",
+            "He begins to form a plan to use a pulley system to lift the tops off",
+            "Ephanna goes back through the master bedroom and notices a beautiful envelope on the bed, addressed to Bonogo",
+            "They use Mage Hand to grab it and open it and find a scrawling message ending with \u201cI\u2019ll keep watching\u201d",
+            "they find some old clothes, a locked chest and, most notably, strange symbols etched on the windows",
+            "they write them down and then pick the lock on the chest",
+            "Inside are some old toys and an old scratched up orb with constellations on it",
+            "they appear to be close to Infernal"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Pulley Opens Final Sarcophagi and Safe",
+      "summary": "Bonogo uses a pulley system to open the last two sarcophagi. He finds more skeletons with wolf pelts and a glimmering carving of a wolf devouring sheep. The final sarcophagus holds two copper rings and a faded stone tablet. He then unlocks the safe, finding 40 silver, a broken compass, and a key shaped like a wolf, and reads the letter on the bed.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "Bonogo is now able to lift the tops of the last two using a pulley system he rigged up",
+            "He finds more skeletons with wolf pelts and a glimmering carving of a wolf devouring sheep",
+            "In the final sarcophagus he finds two copper rings and a faded stone tablet",
+            "he heads back to the locked safe and unlocks it to find 40 silver, a broken compass, and a key in the shape of a wolf",
+            "Then reads the letter on the bed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-8",
+      "order": 8,
+      "title": "Hidden Trap Door and Summoning Room",
+      "summary": "During a final kitchen check before leaving, Ephanna notices an old worn handle that no one can move. Remembering Bonogo's wolf-head key, they use it; with a click the handle moves, revealing a trap door to the basement. Below, a collapsed wall opens into another room covered in strange symbols with a floor painted as a summoning circle\u2014the same circle used by the Necromancer. Stafl then Ephanna smell cooked meat. Karsemine finds constellations matching those upstairs and on Ephanna's orb. Caelynn studies the ring, determines how it works, and believes she can operate it. Despite a tunnel heading toward the city, they lock the room and return to the Academy.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "Ephanna notices a very old and worn handle, but is unable to budge it",
+            "they remember the wolf-head key that Bonogo found",
+            "With a click the handle moves easily revealing a trap door to the basement",
+            "Inside the room they find a collapsed wall and another room beyond",
+            "The room is covered in the strange symbols and the floor is painted to create a summoning circle, the very same circle they have seen once before used by the Necromancer",
+            "Stafl, then Ephanna, each examine the room and discover the strong smell of cooked meat",
+            "Karsemine discovers constellations that match the rooms upstairs as well as the orb Ephanna found",
+            "Caelynn examines the ring and is able to determine how it works and believes that she would be able to make it work",
+            "Despite a tunnel leading off toward the city, they all decide to lock the room back up and return to the Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-9",
+      "order": 9,
+      "title": "Academy Return and Blizzy's Potion Dispute",
+      "summary": "Back at the Academy the group speaks with Torbin, and Caelynn finds someone to check her mushrooms. They hear an upset goblin arguing about payment for an order\u2014Blizzy arguing with Winna over payment for a huge potion order. Stafl's Suggestion on Winna fails to convince her to pay; they must request payment from Headmaster Tinkerbright. Stafl then persuades Blizzy that all will be handled and she can leave the cart of potions with him.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "They are able to talk with Torbin and Caelynn is able to find someone to check on her mushrooms",
+            "Suddenly they hear a very upset goblin arguing about payment for an order",
+            "They find Blizzy arguing with Winna about payment for a huge potion order",
+            "Stalf uses Suggestion on Winna, but fails to convince her to pay for the order",
+            "they would need to request the payment from Headmaster Tinkerbright",
+            "Then Stafl persuades Blizzy that all will be taken care of and she can leave the cart of potions with him"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignore:1",
+      "label": "Barrels of Ale Request",
+      "reason": "Routine supply acquisition; no mystery or unresolved thread beyond a simple transaction.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "The morning starts with a request for some barrels of ale for the long trip."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignore:2",
+      "label": "Travel Supplies from Bursar Plume",
+      "reason": "Straightforward logistical arrangement; no mystery.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "He agrees to prepare the basic travel supplies and will have them ready in the morning."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignore:3",
+      "label": "Old Scouting Map Found in Library",
+      "reason": "Useful item but no current mystery or unresolved phenomenon attached.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:16-16",
+          "anchor_quotes": [
+            "He finds a very old scouting map that details the wilds outside of the capital."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignore:4",
+      "label": "Old Herbs for Potions Found in Kitchen",
+      "reason": "Minor loot with no mystery or unresolved thread.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "They both make their way back to the kitchen, finding old herbs for potions."
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "defer:1",
+      "label": "Lysandra's Breakdown and Guard Confrontation at Old Guard Tower",
+      "reason": "Scene involves emotional breakdown and guard response but resolved via Stafl's demand to speak with the Mayor; not an unresolved mystery in itself, but may have future repercussions for Lysandra or the party's standing with the guard.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:14-14",
+          "anchor_quotes": [
+            "Lysandra begins to break down and the group is suddenly surrounded by guards.",
+            "Stalf, seeing Lysandra is unable to defend the group, speaks up and demands Sergeant Fabio speak with the Mayor"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track Lysandra's condition and any consequences from the guard encounter."
+    },
+    {
+      "item_id": "defer:2",
+      "label": "Potion Analysis by Caelynn",
+      "reason": "Healing potion identified, but its origin or why it was in the trunk could be relevant later.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:18-18",
+          "anchor_quotes": [
+            "They take it to Caelynn to analyze and she can tell it is a healing potion."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Note potion as healing potion; no further action needed now."
+    },
+    {
+      "item_id": "defer:3",
+      "label": "Caelynn's Mushroom Check",
+      "reason": "Minor personal errand; no mystery or unresolved phenomenon.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "label": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac:span:99ea4cce27ac:20-20",
+          "anchor_quotes": [
+            "Caelynn is able to find someone to check on her mushrooms."
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

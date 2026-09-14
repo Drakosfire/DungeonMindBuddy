@@ -1,0 +1,1105 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-12:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-12",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-12:c702e71fdf13"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:crimson-chorus",
+      "label": "The Crimson Chorus",
+      "node_type": "character",
+      "description": "Group of red-cloaked figures acting as the Dustwalker's entourage; one intercepted Bonogo's first dagger, they cast a spell on Bonogo and dealt heavy damage, and Caelynn's Snowball spells killed all of them, leaving their bodies behind.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "one of his red cloaked entourage jumps in front of the dagger"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "anchor_quotes": [
+            "The red cloaks, called the Crimson Chorus, cast a spell on Bonogo then attack him for big damage."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "anchor_quotes": [
+            "Caelynn again casts Snowball, killing all the remaining red cloaks.",
+            "Each of the red cloak bodies remain, however all that is left of the Dustwalker is a puddle of goo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:crimson-chorus",
+      "label": "Crimson Chorus",
+      "node_type": "faction",
+      "description": "A group of red-cloaked individuals who serve the Dustwalker, casting spells and intercepting attacks against him.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "one of his red cloaked entourage jumps in front of the dagger"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "anchor_quotes": [
+            "The red cloaks, called the Crimson Chorus, cast a spell on Bonogo then attack him for big damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:crimson-chorus",
+      "label": "The Crimson Chorus",
+      "node_type": "mystery",
+      "description": "A group of red-cloaked individuals who protect the Dustwalker and attack the party; their origin, purpose, and allegiance are unknown.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "anchor_quotes": [
+            "The red cloaks, called the Crimson Chorus, cast a spell on Bonogo then attack him for big damage."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:halfling-bard",
+      "label": "The Halfling Bard",
+      "node_type": "character",
+      "description": "Halfling competitor in the Bardic Storytelling Competition who performed first, telling an old story using juggling while Stafl and other bards provided backup music.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "The first Bard to compete is the Halfling. They perform using juggling to tell an old story."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:old-man-bard",
+      "label": "The Old Man Bard",
+      "node_type": "character",
+      "description": "A very old human competitor in the Bardic Storytelling Competition who performed a somber poem.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "The group includes a halfling, half-orc, a very old human and a shadowy figure who remains just off stage.",
+            "Then the old man performs a somber poem."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:glass-xylophone-bard",
+      "label": "The Glass Xylophone Bard",
+      "node_type": "character",
+      "description": "Competing bard in the Bardic Storytelling Competition who performed with a sort of glass xylophone.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "While the next Bard is performing with a sort of glass xylophone, Stafl asks about the shadowy figure."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:sara",
+      "label": "Sara",
+      "node_type": "character",
+      "description": "One of the city's twin 'rocky-talky' operators contacted when Caelynn requested help through the guard during the battle at the Glimmering Globe.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "He connects with the city\u2019s twin operators, Sara and Frank, and asks for help."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:frank",
+      "label": "Frank",
+      "node_type": "character",
+      "description": "One of the city's twin 'rocky-talky' operators contacted when Caelynn requested help through the guard during the battle at the Glimmering Globe.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "He connects with the city\u2019s twin operators, Sara and Frank, and asks for help."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:wanted-posters",
+      "label": "Wanted Posters",
+      "node_type": "item",
+      "description": "Crude 'Wanted' posters of the hooded figure that Bonogo creates using paper he acquired earlier in the city, hanging some around the Copper and Quartz and keeping the rest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:14-14",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:14-14",
+          "anchor_quotes": [
+            "using the paper he acquired earlier in the city, makes some \u201cWanted\u201d posters of the hooded figure"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:chain-harp",
+      "label": "Gigantic Chain Harp",
+      "node_type": "item",
+      "description": "A massive harp strung with chain, played by the Half-Orc bard during the Bardic Storytelling Competition.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "the Half-Orc begins to play a gigantic chain harp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:glass-xylophone",
+      "label": "Glass Xylophone",
+      "node_type": "item",
+      "description": "A musical instrument of glass used by one of the competing bards at the Bardic Storytelling Competition.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "the next Bard is performing with a sort of glass xylophone"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:dustwalker-guitar",
+      "label": "The Dustwalker's Guitar",
+      "node_type": "item",
+      "description": "Instrument pulled out by the Dustwalker to form a magical attack on Bonogo; its string snapped, causing the attack to miss.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "anchor_quotes": [
+            "The Dustwalker pulls out a guitar, forming an attack on Bonogo, but the string snaps and his attack misses."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:rocky-talky",
+      "label": "Rocky-Talky",
+      "node_type": "item",
+      "description": "A communication device used by the guard to contact Lesandra, described by Caelynn; the guard connects with the city's twin operators, Sara and Frank.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "asking for them to contact Lesandra through their \u201crocky-talky\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:red-cloaks",
+      "label": "Crimson Chorus Red Cloaks",
+      "node_type": "item",
+      "description": "Distinctive red cloaks worn by the Dustwalker's entourage, known as the Crimson Chorus, who intercept attacks and cast spells; their bodies remain after Caelynn's spells kill them.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "anchor_quotes": [
+            "The red cloaks, called the Crimson Chorus, cast a spell on Bonogo then attack him for big damage."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "anchor_quotes": [
+            "Each of the red cloak bodies remain, however all that is left of the Dustwalker is a puddle of goo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:dustwalker-goo",
+      "label": "Puddle of Goo",
+      "node_type": "item",
+      "description": "All that remains of the Dustwalker after being killed both at the Glimmering Globe and in his cell at the Academy; it smells like cooked meat.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "anchor_quotes": [
+            "all that is left of the Dustwalker is a puddle of goo (which smells like cooked meat)"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "anchor_quotes": [
+            "Again, all that remains is a puddle of goo smelling of cooked meat."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:cell-lock",
+      "label": "Dustwalker's Cell Lock",
+      "node_type": "item",
+      "description": "The lock on the Dustwalker's cell at the Academy, which Bonogo picks open after the guard is knocked unconscious.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "anchor_quotes": [
+            "Bonogo picks the lock and opens the cell door."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:hooded-figure-identity",
+      "label": "Identity of the Hooded Figure",
+      "node_type": "mystery",
+      "description": "Bonogo creates 'Wanted' posters of the hooded figure and spots them briefly at the Bardic Storytelling Competition; their identity and purpose remain unknown.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:14-14",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:14-14",
+          "anchor_quotes": [
+            "makes some \u201cWanted\u201d posters of the hooded figure",
+            "sees the hooded figure down in the front"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:dustwalker-duplicate",
+      "label": "Dustwalker Appears in Two Places",
+      "node_type": "mystery",
+      "description": "The Dustwalker is killed at the Glimmering Globe, turning into a puddle of goo, yet later is found alive and well in his cell at the Academy, suggesting a duplicate or decoy.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "anchor_quotes": [
+            "She also kills the Dustwalker!",
+            "They discover the Dustwalker sitting in his cell, right where they left him!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:arcane-hum",
+      "label": "Building Arcane Hum",
+      "node_type": "mystery",
+      "description": "During the battle at the Glimmering Globe, an arcane hum builds as the Dustwalker's song continues; its purpose or effect is unexplained.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "anchor_quotes": [
+            "There is an arcane hum building as the song continues."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:dustwalker-goo",
+      "label": "Dustwalker Leaves Only Goo",
+      "node_type": "mystery",
+      "description": "When the Dustwalker is killed, his body turns into a puddle of goo that smells like cooked meat, both at the Glimmering Globe and in his cell; the nature of this substance is unknown.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "anchor_quotes": [
+            "all that is left of the Dustwalker is a puddle of goo (which smells like cooked meat)",
+            "all that remains is a puddle of goo smelling of cooked meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:shadowy-figure-off-stage",
+      "label": "Shadowy Figure Off Stage",
+      "node_type": "mystery",
+      "description": "A shadowy figure remains just off stage during the Bardic competition, later revealed to be the Dustwalker; their initial anonymity is notable.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "a shadowy figure who remains just off stage",
+            "He is informed that it is the Dustwalker!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:red-cloaked-entourage",
+      "label": "Red-Cloaked Entourage",
+      "node_type": "mystery",
+      "description": "The Dustwalker is accompanied by red-cloaked individuals who intercept attacks, later identified as the Crimson Chorus; their full strength and numbers are unclear.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "one of his red cloaked entourage jumps in front of the dagger"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:city-operators-sara-frank",
+      "label": "City Twin Operators Sara and Frank",
+      "node_type": "mystery",
+      "description": "Caelynn contacts the guard via 'rocky-talky' to reach Lesandra, and the guard connects with the city's twin operators, Sara and Frank; their role and capabilities are unspecified.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "He connects with the city\u2019s twin operators, Sara and Frank, and asks for help."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:zilla-absence",
+      "label": "Zilla's Absence from Office",
+      "node_type": "mystery",
+      "description": "Karsemine heads to Zilla's office but finds Zilla is out to see the competition; the implications of Zilla's absence during the crisis are unclear.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "anchor_quotes": [
+            "Karsemine heads to Zilla\u2019s office while Bonogo heads to the cell, but Zilla is out to see the competition so Karsemine rejoins Bonogo."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:red-cloaks:belong-to:crimson-chorus",
+      "from_node_id": "candidate:red-cloaks",
+      "to_node_id": "candidate:crimson-chorus",
+      "label": "Red cloaks belong to the Crimson Chorus",
+      "relationship_type": "belongs_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "anchor_quotes": [
+            "The red cloaks, called the Crimson Chorus"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glass-xylophone-bard:possesses:glass-xylophone",
+      "from_node_id": "candidate:glass-xylophone-bard",
+      "to_node_id": "candidate:glass-xylophone",
+      "label": "Glass Xylophone Bard possesses a glass xylophone",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "performing with a sort of glass xylophone"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:half-orc-bard:carries:chain-harp",
+      "from_node_id": "candidate:chain-harp",
+      "to_node_id": "candidate:halfling-bard",
+      "label": "Chain harp is carried by the Half-Orc",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "the Half-Orc begins to play a gigantic chain harp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Wanted posters and march to the Glimmering Globe",
+      "summary": "During the party at the Copper and Quartz, Bonogo uses paper acquired earlier in the city to make wanted posters of the hooded figure and hangs some around the inn. Stafl whips up the crowd and leads them down the street to the Glimmering Globe for the Bardic Storytelling Competition, with Caelynn hyping the crowd, Bonogo spotting the hooded figure from the top row, and Baergrom working a group of dwarves.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:14-14",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:14-14",
+          "anchor_quotes": [
+            "Bonogo, using the paper he acquired earlier in the city, makes some \u201cWanted\u201d posters of the hooded figure.",
+            "Stafl then whips the crowd up and he leads them down the street to the Glimmering Globe for the Bardic Storytelling Competition.",
+            "Caelynn moves through the crowd getting them involved and hyped up.",
+            "Bonogo takes the opportunity to view the seats from the top row and, for only a brief second, sees the hooded figure down in the front.",
+            "Baergrom joins a group of dwarves, attempting to sway them to Stafl."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Dustwalker revealed and battle erupts at the competition",
+      "summary": "On stage Stafl calls out the competitors, including a shadowy figure later identified as the Dustwalker. When Bonogo throws daggers at the Dustwalker and they are intercepted by red-cloaked attendants, Caelynn calls the guard, who contacts Lesandra through a rocky-talky, and the battle begins.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+          "anchor_quotes": [
+            "Stafl asks about the shadowy figure. He is informed that it is the Dustwalker!",
+            "Bonogo immediately throws a dagger at the Dustwalker, but is intercepted when one of his red cloaked entourage jumps in front of the dagger.",
+            "Caelynn then runs to the guard, asking for them to contact Lesandra through their \u201crocky-talky\u201d.",
+            "He connects with the city\u2019s twin operators, Sara and Frank, and asks for help. Then the battle begins."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Fight against the Dustwalker and the Crimson Chorus",
+      "summary": "Bonogo lands dagger and sword hits on the poisoned Dustwalker while Caelynn's Snowball kills half the red cloaks, later revealed as the Crimson Chorus. The Dustwalker's guitar string snaps, then he charms the crowd with Word of the Shepherd along with Karsemine and Baergrom, who break free. The red cloaks hurt Bonogo badly, Ephanna Haxes the Dustwalker, and Stafl uses Suggestion and Celestial Revelation with Necrotic Shroud to clear and block the crowd.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+          "anchor_quotes": [
+            "The Dustwalker took a good amount of damage from the dagger throw, and is now also poisoned.",
+            "Caelynn casts Snowball on the group of red cloaks surrounding the Dustwalker, killing half of them with one spell.",
+            "He turns to the crowd around the front of the stage and casts Word of the Shepherd and the crowd becomes charmed, along with Karsemine and Baergrom.",
+            "The red cloaks, called the Crimson Chorus, cast a spell on Bonogo then attack him for big damage.",
+            "Stafl quickly uses Suggestion on the Half-Orc and the crowd near the stage and has the orc lead a large part of the audience up and out of the building."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Dustwalker slain, then found alive in his cell",
+      "summary": "Caelynn's second Snowball kills the remaining red cloaks and the Dustwalker, leaving only goo that smells like cooked meat. Ephanna calms the panicking crowd and Lesandra arrives to take notes and advise the group to stay inside the city. Karsemine and Bonogo rush to the Academy, only to find the Dustwalker apparently still in his cell; they knock out a refusing city guard, open the cell, and Bonogo cuts the Dustwalker's throat, leaving another goo puddle before guards arrive.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "label": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+          "anchor_quotes": [
+            "Caelynn again casts Snowball, killing all the remaining red cloaks. She also kills the Dustwalker!",
+            "Lesandra arrives and begins taking notes, starting with Caelynn. She advises the group to stay inside the city.",
+            "Karsemine and Bonogo, realizing that the Dustwalker must have broken out of his cell, rush to the Academy.",
+            "They discover the Dustwalker sitting in his cell, right where they left him!",
+            "In a flash Bonogo cuts his throat. Again, all that remains is a puddle of goo smelling of cooked meat."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

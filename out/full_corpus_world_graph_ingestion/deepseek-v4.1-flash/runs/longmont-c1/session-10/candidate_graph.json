@@ -1,0 +1,2303 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-10:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-10",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-10:202289dc3d5e"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:thraxx",
+      "label": "Thraxx",
+      "node_type": "character",
+      "description": "A massive Bugbear encountered at the Grit and Grime party who becomes a new ally of the party. Wielding a portable battering ram and a massive mechanical arm, he helps shatter the block trapping Bonogo and punches winged creatures to death in the warehouse battle.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "a massive Bugbear named Thraxx"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Thraxx and Baergrom are able to shatter the block and free Bonogo"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "Thraxx uses his massive mechanical arm to punch winged creatures to death"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "anchor_quotes": [
+            "Thraxx attacks Karsemine and knocks her unconscious"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "creature:meat-mounds",
+      "label": "Meat Mounds",
+      "node_type": "character",
+      "description": "Monstrous creatures present in the chilled warehouse alongside Cultists and winged creatures. They are among the enemies attacked by the party during the warehouse battle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Cultists, Meat Mounds, and other creatures with wings"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "throwing alcohol on the other monsters and attacking enemies as she passes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:meat-mounds",
+      "label": "Meat Mounds",
+      "node_type": "group",
+      "description": "Creature type present in the last warehouse alongside Cultists and Abhorrent Meat Wings; engaged by the party in battle.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Cultists, Meat Mounds, and other creatures with wings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "creature:abhorrent-meat-wings",
+      "label": "Abhorrent Meat Wings",
+      "node_type": "character",
+      "description": "Winged creatures found in the chilled warehouse with the Cultists and Meat Mounds. Thraxx punches them to death during the battle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "other creatures with wings: Abhorrent Meat Wings"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "Thraxx uses his massive mechanical arm to punch winged creatures to death"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:abhorrent-meat-wings",
+      "label": "Abhorrent Meat Wings",
+      "node_type": "group",
+      "description": "Creatures with wings found in the last warehouse alongside Cultists and Meat Mounds; fought by the party. Thraxx punches winged creatures to death with his mechanical arm.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "other creatures with wings: Abhorrent Meat Wings"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "Thraxx uses his massive mechanical arm to punch winged creatures to death"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:grit-and-grime-owner",
+      "label": "Grit and Grime Owner",
+      "node_type": "character",
+      "description": "The owner of the Grit and Grime club who confronts Stafl after he interrupts the party; Stafl's quick thinking and fast talking resolves the situation, gaining the party a new ally.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "He immediately interrupts the party, and has some explaining to do with the owner"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "Some quick thinking and fast talking and the party now has a new ally"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:warehouses-near-water-wheel",
+      "label": "Warehouses near the Water Wheel",
+      "node_type": "location",
+      "description": "A cluster of known warehouses located near the water wheel, an area known to house Goblins, Hobgoblins, and Bugbears. The party decides to investigate the last few of these warehouses.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "The group decides to go to the last few known warehouses located near the water wheel."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:tunnel-network",
+      "label": "Tunnel Network",
+      "node_type": "location",
+      "description": "A tunnel system beneath the warehouse district featuring traps (darts, crushing blocks, goo/gas), a dusty ladder, trap doors, and paths connecting to the last warehouse.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "Down the tunnel the group spots an old dusty ladder leading up to another trap door."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Now it's a straight shot to the last warehouse through this tunnel."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:last-warehouse",
+      "label": "Last Warehouse",
+      "node_type": "location",
+      "description": "The final warehouse at the end of the tunnel, reached by a ladder up to another trap door. It is a chilled warehouse with rows of meat, occupied by Cultists, Meat Mounds, and Abhorrent Meat Wings.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Another chilled warehouse with rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:goblins-hobgoblins-bugbears",
+      "label": "Goblins, Hobgoblins and Bugbears",
+      "node_type": "faction",
+      "description": "Collective of goblinoids (Goblins, Hobgoblins, and Bugbears) known to inhabit the warehouse district near the water wheel; also present as attendees at the Grit and Grime club party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "This area is known to house Goblins, Hobgoblins and Bugbears."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "anchor_quotes": [
+            "a warehouse turned club for Goblins, Hobgoblins and Bugbears"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:portable-battering-ram",
+      "label": "Portable Battering Ram",
+      "node_type": "item",
+      "description": "A portable battering ram used by Thraxx and Baergrom to shatter the massive block trapping Bonogo in the tunnel, freeing him.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "With the use of a portable battering ram Thraxx and Baergrom are able to shatter the block and free Bonogo."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:crowbar",
+      "label": "Crowbar",
+      "node_type": "item",
+      "description": "A crowbar used in the failed attempt to lift the massive block trapping Bonogo; even with its help the block was almost impossible to move.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "It is almost impossible to move it at all, even with the help of a crowbar."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:thornaxx-mechanical-arm",
+      "label": "Thraxx's Massive Mechanical Arm",
+      "node_type": "item",
+      "description": "A mechanical arm used by the Bugbear ally Thraxx to punch winged creatures to death during the warehouse battle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "And Thraxx uses his massive mechanical arm to punch winged creatures to death."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:health-potion",
+      "label": "Health Potion",
+      "node_type": "item",
+      "description": "A health potion used by Baergrom on the unconscious Caelynn during the fight in the warehouse.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "anchor_quotes": [
+            "Bargrom uses a health potion on Caelynn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:broken-bottles",
+      "label": "Broken Bottles",
+      "node_type": "item",
+      "description": "Broken bottles on the tunnel floor from which a goo/gas mixture crept up, forming the noxious trap that caught Bonogo.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "a goo/gas begins to creep up from broken bottles on the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:dart-trap",
+      "label": "Dart Trap",
+      "node_type": "item",
+      "description": "A trap in the tunnel that shoots darts, striking Bonogo on the group's first steps.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "The first steps reveal a trap that shoots darts into Bonogo."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:block-trap",
+      "label": "Massive Block Trap",
+      "node_type": "item",
+      "description": "A trap triggered in the tunnel that trapped Bonogo between two massive blocks as goo/gas crept up, requiring the group and Thraxx to lift and shatter it.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "Almost immediately another trap is triggered, this time trapping Bonogo between two massive blocks",
+            "They manage to lift it enough for Caelynn to freeze the noxious mixture at the bottom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:old-dusty-ladder",
+      "label": "Old Dusty Ladder",
+      "node_type": "item",
+      "description": "An old dusty ladder found down the tunnel, leading up to another trap door.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "Down the tunnel the group spots an old dusty ladder leading up to another trap door."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:another-trap-door",
+      "label": "Trap Door",
+      "node_type": "item",
+      "description": "A trap door above the last ladder in the tunnel, which Bonogo sneaks a look through to spot the chilled warehouse.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "on the way to the last ladder leading up to another trap door"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:meat-monsters-threat",
+      "label": "Meat Monsters and Abhorrent Meat Wings in the Chilled Warehouse",
+      "node_type": "mystery",
+      "description": "The final warehouse contains Cultists, Meat Mounds, and winged creatures called Abhorrent Meat Wings, an ongoing monstrous threat the party is fighting.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Another chilled warehouse with rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:cultists-activity",
+      "label": "Cultist Presence in the Warehouse",
+      "node_type": "mystery",
+      "description": "Cultists are operating inside the chilled warehouse among rows of meat, engaging the party in combat.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Another chilled warehouse with rows of meat and Cultists"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "Bonogo immediately kills two Cultists."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:charm-effect",
+      "label": "Charming Effect Turning Party Against Each Other",
+      "node_type": "mystery",
+      "description": "Members of the party become Charmed and attack their allies, and the source of this charm is unclear, though Ephanna ultimately breaks it.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "anchor_quotes": [
+            "Stafl gets Charmed"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "anchor_quotes": [
+            "Bonogo, Baergrom and Karsemine all become Charmed and the Sprite is killed.",
+            "Finally, Ephanna helps break the Charm on the group."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:grit-and-grime-party",
+      "label": "Grit and Grime, the Goblinoid Warehouse Club",
+      "node_type": "mystery",
+      "description": "A huge party is being held at the Grit and Grime, a warehouse turned club for Goblins, Hobgoblins and Bugbears, which the party discovers beneath a trapdoor and later returns to for a Short Rest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "anchor_quotes": [
+            "a huge party happening at the Grit and Grime, a warehouse turned club for Goblins, Hobgoblins and Bugbears."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "anchor_quotes": [
+            "the group heads back to the party to take a Short Rest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:thraxx-ally",
+      "label": "Thraxx the Bugbear, New Ally",
+      "node_type": "mystery",
+      "description": "Stafl seeks out a Bugbear at the club, and after quick talking with the owner the party gains a massive Bugbear ally named Thraxx who wields a portable battering ram and a massive mechanical arm.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "the party now has a new ally: a massive Bugbear named Thraxx."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "With the use of a portable battering ram Thraxx and Baergrom are able to shatter the block and free Bonogo."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "Thraxx uses his massive mechanical arm to punch winged creatures to death."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:tunnel-traps",
+      "label": "Trap-Filled Tunnels Beneath the Warehouses",
+      "node_type": "mystery",
+      "description": "The tunnels contain multiple traps: a dart trap that hits Bonogo, and a block-and-gas trap that pins Bonogo between massive blocks with goo/gas from broken bottles.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "The first steps reveal a trap that shoots darts into Bonogo."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "Almost immediately another trap is triggered, this time trapping Bonogo between two massive blocks and a goo/gas begins to creep up from broken bottles on the ground."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:thumping-music",
+      "label": "Rhythmic Thumping Music from Above",
+      "node_type": "mystery",
+      "description": "Ephanna hears rhythmic thumping, possibly music from above, which Stafl also concludes after discovering tracks continuing down the tunnel.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "Ephanna can hear rhythmic thumping; perhaps music.",
+            "Stafl discovers tracks continuing down the tunnel, and is even more convinced the thumping is music from above."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:explore-tunnels",
+      "label": "Unresolved Thread: Explore the Tunnels",
+      "node_type": "mystery",
+      "description": "A stated next beat is to explore the tunnels, left unresolved at session's end.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:22-22",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:22-22",
+          "anchor_quotes": [
+            "## Explore tunnels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:thraxx-carries-mechanical-arm",
+      "from_node_id": "npc:thraxx",
+      "to_node_id": "item:thornaxx-mechanical-arm",
+      "label": "Thraxx wields his massive mechanical arm",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "Thraxx uses his massive mechanical arm to punch winged creatures to death"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:thraxx-carries-portable-battering-ram",
+      "from_node_id": "npc:thraxx",
+      "to_node_id": "item:portable-battering-ram",
+      "label": "Thraxx uses the portable battering ram",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "With the use of a portable battering ram Thraxx and Baergrom are able to shatter the block"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:thraxx-attacks-abhorrent-meat-wings",
+      "from_node_id": "npc:thraxx",
+      "to_node_id": "creature:abhorrent-meat-wings",
+      "label": "Thraxx punches winged creatures to death",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "Thraxx uses his massive mechanical arm to punch winged creatures to death"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:thraxx-member-of-goblins-hobgoblins-bugbears",
+      "from_node_id": "npc:thraxx",
+      "to_node_id": "candidate:goblins-hobgoblins-bugbears",
+      "label": "Thraxx is a Bugbear among the goblinoids",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "a massive Bugbear named Thraxx"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "This area is known to house Goblins, Hobgoblins and Bugbears."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:goblins-hobgoblins-bugbears-located-in-warehouses-near-water-wheel",
+      "from_node_id": "candidate:goblins-hobgoblins-bugbears",
+      "to_node_id": "location:warehouses-near-water-wheel",
+      "label": "Goblinoids inhabit the warehouses near the water wheel",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "This area is known to house Goblins, Hobgoblins and Bugbears."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:owner-linked-to-thraxx-ally",
+      "from_node_id": "npc:grit-and-grime-owner",
+      "to_node_id": "npc:thraxx",
+      "label": "Owner confrontation leads to Thraxx alliance",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "Some quick thinking and fast talking and the party now has a new ally: a massive Bugbear named Thraxx."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:last-warehouse-part-of-warehouses-near-water-wheel",
+      "from_node_id": "location:last-warehouse",
+      "to_node_id": "location:warehouses-near-water-wheel",
+      "label": "Last warehouse is one of the known warehouses",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "go to the last few known warehouses located near the water wheel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:tunnel-network-located-in-warehouses-near-water-wheel",
+      "from_node_id": "location:tunnel-network",
+      "to_node_id": "location:warehouses-near-water-wheel",
+      "label": "Tunnels run beneath the warehouse district",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "Bonogo takes the lead through the tunnels again"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "the last few known warehouses located near the water wheel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:tunnel-network-leads-to-last-warehouse",
+      "from_node_id": "location:tunnel-network",
+      "to_node_id": "location:last-warehouse",
+      "label": "Straight shot through the tunnel to the last warehouse",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Now it's a straight shot to the last warehouse through this tunnel."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:warehouses-near-water-wheel-near-tunnel-network",
+      "from_node_id": "location:warehouses-near-water-wheel",
+      "to_node_id": "location:tunnel-network",
+      "label": "Warehouses sit near the tunnels",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Now it's a straight shot to the last warehouse through this tunnel."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:dart-trap-within-tunnel-network",
+      "from_node_id": "item:dart-trap",
+      "to_node_id": "location:tunnel-network",
+      "label": "Dart trap is set in the tunnel",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "The first steps reveal a trap that shoots darts into Bonogo."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:block-trap-within-tunnel-network",
+      "from_node_id": "item:block-trap",
+      "to_node_id": "location:tunnel-network",
+      "label": "Block trap triggered in the tunnel",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "this time trapping Bonogo between two massive blocks"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:broken-bottles-located-in-tunnel-network",
+      "from_node_id": "item:broken-bottles",
+      "to_node_id": "location:tunnel-network",
+      "label": "Broken bottles on the tunnel ground",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "a goo/gas begins to creep up from broken bottles on the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:old-dusty-ladder-within-tunnel-network",
+      "from_node_id": "item:old-dusty-ladder",
+      "to_node_id": "location:tunnel-network",
+      "label": "Dusty ladder down the tunnel leads to a trap door",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "Down the tunnel the group spots an old dusty ladder leading up to another trap door."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:another-trap-door-part-of-last-warehouse",
+      "from_node_id": "item:another-trap-door",
+      "to_node_id": "location:last-warehouse",
+      "label": "Trap door opens into the last warehouse",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "on the way to the last ladder leading up to another trap door"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:meat-mounds-present-at-last-warehouse",
+      "from_node_id": "creature:meat-mounds",
+      "to_node_id": "location:last-warehouse",
+      "label": "Meat Mounds are inside the chilled warehouse",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Cultists, Meat Mounds, and other creatures with wings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:abhorrent-meat-wings-present-at-last-warehouse",
+      "from_node_id": "creature:abhorrent-meat-wings",
+      "to_node_id": "location:last-warehouse",
+      "label": "Abhorrent Meat Wings are in the chilled warehouse",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "other creatures with wings: Abhorrent Meat Wings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:candidate-meat-mounds-part-of-mystery-meat-monsters-threat",
+      "from_node_id": "candidate:meat-mounds",
+      "to_node_id": "mystery:meat-monsters-threat",
+      "label": "Meat Mounds are among the warehouse meat monsters",
+      "relationship_type": "part_of_group",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Cultists, Meat Mounds, and other creatures with wings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:candidate-abhorrent-meat-wings-part-of-mystery-meat-monsters-threat",
+      "from_node_id": "candidate:abhorrent-meat-wings",
+      "to_node_id": "mystery:meat-monsters-threat",
+      "label": "Abhorrent Meat Wings are among the warehouse meat monsters",
+      "relationship_type": "part_of_group",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "other creatures with wings: Abhorrent Meat Wings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:abhorrent-meat-wings-is-a-creature-meat-mounds",
+      "from_node_id": "creature:abhorrent-meat-wings",
+      "to_node_id": "creature:meat-mounds",
+      "label": "Abhorrent Meat Wings are another meat creature in the warehouse",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:grit-and-grime-party-causes-thumping-music",
+      "from_node_id": "mystery:grit-and-grime-party",
+      "to_node_id": "mystery:thumping-music",
+      "label": "Club party produces the rhythmic thumping",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "anchor_quotes": [
+            "a huge party happening at the Grit and Grime"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "perhaps music"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:thraxx-ally-part-of-grit-and-grime-party",
+      "from_node_id": "mystery:thraxx-ally",
+      "to_node_id": "mystery:grit-and-grime-party",
+      "label": "Thraxx was recruited out of the club party",
+      "relationship_type": "part_of_group",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "Stafl heads back to the party in search of a Bugbear"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Party heads to warehouses near the water wheel",
+      "summary": "The group decides to go to the last few known warehouses located near the water wheel, an area known to house Goblins, Hobgoblins and Bugbears, with the BBQ about 12 hours away. Bonogo leads through the tunnels with Ephanna's Sprite helping.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "The group decides to go to the last few known warehouses located near the water wheel.",
+            "Bonogo takes the lead through the tunnels again with Ephanna\u2019s Sprite helping."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Trap darts and a trap door with music above",
+      "summary": "The first steps reveal a trap that shoots darts into Bonogo. Down the tunnel the group spots an old dusty ladder leading to another trap door; Ephanna hears rhythmic thumping that may be music, and Stafl finds tracks continuing down the tunnel, becoming convinced the thumping is music from above.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "The first steps reveal a trap that shoots darts into Bonogo.",
+            "Down the tunnel the group spots an old dusty ladder leading up to another trap door.",
+            "Stafl discovers tracks continuing down the tunnel, and is even more convinced the thumping is music from above."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Grit and Grime party discovered",
+      "summary": "Lifting the trapdoor reveals a huge party at the Grit and Grime, a warehouse turned club for Goblins, Hobgoblins and Bugbears. The party decides to continue on.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "anchor_quotes": [
+            "When the trapdoor is lifted they discover a huge party happening at the Grit and Grime, a warehouse turned club for Goblins, Hobgoblins and Bugbears.",
+            "The party decides to continue on."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Bonogo trapped by blocks and goo",
+      "summary": "Another trap triggers, trapping Bonogo between two massive blocks with goo/gas creeping up from broken bottles. Baergrom, Caelynn and Karsemine try to lift the first block, barely moving it even with a crowbar, but lift it enough for Caelynn to freeze the noxious mixture while Bonogo hoists himself up and chips at the block.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "Almost immediately another trap is triggered, this time trapping Bonogo between two massive blocks and a goo/gas begins to creep up from broken bottles on the ground.",
+            "They manage to lift it enough for Caelynn to freeze the noxious mixture at the bottom while Bonogo hoists himself up and begins to chip away at the block."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Stafl recruits the Bugbear Thraxx",
+      "summary": "Stafl heads back to the party seeking a Bugbear, interrupts the party and must explain himself to the owner. Quick thinking and fast talking gain the party a new ally: a massive Bugbear named Thraxx.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "Stafl heads back to the party in search of a Bugbear.",
+            "Some quick thinking and fast talking and the party now has a new ally: a massive Bugbear named Thraxx."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Block shattered; approach to the last warehouse",
+      "summary": "Using a portable battering ram, Thraxx and Baergrom shatter the block and free Bonogo, clearing a straight shot through the tunnel to the last warehouse. Caelynn fills Thraxx in on the quest details en route to the last ladder and trap door; Bonogo sneaks a look and sees another chilled warehouse with rows of meat and Cultists, Meat Mounds, and winged Abhorrent Meat Wings.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "With the use of a portable battering ram Thraxx and Baergrom are able to shatter the block and free Bonogo.",
+            "Now it's a straight shot to the last warehouse through this tunnel.",
+            "Another chilled warehouse with rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Opening round of the meat monster battle",
+      "summary": "Bonogo immediately kills two Cultists; Ephanna uses magic and Baergrom uses oil and a torch; Stafl casts Sleep on another Cultist while Caelynn casts Thunderwave; Karsemine dashes about with Zephyr Strike throwing alcohol and attacking as she passes; Thraxx punches winged creatures to death with his mechanical arm.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "Bonogo immediately kills two Cultists.",
+            "Ephanna uses magic and Baergrom uses oil and a torch.",
+            "Stafl casts Sleep on another Cultist while Caelynn casts Thunderwave.",
+            "And Thraxx uses his massive mechanical arm to punch winged creatures to death."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-8",
+      "order": 8,
+      "title": "Charm effects turn the party against itself",
+      "summary": "The party pushes the attack; Caelynn is knocked unconscious and Stafl is Charmed. Baergrom uses a health potion on Caelynn and Karsemine kills another Cultist. Then Bonogo, Baergrom and Karsemine all become Charmed and the Sprite is killed: Baergrom attacks Stafl, Karsemine attacks Thraxx, and Bonogo again knocks Caelynn unconscious while Thraxx knocks Karsemine unconscious. Ephanna finally helps break the Charm on the group.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "anchor_quotes": [
+            "The party pushes the attack now.",
+            "Caelynn is knocked unconscious and Stafl gets Charmed.",
+            "Bargrom uses a health potion on Caelynn, Karsemine kills another Cultist and Caelynn also attacks."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "anchor_quotes": [
+            "Bonogo, Baergrom and Karsemine all become Charmed and the Sprite is killed.",
+            "Finally, Ephanna helps break the Charm on the group."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-9",
+      "order": 9,
+      "title": "Party retreats to the club for a Short Rest",
+      "summary": "In need of rest, the group heads back to the party to take a Short Rest and plan the next steps.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "anchor_quotes": [
+            "In need of rest, the group heads back to the party to take a Short Rest and plan the next steps."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:session10-header",
+      "label": "Session document header and title",
+      "reason": "Document metadata and title line, not a mystery, clue, warning, event, or thread.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:1-12",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:1-12",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:1-12",
+          "anchor_quotes": [
+            "title: \"Session 10 - Battle with the Meat Monsters\"",
+            "## Session 10: Battle with the Meat Monsters"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:structural-headers",
+      "label": "Structural section headers (Major Beats, Next Beats, Looking Ahead, Recap)",
+      "reason": "Structural header lines rather than content objects.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:14-14",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:14-14",
+          "anchor_quotes": [
+            "## Major Beats:"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:20-20",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:20-20",
+          "anchor_quotes": [
+            "## Next Beats :"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:24-24",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:24-24",
+          "anchor_quotes": [
+            "## Looking Ahead :"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:26-26",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:26-26",
+          "anchor_quotes": [
+            "## Recap:"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:ambiguous-pc-surfaces",
+      "label": "Ambiguous PC name surfaces (Ephanna, Bonogo, Stafl, Karsemine, Baergrom, Caelynn)",
+      "reason": "Ambiguous surfaces flagged as ignored for this pass; party anchors are deterministic and not to be re-extracted.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "Bonogo takes the lead through the tunnels again with Ephanna\u2019s Sprite helping."
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:water-wheel-warehouses",
+      "label": "Last few known warehouses near the water wheel",
+      "reason": "Mentioned as a location cluster with Goblinoids, but not itself a mystery/clue/thread requiring a node this pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "The group decides to go to the last few known warehouses located near the water wheel. This area is known to house Goblins, Hobgoblins and Bugbears."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Consider a location node for the water-wheel warehouse district in a location-focused pass."
+    },
+    {
+      "item_id": "deferred:bbq-timing",
+      "label": "BBQ timeline (~12 hours away)",
+      "reason": "A time-pressure detail that may matter as a countdown thread but needs cross-session context.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "Currently the BBQ is about 12 hours away."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track the BBQ countdown against session timestamps in a timeline pass."
+    },
+    {
+      "item_id": "deferred:meat-mounds",
+      "label": "Meat Mounds",
+      "reason": "Named creature type without further detail; may need its own entity node rather than a mystery node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Resolve Meat Mounds as an entity candidate in an entity-extraction pass."
+    },
+    {
+      "item_id": "deferred:sprite-death",
+      "label": "Death of Ephanna's Sprite",
+      "reason": "A notable loss during the fight, but whether it is a persistent consequence needs confirmation.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "anchor_quotes": [
+            "Bonogo, Baergrom and Karsemine all become Charmed and the Sprite is killed."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Verify whether the Sprite's death has lasting mechanical or narrative impact."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

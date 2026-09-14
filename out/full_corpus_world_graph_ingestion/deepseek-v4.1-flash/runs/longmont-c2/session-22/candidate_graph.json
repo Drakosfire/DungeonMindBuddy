@@ -1,0 +1,2711 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-22:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-22",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-22:06c978131f31"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:private-hester",
+      "label": "Private Hester",
+      "node_type": "character",
+      "description": "A young rider on horseback, a soldier of the Elderwild Reach carrying a sealed tube of reports for Mirathorn. She warns the party of mysterious music and people walking into the swamp, and tells Lysandra to speak to Commander Vale before entering the swamp.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "The woman introduces herself as Private Hester",
+            "she is carrying a sealed tube in her hand with reports for Mirathorn",
+            "she tells Lysandra to speak to Commander Vale before heading into the swamp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:commander-vale",
+      "label": "Commander Vale",
+      "node_type": "character",
+      "description": "A commander of the Elderwild Reach who Hester advises Lysandra to speak with before heading into the swamp.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "she tells Lysandra to speak to Commander Vale before heading into the swamp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:lysandro",
+      "label": "Lysandro",
+      "node_type": "character",
+      "description": "A man standing guard atop a wall at Mireward who recognizes Lysandra as his daughter, revealed to be her father.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "anchor_quotes": [
+            "\u201cIs that little Lysandra?\u201d he asks. \u201cNo dad, it\u2019s Lieutenant Lysandra now\u201d. And that is how they all met her father Lysandro."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:meat-heads",
+      "label": "The \"Meat Heads\"",
+      "node_type": "character",
+      "description": "A faction within the city, described by Grobnok as becoming more vocal and open in recruitment for the Shepherd. They maintain an uneasy truce with the mercenaries.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "anchor_quotes": [
+            "the \u201cmeat heads\u201d have become more vocal and open in the recruitment for the Shepherd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:the_reach",
+      "label": "The Reach",
+      "node_type": "location",
+      "description": "A vast region described as the Golden Fields to the north, through which the party travels toward Mireward.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "anchor_quotes": [
+            "The group turns their focus to the Reach; the vast Golden Fields to the north."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:golden_fields",
+      "label": "The Golden Fields",
+      "node_type": "location",
+      "description": "A vast field region to the north, described as part of the Reach.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "anchor_quotes": [
+            "the vast Golden Fields to the north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:mireward_road",
+      "label": "Mireward Road",
+      "node_type": "location",
+      "description": "The road the party travels north along toward Mireward, passing a small building, fork in the road, and eventually a walled settlement.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "anchor_quotes": [
+            "at the fork in the road, is a small building and a sign indicating Mireward 20 miles north"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:32-32",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:32-32",
+          "anchor_quotes": [
+            "the group thinks they can make it to Mireward around 10 o'clock"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:elderwild_reach",
+      "label": "Elderwild Reach",
+      "node_type": "location",
+      "description": "A region with its own soldier uniform and military forces, from which Private Hester hails and where Stafl previously served.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "Stafl immediately recognizes the soldier\u2019s uniform of the Elderwild Reach, the same uniform he wore before leaving and joining this group."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:abandoned_restaurant",
+      "label": "Abandoned Restaurant",
+      "node_type": "location",
+      "description": "A small building at a fork in the road, specializing in meat on a stick, recently abandoned no more than a week ago; the party shelters in it during a hail storm.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "The small building turns out to be an abandoned restaurant specializing in meat on a stick.",
+            "Karsemine takes a quick look around and judges that the place was only recently abandoned, no more than a week ago."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:mireward_wall",
+      "label": "Walled Settlement at Mireward",
+      "node_type": "location",
+      "description": "A wall encountered in the darkness on the approach to Mireward, with a person standing guard at the top who challenges the party.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "anchor_quotes": [
+            "It is well into the night when they spot a wall in the darkness and can just make out a person standing guard at the top."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:city-guard-mirathorn",
+      "label": "The City Guard",
+      "node_type": "faction",
+      "description": "The city guard of Mirathorn, described as decimated and then further reduced by the corruption, forcing the council to hire mercenaries.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "anchor_quotes": [
+            "The decimated city guard is further reduced by the corruption so the council had no other option but to hire mercenaries"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:mercenaries-mirathorn",
+      "label": "Mercenaries",
+      "node_type": "faction",
+      "description": "Mercenaries hired by the council to bolster the diminished city guard during the outbreak. They maintain an uneasy truce with the 'meat heads' in the city.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "anchor_quotes": [
+            "the council had no other option but to hire mercenaries"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "anchor_quotes": [
+            "There is an uneasy truce between the mercenaries and the \u201cmeat heads\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:shepherd-followers",
+      "label": "The Shepherd's Followers",
+      "node_type": "faction",
+      "description": "Followers of the Shepherd within the city, referred to as 'meat heads', who have become more vocal and open in recruitment.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "anchor_quotes": [
+            "the \u201cmeat heads\u201d have become more vocal and open in the recruitment for the Shepherd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:elderwild-reach-soldiers",
+      "label": "Elderwild Reach Soldiers",
+      "node_type": "faction",
+      "description": "Military force of the Elderwild Reach, identifiable by its soldier's uniform, which Stafl wore before joining the party; represented by Private Hester carrying sealed reports to Mirathorn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "Stafl immediately recognizes the soldier\u2019s uniform of the Elderwild Reach",
+            "The woman introduces herself as Private Hester and she is carrying a sealed tube in her hand with reports for Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:sealed-tube",
+      "label": "Sealed Tube",
+      "node_type": "item",
+      "description": "A sealed tube carried by Private Hester containing reports for Mirathorn, which Lysandra requested to read right away.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "she is carrying a sealed tube in her hand with reports for Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:silver-raven",
+      "label": "Silver Raven",
+      "node_type": "item",
+      "description": "A magical messenger construct sent off by the group to deliver a spoken and written message to Professor Tealeaf and Grobnok, taking the rest of the day to arrive.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "anchor_quotes": [
+            "They send off a silver raven knowing that it would take the rest of the day for it to arrive."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:whisper-bottle",
+      "label": "Whisper Bottle",
+      "node_type": "item",
+      "description": "Caelynn's Whisper Bottle, used as a spellcasting focus for Detect Magic to examine the mysterious magically-charged puddles.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "anchor_quotes": [
+            "she casts Detect Magic using her Whisper Bottle"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:vial-of-puddle-water",
+      "label": "Vial of Puddle Water",
+      "node_type": "item",
+      "description": "A small vial of the conjuration-tainted puddle water collected by Caelynn; later Identified by Stafl, who determined no one should drink it.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "anchor_quotes": [
+            "Caelynn takes a small vial with her"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "anchor_quotes": [
+            "Stafl uses Identify on the vial",
+            "no one should drink it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:good-berries",
+      "label": "Good Berries",
+      "node_type": "item",
+      "description": "Magically conjured berries produced by Caelynn to feed the exhausted horse of the rider Private Hester, allowing her to continue her urgent journey.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "Caeylynn conjures some Good Berries for the horse and fetches some water"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:chalkboard-menu",
+      "label": "Chalkboard Menu",
+      "node_type": "item",
+      "description": "The chalkboard menu outside the abandoned meat-on-a-stick restaurant, hastily erased and rewritten to read \u201cheaded south, north wrong\u201d.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "The chalkboard menu out front has been hastily erased and now simply reads \u201cheaded south, north wrong\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:jar-of-skewers",
+      "label": "Jar of Skewers",
+      "node_type": "item",
+      "description": "A jar containing a few skewers of old graying meat found by the group in the trapdoor storage area of the abandoned restaurant.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "Here they only find a jar with a few skewers with old graying meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:trapdoor",
+      "label": "Trapdoor",
+      "node_type": "item",
+      "description": "A trapdoor inside the abandoned restaurant leading down to a small storage area where the jar of skewers was found.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "and a trapdoor leading to a small storage area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:delayed-puddle-reflections",
+      "label": "Delayed Reflections in Puddles",
+      "node_type": "mystery",
+      "description": "Karsemine notices that reflections in the shimmering puddles are delayed by roughly a second, and Detect Magic reveals the water carries conjuration magic. Stafl's Identify later suggests it is a planar bleed from another plane, and something is actively conjuring it, raising concern about effects on local flora and fauna.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "anchor_quotes": [
+            "something is wrong with the reflections in the puddles",
+            "anything reflected in the shimmering water is a second late"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "anchor_quotes": [
+            "the magic in the puddle is from conjuration"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "anchor_quotes": [
+            "the magic is some sort of bleed from another plane of existence and something is conjuring it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:mysterious-music-and-swamp-walkers",
+      "label": "Mysterious Music and People Walking into the Swamp",
+      "node_type": "mystery",
+      "description": "Private Hester reports mysterious music and people walking into the swamp who do not respond when stopped, and reacts with heightened worry upon seeing the glassy eyes the party has encountered repeatedly.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "reports of mysterious music and people walking into the swamp, none of them responding when stopped",
+            "Karsemine shows her the glassy eyes they have seen countless times"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:hummed-dustwalker-song",
+      "label": "The Group Hums the Dustwalker's Song",
+      "node_type": "mystery",
+      "description": "One by one the party realizes they are humming the same song; Karsemine connects it to the rhythm heard on the wind the previous night, and Ephanna identifies it as the song the Dustwalker performed at the festival.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "anchor_quotes": [
+            "one by one the each member realizes they are humming some sort of song",
+            "Karesmine identifies it as the rhythm she heard the night before",
+            "it is the song they all heard the Dustwalker perform at the festival"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:rhythmic-sound-from-north",
+      "label": "Rhythmic Sound on the Wind from the North",
+      "node_type": "mystery",
+      "description": "During Karsemine's first watch, she begins to hear a rhythmic sound on the wind coming from the north; the same rhythm is later identified as the Dustwalker's festival song the group is humming.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "anchor_quotes": [
+            "she starts to hear a rhythmic sound on the wind coming from the north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:knocking-without-a-door",
+      "label": "Knocking on a Door That Cannot Be Found",
+      "node_type": "mystery",
+      "description": "Not long after leaving the abandoned restaurant, Karsemine hears a distinctive sound of knocking on a door, but despite dark vision and scouting skill she cannot find the source, nor anything that would even have a door.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:32-32",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:32-32",
+          "anchor_quotes": [
+            "Karsemine hears a distinctive sound: knocking on a door",
+            "she is unable to find the source of the noise, and in fact cannot find anything that would have a door"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:city-corruption-outbreak-and-mercenaries",
+      "label": "Corruption Outbreak in the City and Hiring of Mercenaries",
+      "node_type": "mystery",
+      "description": "Grobnok reports that the council could not find all the corrupted meat in time, a full outbreak has returned, the decimated city guard is further reduced, and the council hired mercenaries; he and Tealeaf are working to regain control, and the council directs the group to continue to the swamp.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "anchor_quotes": [
+            "the council was not able to find all the corrupted meat in time and now there is a full blown outbreak once again",
+            "the council had no other option but to hire mercenaries",
+            "The council instructs the group to continue on to the swamp where they believe this problem originates"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:gnome-infected-with-shimmering-eyes",
+      "label": "A Gnome Infected with Shimmering Eyes",
+      "node_type": "mystery",
+      "description": "Grobnok reports that a gnome in the city was found with the shimmering eyes, something previously only seen in humans who became infected, marking an escalation in the spread of the corruption.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "anchor_quotes": [
+            "a gnome was found within the city to have the shimmering eyes, something that previously only happened to humans who became infected"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:shepherd-recruitment-and-truce",
+      "label": "Uneasy Truce and Open Shepherd Recruitment",
+      "node_type": "mystery",
+      "description": "An uneasy truce exists between the mercenaries and the 'meat heads', but the 'meat heads' have become louder and openly recruit for the Shepherd, indicating growing cult influence within the city.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "anchor_quotes": [
+            "There is an uneasy truce between the mercenaries and the \u201cmeat heads\u201d",
+            "the \u201cmeat heads\u201d have become more vocal and open in the recruitment for the Shepherd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:abandoned-restaurant-warning-sign",
+      "label": "Abandoned Restaurant's Warning Sign",
+      "node_type": "mystery",
+      "description": "The party finds an abandoned meat-on-a-stick restaurant, recently abandoned within about a week, with its menu erased and replaced by the warning 'headed south, north wrong'.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "The chalkboard menu out front has been hastily erased and now simply reads \u201cheaded south, north wrong\u201d",
+            "the place was only recently abandoned, no more than a week ago"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:gathering-mega-hailstorm",
+      "label": "Two Storms Merging into a Massive Hail Storm",
+      "node_type": "mystery",
+      "description": "A gigantic storm from the west merges with a storm from the south, producing a huge hail storm; Caelynn tracks the weather and directs the group to seek shelter.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "anchor_quotes": [
+            "a gigantic storm from the west appears to be merging with a storm coming from the south"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "anchor_quotes": [
+            "Caelynn quickly determines it is a huge hail storm"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "an incredible wall of hail smashes into the building and the surrounding area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:magical-sheen-and-approaching-storm-feeling",
+      "label": "Magical Sheen and Constant Sense of an Approaching Storm",
+      "node_type": "mystery",
+      "description": "The damp trail is covered by a magical sheen, another storm builds to the west, and there is a constant feeling of an approaching storm as the group heads toward Mireward.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "anchor_quotes": [
+            "a magical sheen lies everywhere",
+            "there is a constant feeling of an approaching storm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "thread:failed-contacts-with-mirathorn",
+      "label": "Failed Rockie-Talkie Contacts with Mirathorn",
+      "node_type": "mystery",
+      "description": "Repeated failed attempts to contact Mirathorn by rockie-talkie push the party to send a message to Professor Tealeaf and an encoded message to Grobnok, while Grobnok later says he will be the only contact going forward.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "anchor_quotes": [
+            "After another failed attempt to contact Mirathorn by rockie-talkie",
+            "they decide they should send a message to Professor Tealeaf",
+            "an encoded message to Grobnok in case the message gets intercepted"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "anchor_quotes": [
+            "he will be the only one contacting the group going forward and will do his best to call each evening"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:lysandra-leadership-struggle",
+      "label": "Lysandra's Struggle with Her Mission and Leadership",
+      "node_type": "mystery",
+      "description": "Lysandra opens up to Ephanna about poorly handling her given mission, frustration at keeping Mirathorn out of trouble, and determination to return to being group leader; Stafl later casts Suggestion to extract her true intentions, revealing her goal is to keep the team focused on destroying the cult's source in the swamp.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "anchor_quotes": [
+            "Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given",
+            "determined to get back to being the group leader"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "anchor_quotes": [
+            "she responds that her goal is to keep the team focused on going to the swamp and destroying the source of the cult"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:captain-lysandra-ironveil",
+      "label": "Captain Lysandra Ironveil",
+      "node_type": "character",
+      "description": "Lysandra travels north with the group through gathering storms, and when the young rider Private Hester arrives carrying sealed reports for Mirathorn, Lysandra requests a report right away. Hester scoffs at the group's plan to head into the swamp, telling Lysandra they would need a much bigger party, and advises her to speak to Commander Vale first. Lysandra is in much better spirits once the group has a goal, opening up to Ephanna about how poorly she is handling the mission she has been given \u2014 upset at how hard it is to keep Mirathorn out of trouble but determined to get back to being the group leader. Stafl later casts Suggestion on her to learn her true intentions, and she answers that her goal is to keep the team focused on going to the swamp and destroying the source of the cult. At the guards' wall she is prompted forward as the group's leader, and the guard turns out to be her own father, who still calls her little Lysandra \u2014 she corrects him that she is Lieutenant Lysandra now.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "Lysandra requests a report right away.",
+            "She scoffs when Lysandra tells her the group is headed there to take care of the problem, saying they would need a much bigger party.",
+            "she tells Lysandra to speak to Commander Vale before heading into the swamp."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "anchor_quotes": [
+            "Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given.",
+            "She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "anchor_quotes": [
+            "Stalf casts Suggestion on Lysandra, intending to find out her motivations.",
+            "she responds that her goal is to keep the team focused on going to the swamp and destroying the source of the cult"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "anchor_quotes": [
+            "\u201cIs that little Lysandra?\u201d he asks. \u201cNo dad, it\u2019s Lieutenant Lysandra now\u201d."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "anchor_quotes": [
+            "Stafl then argues with Grobnok about their effectiveness in dealing with the cultists before hanging up the rockie-talkie and giving it to Lysandra."
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "captain_lysandra_ironveil",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Captain Lysandra Ironveil",
+        "Captain"
+      ],
+      "session_actions": [
+        "requests Hester's report right away",
+        "is told to speak to Commander Vale before entering the swamp",
+        "opens up to Ephanna about mishandling her mission",
+        "resolves to get back to being the group leader",
+        "under Stafl's Suggestion, states her goal is to keep the team focused on destroying the cult's source",
+        "is prompted forward by Karsemine as 'our leader' at the wall",
+        "reveals herself as Lieutenant Lysandra to her father Lysandro"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "e-lysandro-parent-lysandra",
+      "from_node_id": "npc:lysandro",
+      "to_node_id": "node:captain-lysandra-ironveil",
+      "label": "father of Lysandra",
+      "relationship_type": "parent_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "anchor_quotes": [
+            "\u201cIs that little Lysandra?\u201d he asks. \u201cNo dad, it\u2019s Lieutenant Lysandra now\u201d. And that is how they all met her father Lysandro."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-hesther-carries-tube",
+      "from_node_id": "npc:private-hester",
+      "to_node_id": "item:sealed-tube",
+      "label": "carries sealed tube of reports",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "she is carrying a sealed tube in her hand with reports for Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-hesther-member-elderwild-soldiers",
+      "from_node_id": "npc:private-hester",
+      "to_node_id": "faction:elderwild-reach-soldiers",
+      "label": "soldier of the Elderwild Reach",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "Stafl immediately recognizes the soldier\u2019s uniform of the Elderwild Reach"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-hesther-advises-vale",
+      "from_node_id": "npc:private-hester",
+      "to_node_id": "npc:commander-vale",
+      "label": "directs Lysandra to Commander Vale",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "she tells Lysandra to speak to Commander Vale before heading into the swamp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-hesther-reports-music-swamp",
+      "from_node_id": "npc:private-hester",
+      "to_node_id": "mystery:mysterious-music-and-swamp-walkers",
+      "label": "reports mysterious music and swamp walkers",
+      "relationship_type": "reports_threat_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "reports of mysterious music and people walking into the swamp, none of them responding when stopped"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-hesther-displaced-from-elderwild",
+      "from_node_id": "npc:private-hester",
+      "to_node_id": "location:elderwild_reach",
+      "label": "rides from the Elderwild Reach",
+      "relationship_type": "displaced_from",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "Stafl immediately recognizes the soldier\u2019s uniform of the Elderwild Reach, the same uniform he wore before leaving and joining this group."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-lysandra-member-elderwild-soldiers",
+      "from_node_id": "node:captain-lysandra-ironveil",
+      "to_node_id": "faction:elderwild-reach-soldiers",
+      "label": "requests report from Elderwild soldier",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "Lysandra requests a report right away"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-mercenaries-truce-meatheads",
+      "from_node_id": "faction:mercenaries-mirathorn",
+      "to_node_id": "npc:meat-heads",
+      "label": "uneasy truce with the meat heads",
+      "relationship_type": "allied_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "anchor_quotes": [
+            "There is an uneasy truce between the mercenaries and the \u201cmeat heads\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-meatheads-member-shepherd-followers",
+      "from_node_id": "npc:meat-heads",
+      "to_node_id": "faction:shepherd-followers",
+      "label": "meat heads recruit for the Shepherd",
+      "relationship_type": "recruits_for",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "anchor_quotes": [
+            "the \u201cmeat heads\u201d have become more vocal and open in the recruitment for the Shepherd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-silver-raven-carried-message",
+      "from_node_id": "item:silver-raven",
+      "to_node_id": "thread:failed-contacts-with-mirathorn",
+      "label": "silver raven delivers the message",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "anchor_quotes": [
+            "They send off a silver raven knowing that it would take the rest of the day for it to arrive."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-rhythm-linked-dustwalker-song",
+      "from_node_id": "mystery:rhythmic-sound-from-north",
+      "to_node_id": "mystery:hummed-dustwalker-song",
+      "label": "rhythm identified as the hummed song",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "anchor_quotes": [
+            "Karesmine identifies it as the rhythm she heard the night before"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-restaurant-near-fork-road",
+      "from_node_id": "location:abandoned_restaurant",
+      "to_node_id": "location:mireward_road",
+      "label": "sits at the fork in the road",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "anchor_quotes": [
+            "at the fork in the road, is a small building and a sign indicating Mireward 20 miles north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-restaurant-sublocation-wall",
+      "from_node_id": "location:abandoned_restaurant",
+      "to_node_id": "location:mireward_wall",
+      "label": "on the way toward the Mireward wall",
+      "relationship_type": "routes_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "they decide they may not be able to beat the storm north, so they decide to take shelter in the building"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "anchor_quotes": [
+            "It is well into the night when they spot a wall in the darkness and can just make out a person standing guard at the top."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-lysandro-guards-wall",
+      "from_node_id": "npc:lysandro",
+      "to_node_id": "location:mireward_wall",
+      "label": "stands guard atop the wall",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "anchor_quotes": [
+            "\u201cIs that little Lysandra?\u201d he asks.",
+            "And that is how they all met her father Lysandro."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "anchor_quotes": [
+            "can just make out a person standing guard at the top"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-trapdoor-sublocation-restaurant",
+      "from_node_id": "item:trapdoor",
+      "to_node_id": "location:abandoned_restaurant",
+      "label": "trapdoor inside the restaurant",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "Inside the group finds a small sink, dishes neatly put away, and a trapdoor leading to a small storage area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-jar-found-in-trapdoor",
+      "from_node_id": "item:jar-of-skewers",
+      "to_node_id": "item:trapdoor",
+      "label": "jar found in trapdoor storage",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "Here they only find a jar with a few skewers with old graying meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-chalkboard-menu-warning",
+      "from_node_id": "item:chalkboard-menu",
+      "to_node_id": "event:abandoned-restaurant-warning-sign",
+      "label": "menu carries the warning text",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "The chalkboard menu out front has been hastily erased and now simply reads \u201cheaded south, north wrong\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-chalkboard-menu-located-restaurant",
+      "from_node_id": "item:chalkboard-menu",
+      "to_node_id": "location:abandoned_restaurant",
+      "label": "menu out front of the restaurant",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "The chalkboard menu out front has been hastily erased and now simply reads \u201cheaded south, north wrong\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-elderwild-soldiers-part-region",
+      "from_node_id": "faction:elderwild-reach-soldiers",
+      "to_node_id": "location:elderwild_reach",
+      "label": "soldiers of the Elderwild Reach",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "Stafl immediately recognizes the soldier\u2019s uniform of the Elderwild Reach"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-reach-part-golden-fields",
+      "from_node_id": "location:the_reach",
+      "to_node_id": "location:golden_fields",
+      "label": "Reach is the Golden Fields",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "anchor_quotes": [
+            "The group turns their focus to the Reach; the vast Golden Fields to the north."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-storm-caused-by-merging",
+      "from_node_id": "mystery:gathering-mega-hailstorm",
+      "to_node_id": "mystery:magical-sheen-and-approaching-storm-feeling",
+      "label": "storms merge over the trail",
+      "relationship_type": "caused_by",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "anchor_quotes": [
+            "a gigantic storm from the west appears to be merging with a storm coming from the south"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e-puddle-magic-bleed-mystery",
+      "from_node_id": "mystery:delayed-puddle-reflections",
+      "to_node_id": "item:vial-of-puddle-water",
+      "label": "tainted puddle water sampled",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "anchor_quotes": [
+            "it appears the magic is some sort of bleed from another plane of existence and something is conjuring it"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "anchor_quotes": [
+            "Caelynn takes a small vial with her"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-session22-01",
+      "order": 1,
+      "title": "Camp breakdown and destination debate at the Reach",
+      "summary": "The group breaks camp and returns to the wagon, weighing whether to continue to Mireward or make the multiday journey back to Mirathorn, as storms build and the trail glistens from rain and magic.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "anchor_quotes": [
+            "The group turns their focus to the Reach",
+            "their destination is Mireward",
+            "break their camp and head back to the wagon"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-02",
+      "order": 2,
+      "title": "Failed rockie-talkie contact and encoded messages sent north",
+      "summary": "After another failed attempt to reach Mirathorn by rockie-talkie, the group sends a silver raven to Professor Tealeaf and an encoded message to Grobnok asking someone in the city to contact them back.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:16-16",
+          "anchor_quotes": [
+            "After another failed attempt to contact Mirathorn by rockie-talkie",
+            "send a message to Professor Tealeaf",
+            "an encoded message to Grobnok",
+            "They send off a silver raven"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-03",
+      "order": 3,
+      "title": "Travel north, deceptive forest talk, and delayed reflections in puddles",
+      "summary": "The group loads the wagon and travels north under merging storms; Thrin asks whether the forest can lie, Caelynn comments that people lie too with a glance at Lysandra, and Karsemine notices reflections in puddles are delayed by about a second.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:18-18",
+          "anchor_quotes": [
+            "asks Ephanna whether or not the forest can lie",
+            "people lie too; with a glance towards Lysandra",
+            "the reflections are somewhat delayed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-04",
+      "order": 4,
+      "title": "Private Hester delivers warning of swamp music and glassy-eyed walkers",
+      "summary": "A young rider, Private Hester of the Elderwild Reach, stops only long enough for Caelynn to conjure Good Berries for her horse; she reports mysterious music and people walking into the swamp, shows alarm at the glassy eyes the group has seen, and tells Lysandra to speak to Commander Vale before entering the swamp.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "Private Hester",
+            "reports of mysterious music and people walking into the swamp",
+            "speak to Commander Vale before heading into the swamp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-05",
+      "order": 5,
+      "title": "Caelynn detects conjuration magic in the puddle, Bonogo splashes through",
+      "summary": "Karsemine investigates the mysterious puddles with Caelynn, whose Detect Magic via Whisper Bottle reveals conjuration magic; Caelynn takes a vial, Karsemine pokes the puddle, and Bonogo leaps in splashing everyone with no further change.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "anchor_quotes": [
+            "casts Detect Magic using her Whisper Bottle",
+            "the magic in the puddle is from conjuration",
+            "Bonogo leaps over them both and lands in the puddle"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-06",
+      "order": 6,
+      "title": "Grobnok reports city outbreak, mercenaries, and orders to continue to the swamp",
+      "summary": "Around the fire, Stafl's Identify on the vial warns no one should drink it and arcana reveals a planar bleed; Grobnok then contacts them by rockie-talkie with news that Frank is compromised, Sara is missing, corrupted meat caused a full outbreak, the decimated city guard was supplemented by mercenaries, and the council orders the group to continue to the swamp.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:24-24",
+          "anchor_quotes": [
+            "Stafl uses Identify on the vial",
+            "no one should drink it",
+            "some sort of bleed from another plane of existence",
+            "Grobnok took the rockie-talkie from Frank",
+            "he has not seen Sara recently",
+            "full blown outbreak once again",
+            "The decimated city guard",
+            "hire mercenaries",
+            "instructs the group to continue on to the swamp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-07",
+      "order": 7,
+      "title": "Night watches, humming rhythm, and a hail storm on the road",
+      "summary": "Gnats drive most of the group to turn in early; Karsemine hears a rhythmic sound from the north on first watch, Stafl's watch is quiet apart from a fox, Ephanna sees a savory mist at dawn, Grobnok does not call, and Caelynn warns a major hail storm is coming and directs the group to find shelter.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "anchor_quotes": [
+            "assaulted by gnats",
+            "rhythmic sound on the wind coming from the north",
+            "a strange mist, with a familiar savory flavor",
+            "With no call from Grobnok",
+            "a huge hail storm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-08",
+      "order": 8,
+      "title": "Matching hums, Lysandra's doubts, and the fork to Mireward",
+      "summary": "Lysandra opens up to Ephanna about struggling with her mission and determination to lead again; the group realizes they are all humming the same song, identified as the Dustwalker's festival tune, and reach a fork with a small building and a sign for Mireward 20 miles north.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:28-28",
+          "anchor_quotes": [
+            "Lysandra opens up to Ephanna about how poorly she is handling the mission",
+            "humming the same song",
+            "the song they all heard the Dustwalker perform at the festival",
+            "a sign indicating Mireward 20 miles north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-09",
+      "order": 9,
+      "title": "Abandoned meat-on-a-stick restaurant and shelter from the hail wall",
+      "summary": "The small building is a recently abandoned restaurant with a hastily erased chalkboard reading headed south, north wrong; after finding old graying meat skewers in a trapdoor storage area, the group shelters there, Karsemine reinforces the structure, and a wall of hail smashes the area.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:30-30",
+          "anchor_quotes": [
+            "an abandoned restaurant specializing in meat on a stick",
+            "headed south, north wrong",
+            "a jar with a few skewers with old graying meat",
+            "an incredible wall of hail smashes into the building"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-10",
+      "order": 10,
+      "title": "Storm damage and mysterious knocking with no door",
+      "summary": "The group packs to reach Mireward by about 10 o'clock, assesses storm damage mainly to shredded trees, then Karsemine hears distinctive knocking on a door but cannot find the source or anything that would have a door.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:32-32",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:32-32",
+          "anchor_quotes": [
+            "they once again pack up the wagon",
+            "Karsemine hears a distinctive sound: knocking on a door",
+            "cannot find anything that would have a door"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-11",
+      "order": 11,
+      "title": "Grobnok reports the Shepherd recruitment and a gnome with shimmering eyes",
+      "summary": "Ephanna receives another call from Grobnok, who complains about helping the city, describes an uneasy truce with the meat heads now openly recruiting for the Shepherd, and reveals a gnome in the city has developed the shimmering eyes; Stafl argues and then passes the rockie-talkie to Lysandra, takes it back distrustfully, and gives it to Caelynn.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:34-34",
+          "anchor_quotes": [
+            "another call from Grobnok",
+            "uneasy truce between the mercenaries and the \u201cmeat heads\u201d",
+            "recruitment for the Shepherd",
+            "a gnome was found within the city to have the shimmering eyes",
+            "hanging up the rockie-talkie and giving it to Lysandra"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-12",
+      "order": 12,
+      "title": "Stafl's Suggestion reveals Lysandra's goal, then arrival at the wall",
+      "summary": "Stafl casts Suggestion on Lysandra to learn her motives; she says her goal is to keep the team focused on reaching the swamp and destroying the cult source. Late at night they reach a wall where a guard demands they identify themselves; Bonogo steps forward as leader instead of Lysandra.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "anchor_quotes": [
+            "Stalf casts Suggestion on Lysandra",
+            "keep the team focused on going to the swamp and destroying the source of the cult",
+            "He demands that the group stop and to identify themselves",
+            "Bonogo, believing that she means him, steps forward with a simple hello"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-session22-13",
+      "order": 13,
+      "title": "Lieutenant Lysandra meets her father Lysandro",
+      "summary": "The guard asks if it is little Lysandra, and she corrects him that she is Lieutenant Lysandra now, revealing the meeting with her father Lysandro.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "anchor_quotes": [
+            "Is that little Lysandra?",
+            "it\u2019s Lieutenant Lysandra now",
+            "that is how they all met her father Lysandro"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:stormy-weather-details",
+      "label": "General weather/wagon travel details",
+      "reason": "Descriptive travel color (damp trail, pack-up, wagon movement) without durable mystery or thread content beyond the separately captured storm and puddle phenomena.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:14-14",
+          "anchor_quotes": [
+            "break their camp and head back to the wagon"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:gnat-assault-and-fox",
+      "label": "Gnats and the fox eyes on watch",
+      "reason": "Minor ambient flavor during watches; no persistent mystery or clue is carried forward from these details.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:26-26",
+          "anchor_quotes": [
+            "until they are assaulted by gnats",
+            "a pair of eyes that turns out to be a fox"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:bonogo-puddle-jump",
+      "label": "Bonogo leaping into the puddle",
+      "reason": "Comedic party action with no residual effect; the meaningful puddle phenomenon is captured separately.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:22-22",
+          "anchor_quotes": [
+            "Bonogo leaps over them both and lands in the puddle, splashing everyone with water"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:commander-vale",
+      "label": "Commander Vale",
+      "reason": "Private Hester's advice to speak to Commander Vale before entering the swamp introduces a named figure not yet present in the session and not covered by the deterministic entity list.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "she tells Lysandra to speak to Commander Vale before heading into the swamp"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Extract Commander Vale as an NPC node if the entity does not already exist in canon."
+    },
+    {
+      "item_id": "deferred:private-hester",
+      "label": "Private Hester",
+      "reason": "Named soldier of the Elderwild Reach who delivers critical reports; likely deserves an NPC node but is outside the deterministic entity list.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "The woman introduces herself as Private Hester"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Extract Private Hester as an NPC node."
+    },
+    {
+      "item_id": "deferred:lysandro",
+      "label": "Lysandro (Lysandra's Father)",
+      "reason": "Final scene reveals the guard at Mireward's wall is Lysandra's father Lysandro; this is a notable NPC reveal that should be its own node once confirmed.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:38-38",
+          "anchor_quotes": [
+            "\u201cIs that little Lysandra?\u201d he asks. \u201cNo dad, it\u2019s Lieutenant Lysandra now\u201d",
+            "And that is how they all met her father Lysandro."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Extract Lysandro as an NPC node and link as family of Captain Lysandra Ironveil."
+    },
+    {
+      "item_id": "deferred:reach-commander-elements",
+      "label": "Elderwild Reach command structure",
+      "reason": "References to the Elderwild Reach uniform, Commander Vale, and Mireward's wall imply a broader faction structure that may warrant a faction node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:20-20",
+          "anchor_quotes": [
+            "Stafl immediately recognizes the soldier\u2019s uniform of the Elderwild Reach"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "label": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-22:06c978131f31:span:06c978131f31:36-36",
+          "anchor_quotes": [
+            "they spot a wall in the darkness and can just make out a person standing guard at the top"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Evaluate creating an Elderwild Reach faction node."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

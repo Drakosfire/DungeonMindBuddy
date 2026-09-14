@@ -1,0 +1,1896 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-10:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-10",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-10:8482ee1639ec"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "candidate:splitbark",
+      "label": "Splitbark",
+      "node_type": "character",
+      "description": "Goblin or fey-runed wood carver operating the runic wood carving booth at the crafting fair; surprised to see the group and teaches the coaster rune challenge.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "The individual running the booth, Splitbark, is surprised to see the group approaching.",
+            "He explains the danger in making runes and shows how challenging they can be."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:knobs",
+      "label": "Knobs",
+      "node_type": "character",
+      "description": "A very, very old goblin at the jewelry crafting booth who shows how to make jewelry from bones.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "A very, very, old goblin named Knobs is showing how to make jewelry from bones."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "candidate:dark-hooded-figure",
+      "label": "Dark Hooded Figure",
+      "node_type": "character",
+      "description": "A mysterious dark hooded figure watching Bonogo from the stands at the Coliseum finale, matching his recurring feeling of being watched.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "he quickly scans the crowd and lands on a dark hooded figure watching from the stands"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:town-square-crafting",
+      "label": "Town Square (Crafting Fair)",
+      "node_type": "location",
+      "description": "Originally the site of the crafting sessions, moved due to the large hole still in the ground; flyers posted all over the square advertised the new location and available booths.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Originally set in the town square, the crafting sessions were moved due to the large hole still in the ground.",
+            "Flyers all over the square advertised the new location and all the booths that would be available."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:coliseum",
+      "label": "Coliseum",
+      "node_type": "location",
+      "description": "Arena venue where the finale challenge takes place, with 3 teams remaining facing 3 summoned Elementals while the arena shifts during the fight.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "the group checks the schedule to find out it is time for the finale at the Coliseum",
+            "the arena will shift during the fight"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:bald-green-hill",
+      "label": "Bald Green Hill in the Mountains",
+      "node_type": "location",
+      "description": "Mountain location given as the last known whereabouts of a human professor from the academy, who was warned to be very nomadic.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Their last known location was Bald Green Hill in the mountains, but warned he was very nomadic."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:grove",
+      "label": "The Grove",
+      "node_type": "faction",
+      "description": "A druidic faction referenced at the Druidic Carving booth, expressing appreciation for the group's help ending the abomination in Hempholm.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "the \u201cGrove\u201d appreciates all the help ending the abomination in Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:endless-bubble-potion",
+      "label": "Potion of Endless Bubbles",
+      "node_type": "item",
+      "description": "A potion crafted at the goblin alchemy booth that produces endless bubbles; a middle-aged goblin demonstrated its creation.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "a middle aged goblin shows him how to craft a potion for endless bubbles"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:green-goo",
+      "label": "Self-Cleaning Green Goo",
+      "node_type": "item",
+      "description": "The result of Bonogo's alchemy attempt: a green goo with a mind of its own that cleans as it moves around.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "a green goo that has a mind of its own and is able to clean as it moves around"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:warding-rune",
+      "label": "Warding Rune",
+      "node_type": "item",
+      "description": "A rune carved at the runic wood carving booth, awarded to Ephanna for an excellent coaster carving.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Ephanna does extremely well and is rewarded with a Warding Rune"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:illusion-lollipop",
+      "label": "Illusion Lollipop",
+      "node_type": "item",
+      "description": "A Fey-themed candy tent creation that changes colors and flavors with a tap, made by turning wisps into a lollipop.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "they have the challenge to create an Illusion Lollipop, which, with a tap, will change colors and flavors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:everlasting-taffy",
+      "label": "Everlasting Taffy",
+      "node_type": "item",
+      "description": "An unintended creation of Karsemine's; a taffy that never runs out and still changes flavor.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "She creates everlasting taffy, which still changes flavor."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:fur-monster-lollipop",
+      "label": "Tiny Fur Monster",
+      "node_type": "item",
+      "description": "The result of Bonogo's lollipop attempt: hair trapped in candy that turned into a tiny fur monster which escaped into the crowd.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "turns into a tiny fur monster that is able to escape into the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:metal-feather",
+      "label": "Metal Feather",
+      "node_type": "item",
+      "description": "A metal feather crafted at the mini forge booth; Baergrom's smithing background let him excel at making one.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "shows him the basics of making a metal feather"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:copper-medallions",
+      "label": "Copper Medallions",
+      "node_type": "item",
+      "description": "Medallions Baergrom spent the rest of the crafting time helping the old dwarf make.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "Baergrom then spends the rest of the crafting time helping make copper medallions."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:heart-fairy-light",
+      "label": "Heart-Shaped Fairy Light",
+      "node_type": "item",
+      "description": "A dryad charm created by Caelynn at the Druidic Carving booth, shaped like a heart.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Caelynn goes first and does an amazing job creating a heart shaped fairy light"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:creature-carving",
+      "label": "Creature Carving",
+      "node_type": "item",
+      "description": "Ephanna's dryad charm attempt at the Druidic Carving booth, which came out as some sort of creature rather than an intended charm.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Ephanna, not so well, and creates some sort of creature"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:council-illusion-painting",
+      "label": "Council Illusion Painting",
+      "node_type": "item",
+      "description": "An illusion painting of a Council member created at the Illusion Painting booth; Ephanna made an exact copy.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "an elf is teaching how to create illusion paintings of members of the Council"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:tooth-windchime",
+      "label": "Tooth Windchime",
+      "node_type": "item",
+      "description": "A bone jewelry piece Ephanna made at the jewelry crafting booth for the manor.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Ephanna makes a nice tooth windchime for the manor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:danger-charm",
+      "label": "Danger-Jingling Charm",
+      "node_type": "item",
+      "description": "A special charm Karsemine crafted at the jewelry booth that jingles when danger is nearby.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "a charm that jingles when danger is nearby"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:whispering-bone-ring",
+      "label": "Whispering Bone Ring",
+      "node_type": "item",
+      "description": "A special bone ring Bonogo made at the jewelry booth that whispers compliments.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Bonogo is able to make a special bone ring that whispers compliments"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:ale-elemental",
+      "label": "Ale Elemental",
+      "node_type": "item",
+      "description": "One of three summoned Elementals in the Coliseum finale: a huge foaming glass of ale that could be shattered and splash attackers.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "3 Elementals are summoned: Lightning, Stone, and strangest of all, a huge foaming glass of ale"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session-10:watchful-presence",
+      "label": "The watchful presence",
+      "node_type": "mystery",
+      "description": "Bonogo repeatedly feels someone or something standing behind him, but finds nothing when he turns; later, during the arena fight, he spots a dark hooded figure watching from the stands.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "he feels like someone or something is standing behind him, but when he turns nothing is there"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "Bonogo gets the now familiar feeling of being watched",
+            "lands on a dark hooded figure watching from the stands"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session-10:missing-professor",
+      "label": "The professor who left",
+      "node_type": "mystery",
+      "description": "At the Storm Magic booth, Caelynn is told of a human professor at the academy who felt they had reached the pinnacle of magic and then left to protect everyone else; their last known location was Bald Green Hill in the mountains, with a warning that he was very nomadic.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "a human professor the academy once had that felt they had reached the pinnacle of magic and then left, to protect everyone else",
+            "Their last known location was Bald Green Hill in the mountains, but warned he was very nomadic."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session-10:hempholm-abomination",
+      "label": "The abomination in Hempholm",
+      "node_type": "mystery",
+      "description": "Referenced by the Druidic Carving booth, the group is thanked for ending the abomination in Hempholm.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "ending the abomination in Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:session-10:crafting-fair",
+      "label": "The crafting fair",
+      "node_type": "event",
+      "description": "Crafting sessions were relocated from the town square due to the large hole; flyers advertised the new location and booths. Each booth cost 2 silver per craft attempt. Various booths included goblin alchemy, runic wood carving, Fey candy, teas, a mini forge, Druidic carving, illusion painting, jewelry, and Storm Magic.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "crafting sessions were moved due to the large hole still in the ground",
+            "for 2 silver each person could attempt to craft an item"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "event:session-10:coliseum-finale",
+      "label": "The Coliseum finale",
+      "node_type": "event",
+      "description": "The final challenge featured 3 remaining teams facing 3 summoned Elementals\u2014Lightning, Stone, and a giant foaming glass of ale\u2014while earning crowd points. The arena shifted during the fight, and the group's fighters were Bonogo, Ogonob, and Baergrom.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "3 teams remaining",
+            "win, but you must also earn points making the crowd happy",
+            "3 summoned Elementals and the arena will shift during the fight",
+            "Lightning, Stone, and strangest of all, a huge foaming glass of ale"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:splitbark:runic-wood-carving:crafting-fair",
+      "from_node_id": "candidate:splitbark",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Splitbark runs the runic wood carving booth at the crafting fair",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "The individual running the booth, Splitbark, is surprised to see the group approaching.",
+            "He explains the danger in making runes and shows how challenging they can be."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:knobs:jewelry-booth:crafting-fair",
+      "from_node_id": "candidate:knobs",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Knobs shows how to make jewelry from bones at the jewelry crafting booth",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "A very, very, old goblin named Knobs is showing how to make jewelry from bones."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:dark-hooded-figure:presents-at:coliseum",
+      "from_node_id": "candidate:dark-hooded-figure",
+      "to_node_id": "location:coliseum",
+      "label": "Dark hooded figure watches from the stands at the Coliseum",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "he quickly scans the crowd and lands on a dark hooded figure watching from the stands"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:dark-hooded-figure:watchful-presence",
+      "from_node_id": "candidate:dark-hooded-figure",
+      "to_node_id": "mystery:session-10:watchful-presence",
+      "label": "Dark hooded figure embodies the watchful presence Bonogo keeps feeling",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "he feels like someone or something is standing behind him, but when he turns nothing is there"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "Bonogo gets the now familiar feeling of being watched",
+            "lands on a dark hooded figure watching from the stands"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:town-square:contains:hole",
+      "from_node_id": "location:town-square-crafting",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "The crafting fair was originally set in the town square before being moved",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Originally set in the town square, the crafting sessions were moved due to the large hole still in the ground.",
+            "Flyers all over the square advertised the new location and all the booths that would be available."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:coliseum:hosts:coliseum-finale",
+      "from_node_id": "location:coliseum",
+      "to_node_id": "event:session-10:coliseum-finale",
+      "label": "The Coliseum finale takes place at the Coliseum",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "the group checks the schedule to find out it is time for the finale at the Coliseum",
+            "the arena will shift during the fight"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:grove:appreciates:hempholm-abomination-help",
+      "from_node_id": "faction:grove",
+      "to_node_id": "mystery:session-10:hempholm-abomination",
+      "label": "The Grove appreciates the group's help ending the abomination in Hempholm",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "the \u201cGrove\u201d appreciates all the help ending the abomination in Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:missing-professor:linked-to:bald-green-hill",
+      "from_node_id": "mystery:session-10:missing-professor",
+      "to_node_id": "location:bald-green-hill",
+      "label": "The missing professor's last known location was Bald Green Hill in the mountains",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Their last known location was Bald Green Hill in the mountains, but warned he was very nomadic."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:endless-bubble-potion:created-at:crafting-fair",
+      "from_node_id": "item:endless-bubble-potion",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Potion of Endless Bubbles was crafted at the goblin alchemy booth during the crafting fair",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "a middle aged goblin shows him how to craft a potion for endless bubbles"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:green-goo:created-at:crafting-fair",
+      "from_node_id": "item:green-goo",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Self-Cleaning Green Goo was created during the crafting fair",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "a green goo that has a mind of its own and is able to clean as it moves around"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:warding-rune:awarded-at:crafting-fair",
+      "from_node_id": "item:warding-rune",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Warding Rune was awarded at the runic wood carving booth",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Ephanna does extremely well and is rewarded with a Warding Rune"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:illusion-lollipop:created-at:crafting-fair",
+      "from_node_id": "item:illusion-lollipop",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Illusion Lollipop was crafted at the Fey themed candy tent",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "they have the challenge to create an Illusion Lollipop, which, with a tap, will change colors and flavors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:everlasting-taffy:created-at:crafting-fair",
+      "from_node_id": "item:everlasting-taffy",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Everlasting Taffy was created at the Fey themed candy tent",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "She creates everlasting taffy, which still changes flavor."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:fur-monster:created-at:crafting-fair",
+      "from_node_id": "item:fur-monster-lollipop",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Tiny Fur Monster originated from Bonogo's lollipop at the candy tent",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "turns into a tiny fur monster that is able to escape into the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:metal-feather:created-at:crafting-fair",
+      "from_node_id": "item:metal-feather",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Metal Feather was crafted at the mini forge booth",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "shows him the basics of making a metal feather"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:copper-medallions:created-at:crafting-fair",
+      "from_node_id": "item:copper-medallions",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Copper Medallions were made during the crafting fair",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "Baergrom then spends the rest of the crafting time helping make copper medallions."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:heart-fairy-light:created-at:crafting-fair",
+      "from_node_id": "item:heart-fairy-light",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Heart-Shaped Fairy Light was created at the Druidic Carving booth",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Caelynn goes first and does an amazing job creating a heart shaped fairy light"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:creature-carving:created-at:crafting-fair",
+      "from_node_id": "item:creature-carving",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Creature Carving was created at the Druidic Carving booth",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Ephanna, not so well, and creates some sort of creature"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:council-illusion-painting:created-at:crafting-fair",
+      "from_node_id": "item:council-illusion-painting",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Council Illusion Painting was created at the Illusion Painting booth",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "an elf is teaching how to create illusion paintings of members of the Council"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:tooth-windchime:created-at:crafting-fair",
+      "from_node_id": "item:tooth-windchime",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Tooth Windchime was made at the jewelry crafting booth",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Ephanna makes a nice tooth windchime for the manor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:danger-charm:created-at:crafting-fair",
+      "from_node_id": "item:danger-charm",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Danger-Jingling Charm was crafted at the jewelry booth",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "a charm that jingles when danger is nearby"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:whispering-bone-ring:created-at:crafting-fair",
+      "from_node_id": "item:whispering-bone-ring",
+      "to_node_id": "event:session-10:crafting-fair",
+      "label": "Whispering Bone Ring was made at the jewelry booth",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Bonogo is able to make a special bone ring that whispers compliments"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:ale-elemental:summoned-at:coliseum-finale",
+      "from_node_id": "item:ale-elemental",
+      "to_node_id": "event:session-10:coliseum-finale",
+      "label": "The Ale Elemental was summoned for the Coliseum finale",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "3 Elementals are summoned: Lightning, Stone, and strangest of all, a huge foaming glass of ale"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Crafting fair relocated; Bonogo makes self-cleaning goo",
+      "summary": "The crafting booths are moved from the town square due to a large hole, with flyers advertising the new location. Bonogo visits the goblin alchemy booth and instead of a bubble potion creates a mobile green cleaning goo.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "a green goo that has a mind of its own and is able to clean as it moves around"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Runic wood carving challenge at Splitbark's booth",
+      "summary": "At the runic wood carving booth run by Splitbark, Ephanna, Karsemine, and Caelynn attempt to carve a rune coaster. Ephanna excels and wins a Warding Rune, Caelynn does well, and Karsemine struggles.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Ephanna, Karsemine and Caelynn all join in. With a little help from their Fey connection, Ephanna does extremely well and is rewarded with a Warding Rune."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Fey candy tent: creations, a stolen lollipop, and an unseen watcher",
+      "summary": "At the Fey candy tent, the group attempts Illusion Lollipops. Karsemine creates everlasting taffy, Caelynn makes all-sour lollipops, Ephanna succeeds, and Bonogo's lollipop turns into a fur monster. Bonogo then steals a child's lollipop and feels someone watching him.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "Bonogo steals one of the lollipops from a nearby child. Just then he feels like someone or something is standing behind him, but when he turns nothing is there."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Stormbark Tea and smithing with Baergrom",
+      "summary": "Caelynn excels at the sleepy tea booth and learns to make Stormbark Tea. At the mini forge, Baergrom impresses an old dwarf and helps make copper medallions after being offered a job.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "She shows Caelynn how to create Stormbark Tea.",
+            "the old dwarf asks if he is willing to help with a job. Baergrom then spends the rest of the crafting time helping make copper medallions."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Druidic carving, illusion painting, and bone jewelry booths",
+      "summary": "The group is recognized by the Grove for ending the Hempholm abomination and attempts a dryad charm. Ephanna excels at illusion painting of Council members, and at the bone jewelry booth Ephanna makes a windchime, Karsemine crafts a danger-sensing charm, and Bonogo makes a compliment-whispering bone ring.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "the \u201cGrove\u201d appreciates all the help ending the abomination in Hempholm",
+            "Bonogo is able to make a special bone ring that whispers compliments."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Storm Magic booth: Caelynn learns of the nomadic professor",
+      "summary": "At the Storm Magic booth, the old human running it tells Caelynn about a human professor from the academy who left after reaching the pinnacle of magic. Their last known location was Bald Green Hill in the mountains.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "tells her about a human professor the academy once had",
+            "Their last known location was Bald Green Hill in the mountains, but warned he was very nomadic."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Coliseum finale against three summoned Elementals",
+      "summary": "The group heads to the Coliseum finale, where three teams face three summoned Elementals \u2014 Lightning, Stone, and a giant glass of ale \u2014 while earning crowd favor. Bonogo, Ogonob, and Baergrom fight; Bonogo attacks the ale, Ogonob shatters it but is blinded, and the Stone Elemental walls off Baergrom and knocks him prone.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "The fighters, Bonogo, Ogonob and Baergrom, arrange themselves in the center of the arena. Then 3 Elementals are summoned: Lightning, Stone, and strangest of all, a huge foaming glass of ale."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-8",
+      "order": 8,
+      "title": "Bonogo spots a hooded watcher in the stands",
+      "summary": "Bonogo again feels watched during the fight, scans the crowd, and sees a dark hooded figure observing from the stands.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "He quickly scans the crowd and lands on a dark hooded figure watching from the stands."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

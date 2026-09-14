@@ -1,0 +1,2770 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-15:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-15",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-15:24fa6f72ecfe"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:captain_idris",
+      "label": "Captain Idris",
+      "node_type": "character",
+      "description": "A grizzled Captain of the Guard found with his remaining soldiers in a tunnel. He warns the party that what waits ahead is terrifying and, with his mage Zora, agrees to continue on and help them.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "a grizzled Captain of the Guard, Captain Idris",
+            "Only Captain Idris and his mage, Zora, will continue on and help"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:zora",
+      "label": "Zora",
+      "node_type": "character",
+      "description": "Captain Idris's mage, who along with the Captain agrees to continue on and help the party face the terrifying threat ahead.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "his mage, Zora"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:bridges",
+      "label": "Bridges",
+      "node_type": "location",
+      "description": "Bridges spanning the rushing water, used by the endless stream of cultists. Stafl suggests destroying them to stem the flow; the group ends up burning them.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "anchor_quotes": [
+            "Stafl suggests the group destroy the bridges.",
+            "they end up burning the bridges"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "anchor_quotes": [
+            "knocks her off the bridge and into the rushing water"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:main-tunnel",
+      "label": "Main Tunnel",
+      "node_type": "location",
+      "description": "Central tunnel through which the cultists process. Its walls show growths and tendrils; chanting and drumming grow louder. The group returns to it after exploring the storage room.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "anchor_quotes": [
+            "head down the tunnel"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:26-26",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:26-26",
+          "anchor_quotes": [
+            "They can see growths on the walls",
+            "the tunnel opens slightly into a wider area"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "the group heads back to the main tunnel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:tunnel-split",
+      "label": "Tunnel Split",
+      "node_type": "location",
+      "description": "Branch point where the tunnel splits into two paths. An old grate sits in the center; one path leads toward the large room and the other to a locked door and storage room.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "The tunnel splits into two paths. In the center is an old grate."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "Before the group moves into the large room, Bonogo decides to check out the other path, which ends at a locked door."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:grate",
+      "label": "Old Grate",
+      "node_type": "location",
+      "description": "An old grate in the center of the tunnel split. Karsemine peers through it and sees large hinges on the other side.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "an old grate",
+            "Karsemine peers in and is able to see large hinges"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:locked-door",
+      "label": "Locked Door",
+      "node_type": "location",
+      "description": "A locked door at the end of the second tunnel path, no challenge for Bonogo to pick. It guards the storage room.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "which ends at a locked door",
+            "The lock doesn't prove to be any challenge for Bonogo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:storage-room",
+      "label": "Storage Room",
+      "node_type": "location",
+      "description": "A room beyond the locked door containing crates and a chest half buried in tendrils. Bonogo, Karsemine, Caelynn, Baergrom, and Ephanna explore it; tendrils attack and the group retrieves scrolls, a sealed letter, and a dark cloak.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "he discovers a storage room with various crates and a chest half buried in tendrils"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "Karsemine is next into the storage room",
+            "also seeing the walls slowly closing in",
+            "Inside they discover rolled up scrolls and a very old sealed letter"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:large-room",
+      "label": "Large Room",
+      "node_type": "location",
+      "description": "A very large room about 100 feet across, with a giant platform in the middle connected to the walls by walkways. Thirty meters below is churning water with soft blue light. The walls are covered in meat and several large tendrils connect to a giant meat mound on the platform. This is where the climactic battle begins.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "slowly the tunnel widens until they reach a very large room"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "the room is very large, about 100 feet across",
+            "There is a giant platform in the middle with walkways connecting to the outside walls",
+            "Thirty meters below they can see soft blue light coming from the churning water",
+            "The walls along the outside are covered in meat and several large tendrils connect to the giant mound of meat in the center of the platform"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:center-platform",
+      "label": "Center Platform",
+      "node_type": "location",
+      "description": "A giant platform in the middle of the large room, connected to the outer walls by walkways. It holds a giant mound of meat to which cultists throw themselves and are absorbed. Caelynn casts a Fireball scroll on it during the fight.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "There is a giant platform in the middle with walkways connecting to the outside walls",
+            "The Cultists that were in line walk up to the giant meat mound and throw themselves on it, being absorbed."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "anchor_quotes": [
+            "Caelynn immediately seizes the opportunity to cast the Fireball scroll on the center platform"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:walkways",
+      "label": "Walkways",
+      "node_type": "location",
+      "description": "Walkways connecting the center platform to the outside walls of the large room. Cultist Leaders are positioned on the outside walkways, and a metal grid walkway catches the party after the tunnel expels them.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "walkways connecting to the outside walls"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "anchor_quotes": [
+            "They can see 3 Cultist Leaders positioned on the outside walkways",
+            "throwing them prone on a metal grid walkway"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:rushing-water",
+      "label": "Rushing Water",
+      "node_type": "location",
+      "description": "Rushing water below the bridges and at the bottom of the large room. A guard is swept away by it, Bonogo knocks an old woman into it, and guards thrown from walkways plummet toward it. At thirty meters below the large room, it churns with soft blue light.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:20-20",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:20-20",
+          "anchor_quotes": [
+            "swept away by the rushing water"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "anchor_quotes": [
+            "knocks her off the bridge and into the rushing water"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "soft blue light coming from the churning water"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:42-42",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:42-42",
+          "anchor_quotes": [
+            "leaving the guard to plummet to his doom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:temple",
+      "label": "Temple",
+      "node_type": "location",
+      "description": "A temple in the area whose construction from the time of the founding of Mirathorn is described in an old sealed letter found in the storage room.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "describing the construction of the temple in this area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:cultist-leaders",
+      "label": "Cultist Leaders",
+      "node_type": "faction",
+      "description": "Three Cultist Leaders positioned on the outer walkways of the large chamber, targeted and damaged by Caelynn's Fireball during the battle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "anchor_quotes": [
+            "They can see 3 Cultist Leaders positioned on the outside walkways"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "anchor_quotes": [
+            "dealing massive damage to the Cult Leaders"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:elite-guards",
+      "label": "Elite Guards",
+      "node_type": "faction",
+      "description": "Four Elite Guards stationed around the center of the chamber; two were instantly incinerated by Caelynn's Fireball and Bonogo stabbed one and threw him off the walkway.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "anchor_quotes": [
+            "4 Elite Guards stationed around the center"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "anchor_quotes": [
+            "two of the Elite Guards are instantly incinerated"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:captain-idris-soldiers",
+      "label": "Captain Idris and His Soldiers",
+      "node_type": "faction",
+      "description": "A grizzled Captain of the Guard, Captain Idris, and his remaining soldiers found in the tunnel; his men are too terrified to continue, but Captain Idris and his mage Zora agree to help the party.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "The group is shocked to discover a grizzled Captain of the Guard, Captain Idris, and some of his remaining soldiers.",
+            "all his remaining men are too terrified to continue. Only Captain Idris and his mage, Zora, will continue on and help."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:storage_chest",
+      "label": "Tendril-Buried Storage Chest",
+      "node_type": "item",
+      "description": "A chest half buried in tendrils in a locked storage room off the side tunnel; it resists Caelynn's attempt to open it and is eventually pried open with a crowbar, revealing rolled scrolls and a very old sealed letter.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "he discovers a storage room with various crates and a chest half buried in tendrils"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "she attempts to open the chest, but cannot get it to budge",
+            "Baergrom borrows the crowbar from Bonogo and pries open the chest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:old_sealed_letter",
+      "label": "Very Old Sealed Letter",
+      "node_type": "item",
+      "description": "An ancient sealed letter recovered from the storage chest; when opened by Stafl it contains a flowing script from the time of the founding of Mirathorn describing the construction of the temple in this area.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "rolled up scrolls and a very old sealed letter"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "Stafl opens the very old letter to find a flowing script from the time of the founding of Mirathorn describing the construction of the temple in this area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:fireball_scroll",
+      "label": "Fireball Scroll",
+      "node_type": "item",
+      "description": "One of two scrolls found among the rolled-up scrolls from the storage chest; Caelynn later uses it to devastating effect, incinerating two Elite Guards and damaging Cult Leaders on the center platform.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "They find another fireball scroll as well as a counter spell scroll"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "anchor_quotes": [
+            "Caelynn immediately seizes the opportunity to cast the Fireball scroll on the center platform"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:counter_spell_scroll",
+      "label": "Counter Spell Scroll",
+      "node_type": "item",
+      "description": "Second scroll recovered from the storage chest alongside the fireball scroll; unopened/unused in this session's account.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "They find another fireball scroll as well as a counter spell scroll"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:dark_cloak",
+      "label": "Mysteriously Dark Cloak",
+      "node_type": "item",
+      "description": "A cloak found packed with fabric inside a storage box that Ephanna destroyed with an Eldritch Blast; his Sprite retrieved the garment, which proves mysteriously dark.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "Ephanna gives one last Eldritch Blast to a storage box, revealing some fabric",
+            "He sends his Sprite to grab the garment and is rewarded with a mysteriously dark cloak"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "session-15-clue-mysteriously-dark-cloak",
+      "label": "Mysteriously Dark Cloak",
+      "node_type": "clue",
+      "description": "Ephanna's Eldritch Blast reveals a storage box containing fabric; his Sprite retrieves a mysteriously dark cloak, a potentially significant item of unknown properties.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "Ephanna gives one last Eldritch Blast to a storage box, revealing some fabric.",
+            "He sends his Sprite to grab the garment and is rewarded with a mysteriously dark cloak."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:new_item_bonogo",
+      "label": "Bonogo's New Vanishing Item",
+      "node_type": "item",
+      "description": "An item newly acquired by Bonogo; he uses it to vanish from the grasp of tendrils that had grappled him in the storage room.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "he uses his new item and vanishes from the creature\u2019s grasp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:the_robes",
+      "label": "Cultist Robes",
+      "node_type": "item",
+      "description": "Robes worn by the endless stream of human cultists; Caelynn conceives the idea of taking some to use as disguises before the plan collapses.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "anchor_quotes": [
+            "Caelynn has the idea to try and take some of the robes to use as disguises"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "session-15-mystery-tunnel-tendrils",
+      "label": "Tendrils in the Tunnel",
+      "node_type": "mystery",
+      "description": "The tunnel walls are covered in growths and tendrils that grab and absorb cultists into the walls; the phenomenon spreads and seems alive, reacting to the group.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:26-26",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:26-26",
+          "anchor_quotes": [
+            "They can see growths on the walls",
+            "being grabbed by the tendrils and absorbed into the wall",
+            "the walls are covered in tendrils"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "a chest half buried in tendrils",
+            "he is attacked by other tendrils and is grappled"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "She can see that slowly other tendrils are closing in",
+            "Caelynn, also seeing the walls slowly closing in"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "session-15-mystery-sealed-letter-mirathorn",
+      "label": "Sealed Letter from the Founding of Mirathorn",
+      "node_type": "mystery",
+      "description": "Inside the tendril-buried chest, the group finds a very old sealed letter written in a flowing script from the time of the founding of Mirathorn, describing the construction of the temple in this area.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "rolled up scrolls and a very old sealed letter"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "Stafl opens the very old letter to find a flowing script from the time of the founding of Mirathorn describing the construction of the temple in this area."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "session-15-mystery-meat-mound-absorption",
+      "label": "Giant Meat Mound absorbing Cultists",
+      "node_type": "mystery",
+      "description": "In a large room, a giant mound of meat sits on a central platform. Cultists in line walk up to the mound and throw themselves onto it, being absorbed. Tendrils connect from the walls to this central mass.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "several large tendrils connect to the giant mound of meat in the center of the platform",
+            "The Cultists that were in line walk up to the giant meat mound and throw themselves on it, being absorbed."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "session-15-mystery-terrifying-next-room",
+      "label": "Terrifying Unknown in the Next Room",
+      "node_type": "mystery",
+      "description": "Captain Idris warns that what waits in the next room is terrifying, so much so that all his remaining men are too afraid to continue. The exact nature remains unrevealed.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "He informs the group that what is waiting in the next room is terrifying.",
+            "all his remaining men are too terrified to continue"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "session-15-mystery-ancient-temple-construction",
+      "label": "Ancient Temple Construction",
+      "node_type": "mystery",
+      "description": "The sealed letter describes the construction of the temple in the area where the party now is, connecting the current corrupted location to the founding era of Mirathorn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "describing the construction of the temple in this area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "session-15-clue-cries-of-old-woman",
+      "label": "Cries of an Old Woman Below",
+      "node_type": "clue",
+      "description": "Caelynn faintly hears the cries of an old woman coming from down below the platform, possibly connected to the woman Bonogo knocked into the water earlier.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "Caelynn can faintly hear the cries of an old woman down below."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "session-15-event-destroyed-bridges",
+      "label": "Bridges Destroyed by Fire",
+      "node_type": "event",
+      "description": "To stem the flow of cultists, Stafl suggested destroying the bridges; after failed spells and attempts to move carts, the group burned the bridges.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "anchor_quotes": [
+            "Stafl suggests the group destroy the bridges",
+            "they end up burning the bridges"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "session-15-mystery-hidden-storage-room",
+      "label": "Hidden Storage Room Behind Locked Door",
+      "node_type": "mystery",
+      "description": "A side path ends at a locked door that Bonogo easily unlocks, revealing a storage room with crates and a tendril-buried chest. The chest contains scrolls and a sealed letter.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "Bonogo decides to check out the other path, which ends at a locked door",
+            "he discovers a storage room with various crates and a chest half buried in tendrils"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "session-15-clue-old-grate-hinges",
+      "label": "Old Grate with Hinges and Hidden Voices",
+      "node_type": "clue",
+      "description": "At a tunnel split, Karsemine peers through an old grate, sees large hinges on the other side, and hears voices from among large crates, leading to the discovery of Captain Idris and his soldiers.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "In the center is an old grate. Karsemine peers in and is able to see large hinges on the other side.",
+            "Far in the back are large crates and she can hear voices."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "e1",
+      "from_node_id": "npc:captain_idris",
+      "to_node_id": "obs:captain-idris-soldiers",
+      "label": "leads his remaining soldiers",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "a grizzled Captain of the Guard, Captain Idris, and some of his remaining soldiers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e2",
+      "from_node_id": "npc:zora",
+      "to_node_id": "npc:captain_idris",
+      "label": "serves Captain Idris as his mage",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "Only Captain Idris and his mage, Zora, will continue on and help"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e5",
+      "from_node_id": "npc:captain_idris",
+      "to_node_id": "session-15-mystery-terrifying-next-room",
+      "label": "warns of the terrifying thing in the next room",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "He informs the group that what is waiting in the next room is terrifying."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e6",
+      "from_node_id": "npc:captain_idris",
+      "to_node_id": "location:large-room",
+      "label": "reports the threat waiting in the next room",
+      "relationship_type": "reports_threat_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "what is waiting in the next room is terrifying"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e7",
+      "from_node_id": "session-15-mystery-terrifying-next-room",
+      "to_node_id": "location:large-room",
+      "label": "awaits in the large room",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "what is waiting in the next room is terrifying"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e9",
+      "from_node_id": "location:grate",
+      "to_node_id": "location:tunnel-split",
+      "label": "old grate in the center of the split",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "The tunnel splits into two paths. In the center is an old grate."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e10",
+      "from_node_id": "location:locked-door",
+      "to_node_id": "location:storage-room",
+      "label": "door guards the storage room",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "which ends at a locked door",
+            "he discovers a storage room with various crates and a chest half buried in tendrils"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e13",
+      "from_node_id": "location:large-room",
+      "to_node_id": "location:main-tunnel",
+      "label": "reached by continuing down the tunnel",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "The group continues down the other tunnel, slowly the tunnel widens until they reach a very large room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e14",
+      "from_node_id": "location:center-platform",
+      "to_node_id": "location:large-room",
+      "label": "platform in the middle of the large room",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "There is a giant platform in the middle with walkways connecting to the outside walls"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e15",
+      "from_node_id": "location:walkways",
+      "to_node_id": "location:large-room",
+      "label": "walkways connect platform to the outside walls",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "walkways connecting to the outside walls"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e16",
+      "from_node_id": "location:walkways",
+      "to_node_id": "location:center-platform",
+      "label": "walkways connect to the center platform",
+      "relationship_type": "connected_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "There is a giant platform in the middle with walkways connecting to the outside walls"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "predicate_validation:unknown_relationship_type"
+      ]
+    },
+    {
+      "edge_id": "e17",
+      "from_node_id": "location:rushing-water",
+      "to_node_id": "location:large-room",
+      "label": "churning water thirty meters below",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "Thirty meters below they can see soft blue light coming from the churning water"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e18",
+      "from_node_id": "location:bridges",
+      "to_node_id": "location:rushing-water",
+      "label": "bridges span the rushing water",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "anchor_quotes": [
+            "knocks her off the bridge and into the rushing water"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e19",
+      "from_node_id": "session-15-event-destroyed-bridges",
+      "to_node_id": "location:bridges",
+      "label": "bridges destroyed by fire",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "anchor_quotes": [
+            "they end up burning the bridges"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e21",
+      "from_node_id": "item:old_sealed_letter",
+      "to_node_id": "session-15-mystery-sealed-letter-mirathorn",
+      "label": "letter contains the founding-era script",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "Stafl opens the very old letter to find a flowing script from the time of the founding of Mirathorn describing the construction of the temple in this area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e22",
+      "from_node_id": "item:old_sealed_letter",
+      "to_node_id": "location:temple",
+      "label": "letter describes the temple's construction",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "describing the construction of the temple in this area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e23",
+      "from_node_id": "item:old_sealed_letter",
+      "to_node_id": "item:storage_chest",
+      "label": "letter found inside the chest",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "Inside they discover rolled up scrolls and a very old sealed letter"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e24",
+      "from_node_id": "item:fireball_scroll",
+      "to_node_id": "item:storage_chest",
+      "label": "scroll found in the chest",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "Inside they discover rolled up scrolls"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e25",
+      "from_node_id": "item:counter_spell_scroll",
+      "to_node_id": "item:storage_chest",
+      "label": "scroll found in the chest",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "They find another fireball scroll as well as a counter spell scroll"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e26",
+      "from_node_id": "item:storage_chest",
+      "to_node_id": "location:storage-room",
+      "label": "chest half buried in tendrils in the storage room",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "he discovers a storage room with various crates and a chest half buried in tendrils"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e32",
+      "from_node_id": "item:dark_cloak",
+      "to_node_id": "session-15-clue-mysteriously-dark-cloak",
+      "label": "the cloak is the mystery clue",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "is rewarded with a mysteriously dark cloak"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e37",
+      "from_node_id": "session-15-mystery-meat-mound-absorption",
+      "to_node_id": "location:center-platform",
+      "label": "giant meat mound on the center platform",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "several large tendrils connect to the giant mound of meat in the center of the platform"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e41",
+      "from_node_id": "obs:cultist-leaders",
+      "to_node_id": "location:walkways",
+      "label": "positioned on the outside walkways",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "anchor_quotes": [
+            "They can see 3 Cultist Leaders positioned on the outside walkways"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e42",
+      "from_node_id": "obs:elite-guards",
+      "to_node_id": "location:large-room",
+      "label": "stationed around the center of the room",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "anchor_quotes": [
+            "4 Elite Guards stationed around the center"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e49",
+      "from_node_id": "session-15-clue-cries-of-old-woman",
+      "to_node_id": "location:rushing-water",
+      "label": "cries come from below the platform",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "Caelynn can faintly hear the cries of an old woman down below."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e51",
+      "from_node_id": "session-15-mystery-hidden-storage-room",
+      "to_node_id": "location:locked-door",
+      "label": "hidden storage room behind the locked door",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "which ends at a locked door",
+            "he discovers a storage room with various crates and a chest half buried in tendrils"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "e52",
+      "from_node_id": "item:storage_chest",
+      "to_node_id": "session-15-mystery-sealed-letter-mirathorn",
+      "label": "chest held the founding-era sealed letter",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "rolled up scrolls and a very old sealed letter"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-01",
+      "order": 1,
+      "title": "The Fight Ends as Guards Are Slain",
+      "summary": "The remaining guard is dispatched by Bonogo cutting his fingers and Karsemine launching critical attacks on the sleeping guards, ending the skirmish.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:20-20",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:20-20",
+          "anchor_quotes": [
+            "Bonogo cuts the fingers of the guard hanging on",
+            "Karsemine attacks both for critical damage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-02",
+      "order": 2,
+      "title": "Bridges Burned to Stem the Cultist Flow",
+      "summary": "At 5:30 and nearing sunrise, the party destroys the bridges to slow the oblivious Cultists, ultimately burning them, and decides to follow the cultists to their destination.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:22-22",
+          "anchor_quotes": [
+            "the Cultists continue to file by, oblivious to the fighting",
+            "they end up burning the bridges and decide to follow the Cultists to see where they are going"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-03",
+      "order": 3,
+      "title": "Disguise Attempt Ends in the River",
+      "summary": "Caelynn tries to take cultist robes as disguises by talking to an old woman, but Bonogo knocks her into the water; Caelynn takes some meat and directs the group to join the line heading down the tunnel.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "anchor_quotes": [
+            "take some of the robes to use as disguises",
+            "Bonogo has other plans and knocks her off the bridge and into the rushing water"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-04",
+      "order": 4,
+      "title": "Tunnel Walls of Tendrils and Glyphs",
+      "summary": "Moving down the tunnel, the group sees growths on the walls, louder chanting and drumming, cultists grabbed by tendrils and absorbed, and a wider area with tendril-covered walls except where glyphs sit.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:26-26",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:26-26",
+          "anchor_quotes": [
+            "the chanting and drumming is getting much louder",
+            "grabbed by the tendrils and absorbed into the wall",
+            "all except spots along the wall where there are glyphs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-05",
+      "order": 5,
+      "title": "Captain Idris and His Remaining Soldiers",
+      "summary": "At a tunnel split with an old grate, the party finds Captain Idris of the Guard and his surviving soldiers; his men are too terrified to continue, leaving only Idris and his mage Zora to help.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "a grizzled Captain of the Guard, Captain Idris",
+            "all his remaining men are too terrified to continue",
+            "Only Captain Idris and his mage, Zora, will continue on and help"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-06",
+      "order": 6,
+      "title": "Bonogo Raids the Storage Room",
+      "summary": "Bonogo picks the lock on the other path's door, finds a storage room with crates and a chest buried in tendrils, is grappled when he grabs the chest, and escapes by vanishing with his new item.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "a storage room with various crates and a chest half buried in tendrils",
+            "he uses his new item and vanishes from the creature\u2019s grasp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-07",
+      "order": 7,
+      "title": "Chest Opened: Scrolls, Old Letter, Dark Cloak",
+      "summary": "Karsemine cuts a tendril while Caelynn casts frost to slow the spread; Baergrom uses the crowbar to pry open the unyielding chest, revealing scrolls and a sealed letter, and Ephanna's Eldritch Blast uncovers a dark cloak.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:32-32",
+          "anchor_quotes": [
+            "Baergrom borrows the crowbar from Bonogo and pries open the chest",
+            "rolled up scrolls and a very old sealed letter",
+            "rewarded with a mysteriously dark cloak"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-08",
+      "order": 8,
+      "title": "Scrolls and a Letter from Mirathorn's Founding",
+      "summary": "The party reviews their loot, finding a fireball scroll and counterspell scroll, while Stafl reads the old letter's flowing script from the founding of Mirathorn describing a temple's construction; they continue to a large room.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "another fireball scroll as well as a counter spell scroll",
+            "the time of the founding of Mirathorn describing the construction of the temple in this area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-09",
+      "order": 9,
+      "title": "The Vast Chamber of Meat and Sacrifice",
+      "summary": "The party sees a 100-foot room with a central platform, walkways, churning blue-lit water below, meat-covered walls, giant tendrils feeding a central meat mound, and cultists throwing themselves in to be absorbed.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "the room is very large, about 100 feet across",
+            "throw themselves on it, being absorbed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-10",
+      "order": 10,
+      "title": "Enemy Forces Revealed and the Tunnel Attacks",
+      "summary": "From the tunnel the group assesses 3 Cultist Leaders, 4 Elite Guards, 4 regular guards, 4 meat monsters, and 3 tendrils; as they prepare spells and oils, the tunnel contracts and throws them prone onto a metal grid walkway.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "anchor_quotes": [
+            "3 Cultist Leaders positioned on the outside walkways, 4 Elite Guards stationed around the center",
+            "throwing them prone on a metal grid walkway"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-11",
+      "order": 11,
+      "title": "Fireball and Leap Open the Biggest Fight",
+      "summary": "Caelynn casts the fireball scroll at the center platform, incinerating two Elite Guards, while Bonogo leaps to an Elite Guard by the tunnel, stabs him, and throws him off the walkway.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:40-40",
+          "anchor_quotes": [
+            "Caelynn immediately seizes the opportunity to cast the Fireball scroll on the center platform",
+            "two of the Elite Guards are instantly incinerated",
+            "throwing him off the walkway to the depths below"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-12",
+      "order": 12,
+      "title": "Caelynn's Featherfall Escape and Karsemine's Kills",
+      "summary": "A guard grapples Caelynn and they fall over the side, but she uses Featherfall and Tempestuous Magic to float back up while the guard plummets; Karsemine kills a guard with a scimitar slash and bonus-action strike, then attacks a meatling.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:42-42",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:42-42",
+          "anchor_quotes": [
+            "She immediately cast Featherfall which then let her cast Tempestuous Magic and float back up",
+            "leaving the guard to plummet to his doom",
+            "kills the guard with a second slash of her scimitars"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-13",
+      "order": 13,
+      "title": "Uncertain Finale of the Battle",
+      "summary": "The recap closes on a cliffhanger, questioning which way the battle will turn, whether a character may die, or if the group will end the corruption.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:44-44",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:44-44",
+          "anchor_quotes": [
+            "Which way will the flow of the battle go?",
+            "Could this be the finale for one of the characters?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored-fireball-scroll",
+      "label": "Fireball Scroll",
+      "reason": "Generic loot item, not a mystery, clue, warning, or thread; already tied to items/crowbar known entity context.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "they take a quick glance at the items they picked up from the chest",
+            "They find another fireball scroll as well as a counter spell scroll."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored-counterspell-scroll",
+      "label": "Counterspell Scroll",
+      "reason": "Generic consumable loot, not a plot-relevant mystery or thread.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:34-34",
+          "anchor_quotes": [
+            "They find another fireball scroll as well as a counter spell scroll."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored-bonogo-meat-disguise",
+      "label": "Meat as Disguise",
+      "reason": "Tactical detail, not a substantive mystery, clue, or long-term thread.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:24-24",
+          "anchor_quotes": [
+            "A furious Caelynn grabs some meat and instructs the group to find a place in line and head down the tunnel."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored-vanishing-item",
+      "label": "Bonogo's Vanishing Item",
+      "reason": "Item effect used tactically; no sufficient detail to define as a distinct mystery or clue within this pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:30-30",
+          "anchor_quotes": [
+            "he uses his new item and vanishes from the creature\u2019s grasp."
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred-captain-idris-zora",
+      "label": "Captain Idris and Zora",
+      "reason": "New NPCs introduced with potential future role, but not yet fully defined as mystery, clue, or unresolved thread in this pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:28-28",
+          "anchor_quotes": [
+            "a grizzled Captain of the Guard, Captain Idris, and some of his remaining soldiers",
+            "Only Captain Idris and his mage, Zora, will continue on and help."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Extract as NPC nodes and track their role and fate in subsequent sessions."
+    },
+    {
+      "item_id": "deferred-3-cultist-leaders",
+      "label": "3 Cultist Leaders",
+      "reason": "Antagonist group explicitly named as combatants; may warrant faction or NPC extraction in a dedicated pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "anchor_quotes": [
+            "They can see 3 Cultist Leaders positioned on the outside walkways"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Extract as faction or NPC nodes with combat stats if needed."
+    },
+    {
+      "item_id": "deferred-4-meat-monsters",
+      "label": "4 Meat Monsters",
+      "reason": "Creature types present in the room; not a mystery/clue/thread but may be relevant for encounter tracking.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:38-38",
+          "anchor_quotes": [
+            "4 more regular guards near the tunnel entrance, 4 meat monsters"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Extract as creature encounter nodes in a combat-focused pass."
+    },
+    {
+      "item_id": "deferred-soft-blue-light-churning-water",
+      "label": "Soft Blue Light from Churning Water",
+      "reason": "Atmospheric detail with potential significance, but no direct clue or thread articulated yet.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "label": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe:span:24fa6f72ecfe:36-36",
+          "anchor_quotes": [
+            "Thirty meters below they can see soft blue light coming from the churning water."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Investigate in future sessions whether the light is a magical source or portal."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}
