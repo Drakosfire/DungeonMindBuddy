@@ -610,15 +610,17 @@ def run_session(
 
 def _completed_receipts(root: Path) -> list[dict[str, Any]]:
     receipts = []
-    for path in sorted((root / "receipts").glob("session_*.json")):
+    for path in sorted((root / "receipts").glob("session_[0-9][0-9].json")):
         value = json.loads(path.read_text(encoding="utf-8"))
         if value.get("schema") == "dmb_stage4l_session_receipt_v1":
             receipts.append(value)
     return receipts
 
 
-def render_report(root: Path) -> None:
-    receipts = _completed_receipts(root)
+VERDICT_MARKER = "## Forcing-question verdict"
+
+
+def _facts_lines(receipts: Sequence[Mapping[str, Any]]) -> list[str]:
     total_cost = sum(float(row.get("cost_usd") or 0) for row in receipts)
     total_wall = sum(float(row.get("wall_seconds") or 0) for row in receipts)
     lines = [
@@ -651,7 +653,19 @@ def render_report(root: Path) -> None:
             "",
         ]
     )
-    (root / "REPORT.md").write_text("\n".join(lines), encoding="utf-8")
+    return lines
+
+
+def render_report(root: Path) -> None:
+    receipts = _completed_receipts(root)
+    report_path = root / "REPORT.md"
+    facts = "\n".join(_facts_lines(receipts))
+    if report_path.is_file() and VERDICT_MARKER in report_path.read_text(
+        encoding="utf-8"
+    ):
+        (root / "REPORT.facts.md").write_text(facts, encoding="utf-8")
+        return
+    report_path.write_text(facts, encoding="utf-8")
 
 
 def cmd_census(args: argparse.Namespace) -> int:

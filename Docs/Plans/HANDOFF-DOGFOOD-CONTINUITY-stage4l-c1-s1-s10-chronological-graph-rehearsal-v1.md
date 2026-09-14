@@ -18,11 +18,12 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: Campaign 1 Sessions 1–10 chronological graph rehearsal
 
 **Created:** 2026-09-14  
-**Status:** ACTIVE — experimental notebook; do not merge  
+**Status:** COMPLETE — MIXED; experimental notebook; do not merge  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4l-c1-s1-s10-chronological-graph-rehearsal-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / campaign-memory ingestion experiment program`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / Stage 4L`  
-**Direction:** RE-ANCHOR → CODE → ZERO-COST PREFLIGHT → PAID CHRONOLOGICAL REHEARSAL → REVIEW  
+**Direction:** RE-ANCHOR → CODE → ZERO-COST PREFLIGHT → PAID CHRONOLOGICAL REHEARSAL → MIXED VERDICT  
+**Report:** `out/stage4l_c1_s1_s10_chronological_graph_rehearsal/REPORT.md`  
 **Steward base before this handoff:** `3c372ebacb88130ac7cda72b4bc81800c273806f`  
 **Target branch:** `dogfood-continuity/stage4l-c1-s1-s10-chronological-graph-rehearsal`  
 **Target PR title:** `DOGFOOD-CONTINUITY: build Campaign 1 memory through Session 10`
@@ -771,3 +772,25 @@ Stop and report rather than widening when:
 - a second independent product/UI/Agent/Combat capability appears.
 
 Report using the repository stop format from `AGENTS.md` / the handoff template.
+
+---
+
+## §15 Execution status (2026-09-14)
+
+Handback only. The experiment contract above is unchanged.
+
+```text
+Status: COMPLETE — MIXED
+Execution SHA: ee5d1fe90b170460b06c86f9446403674ee9fb7d
+PR: #714
+Authoritative S10 head: rev:3fc8e4e9782a6afd1b8fdfe9fa6caffc
+Isolated DB: dungeonmind_stage4l_c1_rehearsal :54329
+Paid cost: $0.154333
+Wall (session-sum): 676.3s
+Edges published: 7 / 276
+PC kind: all six roster PCs remain player_character
+Report: out/stage4l_c1_s1_s10_chronological_graph_rehearsal/REPORT.md
+Successor: relationship predicate publication slice (zero-model replay; do not rerun DeepSeek)
+```
+
+A later S1 zero-model replay forked a new child (`rev:67862c91…`) instead of reproducing paid S1 (`rev:1ed6387f…`). Chronological replay then fail-closed at S2. The rehearsal head was restored to the paid S10 revision. Candidates were not regenerated.
