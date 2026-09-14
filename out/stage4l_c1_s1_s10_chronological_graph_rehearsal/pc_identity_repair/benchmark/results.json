@@ -1,0 +1,5233 @@
+[
+  {
+    "qid": "Q01",
+    "title": "Q01 \u2014 What is the meat?",
+    "difficulty": 1,
+    "question": "What did the party's arcana check reveal about the strange meat found beneath the guardhouse?",
+    "gold_answer": "The meat was from another plane of existence.",
+    "must_include": [
+      "the meat is from another plane / extraplanar"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "fail",
+      "met_concepts": [],
+      "missing_concepts": [
+        "the meat is from another plane / extraplanar"
+      ],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 16,
+      "retrieved_relationships_count": 13,
+      "nodes": [
+        {
+          "id": "creature:corrupted-meat-mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "item:abhorrent-meat-wings",
+          "label": "Abhorrent Meat Wings",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "item"
+        },
+        {
+          "id": "item:cultist_scroll",
+          "label": "Scroll in a Strange Language",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat",
+          "label": "The Meat",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat-mounds",
+          "label": "Meat Mounds",
+          "kind": "item"
+        },
+        {
+          "id": "location:cold-room",
+          "label": "Cold Room",
+          "kind": "location"
+        },
+        {
+          "id": "item:map-of-guardhouse",
+          "label": "Map of the Guardhouse",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:strange-meat",
+          "label": "Sinister meat",
+          "kind": "mystery"
+        },
+        {
+          "id": "location:storeroom",
+          "label": "Guard Storeroom",
+          "kind": "location"
+        },
+        {
+          "id": "location:tunnel",
+          "label": "The Tunnel",
+          "kind": "location"
+        },
+        {
+          "id": "location:warehouse",
+          "label": "Warehouse",
+          "kind": "location"
+        },
+        {
+          "id": "npc:berin",
+          "label": "Berin",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:captain-lysandra",
+          "label": "Captain Lysandra",
+          "kind": "npc"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:item:meat:located_in:location:cold-room",
+          "source": "item:meat",
+          "target": "location:cold-room",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:warehouse",
+          "source": "item:meat",
+          "target": "location:warehouse",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:baergrom:attacks:creature:corrupted-meat-pile",
+          "source": "node:baergrom",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:creature:corrupted-meat-mound",
+          "source": "node:bonogo",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:corrupted-meat-pile",
+          "source": "node:ephanna",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:creature:corrupted-meat-mound",
+          "source": "node:karsemine",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:berin:knows_about:item:meat",
+          "source": "npc:berin",
+          "target": "item:meat",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:attacks:item:meat",
+          "source": "npc:captain-lysandra",
+          "target": "item:meat",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:lesandra:carries:item:cultist_scroll",
+          "source": "npc:lesandra",
+          "target": "item:cultist_scroll",
+          "predicate": "carries",
+          "label": "carries"
+        },
+        {
+          "edge_id": "edge:location:cold-room:routes_to:location:tunnel",
+          "source": "location:cold-room",
+          "target": "location:tunnel",
+          "predicate": "leads_to",
+          "label": "leads to"
+        },
+        {
+          "edge_id": "edge:location:storeroom:leads_to:location:cold-room",
+          "source": "location:storeroom",
+          "target": "location:cold-room",
+          "predicate": "leads_to",
+          "label": "leads to"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:holds:item:map-of-guardhouse",
+          "source": "npc:captain-lysandra",
+          "target": "item:map-of-guardhouse",
+          "predicate": "holds",
+          "label": "holds"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "fail",
+      "met_concepts": [],
+      "missing_concepts": [
+        "the meat is from another plane / extraplanar"
+      ],
+      "violated_negatives": [],
+      "answer": "The arcana check identified the strange meat as **The Meat** tied to the guardhouse\u2019s hidden storage areas: it was found in the **cold room** and the **warehouse**, with the guardhouse also containing a **storeroom**. It wasn\u2019t just an odd carcass \u2014 the graph also links it to hostile attention, with **Captain Lysandra attacking it** and **Berin knowing about it**.\n\nA later recap also shows the meat\u2019s corruption escalating into the **Corrupted Meat Mound / Pile** forms, which suggests the check was uncovering something actively unnatural rather than merely spoiled.",
+      "grounding_state": "partial",
+      "elapsed_ms": 14725,
+      "tool_call_count": 2,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "graph_coverage",
+      "rationale": "The underlying factual details (e.g. arcana check extraplanar result for Q01, specific ward contract commitments for Q03, combat spell interactions for Q10, force-feeding temporal specifics for Q13, extraplanar/abyssal clues for Q15) were never published as object properties, summaries, or typed assertions in World revision rev:b82db72693c27e0218026fd1ff514a68."
+    }
+  },
+  {
+    "qid": "Q02",
+    "title": "Q02 \u2014 Where should the mushrooms go?",
+    "difficulty": 1,
+    "question": "Where was Caelynn told to take the dangerous glowing mushrooms if she wanted help turning them into a potion?",
+    "gold_answer": "To the Head Alchemist at Stormspire Academy.",
+    "must_include": [
+      "Head Alchemist",
+      "Stormspire Academy"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "full",
+      "met_concepts": [
+        "Head Alchemist",
+        "Stormspire Academy"
+      ],
+      "missing_concepts": [],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 14,
+      "retrieved_relationships_count": 20,
+      "nodes": [
+        {
+          "id": "item:glowing_mushrooms",
+          "label": "Glowing Mushrooms",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:longmont-c1:session-5:glowing-mushrooms-unknown-purpose",
+          "label": "Glowing mushroom of unknown name or purpose",
+          "kind": "mystery"
+        },
+        {
+          "id": "item:health_potions",
+          "label": "Health Potions",
+          "kind": "item"
+        },
+        {
+          "id": "item:mushroom_card",
+          "label": "Mushroom Card",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:glowing-mushrooms-danger",
+          "label": "Glowing mushrooms: rare and extremely dangerous",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:mystery_potions",
+          "label": "Mystery potions found on corpses in the well",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:potion-information-purchase",
+          "label": "Caelynn purchases mushroom information",
+          "kind": "mystery"
+        },
+        {
+          "id": "node:healing_potions",
+          "label": "Healing Potions",
+          "kind": "item"
+        },
+        {
+          "id": "location:stormspire-academy",
+          "label": "Stormspire Academy",
+          "kind": "location"
+        },
+        {
+          "id": "npc:the-head-alchemist",
+          "label": "Head Alchemist",
+          "kind": "npc"
+        },
+        {
+          "id": "node:caelynn",
+          "label": "Caelynn",
+          "kind": "player_character"
+        },
+        {
+          "id": "location:herbal-shop",
+          "label": "herbal shop",
+          "kind": "location"
+        },
+        {
+          "id": "location:streets-of-vendors",
+          "label": "street of vendors",
+          "kind": "location"
+        },
+        {
+          "id": "location:tunnels",
+          "label": "the tunnels",
+          "kind": "location"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:item:glowing_mushrooms:associated_with:mystery:longmont-c1:session-5:glowing-mushrooms-unknown-purpose",
+          "source": "item:glowing_mushrooms",
+          "target": "mystery:longmont-c1:session-5:glowing-mushrooms-unknown-purpose",
+          "predicate": "associated_with",
+          "label": "associated with"
+        },
+        {
+          "edge_id": "edge:item:glowing_mushrooms:located_in:location:tunnels",
+          "source": "item:glowing_mushrooms",
+          "target": "location:tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:mystery:mystery_potions:located_in:location:the_well",
+          "source": "mystery:mystery_potions",
+          "target": "location:the_well",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:caelynn:possesses:item:glowing_mushrooms",
+          "source": "node:caelynn",
+          "target": "item:glowing_mushrooms",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:node:caelynn:possesses:item:mushroom_card",
+          "source": "node:caelynn",
+          "target": "item:mushroom_card",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:node:healing_potions:located_in:location:hidden_alchemy_room",
+          "source": "node:healing_potions",
+          "target": "location:hidden_alchemy_room",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:node:caelynn",
+          "source": "node:bonogo",
+          "target": "node:caelynn",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:associated_with:node:baergrom",
+          "source": "node:caelynn",
+          "target": "node:baergrom",
+          "predicate": "associated_with",
+          "label": "associated with"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:cooperates_with:node:baergrom",
+          "source": "node:caelynn",
+          "target": "node:baergrom",
+          "predicate": "cooperates_with",
+          "label": "cooperates with"
+        },
+        {
+          "edge_id": "edge:node:caelynn:cooperates_with:node:karsemine",
+          "source": "node:caelynn",
+          "target": "node:karsemine",
+          "predicate": "cooperates_with",
+          "label": "cooperates with"
+        },
+        {
+          "edge_id": "edge:node:caelynn:knows_about:mystery:abyssal-scroll",
+          "source": "node:caelynn",
+          "target": "mystery:abyssal-scroll",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:caelynn:knows_about:npc:thraxx",
+          "source": "node:caelynn",
+          "target": "npc:thraxx",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:caelynn:owns:item:ice-platform",
+          "source": "node:caelynn",
+          "target": "item:ice-platform",
+          "predicate": "owns",
+          "label": "owns"
+        },
+        {
+          "edge_id": "edge:node:caelynn:reports_to:npc:the-head-alchemist",
+          "source": "node:caelynn",
+          "target": "npc:the-head-alchemist",
+          "predicate": "serves",
+          "label": "serves"
+        },
+        {
+          "edge_id": "edge:node:caelynn:works_with:npc:elara-greenleaf",
+          "source": "node:caelynn",
+          "target": "npc:elara-greenleaf",
+          "predicate": "works_with",
+          "label": "works with"
+        },
+        {
+          "edge_id": "edge:npc:the-head-alchemist:located_in:location:stormspire-academy",
+          "source": "npc:the-head-alchemist",
+          "target": "location:stormspire-academy",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:location:herbal-shop:located_in:location:streets-of-vendors",
+          "source": "location:herbal-shop",
+          "target": "location:streets-of-vendors",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:bonogo:present_at:location:streets-of-vendors",
+          "source": "node:bonogo",
+          "target": "location:streets-of-vendors",
+          "predicate": "present_at",
+          "label": "present at"
+        },
+        {
+          "edge_id": "edge:node:stafl:present_at:location:streets-of-vendors",
+          "source": "node:stafl",
+          "target": "location:streets-of-vendors",
+          "predicate": "present_at",
+          "label": "present at"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "fail",
+      "met_concepts": [],
+      "missing_concepts": [
+        "Head Alchemist",
+        "Stormspire Academy"
+      ],
+      "violated_negatives": [],
+      "answer": "She was told to take them to **the tunnels** if she wanted help turning them into a potion.",
+      "grounding_state": "partial",
+      "elapsed_ms": 9454,
+      "tool_call_count": 2,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "synthesis",
+      "rationale": "Evidence was reachable/retrieved in the graph, but the Agent's synthesized answer omitted one or more required concepts."
+    }
+  },
+  {
+    "qid": "Q03",
+    "title": "Q03 \u2014 How did Torbin become the party's ward?",
+    "difficulty": 2,
+    "question": "What commitments turned Torbin from a Hempholm local into the party's ward on the road to Mirathorn?",
+    "gold_answer": "After Hempholm the party promised to take Torbin to Mirathorn and get him an education. In Session 6 they formalized a ward arrangement that included education, staying alive, monthly visits for his father, and guaranteed room and board.",
+    "must_include": [
+      "take Torbin to Mirathorn",
+      "education",
+      "monthly visits for his father",
+      "room and board"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "partial",
+      "met_concepts": [
+        "take Torbin to Mirathorn",
+        "education",
+        "monthly visits for his father"
+      ],
+      "missing_concepts": [
+        "room and board"
+      ],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 16,
+      "retrieved_relationships_count": 16,
+      "nodes": [
+        {
+          "id": "item:torbin_ward_contract",
+          "label": "Torbin's Ward Contract",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:torbin-ward-contract",
+          "label": "Torbin's ward contract and future",
+          "kind": "mystery"
+        },
+        {
+          "id": "item:key-to-torbins-cell",
+          "label": "Key to Torbin's Cell",
+          "kind": "item"
+        },
+        {
+          "id": "item:torbin_candy",
+          "label": "Torbin's Candy",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:hempholm-tree-study",
+          "label": "Studying the Tree with Torbin and Jove",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:torbin-meat-effect",
+          "label": "How Torbin Has Been Affected by the Meat",
+          "kind": "mystery"
+        },
+        {
+          "id": "node:torbins-father",
+          "label": "Torbin's Father",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:torbin",
+          "label": "Torbin",
+          "kind": "npc"
+        },
+        {
+          "id": "thread:longmont-c1:session-5:mirathorn-promise-jove-son",
+          "label": "Promise to take Jove's son to Mirathorn for education",
+          "kind": "mystery"
+        },
+        {
+          "id": "creature:grotesque_hempholm_tree",
+          "label": "Grotesque Tree of Hempholm",
+          "kind": "creature"
+        },
+        {
+          "id": "faction:hempholm:townsfolk",
+          "label": "Hempholm Townsfolk",
+          "kind": "faction"
+        },
+        {
+          "id": "group:hempholm_drunken_townsfolk",
+          "label": "Drunken townsfolk of Hempholm",
+          "kind": "npc"
+        },
+        {
+          "id": "item:grotesque-tree",
+          "label": "The Grotesque Tree of Hempholm",
+          "kind": "item"
+        },
+        {
+          "id": "item:mirathorn_waterwheel",
+          "label": "Giant Waterwheel of Mirathorn",
+          "kind": "item"
+        },
+        {
+          "id": "npc:jove",
+          "label": "Jove",
+          "kind": "npc"
+        },
+        {
+          "id": "location:hempholm",
+          "label": "Hempholm",
+          "kind": "location"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:item:key-to-torbins-cell:near:item:ephannas-gear-chest",
+          "source": "item:key-to-torbins-cell",
+          "target": "item:ephannas-gear-chest",
+          "predicate": "near",
+          "label": "near"
+        },
+        {
+          "edge_id": "edge:node:torbins-father:possesses:item:torbin_candy",
+          "source": "node:torbins-father",
+          "target": "item:torbin_candy",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:npc:torbin:child_of:npc:jove",
+          "source": "npc:jove",
+          "target": "npc:torbin",
+          "predicate": "parent_of",
+          "label": "parent of"
+        },
+        {
+          "edge_id": "edge:npc:torbin:knows_about:creature:grotesque_hempholm_tree",
+          "source": "npc:torbin",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:torbin:located_in:location:hempholm",
+          "source": "npc:torbin",
+          "target": "location:hempholm",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:creature:caretakers:attacks:faction:hempholm:townsfolk",
+          "source": "creature:caretakers",
+          "target": "faction:hempholm:townsfolk",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:creature:grotesque_hempholm_tree:attacks:node:baergrom",
+          "source": "creature:grotesque_hempholm_tree",
+          "target": "node:baergrom",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:creature:grotesque_hempholm_tree:attacks:node:karsemine",
+          "source": "creature:grotesque_hempholm_tree",
+          "target": "node:karsemine",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:creature:grotesque_hempholm_tree:holds:item:precious-metal-leaves",
+          "source": "creature:grotesque_hempholm_tree",
+          "target": "item:precious-metal-leaves",
+          "predicate": "holds",
+          "label": "holds"
+        },
+        {
+          "edge_id": "edge:creature:grotesque_hempholm_tree:located_in:location:hempholm",
+          "source": "creature:grotesque_hempholm_tree",
+          "target": "location:hempholm",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:faction:hempholm:townsfolk:located_in:location:hempholm",
+          "source": "faction:hempholm:townsfolk",
+          "target": "location:hempholm",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:group:hempholm_drunken_townsfolk:attacks:creature:grotesque_hempholm_tree",
+          "source": "group:hempholm_drunken_townsfolk",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:group:hempholm_drunken_townsfolk:part_of_group:faction:hempholm:townsfolk",
+          "source": "group:hempholm_drunken_townsfolk",
+          "target": "faction:hempholm:townsfolk",
+          "predicate": "member_of",
+          "label": "member of"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:grotesque_hempholm_tree",
+          "source": "node:ephanna",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:jove:knows_about:creature:grotesque_hempholm_tree",
+          "source": "npc:jove",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:jove:located_in:location:hempholm",
+          "source": "npc:jove",
+          "target": "location:hempholm",
+          "predicate": "located_in",
+          "label": "located in"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "take Torbin to Mirathorn",
+        "monthly visits for his father"
+      ],
+      "missing_concepts": [
+        "education",
+        "room and board"
+      ],
+      "violated_negatives": [],
+      "answer": "Torbin\u2019s shift came from a mix of family obligation and a formal ward arrangement: he\u2019s tied to Jove as a child of Hempholm, and the graph points to a ward contract/future decision being attached to him in the later recap. That contract is the clearest commitment turning him from \u201clocal kid in Hempholm\u201d into \u201cthe party\u2019s ward\u201d for the road to Mirathorn.\n\nThe road context matters because the Mirathorn journey and Torbin\u2019s ward status are linked in the same recap evidence cluster, with Torbin already anchored in Hempholm and newly carried forward under that ward arrangement. The graph doesn\u2019t expose the exact wording of the contract here, only that the commitment exists and is the relevant turning point.",
+      "grounding_state": "partial",
+      "elapsed_ms": 10643,
+      "tool_call_count": 2,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "completion",
+          "outcome": null,
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "graph_coverage",
+      "rationale": "The underlying factual details (e.g. arcana check extraplanar result for Q01, specific ward contract commitments for Q03, combat spell interactions for Q10, force-feeding temporal specifics for Q13, extraplanar/abyssal clues for Q15) were never published as object properties, summaries, or typed assertions in World revision rev:b82db72693c27e0218026fd1ff514a68."
+    }
+  },
+  {
+    "qid": "Q04",
+    "title": "Q04 \u2014 Why did Lysandra later trust the party with a guard investigation?",
+    "difficulty": 2,
+    "question": "How did Caelynn's handling of the gate protest improve the party's relationship with Captain Lysandra, and what did Lysandra later ask them to do?",
+    "gold_answer": "Caelynn helped settle/open the protest crowd so the party could approach the Captain. Lysandra was much happier with the party and let them cut the gate line. In Session 8 she sought them out and asked them to investigate suspicious oily-eyed guards and the guard storeroom she was being kept out of.",
+    "must_include": [
+      "Caelynn successfully affected the protest crowd",
+      "Lysandra let the party cut the line / relationship improved",
+      "later investigation of suspicious guards and/or the storeroom"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "partial",
+      "met_concepts": [
+        "Caelynn successfully affected the protest crowd",
+        "later investigation of suspicious guards and/or the storeroom"
+      ],
+      "missing_concepts": [
+        "Lysandra let the party cut the line / relationship improved"
+      ],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 24,
+      "retrieved_relationships_count": 32,
+      "nodes": [
+        {
+          "id": "mystery:mirathorn-toll-protest",
+          "label": "Protest over the toll at Mirathorn's gate",
+          "kind": "mystery"
+        },
+        {
+          "id": "item:toll_fliers",
+          "label": "Protest Fliers",
+          "kind": "item"
+        },
+        {
+          "id": "location:main-gate",
+          "label": "Main Gate",
+          "kind": "location"
+        },
+        {
+          "id": "location:mirathorn-gates",
+          "label": "Mirathorn Gates",
+          "kind": "location"
+        },
+        {
+          "id": "location:mountain-gate",
+          "label": "Mountain Gate",
+          "kind": "location"
+        },
+        {
+          "id": "location:the-gate",
+          "label": "The Gate",
+          "kind": "location"
+        },
+        {
+          "id": "mystery:captain-lysandra-quest",
+          "label": "Captain Lysandra's quest",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:mirathorn-toll-riot",
+          "label": "Riot at Mirathorn Gates over toll",
+          "kind": "mystery"
+        },
+        {
+          "id": "node:lysandra-ironveil",
+          "label": "Captain Lysandra Ironveil",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:captain-lysandra",
+          "label": "Captain Lysandra",
+          "kind": "npc"
+        },
+        {
+          "id": "location:storeroom",
+          "label": "Guard Storeroom",
+          "kind": "location"
+        },
+        {
+          "id": "npc:captain-blart",
+          "label": "Captain Blart",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:captain-fairfield",
+          "label": "Captain Fairfield",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:the-captain",
+          "label": "The Captain",
+          "kind": "npc"
+        },
+        {
+          "id": "faction:city-guard",
+          "label": "City Guard",
+          "kind": "faction"
+        },
+        {
+          "id": "mystery:oily-eyed-guards",
+          "label": "Guards afflicted with oily eyes",
+          "kind": "mystery"
+        },
+        {
+          "id": "location:old-guard-tower",
+          "label": "old guard tower",
+          "kind": "location"
+        },
+        {
+          "id": "mystery:wolf-cultist-guard-corruption",
+          "label": "The Wolf Is a Cultist Manipulating the Guard",
+          "kind": "mystery"
+        },
+        {
+          "id": "node:city-guards",
+          "label": "City Guards",
+          "kind": "faction"
+        },
+        {
+          "id": "npc:guard-leader",
+          "label": "Leader of the Guard",
+          "kind": "npc"
+        },
+        {
+          "id": "node:caelynn",
+          "label": "Caelynn",
+          "kind": "player_character"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "item:cages",
+          "label": "Cages",
+          "kind": "item"
+        },
+        {
+          "id": "item:glowing_mushrooms",
+          "label": "Glowing Mushrooms",
+          "kind": "item"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:mystery:mirathorn-toll-protest:located_in:location:the-gate",
+          "source": "mystery:mirathorn-toll-protest",
+          "target": "location:the-gate",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:mystery:mirathorn-toll-riot:caused_by:faction:the_shepherds_flock",
+          "source": "faction:the_shepherds_flock",
+          "target": "mystery:mirathorn-toll-riot",
+          "predicate": "causes",
+          "label": "causes"
+        },
+        {
+          "edge_id": "edge:node:city-guards:defends_weakened_location:location:the-gate",
+          "source": "node:city-guards",
+          "target": "location:the-gate",
+          "predicate": "protects",
+          "label": "protects"
+        },
+        {
+          "edge_id": "edge:node:ephanna:travels_to:location:main-gate",
+          "source": "node:ephanna",
+          "target": "location:main-gate",
+          "predicate": "travels_to",
+          "label": "travels to"
+        },
+        {
+          "edge_id": "edge:node:party-of-six:present_at:location:the-gate",
+          "source": "node:party-of-six",
+          "target": "location:the-gate",
+          "predicate": "present_at",
+          "label": "present at"
+        },
+        {
+          "edge_id": "edge:node:protesters:carries:item:toll_fliers",
+          "source": "node:protesters",
+          "target": "item:toll_fliers",
+          "predicate": "carries",
+          "label": "carries"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:pursues:mystery:captain-lysandra-quest",
+          "source": "npc:captain-lysandra",
+          "target": "mystery:captain-lysandra-quest",
+          "predicate": "pursues",
+          "label": "pursues"
+        },
+        {
+          "edge_id": "edge:item:cages:contains:npc:captain-lysandra",
+          "source": "item:cages",
+          "target": "npc:captain-lysandra",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:guardhouse:contains:location:storeroom",
+          "source": "location:guardhouse",
+          "target": "location:storeroom",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:storeroom:contains:item:bookshelf-hidden-staircase",
+          "source": "location:storeroom",
+          "target": "item:bookshelf-hidden-staircase",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:storeroom:leads_to:location:cold-room",
+          "source": "location:storeroom",
+          "target": "location:cold-room",
+          "predicate": "leads_to",
+          "label": "leads to"
+        },
+        {
+          "edge_id": "edge:node:lysandra-ironveil:commands:node:city-guards",
+          "source": "node:lysandra-ironveil",
+          "target": "node:city-guards",
+          "predicate": "commands",
+          "label": "commands"
+        },
+        {
+          "edge_id": "edge:node:party-of-six:works_with:node:lysandra-ironveil",
+          "source": "node:party-of-six",
+          "target": "node:lysandra-ironveil",
+          "predicate": "works_with",
+          "label": "works with"
+        },
+        {
+          "edge_id": "edge:npc:bill:member_of:faction:city-guard",
+          "source": "npc:bill",
+          "target": "faction:city-guard",
+          "predicate": "member_of",
+          "label": "member of"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:attacks:item:meat",
+          "source": "npc:captain-lysandra",
+          "target": "item:meat",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:aware_of:mystery:oily-eyed-guards",
+          "source": "npc:captain-lysandra",
+          "target": "mystery:oily-eyed-guards",
+          "predicate": "aware_of",
+          "label": "aware of"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:holds:item:map-of-guardhouse",
+          "source": "npc:captain-lysandra",
+          "target": "item:map-of-guardhouse",
+          "predicate": "holds",
+          "label": "holds"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:leads:faction:city-guard",
+          "source": "npc:captain-lysandra",
+          "target": "faction:city-guard",
+          "predicate": "leads",
+          "label": "leads"
+        },
+        {
+          "edge_id": "edge:npc:wolf:governs:location:storeroom",
+          "source": "npc:wolf",
+          "target": "location:storeroom",
+          "predicate": "owns",
+          "label": "owns"
+        },
+        {
+          "edge_id": "edge:node:city-guards:attacks:node:protesters",
+          "source": "node:city-guards",
+          "target": "node:protesters",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:node:caelynn",
+          "source": "node:bonogo",
+          "target": "node:caelynn",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:associated_with:node:baergrom",
+          "source": "node:caelynn",
+          "target": "node:baergrom",
+          "predicate": "associated_with",
+          "label": "associated with"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:cooperates_with:node:baergrom",
+          "source": "node:caelynn",
+          "target": "node:baergrom",
+          "predicate": "cooperates_with",
+          "label": "cooperates with"
+        },
+        {
+          "edge_id": "edge:node:caelynn:cooperates_with:node:karsemine",
+          "source": "node:caelynn",
+          "target": "node:karsemine",
+          "predicate": "cooperates_with",
+          "label": "cooperates with"
+        },
+        {
+          "edge_id": "edge:node:caelynn:knows_about:mystery:abyssal-scroll",
+          "source": "node:caelynn",
+          "target": "mystery:abyssal-scroll",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:caelynn:knows_about:npc:thraxx",
+          "source": "node:caelynn",
+          "target": "npc:thraxx",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:caelynn:owns:item:ice-platform",
+          "source": "node:caelynn",
+          "target": "item:ice-platform",
+          "predicate": "owns",
+          "label": "owns"
+        },
+        {
+          "edge_id": "edge:node:caelynn:possesses:item:glowing_mushrooms",
+          "source": "node:caelynn",
+          "target": "item:glowing_mushrooms",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:node:caelynn:possesses:item:mushroom_card",
+          "source": "node:caelynn",
+          "target": "item:mushroom_card",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:node:caelynn:reports_to:npc:the-head-alchemist",
+          "source": "node:caelynn",
+          "target": "npc:the-head-alchemist",
+          "predicate": "serves",
+          "label": "serves"
+        },
+        {
+          "edge_id": "edge:node:caelynn:works_with:npc:elara-greenleaf",
+          "source": "node:caelynn",
+          "target": "npc:elara-greenleaf",
+          "predicate": "works_with",
+          "label": "works with"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "Caelynn successfully affected the protest crowd",
+        "later investigation of suspicious guards and/or the storeroom"
+      ],
+      "missing_concepts": [
+        "Lysandra let the party cut the line / relationship improved"
+      ],
+      "violated_negatives": [],
+      "answer": "Caelynn improved things by defusing the gate protest instead of letting it escalate into a straight confrontation. The party\u2019s stance shifted from being just another group at the scene to acting in a way that aligned with Lysandra\u2019s authority and the City Guard\u2019s interests, which is why their relationship with her moved into \u201cworks with\u201d territory rather than opposition.\n\nLater, Lysandra asked them to pursue her quest. The graph records that as Captain Lysandra\u2019s quest being something she actively pursues, and the party is tied to working with her around that thread.",
+      "grounding_state": "partial",
+      "elapsed_ms": 11815,
+      "tool_call_count": 3,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "graph_connectivity_identity",
+      "rationale": "Entities exist in the graph (e.g. Captain Lysandra Ironveil vs Captain Lysandra for Q04, storeroom/cold room/tunnel/warehouse for Q09), but missing relationship edges or entity unification prevents transitive chain traversal."
+    }
+  },
+  {
+    "qid": "Q05",
+    "title": "Q05 \u2014 What happened to the Hempholm mushrooms?",
+    "difficulty": 2,
+    "question": "What happened to the glowing mushrooms Caelynn collected beneath Hempholm, and why did they become a reason to involve Stormspire Academy?",
+    "gold_answer": "Caelynn collected many pounds of unknown glowing mushrooms beneath Hempholm. In Mirathorn she learned they were very rare and extremely dangerous, and that the Head Alchemist at Stormspire Academy would be needed to evaluate making them into a potion.",
+    "must_include": [
+      "Caelynn collected the mushrooms beneath Hempholm",
+      "rare and dangerous",
+      "Head Alchemist at Stormspire Academy"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "full",
+      "met_concepts": [
+        "Caelynn collected the mushrooms beneath Hempholm",
+        "rare and dangerous",
+        "Head Alchemist at Stormspire Academy"
+      ],
+      "missing_concepts": [],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 15,
+      "retrieved_relationships_count": 31,
+      "nodes": [
+        {
+          "id": "item:glowing_mushrooms",
+          "label": "Glowing Mushrooms",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:longmont-c1:session-5:glowing-mushrooms-unknown-purpose",
+          "label": "Glowing mushroom of unknown name or purpose",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:potion-information-purchase",
+          "label": "Caelynn purchases mushroom information",
+          "kind": "mystery"
+        },
+        {
+          "id": "creature:grotesque_hempholm_tree",
+          "label": "Grotesque Tree of Hempholm",
+          "kind": "creature"
+        },
+        {
+          "id": "faction:hempholm:townsfolk",
+          "label": "Hempholm Townsfolk",
+          "kind": "faction"
+        },
+        {
+          "id": "group:hempholm_drunken_townsfolk",
+          "label": "Drunken townsfolk of Hempholm",
+          "kind": "npc"
+        },
+        {
+          "id": "item:grotesque-tree",
+          "label": "The Grotesque Tree of Hempholm",
+          "kind": "item"
+        },
+        {
+          "id": "item:mushroom_card",
+          "label": "Mushroom Card",
+          "kind": "item"
+        },
+        {
+          "id": "location:stormspire-academy",
+          "label": "Stormspire Academy",
+          "kind": "location"
+        },
+        {
+          "id": "mystery:glowing-mushrooms-danger",
+          "label": "Glowing mushrooms: rare and extremely dangerous",
+          "kind": "mystery"
+        },
+        {
+          "id": "location:tunnels",
+          "label": "the tunnels",
+          "kind": "location"
+        },
+        {
+          "id": "node:caelynn",
+          "label": "Caelynn",
+          "kind": "player_character"
+        },
+        {
+          "id": "npc:the-head-alchemist",
+          "label": "Head Alchemist",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "item:ice-platform",
+          "label": "Ice Platform",
+          "kind": "item"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:creature:caretakers:attacks:faction:hempholm:townsfolk",
+          "source": "creature:caretakers",
+          "target": "faction:hempholm:townsfolk",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:creature:grotesque_hempholm_tree:attacks:node:baergrom",
+          "source": "creature:grotesque_hempholm_tree",
+          "target": "node:baergrom",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:creature:grotesque_hempholm_tree:attacks:node:karsemine",
+          "source": "creature:grotesque_hempholm_tree",
+          "target": "node:karsemine",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:creature:grotesque_hempholm_tree:holds:item:precious-metal-leaves",
+          "source": "creature:grotesque_hempholm_tree",
+          "target": "item:precious-metal-leaves",
+          "predicate": "holds",
+          "label": "holds"
+        },
+        {
+          "edge_id": "edge:creature:grotesque_hempholm_tree:located_in:location:hempholm",
+          "source": "creature:grotesque_hempholm_tree",
+          "target": "location:hempholm",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:faction:hempholm:townsfolk:located_in:location:hempholm",
+          "source": "faction:hempholm:townsfolk",
+          "target": "location:hempholm",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:group:hempholm_drunken_townsfolk:attacks:creature:grotesque_hempholm_tree",
+          "source": "group:hempholm_drunken_townsfolk",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:group:hempholm_drunken_townsfolk:part_of_group:faction:hempholm:townsfolk",
+          "source": "group:hempholm_drunken_townsfolk",
+          "target": "faction:hempholm:townsfolk",
+          "predicate": "member_of",
+          "label": "member of"
+        },
+        {
+          "edge_id": "edge:item:glowing_mushrooms:associated_with:mystery:longmont-c1:session-5:glowing-mushrooms-unknown-purpose",
+          "source": "item:glowing_mushrooms",
+          "target": "mystery:longmont-c1:session-5:glowing-mushrooms-unknown-purpose",
+          "predicate": "associated_with",
+          "label": "associated with"
+        },
+        {
+          "edge_id": "edge:item:glowing_mushrooms:located_in:location:tunnels",
+          "source": "item:glowing_mushrooms",
+          "target": "location:tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:caelynn:possesses:item:glowing_mushrooms",
+          "source": "node:caelynn",
+          "target": "item:glowing_mushrooms",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:node:caelynn:possesses:item:mushroom_card",
+          "source": "node:caelynn",
+          "target": "item:mushroom_card",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:grotesque_hempholm_tree",
+          "source": "node:ephanna",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:jove:knows_about:creature:grotesque_hempholm_tree",
+          "source": "npc:jove",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:torbin:knows_about:creature:grotesque_hempholm_tree",
+          "source": "npc:torbin",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:creature:the_guardian:located_in:location:tunnels",
+          "source": "creature:the_guardian",
+          "target": "location:tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:precious_metal_tree_sap:located_in:location:tunnels",
+          "source": "item:precious_metal_tree_sap",
+          "target": "location:tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:location:cavern:part_of:location:tunnels",
+          "source": "location:cavern",
+          "target": "location:tunnels",
+          "predicate": "part_of",
+          "label": "part of"
+        },
+        {
+          "edge_id": "edge:location:heart_of_the_tree:contained_by:location:tunnels",
+          "source": "location:tunnels",
+          "target": "location:heart_of_the_tree",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:tunnels:part_of:location:underneath_hempholm",
+          "source": "location:tunnels",
+          "target": "location:underneath_hempholm",
+          "predicate": "part_of",
+          "label": "part of"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:node:caelynn",
+          "source": "node:bonogo",
+          "target": "node:caelynn",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:associated_with:node:baergrom",
+          "source": "node:caelynn",
+          "target": "node:baergrom",
+          "predicate": "associated_with",
+          "label": "associated with"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:cooperates_with:node:baergrom",
+          "source": "node:caelynn",
+          "target": "node:baergrom",
+          "predicate": "cooperates_with",
+          "label": "cooperates with"
+        },
+        {
+          "edge_id": "edge:node:caelynn:cooperates_with:node:karsemine",
+          "source": "node:caelynn",
+          "target": "node:karsemine",
+          "predicate": "cooperates_with",
+          "label": "cooperates with"
+        },
+        {
+          "edge_id": "edge:node:caelynn:knows_about:mystery:abyssal-scroll",
+          "source": "node:caelynn",
+          "target": "mystery:abyssal-scroll",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:caelynn:knows_about:npc:thraxx",
+          "source": "node:caelynn",
+          "target": "npc:thraxx",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:caelynn:owns:item:ice-platform",
+          "source": "node:caelynn",
+          "target": "item:ice-platform",
+          "predicate": "owns",
+          "label": "owns"
+        },
+        {
+          "edge_id": "edge:node:caelynn:reports_to:npc:the-head-alchemist",
+          "source": "node:caelynn",
+          "target": "npc:the-head-alchemist",
+          "predicate": "serves",
+          "label": "serves"
+        },
+        {
+          "edge_id": "edge:node:caelynn:works_with:npc:elara-greenleaf",
+          "source": "node:caelynn",
+          "target": "npc:elara-greenleaf",
+          "predicate": "works_with",
+          "label": "works with"
+        },
+        {
+          "edge_id": "edge:npc:the-head-alchemist:located_in:location:stormspire-academy",
+          "source": "npc:the-head-alchemist",
+          "target": "location:stormspire-academy",
+          "predicate": "located_in",
+          "label": "located in"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "Caelynn collected the mushrooms beneath Hempholm",
+        "Head Alchemist at Stormspire Academy"
+      ],
+      "missing_concepts": [
+        "rare and dangerous"
+      ],
+      "violated_negatives": [],
+      "answer": "Caelynn still has the glowing mushrooms, but they\u2019ve stayed a puzzle rather than becoming a solved item. In the graph, they\u2019re tied to the tunnels beneath Hempholm, and Caelynn possesses them; the key unresolved thread is that they\u2019re still marked as a mushroom mystery with unknown name or purpose.\n\nThey became Stormspire Academy\u2019s concern because Caelynn later bought mushroom information there. That links the mushrooms to formal alchemical expertise: the academy\u2019s head alchemist is the relevant authority, and the purchase suggests the mushrooms were unusual enough to warrant outside identification or advice instead of being treated as ordinary loot.\n\nIn other words, the mushrooms were collected in the tunnels, remained enigmatic, and then got escalated to Stormspire Academy for expert analysis.",
+      "grounding_state": "partial",
+      "elapsed_ms": 11041,
+      "tool_call_count": 2,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "missing_seed_node_ids",
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "synthesis",
+      "rationale": "Evidence was reachable/retrieved in the graph, but the Agent's synthesized answer omitted one or more required concepts."
+    }
+  },
+  {
+    "qid": "Q06",
+    "title": "Q06 \u2014 Torbin's full danger chain",
+    "difficulty": 3,
+    "question": "Trace the chain of decisions that took Torbin from Hempholm to captivity, meat exposure, and eventual escape in Mirathorn.",
+    "gold_answer": "The party met Torbin in Hempholm, promised to take him to Mirathorn for an education, and formalized him as their ward. At the gate Ephanna took Torbin with Lyra and the Shepherd's Flock. They were captured; Torbin was repeatedly forced to eat the strange meat. In Session 8 Ephanna escaped, freed Torbin, and they returned to the Copper and Quartz; Torbin was already showing the oily-eye symptom.",
+    "must_include": [
+      "Torbin met in Hempholm",
+      "education/ward commitment",
+      "Ephanna took Torbin with Lyra / the Shepherd's Flock",
+      "capture",
+      "forced meat exposure",
+      "escape with Ephanna",
+      "oily-eye symptom after exposure"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "full",
+      "met_concepts": [
+        "Torbin met in Hempholm",
+        "education/ward commitment",
+        "Ephanna took Torbin with Lyra / the Shepherd's Flock",
+        "capture",
+        "forced meat exposure",
+        "escape with Ephanna",
+        "oily-eye symptom after exposure"
+      ],
+      "missing_concepts": [],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 23,
+      "retrieved_relationships_count": 31,
+      "nodes": [
+        {
+          "id": "mystery:torbin-meat-effect",
+          "label": "How Torbin Has Been Affected by the Meat",
+          "kind": "mystery"
+        },
+        {
+          "id": "creature:corrupted-meat-mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "item:abhorrent-meat-wings",
+          "label": "Abhorrent Meat Wings",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "item"
+        },
+        {
+          "id": "item:ephannas-gear-chest",
+          "label": "Ephanna's Gear Chest",
+          "kind": "item"
+        },
+        {
+          "id": "item:key-to-torbins-cell",
+          "label": "Key to Torbin's Cell",
+          "kind": "item"
+        },
+        {
+          "id": "faction:the-shepherds-flock",
+          "label": "The Shepherds Flock",
+          "kind": "npc"
+        },
+        {
+          "id": "faction:the_shepherds_flock",
+          "label": "The Shepherds Flock",
+          "kind": "faction"
+        },
+        {
+          "id": "item:symbol_of_the_shepherds_flock",
+          "label": "Symbol of The Shepherds Flock",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:shepherds-flock",
+          "label": "The Shepherds Flock rebel group",
+          "kind": "mystery"
+        },
+        {
+          "id": "item:torbin_candy",
+          "label": "Torbin's Candy",
+          "kind": "item"
+        },
+        {
+          "id": "item:torbin_ward_contract",
+          "label": "Torbin's Ward Contract",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:hempholm-tree-study",
+          "label": "Studying the Tree with Torbin and Jove",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:oily-eyed-guards",
+          "label": "Guards afflicted with oily eyes",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:torbin-ward-contract",
+          "label": "Torbin's ward contract and future",
+          "kind": "mystery"
+        },
+        {
+          "id": "node:torbins-father",
+          "label": "Torbin's Father",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:torbin",
+          "label": "Torbin",
+          "kind": "npc"
+        },
+        {
+          "id": "node:ephanna",
+          "label": "Ephanna",
+          "kind": "player_character"
+        },
+        {
+          "id": "npc:lyra",
+          "label": "Lyra",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:grotesque_hempholm_tree",
+          "label": "Grotesque Tree of Hempholm",
+          "kind": "creature"
+        },
+        {
+          "id": "creature:sprite",
+          "label": "Sprite",
+          "kind": "npc"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:item:key-to-torbins-cell:near:item:ephannas-gear-chest",
+          "source": "item:key-to-torbins-cell",
+          "target": "item:ephannas-gear-chest",
+          "predicate": "near",
+          "label": "near"
+        },
+        {
+          "edge_id": "edge:node:baergrom:attacks:creature:corrupted-meat-pile",
+          "source": "node:baergrom",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:creature:corrupted-meat-mound",
+          "source": "node:bonogo",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:corrupted-meat-pile",
+          "source": "node:ephanna",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:possesses:item:ephannas-gear-chest",
+          "source": "node:ephanna",
+          "target": "item:ephannas-gear-chest",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:creature:corrupted-meat-mound",
+          "source": "node:karsemine",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:faction:the_shepherds_flock:holds:item:symbol_of_the_shepherds_flock",
+          "source": "faction:the_shepherds_flock",
+          "target": "item:symbol_of_the_shepherds_flock",
+          "predicate": "holds",
+          "label": "holds"
+        },
+        {
+          "edge_id": "edge:mystery:mirathorn-toll-riot:caused_by:faction:the_shepherds_flock",
+          "source": "faction:the_shepherds_flock",
+          "target": "mystery:mirathorn-toll-riot",
+          "predicate": "causes",
+          "label": "causes"
+        },
+        {
+          "edge_id": "edge:node:ephanna:knows_about:faction:the_shepherds_flock",
+          "source": "node:ephanna",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:torbins-father:possesses:item:torbin_candy",
+          "source": "node:torbins-father",
+          "target": "item:torbin_candy",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:npc:berin-ironfoot:knows_about:faction:the_shepherds_flock",
+          "source": "npc:berin-ironfoot",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:lyra:member_of:faction:the_shepherds_flock",
+          "source": "npc:lyra",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "member_of",
+          "label": "member of"
+        },
+        {
+          "edge_id": "edge:npc:the-shepherd:leads:faction:the_shepherds_flock",
+          "source": "npc:the-shepherd",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "leads",
+          "label": "leads"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:aware_of:mystery:oily-eyed-guards",
+          "source": "npc:captain-lysandra",
+          "target": "mystery:oily-eyed-guards",
+          "predicate": "aware_of",
+          "label": "aware of"
+        },
+        {
+          "edge_id": "edge:npc:torbin:child_of:npc:jove",
+          "source": "npc:jove",
+          "target": "npc:torbin",
+          "predicate": "parent_of",
+          "label": "parent of"
+        },
+        {
+          "edge_id": "edge:npc:torbin:knows_about:creature:grotesque_hempholm_tree",
+          "source": "npc:torbin",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:torbin:located_in:location:hempholm",
+          "source": "npc:torbin",
+          "target": "location:hempholm",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:creature:sprite:serves:node:ephanna",
+          "source": "creature:sprite",
+          "target": "node:ephanna",
+          "predicate": "serves",
+          "label": "serves"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:grotesque_hempholm_tree",
+          "source": "node:ephanna",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:node:bubbles",
+          "source": "node:ephanna",
+          "target": "node:bubbles",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:causes:mystery:runaway-horse-incident",
+          "source": "node:ephanna",
+          "target": "mystery:runaway-horse-incident",
+          "predicate": "causes",
+          "label": "causes"
+        },
+        {
+          "edge_id": "edge:node:ephanna:causes:node:bonogo",
+          "source": "node:ephanna",
+          "target": "node:bonogo",
+          "predicate": "causes",
+          "label": "causes"
+        },
+        {
+          "edge_id": "edge:node:ephanna:knows_about:mystery:ephanna-sprite-summons",
+          "source": "node:ephanna",
+          "target": "mystery:ephanna-sprite-summons",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:ephanna:located_in:location:cell",
+          "source": "node:ephanna",
+          "target": "location:cell",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:ephanna:owns:item:mage-hand",
+          "source": "node:ephanna",
+          "target": "item:mage-hand",
+          "predicate": "owns",
+          "label": "owns"
+        },
+        {
+          "edge_id": "edge:node:ephanna:possesses:item:precious_metal_tree_sap",
+          "source": "node:ephanna",
+          "target": "item:precious_metal_tree_sap",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:node:ephanna:present_at:location:cell",
+          "source": "node:ephanna",
+          "target": "location:cell",
+          "predicate": "present_at",
+          "label": "present at"
+        },
+        {
+          "edge_id": "edge:node:ephanna:travels_to:location:main-gate",
+          "source": "node:ephanna",
+          "target": "location:main-gate",
+          "predicate": "travels_to",
+          "label": "travels to"
+        },
+        {
+          "edge_id": "edge:npc:fey:knows_about:node:ephanna",
+          "source": "npc:fey",
+          "target": "node:ephanna",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:lyra:serves:npc:the-shepherd",
+          "source": "npc:lyra",
+          "target": "npc:the-shepherd",
+          "predicate": "serves",
+          "label": "serves"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "Torbin met in Hempholm",
+        "capture",
+        "forced meat exposure",
+        "escape with Ephanna"
+      ],
+      "missing_concepts": [
+        "education/ward commitment",
+        "Ephanna took Torbin with Lyra / the Shepherd's Flock",
+        "oily-eye symptom after exposure"
+      ],
+      "violated_negatives": [],
+      "answer": "Torbin\u2019s path starts in Hempholm, where he\u2019s anchored by family and place: he\u2019s Jove\u2019s child, lives in Hempholm, and already knows about the Grotesque Tree there. The pressure point is the Hempholm-side unrest around that tree and the Caretakers; the drunken townsfolk attack the tree, and the broader Hempholm situation is already tied to conflict with the Caretakers and Torvak\u2019s displaced hemp caravan.\n\nThe meat exposure comes later, and the graph only gives the effect rather than a full step-by-step scene of how it happened: there\u2019s a dedicated Torbin/meat-effect mystery, plus the corrupted meat mound/pile and the abhorrent meat wings as the meat-corruption cluster around session 9\u201310. That means the record clearly supports Torbin being materially changed by contact with the meat, but it doesn\u2019t fully spell out the exact moment of exposure in the material I could reach here.\n\nMirathorn shows up as the escape destination, but I don\u2019t have a clean chain of published graph links from captivity to Mirathorn in the returned neighborhood. So the last leg is only partially visible here: Torbin\u2019s Hempholm origin and the meat-corruption aftermath are grounded, while the captivity-to-Mirathorn escape sequence is still a retrieval gap in the current graph view.",
+      "grounding_state": "partial",
+      "elapsed_ms": 16506,
+      "tool_call_count": 5,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "synthesis",
+      "rationale": "Evidence was reachable/retrieved in the graph, but the Agent's synthesized answer omitted one or more required concepts."
+    }
+  },
+  {
+    "qid": "Q07",
+    "title": "Q07 \u2014 Protest leader to meat-distribution leader",
+    "difficulty": 3,
+    "question": "What evidence connects Lyra's role in the toll protest to the later meat-distribution conspiracy?",
+    "gold_answer": "Lyra first appears as leader of the toll-protest crowd. Her followers are identified as the Shepherd's Flock, and Ephanna follows them with Torbin before the pair are captured in a place where Torbin is force-fed the strange meat. In Session 9 disguised party members learn that Lyra is nearby and leading the meat-distribution project.",
+    "must_include": [
+      "Lyra led the toll protest",
+      "Lyra/followers connected to the Shepherd's Flock",
+      "following the group leads Ephanna and Torbin into captivity/meat exposure",
+      "Lyra later leads the meat-distribution project"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "full",
+      "met_concepts": [
+        "Lyra led the toll protest",
+        "Lyra/followers connected to the Shepherd's Flock",
+        "following the group leads Ephanna and Torbin into captivity/meat exposure",
+        "Lyra later leads the meat-distribution project"
+      ],
+      "missing_concepts": [],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 24,
+      "retrieved_relationships_count": 21,
+      "nodes": [
+        {
+          "id": "mystery:cultist-meat-distribution-network",
+          "label": "The Cultist Meat Distribution Network",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:mirathorn-toll-protest",
+          "label": "Protest over the toll at Mirathorn's gate",
+          "kind": "mystery"
+        },
+        {
+          "id": "creature:corrupted-meat-mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "item:abhorrent-meat-wings",
+          "label": "Abhorrent Meat Wings",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat",
+          "label": "The Meat",
+          "kind": "item"
+        },
+        {
+          "id": "faction:the-shepherds-flock",
+          "label": "The Shepherds Flock",
+          "kind": "npc"
+        },
+        {
+          "id": "faction:the_shepherds_flock",
+          "label": "The Shepherds Flock",
+          "kind": "faction"
+        },
+        {
+          "id": "item:symbol_of_the_shepherds_flock",
+          "label": "Symbol of The Shepherds Flock",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:shepherds-flock",
+          "label": "The Shepherds Flock rebel group",
+          "kind": "mystery"
+        },
+        {
+          "id": "faction:cultists",
+          "label": "The Cultists",
+          "kind": "faction"
+        },
+        {
+          "id": "item:secret_scrolls",
+          "label": "Secret Scrolls on Cultists",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:corrupted-meat-distribution",
+          "label": "The Cultist Meat Has Already Been Distributed",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:covert-ops-against-meat",
+          "label": "Covert Operations to Find the Meat and Cultists",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:cultists-mutating",
+          "label": "Cultists transform into monstrous mouths",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:wolf-cultist-guard-corruption",
+          "label": "The Wolf Is a Cultist Manipulating the Guard",
+          "kind": "mystery"
+        },
+        {
+          "id": "npc:cultists",
+          "label": "Cultists",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:lyra",
+          "label": "Lyra",
+          "kind": "npc"
+        },
+        {
+          "id": "mystery:mirathorn-toll-riot",
+          "label": "Riot at Mirathorn Gates over toll",
+          "kind": "mystery"
+        },
+        {
+          "id": "node:ephanna",
+          "label": "Ephanna",
+          "kind": "player_character"
+        },
+        {
+          "id": "npc:berin-ironfoot",
+          "label": "Berin Ironfoot",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:the-shepherd",
+          "label": "The Shepherd",
+          "kind": "npc"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:item:meat:located_in:location:cold-room",
+          "source": "item:meat",
+          "target": "location:cold-room",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:warehouse",
+          "source": "item:meat",
+          "target": "location:warehouse",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:mystery:mirathorn-toll-protest:located_in:location:the-gate",
+          "source": "mystery:mirathorn-toll-protest",
+          "target": "location:the-gate",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:baergrom:attacks:creature:corrupted-meat-pile",
+          "source": "node:baergrom",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:creature:corrupted-meat-mound",
+          "source": "node:bonogo",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:corrupted-meat-pile",
+          "source": "node:ephanna",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:creature:corrupted-meat-mound",
+          "source": "node:karsemine",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:berin:knows_about:item:meat",
+          "source": "npc:berin",
+          "target": "item:meat",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:attacks:item:meat",
+          "source": "npc:captain-lysandra",
+          "target": "item:meat",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:faction:the_shepherds_flock:holds:item:symbol_of_the_shepherds_flock",
+          "source": "faction:the_shepherds_flock",
+          "target": "item:symbol_of_the_shepherds_flock",
+          "predicate": "holds",
+          "label": "holds"
+        },
+        {
+          "edge_id": "edge:mystery:mirathorn-toll-riot:caused_by:faction:the_shepherds_flock",
+          "source": "faction:the_shepherds_flock",
+          "target": "mystery:mirathorn-toll-riot",
+          "predicate": "causes",
+          "label": "causes"
+        },
+        {
+          "edge_id": "edge:node:ephanna:knows_about:faction:the_shepherds_flock",
+          "source": "node:ephanna",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:berin-ironfoot:knows_about:faction:the_shepherds_flock",
+          "source": "npc:berin-ironfoot",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:lyra:member_of:faction:the_shepherds_flock",
+          "source": "npc:lyra",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "member_of",
+          "label": "member of"
+        },
+        {
+          "edge_id": "edge:npc:the-shepherd:leads:faction:the_shepherds_flock",
+          "source": "npc:the-shepherd",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "leads",
+          "label": "leads"
+        },
+        {
+          "edge_id": "edge:faction:cultists:present_at:location:city",
+          "source": "faction:cultists",
+          "target": "location:city",
+          "predicate": "present_at",
+          "label": "present at"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:npc:cultists",
+          "source": "node:bonogo",
+          "target": "npc:cultists",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:npc:cultists",
+          "source": "node:karsemine",
+          "target": "npc:cultists",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:cultists:cooperates_with:npc:meat-mounds",
+          "source": "npc:cultists",
+          "target": "npc:meat-mounds",
+          "predicate": "cooperates_with",
+          "label": "cooperates with"
+        },
+        {
+          "edge_id": "edge:npc:lyra:serves:npc:the-shepherd",
+          "source": "npc:lyra",
+          "target": "npc:the-shepherd",
+          "predicate": "serves",
+          "label": "serves"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "Lyra led the toll protest",
+        "following the group leads Ephanna and Torbin into captivity/meat exposure",
+        "Lyra later leads the meat-distribution project"
+      ],
+      "missing_concepts": [
+        "Lyra/followers connected to the Shepherd's Flock"
+      ],
+      "violated_negatives": [],
+      "answer": "The graph shows only a loose thematic link, not a direct causal chain: the toll protest is anchored at The Gate in session 6, while the meat-distribution conspiracy appears later in session 9. What connects them in the graph is that both revolve around controlled movement of goods through civic chokepoints\u2014first a toll at the gate, then a hidden meat distribution network.\n\nThere\u2019s also an intermediate meat thread in session 8: \u201cThe Meat\u201d is already being tracked, with Berin knowing about it and Captain Lysandra attacking it, and it\u2019s tied to both a cold room and a warehouse. By session 9 that thread has escalated into corrupted meat entities and the named cultist distribution network. So the evidence supports a progression from public control at the gate to covert control of meat logistics, but it does not explicitly say Lyra herself bridged the two.",
+      "grounding_state": "partial",
+      "elapsed_ms": 9243,
+      "tool_call_count": 2,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "synthesis",
+      "rationale": "Evidence was reachable/retrieved in the graph, but the Agent's synthesized answer omitted one or more required concepts."
+    }
+  },
+  {
+    "qid": "Q08",
+    "title": "Q08 \u2014 Evidence of guard infiltration",
+    "difficulty": 3,
+    "question": "What observed evidence supports the conclusion that the meat conspiracy had infiltrated parts of the city guard?",
+    "gold_answer": "Lysandra noticed guards with oily eyes and was unexpectedly locked out of her own storeroom. That storeroom concealed strange meat and a tunnel to a warehouse where Lysandra and trusted guards were later found captured and being force-fed. In Session 9 cultists told the disguised party that they worked for Captain Fairfield and that Captain Blart was coordinating meat distribution at the central office.",
+    "must_include": [
+      "oily-eyed guards",
+      "Lysandra locked out of the storeroom",
+      "hidden meat/tunnel under the guardhouse",
+      "Lysandra/trusted guards captured or force-fed",
+      "Captain Fairfield",
+      "Captain Blart"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "full",
+      "met_concepts": [
+        "oily-eyed guards",
+        "Lysandra locked out of the storeroom",
+        "hidden meat/tunnel under the guardhouse",
+        "Lysandra/trusted guards captured or force-fed",
+        "Captain Fairfield",
+        "Captain Blart"
+      ],
+      "missing_concepts": [],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 20,
+      "retrieved_relationships_count": 23,
+      "nodes": [
+        {
+          "id": "mystery:oily-eyed-guards",
+          "label": "Guards afflicted with oily eyes",
+          "kind": "mystery"
+        },
+        {
+          "id": "faction:city-guard",
+          "label": "City Guard",
+          "kind": "faction"
+        },
+        {
+          "id": "location:old-guard-tower",
+          "label": "old guard tower",
+          "kind": "location"
+        },
+        {
+          "id": "location:storeroom",
+          "label": "Guard Storeroom",
+          "kind": "location"
+        },
+        {
+          "id": "mystery:captain-lysandra-quest",
+          "label": "Captain Lysandra's quest",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:wolf-cultist-guard-corruption",
+          "label": "The Wolf Is a Cultist Manipulating the Guard",
+          "kind": "mystery"
+        },
+        {
+          "id": "node:city-guards",
+          "label": "City Guards",
+          "kind": "faction"
+        },
+        {
+          "id": "node:lysandra-ironveil",
+          "label": "Captain Lysandra Ironveil",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "item:abhorrent-meat-wings",
+          "label": "Abhorrent Meat Wings",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "item"
+        },
+        {
+          "id": "item:map-of-guardhouse",
+          "label": "Map of the Guardhouse",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat",
+          "label": "The Meat",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat-mounds",
+          "label": "Meat Mounds",
+          "kind": "item"
+        },
+        {
+          "id": "npc:captain-lysandra",
+          "label": "Captain Lysandra",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:captain-fairfield",
+          "label": "Captain Fairfield",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:captain-blart",
+          "label": "Captain Blart",
+          "kind": "npc"
+        },
+        {
+          "id": "item:cages",
+          "label": "Cages",
+          "kind": "item"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:location:guardhouse:contains:location:storeroom",
+          "source": "location:guardhouse",
+          "target": "location:storeroom",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:storeroom:contains:item:bookshelf-hidden-staircase",
+          "source": "location:storeroom",
+          "target": "item:bookshelf-hidden-staircase",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:storeroom:leads_to:location:cold-room",
+          "source": "location:storeroom",
+          "target": "location:cold-room",
+          "predicate": "leads_to",
+          "label": "leads to"
+        },
+        {
+          "edge_id": "edge:node:city-guards:attacks:node:protesters",
+          "source": "node:city-guards",
+          "target": "node:protesters",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:city-guards:defends_weakened_location:location:the-gate",
+          "source": "node:city-guards",
+          "target": "location:the-gate",
+          "predicate": "protects",
+          "label": "protects"
+        },
+        {
+          "edge_id": "edge:node:lysandra-ironveil:commands:node:city-guards",
+          "source": "node:lysandra-ironveil",
+          "target": "node:city-guards",
+          "predicate": "commands",
+          "label": "commands"
+        },
+        {
+          "edge_id": "edge:node:party-of-six:works_with:node:lysandra-ironveil",
+          "source": "node:party-of-six",
+          "target": "node:lysandra-ironveil",
+          "predicate": "works_with",
+          "label": "works with"
+        },
+        {
+          "edge_id": "edge:npc:bill:member_of:faction:city-guard",
+          "source": "npc:bill",
+          "target": "faction:city-guard",
+          "predicate": "member_of",
+          "label": "member of"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:aware_of:mystery:oily-eyed-guards",
+          "source": "npc:captain-lysandra",
+          "target": "mystery:oily-eyed-guards",
+          "predicate": "aware_of",
+          "label": "aware of"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:leads:faction:city-guard",
+          "source": "npc:captain-lysandra",
+          "target": "faction:city-guard",
+          "predicate": "leads",
+          "label": "leads"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:pursues:mystery:captain-lysandra-quest",
+          "source": "npc:captain-lysandra",
+          "target": "mystery:captain-lysandra-quest",
+          "predicate": "pursues",
+          "label": "pursues"
+        },
+        {
+          "edge_id": "edge:npc:wolf:governs:location:storeroom",
+          "source": "npc:wolf",
+          "target": "location:storeroom",
+          "predicate": "owns",
+          "label": "owns"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:cold-room",
+          "source": "item:meat",
+          "target": "location:cold-room",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:warehouse",
+          "source": "item:meat",
+          "target": "location:warehouse",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:baergrom:attacks:creature:corrupted-meat-pile",
+          "source": "node:baergrom",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:creature:corrupted-meat-mound",
+          "source": "node:bonogo",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:corrupted-meat-pile",
+          "source": "node:ephanna",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:creature:corrupted-meat-mound",
+          "source": "node:karsemine",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:berin:knows_about:item:meat",
+          "source": "npc:berin",
+          "target": "item:meat",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:attacks:item:meat",
+          "source": "npc:captain-lysandra",
+          "target": "item:meat",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:holds:item:map-of-guardhouse",
+          "source": "npc:captain-lysandra",
+          "target": "item:map-of-guardhouse",
+          "predicate": "holds",
+          "label": "holds"
+        },
+        {
+          "edge_id": "edge:item:cages:contains:npc:captain-lysandra",
+          "source": "item:cages",
+          "target": "npc:captain-lysandra",
+          "predicate": "contains",
+          "label": "contains"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "Lysandra/trusted guards captured or force-fed"
+      ],
+      "missing_concepts": [
+        "oily-eyed guards",
+        "Lysandra locked out of the storeroom",
+        "hidden meat/tunnel under the guardhouse",
+        "Captain Fairfield",
+        "Captain Blart"
+      ],
+      "violated_negatives": [],
+      "answer": "The strongest evidence is that the City Guards are directly linked to violence against the toll protesters at The Gate: the graph records the guards as attacking the protesters, while also showing Captain Lysandra Ironveil commanding the City Guards and the guards protecting The Gate. That combination suggests not just neutral crowd control, but an aligned response with the gate-side power structure.\n\nThere\u2019s also a proximity clue: the toll protest itself is tied to The Gate, and the Party of Six is explicitly present there and working with Lysandra. In other words, the observed scene placed the guards, the captain, and the protest in the same contested space, with the guards acting against the protesters rather than separating themselves from the conflict.\n\nBased on this graph evidence alone, the case for \u201cinfiltration\u201d is indirect rather than explicit: what\u2019s actually observed is guard hostility toward protesters under Lysandra\u2019s command, in a setting centered on the gate and the toll crisis.",
+      "grounding_state": "partial",
+      "elapsed_ms": 13097,
+      "tool_call_count": 3,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "completion",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "completion",
+          "outcome": "partial",
+          "diagnostic_codes": [
+            "unsupported_locator"
+          ]
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "synthesis",
+      "rationale": "Evidence was reachable/retrieved in the graph, but the Agent's synthesized answer omitted one or more required concepts."
+    }
+  },
+  {
+    "qid": "Q09",
+    "title": "Q09 \u2014 Follow the underground route",
+    "difficulty": 3,
+    "question": "Trace the physical route the party uncovered from the city guard's storeroom to the later warehouse fighting and their eventual short-rest location.",
+    "gold_answer": "The guardhouse storeroom hid a bookshelf/staircase into a cold meat room, where a hidden wall led into tunnels. Those tunnels reached a warehouse in the Warehouse District. The party kept following the trapped tunnel network through a prison and meat-loading junction. In Session 10 one trapdoor opened into the Grit and Grime; after recruiting Thraxx they continued through the tunnel to the last chilled warehouse. Following that fight they returned to the Grit and Grime party for a Short Rest.",
+    "must_include": [
+      "guardhouse storeroom",
+      "hidden staircase/cold meat room",
+      "hidden wall/tunnel",
+      "warehouse district / warehouse",
+      "continued tunnel network and distribution junction",
+      "Grit and Grime",
+      "last warehouse",
+      "return for Short Rest"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "partial",
+      "met_concepts": [
+        "guardhouse storeroom",
+        "hidden staircase/cold meat room",
+        "hidden wall/tunnel",
+        "warehouse district / warehouse",
+        "continued tunnel network and distribution junction",
+        "Grit and Grime",
+        "last warehouse"
+      ],
+      "missing_concepts": [
+        "return for Short Rest"
+      ],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 23,
+      "retrieved_relationships_count": 29,
+      "nodes": [
+        {
+          "id": "location:cold-room",
+          "label": "Cold Room",
+          "kind": "location"
+        },
+        {
+          "id": "item:map-of-guardhouse",
+          "label": "Map of the Guardhouse",
+          "kind": "item"
+        },
+        {
+          "id": "item:tunnel",
+          "label": "The Tunnel",
+          "kind": "item"
+        },
+        {
+          "id": "location:guardhouse",
+          "label": "Guardhouse",
+          "kind": "location"
+        },
+        {
+          "id": "location:hidden_alchemy_room",
+          "label": "Hidden Alchemy Room",
+          "kind": "location"
+        },
+        {
+          "id": "location:storeroom",
+          "label": "Guard Storeroom",
+          "kind": "location"
+        },
+        {
+          "id": "location:tunnel",
+          "label": "The Tunnel",
+          "kind": "location"
+        },
+        {
+          "id": "location:tunnels",
+          "label": "the tunnels",
+          "kind": "location"
+        },
+        {
+          "id": "faction:grit-and-grime-club",
+          "label": "Grit and Grime Club",
+          "kind": "faction"
+        },
+        {
+          "id": "location:grit-and-grime",
+          "label": "Grit and Grime",
+          "kind": "location"
+        },
+        {
+          "id": "mystery:hidden-tunnel",
+          "label": "Hidden tunnel network",
+          "kind": "mystery"
+        },
+        {
+          "id": "obs:grit-and-grime-party",
+          "label": "Party at Grit and Grime",
+          "kind": "mystery"
+        },
+        {
+          "id": "location:underground-tunnels",
+          "label": "Underground Tunnels",
+          "kind": "location"
+        },
+        {
+          "id": "obs:meat-cultists",
+          "label": "Cultists at the Meat Warehouse",
+          "kind": "mystery"
+        },
+        {
+          "id": "creature:corrupted-meat-mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "item:abhorrent-meat-wings",
+          "label": "Abhorrent Meat Wings",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat",
+          "label": "The Meat",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat-mounds",
+          "label": "Meat Mounds",
+          "kind": "item"
+        },
+        {
+          "id": "item:bookshelf-hidden-staircase",
+          "label": "Bookshelf Hidden Staircase",
+          "kind": "item"
+        },
+        {
+          "id": "item:packed_meat_carts",
+          "label": "Carts of Packed Meat",
+          "kind": "item"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:creature:the_guardian:located_in:location:tunnels",
+          "source": "creature:the_guardian",
+          "target": "location:tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:glowing_mushrooms:located_in:location:tunnels",
+          "source": "item:glowing_mushrooms",
+          "target": "location:tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:ladder-trapdoor:located_in:location:tunnel",
+          "source": "item:ladder-trapdoor",
+          "target": "location:tunnel",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:cold-room",
+          "source": "item:meat",
+          "target": "location:cold-room",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:precious_metal_tree_sap:located_in:location:tunnels",
+          "source": "item:precious_metal_tree_sap",
+          "target": "location:tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:location:cavern:part_of:location:tunnels",
+          "source": "location:cavern",
+          "target": "location:tunnels",
+          "predicate": "part_of",
+          "label": "part of"
+        },
+        {
+          "edge_id": "edge:location:cold-room:routes_to:location:tunnel",
+          "source": "location:cold-room",
+          "target": "location:tunnel",
+          "predicate": "leads_to",
+          "label": "leads to"
+        },
+        {
+          "edge_id": "edge:location:guardhouse:contains:location:storeroom",
+          "source": "location:guardhouse",
+          "target": "location:storeroom",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:heart_of_the_tree:contained_by:location:tunnels",
+          "source": "location:tunnels",
+          "target": "location:heart_of_the_tree",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:hidden_alchemy_room:sublocation_of:location:wizards_tower_basement",
+          "source": "location:hidden_alchemy_room",
+          "target": "location:wizards_tower_basement",
+          "predicate": "part_of",
+          "label": "part of"
+        },
+        {
+          "edge_id": "edge:location:storeroom:contains:item:bookshelf-hidden-staircase",
+          "source": "location:storeroom",
+          "target": "item:bookshelf-hidden-staircase",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:storeroom:leads_to:location:cold-room",
+          "source": "location:storeroom",
+          "target": "location:cold-room",
+          "predicate": "leads_to",
+          "label": "leads to"
+        },
+        {
+          "edge_id": "edge:location:tunnel:routes_to:location:warehouse-district",
+          "source": "location:tunnel",
+          "target": "location:warehouse-district",
+          "predicate": "leads_to",
+          "label": "leads to"
+        },
+        {
+          "edge_id": "edge:location:tunnels:part_of:location:underneath_hempholm",
+          "source": "location:tunnels",
+          "target": "location:underneath_hempholm",
+          "predicate": "part_of",
+          "label": "part of"
+        },
+        {
+          "edge_id": "edge:mystery:unidentified_alchemical_tools:located_in:location:hidden_alchemy_room",
+          "source": "mystery:unidentified_alchemical_tools",
+          "target": "location:hidden_alchemy_room",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:alchemical_tools_and_ingredients:located_in:location:hidden_alchemy_room",
+          "source": "node:alchemical_tools_and_ingredients",
+          "target": "location:hidden_alchemy_room",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:faction:grit-and-grime-club:serves:group:goblins-hobgoblins-bugbears",
+          "source": "faction:grit-and-grime-club",
+          "target": "group:goblins-hobgoblins-bugbears",
+          "predicate": "serves",
+          "label": "serves"
+        },
+        {
+          "edge_id": "edge:item:packed_meat_carts:located_in:location:underground-tunnels",
+          "source": "item:packed_meat_carts",
+          "target": "location:underground-tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:location:prison:located_in:location:underground-tunnels",
+          "source": "location:prison",
+          "target": "location:underground-tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:npc:grobnok:owns:location:grit-and-grime",
+          "source": "npc:grobnok",
+          "target": "location:grit-and-grime",
+          "predicate": "owns",
+          "label": "owns"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:warehouse",
+          "source": "item:meat",
+          "target": "location:warehouse",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:baergrom:attacks:creature:corrupted-meat-pile",
+          "source": "node:baergrom",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:creature:corrupted-meat-mound",
+          "source": "node:bonogo",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:corrupted-meat-pile",
+          "source": "node:ephanna",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:creature:corrupted-meat-mound",
+          "source": "node:karsemine",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:berin:knows_about:item:meat",
+          "source": "npc:berin",
+          "target": "item:meat",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:attacks:item:meat",
+          "source": "npc:captain-lysandra",
+          "target": "item:meat",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:wolf:governs:location:storeroom",
+          "source": "npc:wolf",
+          "target": "location:storeroom",
+          "predicate": "owns",
+          "label": "owns"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "guardhouse storeroom",
+        "hidden staircase/cold meat room",
+        "hidden wall/tunnel",
+        "warehouse district / warehouse",
+        "continued tunnel network and distribution junction",
+        "last warehouse",
+        "return for Short Rest"
+      ],
+      "missing_concepts": [
+        "Grit and Grime"
+      ],
+      "violated_negatives": [],
+      "answer": "The route runs from the Guardhouse\u2019s storeroom into the hidden staircase/bookshelf, down into the Cold Room, then through the Tunnel, which opens into the Warehouse District. From there the party reached the Warehouse itself, where the later fighting happened.\n\nTheir short-rest location was the Tunnel, specifically by the ladder and trap door there.",
+      "grounding_state": "partial",
+      "elapsed_ms": 10046,
+      "tool_call_count": 3,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "graph_connectivity_identity",
+      "rationale": "Entities exist in the graph (e.g. Captain Lysandra Ironveil vs Captain Lysandra for Q04, storeroom/cold room/tunnel/warehouse for Q09), but missing relationship edges or entity unification prevents transitive chain traversal."
+    }
+  },
+  {
+    "qid": "Q10",
+    "title": "Q10 \u2014 What did the party learn about fighting the meat?",
+    "difficulty": 4,
+    "question": "What did the party learn about fighting the corrupted meat creatures, and which tactics appeared to make the situation better or worse?",
+    "gold_answer": "Cutting or crushing Meat Mounds tended to shed smaller Meat Piles, and ordinary damage produced poisonous clouds. Caelynn noticed that her cold/Snowball attack did not create new piles. Ephanna's Shatter destroyed piles, and fire consumed smaller piles. Tasha's Hideous Laughter did nothing. In the next warehouse the party again used oil/fire and area magic while facing Meat Mounds plus new Abhorrent Meat Wings.",
+    "must_include": [
+      "physical attacks can shed Meat Piles",
+      "poisonous cloud from ordinary damage",
+      "cold/Snowball did not produce new piles",
+      "Shatter destroyed piles",
+      "fire consumed smaller piles",
+      "Hideous Laughter had no effect"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "partial",
+      "met_concepts": [
+        "physical attacks can shed Meat Piles",
+        "cold/Snowball did not produce new piles"
+      ],
+      "missing_concepts": [
+        "poisonous cloud from ordinary damage",
+        "Shatter destroyed piles",
+        "fire consumed smaller piles",
+        "Hideous Laughter had no effect"
+      ],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 15,
+      "retrieved_relationships_count": 12,
+      "nodes": [
+        {
+          "id": "creature:corrupted-meat-mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "item:corrupted_meat_mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "item"
+        },
+        {
+          "id": "creature:offal-pile",
+          "label": "Disgusting Pile of Offal",
+          "kind": "npc"
+        },
+        {
+          "id": "item:abhorrent-meat-wings",
+          "label": "Abhorrent Meat Wings",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat",
+          "label": "The Meat",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat_rack",
+          "label": "Meat Rack",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat-mounds",
+          "label": "Meat Mounds",
+          "kind": "item"
+        },
+        {
+          "id": "item:packed_meat_carts",
+          "label": "Carts of Packed Meat",
+          "kind": "item"
+        },
+        {
+          "id": "node:baergrom",
+          "label": "Baergrom",
+          "kind": "player_character"
+        },
+        {
+          "id": "node:bonogo",
+          "label": "Bonogo",
+          "kind": "player_character"
+        },
+        {
+          "id": "node:caelynn",
+          "label": "Caelynn",
+          "kind": "player_character"
+        },
+        {
+          "id": "node:ephanna",
+          "label": "Ephanna",
+          "kind": "player_character"
+        },
+        {
+          "id": "node:karsemine",
+          "label": "Karsemine",
+          "kind": "player_character"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:creature:offal-pile:attacks:node:karsemine",
+          "source": "creature:offal-pile",
+          "target": "node:karsemine",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:cold-room",
+          "source": "item:meat",
+          "target": "location:cold-room",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:warehouse",
+          "source": "item:meat",
+          "target": "location:warehouse",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:baergrom:attacks:creature:corrupted-meat-pile",
+          "source": "node:baergrom",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:creature:corrupted-meat-mound",
+          "source": "node:bonogo",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:corrupted-meat-pile",
+          "source": "node:ephanna",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:creature:corrupted-meat-mound",
+          "source": "node:karsemine",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:item:meat_rack",
+          "source": "node:karsemine",
+          "target": "item:meat_rack",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:berin:knows_about:item:meat",
+          "source": "npc:berin",
+          "target": "item:meat",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:attacks:item:meat",
+          "source": "npc:captain-lysandra",
+          "target": "item:meat",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:item:packed_meat_carts:located_in:location:underground-tunnels",
+          "source": "item:packed_meat_carts",
+          "target": "location:underground-tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "physical attacks can shed Meat Piles"
+      ],
+      "missing_concepts": [
+        "poisonous cloud from ordinary damage",
+        "cold/Snowball did not produce new piles",
+        "Shatter destroyed piles",
+        "fire consumed smaller piles",
+        "Hideous Laughter had no effect"
+      ],
+      "violated_negatives": [],
+      "answer": "The party learned that the corrupted meat creatures were much more manageable when they were focused down together rather than left to spread pressure around. In the later fight, the group\u2019s coordinated attacks landed on both the Corrupted Meat Mound and Corrupted Meat Pile, which suggests the effective pattern was to stay organized and commit multiple attackers to a target instead of scattering efforts.\n\nThe clearest \u201cbetter\u201d tactic was teamwork and concentration of force: Baergrom, Bonogo, Caelynn, Ephanna, and Karsemine all attacked the corrupted meat threats, and Baergrom and Bonogo were cooperating during the same session. The clearest \u201cworse\u201d behavior was Bonogo attacking Caelynn, which reads as internal conflict that would only make the situation more unstable. Karsemine also attacked the Meat Rack in the same sequence, so actions that shifted attention onto objects or allies instead of the meat creatures themselves appear to have been less helpful.",
+      "grounding_state": "partial",
+      "elapsed_ms": 13235,
+      "tool_call_count": 4,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "graph_coverage",
+      "rationale": "The underlying factual details (e.g. arcana check extraplanar result for Q01, specific ward contract commitments for Q03, combat spell interactions for Q10, force-feeding temporal specifics for Q13, extraplanar/abyssal clues for Q15) were never published as object properties, summaries, or typed assertions in World revision rev:b82db72693c27e0218026fd1ff514a68."
+    }
+  },
+  {
+    "qid": "Q11",
+    "title": "Q11 \u2014 Track Ephanna's Sprite/fey familiar",
+    "difficulty": 4,
+    "question": "What role did Ephanna's Sprite or fey familiar play from Sessions 6 through 10, and what was its last known state?",
+    "gold_answer": "Ephanna secretly summoned a Sprite on the road to Mirathorn, with Torbin the only person explicitly noted as knowing. During Ephanna's captivity a fey familiar helped loosen his bonds. Ephanna later used his Sprite to scout the tunnels and warehouse route. In Session 10 the Sprite again helped scout and was killed in the warehouse battle.",
+    "must_include": [
+      "secret Sprite summon",
+      "Torbin knew",
+      "fey familiar helped with the escape",
+      "Sprite scouted tunnels/warehouse",
+      "Sprite killed in Session 10"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "full",
+      "met_concepts": [
+        "secret Sprite summon",
+        "Torbin knew",
+        "fey familiar helped with the escape",
+        "Sprite scouted tunnels/warehouse",
+        "Sprite killed in Session 10"
+      ],
+      "missing_concepts": [],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 23,
+      "retrieved_relationships_count": 30,
+      "nodes": [
+        {
+          "id": "mystery:ephanna-sprite-summons",
+          "label": "Ephanna's secret sprite summoning",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:fey-deal",
+          "label": "Fey's deal with Ephanna",
+          "kind": "mystery"
+        },
+        {
+          "id": "obs:sprite-killed",
+          "label": "Ephanna's Sprite Killed",
+          "kind": "mystery"
+        },
+        {
+          "id": "creature:sprite",
+          "label": "Sprite",
+          "kind": "npc"
+        },
+        {
+          "id": "item:ephannas-gear-chest",
+          "label": "Ephanna's Gear Chest",
+          "kind": "item"
+        },
+        {
+          "id": "item:mage-hand",
+          "label": "Ephanna's Mage Hand",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:ephanna-captured",
+          "label": "Ephanna captured and imprisoned",
+          "kind": "mystery"
+        },
+        {
+          "id": "node:ephanna",
+          "label": "Ephanna",
+          "kind": "player_character"
+        },
+        {
+          "id": "item:tunnel",
+          "label": "The Tunnel",
+          "kind": "item"
+        },
+        {
+          "id": "location:tunnel",
+          "label": "The Tunnel",
+          "kind": "location"
+        },
+        {
+          "id": "location:tunnels",
+          "label": "the tunnels",
+          "kind": "location"
+        },
+        {
+          "id": "location:underground-tunnels",
+          "label": "Underground Tunnels",
+          "kind": "location"
+        },
+        {
+          "id": "location:warehouse",
+          "label": "Warehouse",
+          "kind": "location"
+        },
+        {
+          "id": "location:warehouse-district",
+          "label": "Warehouse District",
+          "kind": "location"
+        },
+        {
+          "id": "item:key-to-torbins-cell",
+          "label": "Key to Torbin's Cell",
+          "kind": "item"
+        },
+        {
+          "id": "item:torbin_candy",
+          "label": "Torbin's Candy",
+          "kind": "item"
+        },
+        {
+          "id": "item:torbin_ward_contract",
+          "label": "Torbin's Ward Contract",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:hempholm-tree-study",
+          "label": "Studying the Tree with Torbin and Jove",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:torbin-meat-effect",
+          "label": "How Torbin Has Been Affected by the Meat",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:torbin-ward-contract",
+          "label": "Torbin's ward contract and future",
+          "kind": "mystery"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:grotesque_hempholm_tree",
+          "label": "Grotesque Tree of Hempholm",
+          "kind": "creature"
+        },
+        {
+          "id": "faction:the_shepherds_flock",
+          "label": "The Shepherds Flock",
+          "kind": "faction"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:creature:sprite:serves:node:ephanna",
+          "source": "creature:sprite",
+          "target": "node:ephanna",
+          "predicate": "serves",
+          "label": "serves"
+        },
+        {
+          "edge_id": "edge:item:key-to-torbins-cell:near:item:ephannas-gear-chest",
+          "source": "item:key-to-torbins-cell",
+          "target": "item:ephannas-gear-chest",
+          "predicate": "near",
+          "label": "near"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:corrupted-meat-pile",
+          "source": "node:ephanna",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:grotesque_hempholm_tree",
+          "source": "node:ephanna",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:node:bubbles",
+          "source": "node:ephanna",
+          "target": "node:bubbles",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:causes:mystery:runaway-horse-incident",
+          "source": "node:ephanna",
+          "target": "mystery:runaway-horse-incident",
+          "predicate": "causes",
+          "label": "causes"
+        },
+        {
+          "edge_id": "edge:node:ephanna:causes:node:bonogo",
+          "source": "node:ephanna",
+          "target": "node:bonogo",
+          "predicate": "causes",
+          "label": "causes"
+        },
+        {
+          "edge_id": "edge:node:ephanna:knows_about:faction:the_shepherds_flock",
+          "source": "node:ephanna",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:ephanna:knows_about:mystery:ephanna-sprite-summons",
+          "source": "node:ephanna",
+          "target": "mystery:ephanna-sprite-summons",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:ephanna:located_in:location:cell",
+          "source": "node:ephanna",
+          "target": "location:cell",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:ephanna:owns:item:mage-hand",
+          "source": "node:ephanna",
+          "target": "item:mage-hand",
+          "predicate": "owns",
+          "label": "owns"
+        },
+        {
+          "edge_id": "edge:node:ephanna:possesses:item:ephannas-gear-chest",
+          "source": "node:ephanna",
+          "target": "item:ephannas-gear-chest",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:node:ephanna:possesses:item:precious_metal_tree_sap",
+          "source": "node:ephanna",
+          "target": "item:precious_metal_tree_sap",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:node:ephanna:present_at:location:cell",
+          "source": "node:ephanna",
+          "target": "location:cell",
+          "predicate": "present_at",
+          "label": "present at"
+        },
+        {
+          "edge_id": "edge:node:ephanna:travels_to:location:main-gate",
+          "source": "node:ephanna",
+          "target": "location:main-gate",
+          "predicate": "travels_to",
+          "label": "travels to"
+        },
+        {
+          "edge_id": "edge:npc:fey:knows_about:node:ephanna",
+          "source": "npc:fey",
+          "target": "node:ephanna",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:creature:the_guardian:located_in:location:tunnels",
+          "source": "creature:the_guardian",
+          "target": "location:tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:glowing_mushrooms:located_in:location:tunnels",
+          "source": "item:glowing_mushrooms",
+          "target": "location:tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:ladder-trapdoor:located_in:location:tunnel",
+          "source": "item:ladder-trapdoor",
+          "target": "location:tunnel",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:warehouse",
+          "source": "item:meat",
+          "target": "location:warehouse",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:packed_meat_carts:located_in:location:underground-tunnels",
+          "source": "item:packed_meat_carts",
+          "target": "location:underground-tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:precious_metal_tree_sap:located_in:location:tunnels",
+          "source": "item:precious_metal_tree_sap",
+          "target": "location:tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:location:cavern:part_of:location:tunnels",
+          "source": "location:cavern",
+          "target": "location:tunnels",
+          "predicate": "part_of",
+          "label": "part of"
+        },
+        {
+          "edge_id": "edge:location:cold-room:routes_to:location:tunnel",
+          "source": "location:cold-room",
+          "target": "location:tunnel",
+          "predicate": "leads_to",
+          "label": "leads to"
+        },
+        {
+          "edge_id": "edge:location:heart_of_the_tree:contained_by:location:tunnels",
+          "source": "location:tunnels",
+          "target": "location:heart_of_the_tree",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:prison:located_in:location:underground-tunnels",
+          "source": "location:prison",
+          "target": "location:underground-tunnels",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:location:tunnel:routes_to:location:warehouse-district",
+          "source": "location:tunnel",
+          "target": "location:warehouse-district",
+          "predicate": "leads_to",
+          "label": "leads to"
+        },
+        {
+          "edge_id": "edge:location:tunnels:part_of:location:underneath_hempholm",
+          "source": "location:tunnels",
+          "target": "location:underneath_hempholm",
+          "predicate": "part_of",
+          "label": "part of"
+        },
+        {
+          "edge_id": "edge:location:warehouse:located_in:location:warehouse-district",
+          "source": "location:warehouse",
+          "target": "location:warehouse-district",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:torbins-father:possesses:item:torbin_candy",
+          "source": "node:torbins-father",
+          "target": "item:torbin_candy",
+          "predicate": "possesses",
+          "label": "possesses"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "secret Sprite summon",
+        "fey familiar helped with the escape",
+        "Sprite killed in Session 10"
+      ],
+      "missing_concepts": [
+        "Torbin knew",
+        "Sprite scouted tunnels/warehouse"
+      ],
+      "violated_negatives": [],
+      "answer": "Ephanna\u2019s sprite/fey familiar appears to have been a loyal attendant to Ephanna through the middle of the arc: by Session 6 it\u2019s tied to Ephanna\u2019s secret sprite summoning, and by the time the graph reaches Session 9 it\u2019s explicitly serving Ephanna. The surrounding Session 7\u20138 material shows the Fey becoming aware of Ephanna and pursuing a deal with her, while Ephanna\u2019s situation shifts toward capture and imprisonment, so the familiar\u2019s role sits in the background as part of Ephanna\u2019s magical and fey-adjacent entanglement rather than as an independent actor.\n\nIts last known state is that it was killed in Session 9.",
+      "grounding_state": "partial",
+      "elapsed_ms": 17234,
+      "tool_call_count": 5,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "synthesis",
+      "rationale": "Evidence was reachable/retrieved in the graph, but the Agent's synthesized answer omitted one or more required concepts."
+    }
+  },
+  {
+    "qid": "Q12",
+    "title": "Q12 \u2014 Continuity warning: Lyra",
+    "difficulty": 4,
+    "question": "If a future session tried to portray Lyra as only an uninvolved protest organizer, what continuity facts should an agent surface before the GM commits to that?",
+    "gold_answer": "The agent should surface that Lyra led the toll protest, her followers were tied to the Shepherd's Flock, Ephanna and Torbin were captured after following that group, and by Session 9 cultists identified Lyra as leading the meat-distribution project.",
+    "must_include": [
+      "protest leader",
+      "Shepherd's Flock connection",
+      "capture/meat context after following her group",
+      "later distribution leadership"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "full",
+      "met_concepts": [
+        "protest leader",
+        "Shepherd's Flock connection",
+        "capture/meat context after following her group",
+        "later distribution leadership"
+      ],
+      "missing_concepts": [],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 21,
+      "retrieved_relationships_count": 18,
+      "nodes": [
+        {
+          "id": "faction:the-shepherds-flock",
+          "label": "The Shepherds Flock",
+          "kind": "npc"
+        },
+        {
+          "id": "faction:the_shepherds_flock",
+          "label": "The Shepherds Flock",
+          "kind": "faction"
+        },
+        {
+          "id": "item:symbol_of_the_shepherds_flock",
+          "label": "Symbol of The Shepherds Flock",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:cultist-meat-distribution-network",
+          "label": "The Cultist Meat Distribution Network",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:shepherds-flock",
+          "label": "The Shepherds Flock rebel group",
+          "kind": "mystery"
+        },
+        {
+          "id": "creature:corrupted-meat-mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "item:abhorrent-meat-wings",
+          "label": "Abhorrent Meat Wings",
+          "kind": "item"
+        },
+        {
+          "id": "item:ephannas-gear-chest",
+          "label": "Ephanna's Gear Chest",
+          "kind": "item"
+        },
+        {
+          "id": "item:key-to-torbins-cell",
+          "label": "Key to Torbin's Cell",
+          "kind": "item"
+        },
+        {
+          "id": "item:mage-hand",
+          "label": "Ephanna's Mage Hand",
+          "kind": "item"
+        },
+        {
+          "id": "item:torbin_candy",
+          "label": "Torbin's Candy",
+          "kind": "item"
+        },
+        {
+          "id": "item:torbin_ward_contract",
+          "label": "Torbin's Ward Contract",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:ephanna-captured",
+          "label": "Ephanna captured and imprisoned",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:ephanna-sprite-summons",
+          "label": "Ephanna's secret sprite summoning",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:fey-deal",
+          "label": "Fey's deal with Ephanna",
+          "kind": "mystery"
+        },
+        {
+          "id": "npc:lyra",
+          "label": "Lyra",
+          "kind": "npc"
+        },
+        {
+          "id": "mystery:mirathorn-toll-riot",
+          "label": "Riot at Mirathorn Gates over toll",
+          "kind": "mystery"
+        },
+        {
+          "id": "node:ephanna",
+          "label": "Ephanna",
+          "kind": "player_character"
+        },
+        {
+          "id": "npc:berin-ironfoot",
+          "label": "Berin Ironfoot",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:the-shepherd",
+          "label": "The Shepherd",
+          "kind": "npc"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:faction:the_shepherds_flock:holds:item:symbol_of_the_shepherds_flock",
+          "source": "faction:the_shepherds_flock",
+          "target": "item:symbol_of_the_shepherds_flock",
+          "predicate": "holds",
+          "label": "holds"
+        },
+        {
+          "edge_id": "edge:mystery:mirathorn-toll-riot:caused_by:faction:the_shepherds_flock",
+          "source": "faction:the_shepherds_flock",
+          "target": "mystery:mirathorn-toll-riot",
+          "predicate": "causes",
+          "label": "causes"
+        },
+        {
+          "edge_id": "edge:node:baergrom:attacks:creature:corrupted-meat-pile",
+          "source": "node:baergrom",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:creature:corrupted-meat-mound",
+          "source": "node:bonogo",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:corrupted-meat-pile",
+          "source": "node:ephanna",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:knows_about:faction:the_shepherds_flock",
+          "source": "node:ephanna",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:creature:corrupted-meat-mound",
+          "source": "node:karsemine",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:berin-ironfoot:knows_about:faction:the_shepherds_flock",
+          "source": "npc:berin-ironfoot",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:lyra:member_of:faction:the_shepherds_flock",
+          "source": "npc:lyra",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "member_of",
+          "label": "member of"
+        },
+        {
+          "edge_id": "edge:npc:the-shepherd:leads:faction:the_shepherds_flock",
+          "source": "npc:the-shepherd",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "leads",
+          "label": "leads"
+        },
+        {
+          "edge_id": "edge:item:key-to-torbins-cell:near:item:ephannas-gear-chest",
+          "source": "item:key-to-torbins-cell",
+          "target": "item:ephannas-gear-chest",
+          "predicate": "near",
+          "label": "near"
+        },
+        {
+          "edge_id": "edge:node:ephanna:knows_about:mystery:ephanna-sprite-summons",
+          "source": "node:ephanna",
+          "target": "mystery:ephanna-sprite-summons",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:ephanna:owns:item:mage-hand",
+          "source": "node:ephanna",
+          "target": "item:mage-hand",
+          "predicate": "owns",
+          "label": "owns"
+        },
+        {
+          "edge_id": "edge:node:ephanna:possesses:item:ephannas-gear-chest",
+          "source": "node:ephanna",
+          "target": "item:ephannas-gear-chest",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:node:torbins-father:possesses:item:torbin_candy",
+          "source": "node:torbins-father",
+          "target": "item:torbin_candy",
+          "predicate": "possesses",
+          "label": "possesses"
+        },
+        {
+          "edge_id": "edge:npc:fey:pursues:mystery:fey-deal",
+          "source": "npc:fey",
+          "target": "mystery:fey-deal",
+          "predicate": "pursues",
+          "label": "pursues"
+        },
+        {
+          "edge_id": "edge:npc:lyra:serves:npc:the-shepherd",
+          "source": "npc:lyra",
+          "target": "npc:the-shepherd",
+          "predicate": "serves",
+          "label": "serves"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "protest leader",
+        "Shepherd's Flock connection"
+      ],
+      "missing_concepts": [
+        "capture/meat context after following her group",
+        "later distribution leadership"
+      ],
+      "violated_negatives": [],
+      "answer": "Before the GM reduces Lyra to \u201cjust an uninvolved protest organizer,\u201d the continuity flags to surface are that Lyra is already tied to The Shepherds Flock, and specifically serves The Shepherd. That means she is not a detached civic actor in the available graph; she sits inside the faction structure that\u2019s linked to the toll unrest.\n\nThe surrounding chain also matters: The Shepherd leads The Shepherds Flock, The Shepherd is located in the Swamp, and the Flock is associated with the Mirathorn toll riot. So Lyra\u2019s role should be read in the context of a faction already implicated in the unrest, not as a neutral bystander. The graph also shows the Toll Protesters carrying the protest fliers, which supports that the protest itself exists as a separate public-facing movement, but it doesn\u2019t overwrite Lyra\u2019s factional ties.\n\nSo if a future session wants to portray her as only an organizer, the agent should first surface: Lyra is a Flock member, Lyra serves The Shepherd, The Shepherd leads the Flock, and the Flock is tied to the riot. That\u2019s the continuity pressure against a purely uninvolved framing.",
+      "grounding_state": "partial",
+      "elapsed_ms": 7480,
+      "tool_call_count": 1,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "agent_orchestration",
+      "rationale": "Oracle retrieval proved required relationships and nodes are reachable in the graph, but the Agent performed only 1 tool call(s) and stopped investigating before collecting the multi-hop evidence."
+    }
+  },
+  {
+    "qid": "Q13",
+    "title": "Q13 \u2014 Continuity warning: Torbin",
+    "difficulty": 4,
+    "question": "If a future plan assumed Torbin had never been exposed to the corrupted meat, what prior facts should the agent use to warn the GM?",
+    "gold_answer": "Torbin was force-fed meat while captive in Session 7, was heard being forced to eat it again in Session 8, and after escape he had begun to show the same oily-eye sign associated with suspicious guards.",
+    "must_include": [
+      "force-fed in Session 7",
+      "force-fed/heard being force-fed again in Session 8",
+      "oily-eye symptom after escape"
+    ],
+    "must_not_claim": [],
+    "oracle": {
+      "credit": "partial",
+      "met_concepts": [
+        "oily-eye symptom after escape"
+      ],
+      "missing_concepts": [
+        "force-fed in Session 7",
+        "force-fed/heard being force-fed again in Session 8"
+      ],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 13,
+      "retrieved_relationships_count": 14,
+      "nodes": [
+        {
+          "id": "mystery:oily-eyed-guards",
+          "label": "Guards afflicted with oily eyes",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:torbin-meat-effect",
+          "label": "How Torbin Has Been Affected by the Meat",
+          "kind": "mystery"
+        },
+        {
+          "id": "creature:corrupted-meat-mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "item:abhorrent-meat-wings",
+          "label": "Abhorrent Meat Wings",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "item"
+        },
+        {
+          "id": "item:key-to-torbins-cell",
+          "label": "Key to Torbin's Cell",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat",
+          "label": "The Meat",
+          "kind": "item"
+        },
+        {
+          "id": "npc:torbin",
+          "label": "Torbin",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:grotesque_hempholm_tree",
+          "label": "Grotesque Tree of Hempholm",
+          "kind": "creature"
+        },
+        {
+          "id": "location:hempholm",
+          "label": "Hempholm",
+          "kind": "location"
+        },
+        {
+          "id": "npc:jove",
+          "label": "Jove",
+          "kind": "npc"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:item:key-to-torbins-cell:near:item:ephannas-gear-chest",
+          "source": "item:key-to-torbins-cell",
+          "target": "item:ephannas-gear-chest",
+          "predicate": "near",
+          "label": "near"
+        },
+        {
+          "edge_id": "edge:node:baergrom:attacks:creature:corrupted-meat-pile",
+          "source": "node:baergrom",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:creature:corrupted-meat-mound",
+          "source": "node:bonogo",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:corrupted-meat-pile",
+          "source": "node:ephanna",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:creature:corrupted-meat-mound",
+          "source": "node:karsemine",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:aware_of:mystery:oily-eyed-guards",
+          "source": "npc:captain-lysandra",
+          "target": "mystery:oily-eyed-guards",
+          "predicate": "aware_of",
+          "label": "aware of"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:cold-room",
+          "source": "item:meat",
+          "target": "location:cold-room",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:warehouse",
+          "source": "item:meat",
+          "target": "location:warehouse",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:npc:berin:knows_about:item:meat",
+          "source": "npc:berin",
+          "target": "item:meat",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:attacks:item:meat",
+          "source": "npc:captain-lysandra",
+          "target": "item:meat",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:torbin:child_of:npc:jove",
+          "source": "npc:jove",
+          "target": "npc:torbin",
+          "predicate": "parent_of",
+          "label": "parent of"
+        },
+        {
+          "edge_id": "edge:npc:torbin:knows_about:creature:grotesque_hempholm_tree",
+          "source": "npc:torbin",
+          "target": "creature:grotesque_hempholm_tree",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:torbin:located_in:location:hempholm",
+          "source": "npc:torbin",
+          "target": "location:hempholm",
+          "predicate": "located_in",
+          "label": "located in"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "force-fed/heard being force-fed again in Session 8"
+      ],
+      "missing_concepts": [
+        "force-fed in Session 7",
+        "oily-eye symptom after escape"
+      ],
+      "violated_negatives": [],
+      "answer": "Warn the GM that Torbin\u2019s \u201cnever exposed\u201d assumption conflicts with the graph: there is already an explicit Torbin-meat-effect mystery, which means prior play established that the meat has affected him. The graph also ties that same meat thread to the corrupted meat mound/pile, so any future plan should treat exposure as an existing factor, not a hypothetical.\n\nThere\u2019s also an older Torbin ward-contract thread that still matters in parallel. That means his future isn\u2019t just about the meat; it\u2019s already been framed as something the GM should evaluate against both the meat impact and his ward-status/future resolution.",
+      "grounding_state": "partial",
+      "elapsed_ms": 9706,
+      "tool_call_count": 3,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "graph_coverage",
+      "rationale": "The underlying factual details (e.g. arcana check extraplanar result for Q01, specific ward contract commitments for Q03, combat spell interactions for Q10, force-feeding temporal specifics for Q13, extraplanar/abyssal clues for Q15) were never published as object properties, summaries, or typed assertions in World revision rev:b82db72693c27e0218026fd1ff514a68."
+    }
+  },
+  {
+    "qid": "Q14",
+    "title": "Q14 \u2014 Played truth vs GM planning",
+    "difficulty": 5,
+    "question": "By the end of Session 9, which claims about the Wolf and the city's leadership are played observations, and which are only GM planning in the source document?",
+    "gold_answer": "The Session 9 `Looking Ahead` section says the Wolf is the guard's second-in-command, a cultist, and alerted to the party. It also says the guard leader is innocent but ensorcelled and proposes possible wizard/council reactions. Those are planning statements, not events established by the Session 9 Recap. The observed Recap instead establishes the warehouse battle, the strange-language clue, Lysandra going to Stormspire, and cultists naming Captain Fairfield, Captain Blart, and Lyra in the distribution network.",
+    "must_include": [
+      "Wolf claims are in planning / Looking Ahead",
+      "guard-leader innocence/ensorcellment is planning",
+      "proposed council/wizard responses are planning",
+      "Fairfield, Blart, and Lyra are supported by the observed Recap"
+    ],
+    "must_not_claim": [
+      "that the Wolf planning statements were observed Session 9 events"
+    ],
+    "oracle": {
+      "credit": "partial",
+      "met_concepts": [
+        "guard-leader innocence/ensorcellment is planning",
+        "Fairfield, Blart, and Lyra are supported by the observed Recap"
+      ],
+      "missing_concepts": [
+        "Wolf claims are in planning / Looking Ahead",
+        "proposed council/wizard responses are planning"
+      ],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 12,
+      "retrieved_relationships_count": 7,
+      "nodes": [
+        {
+          "id": "mystery:wolf-cultist-guard-corruption",
+          "label": "The Wolf Is a Cultist Manipulating the Guard",
+          "kind": "mystery"
+        },
+        {
+          "id": "npc:guard-leader",
+          "label": "Leader of the Guard",
+          "kind": "npc"
+        },
+        {
+          "id": "faction:city-guard",
+          "label": "City Guard",
+          "kind": "faction"
+        },
+        {
+          "id": "faction:cultists",
+          "label": "The Cultists",
+          "kind": "faction"
+        },
+        {
+          "id": "item:secret_scrolls",
+          "label": "Secret Scrolls on Cultists",
+          "kind": "item"
+        },
+        {
+          "id": "location:old-guard-tower",
+          "label": "old guard tower",
+          "kind": "location"
+        },
+        {
+          "id": "location:storeroom",
+          "label": "Guard Storeroom",
+          "kind": "location"
+        },
+        {
+          "id": "mystery:corrupted-meat-distribution",
+          "label": "The Cultist Meat Has Already Been Distributed",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:wolfs-role",
+          "label": "Wolf's involvement",
+          "kind": "mystery"
+        },
+        {
+          "id": "npc:wolf",
+          "label": "Wolf",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:captain-fairfield",
+          "label": "Captain Fairfield",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:captain-blart",
+          "label": "Captain Blart",
+          "kind": "npc"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:faction:cultists:present_at:location:city",
+          "source": "faction:cultists",
+          "target": "location:city",
+          "predicate": "present_at",
+          "label": "present at"
+        },
+        {
+          "edge_id": "edge:location:guardhouse:contains:location:storeroom",
+          "source": "location:guardhouse",
+          "target": "location:storeroom",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:storeroom:contains:item:bookshelf-hidden-staircase",
+          "source": "location:storeroom",
+          "target": "item:bookshelf-hidden-staircase",
+          "predicate": "contains",
+          "label": "contains"
+        },
+        {
+          "edge_id": "edge:location:storeroom:leads_to:location:cold-room",
+          "source": "location:storeroom",
+          "target": "location:cold-room",
+          "predicate": "leads_to",
+          "label": "leads to"
+        },
+        {
+          "edge_id": "edge:npc:bill:member_of:faction:city-guard",
+          "source": "npc:bill",
+          "target": "faction:city-guard",
+          "predicate": "member_of",
+          "label": "member of"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:leads:faction:city-guard",
+          "source": "npc:captain-lysandra",
+          "target": "faction:city-guard",
+          "predicate": "leads",
+          "label": "leads"
+        },
+        {
+          "edge_id": "edge:npc:wolf:governs:location:storeroom",
+          "source": "npc:wolf",
+          "target": "location:storeroom",
+          "predicate": "owns",
+          "label": "owns"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "Wolf claims are in planning / Looking Ahead",
+        "guard-leader innocence/ensorcellment is planning",
+        "proposed council/wizard responses are planning"
+      ],
+      "missing_concepts": [
+        "Fairfield, Blart, and Lyra are supported by the observed Recap"
+      ],
+      "violated_negatives": [],
+      "answer": "By the end of Session 9, the source-backed claims about the Wolf and the city\u2019s leadership are mixed: some are played observations, and some are still just GM planning language.\n\nPlayed observations:\n- The Wolf is tied to the guard-storeroom thread from Session 8, with the existing recap evidence pointing to Wolf, the storeroom, and \u201cWolf\u2019s involvement.\u201d\n- The city leadership thread has advanced into concrete session-9 material: \u201cHow the City Leadership Reacts to the Meat Crisis\u201d and \u201cPolitical Intrigue at the City Council\u201d are both supported by Session 9 recap evidence, so they read as active in-play developments rather than only prep.\n\nOnly GM planning / setup in the source document:\n- The more specific interpretation that \u201cThe Wolf Is a Cultist Manipulating the Guard\u201d is still best treated as a mystery label, not a confirmed played fact.\n- The city-guard corruption angle likewise remains a mystery/planning frame unless you have a separate play transcript confirming it; the graph only shows the mystery node, not a settled in-play resolution.\n\nOne caveat: the source anchors for these recap spans are admitted but not directly readable here, so I can tell you which claims are anchored to Session 8/9 recap evidence versus which remain mystery-planning labels, but not quote the exact source wording.",
+      "grounding_state": "partial",
+      "elapsed_ms": 17278,
+      "tool_call_count": 3,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "enough",
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "completion",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "completion",
+          "outcome": null,
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "source_authority",
+      "rationale": "The graph represents objects and planning assertions (e.g. Wolf's role, the Shepherd's northern swamp presence), but lacks epistemic authority tagging to reliably distinguish played canon from GM Looking Ahead planning statements or unproven rumors."
+    }
+  },
+  {
+    "qid": "Q15",
+    "title": "Q15 \u2014 End-of-Session-10 operational picture",
+    "difficulty": 5,
+    "question": "At the end of Session 10, what is the strongest source-supported operational picture of the corrupted-meat conspiracy: origin clues, distribution method, known actors, physical network, deadline, and immediate party state?",
+    "gold_answer": "The meat has an extraplanar origin clue, reinforced by a scroll Caelynn says resembles Abyssal from other planes. The network uses a hidden guardhouse meat room and tunnels into warehouses, where meat is packed and loaded into carts. Observed named actors include cultists, Captain Fairfield, Captain Blart, and Lyra; suspicious oily-eyed guards and Lysandra's exclusion/capture show guard compromise. A citywide BBQ is imminent, about twelve hours away in Session 10. The party has fought through multiple meat warehouses, encountered Meat Mounds/Piles and Abhorrent Meat Wings, recruited Thraxx, and ends Session 10 back at the Grit and Grime taking a Short Rest.",
+    "must_include": [
+      "extraplanar origin clue",
+      "Abyssal-like scroll clue",
+      "hidden guardhouse meat room/tunnels",
+      "warehouse/cart distribution",
+      "Captain Fairfield",
+      "Captain Blart",
+      "Lyra",
+      "imminent citywide BBQ / about twelve hours",
+      "party resting at Grit and Grime after the latest warehouse fight"
+    ],
+    "must_not_claim": [
+      "Session 9 `Looking Ahead` claims about the Wolf or guard leader as observed fact"
+    ],
+    "oracle": {
+      "credit": "partial",
+      "met_concepts": [
+        "hidden guardhouse meat room/tunnels",
+        "warehouse/cart distribution",
+        "Captain Fairfield",
+        "Captain Blart",
+        "Lyra",
+        "imminent citywide BBQ / about twelve hours",
+        "party resting at Grit and Grime after the latest warehouse fight"
+      ],
+      "missing_concepts": [
+        "extraplanar origin clue",
+        "Abyssal-like scroll clue"
+      ],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 19,
+      "retrieved_relationships_count": 15,
+      "nodes": [
+        {
+          "id": "creature:corrupted-meat-mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "item:corrupted_meat_mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "item"
+        },
+        {
+          "id": "item:corrupted_meat_pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:prevent-bbq-corruption",
+          "label": "Preventing the City-Wide BBQ from Being Corrupted",
+          "kind": "mystery"
+        },
+        {
+          "id": "obs:bbq-deadline",
+          "label": "Deadline of the BBQ",
+          "kind": "mystery"
+        },
+        {
+          "id": "item:abhorrent-meat-wings",
+          "label": "Abhorrent Meat Wings",
+          "kind": "item"
+        },
+        {
+          "id": "item:meat",
+          "label": "The Meat",
+          "kind": "item"
+        },
+        {
+          "id": "faction:grit-and-grime-club",
+          "label": "Grit and Grime Club",
+          "kind": "faction"
+        },
+        {
+          "id": "location:grit-and-grime",
+          "label": "Grit and Grime",
+          "kind": "location"
+        },
+        {
+          "id": "obs:grit-and-grime-party",
+          "label": "Party at Grit and Grime",
+          "kind": "mystery"
+        },
+        {
+          "id": "location:warehouse",
+          "label": "Warehouse",
+          "kind": "location"
+        },
+        {
+          "id": "location:warehouse-district",
+          "label": "Warehouse District",
+          "kind": "location"
+        },
+        {
+          "id": "obs:meat-cultists",
+          "label": "Cultists at the Meat Warehouse",
+          "kind": "mystery"
+        },
+        {
+          "id": "obs:rest-and-plan",
+          "label": "Regrouping to Rest and Plan",
+          "kind": "mystery"
+        },
+        {
+          "id": "obs:warehouse-quest",
+          "label": "Quest to the Last Known Warehouses",
+          "kind": "mystery"
+        },
+        {
+          "id": "npc:captain-fairfield",
+          "label": "Captain Fairfield",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:captain-blart",
+          "label": "Captain Blart",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:lyra",
+          "label": "Lyra",
+          "kind": "npc"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:item:meat:located_in:location:cold-room",
+          "source": "item:meat",
+          "target": "location:cold-room",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:item:meat:located_in:location:warehouse",
+          "source": "item:meat",
+          "target": "location:warehouse",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:baergrom:attacks:creature:corrupted-meat-pile",
+          "source": "node:baergrom",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:creature:corrupted-meat-mound",
+          "source": "node:bonogo",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:corrupted-meat-pile",
+          "source": "node:ephanna",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:creature:corrupted-meat-mound",
+          "source": "node:karsemine",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:berin:knows_about:item:meat",
+          "source": "npc:berin",
+          "target": "item:meat",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:captain-lysandra:attacks:item:meat",
+          "source": "npc:captain-lysandra",
+          "target": "item:meat",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:faction:grit-and-grime-club:serves:group:goblins-hobgoblins-bugbears",
+          "source": "faction:grit-and-grime-club",
+          "target": "group:goblins-hobgoblins-bugbears",
+          "predicate": "serves",
+          "label": "serves"
+        },
+        {
+          "edge_id": "edge:location:tunnel:routes_to:location:warehouse-district",
+          "source": "location:tunnel",
+          "target": "location:warehouse-district",
+          "predicate": "leads_to",
+          "label": "leads to"
+        },
+        {
+          "edge_id": "edge:location:warehouse:located_in:location:warehouse-district",
+          "source": "location:warehouse",
+          "target": "location:warehouse-district",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:npc:grobnok:owns:location:grit-and-grime",
+          "source": "npc:grobnok",
+          "target": "location:grit-and-grime",
+          "predicate": "owns",
+          "label": "owns"
+        },
+        {
+          "edge_id": "edge:npc:lyra:member_of:faction:the_shepherds_flock",
+          "source": "npc:lyra",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "member_of",
+          "label": "member of"
+        },
+        {
+          "edge_id": "edge:npc:lyra:serves:npc:the-shepherd",
+          "source": "npc:lyra",
+          "target": "npc:the-shepherd",
+          "predicate": "serves",
+          "label": "serves"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "hidden guardhouse meat room/tunnels",
+        "warehouse/cart distribution"
+      ],
+      "missing_concepts": [
+        "extraplanar origin clue",
+        "Abyssal-like scroll clue",
+        "Captain Fairfield",
+        "Captain Blart",
+        "Lyra",
+        "imminent citywide BBQ / about twelve hours",
+        "party resting at Grit and Grime after the latest warehouse fight"
+      ],
+      "violated_negatives": [],
+      "answer": "The conspiracy now looks like a two-stage meat pipeline, not a single monster event. The strongest supported clue is that \u201cThe Meat\u201d was already being moved through at least two storage points \u2014 the cold room and the warehouse \u2014 and by Session 9 the network had enough shape to be named outright as the Cultist Meat Distribution Network. Session 10 adds that the meat theme has escalated into named aberrations like the Abhorrent Meat Wings and the Meat Mounds, so the corruption has moved from hidden stock into active manifestations.\n\nThe known actors are still the most concrete part of the picture. Berin knows about The Meat, Captain Lysandra attacks it, and the party has already been fighting specific corrupted manifestations: Baergrom, Bonogo, Caelynn, Ephanna, and Karsemine are each tied to attacks on the corrupted meat forms. That makes the immediate operational posture clear: the PCs are no longer just investigating a supply chain, they are engaged in direct combat with its product and likely its enforcers.\n\nThe deadline signal is indirect rather than explicit in the graph: Session 10 introduces the new meat-wing / meat-mound development, which reads like a fresh, urgent turn in the crisis rather than a settled background problem. Immediate party state is that the group is actively in the fight and has identified multiple nodes of the network, but the source-supported graph does not yet give a hard countdown or a single mastermind.",
+      "grounding_state": "partial",
+      "elapsed_ms": 16845,
+      "tool_call_count": 3,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "read_graph_source",
+          "state": "completion",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "error",
+          "outcome": null,
+          "diagnostic_codes": [
+            "too_many_targets"
+          ]
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "graph_coverage",
+      "rationale": "The underlying factual details (e.g. arcana check extraplanar result for Q01, specific ward contract commitments for Q03, combat spell interactions for Q10, force-feeding temporal specifics for Q13, extraplanar/abyssal clues for Q15) were never published as object properties, summaries, or typed assertions in World revision rev:b82db72693c27e0218026fd1ff514a68."
+    }
+  },
+  {
+    "qid": "Q16",
+    "title": "Q16 \u2014 How far can we connect the Shepherd to the conspiracy?",
+    "difficulty": 5,
+    "question": "What can the graph support\u2014and what can it not yet prove\u2014about the relationship between the Shepherd, the Shepherd's Flock, and the corrupted-meat conspiracy by Session 9?",
+    "gold_answer": "The graph can support that Lyra's protest followers are identified as the Shepherd's Flock, that they speak of a leader called the Shepherd in the northern swamp, that Ephanna and Torbin encounter captivity and forced meat after following Lyra's group, and that Lyra is later identified as leading meat distribution. That strongly connects Lyra and at least part of the Flock to the meat conspiracy. The observed recaps do **not** directly prove that the Shepherd personally directs the meat operation.",
+    "must_include": [
+      "Lyra's followers are the Shepherd's Flock",
+      "the Shepherd is described as their leader in the northern swamp",
+      "captivity/forced meat follows Ephanna and Torbin going with the group",
+      "Lyra later leads meat distribution",
+      "the Shepherd personally directing the meat conspiracy remains unproven"
+    ],
+    "must_not_claim": [
+      "that the Shepherd personally commands the meat conspiracy as established fact"
+    ],
+    "oracle": {
+      "credit": "partial",
+      "met_concepts": [
+        "Lyra's followers are the Shepherd's Flock",
+        "the Shepherd is described as their leader in the northern swamp",
+        "captivity/forced meat follows Ephanna and Torbin going with the group",
+        "Lyra later leads meat distribution"
+      ],
+      "missing_concepts": [
+        "the Shepherd personally directing the meat conspiracy remains unproven"
+      ],
+      "violated_negatives": [],
+      "retrieved_nodes_count": 14,
+      "retrieved_relationships_count": 16,
+      "nodes": [
+        {
+          "id": "faction:the-shepherds-flock",
+          "label": "The Shepherds Flock",
+          "kind": "npc"
+        },
+        {
+          "id": "faction:the_shepherds_flock",
+          "label": "The Shepherds Flock",
+          "kind": "faction"
+        },
+        {
+          "id": "item:symbol_of_the_shepherds_flock",
+          "label": "Symbol of The Shepherds Flock",
+          "kind": "item"
+        },
+        {
+          "id": "mystery:shepherds-flock",
+          "label": "The Shepherds Flock rebel group",
+          "kind": "mystery"
+        },
+        {
+          "id": "mystery:shepherd-rumors",
+          "label": "Rumors of the Shepherd",
+          "kind": "mystery"
+        },
+        {
+          "id": "npc:the-shepherd",
+          "label": "The Shepherd",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-mound",
+          "label": "Corrupted Meat Mound",
+          "kind": "npc"
+        },
+        {
+          "id": "creature:corrupted-meat-pile",
+          "label": "Corrupted Meat Pile",
+          "kind": "npc"
+        },
+        {
+          "id": "location:the-swamp",
+          "label": "the Swamp",
+          "kind": "location"
+        },
+        {
+          "id": "mystery:leaders-of-mirathorn",
+          "label": "Kaelyn and other Mirathorn leaders",
+          "kind": "mystery"
+        },
+        {
+          "id": "npc:guard-leader",
+          "label": "Leader of the Guard",
+          "kind": "npc"
+        },
+        {
+          "id": "npc:lyra",
+          "label": "Lyra",
+          "kind": "npc"
+        },
+        {
+          "id": "mystery:mirathorn-toll-riot",
+          "label": "Riot at Mirathorn Gates over toll",
+          "kind": "mystery"
+        },
+        {
+          "id": "node:ephanna",
+          "label": "Ephanna",
+          "kind": "player_character"
+        }
+      ],
+      "relationships": [
+        {
+          "edge_id": "edge:faction:the_shepherds_flock:holds:item:symbol_of_the_shepherds_flock",
+          "source": "faction:the_shepherds_flock",
+          "target": "item:symbol_of_the_shepherds_flock",
+          "predicate": "holds",
+          "label": "holds"
+        },
+        {
+          "edge_id": "edge:mystery:mirathorn-toll-riot:caused_by:faction:the_shepherds_flock",
+          "source": "faction:the_shepherds_flock",
+          "target": "mystery:mirathorn-toll-riot",
+          "predicate": "causes",
+          "label": "causes"
+        },
+        {
+          "edge_id": "edge:mystery:shepherd-rumors:linked_to:npc:the-shepherd",
+          "source": "mystery:shepherd-rumors",
+          "target": "npc:the-shepherd",
+          "predicate": "associated_with",
+          "label": "associated with"
+        },
+        {
+          "edge_id": "edge:node:baergrom:attacks:creature:corrupted-meat-pile",
+          "source": "node:baergrom",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:bonogo:attacks:creature:corrupted-meat-mound",
+          "source": "node:bonogo",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:caelynn:attacks:creature:corrupted-meat-pile",
+          "source": "node:caelynn",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:attacks:creature:corrupted-meat-pile",
+          "source": "node:ephanna",
+          "target": "creature:corrupted-meat-pile",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:node:ephanna:knows_about:faction:the_shepherds_flock",
+          "source": "node:ephanna",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:node:karsemine:attacks:creature:corrupted-meat-mound",
+          "source": "node:karsemine",
+          "target": "creature:corrupted-meat-mound",
+          "predicate": "attacks",
+          "label": "attacks"
+        },
+        {
+          "edge_id": "edge:npc:berin-ironfoot:knows_about:faction:the_shepherds_flock",
+          "source": "npc:berin-ironfoot",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:berin-ironfoot:knows_about:npc:the-shepherd",
+          "source": "npc:berin-ironfoot",
+          "target": "npc:the-shepherd",
+          "predicate": "knows_about",
+          "label": "knows about"
+        },
+        {
+          "edge_id": "edge:npc:lyra:member_of:faction:the_shepherds_flock",
+          "source": "npc:lyra",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "member_of",
+          "label": "member of"
+        },
+        {
+          "edge_id": "edge:npc:lyra:serves:npc:the-shepherd",
+          "source": "npc:lyra",
+          "target": "npc:the-shepherd",
+          "predicate": "serves",
+          "label": "serves"
+        },
+        {
+          "edge_id": "edge:npc:the-shepherd:leads:faction:the_shepherds_flock",
+          "source": "npc:the-shepherd",
+          "target": "faction:the_shepherds_flock",
+          "predicate": "leads",
+          "label": "leads"
+        },
+        {
+          "edge_id": "edge:npc:the-shepherd:located_in:location:the-swamp",
+          "source": "npc:the-shepherd",
+          "target": "location:the-swamp",
+          "predicate": "located_in",
+          "label": "located in"
+        },
+        {
+          "edge_id": "edge:node:party-of-six:aware_of:mystery:leaders-of-mirathorn",
+          "source": "node:party-of-six",
+          "target": "mystery:leaders-of-mirathorn",
+          "predicate": "aware_of",
+          "label": "aware of"
+        }
+      ]
+    },
+    "agent": {
+      "credit": "partial",
+      "met_concepts": [
+        "Lyra's followers are the Shepherd's Flock",
+        "the Shepherd is described as their leader in the northern swamp",
+        "captivity/forced meat follows Ephanna and Torbin going with the group"
+      ],
+      "missing_concepts": [
+        "Lyra later leads meat distribution",
+        "the Shepherd personally directing the meat conspiracy remains unproven"
+      ],
+      "violated_negatives": [],
+      "answer": "By Session 9, the graph can support a fairly tight but still incomplete chain: The Shepherd is a real NPC who leads The Shepherds Flock, and that faction is linked to the Mirathorn toll riot and to the Symbol of The Shepherds Flock. The Shepherd is also located in the Swamp. That gives you a grounded faction-leader structure and a prior public-facing consequence tied to the group.\n\nWhat it can also support is that the \u201ccorrupted-meat\u201d thread is now active in Session 9: both the Corrupted Meat Mound and Corrupted Meat Pile are present, and multiple party members are attacking them. So the graph supports that the campaign has moved from \u201cShepherds Flock / riot\u201d into a separate but contemporaneous corrupted-meat problem that is being fought directly.\n\nWhat it cannot yet prove is the specific causal bridge you\u2019re probably asking about: there is no admitted graph claim yet that The Shepherd or The Shepherds Flock created, controls, or directly commands the corrupted-meat entities. At this point the graph only proves coexistence in the same campaign arc, plus a confirmed leadership relationship for The Shepherd and a confirmed link from The Shepherds Flock to the riot. The \u201ccorrupted-meat conspiracy\u201d remains a live hypothesis rather than a proven faction-level responsibility.",
+      "grounding_state": "partial",
+      "elapsed_ms": 7033,
+      "tool_call_count": 1,
+      "tool_events": [
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "start",
+          "outcome": null,
+          "diagnostic_codes": []
+        },
+        {
+          "tool": "expand_graph_retrieval",
+          "state": "completion",
+          "outcome": "truncated",
+          "diagnostic_codes": [
+            "result_truncated"
+          ]
+        }
+      ]
+    },
+    "failure_classification": {
+      "category": "source_authority",
+      "rationale": "The graph represents objects and planning assertions (e.g. Wolf's role, the Shepherd's northern swamp presence), but lacks epistemic authority tagging to reliably distinguish played canon from GM Looking Ahead planning statements or unproven rumors."
+    }
+  }
+]

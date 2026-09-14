@@ -479,7 +479,7 @@ def main(
     summary = {
         "metadata": {
             "pr": "#714",
-            "exact_head": "78aff372e2e419a67018805f5803a88c6fd111f0",
+            "exact_head": "60a7d909b5d7ad70a889fc653a44e04f4c420f57",
             "world_revision_id": manifest["authoritative_s10_revision_id"],
             "model_calls": 0,
             "sessions": "1-10",
@@ -598,7 +598,7 @@ def generate_markdown_report(
 
 This report provides the causal accounting of relationship publication for Campaign 1 Sessions 1–10 under the authoritative rehearsal World revision `{meta["world_revision_id"]}`.
 Out of {meta["total_extracted_relationships"]} extracted relationships, **{published_count} are published ({published_count / meta["total_extracted_relationships"] * 100:.1f}%)** and **{unpublished_count} remain unpublished**.
-Among the published relationships, **{meta["truthfully_published_relationships"]} are truthful and faithful** ({meta["truthfully_published_relationships"] / meta["total_extracted_relationships"] * 100:.1f}% truthful publication rate) and **{meta["lossy_published_relationships"]} rely on semantically lossy coercions** (`governs` → `owns`, `refers_to` → `associated_with`).
+Among the published relationships, **{meta["truthfully_published_relationships"]} are truthful and faithful** under conservative evaluator policy ({meta["truthfully_published_relationships"] / meta["total_extracted_relationships"] * 100:.1f}% truthful publication rate) and **{meta["lossy_published_relationships"]} rely on semantically lossy coercions** (`governs` → `owns`, `refers_to` → `associated_with`, and 2 instances of `defends_weakened_location` → `protects`). Note on evaluator policy: earlier audits classified `defends_weakened_location` → `protects` as a safe semantic equivalent rather than lossy; under that classification, truthful publication is 210 / 276 (76.1%). Therefore 208 (75.4%) serves as a conservative lower-bound policy measure.
 Of the {unpublished_count} remaining rejects, **{bot["correctly_rejected_bad_extraction"]} are correctly rejected bad extractions**, while the remaining are blocked by weak/missing endpoint typing, narrow ontology contracts, or unmapped predicates. Crucially, **blocked collisions due to PC kind mismatch dropped to 0**.
 
 ---

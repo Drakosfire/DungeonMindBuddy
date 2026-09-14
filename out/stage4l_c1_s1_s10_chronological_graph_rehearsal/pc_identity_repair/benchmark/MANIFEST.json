@@ -1,0 +1,15 @@
+{
+  "schema": "dmb_c1_s1_s10_qa_benchmark_manifest_v1",
+  "benchmark_id": "longmont-c1-sessions-01-10-graph-query-v1",
+  "authoritative_world_revision": "rev:b82db72693c27e0218026fd1ff514a68",
+  "pr_head": "60a7d909b5d7ad70a889fc653a44e04f4c420f57",
+  "question_count": 16,
+  "oracle_full_credit": 7,
+  "agent_full_credit": 0,
+  "generated_at": "2026-09-14T21:02:19Z",
+  "artifacts": {
+    "summary": "summary.json",
+    "results": "results.json",
+    "report": "REPORT.md"
+  }
+}

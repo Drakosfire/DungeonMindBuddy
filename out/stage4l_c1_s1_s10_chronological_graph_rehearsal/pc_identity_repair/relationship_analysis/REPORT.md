@@ -2,7 +2,7 @@
 
 **Created:** 2026-09-14  
 **PR:** #714 — `DOGFOOD-CONTINUITY: build Campaign 1 memory through Session 10`  
-**Exact Starting Head:** `78aff372e2e419a67018805f5803a88c6fd111f0`  
+**Exact Starting Head:** `60a7d909b5d7ad70a889fc653a44e04f4c420f57`  
 **Authoritative Rehearsal World Revision:** `rev:b82db72693c27e0218026fd1ff514a68`  
 **Model Calls:** `0` (100% zero-model evidence analysis)  
 **Cohort:** Campaign 1, Sessions 1–10  
@@ -14,7 +14,7 @@
 
 This report provides the causal accounting of relationship publication for Campaign 1 Sessions 1–10 under the authoritative rehearsal World revision `rev:b82db72693c27e0218026fd1ff514a68`.
 Out of 276 extracted relationships, **219 are published (79.3%)** and **57 remain unpublished**.
-Among the published relationships, **208 are truthful and faithful** (75.4% truthful publication rate) and **11 rely on semantically lossy coercions** (`governs` → `owns`, `refers_to` → `associated_with`).
+Among the published relationships, **208 are truthful and faithful** under conservative evaluator policy (75.4% truthful publication rate) and **11 rely on semantically lossy coercions** (`governs` → `owns`, `refers_to` → `associated_with`, and 2 instances of `defends_weakened_location` → `protects`). Note on evaluator policy: earlier audits classified `defends_weakened_location` → `protects` as a safe semantic equivalent rather than lossy; under that classification, truthful publication is 210 / 276 (76.1%). Therefore 208 (75.4%) serves as a conservative lower-bound policy measure.
 Of the 57 remaining rejects, **9 are correctly rejected bad extractions**, while the remaining are blocked by weak/missing endpoint typing, narrow ontology contracts, or unmapped predicates. Crucially, **blocked collisions due to PC kind mismatch dropped to 0**.
 
 ---
